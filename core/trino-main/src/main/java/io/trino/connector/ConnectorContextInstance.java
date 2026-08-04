@@ -44,6 +44,7 @@ public class ConnectorContextInstance
     private final BlocksHashFactory blocksHashFactory;
     private final ConnectorExpressionEvaluator evaluator;
     private final ConnectorCacheFactory cacheFactory;
+    private final CredentialProviders credentialProviderManager;
 
     public ConnectorContextInstance(
             OpenTelemetry openTelemetry,
@@ -57,7 +58,8 @@ public class ConnectorContextInstance
             FunctionBundleFactory functionBundleFactory,
             BlocksHashFactory blocksHashFactory,
             ConnectorExpressionEvaluator evaluator,
-            ConnectorCacheFactory cacheFactory)
+            ConnectorCacheFactory cacheFactory,
+            CredentialProviders credentialProviderManager)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -71,6 +73,7 @@ public class ConnectorContextInstance
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
         this.cacheFactory = requireNonNull(cacheFactory, "cacheFactory is null");
+        this.credentialProviderManager = requireNonNull(credentialProviderManager, "credentialProviderManager is null");
     }
 
     @Override
@@ -143,5 +146,11 @@ public class ConnectorContextInstance
     public ConnectorCacheFactory getCacheFactory()
     {
         return cacheFactory;
+    }
+
+    @Override
+    public CredentialProviders getCredentialProviderManager()
+    {
+        return credentialProviderManager;
     }
 }

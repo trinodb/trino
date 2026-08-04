@@ -30,7 +30,9 @@ class TestOpenAiConfig
     {
         assertRecordedDefaults(recordDefaults(OpenAiConfig.class)
                 .setEndpoint(URI.create("https://api.openai.com"))
-                .setApiKey(null));
+                .setApiKey(null)
+                .setOAuth2Audience(null)
+                .setOAuth2Scope(null));
     }
 
     @Test
@@ -39,11 +41,15 @@ class TestOpenAiConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("ai.openai.endpoint", "https://api.example.com")
                 .put("ai.openai.api-key", "test-key")
+                .put("ai.openai.oauth2.audience", "audience")
+                .put("ai.openai.oauth2.scope", "scope")
                 .buildOrThrow();
 
         OpenAiConfig expected = new OpenAiConfig()
                 .setEndpoint(URI.create("https://api.example.com"))
-                .setApiKey("test-key");
+                .setApiKey("test-key")
+                .setOAuth2Audience("audience")
+                .setOAuth2Scope("scope");
 
         assertFullMapping(properties, expected);
     }

@@ -245,6 +245,30 @@ The following configuration properties are available:
     it's generated during startup.
 :::
 
+(trino-oauth2-token-exchange)=
+### Token exchange
+
+OAuth 2.0 *Token Exchange* allows a client to obtain a new access token by 
+submitting an existing credential to an authorization server rather than
+requiring full re-authentication. This protocol enables secure service
+delegation and cross-identity trust, allowing users to move between different
+systems without re-entering their secrets. When allowed, connectors are able to
+obtain a new access token for the connector data source.
+
+:::{list-table} OAuth2 configuration properties for token exchange
+:widths: 40 60
+:header-rows: 1
+
+* - Property
+  - Description
+* - `http-server.authentication.oauth2.token-exchange.allowed`
+  - When enabled, connectors may initiate an oauth2 token exchange to connect
+    to external data sources using the on-behalf-of mechanism. Disabled by 
+    default.
+* - `http-server.authentication.oauth2.token-exchange.cache.max-size`
+  - The maximum of access tokens to cache obtained via token-exchange.
+:::
+
 (trino-oauth2-troubleshooting)=
 ## Troubleshooting
 
