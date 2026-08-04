@@ -1,4 +1,3 @@
--- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 --- takes over 30 minutes on travis to complete
 SELECT
   "a"."ca_state" "STATE"
