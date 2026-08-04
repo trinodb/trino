@@ -577,8 +577,26 @@ public class InternalResourceGroup
             if (parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY) {
                 checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
             }
+            if (policy == QUERY_PRIORITY) {
+                validateQueryPrioritySubGroups(id);
+            }
             schedulingPolicyExplicit = true;
             setSchedulingPolicyInternal(policy);
+        }
+    }
+
+    private void validateQueryPrioritySubGroups(ResourceGroupId queryPriorityGroup)
+    {
+        synchronized (root) {
+            for (InternalResourceGroup group : subGroups.values()) {
+                checkArgument(
+                        !group.schedulingPolicyExplicit || group.schedulingPolicy == QUERY_PRIORITY,
+                        "Cannot set %s to query priority scheduling because descendant %s explicitly uses %s",
+                        queryPriorityGroup,
+                        group.id,
+                        group.schedulingPolicy);
+                group.validateQueryPrioritySubGroups(queryPriorityGroup);
+            }
         }
     }
 

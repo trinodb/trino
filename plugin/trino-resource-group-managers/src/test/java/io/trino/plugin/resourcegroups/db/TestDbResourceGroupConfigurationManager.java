@@ -304,6 +304,32 @@ public class TestDbResourceGroupConfigurationManager
     }
 
     @Test
+    public void testInvalidQueryPriorityReload()
+    {
+        H2DaoProvider daoProvider = setup("test_invalid_query_priority_reload");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "a", "1MB", 10, 10, 10, "fair", null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "b", "1MB", 10, 10, 10, "weighted", null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertSelector(2, 1, null, null, null, null, null, null, null, null, null);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+        InternalResourceGroup a = new InternalResourceGroup("a", (_, _) -> {}, directExecutor());
+        manager.configure(a, new SelectionContext<>(a.getId(), new ResourceGroupIdTemplate("a")));
+        InternalResourceGroup b = a.getOrCreateSubGroup("b");
+        manager.configure(b, new SelectionContext<>(b.getId(), new ResourceGroupIdTemplate("a.b")));
+
+        dao.updateResourceGroup(1, "a", "1MB", 10, 10, 10, "query_priority", null, null, null, null, null, null, ENVIRONMENT);
+        manager.load();
+
+        assertThat(manager.getRefreshFailures().getTotalCount()).isEqualTo(1);
+        assertThat(a.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(b.getSchedulingPolicy()).isEqualTo(WEIGHTED);
+    }
+
+    @Test
     public void testExactMatchSelector()
     {
         H2DaoProvider daoProvider = setup("test_exact_match_selector");

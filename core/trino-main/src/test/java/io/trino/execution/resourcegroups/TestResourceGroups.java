@@ -50,6 +50,7 @@ import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.util.Collections.reverse;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestResourceGroups
 {
@@ -211,6 +212,22 @@ public class TestResourceGroups
 
         root.setSchedulingPolicy(FAIR);
         assertThat(group.getSchedulingPolicy()).isEqualTo(FAIR);
+    }
+
+    @Test
+    public void testInvalidQueryPrioritySubtree()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        InternalResourceGroup group = root.getOrCreateSubGroup("group");
+        InternalResourceGroup leaf = group.getOrCreateSubGroup("leaf");
+        leaf.setSchedulingPolicy(WEIGHTED);
+
+        assertThatThrownBy(() -> root.setSchedulingPolicy(QUERY_PRIORITY))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot set root to query priority scheduling because descendant root.group.leaf explicitly uses WEIGHTED");
+        assertThat(root.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(group.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(leaf.getSchedulingPolicy()).isEqualTo(WEIGHTED);
     }
 
     @Test
