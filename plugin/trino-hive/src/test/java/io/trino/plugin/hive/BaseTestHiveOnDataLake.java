@@ -253,6 +253,73 @@ abstract class BaseTestHiveOnDataLake
         assertOverwritePartition(externalTableName);
     }
 
+    /**
+     * Regression test for <a href="https://github.com/trinodb/trino/issues/30538">#30538</a>
+     */
+    @Test
+    public void testInsertOverwritePartitionWithCustomLocation()
+    {
+        String tableName = "nation_custom_location_" + randomNameSuffix();
+        String testTable = getFullyQualifiedTestTableName(tableName);
+        computeActual(getCreateTableStatement(
+                testTable,
+                "partitioned_by=ARRAY['regionkey']"));
+
+        // Create the partition with its default location by inserting data
+        copyTpchNationToTable(testTable);
+
+        // Relocate regionkey=0 to a custom S3 path outside the table root
+        String partitionColumn = "regionkey";
+        String partitionValue = "0";
+        String partitionName = format("%s=%s", partitionColumn, partitionValue);
+        String defaultPartitionPrefix = format("%s/%s/%s", HIVE_TEST_SCHEMA, tableName, partitionName);
+        String customPartitionPath = format("%s/%s_custom/%s", HIVE_TEST_SCHEMA, tableName, partitionName);
+
+        // Copy partition data files to the custom location
+        hiveFlociDataLake.floci().listObjects(bucketName, "")
+                .stream()
+                .filter(key -> key.startsWith(defaultPartitionPrefix))
+                .forEach(key -> {
+                    String fileName = key.substring(key.lastIndexOf('/'));
+                    hiveFlociDataLake.floci().copyObject(bucketName, key, bucketName, customPartitionPath + fileName);
+                });
+
+        // Update the metastore to point the partition at the custom location
+        String customLocation = format("s3://%s/%s", bucketName, customPartitionPath);
+        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).orElseThrow();
+        Partition partition = metastoreClient.getPartition(hiveTable, List.of(partitionValue)).orElseThrow();
+        metastoreClient.dropPartition(HIVE_TEST_SCHEMA, tableName, List.of(partitionValue), true);
+        metastoreClient.addPartitions(HIVE_TEST_SCHEMA, tableName, List.of(
+                new PartitionWithStatistics(
+                        Partition.builder(partition)
+                                .withStorage(builder -> builder.setLocation(customLocation))
+                                .build(),
+                        partitionName,
+                        PartitionStatistics.empty())));
+
+        // Verify the partition is readable at its custom location (regionkey=0 has 5 nations)
+        assertQuery(
+                format("SELECT count(*) FROM %s WHERE regionkey = 0", testTable),
+                "VALUES 5");
+
+        // Overwrite the partition — the custom location must be preserved
+        assertUpdate(
+                format("INSERT INTO %s(name, comment, nationkey, regionkey) VALUES ('OVERWRITE', 'test', 99, 0)", testTable),
+                1);
+
+        // The partition must still point to the custom location in the metastore
+        hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).orElseThrow();
+        Partition partitionAfterOverwrite = metastoreClient.getPartition(hiveTable, List.of(partitionValue)).orElseThrow();
+        assertThat(partitionAfterOverwrite.getStorage().getLocation()).isEqualTo(customLocation);
+
+        // The overwritten data must be readable
+        assertQuery(
+                format("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 0", testTable),
+                "VALUES ('OVERWRITE', 'test', 99, 0)");
+
+        assertUpdate(format("DROP TABLE %s", testTable));
+    }
+
     @Test
     public void testSyncPartitionOnBucketRoot()
     {
