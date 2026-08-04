@@ -1407,6 +1407,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<SchemaTableName> getMaterializedViewForStorageTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        Span span = startSpan("getMaterializedViewForStorageTable", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getMaterializedViewForStorageTable(session, tableName);
+        }
+    }
+
+    @Override
     public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition materializedViewDefinition)
     {
         Span span = startSpan("getMaterializedViewProperties", viewName);

@@ -1897,6 +1897,26 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<QualifiedObjectName> getMaterializedViewForStorageTable(Session session, QualifiedObjectName tableName)
+    {
+        if (cannotExist(tableName)) {
+            return Optional.empty();
+        }
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.catalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, tableName, Optional.empty(), Optional.empty());
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+            return metadata.getMaterializedViewForStorageTable(connectorSession, tableName.asSchemaTableName())
+                    .map(materializedViewName -> new QualifiedObjectName(tableName.catalogName(), materializedViewName.getSchemaName(), materializedViewName.getTableName()));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName viewName, MaterializedViewDefinition materializedViewDefinition)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());

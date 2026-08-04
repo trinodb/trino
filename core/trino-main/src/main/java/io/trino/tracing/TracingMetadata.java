@@ -1574,6 +1574,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<QualifiedObjectName> getMaterializedViewForStorageTable(Session session, QualifiedObjectName tableName)
+    {
+        Span span = startSpan("getMaterializedViewForStorageTable", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getMaterializedViewForStorageTable(session, tableName);
+        }
+    }
+
+    @Override
     public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName objectName, MaterializedViewDefinition materializedViewDefinition)
     {
         Span span = startSpan("getMaterializedViewProperties", objectName);

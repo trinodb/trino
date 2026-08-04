@@ -1273,10 +1273,18 @@ class StatementAnalyzer
             TableHandle tableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
-            accessControl.checkCanExecuteTableProcedure(
-                    session.toSecurityContext(),
-                    tableName,
-                    procedureName);
+            // When the target is a materialized view storage table, authorize the maintenance procedure as a refresh
+            // of the owning materialized view rather than as an execute-table-procedure on the synthetic storage name.
+            Optional<QualifiedObjectName> materializedViewName = metadata.getMaterializedViewForStorageTable(session, tableName);
+            if (materializedViewName.isPresent()) {
+                accessControl.checkCanRefreshMaterializedView(session.toSecurityContext(), materializedViewName.get());
+            }
+            else {
+                accessControl.checkCanExecuteTableProcedure(
+                        session.toSecurityContext(),
+                        tableName,
+                        procedureName);
+            }
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with row filter");

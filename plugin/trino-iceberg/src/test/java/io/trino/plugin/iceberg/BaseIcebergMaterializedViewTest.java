@@ -78,6 +78,7 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -1070,6 +1071,161 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP TABLE base_table1_mv_copy");
+    }
+
+    @Test
+    public void testStorageTableMaintenanceAuthorizedByRefreshPrivilege()
+    {
+        String mvName = "test_optimize_ac_mv_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM base_table1");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+
+        String storageTable = mvName + "$materialized_view_storage";
+
+        // Maintenance on the storage table is authorized as a refresh of the materialized view.
+        assertAccessDenied(
+                "ALTER TABLE \"" + storageTable + "\" EXECUTE OPTIMIZE",
+                "Cannot refresh materialized view .*" + mvName + ".*",
+                privilege(mvName, REFRESH_MATERIALIZED_VIEW));
+
+        // It is NOT gated by the execute-table-procedure privilege on the storage table name.
+        assertAccessAllowed(
+                "ALTER TABLE \"" + storageTable + "\" EXECUTE OPTIMIZE",
+                privilege(storageTable + ".OPTIMIZE", EXECUTE_TABLE_PROCEDURE));
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+    }
+
+    @Test
+    public void testUnsafeProcedureRejectedOnStorageTable()
+    {
+        String mvName = "test_unsafe_procedure_mv_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM base_table1");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+
+        String storageTable = "\"" + mvName + "$materialized_view_storage\"";
+
+        // Procedures that would change the storage table's logical contents or desync it from the materialized view
+        // are rejected; only physical maintenance is allowed.
+        assertQueryFails(
+                "ALTER TABLE " + storageTable + " EXECUTE DROP_EXTENDED_STATS",
+                "Table procedure DROP_EXTENDED_STATS is not supported on a materialized view storage table");
+
+        long snapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + mvName + "$snapshots\" ORDER BY committed_at LIMIT 1");
+        assertQueryFails(
+                "ALTER TABLE " + storageTable + " EXECUTE ROLLBACK_TO_SNAPSHOT(" + snapshotId + ")",
+                "Table procedure ROLLBACK_TO_SNAPSHOT is not supported on a materialized view storage table");
+
+        assertQueryFails(
+                "ALTER TABLE " + storageTable + " EXECUTE ADD_FILES_FROM_TABLE(schema_name => CURRENT_SCHEMA, table_name => 'base_table1')",
+                "Table procedure ADD_FILES_FROM_TABLE is not supported on a materialized view storage table");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+    }
+
+    @Test
+    public void testStorageOptimizePreservesDependencyMetadata()
+    {
+        String sourceTable = "test_optimize_preserve_src_" + randomNameSuffix();
+        String mvName = "test_optimize_preserve_mv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable + " (id BIGINT)");
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 1, 2, 3", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + sourceTable);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 3);
+
+        // Baseline: a refresh after a single-row insert is incremental (only the delta is written).
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 4", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+
+        // OPTIMIZE the storage table between refreshes.
+        assertUpdate("ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE OPTIMIZE");
+
+        // The dependency metadata survives the optimize snapshot.
+        assertThat((String) computeScalar(
+                "SELECT element_at(summary, 'dependsOnTables') FROM \"" + mvName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1"))
+                .isNotNull()
+                .contains(sourceTable);
+
+        // OPTIMIZE with no source change must not make the MV stale.
+        assertFreshness(mvName, "FRESH");
+
+        // The next refresh stays incremental: only the new delta row is written, not a full re-scan.
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 5", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertThat(computeScalar("SELECT count(*) FROM " + mvName)).isEqualTo(5L);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE " + sourceTable);
+    }
+
+    @Test
+    public void testStorageExpireSnapshotsPreservesDependencyMetadata()
+    {
+        String sourceTable = "test_expire_preserve_src_" + randomNameSuffix();
+        String mvName = "test_expire_preserve_mv_" + randomNameSuffix();
+        Session shortRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "expire_snapshots_min_retention", "0s")
+                .build();
+        assertUpdate("CREATE TABLE " + sourceTable + " (id BIGINT)");
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 1, 2, 3", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + sourceTable);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 3);
+
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 4", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+
+        assertUpdate(shortRetentionSession, "ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+
+        // EXPIRE_SNAPSHOTS commits no new snapshot; the dependency metadata stays on the retained current snapshot.
+        String dependencyMetadataAfterExpire = (String) computeScalar(
+                "SELECT element_at(summary, 'dependsOnTables') FROM \"" + mvName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
+        assertThat(dependencyMetadataAfterExpire)
+                .isNotNull()
+                .contains(sourceTable);
+
+        assertFreshness(mvName, "FRESH");
+
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 5", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertThat(computeScalar("SELECT count(*) FROM " + mvName)).isEqualTo(5L);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE " + sourceTable);
+    }
+
+    @Test
+    public void testStorageRemoveOrphanFilesPreservesDependencyMetadata()
+    {
+        String sourceTable = "test_remove_orphan_preserve_src_" + randomNameSuffix();
+        String mvName = "test_remove_orphan_preserve_mv_" + randomNameSuffix();
+        Session shortRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "remove_orphan_files_min_retention", "0s")
+                .build();
+        assertUpdate("CREATE TABLE " + sourceTable + " (id BIGINT)");
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 1, 2, 3", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + sourceTable);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 3);
+
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 4", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+
+        assertUpdate(shortRetentionSession, "ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+
+        // REMOVE_ORPHAN_FILES only deletes unreferenced files; the dependency metadata stays on the untouched current snapshot.
+        String dependencyMetadataAfterRemoveOrphans = (String) computeScalar(
+                "SELECT element_at(summary, 'dependsOnTables') FROM \"" + mvName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
+        assertThat(dependencyMetadataAfterRemoveOrphans)
+                .isNotNull()
+                .contains(sourceTable);
+
+        assertFreshness(mvName, "FRESH");
+
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES 5", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertThat(computeScalar("SELECT count(*) FROM " + mvName)).isEqualTo(5L);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE " + sourceTable);
     }
 
     @Test
