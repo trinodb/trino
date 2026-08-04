@@ -621,6 +621,14 @@ public class InternalResourceGroup
     }
 
     @Override
+    public void resetSchedulingPolicy()
+    {
+        synchronized (root) {
+            setSchedulingPolicy(parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY ? QUERY_PRIORITY : FAIR);
+        }
+    }
+
+    @Override
     public boolean getJmxExport()
     {
         synchronized (root) {
