@@ -271,6 +271,39 @@ public class TestDbResourceGroupConfigurationManager
     }
 
     @Test
+    public void testInheritedPolicyCleared()
+    {
+        H2DaoProvider daoProvider = setup("test_inherited_policy_cleared");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "a", "1MB", 10, 10, 10, "query_priority", null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "b", "1MB", 10, 10, 10, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(3, "c", "1MB", 10, 10, 10, "query_priority", null, null, null, null, null, 2L, ENVIRONMENT);
+        dao.insertResourceGroup(4, "d", "1MB", 10, 10, 10, null, null, null, null, null, null, 3L, ENVIRONMENT);
+        dao.insertSelector(4, 1, null, null, null, null, null, null, null, null, null);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+        InternalResourceGroup a = new InternalResourceGroup("a", (_, _) -> {}, directExecutor());
+        manager.configure(a, new SelectionContext<>(a.getId(), new ResourceGroupIdTemplate("a")));
+        InternalResourceGroup b = a.getOrCreateSubGroup("b");
+        manager.configure(b, new SelectionContext<>(b.getId(), new ResourceGroupIdTemplate("a.b")));
+        InternalResourceGroup c = b.getOrCreateSubGroup("c");
+        manager.configure(c, new SelectionContext<>(c.getId(), new ResourceGroupIdTemplate("a.b.c")));
+        InternalResourceGroup d = c.getOrCreateSubGroup("d");
+        manager.configure(d, new SelectionContext<>(d.getId(), new ResourceGroupIdTemplate("a.b.c.d")));
+
+        dao.updateResourceGroup(1, "a", "1MB", 10, 10, 10, null, null, null, null, null, null, null, ENVIRONMENT);
+        manager.load();
+
+        assertThat(a.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(b.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(c.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+        assertThat(d.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+    }
+
+    @Test
     public void testExactMatchSelector()
     {
         H2DaoProvider daoProvider = setup("test_exact_match_selector");

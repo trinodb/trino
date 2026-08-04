@@ -169,6 +169,51 @@ public class TestResourceGroups
     }
 
     @Test
+    public void testInheritedPolicyCleared()
+    {
+        InternalResourceGroup a = new InternalResourceGroup("a", (_, _) -> {}, directExecutor());
+        InternalResourceGroup b = a.getOrCreateSubGroup("b");
+        InternalResourceGroup c = b.getOrCreateSubGroup("c");
+        InternalResourceGroup d = c.getOrCreateSubGroup("d");
+
+        a.setSchedulingPolicy(QUERY_PRIORITY);
+        c.setSchedulingPolicy(QUERY_PRIORITY);
+        a.setSchedulingPolicy(FAIR);
+
+        assertThat(a.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(b.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(c.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+        assertThat(d.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+    }
+
+    @Test
+    public void testExplicitPolicyReset()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        InternalResourceGroup group = root.getOrCreateSubGroup("group");
+
+        root.setSchedulingPolicy(QUERY_PRIORITY);
+        group.setSchedulingPolicy(QUERY_PRIORITY);
+        group.resetSchedulingPolicy();
+        assertThat(group.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+
+        root.setSchedulingPolicy(FAIR);
+        assertThat(group.getSchedulingPolicy()).isEqualTo(FAIR);
+    }
+
+    @Test
+    public void testPolicyInheritedOnCreate()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSchedulingPolicy(QUERY_PRIORITY);
+        InternalResourceGroup group = root.getOrCreateSubGroup("group");
+        assertThat(group.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+
+        root.setSchedulingPolicy(FAIR);
+        assertThat(group.getSchedulingPolicy()).isEqualTo(FAIR);
+    }
+
+    @Test
     @Timeout(10)
     public void testFairQueuing()
     {
