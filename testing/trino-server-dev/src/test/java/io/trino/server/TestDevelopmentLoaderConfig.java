@@ -15,7 +15,6 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.resolver.ArtifactResolver;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -31,8 +30,8 @@ public class TestDevelopmentLoaderConfig
     {
         assertRecordedDefaults(recordDefaults(DevelopmentLoaderConfig.class)
                 .setPlugins(ImmutableList.of())
-                .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
-                .setMavenRemoteRepository(ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI)));
+                .setMavenLocalRepository(MavenArtifactResolver.USER_LOCAL_REPO)
+                .setMavenRemoteRepository(ImmutableList.of(MavenArtifactResolver.MAVEN_CENTRAL_URI)));
     }
 
     @Test
