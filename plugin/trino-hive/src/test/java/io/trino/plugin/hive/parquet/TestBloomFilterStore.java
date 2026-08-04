@@ -78,15 +78,19 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaShortObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.BLOOM_FILTER_ENABLED;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
 import static org.apache.parquet.hadoop.metadata.ColumnPath.fromDotString;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
@@ -100,7 +104,12 @@ public class TestBloomFilterStore
     // was hashed at the same width the predicate is looked up with, so it has to match what was written
     private static ColumnDescriptor columnDescriptor(PrimitiveTypeName typeName)
     {
-        return new ColumnDescriptor(new String[] {COLUMN_NAME}, new PrimitiveType(REQUIRED, typeName, COLUMN_NAME), 0, 0);
+        return new ColumnDescriptor(new String[] {COLUMN_NAME}, primitiveType(typeName), 0, 0);
+    }
+
+    private static PrimitiveType primitiveType(PrimitiveTypeName typeName)
+    {
+        return new PrimitiveType(REQUIRED, typeName, COLUMN_NAME);
     }
 
     static Stream<BloomFilterTypeTestCase> bloomFilterTypeTests()
@@ -181,11 +190,19 @@ public class TestBloomFilterStore
             assertThat(bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME))).isPresent();
             BloomFilter bloomFilter = bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).get();
 
+            PrimitiveType parquetType = primitiveType(typeTestCase.parquetType);
             for (Object data : typeTestCase.matchingValues) {
-                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType)).isTrue();
+                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType, parquetType)).isTrue();
             }
             for (Object data : typeTestCase.nonMatchingValues) {
-                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType)).isFalse();
+                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType, parquetType)).isFalse();
+            }
+
+            // the filter was hashed at the physical width the column was written with, so it cannot be looked up as
+            // anything else and the row group is kept even for the values it would otherwise rule out
+            PrimitiveType mismatchedParquetType = primitiveType(PrimitiveTypeName.INT96);
+            for (Object data : typeTestCase.nonMatchingValues) {
+                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType, mismatchedParquetType)).isTrue();
             }
         }
 
@@ -241,6 +258,24 @@ public class TestBloomFilterStore
     }
 
     @Test
+    public void testBloomFilterUsedForBigintColumn()
+            throws Exception
+    {
+        // int64 is the width parquet-mr hashes a bigint at, and no other test writes one, so without this the guard
+        // could be widened to reject INT64 and every bigint column would silently lose bloom filter pruning
+        try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
+            BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList(1L << 40, (1L << 40) + 1), javaLongObjectInspector);
+            ColumnDescriptor columnDescriptor = columnDescriptor(INT64);
+
+            assertThat(matchesBloomFilter(bloomFilterStore, columnDescriptor, multipleValues(BIGINT, ImmutableList.of(1L << 40)))).isTrue();
+            assertThat(matchesBloomFilter(bloomFilterStore, columnDescriptor, multipleValues(BIGINT, ImmutableList.of(1L, 2L)))).isFalse();
+
+            // the same filter cannot answer for a column read as the narrower type, which hashes four bytes
+            assertThat(matchesBloomFilter(bloomFilterStore, columnDescriptor, multipleValues(INTEGER, ImmutableList.of(1L, 2L)))).isTrue();
+        }
+    }
+
+    @Test
     public void testBloomFilterIgnoredWhenRealColumnIsReadAsDouble()
             throws Exception
     {
@@ -252,6 +287,37 @@ public class TestBloomFilterStore
             assertThat(matchesBloomFilter(bloomFilterStore, columnDescriptor, multipleValues(REAL, ImmutableList.of(toNativeContainerValue(REAL, 9.5f))))).isFalse();
 
             assertThat(matchesBloomFilter(bloomFilterStore, columnDescriptor, multipleValues(DOUBLE, ImmutableList.of(1.5d)))).isTrue();
+        }
+    }
+
+    @Test
+    public void testBloomFilterLookupDependsOnPhysicalType()
+            throws Exception
+    {
+        // A single filter written from string values is enough to pin the dispatch, because every lookup below uses a
+        // value the filter does not hold: consulting the filter answers false, and declining to consult it answers true
+        try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
+            BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList("hello", "parquet", "bloom", "filter"), javaStringObjectInspector);
+            BloomFilter bloomFilter = bloomFilterStore.getBloomFilter(fromDotString(COLUMN_NAME)).orElseThrow();
+            Type varcharType = createVarcharType(255);
+            Object absentValue = toNativeContainerValue(varcharType, "NotExist");
+
+            // a Binary is hashed by its bytes alone, so a varbinary or a uuid can be looked up over either byte array
+            // physical type, and a varchar over the one the reader renders as text
+            assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, absentValue, varcharType, primitiveType(BINARY))).isFalse();
+            assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, absentValue, VARBINARY, primitiveType(BINARY))).isFalse();
+            assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, absentValue, VARBINARY, primitiveType(FIXED_LEN_BYTE_ARRAY))).isFalse();
+            assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, absentValue, UuidType.UUID, primitiveType(FIXED_LEN_BYTE_ARRAY))).isFalse();
+
+            // ColumnReaderFactory reads a fixed length byte array as a varchar only when that varchar is unbounded, so
+            // a bounded one would have every row group pruned away and the read that should have failed never happens
+            assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, absentValue, varcharType, primitiveType(FIXED_LEN_BYTE_ARRAY))).isTrue();
+
+            // a decimal column read as varchar is rendered as text rather than as the stored two's complement bytes.
+            // Read as varbinary the same column does yield those bytes, so it is unaffected
+            PrimitiveType decimalAnnotated = primitiveType(BINARY).withLogicalTypeAnnotation(decimalType(2, 10));
+            assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, absentValue, varcharType, decimalAnnotated)).isTrue();
+            assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, absentValue, VARBINARY, decimalAnnotated)).isFalse();
         }
     }
 
