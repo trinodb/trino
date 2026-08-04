@@ -13,6 +13,14 @@
     <name>${project.artifactId}</name>
     <description>Trino - Development server</description>
 
+    <properties>
+        <!-- These are managed here instead of the root pom because they are intentionally
+             restricted to the development server and are not shipped in the tarball.
+             Keep dep.maven.version in sync with maven-model in the root pom. -->
+        <dep.maven.version>3.9.16</dep.maven.version>
+        <dep.maven-resolver.version>2.0.20</dep.maven-resolver.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -36,11 +44,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
-            <artifactId>resolver</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
         </dependency>
@@ -56,11 +59,56 @@
         </dependency>
 
         <dependency>
-            <groupId>org.sonatype.aether</groupId>
-            <artifactId>aether-api</artifactId>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-model</artifactId>
         </dependency>
 
-        <!-- TODO: move it to airlift -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-model-builder</artifactId>
+            <version>${dep.maven.version}</version>
+            <exclusions>
+                <!-- same exclusions maven-resolver-supplier-mvn3 applies; injection is not used with DefaultModelBuilderFactory -->
+                <exclusion>
+                    <groupId>javax.inject</groupId>
+                    <artifactId>javax.inject</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.sisu</groupId>
+                    <artifactId>org.eclipse.sisu.inject</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.sisu</groupId>
+                    <artifactId>org.eclipse.sisu.plexus</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.maven.resolver</groupId>
+            <artifactId>maven-resolver-api</artifactId>
+            <version>${dep.maven-resolver.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.maven.resolver</groupId>
+            <artifactId>maven-resolver-impl</artifactId>
+            <version>${dep.maven-resolver.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.maven.resolver</groupId>
+            <artifactId>maven-resolver-supplier-mvn3</artifactId>
+            <version>${dep.maven-resolver.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.maven.resolver</groupId>
+            <artifactId>maven-resolver-util</artifactId>
+            <version>${dep.maven-resolver.version}</version>
+        </dependency>
+
+        <!-- plexus-utils 4.x moved the XML pull parser used by maven-model to plexus-xml -->
         <dependency>
             <groupId>org.codehaus.plexus</groupId>
             <artifactId>plexus-xml</artifactId>
