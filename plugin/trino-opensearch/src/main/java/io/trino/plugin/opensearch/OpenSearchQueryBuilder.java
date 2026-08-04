@@ -23,10 +23,10 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.RegexpQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.WrapperQueryBuilder;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -73,7 +73,7 @@ public final class OpenSearchQueryBuilder
 
         regexes.forEach((name, value) -> queryBuilder.filter(new BoolQueryBuilder().must(new RegexpQueryBuilder(name, value))));
 
-        query.map(QueryStringQueryBuilder::new)
+        query.map(WrapperQueryBuilder::new)
                 .ifPresent(queryBuilder::must);
 
         if (queryBuilder.hasClauses()) {
