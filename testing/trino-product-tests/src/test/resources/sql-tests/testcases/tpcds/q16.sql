@@ -1,4 +1,3 @@
--- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
   "count"(DISTINCT "cs_order_number") "order count"
 , "sum"("cs_ext_ship_cost") "total shipping cost"

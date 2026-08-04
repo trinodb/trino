@@ -1,4 +1,3 @@
--- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
   'web' "channel"
 , "web"."item"

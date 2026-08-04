@@ -1,4 +1,3 @@
--- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT (CAST("amc" AS DECIMAL(15,4)) / CAST("pmc" AS DECIMAL(15,4))) "am_pm_ratio"
 FROM
   (
