@@ -32,6 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.jsonpath.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
 import static io.trino.jsonpath.CachingResolver.ResolvedOperatorAndCoercions.operators;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -52,11 +53,25 @@ public class CachingResolver
 
     private final Metadata metadata;
     private final NonEvictableCache<NodeAndTypes, ResolvedOperatorAndCoercions> operators = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
+    private final NonEvictableCache<Type, ResolvedFunction> varcharCoercions = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
 
     public CachingResolver(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
         this.metadata = metadata;
+    }
+
+    /// Resolves the engine's conversion from `type` to `varchar`. Which cast this is depends on
+    /// the legacy varchar-to-char coercion setting, so the path language sees the same text as
+    /// the rest of the engine under either setting.
+    public ResolvedFunction getVarcharCoercion(Type type)
+    {
+        try {
+            return varcharCoercions.get(type, () -> metadata.getCoercion(type, VARCHAR));
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public ResolvedOperatorAndCoercions getOperators(IrPathNode node, OperatorType operatorType, Type leftType, Type rightType)

@@ -316,4 +316,24 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('{\"s\":\"A\"}', 'lax $.s ? (@ like_regex \"\\x{41}\")')"))
                 .matches("VALUES true");
     }
+
+    @Test
+    public void testCharacterParameterTrailingSpaces()
+    {
+        // A char(n) parameter carries no significant trailing spaces: casting it to varchar
+        // yields the unpadded value, and the path language must see the same text. Padding it
+        // to the declared length would make the predicate look for "ab   " and never match.
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"abc\"}', 'lax $.s ? (@ starts with $prefix)' PASSING CAST('ab' AS char(5)) AS \"prefix\")"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('[\"ab\"]', 'lax $[0] ? (@ == $value)' PASSING CAST('ab' AS char(5)) AS \"value\")"))
+                .matches("VALUES true");
+
+        // A char parameter matched against a regex sees the same unpadded text.
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"ab\"}', 'lax $.s ? (@ like_regex \"^ab$\")')"))
+                .matches("VALUES true");
+    }
 }
