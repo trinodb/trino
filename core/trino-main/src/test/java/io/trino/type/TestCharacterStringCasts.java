@@ -21,8 +21,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.operator.scalar.CharacterStringCasts.varcharToCharSaturatedFloorCast;
 import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
+import static io.trino.operator.scalar.LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -186,7 +186,7 @@ public class TestCharacterStringCasts
     }
 
     @Test
-    public void testVarcharToCharSaturatedFloorCast()
+    public void testLegacyVarcharToCharSaturatedFloorCast()
     {
         String nonBmpCharacterMinusOne = new String(Character.toChars(0x1F50C));
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
