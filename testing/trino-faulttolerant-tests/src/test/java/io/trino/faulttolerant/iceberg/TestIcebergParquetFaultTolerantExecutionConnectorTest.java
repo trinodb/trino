@@ -67,7 +67,8 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     @Override
     public void testSplitPruningForAtTimeZoneFilterOnPartitionColumn()
     {
-        // TODO: figure out why
+        // Operator summaries are not collected reliably under fault-tolerant execution, and verifySplitCount
+        // depends on them, same as in testSplitPruningForFilterOnPartitionColumn above
         assertThatThrownBy(super::testSplitPruningForAtTimeZoneFilterOnPartitionColumn)
                 .hasMessageContaining("Couldn't find operator summary, probably due to query statistic collection error");
         abort("fails currently on FTE");
