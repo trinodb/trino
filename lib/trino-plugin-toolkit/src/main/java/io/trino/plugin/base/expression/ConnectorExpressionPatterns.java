@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Pattern;
 import io.trino.matching.Property;
 import io.trino.spi.expression.Call;
+import io.trino.spi.expression.Case;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FunctionName;
@@ -121,6 +122,11 @@ public final class ConnectorExpressionPatterns
     public static Pattern<Variable> variable()
     {
         return Pattern.typeOf(Variable.class);
+    }
+
+    public static Pattern<Case> caseExpression()
+    {
+        return Pattern.typeOf(Case.class);
     }
 
     public static Predicate<List<? extends ConnectorExpression>> expressionTypes(Type... types)

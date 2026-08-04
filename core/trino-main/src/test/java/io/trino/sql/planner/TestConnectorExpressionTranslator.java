@@ -36,6 +36,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
@@ -47,6 +48,8 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.WhenClause;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -569,6 +572,58 @@ public class TestConnectorExpressionTranslator
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new io.trino.spi.expression.Constant(null, VARCHAR_TYPE),
                                 new io.trino.spi.expression.Constant(utf8Slice("fallback"), VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateCase()
+    {
+        assertTranslationRoundTrips(
+                new Case(
+                        ImmutableList.of(new WhenClause(
+                                new Reference(BOOLEAN, "boolean_symbol_1"),
+                                new Reference(VARCHAR, "varchar_symbol_1"))),
+                        new Constant(VARCHAR_TYPE, utf8Slice("fallback"))),
+                new io.trino.spi.expression.Case(
+                        VARCHAR_TYPE,
+                        ImmutableList.of(new io.trino.spi.expression.Case.WhenClause(
+                                new Variable("boolean_symbol_1", BOOLEAN),
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE))),
+                        new io.trino.spi.expression.Constant(utf8Slice("fallback"), VARCHAR_TYPE)));
+
+        assertTranslationRoundTrips(
+                new Case(
+                        ImmutableList.of(
+                                new WhenClause(
+                                        comparison(ComparisonOperator.LESS_THAN, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
+                                        new Reference(DOUBLE, "double_symbol_1")),
+                                new WhenClause(
+                                        comparison(ComparisonOperator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
+                                        new Constant(DOUBLE, 42.0))),
+                        new Constant(DOUBLE, null)),
+                new io.trino.spi.expression.Case(
+                        DOUBLE,
+                        ImmutableList.of(
+                                new io.trino.spi.expression.Case.WhenClause(
+                                        new io.trino.spi.expression.Call(
+                                                BOOLEAN,
+                                                LESS_THAN_OPERATOR_FUNCTION_NAME,
+                                                ImmutableList.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))),
+                                        new Variable("double_symbol_1", DOUBLE)),
+                                new io.trino.spi.expression.Case.WhenClause(
+                                        new io.trino.spi.expression.Call(
+                                                BOOLEAN,
+                                                EQUAL_OPERATOR_FUNCTION_NAME,
+                                                ImmutableList.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))),
+                                        new io.trino.spi.expression.Constant(42.0, DOUBLE))),
+                        new io.trino.spi.expression.Constant(null, DOUBLE)));
+
+        Row untranslatable = new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(createVarcharType(5), utf8Slice("a"))));
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new Case(
+                        ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "boolean_symbol_1"), untranslatable)),
+                        untranslatable),
+                Optional.empty());
     }
 
     @Test

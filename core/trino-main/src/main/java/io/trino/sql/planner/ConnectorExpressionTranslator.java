@@ -56,6 +56,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
@@ -257,6 +258,10 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof io.trino.spi.expression.Lambda lambda) {
                 return translateLambda(lambda, lambdaArguments);
+            }
+
+            if (expression instanceof io.trino.spi.expression.Case caseExpression) {
+                return translateCase(caseExpression, lambdaArguments);
             }
 
             if (expression instanceof io.trino.spi.expression.Call call) {
@@ -503,6 +508,27 @@ public final class ConnectorExpressionTranslator
         {
             return translateExpressions(arguments, lambdaArguments)
                     .map(Coalesce::new);
+        }
+
+        private Optional<Expression> translateCase(io.trino.spi.expression.Case caseExpression, Map<String, Symbol> lambdaArguments)
+        {
+            ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builderWithExpectedSize(caseExpression.getWhenClauses().size());
+            for (io.trino.spi.expression.Case.WhenClause whenClause : caseExpression.getWhenClauses()) {
+                Optional<Expression> condition = translate(whenClause.getCondition(), lambdaArguments);
+                if (condition.isEmpty()) {
+                    return Optional.empty();
+                }
+
+                Optional<Expression> result = translate(whenClause.getResult(), lambdaArguments);
+                if (result.isEmpty()) {
+                    return Optional.empty();
+                }
+
+                whenClauses.add(new WhenClause(condition.get(), result.get()));
+            }
+
+            return translate(caseExpression.getDefaultValue(), lambdaArguments)
+                    .map(defaultValue -> new Case(whenClauses.build(), defaultValue));
         }
 
         private Optional<ComparisonOperator> comparisonOperatorForFunctionName(FunctionName functionName)
@@ -953,14 +979,30 @@ public final class ConnectorExpressionTranslator
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
-            // Generic Case isn't translated; only the trivial NULLIF shape
-            // (`if(first = second) then null else first`) is recognized so it can be pushed as
+            // The trivial NULLIF shape (`if(first = second) then null else first`) is pushed as
             // `$nullif`. The Let-wrapped NULLIF is handled by `visitLet`.
             IrExpressions.NullIf nullIf = matchNullIf(node);
-            if (nullIf == null) {
-                return Optional.empty();
+            if (nullIf != null) {
+                return translateNullIfPattern(nullIf, node.type(), context);
             }
-            return translateNullIfPattern(nullIf, ((Expression) node).type(), context);
+
+            ImmutableList.Builder<io.trino.spi.expression.Case.WhenClause> whenClauses = ImmutableList.builderWithExpectedSize(node.whenClauses().size());
+            for (WhenClause whenClause : node.whenClauses()) {
+                Optional<ConnectorExpression> condition = process(whenClause.getOperand(), context);
+                if (condition.isEmpty()) {
+                    return Optional.empty();
+                }
+
+                Optional<ConnectorExpression> result = process(whenClause.getResult(), context);
+                if (result.isEmpty()) {
+                    return Optional.empty();
+                }
+
+                whenClauses.add(new io.trino.spi.expression.Case.WhenClause(condition.get(), result.get()));
+            }
+
+            return process(node.defaultValue(), context)
+                    .map(defaultValue -> new io.trino.spi.expression.Case(node.type(), whenClauses.build(), defaultValue));
         }
 
         private Optional<ConnectorExpression> translateNullIfPattern(IrExpressions.NullIf pattern, Type type, Context context)
