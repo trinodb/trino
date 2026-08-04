@@ -68,6 +68,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -1598,6 +1599,28 @@ public class TestDomainTranslator
         // complement and null-constant comparisons are not translated
         assertUnsupportedPredicate(not(greaterThan(atTimeZone, lowLiteral)));
         assertUnsupportedPredicate(equal(atTimeZone, new Constant(TIMESTAMP_TZ_MILLIS, null)));
+    }
+
+    @Test
+    public void testAtTimeZoneComparisonWithDstAmbiguousValue()
+    {
+        // The wall time 2020-10-25 02:31:18 Europe/Warsaw is ambiguous: it occurs at
+        // 00:31:18 UTC (CEST, before the DST fall-back) and again at 01:31:18 UTC (CET, after).
+        // Wall-time resolution happens when the literal is analyzed, before domain extraction,
+        // so the domain must be derived from whichever instant the constant carries --
+        // never from its wall-time twin.
+        long firstOccurrence = packDateTimeWithZone(new DateTime(2020, 10, 25, 0, 31, 18, 0, DateTimeZone.UTC).getMillis(), getTimeZoneKey("Europe/Warsaw"));
+        long secondOccurrence = packDateTimeWithZone(new DateTime(2020, 10, 25, 1, 31, 18, 0, DateTimeZone.UTC).getMillis(), getTimeZoneKey("Europe/Warsaw"));
+
+        Expression atTimeZone = atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), stringLiteral("Europe/Warsaw"));
+
+        for (long instant : new long[] {firstOccurrence, secondOccurrence}) {
+            Constant literal = new Constant(TIMESTAMP_TZ_MILLIS, instant);
+            assertPredicateTranslates(
+                    equal(atTimeZone, literal),
+                    tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.equal(TIMESTAMP_TZ_MILLIS, instant)), false)),
+                    equal(atTimeZone, literal));
+        }
     }
 
     private Expression atTimeZone(Expression timestamp, Expression zone)
