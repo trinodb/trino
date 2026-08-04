@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -20,6 +21,7 @@ import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
 
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_OBJECT_TAGS;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultIcebergFileSystemFactory
@@ -36,6 +38,30 @@ public class DefaultIcebergFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
-        return fileSystemFactory.create(identity);
+        return fileSystemFactory.create(enrichIdentityWithObjectTags(identity, fileIoProperties));
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorIdentity identity, IcebergTableCredentials tableCredentials)
+    {
+        return create(identity, tableCredentials.fileIoProperties());
+    }
+
+    private static ConnectorIdentity enrichIdentityWithObjectTags(ConnectorIdentity identity, Map<String, String> fileIoProperties)
+    {
+        String objectTags = fileIoProperties.get("s3.object-tags");
+        if (objectTags == null) {
+            return identity;
+        }
+        return ConnectorIdentity.forUser(identity.getUser())
+                .withGroups(identity.getGroups())
+                .withPrincipal(identity.getPrincipal())
+                .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                .withConnectorRole(identity.getConnectorRole())
+                .withExtraCredentials(ImmutableMap.<String, String>builder()
+                        .putAll(identity.getExtraCredentials())
+                        .put(EXTRA_CREDENTIALS_OBJECT_TAGS, objectTags)
+                        .buildOrThrow())
+                .build();
     }
 }
