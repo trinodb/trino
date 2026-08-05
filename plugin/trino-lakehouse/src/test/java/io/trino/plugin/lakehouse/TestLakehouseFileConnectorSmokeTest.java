@@ -97,6 +97,7 @@ public class TestLakehouseFileConnectorSmokeTest
                    comment varchar
                 )
                 WITH (
+                   compression_codec = 'ZSTD',
                    format = 'PARQUET',
                    format_version = 2,
                    location = 's3://test-bucket/tpch/region-\\E.*\\Q',
