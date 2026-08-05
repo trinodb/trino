@@ -116,6 +116,12 @@ final class SchedulingQueue<G, T>
     private final Map<G, SchedulingGroup<T>> groups = new HashMap<>();
     private final PriorityQueue<G> baselineWeights = new PriorityQueue<>();
 
+    /**
+     * Total number of runnable tasks across all groups, maintained incrementally so that
+     * {@link #getRunnableCount()} is O(1) and can be polled on the hot path.
+     */
+    private int runnableTasks;
+
     public void startGroup(G group)
     {
         checkArgument(!groups.containsKey(group), "Group already started: %s", group);
@@ -129,6 +135,7 @@ final class SchedulingQueue<G, T>
         SchedulingGroup<T> info = groups.remove(group);
         checkArgument(info != null, "Unknown group: %s", group);
 
+        runnableTasks -= info.runnableCount();
         runnableQueue.removeIfPresent(group);
         baselineWeights.removeIfPresent(group);
         return info.tasks();
@@ -161,7 +168,9 @@ final class SchedulingQueue<G, T>
         SchedulingGroup<T> info = groups.get(group);
 
         State previousState = info.state();
+        int runnableBefore = info.runnableCount();
         info.finish(task);
+        runnableTasks += info.runnableCount() - runnableBefore;
         State newState = info.state();
 
         if (newState == RUNNABLE) {
@@ -188,7 +197,9 @@ final class SchedulingQueue<G, T>
         SchedulingGroup<T> info = groups.get(group);
 
         State previousState = info.state();
+        int runnableBefore = info.runnableCount();
         info.enqueue(task, deltaWeight);
+        runnableTasks += info.runnableCount() - runnableBefore;
         verify(info.state() == RUNNABLE);
 
         if (previousState == BLOCKED) {
@@ -210,9 +221,47 @@ final class SchedulingQueue<G, T>
         checkArgument(info.state() == RUNNABLE || info.state() == RUNNING, "Group is already blocked: %s", group);
 
         State previousState = info.state();
+        int runnableBefore = info.runnableCount();
         info.block(task, deltaWeight);
+        runnableTasks += info.runnableCount() - runnableBefore;
 
         doTransition(group, info, previousState, info.state());
+    }
+
+    /**
+     * Moves a blocked task straight back to the running state without going through the
+     * runnable queue, so that an unblocked task can resume on its own thread instead of
+     * waiting for the scheduler thread to hand it a slot.
+     *
+     * <p>This is only legal when neither the group nor the task would have lost a scheduling
+     * decision to a competing runnable task, which the caller establishes by checking
+     * {@link #getRunnableCount()}. Because that check is racy when performed outside the
+     * queue lock, this method re-verifies the precondition and returns false if it no longer
+     * holds, in which case the caller must fall back to the regular enqueue path.</p>
+     *
+     * @return false if the task can no longer bypass the queue
+     */
+    public boolean unblockToRunning(G group, T task, long expectedWeight)
+    {
+        SchedulingGroup<T> info = groups.get(group);
+        checkArgument(info != null, "Unknown group: %s", group);
+
+        if (runnableTasks > 0 || !info.canUnblockToRunning(task)) {
+            return false;
+        }
+
+        State previousState = info.state();
+        info.unblockToRunning(task, expectedWeight);
+
+        if (previousState == BLOCKED) {
+            // Mirrors enqueue(): when transitioning out of the blocked state, rebase the group's
+            // weight to the current minimum so it doesn't monopolize the queue while catching up
+            info.addWeight(baselineWeight());
+        }
+
+        doTransition(group, info, previousState, info.state());
+
+        return true;
     }
 
     public T dequeue(long expectedWeight)
@@ -226,7 +275,9 @@ final class SchedulingQueue<G, T>
         SchedulingGroup<T> info = groups.get(group);
         verify(info.state() == RUNNABLE, "Group is not runnable: %s", group);
 
+        int runnableBefore = info.runnableCount();
         T task = info.dequeue(expectedWeight);
+        runnableTasks += info.runnableCount() - runnableBefore;
         verify(task != null);
 
         baselineWeights.addOrReplace(group, info.weight());
@@ -259,10 +310,7 @@ final class SchedulingQueue<G, T>
 
     public int getRunnableCount()
     {
-        return runnableQueue.values().stream()
-                .map(groups::get)
-                .mapToInt(SchedulingGroup::runnableCount)
-                .sum();
+        return runnableTasks;
     }
 
     public State state(G group)
