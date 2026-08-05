@@ -129,6 +129,7 @@ public abstract class BaseLakehouseConnectorSmokeTest
                    comment varchar
                 )
                 WITH (
+                   compression_codec = 'ZSTD',
                    format = 'ORC',
                    format_version = 2,
                    location = \\E's3://test-bucket-.*/tpch/create_iceberg-.*'\\Q,
