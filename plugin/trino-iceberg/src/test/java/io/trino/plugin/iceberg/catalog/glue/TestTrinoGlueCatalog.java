@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.FlociS3AndGlue;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -174,6 +175,7 @@ public class TestTrinoGlueCatalog
                     Optional.empty(),
                     false,
                     _ -> false,
+                    HiveCompressionCodec.ZSTD,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
