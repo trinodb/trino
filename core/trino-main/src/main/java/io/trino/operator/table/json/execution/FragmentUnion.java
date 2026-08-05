@@ -13,8 +13,8 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import io.trino.json.Json;
 import io.trino.spi.Page;
 
 import java.util.Arrays;
@@ -46,7 +46,7 @@ public class FragmentUnion
     }
 
     @Override
-    public void reset(JsonNode item, Page input, int position)
+    public void reset(Json item, Page input, int position)
     {
         requireNonNull(item, "item is null");
         requireNonNull(input, "input is null");

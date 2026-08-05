@@ -211,6 +211,11 @@
                                 <item>
                                     <code>java.field.enumConstantOrderChanged</code>
                                 </item>
+                                <item>
+                                    <code>java.field.removedWithConstant</code>
+                                    <old>field io.trino.spi.type.StandardTypes.JSON_2016</old>
+                                    <justification>The json2016 type was internal to the SQL/JSON path engine: it had no literal, cast or function signature reachable from SQL, and no type of that name is registered any more</justification>
+                                </item>
                                 <!-- Allow arbitrary changes to unstable APIs -->
                                 <item>
                                     <regex>true</regex>

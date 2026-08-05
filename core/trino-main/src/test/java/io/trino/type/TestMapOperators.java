@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -97,9 +100,9 @@ public class TestMapOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static Json uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        return JsonItems.fromText(slice);
     }
 
     @Test
@@ -402,7 +405,7 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(json_parse(a) as MAP(BIGINT, BIGINT))")
                 .binding("a", "'null 123 some invalid JSON content'")::evaluate)
-                .hasMessage("Cannot cast to map(bigint, bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+                .hasMessage("Cannot convert value to JSON: 'null 123 some invalid JSON content'");
 
         assertThat(assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{}'"))
@@ -560,7 +563,7 @@ public class TestMapOperators
                 .hasType(mapType(BIGINT, VARCHAR))
                 .isEqualTo(asMap(
                         ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
-                        asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null)));
+                        asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null)));
 
         assertThat(assertions.expression("cast(a as MAP(VARCHAR, JSON))")
                 .binding("a", "JSON '{\"k1\": 5, \"k2\": 3.14, \"k3\":[1, 2, 3], \"k4\":\"e\", \"k5\":{\"a\": \"b\"}, \"k6\":null, \"k7\":\"null\", \"k8\":[null]}'"))
@@ -641,38 +644,39 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '[1, 2]'").evaluate())
-                .hasMessage("Cannot cast to map(bigint, bigint). Expected a json object, but got [\n[1,2]")
+                .hasMessage("Cannot cast to map(bigint, bigint). Expected a json object, but got ARRAY\n[1,2]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, MAP(VARCHAR, BIGINT)))")
                 .binding("a", "JSON '{\"a\": 1, \"b\": 2}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got 1\n{\"a\":1,\"b\":2}")
+                .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got INTEGER\n{\"a\":1,\"b\":2}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "JSON '{\"a\": 1, \"b\": []}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, bigint). Unexpected token when cast to bigint: [\n{\"a\":1,\"b\":[]}")
+                .hasMessage("Cannot cast to map(varchar, bigint). Unexpected ARRAY when cast to bigint\n{\"a\":1,\"b\":[]}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, MAP(VARCHAR, BIGINT)))")
                 .binding("a", "JSON '{\"1\": {\"a\": 1}, \"2\": []}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got [\n{\"1\":{\"a\":1},\"2\":[]}")
+                .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got ARRAY\n{\"1\":{\"a\":1},\"2\":[]}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
+        // unchecked_to_json validates its input, so malformed JSON fails at injection time.
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "unchecked_to_json('\"a\": 1, \"b\": 2')").evaluate())
-                .hasMessage("Cannot cast to map(varchar, bigint). Expected a json object, but got a\n\"a\": 1, \"b\": 2")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "unchecked_to_json('{\"a\": 1} 2')").evaluate())
-                .hasMessage("Cannot cast to map(varchar, bigint). Unexpected trailing token: 2\n{\"a\": 1} 2")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "unchecked_to_json('{\"a\": 1')").evaluate())
-                .hasMessage("Cannot cast to map(varchar, bigint).\n{\"a\": 1")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "JSON '{\"a\": \"b\"}'").evaluate())
@@ -681,17 +685,17 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, INTEGER))")
                 .binding("a", "JSON '{\"a\": 1234567890123.456}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1234567890123.456}")
+                .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1234567890123\n{\"a\":1234567890123.456}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{\"1\":1, \"01\": 2}'").evaluate())
-                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"01\":2,\"1\":1}")
+                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"1\":1,\"01\":2}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(MAP(BIGINT, BIGINT)))")
                 .binding("a", "JSON '[{\"1\":1, \"01\": 2}]'").evaluate())
-                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"01\":2,\"1\":1}]")
+                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"1\":1,\"01\":2}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         // some other key/value type combinations

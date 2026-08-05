@@ -220,7 +220,7 @@ import static io.trino.sql.tree.JsonTablePlan.SiblingsPlanType.UNION;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.PatternSearchMode.Mode.INITIAL;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
@@ -1523,7 +1523,7 @@ class RelationPlanner
 
         // append projections for inputJson and parametersRow
         // cannot use the 'appendProjections()' method because the projected expressions include resolved input functions, so they are not pure AST expressions
-        Symbol inputJsonSymbol = symbolAllocator.newSymbol("inputJson", JSON_2016);
+        Symbol inputJsonSymbol = symbolAllocator.newSymbol("inputJson", JSON);
         Symbol parametersRowSymbol = symbolAllocator.newSymbol("parametersRow", parametersType);
         ProjectNode appended = new ProjectNode(
                 idAllocator.getNextId(),
@@ -1577,12 +1577,12 @@ class RelationPlanner
         // create new symbols for json_table function's proper columns
         // These are the types produced by the table function.
         // For ordinality and value columns, the types match the expected output type.
-        // Query columns return JSON_2016. Later we need to apply an output function, and potentially a coercion to match the declared output type.
+        // Query columns return JSON. Later we need to apply an output function, and potentially a coercion to match the declared output type.
         RelationType jsonTableRelationType = analysis.getScope(jsonTable).getRelationType();
         List<Symbol> properOutputs = IntStream.range(0, orderedColumns.size())
                 .mapToObj(index -> {
                     if (orderedColumns.get(index).getNode() instanceof QueryColumn queryColumn) {
-                        return symbolAllocator.newSymbol(queryColumn.getName().getCanonicalValue(), JSON_2016);
+                        return symbolAllocator.newSymbol(queryColumn.getName().getCanonicalValue(), JSON);
                     }
                     return symbolAllocator.newSymbol(jsonTableRelationType.getFieldByIndex(index));
                 })
@@ -1629,7 +1629,7 @@ class RelationPlanner
                         jsonTableAnalysis.transactionHandle()));
 
         // append output functions and coercions for query columns
-        // The table function returns JSON_2016 for query columns. We need to apply output functions and coercions to match the declared output type.
+        // The table function returns JSON for query columns. We need to apply output functions and coercions to match the declared output type.
         // create output layout: first the left side of the join, next the proper columns
         ImmutableList.Builder<Symbol> outputLayout = ImmutableList.<Symbol>builder()
                 .addAll(leftFieldMappings);

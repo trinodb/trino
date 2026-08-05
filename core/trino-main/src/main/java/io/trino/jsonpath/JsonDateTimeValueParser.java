@@ -13,10 +13,10 @@
  */
 package io.trino.jsonpath;
 
+import io.trino.json.TypedValue;
 import io.trino.jsonpath.JsonDateTimeTemplate.FieldSegment;
 import io.trino.jsonpath.JsonDateTimeTemplate.LiteralSegment;
 import io.trino.jsonpath.JsonDateTimeTemplate.Segment;
-import io.trino.jsonpath.ir.TypedValue;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestampWithTimeZone;

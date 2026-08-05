@@ -58,6 +58,7 @@ be quoted (using double quotes) in order to be used as an identifier.
 | `JSON_EXISTS`       | reserved |          |
 | `JSON_OBJECT`       | reserved |          |
 | `JSON_QUERY`        | reserved |          |
+| `JSON_SERIALIZE`    | reserved |          |
 | `JSON_TABLE`        | reserved |          |
 | `JSON_VALUE`        | reserved |          |
 | `LEFT`              | reserved | reserved |

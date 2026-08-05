@@ -117,12 +117,14 @@ import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTablePlan;
 import io.trino.sql.tree.JsonValue;
@@ -9217,6 +9219,74 @@ public class TestSqlParser
                         Optional.of(JsonQuery.QuotesBehavior.OMIT),
                         JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
                         JsonQuery.EmptyOrErrorBehavior.ERROR));
+    }
+
+    @Test
+    public void testJsonConstructor()
+    {
+        assertThat(expression("JSON(json_column)"))
+                .isEqualTo(new JsonConstructor(
+                        location(1, 1),
+                        new Identifier(location(1, 6), "json_column", false),
+                        JSON));
+
+        assertThat(expression("JSON(binary_column FORMAT JSON ENCODING UTF16)"))
+                .isEqualTo(new JsonConstructor(
+                        location(1, 1),
+                        new Identifier(location(1, 6), "binary_column", false),
+                        UTF16));
+
+        // only the constructor shape JSON(...) is intercepted — a qualified call whose
+        // path merely starts with a catalog or schema named json stays a function call
+        assertThat(expression("json.foo.bar(1)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 1), "json", false),
+                                new Identifier(location(1, 6), "foo", false),
+                                new Identifier(location(1, 10), "bar", false))),
+                        ImmutableList.of(new LongLiteral(location(1, 14), "1"))));
+    }
+
+    @Test
+    public void testJsonSerialize()
+    {
+        // The ON ERROR clause is a Trino extension (SQL:2023 §6.37 has none); the default is ERROR.
+        assertThat(expression("JSON_SERIALIZE(json_column)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.empty(),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.ERROR));
+
+        assertThat(expression("JSON_SERIALIZE(binary_column FORMAT JSON ENCODING UTF16 RETURNING varbinary FORMAT JSON ENCODING UTF32)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "binary_column", false),
+                        UTF16,
+                        Optional.of(new GenericDataType(location(1, 67), new Identifier(location(1, 67), "varbinary", false), ImmutableList.of())),
+                        Optional.of(UTF32),
+                        JsonSerialize.OnErrorBehavior.ERROR));
+
+        assertThat(expression("JSON_SERIALIZE(json_column NULL ON ERROR)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.empty(),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.NULL));
+
+        assertThat(expression("JSON_SERIALIZE(json_column RETURNING varchar NULL ON ERROR)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.of(new GenericDataType(location(1, 38), new Identifier(location(1, 38), "varchar", false), ImmutableList.of())),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.NULL));
     }
 
     @Test

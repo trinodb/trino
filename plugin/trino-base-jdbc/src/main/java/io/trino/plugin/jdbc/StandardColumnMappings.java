@@ -17,6 +17,8 @@ import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -353,6 +355,61 @@ public final class StandardColumnMappings
             return varcharColumnMapping(createUnboundedVarcharType(), isRemoteCaseSensitive);
         }
         return varcharColumnMapping(createVarcharType(columnSize), isRemoteCaseSensitive);
+    }
+
+    /// Maps a remote JSON/text column to Trino's JSON type. The remote side is canonical JSON
+    /// text: the read function parses it into a typed JSON value and the write function
+    /// serializes back to text. Whatever JSON text can carry survives the round-trip -- a
+    /// number's literal form (`1` versus `1.0`, arbitrary precision), object member order and
+    /// duplicate keys. What JSON text cannot carry does not: a typed datetime item serializes
+    /// to a JSON string (JSON has no datetime type), so it reads back as VARCHAR. That loss is
+    /// inherent to a text wire form; the typed encoding travels only inside the engine, not
+    /// through a remote JSON column.
+    public static ColumnMapping jsonColumnMapping(Type jsonType, SliceWriteFunction textWriteFunction)
+    {
+        return ColumnMapping.objectMapping(
+                jsonType,
+                ObjectReadFunction.of(Json.class, (resultSet, columnIndex) ->
+                        JsonItems.fromText(utf8Slice(resultSet.getString(columnIndex)))),
+                jsonObjectWriteFunction(textWriteFunction),
+                DISABLE_PUSHDOWN);
+    }
+
+    /// Write mapping for a remote JSON column. `JsonType`'s javaType is `Json`, so the write
+    /// function must accept `Json` (not `Slice`); it renders the value to canonical text and
+    /// hands it to the dialect's text-write function.
+    public static WriteMapping jsonWriteMapping(String dataType, SliceWriteFunction textWriteFunction)
+    {
+        return WriteMapping.objectMapping(dataType, jsonObjectWriteFunction(textWriteFunction));
+    }
+
+    /// Adapts a dialect's text-write function to the `Json` javaType: it renders the value to
+    /// canonical text before handing it over, and keeps the dialect's bind expression (e.g.
+    /// `CAST(? AS json)`) so the parameter is still bound with the remote JSON type rather than
+    /// as plain text.
+    private static ObjectWriteFunction jsonObjectWriteFunction(SliceWriteFunction textWriteFunction)
+    {
+        return new ObjectWriteFunction()
+        {
+            @Override
+            public Class<?> getJavaType()
+            {
+                return Json.class;
+            }
+
+            @Override
+            public String getBindExpression()
+            {
+                return textWriteFunction.getBindExpression();
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Object value)
+                    throws SQLException
+            {
+                textWriteFunction.set(statement, index, JsonItems.toText((Json) value));
+            }
+        };
     }
 
     public static ColumnMapping varcharColumnMapping(VarcharType varcharType, boolean isRemoteCaseSensitive)

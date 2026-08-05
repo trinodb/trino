@@ -13,9 +13,9 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.Json;
 import io.trino.jsonpath.JsonPathEvaluator;
 import io.trino.jsonpath.JsonPathInvocationContext;
 import io.trino.jsonpath.PathEvaluationException;
@@ -41,13 +41,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
@@ -59,7 +58,7 @@ public class JsonExistsFunction
         extends SqlScalarFunction
 {
     public static final String JSON_EXISTS_FUNCTION_NAME = "$json_exists";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, Json.class, IrJsonPath.class, SqlRow.class, long.class);
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -71,7 +70,7 @@ public class JsonExistsFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .returnType(BOOLEAN)
-                        .argumentTypes(type(JSON_2016), type(SqlJsonPathType.NAME), typeVariable("T"), type(TINYINT))
+                        .argumentTypes(type(JSON), type(SqlJsonPathType.NAME), typeVariable("T"), type(TINYINT))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false)
@@ -110,17 +109,17 @@ public class JsonExistsFunction
             Type parametersRowType,
             JsonPathInvocationContext invocationContext,
             ConnectorSession session,
-            JsonNode inputExpression,
+            Json inputExpression,
             IrJsonPath jsonPath,
             SqlRow parametersRow,
             long errorBehavior)
     {
-        if (inputExpression.equals(JSON_ERROR)) {
+        if (inputExpression.isError()) {
             return handleError(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
-            if (parameter.equals(JSON_ERROR)) {
+            if (parameter instanceof Json json && json.isError()) {
                 return handleError(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
             }
         }
@@ -132,7 +131,7 @@ public class JsonExistsFunction
             evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
             invocationContext.setEvaluator(evaluator);
         }
-        List<Object> pathResult;
+        List<Json> pathResult;
         try {
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }

@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.FullConnectorSession;
 import io.trino.jmh.Benchmarks;
@@ -75,8 +76,8 @@ import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonPathType.JSON_PATH;
+import static io.trino.type.JsonType.JSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
@@ -151,7 +152,14 @@ public class BenchmarkJsonFunctions
     public static class BenchmarkData
     {
         @Param({"1", "3", "10"})
-        private int depth;
+        int depth;
+
+        /// Number of keys per object level. The path engine looks up "key{depth}" at each
+        /// level; the remaining width-1 keys are filler that exercise lookup cost. Width
+        /// >= INDEXED_CONTAINER_THRESHOLD (8) puts the encoded objects in OBJECT_INDEXED
+        /// form, where member lookup is O(log n) via binary search.
+        @Param({"1", "8", "32"})
+        int width;
 
         private Page page;
         private PageProcessor jsonValuePageProcessor;
@@ -162,7 +170,7 @@ public class BenchmarkJsonFunctions
         @Setup
         public void setup()
         {
-            page = new Page(createChannel(POSITION_COUNT, depth));
+            page = new Page(createChannel(POSITION_COUNT, depth, width));
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             Type jsonPath2016Type = PLANNER_CONTEXT.getTypeManager().getType(TypeId.of(SqlJsonPathType.NAME));
@@ -183,7 +191,7 @@ public class BenchmarkJsonFunctions
                     functionResolution.resolveFunction(
                             JSON_VALUE_FUNCTION_NAME,
                             fromTypes(ImmutableList.of(
-                                    JSON_2016,
+                                    JSON,
                                     jsonPath2016Type,
                                     JSON_NO_PARAMETERS_ROW_TYPE,
                                     VARCHAR,
@@ -237,7 +245,7 @@ public class BenchmarkJsonFunctions
                     functionResolution.resolveFunction(
                             JSON_QUERY_FUNCTION_NAME,
                             fromTypes(ImmutableList.of(
-                                    JSON_2016,
+                                    JSON,
                                     jsonPath2016Type,
                                     JSON_NO_PARAMETERS_ROW_TYPE,
                                     TINYINT,
@@ -277,22 +285,49 @@ public class BenchmarkJsonFunctions
                     .get();
         }
 
-        private static Block createChannel(int positionCount, int depth)
+        private static Block createChannel(int positionCount, int depth, int width)
         {
             BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                SliceOutput slice = new DynamicSliceOutput(20);
-                for (int i = 1; i <= depth; i++) {
-                    slice.appendBytes(("{\"key" + i + "\" : ").getBytes(UTF_8));
-                }
-                slice.appendBytes(generateRandomJsonText().getBytes(UTF_8));
-                for (int i = 1; i <= depth; i++) {
-                    slice.appendByte('}');
-                }
-
-                VARCHAR.writeSlice(blockBuilder, slice.slice());
+                Slice jsonText = generateNestedObject(depth, width);
+                VARCHAR.writeSlice(blockBuilder, jsonText);
             }
             return blockBuilder.build();
+        }
+
+        /// Generates a chain of `depth` nested objects, each with `width` keys. At every
+        /// level, "key{level}" is the one followed by the path; the remaining keys are
+        /// filler that the path-engine member lookup must walk past.
+        private static Slice generateNestedObject(int depth, int width)
+        {
+            SliceOutput slice = new DynamicSliceOutput(64);
+            buildLevel(slice, 1, depth, width);
+            return slice.slice();
+        }
+
+        private static void buildLevel(SliceOutput slice, int level, int depth, int width)
+        {
+            slice.appendByte('{');
+            // Filler keys before the path target so the lookup walks through them.
+            int targetIndex = ThreadLocalRandom.current().nextInt(width);
+            for (int i = 0; i < width; i++) {
+                if (i > 0) {
+                    slice.appendByte(',');
+                }
+                if (i == targetIndex) {
+                    slice.appendBytes(("\"key" + level + "\":").getBytes(UTF_8));
+                    if (level < depth) {
+                        buildLevel(slice, level + 1, depth, width);
+                    }
+                    else {
+                        slice.appendBytes(generateRandomJsonText().getBytes(UTF_8));
+                    }
+                }
+                else {
+                    slice.appendBytes(("\"filler" + i + "\":\"x\"").getBytes(UTF_8));
+                }
+            }
+            slice.appendByte('}');
         }
 
         private static String generateRandomJsonText()
@@ -339,6 +374,8 @@ public class BenchmarkJsonFunctions
     public void verify()
     {
         BenchmarkData data = new BenchmarkData();
+        data.depth = 3;
+        data.width = 8;
         data.setup();
         new BenchmarkJsonFunctions().benchmarkJsonValueFunction(data);
         new BenchmarkJsonFunctions().benchmarkJsonExtractScalarFunction(data);

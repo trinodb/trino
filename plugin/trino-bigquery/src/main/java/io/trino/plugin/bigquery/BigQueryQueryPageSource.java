@@ -241,7 +241,7 @@ public class BigQueryQueryPageSource
                 BigDecimal decimal = value.getNumericValue();
                 type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
             }
-            else if (javaType == Slice.class) {
+            else if (javaType == Slice.class || typeManager.isJsonType(type)) {
                 writeSlice(output, type, value);
             }
             else if (type instanceof ArrayType arrayType) {

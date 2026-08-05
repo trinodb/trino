@@ -85,7 +85,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.jsonpath.tree.ArithmeticUnary.Sign.PLUS;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 public class JsonPathAnalyzer
@@ -410,7 +410,7 @@ public class JsonPathAnalyzer
                 throw semanticException(INVALID_PATH, pathNode, "no value passed for parameter %s", node.getName());
             }
 
-            if (parameterType.equals(JSON_2016)) {
+            if (parameterType.equals(JSON)) {
                 jsonParameters.add(PathNodeRef.of(node));
                 return null;
             }

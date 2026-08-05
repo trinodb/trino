@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.json.JsonItems;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
@@ -92,11 +92,13 @@ import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -434,7 +436,9 @@ public class TranslationMap
                 case Parameter expression -> translate(expression);
                 case JsonExists expression -> translate(expression);
                 case JsonValue expression -> translate(expression);
+                case JsonConstructor expression -> translate(expression);
                 case JsonQuery expression -> translate(expression);
+                case JsonSerialize expression -> translate(expression);
                 case JsonObject expression -> translate(expression);
                 case JsonArray expression -> translate(expression);
                 case LongLiteral expression -> translate(expression);
@@ -737,7 +741,7 @@ public class TranslationMap
         Type type = analysis.getType(expression);
 
         if (type.equals(JSON)) {
-            return new Constant(type, JsonTypeUtil.jsonParse(utf8Slice(expression.getValue())));
+            return new Constant(type, JsonItems.fromText(utf8Slice(expression.getValue())));
         }
 
         InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
@@ -1559,6 +1563,20 @@ public class TranslationMap
         return new Call(resolvedFunction.get(), arguments.build());
     }
 
+    private io.trino.sql.ir.Expression translate(JsonConstructor node)
+    {
+        ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getExpression());
+        io.trino.sql.ir.Expression input = new Call(inputToJson, ImmutableList.of(
+                translateExpression(node.getExpression()),
+                TRUE));
+
+        ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+        return new Call(outputFunction, ImmutableList.of(
+                input,
+                new Constant(TINYINT, (long) ERROR.ordinal()),
+                FALSE));
+    }
+
     private io.trino.sql.ir.Expression translate(JsonQuery node)
     {
         Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(node);
@@ -1600,7 +1618,39 @@ public class TranslationMap
         ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
         io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(function, errorBehavior, omitQuotes));
 
-        // cast to requested returned type
+        // cast to the returned type determined by the analyzer: the declared RETURNING type, or the
+        // implicit type when the clause is absent (JSON for JSON-typed input per SQL:2023 §6.35 SR 1)
+        Type returnedType = analysis.getType(node);
+
+        Type resultType = outputFunction.signature().getReturnType();
+        if (!resultType.equals(returnedType)) {
+            result = cast(plannerContext.getTypeManager(), result, returnedType);
+        }
+
+        return result;
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonSerialize node)
+    {
+        // Map the SQL:2023 ON ERROR clause: ERROR raises on parse/conversion failures, NULL
+        // yields SQL NULL instead. The input function carries failOnError; the output function
+        // carries an error-behavior tinyint that reuses the JsonQuery error-behavior encoding.
+        boolean failOnError = node.getErrorBehavior() == JsonSerialize.OnErrorBehavior.ERROR;
+        long outputErrorBehavior = failOnError
+                ? JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal()
+                : JsonQuery.EmptyOrErrorBehavior.NULL.ordinal();
+
+        ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getExpression());
+        io.trino.sql.ir.Expression input = new Call(inputToJson, ImmutableList.of(
+                translateExpression(node.getExpression()),
+                failOnError ? TRUE : FALSE));
+
+        ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+        io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(
+                input,
+                new Constant(TINYINT, outputErrorBehavior),
+                FALSE));
+
         Type returnedType = node.getReturnedType()
                 .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(plannerContext.getTypeManager()::getType)
@@ -1608,7 +1658,7 @@ public class TranslationMap
 
         Type resultType = outputFunction.signature().getReturnType();
         if (!resultType.equals(returnedType)) {
-            result = cast(plannerContext.getTypeManager(), result, returnedType);
+            result = new io.trino.sql.ir.Cast(result, returnedType);
         }
 
         return result;
