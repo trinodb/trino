@@ -72,7 +72,13 @@ public final class BlockEncodingSimdSupport
         }
     }
 
-    private static final SimdSupport AUTO_DETECTED_SUPPORT = detectSimd();
+    // Lazy holder instead of an eager static field: if this class touched the Vector API during its own
+    // initialization, a missing jdk.incubator.vector module would poison the class and every use after the
+    // first would fail with a causeless "Could not initialize class" instead of the clear message below
+    private static final class AutoDetectedSupport
+    {
+        static final SimdSupport INSTANCE = detectSimd();
+    }
 
     private final SimdSupport simdSupport;
 
@@ -84,8 +90,11 @@ public final class BlockEncodingSimdSupport
 
     public BlockEncodingSimdSupport(boolean enableAutoDetectedSimdSupport)
     {
+        if (ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) {
+            throw new IllegalStateException("The Java Vector API is not enabled for this JVM. Add --add-modules=jdk.incubator.vector to the JVM options");
+        }
         if (enableAutoDetectedSimdSupport) {
-            simdSupport = AUTO_DETECTED_SUPPORT;
+            simdSupport = AutoDetectedSupport.INSTANCE;
         }
         else {
             simdSupport = SimdSupport.NONE;
