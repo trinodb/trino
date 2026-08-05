@@ -408,6 +408,56 @@ public class TestInlineFunctions
                 """))
                 .matches("VALUES 256");
 
+        // IF/ELSEIF/ELSE that returns on every branch, without a fallthrough RETURN of its
+        // own; verbatim from https://trino.io/docs/current/udf/sql/if.html
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION simple_if(a bigint) RETURNS varchar
+                BEGIN
+                  IF a = 0 THEN
+                    RETURN 'zero';
+                  ELSEIF a = 1 THEN
+                    RETURN 'one';
+                  ELSE
+                    RETURN 'more than one or negative';
+                  END IF;
+                END
+                SELECT simple_if(0)
+                """))
+                .matches("VALUES VARCHAR 'zero'");
+
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION simple_if(a bigint) RETURNS varchar
+                BEGIN
+                  IF a = 0 THEN
+                    RETURN 'zero';
+                  ELSEIF a = 1 THEN
+                    RETURN 'one';
+                  ELSE
+                    RETURN 'more than one or negative';
+                  END IF;
+                END
+                SELECT simple_if(1)
+                """))
+                .matches("VALUES VARCHAR 'one'");
+
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION simple_if(a bigint) RETURNS varchar
+                BEGIN
+                  IF a = 0 THEN
+                    RETURN 'zero';
+                  ELSEIF a = 1 THEN
+                    RETURN 'one';
+                  ELSE
+                    RETURN 'more than one or negative';
+                  END IF;
+                END
+                SELECT simple_if(-5)
+                """))
+                .matches("VALUES VARCHAR 'more than one or negative'");
+
         assertThat(assertions.query(
                 """
                 WITH
