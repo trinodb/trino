@@ -237,7 +237,8 @@ public class DeltaLakePageSinkProvider
                 merge.deletionVectors(),
                 getRandomPrefixLength(tableHandle.metadataEntry()),
                 merge.shallowCloneSourceTableLocation(),
-                useDeltaLengthByteArrayEncoding);
+                useDeltaLengthByteArrayEncoding,
+                memoryContext);
     }
 
     private DeltaLakeCdfPageSink createCdfPageSink(

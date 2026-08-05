@@ -136,6 +136,7 @@ public class DeltaLakeMergeSink
     private final int randomPrefixLength;
     private final Optional<String> shallowCloneSourceTableLocation;
     private final boolean useDeltaLengthByteArrayEncoding;
+    private final MemoryContext memoryContext;
     private long writtenBytes;
 
     @Nullable
@@ -164,7 +165,8 @@ public class DeltaLakeMergeSink
             Map<String, DeletionVectorEntry> deletionVectors,
             int randomPrefixLength,
             Optional<String> shallowCloneSourceTableLocation,
-            boolean useDeltaLengthByteArrayEncoding)
+            boolean useDeltaLengthByteArrayEncoding,
+            MemoryContext memoryContext)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
@@ -195,6 +197,7 @@ public class DeltaLakeMergeSink
         this.randomPrefixLength = randomPrefixLength;
         this.shallowCloneSourceTableLocation = requireNonNull(shallowCloneSourceTableLocation, "shallowCloneSourceTableLocation is null");
         this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
 
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
@@ -712,8 +715,7 @@ public class DeltaLakeMergeSink
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize),
-                // TODO (https://github.com/trinodb/trino/issues/29956) report memory usage
-                MemoryContext.NO_LIMIT);
+                memoryContext);
     }
 
     private String getReferencedPath(String basePath, String sourcePath)
