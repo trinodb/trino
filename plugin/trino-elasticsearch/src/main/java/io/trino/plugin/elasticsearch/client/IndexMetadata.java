@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -53,12 +54,18 @@ public record IndexMetadata(ObjectType schema)
     })
     public interface Type {}
 
-    public record PrimitiveType(String name)
+    public record PrimitiveType(String name, Optional<String> keyword)
             implements Type
     {
+        public PrimitiveType(String name)
+        {
+            this(name, Optional.empty());
+        }
+
         public PrimitiveType
         {
             requireNonNull(name, "name is null");
+            requireNonNull(keyword, "keyword is null");
         }
     }
 

@@ -80,6 +80,52 @@ The following table details all general configuration properties:
   - [Duration](prop-type-duration) between requests to refresh the list of
     available Elasticsearch nodes.
   - `1m`
+* - `elasticsearch.statistics.enabled`
+  - Enable collecting table statistics by querying Elasticsearch aggregations
+    (document count, distinct values, null fractions, and min/max ranges) so the
+    cost-based optimizer can better plan joins and other operations.
+  - `true`
+* - `elasticsearch.statistics.max-index-documents`
+  - Collect per-column statistics only for indices with at most this many
+    documents. Larger indices report the row count only, avoiding a per-column
+    aggregation over every document that can time out during planning.
+  - `20000000`
+* - `elasticsearch.statistics.max-statistics-columns`
+  - Maximum number of columns to collect per-column statistics for. Statistics are
+    collected only for columns the query references (filter, `GROUP BY`, and sort
+    columns); this bounds that set.
+  - `32`
+* - `elasticsearch.statistics.request-timeout`
+  - Socket timeout for a single per-column statistics request. A slow aggregation
+    fails fast, with no retry, and falls back to the row count instead of blocking
+    query planning.
+  - `5s`
+* - `elasticsearch.dynamic-filtering.wait-timeout`
+  - Maximum [duration](prop-type-duration) to wait for the collection of dynamic
+    filters, such as join keys, before generating splits. Dynamic filters are
+    applied within the Elasticsearch query to reduce the number of scanned
+    documents. Can be overridden per query with the
+    `dynamic_filtering_wait_timeout` session property.
+  - `5s`
+* - `elasticsearch.keyword-subfield-pushdown-with-ignore-above`
+  - Push predicates and aggregations for a `text` field down to its exact-match
+    `keyword` sub-field even when that sub-field defines `ignore_above`. This is
+    disabled by default because `ignore_above` omits longer values from the
+    sub-field index, so pushed-down predicates could return incomplete results.
+    Enable it only when all indexed string values are shorter than the
+    `ignore_above` limit. Can be overridden per query with the
+    `keyword_subfield_pushdown_with_ignore_above` session property.
+  - `false`
+* - `elasticsearch.aggregation-pushdown.enabled`
+  - Enable pushing down aggregations to Elasticsearch. Can be overridden per
+    query with the `aggregation_pushdown_enabled` session property.
+  - `true`
+* - `elasticsearch.full-text-pushdown`
+  - Push predicates and dynamic filters on analyzed `text` fields to
+    Elasticsearch as full-text queries. One of `DISABLED`, `SAFE`, or `UNSAFE`.
+    A `text` field is tokenized, so this does not have exact SQL semantics. Can
+    be overridden per query with the `full_text_pushdown_mode` session property.
+  - `DISABLED`
 * - `elasticsearch.ignore-publish-address`
   - Disable using the address published by the Elasticsearch API to connect for
     queries. Some deployments map Elasticsearch ports to a random public port
@@ -511,6 +557,115 @@ following data types:
 :::
 
 No other data types are supported for predicate push down.
+
+### Prefix predicate push down
+
+Predicates that match a string prefix are pushed down as an Elasticsearch
+`prefix` query on `keyword` fields, or on a `text` field's exact-match `keyword`
+sub-field. This applies to `col LIKE 'abc%'`, `starts_with(col, 'abc')`, and
+`substr(col, 1, n) = 'abc'` when `n` equals the character length of the literal.
+Other `LIKE` patterns are pushed down as a `regexp` query.
+
+### Full-text pushdown
+
+By default, predicates and dynamic filters on analyzed `text` fields — fields
+without an exact-match `keyword` sub-field — are evaluated by the engine,
+because a `text` field is tokenized and does not preserve exact string values.
+
+The `elasticsearch.full-text-pushdown` configuration property, or the
+`full_text_pushdown_mode` session property, opts in to pushing these predicates
+down as Elasticsearch full-text queries. Equality and `IN` predicates become a
+`match_phrase` query, a `LIKE` prefix pattern (`abc%`) becomes a
+`match_phrase_prefix` query, and other `LIKE` patterns and `regexp_like` become a
+`regexp` query, which Elasticsearch evaluates per token using Lucene regular
+expression syntax. Because tokenization, lowercasing, and stemming apply, results
+can differ from exact SQL semantics. Three modes are available:
+
+- `DISABLED`, the default: text predicates are evaluated by the engine only.
+- `SAFE`: push a full-text pre-filter but re-apply the exact predicate in the
+  engine, which removes false positives. This is *not* lossless: because the
+  pre-filter is not a guaranteed superset, rows can still be dropped — for
+  example a value that analyzes to nothing, such as a stop word, or a
+  `regexp_like` pattern that matches across analyzer token boundaries, because
+  Elasticsearch matches per token rather than across the whole string. A
+  multi-token `LIKE` prefix is pushed as a `match_phrase_prefix` pre-filter while
+  the engine keeps the exact prefix range, so its result stays correct; a
+  multi-token contains pattern is left to the engine.
+- `UNSAFE`: push the full-text query and trust the Elasticsearch result. Fully
+  pushed down and fastest, but results follow Elasticsearch analysis semantics.
+
+Both `SAFE` and `UNSAFE` are therefore approximate on analyzed `text`; only a
+predicate on a field with an exact-match `keyword` sub-field is exact.
+
+Dynamic filters on `text` join keys are always safe to push, because the join
+re-checks the key. They are pushed as `match_phrase` pre-filters whenever the
+mode is not `DISABLED`.
+
+### Aggregation pushdown
+
+The connector supports [aggregation pushdown](aggregation-pushdown) for global
+and `GROUP BY` queries. A pushed-down aggregation is computed by Elasticsearch
+with a [composite aggregation](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-composite-aggregation.html),
+so Trino does not read the underlying documents.
+
+The following aggregate functions are pushed down:
+
+- `count(*)` and `count(column)`
+- `sum`, `min`, `max`, and `avg` over numeric columns
+- `approx_distinct`
+
+An aggregation is only pushed down when Elasticsearch computes it exactly.
+`count(DISTINCT ...)` is not pushed down, because Elasticsearch computes distinct
+counts approximately. Grouping keys must be `boolean`, numeric, or `keyword`
+columns.
+
+Aggregation pushdown is enabled by default. Disable it with the
+`elasticsearch.aggregation-pushdown.enabled` catalog configuration property or
+the `aggregation_pushdown_enabled` catalog session property.
+
+### Table statistics
+
+When `elasticsearch.statistics.enabled` is `true`, the default, the connector
+exposes [table statistics](/optimizer/statistics) computed from Elasticsearch
+aggregations: row count, number of distinct values, null fraction, and value
+ranges for numeric and date columns. The cost-based optimizer uses these
+statistics to choose more efficient query plans, such as the join distribution
+type and join order.
+
+The row count is always collected with a cheap request. The per-column statistics
+(distinct values, null fractions, and ranges) require an aggregation that scans
+every document, so the connector limits that work in three ways. Any statistics it
+skips only affect plan quality, never correctness:
+
+- It collects per-column statistics only for the columns a query references in a
+  `WHERE`, `GROUP BY`, or `ORDER BY` clause — the columns the optimizer actually
+  consults. Columns that appear only in the `SELECT` list, and join keys (joins are
+  not pushed to the connector), are not aggregated.
+  `elasticsearch.statistics.max-statistics-columns` caps how many referenced columns
+  are collected.
+- It computes the expensive distinct-count (cardinality) only for indices with at
+  most `elasticsearch.statistics.max-index-documents` documents. Larger indices still
+  get null fractions and ranges, and always the row count.
+- Each statistics request uses a short timeout,
+  `elasticsearch.statistics.request-timeout`, with no retry, so a slow aggregation
+  falls back to the row count in seconds instead of blocking query planning.
+
+Statistics collection is therefore automatic — you generally do not need to change
+your queries. For very large or slow indices, lower
+`elasticsearch.statistics.max-index-documents` or
+`elasticsearch.statistics.request-timeout` to skip expensive aggregations sooner,
+raise `elasticsearch.statistics.max-statistics-columns` if queries filter or group by
+many columns, or set `elasticsearch.statistics.enabled` to `false` to disable
+statistics collection entirely.
+
+### Dynamic filtering
+
+The connector supports [dynamic filtering](/admin/dynamic-filtering). Dynamic
+filters generated on the build side of a join, such as join keys, are folded
+into the Elasticsearch query to reduce the number of scanned documents. The
+`elasticsearch.dynamic-filtering.wait-timeout` configuration property, or the
+`dynamic_filtering_wait_timeout` session property, controls how long split
+generation waits for dynamic filters to be collected.
 
 [built-in date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#built-in-date-formats
 [custom date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#custom-date-formats

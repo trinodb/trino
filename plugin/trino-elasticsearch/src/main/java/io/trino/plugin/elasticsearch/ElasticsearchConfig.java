@@ -78,6 +78,14 @@ public class ElasticsearchConfig
     private boolean verifyHostnames = true;
 
     private Security security;
+    private boolean statisticsEnabled = true;
+    private long statisticsMaxIndexDocuments = 20_000_000;
+    private int statisticsMaxColumns = 32;
+    private Duration statisticsRequestTimeout = new Duration(5, SECONDS);
+    private Duration dynamicFilteringWaitTimeout = new Duration(5, SECONDS);
+    private boolean keywordSubfieldPushdownWithIgnoreAbove;
+    private boolean aggregationPushdownEnabled = true;
+    private FullTextPushdownMode fullTextPushdownMode = FullTextPushdownMode.DISABLED;
 
     @NotNull
     public List<String> getHosts()
@@ -353,6 +361,114 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setSecurity(Security security)
     {
         this.security = security;
+        return this;
+    }
+
+    public boolean isStatisticsEnabled()
+    {
+        return statisticsEnabled;
+    }
+
+    @Config("elasticsearch.statistics.enabled")
+    @ConfigDescription("Enable collecting table statistics from Elasticsearch aggregations")
+    public ElasticsearchConfig setStatisticsEnabled(boolean statisticsEnabled)
+    {
+        this.statisticsEnabled = statisticsEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public long getStatisticsMaxIndexDocuments()
+    {
+        return statisticsMaxIndexDocuments;
+    }
+
+    @Config("elasticsearch.statistics.max-index-documents")
+    @ConfigDescription("Collect per-column statistics only for indices with at most this many documents; the row count is always collected")
+    public ElasticsearchConfig setStatisticsMaxIndexDocuments(long statisticsMaxIndexDocuments)
+    {
+        this.statisticsMaxIndexDocuments = statisticsMaxIndexDocuments;
+        return this;
+    }
+
+    @Min(1)
+    public int getStatisticsMaxColumns()
+    {
+        return statisticsMaxColumns;
+    }
+
+    @Config("elasticsearch.statistics.max-statistics-columns")
+    @ConfigDescription("Maximum number of columns to collect per-column statistics for; columns referenced by the query (filters, group by, sort) are prioritized")
+    public ElasticsearchConfig setStatisticsMaxColumns(int statisticsMaxColumns)
+    {
+        this.statisticsMaxColumns = statisticsMaxColumns;
+        return this;
+    }
+
+    @NotNull
+    public Duration getStatisticsRequestTimeout()
+    {
+        return statisticsRequestTimeout;
+    }
+
+    @Config("elasticsearch.statistics.request-timeout")
+    @ConfigDescription("Socket timeout for a single per-column statistics request; a slow aggregation fails fast (no retry) and falls back to the row count instead of blocking query planning")
+    public ElasticsearchConfig setStatisticsRequestTimeout(Duration statisticsRequestTimeout)
+    {
+        this.statisticsRequestTimeout = statisticsRequestTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDynamicFilteringWaitTimeout()
+    {
+        return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("elasticsearch.dynamic-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public ElasticsearchConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    public boolean isKeywordSubfieldPushdownWithIgnoreAbove()
+    {
+        return keywordSubfieldPushdownWithIgnoreAbove;
+    }
+
+    @Config("elasticsearch.keyword-subfield-pushdown-with-ignore-above")
+    @ConfigDescription("Push predicates and aggregations to a text field's keyword sub-field even when the sub-field defines ignore_above. Enable only when indexed string values are shorter than the limit, otherwise results may be incomplete")
+    public ElasticsearchConfig setKeywordSubfieldPushdownWithIgnoreAbove(boolean keywordSubfieldPushdownWithIgnoreAbove)
+    {
+        this.keywordSubfieldPushdownWithIgnoreAbove = keywordSubfieldPushdownWithIgnoreAbove;
+        return this;
+    }
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("elasticsearch.aggregation-pushdown.enabled")
+    @ConfigDescription("Enable pushing down aggregations to Elasticsearch")
+    public ElasticsearchConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
+    }
+
+    public FullTextPushdownMode getFullTextPushdownMode()
+    {
+        return fullTextPushdownMode;
+    }
+
+    @Config("elasticsearch.full-text-pushdown")
+    @ConfigDescription("Push predicates and dynamic filters on analyzed text fields to Elasticsearch as full-text queries (DISABLED, SAFE, UNSAFE). Not exact SQL semantics")
+    public ElasticsearchConfig setFullTextPushdownMode(FullTextPushdownMode fullTextPushdownMode)
+    {
+        this.fullTextPushdownMode = fullTextPushdownMode;
         return this;
     }
 }

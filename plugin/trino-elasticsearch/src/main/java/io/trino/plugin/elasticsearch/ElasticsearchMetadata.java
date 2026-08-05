@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -21,12 +22,15 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
+import io.trino.plugin.elasticsearch.ElasticsearchAggregate.Function;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.FieldStatistics;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ScaledFloatType;
+import io.trino.plugin.elasticsearch.client.IndexStatistics;
 import io.trino.plugin.elasticsearch.decoders.ArrayDecoder;
 import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
 import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
@@ -43,6 +47,8 @@ import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
 import io.trino.plugin.elasticsearch.ptf.RawQuery.RawQueryFunctionHandle;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -59,16 +65,24 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
+import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.DoubleRange;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -106,14 +120,20 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.plugin.elasticsearch.ElasticsearchSessionProperties.getFullTextPushdownMode;
+import static io.trino.plugin.elasticsearch.ElasticsearchSessionProperties.getKeywordSubfieldPushdownWithIgnoreAbove;
+import static io.trino.plugin.elasticsearch.ElasticsearchSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -122,6 +142,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -151,6 +172,10 @@ public class ElasticsearchMetadata
                     false));
 
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
+    private static final FunctionName STARTS_WITH_FUNCTION_NAME = new FunctionName("starts_with");
+    private static final FunctionName REGEXP_LIKE_FUNCTION_NAME = new FunctionName("regexp_like");
+    private static final FunctionName SUBSTR_FUNCTION_NAME = new FunctionName("substr");
+    private static final FunctionName SUBSTRING_FUNCTION_NAME = new FunctionName("substring");
     private static final Set<Integer> REGEXP_RESERVED_CHARACTERS = IntStream.of('.', '?', '+', '*', '|', '{', '}', '[', ']', '(', ')', '"', '#', '@', '&', '<', '>', '~')
             .boxed()
             .collect(toImmutableSet());
@@ -158,6 +183,9 @@ public class ElasticsearchMetadata
     private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
+    private final boolean statisticsEnabled;
+    private final long statisticsMaxIndexDocuments;
+    private final int statisticsMaxColumns;
 
     @Inject
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
@@ -165,6 +193,9 @@ public class ElasticsearchMetadata
         this.ipAddressType = typeManager.getType(new TypeDescriptor(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         this.schemaName = config.getDefaultSchema();
+        this.statisticsEnabled = config.isStatisticsEnabled();
+        this.statisticsMaxIndexDocuments = config.getStatisticsMaxIndexDocuments();
+        this.statisticsMaxColumns = config.getStatisticsMaxColumns();
     }
 
     @Override
@@ -213,19 +244,19 @@ public class ElasticsearchMetadata
 
     private ConnectorTableMetadata getTableMetadata(String schemaName, String tableName)
     {
-        InternalTableMetadata internalTableMetadata = makeInternalTableMetadata(schemaName, tableName);
+        InternalTableMetadata internalTableMetadata = makeInternalTableMetadata(schemaName, tableName, client.isKeywordSubfieldPushdownWithIgnoreAbove());
         return new ConnectorTableMetadata(new SchemaTableName(schemaName, tableName), internalTableMetadata.columnMetadata());
     }
 
-    private InternalTableMetadata makeInternalTableMetadata(ConnectorTableHandle table)
+    private InternalTableMetadata makeInternalTableMetadata(ConnectorTableHandle table, boolean useBoundedKeyword)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
-        return makeInternalTableMetadata(handle.schema(), handle.index());
+        return makeInternalTableMetadata(handle.schema(), handle.index(), useBoundedKeyword);
     }
 
-    private InternalTableMetadata makeInternalTableMetadata(String schema, String tableName)
+    private InternalTableMetadata makeInternalTableMetadata(String schema, String tableName, boolean useBoundedKeyword)
     {
-        IndexMetadata metadata = client.getIndexMetadata(tableName);
+        IndexMetadata metadata = client.getIndexMetadata(tableName, useBoundedKeyword);
         List<IndexMetadata.Field> fields = getColumnFields(metadata);
         return new InternalTableMetadata(new SchemaTableName(schema, tableName), makeColumnMetadata(fields), makeColumnHandles(fields));
     }
@@ -396,7 +427,7 @@ public class ElasticsearchMetadata
             return PASSTHROUGH_QUERY_COLUMNS;
         }
 
-        InternalTableMetadata tableMetadata = makeInternalTableMetadata(tableHandle);
+        InternalTableMetadata tableMetadata = makeInternalTableMetadata(tableHandle, getKeywordSubfieldPushdownWithIgnoreAbove(session));
         return tableMetadata.columnHandles();
     }
 
@@ -484,6 +515,146 @@ public class ElasticsearchMetadata
     }
 
     @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle table)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        if (!statisticsEnabled || isPassthroughQuery(handle)) {
+            return TableStatistics.empty();
+        }
+
+        JsonNode query = buildSearchQuery(handle.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), handle.query(), handle.regexes(), handle.prefixes(), handle.matchPhrasePrefixes());
+
+        // The row count is cheap (no aggregations) and always valuable to the optimizer; fetch it first, and fall back to
+        // no statistics if even that fails rather than failing query planning.
+        long rowCount;
+        try {
+            rowCount = client.getIndexStatistics(handle.index(), query, ImmutableList.of(), ImmutableSet.of(), false).documentCount();
+        }
+        catch (RuntimeException e) {
+            return TableStatistics.empty();
+        }
+        TableStatistics.Builder tableStatistics = TableStatistics.builder()
+                .setRowCount(Estimate.of(rowCount));
+
+        // Per-column statistics scan every document. value_count (null fraction) and min/max (range) are relatively cheap
+        // and always attempted; the expensive cardinality (distinct count) is included only under the document threshold.
+        // The request has a short timeout and no retries, so a slow aggregation degrades to the row count instead of
+        // blocking planning for minutes.
+        List<ElasticsearchColumnHandle> columns = statisticsColumns(handle, getKeywordSubfieldPushdownWithIgnoreAbove(session));
+        if (!columns.isEmpty()) {
+            // Text fields with a safe keyword sub-field are aggregated on the sub-field, so use the predicate field name
+            List<String> fields = columns.stream()
+                    .map(ElasticsearchColumnHandle::predicateName)
+                    .collect(toImmutableList());
+            Set<String> rangeFields = columns.stream()
+                    .filter(column -> hasRange(column.type()))
+                    .map(ElasticsearchColumnHandle::predicateName)
+                    .collect(toImmutableSet());
+            boolean includeCardinality = rowCount <= statisticsMaxIndexDocuments;
+            try {
+                IndexStatistics indexStatistics = client.getIndexStatistics(handle.index(), query, fields, rangeFields, includeCardinality);
+                for (ElasticsearchColumnHandle column : columns) {
+                    FieldStatistics fieldStatistics = indexStatistics.fields().get(column.predicateName());
+                    if (fieldStatistics != null) {
+                        tableStatistics.setColumnStatistics(column, columnStatistics(column.type(), rowCount, fieldStatistics));
+                    }
+                }
+            }
+            catch (RuntimeException e) {
+                // Per-column statistics unavailable (e.g. the aggregation timed out) — the row count is still reported
+            }
+        }
+        return tableStatistics.build();
+    }
+
+    private List<ElasticsearchColumnHandle> statisticsColumns(ElasticsearchTableHandle handle, boolean useBoundedKeyword)
+    {
+        // Only collect per-column statistics for columns the query references (filters, GROUP BY, sort). Those are the
+        // columns whose distinct-count / null-fraction / range the optimizer actually consults; output-only columns
+        // (e.g. from SELECT *) have those statistics ignored, so aggregating them is wasted work. Join keys are absent
+        // here — joins are not pushed to the connector. When nothing is referenced only the row count is collected.
+        Set<String> referenced = queryReferencedFields(handle);
+        if (referenced.isEmpty()) {
+            return ImmutableList.of();
+        }
+        return makeInternalTableMetadata(handle.schema(), handle.index(), useBoundedKeyword).columnHandles().values().stream()
+                .map(ElasticsearchColumnHandle.class::cast)
+                .filter(column -> column.path().size() == 1)
+                // Array columns are excluded: value_count aggregates every array element and can exceed the row count
+                .filter(column -> !(column.type() instanceof ArrayType))
+                .filter(column -> !BuiltinColumns.isBuiltinColumn(column.name()))
+                .filter(column -> isAggregatable(column.elasticsearchType()))
+                .filter(column -> referenced.contains(column.name()) || referenced.contains(column.predicateName()))
+                .limit(statisticsMaxColumns)
+                .collect(toImmutableList());
+    }
+
+    // Fields the query references directly — the columns whose per-column statistics the optimizer is most likely to use.
+    // Join keys are intentionally absent: joins are not pushed to the connector, so the join column is unknown at plan time.
+    private static Set<String> queryReferencedFields(ElasticsearchTableHandle handle)
+    {
+        ImmutableSet.Builder<String> fields = ImmutableSet.builder();
+        handle.constraint().getDomains().ifPresent(domains -> domains.keySet().forEach(column -> {
+            ElasticsearchColumnHandle columnHandle = (ElasticsearchColumnHandle) column;
+            fields.add(columnHandle.name());
+            fields.add(columnHandle.predicateName());
+        }));
+        handle.aggregation().ifPresent(aggregation -> aggregation.groupingColumns().forEach(column -> {
+            fields.add(column.name());
+            fields.add(column.predicateName());
+        }));
+        fields.addAll(handle.regexes().keySet());
+        fields.addAll(handle.prefixes().keySet());
+        fields.addAll(handle.matchPhrasePrefixes().keySet());
+        handle.sortOrder().forEach(sort -> fields.add(sort.field()));
+        return fields.build();
+    }
+
+    private static boolean isAggregatable(IndexMetadata.Type type)
+    {
+        if (type instanceof PrimitiveType primitiveType) {
+            // A text field with a safe keyword sub-field is aggregated on that sub-field (see ElasticsearchColumnHandle#predicateName)
+            if (primitiveType.keyword().isPresent()) {
+                return true;
+            }
+            return switch (primitiveType.name()) {
+                case "byte", "short", "integer", "long", "float", "double", "keyword", "boolean", "ip" -> true;
+                default -> false;
+            };
+        }
+        return type instanceof ScaledFloatType || type instanceof DateTimeType;
+    }
+
+    private static boolean hasRange(Type type)
+    {
+        return type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT)
+                || type.equals(REAL) || type.equals(DOUBLE) || type.equals(TIMESTAMP_MILLIS);
+    }
+
+    private static ColumnStatistics columnStatistics(Type type, long rowCount, FieldStatistics statistics)
+    {
+        ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
+        statistics.cardinality().ifPresent(distinct -> columnStatistics.setDistinctValuesCount(Estimate.of(distinct)));
+        if (rowCount > 0) {
+            // value_count counts every value, so a multi-valued field can report more values than documents; clamp to
+            // avoid a negative nullsFraction (which ColumnStatistics rejects)
+            statistics.valueCount().ifPresent(valueCount ->
+                    columnStatistics.setNullsFraction(Estimate.of(valueCount >= rowCount ? 0.0 : (double) (rowCount - valueCount) / rowCount)));
+        }
+        if (statistics.min().isPresent() && statistics.max().isPresent()) {
+            double min = statistics.min().getAsDouble();
+            double max = statistics.max().getAsDouble();
+            if (type.equals(TIMESTAMP_MILLIS)) {
+                // Elasticsearch returns epoch milliseconds; the statistics domain for timestamp(3) is epoch microseconds
+                min *= MICROSECONDS_PER_MILLISECOND;
+                max *= MICROSECONDS_PER_MILLISECOND;
+            }
+            columnStatistics.setRange(new DoubleRange(min, max));
+        }
+        return columnStatistics.build();
+    }
+
+    @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
@@ -493,7 +664,11 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        if (handle.limit().isPresent() && handle.limit().orElseThrow() <= limit) {
+        if (handle.aggregation().isPresent()) {
+            return Optional.empty();
+        }
+
+        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
@@ -503,11 +678,234 @@ public class ElasticsearchMetadata
                 handle.index(),
                 handle.constraint(),
                 handle.regexes(),
+                handle.prefixes(),
+                handle.matchPhrasePrefixes(),
                 handle.query(),
                 OptionalLong.of(limit),
-                ImmutableSet.of());
+                handle.sortOrder(),
+                ImmutableSet.of(),
+                handle.aggregation());
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        if (isPassthroughQuery(handle)) {
+            return Optional.empty();
+        }
+
+        if (handle.aggregation().isPresent()) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<ElasticsearchColumnSort> sortOrder = ImmutableList.builder();
+        for (SortItem sortItem : sortItems) {
+            ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) assignments.get(sortItem.getName());
+            // Only columns backed by doc_values (the same gate as aggregation) can be sorted by Elasticsearch
+            if (BuiltinColumns.isBuiltinColumn(column.name()) || !isAggregatable(column.elasticsearchType())) {
+                return Optional.empty();
+            }
+            SortOrder order = sortItem.getSortOrder();
+            sortOrder.add(new ElasticsearchColumnSort(column.predicateName(), order.isAscending(), order.isNullsFirst()));
+        }
+        List<ElasticsearchColumnSort> newSortOrder = sortOrder.build();
+
+        if (handle.sortOrder().equals(newSortOrder) && handle.limit().equals(OptionalLong.of(topNCount))) {
+            return Optional.empty();
+        }
+
+        // topNGuaranteed is false: each split returns its own sorted top N and the engine merges the partial results
+        return Optional.of(new TopNApplicationResult<>(handle.withTopN(topNCount, newSortOrder), false, false));
+    }
+
+    @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        if (!isAggregationPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        if (isPassthroughQuery(handle) || handle.aggregation().isPresent() || handle.limit().isPresent()) {
+            // Push only one level of aggregation, and never on top of an already pushed-down limit
+            return Optional.empty();
+        }
+        // Only a single grouping set is supported (no GROUPING SETS / CUBE / ROLLUP)
+        if (groupingSets.size() != 1) {
+            return Optional.empty();
+        }
+
+        ImmutableSet.Builder<ElasticsearchColumnHandle> outputColumns = ImmutableSet.builder();
+        ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
+        ImmutableMap.Builder<ColumnHandle, ColumnHandle> groupingColumnMapping = ImmutableMap.builder();
+
+        ImmutableList.Builder<ElasticsearchColumnHandle> groupingColumns = ImmutableList.builder();
+        for (ColumnHandle columnHandle : groupingSets.get(0)) {
+            ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) columnHandle;
+            // Grouping keys become composite terms sources: the field must be aggregatable (doc_values), exact, and a type we can decode
+            if (BuiltinColumns.isBuiltinColumn(column.name()) || !isAggregatable(column.elasticsearchType()) || !isSupportedGroupingType(column.type())) {
+                return Optional.empty();
+            }
+            // Grouping columns pass through unchanged: they belong only in the grouping-column mapping,
+            // not in the projections/assignments, which the SPI reserves for the aggregate outputs
+            groupingColumns.add(column);
+            outputColumns.add(column);
+            groupingColumnMapping.put(column, column);
+        }
+
+        ImmutableList.Builder<ElasticsearchAggregate> metrics = ImmutableList.builder();
+        int counter = 0;
+        for (AggregateFunction aggregate : aggregates) {
+            Optional<ElasticsearchAggregate> converted = toElasticsearchAggregate(aggregate, assignments, "agg_" + counter);
+            if (converted.isEmpty()) {
+                return Optional.empty();
+            }
+            ElasticsearchAggregate metric = converted.get();
+            metrics.add(metric);
+
+            ElasticsearchColumnHandle column = aggregationColumnHandle(metric);
+            outputColumns.add(column);
+            projections.add(new Variable(metric.outputName(), aggregate.getOutputType()));
+            resultAssignments.add(new Assignment(metric.outputName(), column, aggregate.getOutputType()));
+            counter++;
+        }
+
+        List<ElasticsearchColumnHandle> grouping = groupingColumns.build();
+        List<ElasticsearchAggregate> aggregateList = metrics.build();
+        if (grouping.isEmpty() && aggregateList.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ElasticsearchTableHandle aggregatedHandle = new ElasticsearchTableHandle(
+                handle.type(),
+                handle.schema(),
+                handle.index(),
+                handle.constraint(),
+                handle.regexes(),
+                handle.prefixes(),
+                handle.matchPhrasePrefixes(),
+                handle.query(),
+                OptionalLong.empty(),
+                ImmutableList.of(),
+                outputColumns.build(),
+                Optional.of(new ElasticsearchAggregation(grouping, aggregateList)));
+
+        return Optional.of(new AggregationApplicationResult<>(
+                aggregatedHandle,
+                projections.build(),
+                resultAssignments.build(),
+                groupingColumnMapping.buildOrThrow(),
+                false));
+    }
+
+    private static Optional<ElasticsearchAggregate> toElasticsearchAggregate(AggregateFunction aggregate, Map<String, ColumnHandle> assignments, String outputName)
+    {
+        if (aggregate.isDistinct()) {
+            // Exact DISTINCT aggregates cannot be represented by Elasticsearch's approximate cardinality
+            return Optional.empty();
+        }
+        Type outputType = aggregate.getOutputType();
+        List<ConnectorExpression> arguments = aggregate.getArguments();
+        return switch (aggregate.getFunctionName()) {
+            case "count" -> arguments.isEmpty()
+                    ? Optional.of(new ElasticsearchAggregate(outputName, Function.COUNT_ALL, Optional.empty(), outputType))
+                    : countAggregate(outputName, Function.COUNT, arguments, assignments, outputType);
+            case "approx_distinct" -> countAggregate(outputName, Function.COUNT_DISTINCT, arguments, assignments, outputType);
+            case "sum" -> numericAggregate(outputName, Function.SUM, arguments, assignments, outputType);
+            case "avg" -> numericAggregate(outputName, Function.AVG, arguments, assignments, outputType);
+            case "min" -> numericAggregate(outputName, Function.MIN, arguments, assignments, outputType);
+            case "max" -> numericAggregate(outputName, Function.MAX, arguments, assignments, outputType);
+            default -> Optional.empty();
+        };
+    }
+
+    private static Optional<ElasticsearchAggregate> countAggregate(String outputName, Function function, List<ConnectorExpression> arguments, Map<String, ColumnHandle> assignments, Type outputType)
+    {
+        Optional<ElasticsearchColumnHandle> column = aggregateColumn(arguments, assignments);
+        // Reject array columns: value_count/cardinality aggregate individual array elements, not rows (the same
+        // exclusion statisticsColumns applies)
+        if (column.isEmpty() || column.get().type() instanceof ArrayType || !isAggregatable(column.get().elasticsearchType())) {
+            return Optional.empty();
+        }
+        return Optional.of(new ElasticsearchAggregate(outputName, function, Optional.of(column.get().predicateName()), outputType));
+    }
+
+    private static Optional<ElasticsearchAggregate> numericAggregate(String outputName, Function function, List<ConnectorExpression> arguments, Map<String, ColumnHandle> assignments, Type outputType)
+    {
+        Optional<ElasticsearchColumnHandle> column = aggregateColumn(arguments, assignments);
+        if (column.isEmpty() || !supportsNumericAggregate(function, column.get().type())) {
+            return Optional.empty();
+        }
+        return Optional.of(new ElasticsearchAggregate(outputName, function, Optional.of(column.get().predicateName()), outputType));
+    }
+
+    private static Optional<ElasticsearchColumnHandle> aggregateColumn(List<ConnectorExpression> arguments, Map<String, ColumnHandle> assignments)
+    {
+        if (arguments.size() != 1 || !(arguments.get(0) instanceof Variable variable)) {
+            return Optional.empty();
+        }
+        ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) assignments.get(variable.getName());
+        if (column == null || BuiltinColumns.isBuiltinColumn(column.name())) {
+            return Optional.empty();
+        }
+        return Optional.of(column);
+    }
+
+    private static boolean isNumericType(Type type)
+    {
+        return type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT) || type.equals(REAL) || type.equals(DOUBLE);
+    }
+
+    private static boolean supportsNumericAggregate(Function function, Type type)
+    {
+        // Elasticsearch computes metric aggregations in double precision, so pushdown is only exact within a double's
+        // 2^53 integer range. sum/avg accumulate and must stay on floating-point columns; min/max return an actual
+        // value, so only a 64-bit bigint can exceed the exact range.
+        return switch (function) {
+            case SUM, AVG -> type.equals(DOUBLE) || type.equals(REAL);
+            case MIN, MAX -> isNumericType(type) && !type.equals(BIGINT);
+            default -> false;
+        };
+    }
+
+    private static boolean isSupportedGroupingType(Type type)
+    {
+        // Types the composite bucket key can be decoded into (see AggregationQueryPageSource)
+        return type instanceof VarcharType || isNumericType(type) || type.equals(BOOLEAN);
+    }
+
+    private static ElasticsearchColumnHandle aggregationColumnHandle(ElasticsearchAggregate aggregate)
+    {
+        Type type = aggregate.outputType();
+        DecoderDescriptor decoder;
+        if (type.equals(REAL) || type.equals(DOUBLE)) {
+            decoder = new DoubleDecoder.Descriptor(aggregate.outputName());
+        }
+        else {
+            decoder = new BigintDecoder.Descriptor(aggregate.outputName());
+        }
+        // The Elasticsearch type and decoder are placeholders: aggregation results are read from the composite response, not from _source
+        return new ElasticsearchColumnHandle(
+                ImmutableList.of(aggregate.outputName()),
+                type,
+                new IndexMetadata.PrimitiveType("_aggregation"),
+                decoder,
+                false);
     }
 
     @Override
@@ -520,6 +918,12 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
+        if (handle.aggregation().isPresent()) {
+            // Filters above an aggregation (HAVING) are not pushed into the composite aggregation
+            return Optional.empty();
+        }
+
+        FullTextPushdownMode fullTextMode = getFullTextPushdownMode(session);
         Map<ColumnHandle, Domain> supported = new HashMap<>();
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
@@ -528,6 +932,14 @@ public class ElasticsearchMetadata
 
             if (column.supportsPredicates()) {
                 supported.put(column, entry.getValue());
+            }
+            else if (fullTextMode != FullTextPushdownMode.DISABLED && isFullTextCandidate(column, entry.getValue())) {
+                // Push an analyzed text predicate as a full-text match_phrase query
+                supported.put(column, entry.getValue());
+                if (fullTextMode == FullTextPushdownMode.SAFE) {
+                    // Keep the exact predicate as a residual so the engine re-applies it over the full-text pre-filter
+                    unsupported.put(column, entry.getValue());
+                }
             }
             else {
                 unsupported.put(column, entry.getValue());
@@ -539,6 +951,8 @@ public class ElasticsearchMetadata
 
         ConnectorExpression oldExpression = constraint.getExpression();
         Map<String, String> newRegexes = new HashMap<>(handle.regexes());
+        Map<String, String> newPrefixes = new HashMap<>(handle.prefixes());
+        Map<String, String> newMatchPhrasePrefixes = new HashMap<>(handle.matchPhrasePrefixes());
         List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
         List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
         for (ConnectorExpression expression : expressions) {
@@ -548,21 +962,71 @@ public class ElasticsearchMetadata
                     String variableName = ((Variable) arguments.get(0)).getName();
                     ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) constraint.getAssignments().get(variableName);
                     verifyNotNull(column, "No assignment for %s", variableName);
-                    String columnName = column.name();
                     Object pattern = ((Constant) arguments.get(1)).getValue();
                     Optional<Slice> escape = Optional.empty();
                     if (arguments.size() == 3) {
                         escape = Optional.of((Slice) ((Constant) arguments.get(2)).getValue());
                     }
 
-                    if (!newRegexes.containsKey(columnName) && pattern instanceof Slice slice) {
-                        IndexMetadata metadata = client.getIndexMetadata(handle.index());
-                        if (metadata.schema()
-                                .fields().stream()
-                                .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
-                            newRegexes.put(columnName, likeToRegexp(slice, escape));
-                            continue;
+                    boolean exactLike = supportsLikePushdown(column);
+                    boolean fullTextLike = !exactLike && fullTextMode != FullTextPushdownMode.DISABLED && column.type() instanceof VarcharType;
+                    if (pattern instanceof Slice slice && (exactLike || fullTextLike)) {
+                        String predicateName = column.predicateName();
+                        if (!newRegexes.containsKey(predicateName) && !newPrefixes.containsKey(predicateName) && !newMatchPhrasePrefixes.containsKey(predicateName)) {
+                            Optional<String> prefix = likePrefix(slice, escape);
+                            boolean pushed = true;
+                            if (prefix.isPresent() && exactLike) {
+                                // A pure prefix pattern (literal%) on a keyword field maps to a fast, exact prefix query
+                                newPrefixes.put(predicateName, prefix.get());
+                            }
+                            else if (prefix.isPresent()) {
+                                // On analyzed text a match_phrase_prefix keeps a multi-token prefix as a phrase, which a
+                                // per-token prefix query cannot match
+                                newMatchPhrasePrefixes.put(predicateName, prefix.get());
+                            }
+                            else if (exactLike || !patternSpansTokens(pattern)) {
+                                // Exact keyword, or a single-token full-text pattern a per-token regexp can still match
+                                newRegexes.put(predicateName, likeToRegexp(slice, escape));
+                            }
+                            else {
+                                // A multi-token full-text contains pattern would match nothing per token; leave it to the engine
+                                pushed = false;
+                            }
+                            // Exact (keyword) or UNSAFE full text is authoritative; SAFE full text keeps the exact residual
+                            if (pushed && (exactLike || fullTextMode == FullTextPushdownMode.UNSAFE)) {
+                                continue;
+                            }
                         }
+                    }
+                }
+
+                // regexp_like(col, 'pattern') → Elasticsearch regexp (Lucene syntax, differs from Java); full-text mode only
+                if (fullTextMode != FullTextPushdownMode.DISABLED && REGEXP_LIKE_FUNCTION_NAME.equals(call.getFunctionName())) {
+                    List<ConnectorExpression> arguments = call.getArguments();
+                    if (arguments.size() == 2
+                            && arguments.get(0) instanceof Variable variable
+                            && arguments.get(1) instanceof Constant constant && constant.getValue() instanceof Slice regexp) {
+                        ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) constraint.getAssignments().get(variable.getName());
+                        if (column != null && column.type() instanceof VarcharType) {
+                            String predicateName = column.predicateName();
+                            if (!newRegexes.containsKey(predicateName) && !newPrefixes.containsKey(predicateName)) {
+                                // Trino regexp_like is an unanchored (substring) match, but an Elasticsearch regexp query is
+                                // anchored to the whole term, so wrap the pattern to keep the pushed query a superset
+                                newRegexes.put(predicateName, ".*(" + regexp.toStringUtf8() + ").*");
+                                if (fullTextMode == FullTextPushdownMode.UNSAFE) {
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Optional<Map.Entry<ElasticsearchColumnHandle, String>> prefixPredicate = prefixFromCall(call, constraint);
+                if (prefixPredicate.isPresent()) {
+                    String predicateName = prefixPredicate.get().getKey().predicateName();
+                    if (!newRegexes.containsKey(predicateName) && !newPrefixes.containsKey(predicateName)) {
+                        newPrefixes.put(predicateName, prefixPredicate.get().getValue());
+                        continue;
                     }
                 }
             }
@@ -570,7 +1034,9 @@ public class ElasticsearchMetadata
         }
 
         ConnectorExpression newExpression = ConnectorExpressions.and(notHandledExpressions);
-        if (oldDomain.equals(newDomain) && oldExpression.equals(newExpression)) {
+        if (oldDomain.equals(newDomain) && oldExpression.equals(newExpression)
+                && handle.regexes().equals(newRegexes) && handle.prefixes().equals(newPrefixes)
+                && handle.matchPhrasePrefixes().equals(newMatchPhrasePrefixes)) {
             return Optional.empty();
         }
 
@@ -580,9 +1046,13 @@ public class ElasticsearchMetadata
                 handle.index(),
                 newDomain,
                 newRegexes,
+                newPrefixes,
+                newMatchPhrasePrefixes,
                 handle.query(),
                 handle.limit(),
-                ImmutableSet.of());
+                handle.sortOrder(),
+                ImmutableSet.of(),
+                handle.aggregation());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
     }
@@ -607,6 +1077,90 @@ public class ElasticsearchMetadata
         }
 
         return true;
+    }
+
+    /**
+     * Recognizes a prefix predicate — {@code starts_with(col, 'x')} or {@code substr(col, 1, n) = 'x'} (with
+     * {@code n} equal to the length of {@code 'x'}) — and returns the column plus the literal prefix. Both are exact
+     * on a keyword field, so they are pushed as an Elasticsearch {@code prefix} query.
+     */
+    private static boolean isFullTextCandidate(ElasticsearchColumnHandle column, Domain domain)
+    {
+        // An analyzed text column (not exact-match pushable) with only discrete values (= / IN) can be a full-text match
+        return column.type() instanceof VarcharType && domain.getValues().isDiscreteSet();
+    }
+
+    private static Optional<Map.Entry<ElasticsearchColumnHandle, String>> prefixFromCall(Call call, Constraint constraint)
+    {
+        List<ConnectorExpression> arguments = call.getArguments();
+        if (STARTS_WITH_FUNCTION_NAME.equals(call.getFunctionName())
+                && arguments.size() == 2
+                && arguments.get(0) instanceof Variable variable
+                && arguments.get(1) instanceof Constant constant
+                && constant.getValue() instanceof Slice prefix) {
+            return prefixColumn(variable, prefix, constraint);
+        }
+        if (EQUAL_OPERATOR_FUNCTION_NAME.equals(call.getFunctionName()) && arguments.size() == 2) {
+            // substr(col, 1, n) = 'x' matches only when n equals the character length of 'x' (else it can never hold or is exact)
+            for (int i = 0; i < 2; i++) {
+                if (arguments.get(i) instanceof Call inner
+                        && (SUBSTR_FUNCTION_NAME.equals(inner.getFunctionName()) || SUBSTRING_FUNCTION_NAME.equals(inner.getFunctionName()))
+                        && inner.getArguments().size() == 3
+                        && inner.getArguments().get(0) instanceof Variable variable
+                        && inner.getArguments().get(1) instanceof Constant start && start.getValue() instanceof Long from && from == 1L
+                        && inner.getArguments().get(2) instanceof Constant length && length.getValue() instanceof Long count
+                        && arguments.get(1 - i) instanceof Constant constant && constant.getValue() instanceof Slice prefix
+                        && count == countCodePoints(prefix)) {
+                    return prefixColumn(variable, prefix, constraint);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Map.Entry<ElasticsearchColumnHandle, String>> prefixColumn(Variable variable, Slice prefix, Constraint constraint)
+    {
+        ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) constraint.getAssignments().get(variable.getName());
+        // Only exact-match (keyword or text-with-keyword) columns can honor a prefix query
+        if (column == null || !supportsLikePushdown(column)) {
+            return Optional.empty();
+        }
+        return Optional.of(Map.entry(column, prefix.toStringUtf8()));
+    }
+
+    protected static Optional<String> likePrefix(Slice pattern, Optional<Slice> escape)
+    {
+        Optional<Character> escapeChar = escape.map(ElasticsearchMetadata::getEscapeChar);
+        StringBuilder prefix = new StringBuilder();
+        boolean escaped = false;
+        int position = 0;
+        while (position < pattern.length()) {
+            int currentChar = getCodePointAt(pattern, position);
+            position += lengthOfCodePoint(currentChar);
+            checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar.get());
+            if (!escaped && escapeChar.isPresent() && currentChar == escapeChar.get()) {
+                escaped = true;
+            }
+            else {
+                if (!escaped && currentChar == '%') {
+                    // A literal prefix followed by a single trailing '%' is a prefix match; a '%' elsewhere is not
+                    if (position == pattern.length()) {
+                        return Optional.of(prefix.toString());
+                    }
+                    return Optional.empty();
+                }
+                if (!escaped && currentChar == '_') {
+                    // '_' matches exactly one character, which a prefix query cannot express
+                    return Optional.empty();
+                }
+                prefix.appendCodePoint(currentChar);
+                escaped = false;
+            }
+        }
+
+        // No trailing '%': the pattern is an exact match, left to regexp (equality is normally a domain predicate)
+        checkEscape(!escaped);
+        return Optional.empty();
     }
 
     protected static String likeToRegexp(Slice pattern, Optional<Slice> escape)
@@ -808,9 +1362,22 @@ public class ElasticsearchMetadata
         return switch (trinoType) {
             case TimestampType _, BooleanType _, TinyintType _, SmallintType _, IntegerType _, BigintType _, RealType _ -> true;
             case DoubleType _ -> !(type instanceof ScaledFloatType);
-            case VarcharType _ when type instanceof PrimitiveType primitiveType && primitiveType.name().toLowerCase(ENGLISH).equals("keyword") -> true;
+            case VarcharType _ when type instanceof PrimitiveType primitiveType && (primitiveType.name().toLowerCase(ENGLISH).equals("keyword") || primitiveType.keyword().isPresent()) -> true;
             default -> false;
         };
+    }
+
+    private static boolean patternSpansTokens(Object pattern)
+    {
+        // Whitespace in a LIKE pattern almost always crosses an analyzer token boundary, where a per-token
+        // prefix/regexp query cannot match; used to keep full-text LIKE pushdown from silently dropping rows
+        return pattern instanceof Slice slice && slice.toStringUtf8().codePoints().anyMatch(Character::isWhitespace);
+    }
+
+    private static boolean supportsLikePushdown(ElasticsearchColumnHandle column)
+    {
+        return column.elasticsearchType() instanceof PrimitiveType primitiveType
+                && (primitiveType.name().toLowerCase(ENGLISH).equals("keyword") || primitiveType.keyword().isPresent());
     }
 
     private record InternalTableMetadata(SchemaTableName tableName, List<ColumnMetadata> columnMetadata, Map<String, ColumnHandle> columnHandles) {}

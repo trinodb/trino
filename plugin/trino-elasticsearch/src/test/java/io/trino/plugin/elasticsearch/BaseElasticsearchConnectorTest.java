@@ -106,9 +106,160 @@ public abstract class BaseElasticsearchConnectorTest
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_UPDATE -> false;
-            case SUPPORTS_DEREFERENCE_PUSHDOWN -> true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN, SUPPORTS_DEREFERENCE_PUSHDOWN -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    public void testElasticsearchAggregationPushdown()
+    {
+        // Correctness: results are compared against the reference (h2/tpch)
+        assertQuery("SELECT count(*) FROM nation");
+        assertQuery("SELECT sum(nationkey), min(nationkey), max(nationkey), avg(nationkey) FROM nation");
+        assertQuery("SELECT regionkey, count(*), sum(nationkey), min(nationkey), max(nationkey) FROM nation GROUP BY regionkey");
+        assertQuery("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey");
+        assertQuery("SELECT regionkey, count(*) FROM nation WHERE nationkey < 10 GROUP BY regionkey");
+
+        // Pushdown: the plan is fully pushed for supported aggregates
+        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
+        // sum/min/max/avg push down on floating-point columns (Elasticsearch computes metric aggregations in double)
+        assertThat(query("SELECT sum(totalprice), min(totalprice), max(totalprice), avg(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 10 GROUP BY regionkey")).isFullyPushedDown();
+        // sum/min/max/avg on a 64-bit bigint column are NOT pushed down: Elasticsearch metric aggregations are computed
+        // in double precision and lose accuracy above 2^53
+        assertThat(query("SELECT sum(nationkey), min(nationkey), max(nationkey), avg(nationkey) FROM nation"))
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
+
+        // count(DISTINCT) is exact and must NOT be pushed down as an approximate cardinality
+        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
+    }
+
+    @Test
+    public void testAggregationPushdownEdgeCases()
+            throws IOException
+    {
+        String indexName = "agg_edge_cases";
+        @Language("JSON")
+        String properties =
+                """
+                {
+                  "properties": {
+                    "group_key": { "type": "keyword" },
+                    "amount": { "type": "double" },
+                    "tags": { "type": "keyword" },
+                    "scalar_multi": { "type": "keyword" }
+                  },
+                  "_meta": { "trino": { "tags": { "isArray": true } } }
+                }
+                """;
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("group_key", "a")
+                .put("amount", 1.0)
+                .put("tags", ImmutableList.of("x", "y"))
+                .put("scalar_multi", ImmutableList.of("p", "q", "r"))
+                .buildOrThrow());
+        // group_key is missing on this document, so it belongs to the SQL NULL group
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("amount", 2.0)
+                .put("tags", ImmutableList.of("z"))
+                .buildOrThrow());
+
+        // A composite aggregation must keep the NULL group (missing_bucket) instead of dropping the document
+        assertThat(query("SELECT group_key, count(*) FROM " + indexName + " GROUP BY group_key"))
+                .matches("VALUES (VARCHAR 'a', BIGINT '1'), (CAST(NULL AS varchar), BIGINT '1')")
+                .isFullyPushedDown();
+
+        // count/approx_distinct over an array column are NOT pushed down (they would aggregate array elements, not rows)
+        assertThat(query("SELECT count(tags) FROM " + indexName))
+                .matches("VALUES BIGINT '2'")
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
+        assertThat(query("SELECT approx_distinct(tags) FROM " + indexName))
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
+
+        // Statistics on a scalar-typed column that actually holds arrays must not fail planning (nullsFraction is clamped)
+        assertQuerySucceeds("SHOW STATS FOR " + indexName);
+
+        deleteIndex(indexName);
+    }
+
+    @Test
+    public void testNormalizedKeywordNotPushedDown()
+            throws IOException
+    {
+        String indexName = "normalized_keyword";
+        // A keyword field with a normalizer stores a rewritten (lowercased) value, so it is not exact for pushdown
+        @Language("JSON")
+        String body =
+                """
+                {
+                  "settings": {
+                    "analysis": { "normalizer": { "lower": { "type": "custom", "filter": ["lowercase"] } } }
+                  },
+                  "mappings": {
+                    "properties": {
+                      "city": { "type": "keyword", "normalizer": "lower" },
+                      "id": { "type": "keyword" }
+                    }
+                  }
+                }
+                """;
+        Request request = new Request("PUT", "/" + indexName);
+        request.setJsonEntity(body);
+        client.performRequest(request);
+
+        index(indexName, ImmutableMap.of("city", "Paris", "id", "1"));
+        index(indexName, ImmutableMap.of("city", "LONDON", "id", "2"));
+
+        // An exact predicate on a normalized keyword must be evaluated by the engine: a pushed term query would
+        // lowercase-match and wrongly return the row for 'paris'
+        assertThat(query("SELECT id FROM " + indexName + " WHERE city = 'paris'"))
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+        assertQueryReturnsEmptyResult("SELECT id FROM " + indexName + " WHERE city = 'paris'");
+        assertThat(query("SELECT id FROM " + indexName + " WHERE city = 'Paris'")).matches("VALUES VARCHAR '1'");
+
+        // ORDER BY on a normalized keyword must not be pushed (Elasticsearch would sort by the lowercased value)
+        assertThat(query("SELECT id FROM " + indexName + " ORDER BY city LIMIT 1"))
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.TopNNode.class);
+
+        deleteIndex(indexName);
+    }
+
+    @Test
+    public void testKeywordSubfieldPushdownSessionProperty()
+            throws IOException
+    {
+        String indexName = "keyword_ignore_above";
+        @Language("JSON")
+        String properties =
+                """
+                {
+                  "properties": {
+                    "text_bounded": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+                    "id": { "type": "keyword" }
+                  }
+                }
+                """;
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.of("text_bounded", "hello", "id", "1"));
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        Session withBounded = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, "keyword_subfield_pushdown_with_ignore_above", "true").build();
+        Session withoutBounded = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, "keyword_subfield_pushdown_with_ignore_above", "false").build();
+
+        // Default off: a keyword sub-field with ignore_above is not used, so the text predicate is left to the engine
+        assertThat(query(withoutBounded, "SELECT id FROM " + indexName + " WHERE text_bounded = 'hello'"))
+                .matches("VALUES VARCHAR '1'")
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+        // Session opt-in: the predicate is pushed down exactly on the keyword sub-field
+        assertThat(query(withBounded, "SELECT id FROM " + indexName + " WHERE text_bounded = 'hello'"))
+                .matches("VALUES VARCHAR '1'")
+                .isFullyPushedDown();
+
+        deleteIndex(indexName);
     }
 
     /**
@@ -1149,6 +1300,53 @@ public abstract class BaseElasticsearchConnectorTest
                 """))
                 .matches("VALUES VARCHAR 'so.me tex\\t'")
                 .isFullyPushedDown();
+
+        // starts_with(col, 'x') pushes down to an Elasticsearch prefix query
+        assertThat(query("SELECT keyword_column FROM " + indexName + " WHERE starts_with(keyword_column, 'so.me')"))
+                .matches("VALUES VARCHAR 'so.me tex\\t'")
+                .isFullyPushedDown();
+
+        // substr(col, 1, n) = 'x' with n equal to the character length of 'x' is also a prefix (UTF-8 aware)
+        assertThat(query("SELECT keyword_column FROM " + indexName + " WHERE substr(keyword_column, 1, 2) = '中文'"))
+                .matches("VALUES VARCHAR '中文'")
+                .isFullyPushedDown();
+
+        // Full-text pushdown mode: an analyzed text column's equality is pushed as a match_phrase query
+        String catalogName = getSession().getCatalog().orElseThrow();
+        Session unsafeFullText = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, "full_text_pushdown_mode", "UNSAFE")
+                .build();
+        Session safeFullText = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, "full_text_pushdown_mode", "SAFE")
+                .build();
+
+        // UNSAFE trusts Elasticsearch: the text equality is fully pushed down as a match_phrase
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column = 'soome%text'"))
+                .matches("VALUES VARCHAR 'soome%text'")
+                .isFullyPushedDown();
+
+        // SAFE pushes a match_phrase pre-filter but keeps the exact predicate as a residual (not fully pushed)
+        assertThat(query(safeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column = 'soome%text'"))
+                .matches("VALUES VARCHAR 'soome%text'")
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+
+        // LIKE on an analyzed text column is pushed as a regexp query when the full-text mode is on
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column LIKE '%soome%'"))
+                .isFullyPushedDown();
+
+        // regexp_like on text is pushed as an Elasticsearch (Lucene) regexp when the full-text mode is on
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, 'soome')"))
+                .isFullyPushedDown();
+        assertThat(query(safeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, 'soome')"))
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+
+        // A multi-token LIKE prefix is pushed as a match_phrase_prefix pre-filter; the engine keeps the exact prefix
+        // range as a residual, so the result stays correct (only "soome tex\t" starts with "soome te")
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column LIKE 'soome te%'"))
+                .matches("VALUES VARCHAR 'soome tex\\t'");
+        // A multi-token contains pattern has no usable prefix and would match nothing per token, so it is left to the engine
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column LIKE '%soo me%'"))
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
 
         assertThat(query(
                 """

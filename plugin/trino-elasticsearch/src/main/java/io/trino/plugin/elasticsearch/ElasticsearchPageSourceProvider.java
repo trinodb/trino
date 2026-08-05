@@ -24,18 +24,24 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.elasticsearch.ElasticsearchSessionProperties.getFullTextPushdownMode;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private static final int DOMAIN_COMPACTION_THRESHOLD = 1000;
+
     private final ElasticsearchClient client;
     private final TypeManager typeManager;
 
@@ -64,6 +70,33 @@ public class ElasticsearchPageSourceProvider
 
         if (elasticsearchTable.type().equals(QUERY)) {
             return new PassthroughQueryPageSource(client, elasticsearchTable);
+        }
+
+        if (elasticsearchTable.aggregation().isPresent()) {
+            // A composite/global aggregation runs across the whole index in a single request
+            return new AggregationQueryPageSource(
+                    client,
+                    elasticsearchTable,
+                    columns.stream()
+                            .map(ElasticsearchColumnHandle.class::cast)
+                            .collect(toImmutableList()));
+        }
+
+        // Fold the dynamic filter (join keys from the build side) into the constraint so it is applied within the Elasticsearch query.
+        // A dynamic filter is always a pre-filter (the join re-checks the key), so analyzed text keys are safe to include as full-text matches.
+        FullTextPushdownMode fullTextMode = getFullTextPushdownMode(session);
+        TupleDomain<ElasticsearchColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
+                .transformKeys(ElasticsearchColumnHandle.class::cast)
+                .filter((column, _) -> column.supportsPredicates()
+                        || (fullTextMode != FullTextPushdownMode.DISABLED && column.type() instanceof VarcharType));
+        if (!dynamicFilterPredicate.isAll()) {
+            TupleDomain<ColumnHandle> constraint = elasticsearchTable.constraint()
+                    .intersect(dynamicFilterPredicate.transformKeys(ColumnHandle.class::cast))
+                    .simplify(DOMAIN_COMPACTION_THRESHOLD);
+            elasticsearchTable = elasticsearchTable.withConstraint(constraint);
+        }
+        if (elasticsearchTable.constraint().isNone()) {
+            return new EmptyPageSource();
         }
 
         if (columns.isEmpty()) {

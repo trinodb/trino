@@ -26,6 +26,7 @@ import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.client.config.RequestConfig;
 import org.elasticsearch.client.Node;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
@@ -88,6 +89,17 @@ public class BackpressureRestClient
             throws IOException
     {
         return executeWithRetries(() -> delegate.performRequest(toRequest(method, endpoint, params, entity, headers)));
+    }
+
+    // A single attempt (NO backpressure retries) with a per-request socket timeout. Used for statistics collection so a
+    // slow aggregation fails fast and falls back to the row count instead of blocking query planning for minutes.
+    public Response performRequestWithTimeout(String method, String endpoint, Map<String, String> params, HttpEntity entity, int socketTimeoutMillis, Header... headers)
+            throws IOException
+    {
+        Request request = toRequest(method, endpoint, params, entity, headers);
+        request.setOptions(request.getOptions().toBuilder()
+                .setRequestConfig(RequestConfig.custom().setSocketTimeout(socketTimeoutMillis).build()));
+        return delegate.performRequest(request);
     }
 
     private static Request toRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, Header... headers)

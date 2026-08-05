@@ -133,10 +133,22 @@ public class TestElasticsearchQueryBuilder
                 {"bool":{"filter":[{"term":{"age":10}}],"must_not":[{"exists":{"field":"score"}}]}}""");
     }
 
+    @Test
+    public void testMatchPhrasePrefix()
+            throws IOException
+    {
+        // A full-text LIKE prefix on analyzed text is translated to a match_phrase_prefix query
+        JsonNode actual = buildSearchQuery(TupleDomain.all(), Optional.empty(), Map.of(), Map.of(), Map.of("text_column", "soome te"));
+        assertThat(JSON_MAPPER.readTree(actual.toString()))
+                .isEqualTo(JSON_MAPPER.readTree(
+                        """
+                        {"bool":{"filter":[{"match_phrase_prefix":{"text_column":"soome te"}}]}}"""));
+    }
+
     private static void assertQueryBuilder(Map<ElasticsearchColumnHandle, Domain> domains, String expected)
             throws IOException
     {
-        JsonNode actual = buildSearchQuery(TupleDomain.withColumnDomains(domains), Optional.empty(), Map.of());
+        JsonNode actual = buildSearchQuery(TupleDomain.withColumnDomains(domains), Optional.empty(), Map.of(), Map.of(), Map.of());
         // Compare as normalized JSON trees to handle numeric type differences (LongNode vs IntNode)
         assertThat(JSON_MAPPER.readTree(actual.toString())).isEqualTo(JSON_MAPPER.readTree(expected));
     }

@@ -57,7 +57,15 @@ public class TestElasticsearchConfig
                 .setTruststorePassword(null)
                 .setVerifyHostnames(true)
                 .setIgnorePublishAddress(false)
-                .setSecurity(null));
+                .setSecurity(null)
+                .setStatisticsEnabled(true)
+                .setStatisticsMaxIndexDocuments(20_000_000)
+                .setStatisticsMaxColumns(32)
+                .setStatisticsRequestTimeout(new Duration(5, SECONDS))
+                .setDynamicFilteringWaitTimeout(new Duration(5, SECONDS))
+                .setKeywordSubfieldPushdownWithIgnoreAbove(false)
+                .setAggregationPushdownEnabled(true)
+                .setFullTextPushdownMode(FullTextPushdownMode.DISABLED));
     }
 
     @Test
@@ -89,6 +97,14 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.ignore-publish-address", "true")
                 .put("elasticsearch.security", "AWS")
+                .put("elasticsearch.statistics.enabled", "false")
+                .put("elasticsearch.statistics.max-index-documents", "5000000")
+                .put("elasticsearch.statistics.max-statistics-columns", "16")
+                .put("elasticsearch.statistics.request-timeout", "20s")
+                .put("elasticsearch.dynamic-filtering.wait-timeout", "10s")
+                .put("elasticsearch.keyword-subfield-pushdown-with-ignore-above", "true")
+                .put("elasticsearch.aggregation-pushdown.enabled", "false")
+                .put("elasticsearch.full-text-pushdown", "SAFE")
                 .buildOrThrow();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
@@ -112,7 +128,15 @@ public class TestElasticsearchConfig
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
                 .setIgnorePublishAddress(true)
-                .setSecurity(AWS);
+                .setSecurity(AWS)
+                .setStatisticsEnabled(false)
+                .setStatisticsMaxIndexDocuments(5_000_000)
+                .setStatisticsMaxColumns(16)
+                .setStatisticsRequestTimeout(new Duration(20, SECONDS))
+                .setDynamicFilteringWaitTimeout(new Duration(10, SECONDS))
+                .setKeywordSubfieldPushdownWithIgnoreAbove(true)
+                .setAggregationPushdownEnabled(false)
+                .setFullTextPushdownMode(FullTextPushdownMode.SAFE);
 
         assertFullMapping(properties, expected);
     }
