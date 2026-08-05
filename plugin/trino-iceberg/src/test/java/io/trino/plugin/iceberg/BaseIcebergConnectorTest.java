@@ -439,6 +439,7 @@ public abstract class BaseIcebergConnectorTest
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   compression_codec = 'ZSTD',\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = " + formatVersion + ",\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
@@ -1343,6 +1344,7 @@ public abstract class BaseIcebergConnectorTest
                         "   order_status varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   compression_codec = 'ZSTD',\n" +
                         "   format = '%s',\n" +
                         "   format_version = 2,\n" +
                         "   location = '%s',\n" +
@@ -1767,6 +1769,7 @@ public abstract class BaseIcebergConnectorTest
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
+                "   compression_codec = 'ZSTD',\n" +
                 format("   format = '%s',\n", format) +
                 "   format_version = 2,\n" +
                 format("   location = '%s'\n", tempDirPath) +
@@ -1776,6 +1779,7 @@ public abstract class BaseIcebergConnectorTest
                 "   _x bigint\n" +
                 ")\n" +
                 "WITH (\n" +
+                "   compression_codec = 'ZSTD',\n" +
                 "   format = '" + format + "',\n" +
                 "   format_version = 2,\n" +
                 "   location = '" + tempDirPath + "'\n" +
@@ -2082,6 +2086,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(getTablePropertiesString("test_create_table_like_original")).isEqualTo(format(
                 """
                 WITH (
+                   compression_codec = 'ZSTD',
                    format = '%s',
                    format_version = %s,
                    location = '%s',
@@ -2099,6 +2104,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(getTablePropertiesString("test_create_table_like_copy1")).isEqualTo(format(
                 """
                 WITH (
+                   compression_codec = 'ZSTD',
                    format = '%s',
                    format_version = %s,
                    location = '%s'
@@ -2111,6 +2117,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(getTablePropertiesString("test_create_table_like_copy2")).isEqualTo(format(
                 """
                 WITH (
+                   compression_codec = 'ZSTD',
                    format = '%s',
                    format_version = %s,
                    location = '%s'
@@ -7406,6 +7413,30 @@ public abstract class BaseIcebergConnectorTest
 
         assertQueryFails("CREATE TABLE " + tableName + " WITH (format = '" + format + "', compression_codec = 'unsupported') AS SELECT * FROM nation",
                 ".* \\QUnable to set catalog 'iceberg' table property 'compression_codec' to ['unsupported']: Invalid value [unsupported]. Valid values: [NONE, SNAPPY, LZ4, ZSTD, GZIP]");
+    }
+
+    @Test
+    public void testDefaultCompressionCodecWrittenToTableMetadata()
+    {
+        // Verify that the connector-default compression codec (ZSTD) is always present in Iceberg table
+        // metadata even when the user does not explicitly set compression_codec at CREATE TABLE time.
+        // This makes the table self-describing for external Iceberg clients and ensures SHOW CREATE TABLE
+        // reflects the actual codec used for writes.
+        String tableName = format("test_default_compression_%s_%s", format, randomNameSuffix());
+        String compressionProperty = getCompressionPropertyName(format);
+        String expectedIcebergValue = toCompressionCodecTableProperty(format, HiveCompressionCodec.ZSTD);
+
+        assertUpdate(format("CREATE TABLE %s WITH (format = '%s') AS SELECT * FROM nation", tableName, format), "SELECT count(*) FROM nation");
+        try {
+            assertThat(getTableProperties(tableName))
+                    .containsEntry(compressionProperty, expectedIcebergValue);
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                    .contains("compression_codec = 'ZSTD'");
+            assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
