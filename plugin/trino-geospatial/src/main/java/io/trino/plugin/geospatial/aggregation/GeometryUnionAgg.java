@@ -26,6 +26,8 @@ import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Geometry;
 
 import static io.trino.geospatial.GeometryUtils.safeUnion;
+import static io.trino.geospatial.GeometryUtils.strictInvalidOverlay;
+import static io.trino.geospatial.GeometryUtils.verifyValidInputGeometry;
 import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 
@@ -42,13 +44,23 @@ public final class GeometryUnionAgg
     @InputFunction
     public static void input(@AggregationState GeometryState state, @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
+        input(state, geometry, strictInvalidOverlay());
+    }
+
+    static void input(GeometryState state, Geometry geometry, boolean rejectInvalidInputs)
+    {
+        if (rejectInvalidInputs) {
+            verifyValidInputGeometry(geometry);
+        }
         if (state.getGeometry() == null) {
             state.setGeometry(geometry);
         }
         else {
             int srid = validateAndGetSrid(state.getGeometry(), geometry);
             if (!geometry.isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), geometry);
+                // Strict mode validates each raw input above. Do not revalidate the growing,
+                // already-produced state on every row.
+                Geometry result = safeUnion(state.getGeometry(), geometry, false);
                 result.setSRID(srid);
                 state.setGeometry(result);
             }
@@ -61,13 +73,18 @@ public final class GeometryUnionAgg
     @CombineFunction
     public static void combine(@AggregationState GeometryState state, @AggregationState GeometryState otherState)
     {
+        // Strict mode validates raw user inputs in input(); partial states are engine values and
+        // are not revalidated here. Overlay output is not guaranteed valid in every case (see
+        // locationtech/jts#1000), so revalidating would turn a rare engine quirk into a spurious
+        // invalid-argument failure that depends on how rows are distributed across nodes, because
+        // single-node aggregations never call combine().
         if (state.getGeometry() == null) {
             state.setGeometry(otherState.getGeometry());
         }
         else if (otherState.getGeometry() != null) {
             int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
             if (!otherState.getGeometry().isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry());
+                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry(), false);
                 result.setSRID(srid);
                 state.setGeometry(result);
             }

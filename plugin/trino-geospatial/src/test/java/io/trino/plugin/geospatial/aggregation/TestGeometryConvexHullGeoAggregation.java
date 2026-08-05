@@ -221,6 +221,12 @@ public class TestGeometryConvexHullGeoAggregation
                 "POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 1))",
                 "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
                 "POINT (3 2)");
+
+        assertAggregatedGeometries(
+                "self-intersecting polygon is repaired after union failure",
+                "POLYGON ((-1 -1, 3 -1, 3 3, -1 3, -1 -1))",
+                "POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))",
+                "POLYGON ((-1 -1, 3 -1, 3 3, -1 3, -1 -1))");
     }
 
     @Test

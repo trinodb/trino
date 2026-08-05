@@ -36,6 +36,7 @@ import org.locationtech.jts.io.WKTReader;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.trino.geospatial.KdbTree.buildKdbTree;
@@ -1433,6 +1434,45 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_AsEWKT", "geometry_union(ARRAY[ST_SetSRID(ST_GeometryFromText('POINT EMPTY'), 4326), ST_SetSRID(ST_GeometryFromText('LINESTRING EMPTY'), 4326)])"))
                 .hasType(VARCHAR)
                 .isEqualTo("SRID=4326;GEOMETRYCOLLECTION EMPTY");
+    }
+
+    @Test
+    public void testSetOperationsRepairInvalidGeometry()
+    {
+        // JTS 1.20 OverlayNGRobust throws "side location conflict" for this self-intersecting polygon.
+        String invalidGeometry = "ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))'), 4326)";
+        String clippingGeometry = "ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 1 0, 1 2, 0 2, 0 0))'), 4326)";
+
+        assertThat(assertions.function("ST_IsValid", invalidGeometry))
+                .isEqualTo(false);
+
+        Map<String, String> expectedResults = Map.of(
+                "ST_Intersection(%s, %s)".formatted(invalidGeometry, clippingGeometry), "MULTIPOLYGON (((1 1, 1 0, 0 0, 1 1)), ((0 2, 1 2, 1 1, 0 2)))",
+                "ST_Difference(%s, %s)".formatted(invalidGeometry, clippingGeometry), "MULTIPOLYGON (((2 0, 1 0, 1 1, 2 0)), ((2 2, 1 1, 1 2, 2 2)))",
+                "ST_Difference(%s, %s)".formatted(clippingGeometry, invalidGeometry), "POLYGON ((0 0, 0 2, 1 1, 0 0))",
+                "ST_SymDifference(%s, %s)".formatted(invalidGeometry, clippingGeometry), "MULTIPOLYGON (((0 0, 0 2, 1 1, 0 0)), ((2 0, 1 0, 1 1, 2 0)), ((2 2, 1 1, 1 2, 2 2)))",
+                "ST_Union(%s, %s)".formatted(invalidGeometry, clippingGeometry), "POLYGON ((2 0, 1 0, 0 0, 0 2, 1 2, 2 2, 1 1, 2 0))",
+                "geometry_union(ARRAY[%s, %s])".formatted(invalidGeometry, clippingGeometry), "POLYGON ((2 0, 1 0, 0 0, 0 2, 1 2, 2 2, 1 1, 2 0))");
+
+        expectedResults.forEach((expression, expectedWkt) -> {
+            assertSpatialEquals(assertions, expression, expectedWkt);
+            assertThat(assertions.function("ST_IsValid", expression))
+                    .isEqualTo(true);
+            assertThat(assertions.function("ST_SRID", expression))
+                    .isEqualTo(4326);
+        });
+
+        String invalidGeometryWithZ = "ST_SetSRID(ST_GeometryFromText('POLYGON Z ((0 0 1, 2 2 2, 0 2 3, 2 0 4, 0 0 1))'), 4326)";
+        String clippingGeometryWithZ = "ST_SetSRID(ST_GeometryFromText('POLYGON Z ((0 0 10, 1 0 11, 1 2 12, 0 2 13, 0 0 10))'), 4326)";
+        String intersectionWithZ = "ST_Intersection(%s, %s)".formatted(invalidGeometryWithZ, clippingGeometryWithZ);
+
+        assertThat(assertions.function("ST_IsValid", intersectionWithZ))
+                .isEqualTo(true);
+        assertThat(assertions.function("ST_SRID", intersectionWithZ))
+                .isEqualTo(4326);
+        assertThat(assertions.function("ST_CoordDim", intersectionWithZ))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 3);
     }
 
     private void assertEnvelopeAsPts(String wkt, Coordinate lowerLeftCorner, Coordinate upperRightCorner)

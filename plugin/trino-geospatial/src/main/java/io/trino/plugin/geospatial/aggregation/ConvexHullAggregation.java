@@ -52,7 +52,9 @@ public final class ConvexHullAggregation
         else {
             int srid = validateAndGetSrid(state.getGeometry(), geometry);
             if (!geometry.isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), geometry).convexHull();
+                // Convex hull is defined over input coordinates even when polygon topology is
+                // invalid. Do not inherit overlay strictness from this internal union.
+                Geometry result = safeUnion(state.getGeometry(), geometry, false).convexHull();
                 result.setSRID(srid);
                 state.setGeometry(result);
             }
@@ -73,7 +75,7 @@ public final class ConvexHullAggregation
         else if (otherState.getGeometry() != null) {
             int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
             if (!otherState.getGeometry().isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry()).convexHull();
+                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry(), false).convexHull();
                 result.setSRID(srid);
                 state.setGeometry(result);
             }
