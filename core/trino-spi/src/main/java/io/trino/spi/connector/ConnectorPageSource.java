@@ -54,6 +54,7 @@ public interface ConnectorPageSource
 
     /**
      * Gets the next page of data. This method is allowed to return null.
+     * This method is not called after {@link #isFinished()} returns {@code true}.
      */
     default SourcePage getNextSourcePage()
     {

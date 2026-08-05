@@ -271,6 +271,9 @@ public class TableScanOperator
         }
         if (source == null) {
             source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, DynamicFilter.EMPTY, pageSourceMemoryContext::setBytes);
+            if (source.isFinished()) {
+                return null;
+            }
         }
 
         SourcePage sourcePage = source.getNextSourcePage();
