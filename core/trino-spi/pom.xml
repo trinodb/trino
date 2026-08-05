@@ -571,6 +571,11 @@
                                     <annotation>@com.fasterxml.jackson.annotation.JsonProperty</annotation>
                                     <justification>getName() is deprecated and replaced by getPrincipalName() which preserves the original case of USER principal names. The @JsonProperty annotation is moved to getPrincipalName() so that JSON serialization reflects the stored name verbatim.</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorMergeSink io.trino.spi.connector.ConnectorPageSinkProvider::createMergeSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <new>method io.trino.spi.connector.ConnectorMergeSink io.trino.spi.connector.ConnectorPageSinkProvider::createMergeSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId, io.trino.spi.connector.MemoryContext)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
