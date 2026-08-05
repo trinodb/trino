@@ -26,17 +26,23 @@ import io.trino.spi.type.Type;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hive.formats.HiveFormatUtils.writeDecimal;
+import static io.trino.plugin.base.util.NumberParser.NOT_SHORT_DECIMAL;
+import static io.trino.plugin.base.util.NumberParser.longPowerOfTen;
+import static io.trino.plugin.base.util.NumberParser.parseShortDecimal;
 
 public class DecimalEncoding
         implements TextColumnEncoding
 {
     private final DecimalType type;
     private final Slice nullSequence;
+    // a short decimal overflows its precision when the unscaled value reaches this
+    private final long shortDecimalOverflow;
 
     public DecimalEncoding(Type type, Slice nullSequence)
     {
         this.type = (DecimalType) type;
         this.nullSequence = nullSequence;
+        this.shortDecimalOverflow = this.type.isShort() ? longPowerOfTen(this.type.getPrecision()) : 0;
     }
 
     @Override
@@ -97,6 +103,20 @@ public class DecimalEncoding
 
     private void decodeValue(BlockBuilder builder, Slice slice, int offset, int length)
     {
+        if (type.isShort()) {
+            long unscaled = parseShortDecimal(slice, offset, length, type.getScale());
+            if (unscaled != NOT_SHORT_DECIMAL) {
+                if (unscaled <= -shortDecimalOverflow || unscaled >= shortDecimalOverflow) {
+                    // value too large for the precision of the column
+                    builder.appendNull();
+                }
+                else {
+                    type.writeLong(builder, unscaled);
+                }
+                return;
+            }
+        }
+
         try {
             writeDecimal(slice.toStringAscii(offset, length), type, builder);
         }

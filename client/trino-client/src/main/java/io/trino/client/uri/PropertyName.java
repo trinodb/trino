@@ -31,6 +31,7 @@ public enum PropertyName
     CLIENT_INFO("clientInfo"),
     CLIENT_TAGS("clientTags"),
     DISABLE_COMPRESSION("disableCompression"),
+    EXTRA_HEADERS("extraHeaders"),
     DNS_RESOLVER("dnsResolver"),
     DNS_RESOLVER_CONTEXT("dnsResolverContext"),
     ENCODING("encoding"),
@@ -76,6 +77,7 @@ public enum PropertyName
     TIMEZONE("timezone"),
     TRACE_TOKEN("traceToken"),
     USER("user"),
+    DISALLOW_LOCAL_REDIRECT("disallowLocalRedirect"),
     VALIDATE_CONNECTION("validateConnection");
 
     private final String key;

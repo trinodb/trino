@@ -16,21 +16,18 @@ package io.trino.sql.gen.columnar;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.relational.RowExpression;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import io.trino.sql.planner.SymbolAllocator;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -42,20 +39,17 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
-import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static java.util.Objects.requireNonNull;
 
 public final class DynamicPageFilter
 {
-    private final Metadata metadata;
-    private final TypeManager typeManager;
     private final Session session;
     private final IrExpressionOptimizer irExpressionOptimizer;
     private final DomainTranslator domainTranslator;
     private final Map<ColumnHandle, Symbol> columnHandles;
     private final Map<Symbol, Integer> sourceLayout;
     private final double selectivityThreshold;
+    private final boolean filterReorderingEnabled;
 
     @Nullable
     @GuardedBy("this")
@@ -72,23 +66,22 @@ public final class DynamicPageFilter
             Session session,
             Map<Symbol, ColumnHandle> columnHandles,
             Map<Symbol, Integer> sourceLayout,
-            double selectivityThreshold)
+            double selectivityThreshold,
+            boolean filterReorderingEnabled)
     {
-        this.metadata = requireNonNull(plannerContext.getMetadata(), "metadata is null");
-        this.typeManager = requireNonNull(plannerContext.getTypeManager(), "typeManager is null");
         this.session = requireNonNull(session, "session is null");
-        this.irExpressionOptimizer = newOptimizer(plannerContext);
+        this.irExpressionOptimizer = plannerContext.getExpressionOptimizer();
         this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
         this.columnHandles = columnHandles.entrySet()
                 .stream()
                 .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
         this.sourceLayout = ImmutableMap.copyOf(sourceLayout);
         this.selectivityThreshold = selectivityThreshold;
+        this.filterReorderingEnabled = filterReorderingEnabled;
     }
 
-    // Compiled dynamic filter is fixed per-split and generated duration page source creation.
-    // Page source implementations may subsequently implement blocking on completion of dynamic filters, but since
-    // that occurs after page source creation, we cannot be guaranteed a completed dynamic filter here for initial splits
+    // Compiled dynamic filter is generated once per split at PageProcessor#createWorkProcessor.
+    // The supplied FilterEvaluator should not be shared across splits.
     public synchronized Supplier<FilterEvaluator> createDynamicPageFilterEvaluator(ColumnarFilterCompiler compiler, DynamicFilter dynamicFilter)
     {
         requireNonNull(dynamicFilter, "dynamicFilter is null");
@@ -119,6 +112,13 @@ public final class DynamicPageFilter
         if (currentPredicate.isNone()) {
             return SelectNoneEvaluator::new;
         }
+        if (currentPredicate.isAll()) {
+            return SelectAllEvaluator::new;
+        }
+        // There is no planning context here; seed the allocator with the layout symbols so that a
+        // symbol introduced by a rule (e.g. a Let binding) cannot collide with a column reference
+        // in the expression handed to codegen below.
+        SymbolAllocator symbolAllocator = new SymbolAllocator(columnHandles.values());
         // We translate each conjunct into separate FilterEvaluator to make it easy to profile selectivity
         // of dynamic filter per column and drop them if they're ineffective
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = currentPredicate.getDomains().orElseThrow()
@@ -127,39 +127,45 @@ public final class DynamicPageFilter
                     Symbol symbol = columnHandles.get(entry.getKey());
                     Expression expression = domainTranslator.toPredicate(entry.getValue(), symbol.toSymbolReference());
                     // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
-                    expression = irExpressionOptimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
-                    RowExpression rowExpression = translate(expression, sourceLayout, metadata, typeManager);
-                    return createColumnarFilterEvaluator(rowExpression, compiler);
+                    expression = irExpressionOptimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
+                    return createColumnarFilterEvaluator(expression, sourceLayout, compiler, filterReorderingEnabled, true);
                 })
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toImmutableList());
-        return () -> new DynamicFilterEvaluator(
-                subExpressionEvaluators.stream().map(Supplier::get).collect(toImmutableList()),
-                selectivityThreshold);
+        return () -> {
+            FilterEvaluator[] filterEvaluators = new FilterEvaluator[subExpressionEvaluators.size()];
+            for (int i = 0; i < filterEvaluators.length; i++) {
+                filterEvaluators[i] = requireNonNull(subExpressionEvaluators.get(i).get(), "subExpressionEvaluator is null");
+            }
+            return new DynamicFilterEvaluator(filterEvaluators, selectivityThreshold);
+        };
     }
 
     static final class DynamicFilterEvaluator
             implements FilterEvaluator
     {
-        private final List<FilterEvaluator> subFilterEvaluators;
+        private final FilterEvaluator[] subFilterEvaluators;
         private final EffectiveFilterProfiler profiler;
 
-        private DynamicFilterEvaluator(List<FilterEvaluator> subFilterEvaluators, double selectivityThreshold)
+        private DynamicFilterEvaluator(FilterEvaluator[] subFilterEvaluators, double selectivityThreshold)
         {
             this.subFilterEvaluators = subFilterEvaluators;
-            this.profiler = new EffectiveFilterProfiler(selectivityThreshold, subFilterEvaluators.size());
+            this.profiler = new EffectiveFilterProfiler(selectivityThreshold, subFilterEvaluators.length);
         }
 
         @Override
         public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
         {
             long filterTimeNanos = 0;
-            for (int filterIndex = 0; filterIndex < subFilterEvaluators.size(); filterIndex++) {
+            for (int filterIndex = 0; filterIndex < subFilterEvaluators.length; filterIndex++) {
                 if (!profiler.isFilterEffective(filterIndex)) {
                     continue;
                 }
-                FilterEvaluator evaluator = subFilterEvaluators.get(filterIndex);
+                if (activePositions.isEmpty()) {
+                    break;
+                }
+                FilterEvaluator evaluator = subFilterEvaluators[filterIndex];
                 SelectionResult result = evaluator.evaluate(session, activePositions, page);
                 profiler.recordSelectivity(activePositions, result.selectedPositions(), filterIndex);
                 filterTimeNanos += result.filterTimeNanos();
@@ -169,38 +175,35 @@ public final class DynamicPageFilter
         }
     }
 
-    private static class EffectiveFilterProfiler
+    private static final class EffectiveFilterProfiler
     {
         private static final int MIN_SAMPLE_POSITIONS = 2047;
 
         private final double selectivityThreshold;
         private final long[] filterInputPositions;
         private final long[] filterOutputPositions;
-        private final IntOpenHashSet ineffectiveFilterChannels;
+        private final boolean[] filterChannelIneffective;
 
         private EffectiveFilterProfiler(double selectivityThreshold, int filterCount)
         {
             this.selectivityThreshold = selectivityThreshold;
             this.filterInputPositions = new long[filterCount];
             this.filterOutputPositions = new long[filterCount];
-            this.ineffectiveFilterChannels = new IntOpenHashSet(filterCount);
+            this.filterChannelIneffective = new boolean[filterCount];
         }
 
         private void recordSelectivity(SelectedPositions inputPositions, SelectedPositions selectedPositions, int filterIndex)
         {
             filterInputPositions[filterIndex] += inputPositions.size();
+            long filterInputPositions = this.filterInputPositions[filterIndex];
             filterOutputPositions[filterIndex] += selectedPositions.size();
-            if (filterInputPositions[filterIndex] < MIN_SAMPLE_POSITIONS) {
-                return;
-            }
-            if (filterOutputPositions[filterIndex] > (selectivityThreshold * filterInputPositions[filterIndex])) {
-                ineffectiveFilterChannels.add(filterIndex);
-            }
+            long filterOutputPositions = this.filterOutputPositions[filterIndex];
+            filterChannelIneffective[filterIndex] = filterInputPositions >= MIN_SAMPLE_POSITIONS && filterOutputPositions > (selectivityThreshold * filterInputPositions);
         }
 
         private boolean isFilterEffective(int filterIndex)
         {
-            return !ineffectiveFilterChannels.contains(filterIndex);
+            return !filterChannelIneffective[filterIndex];
         }
     }
 }

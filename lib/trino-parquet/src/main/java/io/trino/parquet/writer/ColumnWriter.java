@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 
 public interface ColumnWriter
@@ -33,9 +34,26 @@ public interface ColumnWriter
     List<BufferData> getBuffer()
             throws IOException;
 
-    long getBufferedBytes();
+    long getEstimatedBufferedBytes(CompressionStats compressionStats);
+
+    default CompressionStats getCompressionStats()
+    {
+        return CompressionStats.EMPTY;
+    }
 
     long getRetainedBytes();
+
+    record CompressionStats(long compressedSize, long uncompressedSize)
+    {
+        static final CompressionStats EMPTY = new CompressionStats(0, 0);
+
+        CompressionStats add(CompressionStats compressionStats)
+        {
+            return new CompressionStats(
+                    addExact(this.compressedSize, compressionStats.compressedSize()),
+                    addExact(this.uncompressedSize, compressionStats.uncompressedSize()));
+        }
+    }
 
     class BufferData
     {

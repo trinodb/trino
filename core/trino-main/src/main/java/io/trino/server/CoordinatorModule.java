@@ -28,6 +28,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculator.EstimatedExchanges;
 import io.trino.cost.CostCalculatorUsingExchanges;
@@ -44,6 +45,7 @@ import io.trino.dispatcher.LocalDispatchQueryFactory;
 import io.trino.dispatcher.QueuedStatementResource;
 import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
@@ -60,7 +62,6 @@ import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SessionPropertyEvaluator;
-import io.trino.execution.SqlQueryManager;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StagesInfo;
 import io.trino.execution.TaskInfo;
@@ -73,6 +74,8 @@ import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.SplitSchedulerStats;
+import io.trino.execution.scheduler.StableHostAddressProvider;
+import io.trino.execution.scheduler.StableHostAddressProviderConfig;
 import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorModule;
 import io.trino.execution.scheduler.UniformNodeSelectorModule;
@@ -101,8 +104,6 @@ import io.trino.memory.LowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy;
-import io.trino.memory.MemoryManagerConfig.LowMemoryTaskKillerPolicy;
 import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesQueryLowMemoryKiller;
@@ -110,6 +111,8 @@ import io.trino.memory.TotalReservationOnBlockedNodesTaskLowMemoryKiller;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
@@ -145,16 +148,13 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static io.trino.util.Executors.decorateWithVersion;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -200,12 +200,12 @@ public class CoordinatorModule
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
-        jaxrsBinder(binder).bind(QueryStateInfoResource.class);
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
-        binder.bind(SqlQueryManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(SqlQueryManager.class).withGeneratedName();
-        binder.bind(QueryManager.class).to(SqlQueryManager.class);
+        binder.bind(QueryManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(QueryManager.class).as(generator -> generator.generatedNameOf(QueryManager.class)
+                // For backward compatibility
+                .replaceFirst("QueryManager", "SqlQueryManager"));
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
         OptionalBinder.newOptionalBinder(binder, SessionSupplier.class).setDefault().to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupInfoProvider.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
@@ -234,14 +234,40 @@ public class CoordinatorModule
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 }).build());
 
-        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.NONE, NoneLowMemoryKiller.class);
-        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesTaskLowMemoryKiller.class);
-        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.LEAST_WASTE, LeastWastedEffortTaskLowMemoryKiller.class);
-        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.NONE, NoneLowMemoryKiller.class);
-        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
-        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesQueryLowMemoryKiller.class);
+        MemoryManagerConfig memoryManagerConfig = buildConfigObject(MemoryManagerConfig.class);
+        switch (memoryManagerConfig.getLowMemoryQueryKillerPolicy()) {
+            case NONE -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForQueryLowMemoryKiller.class)
+                    .to(NoneLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+            case TOTAL_RESERVATION -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForQueryLowMemoryKiller.class)
+                    .to(TotalReservationLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+            case TOTAL_RESERVATION_ON_BLOCKED_NODES -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForQueryLowMemoryKiller.class)
+                    .to(TotalReservationOnBlockedNodesQueryLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+        }
+
+        switch (memoryManagerConfig.getLowMemoryTaskKillerPolicy()) {
+            case NONE -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForTaskLowMemoryKiller.class)
+                    .to(NoneLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+            case TOTAL_RESERVATION_ON_BLOCKED_NODES -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForTaskLowMemoryKiller.class)
+                    .to(TotalReservationOnBlockedNodesTaskLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+            case LEAST_WASTE -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForTaskLowMemoryKiller.class)
+                    .to(LeastWastedEffortTaskLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+        }
 
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+
+        jaxrsBinder(binder).bind(GatewayResource.class);
 
         // node partitioning manager
         binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
@@ -251,15 +277,14 @@ public class CoordinatorModule
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
+        // stable host address provider used by the scheduler to place splits that carry an affinity key
+        configBinder(binder).bindConfig(StableHostAddressProviderConfig.class);
+
         // network topology
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> UNIFORM == config.getNodeSchedulerPolicy(),
-                new UniformNodeSelectorModule()));
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
-                new TopologyAwareNodeSelectorModule()));
+        switch (buildConfigObject(NodeSchedulerConfig.class).getNodeSchedulerPolicy()) {
+            case UNIFORM -> install(new UniformNodeSelectorModule());
+            case TOPOLOGY -> install(new TopologyAwareNodeSelectorModule());
+        }
 
         // node allocator
         binder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
@@ -299,6 +324,9 @@ public class CoordinatorModule
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
+
+        // exchanges metrics
+        binder.bind(ExchangeMetricsCollector.class).in(Scopes.SINGLETON);
 
         // statistics calculator
         binder.install(new StatsCalculatorModule());
@@ -358,11 +386,18 @@ public class CoordinatorModule
         binder.bind(RemoteTaskStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
 
+        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
         install(internalHttpClientModule("scheduler", ForScheduler.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(60, SECONDS));
                     config.setRequestTimeout(new Duration(20, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
+                    if (internalCommunicationConfig.isHttp2Enabled()) {
+                        // HTTP/2 requires fewer connections thanks to multiplexing
+                        config.setMaxConnectionsPerServer(64);
+                    }
+                    else {
+                        config.setMaxConnectionsPerServer(250);
+                    }
                 }).build());
 
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
@@ -420,13 +455,25 @@ public class CoordinatorModule
 
     @Provides
     @Singleton
+    public static StableHostAddressProvider createStableHostAddressProvider(
+            InternalNode currentNode,
+            InternalNodeManager nodeManager,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            StableHostAddressProviderConfig config)
+    {
+        return new StableHostAddressProvider(new DefaultNodeManager(currentNode, nodeManager, nodeSchedulerConfig.isIncludeCoordinator()), config);
+    }
+
+    @Provides
+    @Singleton
     @QueryExecutorInternal
     public static ExecutorService createQueryExecutor(QueryManagerConfig queryManagerConfig)
     {
         ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
                 queryManagerConfig.getQueryExecutorPoolSize(),
                 queryManagerConfig.getQueryExecutorPoolSize(),
-                60, SECONDS,
+                60,
+                SECONDS,
                 new LinkedBlockingQueue<>(1000),
                 threadsNamed("query-execution-%s"));
         queryExecutor.allowCoreThreadTimeOut(true);
@@ -470,29 +517,5 @@ public class CoordinatorModule
     public static ScheduledExecutorService createStatementTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%s"));
-    }
-
-    private void bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
-    {
-        install(conditionalModule(
-                MemoryManagerConfig.class,
-                config -> policy == config.getLowMemoryQueryKillerPolicy(),
-                binder -> binder
-                        .bind(LowMemoryKiller.class)
-                        .annotatedWith(ForQueryLowMemoryKiller.class)
-                        .to(clazz)
-                        .in(Scopes.SINGLETON)));
-    }
-
-    private void bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
-    {
-        install(conditionalModule(
-                MemoryManagerConfig.class,
-                config -> policy == config.getLowMemoryTaskKillerPolicy(),
-                binder -> binder
-                        .bind(LowMemoryKiller.class)
-                        .annotatedWith(ForTaskLowMemoryKiller.class)
-                        .to(clazz)
-                        .in(Scopes.SINGLETON)));
     }
 }

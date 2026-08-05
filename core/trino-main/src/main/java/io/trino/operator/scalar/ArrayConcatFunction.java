@@ -22,8 +22,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.VarArgsToArrayAdapterGenerator;
 
 import java.lang.invoke.MethodHandle;
@@ -33,7 +31,8 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
@@ -53,7 +52,7 @@ public final class ArrayConcatFunction
     static {
         try {
             MethodHandles.Lookup lookup = lookup();
-            METHOD_HANDLE = lookup.findStatic(ArrayConcatFunction.class, "concat", methodType(Block.class, Type.class, Object.class, Block[].class));
+            METHOD_HANDLE = lookup.findStatic(ArrayConcatFunction.class, "concat", methodType(Block.class, Object.class, Block[].class));
             USER_STATE_FACTORY = lookup.findStatic(ArrayConcatFunction.class, "createState", methodType(Object.class, ArrayType.class));
         }
         catch (ReflectiveOperationException e) {
@@ -66,8 +65,8 @@ public final class ArrayConcatFunction
         super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(arrayType(new TypeSignature("E")))
-                        .argumentType(arrayType(new TypeSignature("E")))
+                        .returnType(arrayType(typeVariable("E")))
+                        .argumentType(arrayType(typeVariable("E")))
                         .variableArity()
                         .build())
                 .description(DESCRIPTION)
@@ -87,7 +86,7 @@ public final class ArrayConcatFunction
                 Block.class,
                 Block.class,
                 boundSignature.getArity(),
-                METHOD_HANDLE.bindTo(arrayType.getElementType()),
+                METHOD_HANDLE,
                 USER_STATE_FACTORY.bindTo(arrayType));
 
         return new ChoicesSpecializedSqlScalarFunction(
@@ -105,7 +104,7 @@ public final class ArrayConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static Block concat(Type elementType, Object state, Block[] blocks)
+    public static Block concat(Object state, Block[] blocks)
     {
         int resultPositionCount = 0;
 
@@ -126,9 +125,7 @@ public final class ArrayConcatFunction
 
         return ((BufferedArrayValueBuilder) state).build(resultPositionCount, elementBuilder -> {
             for (Block block : blocks) {
-                for (int i = 0; i < block.getPositionCount(); i++) {
-                    elementType.appendTo(block, i, elementBuilder);
-                }
+                elementBuilder.appendBlockRange(block, 0, block.getPositionCount());
             }
         });
     }

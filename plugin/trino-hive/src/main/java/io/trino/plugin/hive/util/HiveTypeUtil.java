@@ -25,8 +25,8 @@ import io.trino.metastore.type.TypeInfo;
 import io.trino.metastore.type.UnionTypeInfo;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -40,29 +40,29 @@ import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeDescriptor;
 
 public final class HiveTypeUtil
 {
     private HiveTypeUtil() {}
 
     /**
-     * @deprecated Prefer {@link #getTypeSignature(HiveType, HiveTimestampPrecision)}.
+     * @deprecated Prefer {@link #getTypeDescriptor(HiveType, HiveTimestampPrecision)}.
      */
     @Deprecated
-    public static TypeSignature getTypeSignature(HiveType type)
+    public static TypeDescriptor getTypeDescriptor(HiveType type)
     {
-        return getTypeSignature(type, DEFAULT_PRECISION);
+        return getTypeDescriptor(type, DEFAULT_PRECISION);
     }
 
-    public static TypeSignature getTypeSignature(HiveType type, HiveTimestampPrecision timestampPrecision)
+    public static TypeDescriptor getTypeDescriptor(HiveType type, HiveTimestampPrecision timestampPrecision)
     {
-        return toTypeSignature(type.getTypeInfo(), timestampPrecision);
+        return toTypeDescriptor(type.getTypeInfo(), timestampPrecision);
     }
 
     public static Type getType(HiveType type, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
     {
-        return typeManager.getType(getTypeSignature(type, timestampPrecision));
+        return typeManager.getType(getTypeDescriptor(type, timestampPrecision));
     }
 
     public static boolean typeSupported(TypeInfo typeInfo, StorageFormat storageFormat)
@@ -73,16 +73,15 @@ public final class HiveTypeUtil
                     typeSupported(((MapTypeInfo) typeInfo).getMapValueTypeInfo(), storageFormat);
             case LIST -> typeSupported(((ListTypeInfo) typeInfo).getListElementTypeInfo(), storageFormat);
             case STRUCT -> ((StructTypeInfo) typeInfo).getAllStructFieldTypeInfos().stream().allMatch(fieldTypeInfo -> typeSupported(fieldTypeInfo, storageFormat));
-            case UNION ->
-                    // This feature (reading union types as structs) has only been verified against Avro and ORC tables. Here's a discussion:
-                    //   1. Avro tables are supported and verified.
-                    //   2. ORC tables are supported and verified.
-                    //   3. The Parquet format doesn't support union types itself so there's no need to add support for it in Trino.
-                    //   4. TODO: RCFile tables are not supported yet.
-                    //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
-                    storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) ||
-                            storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde()) ||
-                            ((UnionTypeInfo) typeInfo).getAllUnionObjectTypeInfos().stream().allMatch(fieldTypeInfo -> typeSupported(fieldTypeInfo, storageFormat));
+            // This feature (reading union types as structs) has only been verified against Avro and ORC tables. Here's a discussion:
+            //   1. Avro tables are supported and verified.
+            //   2. ORC tables are supported and verified.
+            //   3. The Parquet format doesn't support union types itself so there's no need to add support for it in Trino.
+            //   4. TODO: RCFile tables are not supported yet.
+            //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
+            case UNION -> storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) ||
+                    storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde()) ||
+                    ((UnionTypeInfo) typeInfo).getAllUnionObjectTypeInfos().stream().allMatch(fieldTypeInfo -> typeSupported(fieldTypeInfo, storageFormat));
         };
     }
 
@@ -90,25 +89,25 @@ public final class HiveTypeUtil
     {
         return switch (category) {
             case BOOLEAN,
-                    BYTE,
-                    SHORT,
-                    INT,
-                    LONG,
-                    FLOAT,
-                    DOUBLE,
-                    STRING,
-                    VARCHAR,
-                    CHAR,
-                    DATE,
-                    TIMESTAMP,
-                    TIMESTAMPLOCALTZ,
-                    BINARY,
-                    DECIMAL -> true;
+                 BYTE,
+                 SHORT,
+                 INT,
+                 LONG,
+                 FLOAT,
+                 DOUBLE,
+                 STRING,
+                 VARCHAR,
+                 CHAR,
+                 DATE,
+                 TIMESTAMP,
+                 TIMESTAMPLOCALTZ,
+                 BINARY,
+                 DECIMAL -> true;
             case INTERVAL_YEAR_MONTH,
-                    INTERVAL_DAY_TIME,
-                    VOID,
-                    VARIANT,
-                    UNKNOWN -> false;
+                 INTERVAL_DAY_TIME,
+                 VOID,
+                 VARIANT,
+                 UNKNOWN -> false;
         };
     }
 

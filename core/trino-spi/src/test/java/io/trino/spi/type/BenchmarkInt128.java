@@ -87,7 +87,7 @@ public class BenchmarkInt128
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         Benchmarks.benchmark(BenchmarkInt128.class).run();

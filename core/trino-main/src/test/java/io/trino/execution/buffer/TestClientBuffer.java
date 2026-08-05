@@ -23,7 +23,7 @@ import io.trino.execution.buffer.ClientBuffer.PagesSupplier;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.spi.Page;
-import io.trino.spi.type.BigintType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
@@ -51,11 +51,11 @@ import static org.assertj.core.api.Fail.fail;
 
 public class TestClientBuffer
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
-    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final long TASK_INSTANCE_ID = 0x1337;
+    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId BUFFER_ID = new OutputBufferId(33);
     private static final String INVALID_SEQUENCE_ID = "Invalid sequence id";
-    private static final PagesReleasedListener NOOP_RELEASE_LISTENER = (releasedPagesCount, releasedMemorySizeInBytes) -> {};
+    private static final PagesReleasedListener NOOP_RELEASE_LISTENER = (_, _) -> {};
 
     @Test
     public void testSimplePushBuffer()
@@ -331,7 +331,7 @@ public class TestClientBuffer
     public void testReferenceCount()
     {
         AtomicInteger releasedPages = new AtomicInteger();
-        PagesReleasedListener onPagesReleased = (releasedPageCount, releasedMemorySizeInBytes) -> releasedPages.addAndGet(releasedPageCount);
+        PagesReleasedListener onPagesReleased = (releasedPageCount, _) -> releasedPages.addAndGet(releasedPageCount);
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, onPagesReleased);
 
         // add 2 pages and verify they are referenced
@@ -460,9 +460,9 @@ public class TestClientBuffer
     private static void assertBufferDestroyed(ClientBuffer buffer, int pagesSent)
     {
         PipelinedBufferInfo bufferInfo = buffer.getInfo();
-        assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
-        assertThat(bufferInfo.getPagesSent()).isEqualTo(pagesSent);
-        assertThat(bufferInfo.isFinished()).isTrue();
+        assertThat(bufferInfo.bufferedPages()).isEqualTo(0);
+        assertThat(bufferInfo.pagesSent()).isEqualTo(pagesSent);
+        assertThat(bufferInfo.finished()).isTrue();
         assertThat(buffer.isDestroyed()).isTrue();
     }
 

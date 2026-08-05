@@ -13,29 +13,22 @@
  */
 package io.trino.plugin.kafka.encoder.json.format.util;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.floorMod;
 
 public final class TimeConversions
 {
-    public static final int MILLISECONDS_PER_SECOND = 1000; // TODO: duplicate of io.trino.plugin.base.type.DateTimes.MILLISECONDS_PER_SECOND
-    public static final long MILLISECONDS_PER_DAY = 86_400_000;
-
-    public static final int MICROSECONDS_PER_MILLISECOND = 1000; // TODO: duplicate of io.trino.plugin.base.type.DateTimes.MICROSECONDS_PER_MILLISECOND
-    public static final int MICROSECONDS_PER_SECOND = 1_000_000; // TODO: duplicate of io.trino.plugin.base.type.DateTimes.MICROSECONDS_PER_SECOND
-
-    public static final int NANOSECONDS_PER_MICROSECOND = 1_000; // TODO: duplicate of io.trino.plugin.base.type.DateTimes.NANOSECONDS_PER_MICROSECOND
-    public static final int NANOSECONDS_PER_MILLISECOND = 1_000_000; // TODO: duplicate of io.trino.plugin.base.type.DateTimes.NANOSECONDS_PER_MILLISECOND
-
-    public static final long PICOSECONDS_PER_SECOND = 1_000_000_000_000L;
-
     public static final int PICOSECONDS_PRECISION = 12;
     public static final int NANOSECONDS_PRECISION = 9;
     public static final int MILLISECONDS_PRECISION = 3;
     public static final int SECONDS_PRECISION = 0;
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.POWERS_OF_TEN
+    // TODO: duplicate of io.trino.type.DateTimes.POWERS_OF_TEN
     private static final long[] POWERS_OF_TEN = {
             1L,
             10L,
@@ -49,40 +42,12 @@ public final class TimeConversions
             1_000_000_000L,
             10_000_000_000L,
             100_000_000_000L,
-            1000_000_000_000L
+            1000_000_000_000L,
     };
 
     private TimeConversions() {}
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.roundDiv
-    private static long roundDiv(long value, long factor)
-    {
-        checkArgument(factor > 0, "factor must be positive");
-
-        if (factor == 1) {
-            return value;
-        }
-
-        if (value >= 0) {
-            return (value + (factor / 2)) / factor;
-        }
-
-        return (value + 1 - (factor / 2)) / factor;
-    }
-
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.round
-    public static long round(long value, int magnitude)
-    {
-        return roundToNearest(value, POWERS_OF_TEN[magnitude]);
-    }
-
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.roundToNearest
-    public static long roundToNearest(long value, long bound)
-    {
-        return roundDiv(value, bound) * bound;
-    }
-
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.scaleFactor
+    // TODO: duplicate of io.trino.type.DateTimes.scaleFactor
     public static long scaleFactor(int fromPrecision, int toPrecision)
     {
         if (fromPrecision > toPrecision) {
@@ -92,7 +57,7 @@ public final class TimeConversions
         return POWERS_OF_TEN[toPrecision - fromPrecision];
     }
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.rescale
+    // TODO: duplicate of io.trino.type.DateTimes.rescale
     public static long rescale(long value, int fromPrecision, int toPrecision)
     {
         if (fromPrecision <= toPrecision) {
@@ -105,7 +70,7 @@ public final class TimeConversions
         return value;
     }
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.rescaleWithRounding
+    // TODO: duplicate of io.trino.type.DateTimes.rescaleWithRounding
     public static long rescaleWithRounding(long value, int fromPrecision, int toPrecision)
     {
         value = round(value, fromPrecision - toPrecision);
@@ -113,31 +78,31 @@ public final class TimeConversions
         return value;
     }
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.scaleEpochMicrosToMillis
+    // TODO: duplicate of io.trino.type.DateTimes.scaleEpochMicrosToMillis
     public static long scaleEpochMicrosToMillis(long value)
     {
         return Math.floorDiv(value, MICROSECONDS_PER_MILLISECOND);
     }
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.scaleEpochMicrosToSeconds
+    // TODO: duplicate of io.trino.type.DateTimes.scaleEpochMicrosToSeconds
     public static long scaleEpochMicrosToSeconds(long epochMicros)
     {
         return Math.floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
     }
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.scaleEpochMillisToSeconds
+    // TODO: duplicate of io.trino.type.DateTimes.scaleEpochMillisToSeconds
     public static long scaleEpochMillisToSeconds(long epochMillis)
     {
         return Math.floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
     }
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.getMicrosOfSecond
+    // TODO: duplicate of io.trino.type.DateTimes.getMicrosOfSecond
     public static int getMicrosOfSecond(long epochMicros)
     {
         return floorMod(epochMicros, MICROSECONDS_PER_SECOND);
     }
 
-    // TODO: duplicate of io.trino.plugin.base.type.DateTimes.getMillisOfSecond
+    // TODO: duplicate of io.trino.type.DateTimes.getMillisOfSecond
     public static int getMillisOfSecond(long epochMillis)
     {
         return floorMod(epochMillis, MILLISECONDS_PER_SECOND);

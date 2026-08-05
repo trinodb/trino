@@ -13,7 +13,6 @@
  */
 package io.trino.sql.rewrite;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
@@ -40,6 +39,7 @@ import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
@@ -51,6 +51,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
@@ -61,6 +62,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
@@ -74,6 +76,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -99,6 +102,7 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
+import io.trino.util.DateTimeUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -115,7 +119,7 @@ import static io.trino.connector.informationschema.InformationSchemaTable.TABLES
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.trino.execution.CreateFunctionTask.defaultFunctionSchema;
 import static io.trino.execution.CreateFunctionTask.qualifiedFunctionName;
-import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listAllCatalogNames;
 import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
@@ -156,7 +160,7 @@ import static io.trino.sql.QueryUtil.singleValueQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
@@ -165,6 +169,7 @@ import static io.trino.sql.tree.LogicalExpression.and;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public final class ShowQueriesRewrite
@@ -213,7 +218,8 @@ public final class ShowQueriesRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         Visitor visitor = new Visitor(session);
         return (Statement) visitor.process(node, null);
@@ -262,10 +268,7 @@ public final class ShowQueriesRewrite
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
-                Expression likePredicate = new LikePredicate(
-                        identifier("table_name"),
-                        new StringLiteral(likePattern.get()),
-                        showTables.getEscape().map(StringLiteral::new));
+                Expression likePredicate = new Predicated(null, identifier("table_name"), new LikePredicate(null, false, new StringLiteral(likePattern.get()), showTables.getEscape().map(StringLiteral::new)));
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
@@ -405,10 +408,7 @@ public final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(
-                        identifier("schema_name"),
-                        new StringLiteral(likePattern.get()),
-                        node.getEscape().map(StringLiteral::new)));
+                predicate = Optional.of(new Predicated(null, identifier("schema_name"), new LikePredicate(null, false, new StringLiteral(likePattern.get()), node.getEscape().map(StringLiteral::new))));
             }
 
             return simpleQuery(
@@ -421,7 +421,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = listCatalogNames(session, metadata, accessControl, Domain.all(VARCHAR)).stream()
+            List<Expression> rows = listAllCatalogNames(session, metadata, accessControl, Domain.all(VARCHAR)).stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toImmutableList());
 
@@ -431,10 +431,7 @@ public final class ShowQueriesRewrite
                 predicate = Optional.of(BooleanLiteral.FALSE_LITERAL);
             }
             else if (node.getLikePattern().isPresent()) {
-                predicate = Optional.of(new LikePredicate(
-                        identifier("catalog"),
-                        new StringLiteral(node.getLikePattern().get()),
-                        node.getEscape().map(StringLiteral::new)));
+                predicate = Optional.of(new Predicated(null, identifier("catalog"), new LikePredicate(null, false, new StringLiteral(node.getLikePattern().get()), node.getEscape().map(StringLiteral::new))));
             }
 
             return simpleQuery(
@@ -495,10 +492,7 @@ public final class ShowQueriesRewrite
                     equal(identifier("table_name"), new StringLiteral(targetTableName.objectName())));
             Optional<String> likePattern = showColumns.getLikePattern();
             if (likePattern.isPresent()) {
-                Expression likePredicate = new LikePredicate(
-                        identifier("column_name"),
-                        new StringLiteral(likePattern.get()),
-                        showColumns.getEscape().map(StringLiteral::new));
+                Expression likePredicate = new Predicated(null, identifier("column_name"), new LikePredicate(null, false, new StringLiteral(likePattern.get()), showColumns.getEscape().map(StringLiteral::new)));
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
@@ -561,10 +555,20 @@ public final class ShowQueriesRewrite
                     query,
                     false,
                     false,
-                    Optional.empty(), // TODO support GRACE PERIOD
+                    viewDefinition.get().getGracePeriod()
+                            .map(DateTimeUtils::formatDayTimeInterval),
+                    Optional.of(toSqlWhenStaleBehavior(viewDefinition.get().getWhenStaleBehavior())),
                     propertyNodes,
                     viewDefinition.get().getComment())).trim();
             return singleValueQuery("Create Materialized View", sql);
+        }
+
+        private static WhenStaleBehavior toSqlWhenStaleBehavior(ConnectorMaterializedViewDefinition.WhenStaleBehavior whenStale)
+        {
+            return switch (whenStale) {
+                case INLINE -> WhenStaleBehavior.INLINE;
+                case FAIL -> WhenStaleBehavior.FAIL;
+            };
         }
 
         private Query showCreateView(ShowCreate node)
@@ -645,7 +649,7 @@ public final class ShowQueriesRewrite
                                 column.getDefaultValue().map(value -> parseDefaultColumnValueExpression(value, objectName, node)),
                                 column.isNullable(),
                                 propertyNodes,
-                                Optional.ofNullable(column.getComment()));
+                                column.getComment());
                     })
                     .collect(toImmutableList());
 
@@ -757,10 +761,7 @@ public final class ShowQueriesRewrite
                             .collect(toImmutableList())),
                     aliased(new Values(rows), "functions", ImmutableList.copyOf(columns.keySet())),
                     node.getLikePattern()
-                            .map(like -> new LikePredicate(
-                                    identifier("function_name"),
-                                    new StringLiteral(like),
-                                    node.getEscape().map(StringLiteral::new)))
+                            .map(like -> new Predicated(null, identifier("function_name"), new LikePredicate(null, false, new StringLiteral(like), node.getEscape().map(StringLiteral::new))))
                             .map(Expression.class::cast)
                             .orElse(TRUE_LITERAL),
                     ordering(
@@ -777,8 +778,10 @@ public final class ShowQueriesRewrite
         {
             return row(
                     new StringLiteral(alias),
-                    new StringLiteral(function.getSignature().getReturnType().toString()),
-                    new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
+                    new StringLiteral(function.getSignature().getReturnType().render()),
+                    new StringLiteral(function.getSignature().getArgumentTypes().stream()
+                            .map(TypeTemplate::render)
+                            .collect(joining(", "))),
                     new StringLiteral(getFunctionType(function)),
                     function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
                     new StringLiteral(nullToEmpty(function.getDescription())));
@@ -887,10 +890,7 @@ public final class ShowQueriesRewrite
             Expression predicate = identifier("include");
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = and(predicate, new LikePredicate(
-                        identifier("name"),
-                        new StringLiteral(likePattern.get()),
-                        node.getEscape().map(StringLiteral::new)));
+                predicate = and(predicate, new Predicated(null, identifier("name"), new LikePredicate(null, false, new StringLiteral(likePattern.get()), node.getEscape().map(StringLiteral::new))));
             }
 
             return simpleQuery(

@@ -23,7 +23,7 @@ public class TopNApplicationResult<T>
 
     /**
      * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
-     * as the connector may be unable to provide good table statistics for {@code handle}.
+     *         as the connector may be unable to provide good table statistics for {@code handle}.
      */
     public TopNApplicationResult(T handle, boolean topNGuaranteed, boolean precalculateStatistics)
     {

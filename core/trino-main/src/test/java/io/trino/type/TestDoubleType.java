@@ -65,8 +65,8 @@ public class TestDoubleType
         blockBuilder.writeLong(doubleToLongBits(Double.NaN));
         blockBuilder.writeLong(doubleToRawLongBits(Double.NaN));
         // the following two are the long values of a double NaN
-        blockBuilder.writeLong(-0x000fffffffffffffL);
-        blockBuilder.writeLong(0x7ff8000000000000L);
+        blockBuilder.writeLong(-0x000FFFFFFFFFFFFFL);
+        blockBuilder.writeLong(0x7FF8000000000000L);
         Block block = blockBuilder.build();
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(DOUBLE);

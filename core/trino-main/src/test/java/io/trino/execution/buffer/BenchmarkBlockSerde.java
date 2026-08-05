@@ -201,8 +201,12 @@ public class BenchmarkBlockSerde
     public abstract static class TypeBenchmarkData
             extends BenchmarkData
     {
+        private static final int OFFSET_LENGTH = 3;
+
         @Param({"0", ".01", ".10", ".50", ".90", ".99"})
         private double nullChance;
+        @Param({"true", "false"})
+        private boolean offset;
 
         public void setup(Type type, Function<Random, ?> valueGenerator)
         {
@@ -218,13 +222,21 @@ public class BenchmarkBlockSerde
                 writeValue(type, values.next(), blockBuilder);
                 pageBuilder.declarePosition();
                 if (pageBuilder.isFull()) {
-                    pagesBuilder.add(pageBuilder.build());
+                    Page page = pageBuilder.build();
+                    if (offset && page.getPositionCount() > (OFFSET_LENGTH * 2)) {
+                        page = page.getRegion(OFFSET_LENGTH, page.getPositionCount() - (OFFSET_LENGTH * 2));
+                    }
+                    pagesBuilder.add(page);
                     pageBuilder.reset();
                     blockBuilder = pageBuilder.getBlockBuilder(0);
                 }
             }
             if (pageBuilder.getPositionCount() > 0) {
-                pagesBuilder.add(pageBuilder.build());
+                Page page = pageBuilder.build();
+                if (offset && page.getPositionCount() > (OFFSET_LENGTH * 2)) {
+                    page = page.getRegion(OFFSET_LENGTH, page.getPositionCount() - (OFFSET_LENGTH * 2));
+                }
+                pagesBuilder.add(page);
             }
 
             List<Page> pages = pagesBuilder.build();
@@ -261,15 +273,15 @@ public class BenchmarkBlockSerde
             else if (TINYINT.equals(type)) {
                 TINYINT.writeByte(blockBuilder, (byte) value);
             }
-            else if (type instanceof RowType) {
+            else if (type instanceof RowType rowType) {
                 List<?> values = (List<?>) value;
-                if (values.size() != type.getTypeParameters().size()) {
+                if (values.size() != rowType.getFields().size()) {
                     throw new IllegalArgumentException("Size of types and values must have the same size");
                 }
                 ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
                     List<SimpleEntry<Type, Object>> pairs = new ArrayList<>();
-                    for (int i = 0; i < type.getTypeParameters().size(); i++) {
-                        pairs.add(new SimpleEntry<>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
+                    for (int i = 0; i < rowType.getFields().size(); i++) {
+                        pairs.add(new SimpleEntry<>(rowType.getFields().get(i).getType(), ((List<?>) value).get(i)));
                     }
                     for (int i = 0; i < pairs.size(); i++) {
                         SimpleEntry<Type, Object> p = pairs.get(i);
@@ -422,7 +434,7 @@ public class BenchmarkBlockSerde
         public void setup()
         {
             RowType type = RowType.anonymous(ImmutableList.of(BIGINT));
-            super.setup(type, random -> BenchmarkDataGenerator.randomRow(type.getTypeParameters(), random));
+            super.setup(type, random -> BenchmarkDataGenerator.randomRow(type.getFieldTypes(), random));
         }
     }
 
@@ -434,7 +446,7 @@ public class BenchmarkBlockSerde
         deserializeLineitem(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkBlockSerde.class).run();

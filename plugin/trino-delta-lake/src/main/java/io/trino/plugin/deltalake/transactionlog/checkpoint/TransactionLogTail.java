@@ -128,6 +128,7 @@ public class TransactionLogTail
         String transactionLogDir = getTransactionLogDir(tableLocation);
 
         long entryNumber = startVersion;
+        // TODO use listFilesStartingFrom to enumerate the log tail in a single listing instead of one InputFile.length per commit
         while (true) {
             Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), transactionLogMaxCachedFileSize);
             if (results.isEmpty()) {

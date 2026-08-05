@@ -25,11 +25,11 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,6 +54,9 @@ public class TestVarcharToIntegralNumericCoercer
         assertVarcharToIntegralCoercion("String", TINYINT, null);
         assertVarcharToIntegralCoercion("1s", TINYINT, null);
         assertVarcharToIntegralCoercion("1e+0", TINYINT, null);
+        // Hive does not trim, so surrounding whitespace is not a number
+        assertVarcharToIntegralCoercion(" 1", TINYINT, null);
+        assertVarcharToIntegralCoercion("1 ", TINYINT, null);
     }
 
     @Test
@@ -193,7 +196,7 @@ public class TestVarcharToIntegralNumericCoercer
     private static void assertVarcharToIntegralCoercion(String actualValue, HiveStorageFormat storageFormat, Type expectedType, Object expectedValue)
     {
         Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(expectedType), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
-                .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
+                .apply(writeNativeValue(createUnboundedVarcharType(), utf8Slice(actualValue)));
         Object coercedValue = coercedBlock.isNull(0) ? null : expectedType.getObjectValue(coercedBlock, 0);
         assertThat(coercedValue).isEqualTo(expectedValue);
     }

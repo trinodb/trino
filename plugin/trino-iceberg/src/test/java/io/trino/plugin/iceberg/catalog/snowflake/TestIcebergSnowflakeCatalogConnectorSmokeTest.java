@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.snowflake;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -28,7 +27,6 @@ import org.junit.jupiter.api.TestInstance;
 import java.sql.SQLException;
 import java.util.Map;
 
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_JDBC_URI;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_PASSWORD;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_ROLE;
@@ -100,7 +98,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
         }
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("fs.native-s3.enabled", "true")
+                .put("fs.s3.enabled", "true")
                 .put("s3.aws-access-key", S3_ACCESS_KEY)
                 .put("s3.aws-secret-key", S3_SECRET_KEY)
                 .put("s3.region", S3_REGION)
@@ -252,14 +250,6 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testHiddenPathColumn()
-    {
-        assertThatThrownBy(super::testHiddenPathColumn)
-                .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
-    }
-
-    @Test
-    @Override
     public void testDeleteRowsConcurrently()
     {
         assertThatThrownBy(super::testDeleteRowsConcurrently)
@@ -279,6 +269,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
     {
         assertThatThrownBy(super::testCreateOrReplaceTableChangeColumnNamesAndTypes)
+                .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Test
+    @Override
+    public void testRecreateTableWithSameName()
+    {
+        assertThatThrownBy(super::testRecreateTableWithSameName)
                 .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
     }
 
@@ -428,22 +426,6 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testSortedNationTable()
-    {
-        assertThatThrownBy(super::testSortedNationTable)
-                .hasMessageMatching("Snowflake managed Iceberg tables do not support modifications");
-    }
-
-    @Test
-    @Override
-    public void testFileSortingWithLargerTable()
-    {
-        assertThatThrownBy(super::testFileSortingWithLargerTable)
-                .hasMessageMatching("Snowflake managed Iceberg tables do not support modifications");
-    }
-
-    @Test
-    @Override
     public void testDropTableWithMissingMetadataFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
@@ -523,6 +505,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     }
 
     @Test
+    @Override
+    public void testAnalyze()
+    {
+        assertThatThrownBy(super::testAnalyze)
+                .hasMessageMatching("Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Test
     public void testNation()
     {
         assertQuery("SELECT count(*) FROM " + TpchTable.NATION.getTableName(), "VALUES 25");
@@ -549,7 +539,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     public void testSetTableComment()
     {
         assertThatThrownBy(() -> assertUpdate("COMMENT ON TABLE " + TpchTable.REGION.getTableName() + " is 'my-table-comment'"))
-                .hasMessage("Snowflake managed Iceberg tables do not support modifications");
+                .hasMessage("Failed to set table comment: Snowflake managed Iceberg tables do not support modifications");
     }
 
     @Test
@@ -696,7 +686,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     public void testSetColumnComment()
     {
         assertThatThrownBy(() -> assertUpdate("COMMENT ON COLUMN " + TpchTable.REGION.getTableName() + ".name IS 'region name_col_comment'"))
-                .hasMessageMatching("Snowflake managed Iceberg tables do not support modifications");
+                .hasMessageMatching("Failed to set column comment: Snowflake managed Iceberg tables do not support modifications");
     }
 
     @Test
@@ -714,22 +704,13 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        if (format == PARQUET) {
-            return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
-        }
-        throw new UnsupportedOperationException("Only PARQUET file format is supported for Iceberg Snowflake catalogs");
-    }
-
-    @Override
     protected void deleteDirectory(String location)
     {
         throw new UnsupportedOperationException("deleteDirectory is not supported for Iceberg snowflake catalog");
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         // used for register table, which is not supported for Iceberg Snowflake catalogs
         throw new UnsupportedOperationException("dropTableFromMetastore is not supported for Iceberg snowflake catalog");

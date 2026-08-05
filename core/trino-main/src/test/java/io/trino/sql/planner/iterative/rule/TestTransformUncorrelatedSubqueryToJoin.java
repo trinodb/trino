@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -25,8 +24,9 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -71,7 +71,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             emptyList(),
                             p.values(a),
                             LEFT,
-                            new Comparison(
+                            comparison(
                                     GREATER_THAN,
                                     b.toSymbolReference(),
                                     a.toSymbolReference()),
@@ -79,7 +79,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 })
                 .matches(
                         join(JoinType.LEFT, builder -> builder
-                                .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))
+                                .filter(comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))
                                 .left(values("a"))
                                 .right(values("b"))));
     }
@@ -95,7 +95,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             emptyList(),
                             p.values(a),
                             LEFT,
-                            new Comparison(
+                            comparison(
                                     GREATER_THAN,
                                     b.toSymbolReference(),
                                     a.toSymbolReference()),
@@ -103,7 +103,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 })
                 .matches(
                         join(JoinType.LEFT, builder -> builder
-                                .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))
+                                .filter(comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")))
                                 .left(values("a"))
                                 .right(values("b"))));
     }
@@ -135,7 +135,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             emptyList(),
                             p.values(a),
                             RIGHT,
-                            new Comparison(
+                            comparison(
                                     GREATER_THAN,
                                     b.toSymbolReference(),
                                     a.toSymbolReference()),
@@ -144,7 +144,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", expression(ifExpression(new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")), new Reference(BIGINT, "a"), new Constant(BIGINT, null))),
+                                        "a", expression(ifExpression(comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Reference(BIGINT, "a")), new Reference(BIGINT, "a"), new Constant(BIGINT, null))),
                                         "b", expression(new Reference(BIGINT, "b"))),
                                 join(JoinType.INNER, builder -> builder
                                         .left(values("a"))
@@ -178,7 +178,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             emptyList(),
                             p.values(a),
                             FULL,
-                            new Comparison(
+                            comparison(
                                     GREATER_THAN,
                                     b.toSymbolReference(),
                                     a.toSymbolReference()),

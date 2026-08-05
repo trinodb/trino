@@ -14,7 +14,6 @@
 package io.trino.filesystem.s3;
 
 import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
-import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
@@ -35,20 +34,8 @@ public class TestS3FileSystemS3Mock
     private static final String BUCKET = "test-bucket";
 
     @Container
-    private static final S3MockContainer S3_MOCK = new S3MockContainer("3.0.1")
+    private static final S3MockContainer S3_MOCK = new S3MockContainer("4.10.0")
             .withInitialBuckets(BUCKET);
-
-    @Override
-    protected boolean isCreateExclusive()
-    {
-        return false; // not supported by s3-mock
-    }
-
-    @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return false; // not supported by s3-mock
-    }
 
     @Override
     protected String bucket()
@@ -71,15 +58,17 @@ public class TestS3FileSystemS3Mock
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
-                .setAwsAccessKey("accesskey")
-                .setAwsSecretKey("secretkey")
-                .setEndpoint(S3_MOCK.getHttpEndpoint())
-                .setRegion(Region.US_EAST_1.id())
-                .setPathStyleAccess(true)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB"))
-                .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
-                .setSupportsExclusiveCreate(false), new S3FileSystemStats());
+        return new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setAwsAccessKey("accesskey")
+                        .setAwsSecretKey("secretkey")
+                        .setEndpoint(S3_MOCK.getHttpEndpoint())
+                        .setRegion(Region.US_EAST_1.id())
+                        .setPathStyleAccess(true)
+                        .setStreamingPartSize(STREAMING_PART_SIZE)
+                        .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer),
+                new S3FileSystemStats());
     }
 
     @Test
@@ -89,5 +78,23 @@ public class TestS3FileSystemS3Mock
         // S3 mock doesn't expire pre-signed URLs
         assertThatThrownBy(super::testPreSignedUris)
                 .hasMessageContaining("Expecting code to raise a throwable");
+    }
+
+    @Test
+    @Override
+    public void testPaths()
+    {
+        // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2788
+        assertThatThrownBy(super::testPaths)
+                .hasMessageContaining("S3 HEAD request failed for file: s3://test-bucket/test/.././/file");
+    }
+
+    @Test
+    @Override
+    public void testReadingEmptyFile()
+    {
+        // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2789
+        assertThatThrownBy(super::testReadingEmptyFile)
+                .hasMessageContaining("Failed to open S3 file: s3://test-bucket/inputStream/");
     }
 }

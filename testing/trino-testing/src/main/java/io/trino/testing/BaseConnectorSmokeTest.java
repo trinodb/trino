@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
@@ -140,19 +141,19 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testCreateTable()
     {
+        String tableName = "test_create_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            assertQueryFails("CREATE TABLE xxxx (a bigint, b double)", "This connector does not support creating tables");
+            assertQueryFails("CREATE TABLE %s (a bigint, b double)".formatted(tableName), "This connector does not support creating tables");
             return;
         }
 
-        String tableName = "test_create_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " " + getCreateTableDefaultDefinition());
         assertThat(query("SELECT a, b FROM " + tableName))
                 .returnsEmptyResult();
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    protected TestTable createTestTableForWrites(String tablePrefix)
+    protected TemporaryRelation createTestTableForWrites(String tablePrefix)
     {
         return newTrinoTable(tablePrefix, getCreateTableDefaultDefinition());
     }
@@ -170,12 +171,12 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testCreateTableAsSelect()
     {
+        String tableName = "test_create_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
-            assertQueryFails("CREATE TABLE xxxx AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", "This connector does not support creating tables with data");
+            assertQueryFails("CREATE TABLE %s AS SELECT BIGINT '42' a, DOUBLE '-38.5' b".formatted(tableName), "This connector does not support creating tables with data");
             return;
         }
 
-        String tableName = "test_create_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", 1);
         assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
                 .matches("VALUES (BIGINT '42', -385e-1)");
@@ -282,8 +283,7 @@ public abstract class BaseConnectorSmokeTest
     public void testRowLevelDelete()
     {
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = newTrinoTable("test_row_delete", "AS SELECT * FROM region")) {
+        try (TestTable table = newTrinoTable("test_row_level_delete", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE regionkey = 2"))
                     .returnsEmptyResult();
@@ -323,7 +323,7 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test UPDATE without INSERT");
         }
 
-        try (TestTable table = createTestTableForWrites("test_update_")) {
+        try (TemporaryRelation table = createTestTableForWrites("test_update_")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
@@ -339,7 +339,8 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_MERGE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
+            assertQueryFails(
+                    "MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
                             "WHEN MATCHED AND n.regionkey < 1 THEN UPDATE SET nationkey = 5",
                     MODIFYING_ROWS_MESSAGE);
             return;
@@ -349,17 +350,18 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test MERGE without INSERT");
         }
 
-        try (TestTable table = createTestTableForWrites("test_merge_")) {
+        try (TemporaryRelation table = createTestTableForWrites("test_merge_")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
 
-            assertUpdate("MERGE INTO " + table.getName() + " t " +
-                    "USING (VALUES (0, 1.3), (2, 2.9), (3, 0.0), (4, -5.0), (5, 5.7)) AS s (a, b) " +
-                    "ON (t.a = s.a) " +
-                    "WHEN MATCHED AND s.b > 0 THEN UPDATE SET b = t.b + s.b " +
-                    "WHEN MATCHED AND s.b = 0 THEN DELETE " +
-                    "WHEN NOT MATCHED THEN INSERT VALUES (s.a, s.b)",
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t " +
+                            "USING (VALUES (0, 1.3), (2, 2.9), (3, 0.0), (4, -5.0), (5, 5.7)) AS s (a, b) " +
+                            "ON (t.a = s.a) " +
+                            "WHEN MATCHED AND s.b > 0 THEN UPDATE SET b = t.b + s.b " +
+                            "WHEN MATCHED AND s.b = 0 THEN DELETE " +
+                            "WHEN NOT MATCHED THEN INSERT VALUES (s.a, s.b)",
                     4);
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 1.3), (1, 2.5), (2, 7.9), (4, 10.0), (5, 5.7)"));
@@ -433,7 +435,7 @@ public abstract class BaseConnectorSmokeTest
             throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
-            assertQueryFails("ALTER TABLE nation RENAME TO yyyy", "This connector does not support renaming tables");
+            assertQueryFails("ALTER TABLE nation RENAME TO test_rename_table_" + randomNameSuffix(), "This connector does not support renaming tables");
             return;
         }
 
@@ -478,7 +480,7 @@ public abstract class BaseConnectorSmokeTest
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
                 abort("Skipping since rename table is not supported at all");
             }
-            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
+            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.test_rename_table_" + randomNameSuffix(), "This connector does not support renaming tables across schemas");
             return;
         }
 
@@ -522,19 +524,6 @@ public abstract class BaseConnectorSmokeTest
                 .returnsEmptyResult();
 
         assertUpdate("DROP SCHEMA " + schemaName);
-    }
-
-    /**
-     * This seemingly duplicate test of {@link BaseConnectorTest#testShowInformationSchemaTables()}
-     * is used in the context of this class in order to be able to test
-     * against a wider range of connector configurations.
-     */
-    @Test
-    public void testShowInformationSchemaTables()
-    {
-        assertThat(query("SHOW TABLES FROM information_schema"))
-                .skippingTypesCheck()
-                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
     }
 
     @Test
@@ -607,37 +596,40 @@ public abstract class BaseConnectorSmokeTest
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "test_materialized_view_" + randomNameSuffix();
-        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
 
-        // reading
-        assertThat(query("SELECT * FROM " + viewName))
-                .skippingTypesCheck()
-                .matches("SELECT * FROM nation");
+            // reading
+            assertThat(query("SELECT * FROM " + viewName))
+                    .skippingTypesCheck()
+                    .matches("SELECT * FROM nation");
 
-        // details
-        assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName)))
-                .matches("(?s)" +
-                        "CREATE MATERIALIZED VIEW \\Q" + catalogName + "." + schemaName + "." + viewName + "\\E" +
-                        ".* AS\n" +
-                        "SELECT \\*\n" +
-                        "FROM\n" +
-                        "  nation");
+            // details
+            assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName)))
+                    .matches("(?s)" +
+                            "CREATE MATERIALIZED VIEW \\Q" + catalogName + "." + schemaName + "." + viewName + "\\E" +
+                            ".* AS\n" +
+                            "SELECT \\*\n" +
+                            "FROM\n" +
+                            "  nation");
 
-        // information_schema.tables (no filtering on table_name so that ConnectorMetadata.listViews is exercised)
-        assertThat(query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "'"))
-                .containsAll("VALUES (VARCHAR '" + viewName + "', VARCHAR 'BASE TABLE')");
+            // information_schema.tables (no filtering on table_name so that ConnectorMetadata.listViews is exercised)
+            assertThat(query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "'"))
+                    .containsAll("VALUES (VARCHAR '" + viewName + "', VARCHAR 'BASE TABLE')");
 
-        // information_schema.views
-        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
-                .doesNotContain(viewName);
-        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "' AND table_name = '" + viewName + "'"))
-                .returnsEmptyResult();
+            // information_schema.views
+            assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
+                    .doesNotContain(viewName);
+            assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "' AND table_name = '" + viewName + "'"))
+                    .returnsEmptyResult();
 
-        // materialized view-specific listings
-        assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'"))
-                .containsAll("VALUES VARCHAR '" + viewName + "'");
-
-        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+            // materialized view-specific listings
+            assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'"))
+                    .containsAll("VALUES VARCHAR '" + viewName + "'");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test
@@ -714,9 +706,13 @@ public abstract class BaseConnectorSmokeTest
         if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
             if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
                 String viewName = "test_materialized_view_" + randomNameSuffix();
-                assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
-                assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
-                assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+                try {
+                    assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+                    assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
+                }
+                finally {
+                    assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
+                }
                 return;
             }
             abort("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
@@ -747,7 +743,7 @@ public abstract class BaseConnectorSmokeTest
             assertThat(getColumnComment(viewName, "regionkey")).isEqualTo(null);
         }
         finally {
-            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
         }
     }
 

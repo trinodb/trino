@@ -16,17 +16,31 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
+import jdk.incubator.vector.LongVector;
+import jdk.incubator.vector.VectorMask;
+import jdk.incubator.vector.VectorSpecies;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBits;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
-import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
-import static java.lang.System.arraycopy;
+import static io.trino.spi.block.Bitmap.getBits;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
+import static java.lang.Long.bitCount;
 import static java.util.Objects.checkFromIndexSize;
 
 public class LongArrayBlockEncoding
         implements BlockEncoding
 {
+    private static final VectorSpecies<Long> LONG_SPECIES = LongVector.SPECIES_PREFERRED;
     public static final String NAME = "LONG_ARRAY";
+
+    private final boolean vectorizeNullCompress;
+    private final boolean vectorizeNullExpand;
+
+    public LongArrayBlockEncoding(boolean vectorizeNullCompress, boolean vectorizeNullExpand)
+    {
+        this.vectorizeNullCompress = vectorizeNullCompress;
+        this.vectorizeNullExpand = vectorizeNullExpand;
+    }
 
     @Override
     public String getName()
@@ -49,25 +63,19 @@ public class LongArrayBlockEncoding
 
         int rawOffset = longArrayBlock.getRawValuesOffset();
         @Nullable
-        boolean[] isNull = longArrayBlock.getRawValueIsNull();
+        long[] valueIsValid = longArrayBlock.getRawValueIsValid();
         long[] rawValues = longArrayBlock.getRawValues();
-        checkFromIndexSize(rawOffset, positionCount, rawValues.length);
 
-        encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
+        encodeValidityAsLongs(sliceOutput, valueIsValid, rawOffset, positionCount);
 
-        if (isNull == null) {
+        if (valueIsValid == null) {
             sliceOutput.writeLongs(rawValues, rawOffset, positionCount);
         }
+        else if (vectorizeNullCompress) {
+            compactLongsWithNullsVectorized(sliceOutput, rawValues, valueIsValid, rawOffset, positionCount);
+        }
         else {
-            long[] valuesWithoutNull = new long[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
+            compactLongsWithNulls(sliceOutput, rawValues, valueIsValid, rawOffset, positionCount);
         }
     }
 
@@ -76,44 +84,109 @@ public class LongArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
-        long[] values = new long[positionCount];
-
-        if (valueIsNullPacked == null) {
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
+        if (valueIsValid == null) {
+            long[] values = new long[positionCount];
             sliceInput.readLongs(values);
             return new LongArrayBlock(0, positionCount, null, values);
         }
-        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
-        int nonNullPositionCount = sliceInput.readInt();
-        sliceInput.readLongs(values, 0, nonNullPositionCount);
-        int position = nonNullPositionCount - 1;
+        if (vectorizeNullExpand) {
+            return expandLongsWithNullsVectorized(sliceInput, positionCount, valueIsValid);
+        }
+        return expandLongsWithNulls(sliceInput, positionCount, valueIsValid);
+    }
 
-        // Handle Last (positionCount % 8) values
-        for (int i = positionCount - 1; i >= (positionCount & ~0b111) && position >= 0; i--) {
-            values[i] = values[position];
-            if (!valueIsNull[i]) {
-                position--;
+    static void compactLongsWithNullsVectorized(SliceOutput sliceOutput, long[] values, long[] valueIsValid, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        long[] compacted = new long[length];
+        int valuesIndex = 0;
+        int compactedIndex = 0;
+        for (; valuesIndex < LONG_SPECIES.loopBound(length); valuesIndex += LONG_SPECIES.length()) {
+            long validBits = getBits(valueIsValid, offset, valuesIndex, LONG_SPECIES.length());
+            VectorMask<Long> mask = VectorMask.fromLong(LONG_SPECIES, validBits);
+            LongVector.fromArray(LONG_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compacted, compactedIndex);
+            compactedIndex += bitCount(validBits);
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compacted[compactedIndex] = values[valuesIndex + offset];
+            compactedIndex += isSet(valueIsValid, offset, valuesIndex) ? 1 : 0;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeLongs(compacted, 0, compactedIndex);
+    }
+
+    static void compactLongsWithNulls(SliceOutput sliceOutput, long[] values, long[] valueIsValid, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        long[] compacted = new long[length];
+        int compactedIndex = 0;
+        for (int position = 0; position < length; position++) {
+            if (isSet(valueIsValid, offset, position)) {
+                compacted[compactedIndex++] = values[position + offset];
             }
         }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeLongs(compacted, 0, compactedIndex);
+    }
 
-        // Handle the remaining positions.
-        for (int i = (positionCount & ~0b111) - 8; i >= 0 && position >= 0; i -= 8) {
-            byte packed = valueIsNullPacked[i >>> 3];
-            if (packed == 0) { // Only values
-                arraycopy(values, position - 7, values, i, 8);
-                position -= 8;
+    static LongArrayBlock expandLongsWithNulls(SliceInput sliceInput, int positionCount, long[] valueIsValid)
+    {
+        long[] values = new long[positionCount];
+        int nonNullPositionCount = sliceInput.readInt();
+        long[] compacted = new long[nonNullPositionCount];
+        sliceInput.readLongs(compacted);
+
+        int compactedIndex = 0;
+        for (int position = 0; position < positionCount; position++) {
+            if (isSet(valueIsValid, 0, position)) {
+                values[position] = compacted[compactedIndex++];
             }
-            else if (packed != -1) { // At least one non-null
-                for (int j = i + 7; j >= i && position >= 0; j--) {
-                    values[j] = values[position];
-                    if (!valueIsNull[j]) {
-                        position--;
-                    }
+        }
+        return new LongArrayBlock(0, positionCount, valueIsValid, values);
+    }
+
+    static LongArrayBlock expandLongsWithNullsVectorized(SliceInput sliceInput, int positionCount, long[] valueIsValid)
+    {
+        long[] values = new long[positionCount];
+        int nonNullPositionCount = sliceInput.readInt();
+        int nonNullIndex = positionCount - nonNullPositionCount;
+        sliceInput.readLongs(values, nonNullIndex, nonNullPositionCount);
+
+        int position = 0;
+        if ((nonNullPositionCount * (LONG_SPECIES.length() * 4L)) <= positionCount) {
+            for (; position < nonNullIndex && nonNullIndex + LONG_SPECIES.length() < values.length; position += LONG_SPECIES.length()) {
+                long validBits = getBits(valueIsValid, 0, position, LONG_SPECIES.length());
+                if (validBits != 0) {
+                    LongVector nonNullValues = LongVector.fromArray(LONG_SPECIES, values, nonNullIndex);
+                    VectorMask<Long> nonNullMask = VectorMask.fromLong(LONG_SPECIES, validBits);
+                    nonNullIndex += bitCount(validBits);
+                    nonNullValues
+                            .expand(nonNullMask)
+                            .intoArray(values, position);
                 }
             }
-            // Do nothing if there are only nulls
         }
-        return new LongArrayBlock(0, positionCount, valueIsNull, values);
+        else {
+            for (; position < nonNullIndex && nonNullIndex + LONG_SPECIES.length() < values.length; position += LONG_SPECIES.length()) {
+                long validBits = getBits(valueIsValid, 0, position, LONG_SPECIES.length());
+                LongVector nonNullValues = LongVector.fromArray(LONG_SPECIES, values, nonNullIndex);
+                VectorMask<Long> nonNullMask = VectorMask.fromLong(LONG_SPECIES, validBits);
+                nonNullIndex += bitCount(validBits);
+                nonNullValues
+                        .expand(nonNullMask)
+                        .intoArray(values, position);
+            }
+        }
+        for (; position < nonNullIndex; position++) {
+            if (isSet(valueIsValid, 0, position)) {
+                values[position] = values[nonNullIndex++];
+            }
+        }
+
+        return new LongArrayBlock(0, positionCount, valueIsValid, values);
     }
 }

@@ -57,7 +57,9 @@ final class TestDuckDbConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ARRAY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
@@ -69,7 +71,9 @@ final class TestDuckDbConnectorTest
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_ROW_TYPE -> false;
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
 
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -138,7 +142,8 @@ final class TestDuckDbConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE orders"))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE duckdb.tpch.orders (
                            orderkey bigint,
                            custkey bigint,
@@ -271,6 +276,14 @@ final class TestDuckDbConnectorTest
             // exact match
             assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('' AS varchar(3))", "VALUES (3, '')");
         }
+    }
+
+    @Test
+    void testCustomUserAgent()
+    {
+        assertThat(query("SELECT filter(split(user_agent, ' '), value -> value LIKE 'trino%') FROM TABLE(system.query(query => 'SELECT user_agent FROM pragma_user_agent()'))"))
+                .skippingTypesCheck()
+                .matches("VALUES (ARRAY['trino/testversion'])");
     }
 
     @Test

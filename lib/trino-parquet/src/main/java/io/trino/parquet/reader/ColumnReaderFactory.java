@@ -17,8 +17,10 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.ColumnAdapter;
+import io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.AbstractIntType;
@@ -32,6 +34,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import jdk.incubator.vector.VectorShape;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
@@ -46,11 +49,10 @@ import org.joda.time.DateTimeZone;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
-import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.decoders.ValueDecoder.createLevelsDecoder;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
+import static io.trino.parquet.reader.flat.BitColumnAdapter.BIT_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
-import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import static io.trino.parquet.reader.flat.DictionaryDecoder.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.Fixed12ColumnAdapter.FIXED12_ADAPTER;
 import static io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder.getFlatDefinitionLevelDecoder;
@@ -84,7 +86,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
-    private static final int PREFERRED_BIT_WIDTH = getVectorBitSize();
+    private static final int PREFERRED_BIT_WIDTH = VectorShape.preferredShape().vectorBitSize();
 
     private final DateTimeZone timeZone;
     private final boolean vectorizedDecodingEnabled;
@@ -103,7 +105,7 @@ public final class ColumnReaderFactory
         LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(ColumnReader.class.getSimpleName());
         ValueDecoders valueDecoders = new ValueDecoders(field, vectorizedDecodingEnabled);
         if (BOOLEAN.equals(type) && primitiveType == PrimitiveTypeName.BOOLEAN) {
-            return createColumnReader(field, valueDecoders::getBooleanDecoder, BYTE_ADAPTER, memoryContext);
+            return createColumnReader(field, valueDecoders::getBooleanDecoder, BIT_ADAPTER, memoryContext);
         }
         if (TINYINT.equals(type) && isIntegerOrDecimalPrimitive(primitiveType)) {
             if (isZeroScaleShortDecimalAnnotation(annotation)) {
@@ -183,13 +185,13 @@ public final class ColumnReaderFactory
             if (timestampType.isShort()) {
                 return createColumnReader(
                         field,
-                        (encoding) -> valueDecoders.getInt96ToShortTimestampDecoder(encoding, timeZone),
+                        encoding -> valueDecoders.getInt96ToShortTimestampDecoder(encoding, timeZone),
                         LONG_ADAPTER,
                         memoryContext);
             }
             return createColumnReader(
                     field,
-                    (encoding) -> valueDecoders.getInt96ToLongTimestampDecoder(encoding, timeZone),
+                    encoding -> valueDecoders.getInt96ToLongTimestampDecoder(encoding, timeZone),
                     FIXED12_ADAPTER,
                     memoryContext);
         }
@@ -225,12 +227,13 @@ public final class ColumnReaderFactory
                 return switch (timestampAnnotation.getUnit()) {
                     case MILLIS -> createColumnReader(field, valueDecoders::getInt64TimestampMillsToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER, memoryContext);
                     case MICROS -> createColumnReader(field, valueDecoders::getInt64TimestampMicrosToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER, memoryContext);
-                    case NANOS -> throw unsupportedException(type, field);
+                    case NANOS -> createColumnReader(field, valueDecoders::getInt64TimestampNanosToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER, memoryContext);
                 };
             }
             return switch (timestampAnnotation.getUnit()) {
-                case MILLIS, NANOS -> throw unsupportedException(type, field);
+                case MILLIS -> throw unsupportedException(type, field);
                 case MICROS -> createColumnReader(field, valueDecoders::getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder, FIXED12_ADAPTER, memoryContext);
+                case NANOS -> createColumnReader(field, valueDecoders::getInt64TimestampNanosToLongTimestampWithTimeZoneDecoder, FIXED12_ADAPTER, memoryContext);
             };
         }
         if (type instanceof DecimalType decimalType && decimalType.isShort()
@@ -371,17 +374,5 @@ public final class ColumnReaderFactory
         // Performance gains with vectorized decoding are validated only when the hardware platform provides at least 256 bit width registers
         // Graviton 2 machines return false here, whereas x86 and Graviton 3 machines return true
         return PREFERRED_BIT_WIDTH >= 256;
-    }
-
-    // get VectorShape bit size via reflection to avoid requiring the preview feature is enabled
-    private static int getVectorBitSize()
-    {
-        try {
-            Class<?> clazz = Class.forName("jdk.incubator.vector.VectorShape");
-            return (int) clazz.getMethod("vectorBitSize").invoke(clazz.getMethod("preferredShape").invoke(null));
-        }
-        catch (Throwable e) {
-            return -1;
-        }
     }
 }

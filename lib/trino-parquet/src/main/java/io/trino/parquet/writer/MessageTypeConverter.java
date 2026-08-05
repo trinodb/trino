@@ -21,6 +21,7 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.TypeVisitor;
 
 import java.util.ArrayList;
@@ -95,8 +96,10 @@ class MessageTypeConverter
                 visitChildren(result, groupType, element);
             }
 
-            private void visitChildren(List<SchemaElement> result,
-                    GroupType groupType, SchemaElement element)
+            private void visitChildren(
+                    List<SchemaElement> result,
+                    GroupType groupType,
+                    SchemaElement element)
             {
                 element.setNum_children(groupType.getFieldCount());
                 result.add(element);
@@ -107,7 +110,7 @@ class MessageTypeConverter
         });
     }
 
-    private static FieldRepetitionType toParquetRepetition(org.apache.parquet.schema.Type.Repetition repetition)
+    private static FieldRepetitionType toParquetRepetition(Repetition repetition)
     {
         return FieldRepetitionType.valueOf(repetition.name());
     }

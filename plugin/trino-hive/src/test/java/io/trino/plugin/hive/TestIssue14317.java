@@ -35,7 +35,7 @@ public class TestIssue14317
                 .setCreateTpchSchemas(false);
 
         try (QueryRunner queryRunner = builder.build();
-                QueryAssertions assertions = new QueryAssertions(queryRunner);) {
+                QueryAssertions assertions = new QueryAssertions(queryRunner)) {
             queryRunner.execute("CREATE SCHEMA s");
 
             queryRunner.execute("CREATE TABLE s.t (a bigint, b bigint)");

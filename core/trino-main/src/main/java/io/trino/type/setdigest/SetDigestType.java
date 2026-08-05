@@ -21,8 +21,7 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.SqlVarbinary;
-import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 // Layout is <size>:<digest>, where
 //   size: is an int describing the length of the set digest bytes
@@ -30,11 +29,18 @@ import io.trino.spi.type.TypeSignature;
 public class SetDigestType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "SetDigest";
     public static final SetDigestType SET_DIGEST = new SetDigestType();
 
     private SetDigestType()
     {
-        super(new TypeSignature(StandardTypes.SET_DIGEST), Slice.class);
+        super(new TypeDescriptor(NAME), Slice.class);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

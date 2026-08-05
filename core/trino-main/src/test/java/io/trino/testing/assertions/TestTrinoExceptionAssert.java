@@ -41,7 +41,7 @@ public class TestTrinoExceptionAssert
     {
         ExecutionFailureInfo failureInfo = Failures.toFailure(new TrinoException(NOT_SUPPORTED, "remote exception"));
         assertTrinoExceptionThrownBy(() -> {
-            throw new QueryFailedException(new QueryId("test"), failureInfo.getMessage(), failureInfo.toException());
+            throw new QueryFailedException(new QueryId("test"), failureInfo.message(), failureInfo.toException());
         })
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("remote exception");
@@ -62,7 +62,7 @@ public class TestTrinoExceptionAssert
     {
         ExecutionFailureInfo failureInfo = Failures.toFailure(new RuntimeException("not a trino exception"));
         assertThatThrownBy(() -> assertTrinoExceptionThrownBy(() -> {
-            throw new QueryFailedException(new QueryId("test"), failureInfo.getMessage(), failureInfo.toException());
+            throw new QueryFailedException(new QueryId("test"), failureInfo.message(), failureInfo.toException());
         }))
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("Expected TrinoException or wrapper, but got: io.trino.testing.QueryFailedException io.trino.testing.QueryFailedException: not a trino exception");

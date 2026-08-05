@@ -115,7 +115,7 @@ public final class RedisQueryRunner
                     loadTpchTable(redisServer, trinoClient, table, dataFormat);
                 }
                 log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
-                redisServer.destroyJedisPool();
+                redisServer.closeClient();
                 return queryRunner;
             }
             catch (Throwable e) {
@@ -158,7 +158,7 @@ public final class RedisQueryRunner
         return tableDescriptions.buildOrThrow();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = RedisQueryRunner.builder(new RedisServer())

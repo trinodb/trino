@@ -35,8 +35,7 @@ public final class LdapUtil
 {
     public static final String MEMBER = "member";
 
-    private LdapUtil()
-    {}
+    private LdapUtil() {}
 
     @SuppressWarnings("BanJNDI")
     public static String addLdapDefinition(LdapObjectDefinition ldapObjectDefinition, DirContext context)

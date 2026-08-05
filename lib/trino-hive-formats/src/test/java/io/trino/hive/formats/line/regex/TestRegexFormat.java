@@ -669,13 +669,13 @@ public class TestRegexFormat
 
         Properties schema = new Properties();
         schema.setProperty(META_TABLE_COLUMNS, columns.stream()
-                .sorted(Comparator.comparing(Column::ordinal))
+                .sorted(Comparator.comparingInt(Column::ordinal))
                 .map(Column::name)
                 .collect(joining(",")));
         schema.setProperty(
                 META_TABLE_COLUMN_TYPES,
                 columns.stream()
-                        .sorted(Comparator.comparing(Column::ordinal))
+                        .sorted(Comparator.comparingInt(Column::ordinal))
                         .map(Column::type)
                         .map(FormatTestUtils::getJavaObjectInspector)
                         .map(ObjectInspector::getTypeName)
@@ -683,7 +683,7 @@ public class TestRegexFormat
         schema.putAll(createRegexProperties(regex, caseSensitive));
         // this is required in the Hive serde for some reason
         schema.put("columns.comments", columns.stream()
-                .map(column -> "\0")
+                .map(_ -> "\0")
                 .collect(joining(",")));
 
         try {

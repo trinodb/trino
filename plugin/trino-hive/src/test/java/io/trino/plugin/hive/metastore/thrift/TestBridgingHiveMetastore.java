@@ -55,7 +55,7 @@ final class TestBridgingHiveMetastore
         HiveHadoop hiveHadoop = closer.register(HiveHadoop.builder().build());
         hiveHadoop.start();
 
-        MetastoreClientAdapterProvider metastoreClientAdapterProvider = delegate -> newProxy(ThriftMetastoreClient.class, (proxy, method, methodArgs) -> {
+        MetastoreClientAdapterProvider metastoreClientAdapterProvider = delegate -> newProxy(ThriftMetastoreClient.class, (_, method, methodArgs) -> {
             Object result;
             try {
                 result = method.invoke(delegate, methodArgs);

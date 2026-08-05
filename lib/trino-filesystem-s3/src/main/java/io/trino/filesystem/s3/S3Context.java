@@ -39,8 +39,7 @@ record S3Context(
         S3SseContext s3SseContext,
         Optional<AwsCredentialsProvider> credentialsProviderOverride,
         StorageClassType storageClass,
-        ObjectCannedAcl cannedAcl,
-        boolean exclusiveWriteSupported)
+        ObjectCannedAcl cannedAcl)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -58,7 +57,7 @@ record S3Context(
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, storageClass, cannedAcl, exclusiveWriteSupported);
+        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, storageClass, cannedAcl);
     }
 
     public S3Context withCredentials(ConnectorIdentity identity)
@@ -75,7 +74,7 @@ record S3Context(
 
     public S3Context withSseCustomerKey(String key)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, storageClass, cannedAcl, exclusiveWriteSupported);
+        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, storageClass, cannedAcl);
     }
 
     public S3Context withCredentialsProviderOverride(AwsCredentialsProvider credentialsProviderOverride)
@@ -86,8 +85,7 @@ record S3Context(
                 s3SseContext,
                 Optional.of(credentialsProviderOverride),
                 storageClass,
-                cannedAcl,
-                exclusiveWriteSupported);
+                cannedAcl);
     }
 
     public void applyCredentialProviderOverride(AwsRequestOverrideConfiguration.Builder builder)

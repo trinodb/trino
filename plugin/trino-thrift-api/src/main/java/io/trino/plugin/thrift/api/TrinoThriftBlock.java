@@ -49,11 +49,10 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.StandardTypes.HYPER_LOG_LOG;
 import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
 @ThriftStruct
 public final class TrinoThriftBlock
@@ -269,7 +268,7 @@ public final class TrinoThriftBlock
 
     public static TrinoThriftBlock fromNativeValue(Object trinoNativeValue, Type type)
     {
-        return fromBlock(nativeValueToBlock(type, trinoNativeValue), type);
+        return fromBlock(writeNativeValue(type, trinoNativeValue), type);
     }
 
     public static TrinoThriftBlock fromBlock(Block block, Type type)
@@ -295,9 +294,8 @@ public final class TrinoThriftBlock
         if (type instanceof TimestampType) {
             return TrinoThriftTimestamp.fromBlock(block);
         }
-        if (type instanceof ArrayType) {
-            Type elementType = getOnlyElement(type.getTypeParameters());
-            if (BigintType.BIGINT.equals(elementType)) {
+        if (type instanceof ArrayType arrayType) {
+            if (BigintType.BIGINT.equals(arrayType.getElementType())) {
                 return TrinoThriftBigintArray.fromBlock(block);
             }
             throw new IllegalArgumentException("Unsupported array block type: " + type);

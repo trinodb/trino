@@ -45,7 +45,7 @@ public class QueryInfoUrlFactory
     public Optional<URI> getQueryInfoUrl(QueryId queryId)
     {
         return queryInfoUrlTemplate
-                .map(template -> template.replace("${QUERY_ID}", queryId.toString()))
+                .map(template -> template.replace("${QUERY_ID}", queryId.id()))
                 .map(URI::create);
     }
 
@@ -53,8 +53,8 @@ public class QueryInfoUrlFactory
     {
         return queryInfoUrl.orElseGet(() ->
                 externalUriInfo.baseUriBuilder()
-                        .path("ui/query.html")
-                        .replaceQuery(queryId.toString())
+                        .path("ui")
+                        .fragment("/queries/" + queryId.id())
                         .build());
     }
 }

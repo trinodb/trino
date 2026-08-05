@@ -41,7 +41,6 @@ import static java.util.Objects.requireNonNull;
  * hp.getPort();      // returns 80
  * hp.toString();     // returns "[2001:db8::1]:80"
  * </pre>
- * <p>
  * <p>Here are some examples of recognized formats:
  * <ul>
  * <li>example.com
@@ -87,7 +86,6 @@ public class HostAddress
     /**
      * Returns the portion of this {@code HostAddress} instance that should
      * represent the hostname or IPv4/IPv6 literal.
-     * <p>
      * <p>A successful parse does not imply any degree of sanity in this field.
      */
     public String getHostText()
@@ -107,8 +105,8 @@ public class HostAddress
      * Get the current port number, failing if no port is defined.
      *
      * @return a validated port number, in the range [0..65535]
-     * @throws IllegalStateException if no port is defined.  You can use
-     * {@link #withDefaultPort(int)} to prevent this from occurring.
+     * @throws IllegalStateException if no port is defined. You can use
+     *         {@link #withDefaultPort(int)} to prevent this from occurring.
      */
     public int getPort()
     {
@@ -128,14 +126,13 @@ public class HostAddress
 
     /**
      * Build a HostAddress instance from separate host and port values.
-     * <p>
      * <p>Note: Non-bracketed IPv6 literals are allowed.
      *
-     * @param host the host string to parse.  Must not contain a port number.
+     * @param host the host string to parse. Must not contain a port number.
      * @param port a port number from [0..65535]
      * @return if parsing was successful, a populated HostAddress object.
      * @throws IllegalArgumentException if {@code host} contains a port number,
-     * or {@code port} is out of range.
+     *         or {@code port} is out of range.
      */
     public static HostAddress fromParts(String host, int port)
     {
@@ -272,7 +269,7 @@ public class HostAddress
         }
         HostAddress other = (HostAddress) obj;
         return this.port == other.port &&
-               Objects.equals(this.host, other.host);
+                Objects.equals(this.host, other.host);
     }
 
     /**

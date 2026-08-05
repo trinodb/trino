@@ -357,13 +357,13 @@ class TestStatisticsUpdateMode
         assertThat(columnStatistics).hasSize(2);
         assertThat(columnStatistics.keySet()).contains("a_column", "b_column");
         assertThat(columnStatistics).containsEntry("a_column", HiveColumnStatistics.builder()
-                        .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(1), OptionalLong.of(5)))
-                        .setNullsCount(0)
-                        .setDistinctValuesWithNullCount(5)
-                        .build());
+                .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(1), OptionalLong.of(5)))
+                .setNullsCount(0)
+                .setDistinctValuesWithNullCount(5)
+                .build());
         assertThat(columnStatistics).containsEntry("b_column", HiveColumnStatistics.builder()
-                        .setNullsCount(1)
-                        .build());
+                .setNullsCount(1)
+                .build());
     }
 
     private static HiveBasicStatistics merge(StatisticsUpdateMode mode, HiveBasicStatistics first, HiveBasicStatistics second)

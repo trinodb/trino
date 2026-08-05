@@ -30,16 +30,14 @@ public class TestRemoveRedundantJoin
     {
         tester().assertThat(new RemoveRedundantJoin())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(10, p.symbol("a")),
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
 
         tester().assertThat(new RemoveRedundantJoin())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(10, p.symbol("a")),
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
@@ -50,16 +48,14 @@ public class TestRemoveRedundantJoin
     {
         tester().assertThat(new RemoveRedundantJoin())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(10, p.symbol("a")),
                                 p.values(0)))
                 .matches(values("a"));
 
         tester().assertThat(new RemoveRedundantJoin())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(0),
                                 p.values(10, p.symbol("b"))))
                 .matches(values("b"));
@@ -70,8 +66,7 @@ public class TestRemoveRedundantJoin
     {
         tester().assertThat(new RemoveRedundantJoin())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(0),
                                 p.values(10, p.symbol("b"))))
                 .matches(values("a"));
@@ -82,8 +77,7 @@ public class TestRemoveRedundantJoin
     {
         tester().assertThat(new RemoveRedundantJoin())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.values(10, p.symbol("a")),
                                 p.values(0)))
                 .matches(values("a"));
@@ -94,8 +88,7 @@ public class TestRemoveRedundantJoin
     {
         tester().assertThat(new RemoveRedundantJoin())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(0, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .matches(values("a", "b"));

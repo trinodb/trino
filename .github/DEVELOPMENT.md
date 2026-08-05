@@ -1,35 +1,41 @@
 # Development
 
+In this document you can find information about developing Trino.
+
+* [Trino organization](#trino-organization)
+* [Trino developer guide](#trino-developer-guide)
+* [Code style](#code-style)
+* [Building](#building)
+* [Branch-scoped local repository](#branch-scoped-local-repository)
+* [Additional IDE configuration](#additional-ide-configuration)
+* [Building docs](#building-docs)
+* [Building the Web UI](#building-the-web-ui)
+* [Releases](#releases)
+
+## Trino organization
+
 Learn about development for all Trino organization projects:
 
 * [Vision](https://trino.io/development/vision)
 * [Contribution process](https://trino.io/development/process#contribution-process)
-* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
-* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
+* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines)
+* [Release note guidelines](https://trino.io/development/process#release-note-guidelines)
 
 Further information in the [development section of the
 website](https://trino.io/development) includes different roles, like
 contributors, reviewers, and maintainers, related processes, and other aspects.
 
+## Trino developer guide
+
 See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
-information about the SPI, implementing connectors and other plugins plugins,
+information about the SPI, implementing connectors and other plugins,
 the client protocol, writing tests and other lower level details.
-
-More information about writing and building the documentation can be found in
-the [docs module](../docs).
-
-* [Code style](#code-style)
-* [Additional IDE configuration](#additional-ide-configuration)
-* [Building the Web UI](#building-the-web-ui)
-* [CI pipeline](#ci-pipeline)
 
 ## Code Style
 
-We recommend you use IntelliJ as your IDE. The code style template for the
-project can be found in the [codestyle](https://github.com/airlift/codestyle)
-repository along with our general programming and Java guidelines. 
+We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run checkstyle and other maven checks before opening a PR: `./mvnw validate`
+To run airstyle and other maven checks before opening a PR: `./mvnw validate`
 
 In addition to those you should also adhere to the following:
 
@@ -70,11 +76,11 @@ license by running `mvn license:format`.
 
 ### Prefer String formatting
 
-Consider using String formatting (printf style formatting using the Java
-`Formatter` class): `format("Session property %s is invalid: %s", name, value)`
-(note that `format()` should always be statically imported).  Sometimes, if you
-only need to append something, consider using the `+` operator.  Please avoid
-`format()` or concatenation in performance critical sections of code.
+Consider using String formatting with the `String.formatted` method:
+`"Session property %s is invalid: %s".formatted(name, value)`.
+Sometimes, if you only need to append something, consider using the `+` operator.
+Please avoid `formatted()` or concatenation in performance critical sections of
+code.
 
 ### Avoid ternary operator
 
@@ -110,9 +116,15 @@ Prefer AssertJ for complex assertions.
 For thing not easily expressible with AssertJ, use Airlift's `Assertions` class
 if there is one that covers your case.
 
-### Avoid `var`
+### Use `var` judiciously
 
-Using ``var`` is discouraged.
+Use `var` only when it improves readability. Prefer it when the type
+is obvious from the initializer, such as with `new` expressions, or
+when the explicit type is long or heavily generic and adds noise
+without improving clarity.
+
+Avoid `var` when the inferred type is unclear, surprising, or
+important to understanding the code.
 
 ### Prefer Guava immutable collections
 
@@ -138,6 +150,35 @@ allows static code analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch`
 check) report a problem when the enum definition is updated but the code using
 it is not.
 
+### Vector API
+It's safe to assume that the JVM has the Vector API
+([JEP 508](https://openjdk.org/jeps/508)) enabled and available at runtime, but
+not safe to assume that the Vector API implementation will perform faster than
+equivalent scalar code on whatever hardware the engine happens to be running on.
+
+Different CPU hardware can exhibit dramatically different performance
+characteristics, so it's important to use hardware feature detection to
+determine under which scenarios a vectorized approach will be faster for
+each implementation. Vectorized code should be tested on AMD, ARM, and Intel
+CPUs to verify the benefits hold on each of those platforms before deciding
+to enable a given code path on each of those platforms. Also note that ARM CPUs
+can exhibit significant differences from between hardware generations as well
+as between Apple Silicon and datacenter class CPUs.
+
+When adding implementations that use the Vector API, prefer the following
+approach unless the specifics of the situation dictate otherwise:
+* Provide an equivalent scalar implementation in code, if one does not already
+exist.
+* Use configuration flags and hardware support detection to ensure that
+vectorized implementation is only selected when running on hardware where it is
+expected to perform better than its scalar equivalent.
+* Add tests that ensure the behavior of the vectorized and scalar
+implementations match.
+* Include micro-benchmarks that demonstrate the performance benefits of the
+vectorized implementation compared to the scalar equivalent logic. Ensure that
+the benefits hold for all CPU architectures on which the vectorized
+implementation is enabled.
+
 ## Keep pom.xml clean and sorted
 
 There are several plugins in place to keep pom.xml clean.
@@ -147,6 +188,43 @@ Your build may fail if:
 
 Many such errors may be fixed automatically by running the following:
 `./mvnw sortpom:sort`
+
+## Building
+
+The fastest way to build and install the whole project:
+
+```bash
+./mvnw clean install -T 2C -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
+```
+
+This builds with two threads per core, skips snapshot update checks, tests, Javadoc, and the
+airbase checks (checkstyle, modernizer, dependency analysis). Run `./mvnw validate` separately
+before opening a PR to get those checks back.
+
+## Branch-scoped local repository
+
+Builds from different branches share `~/.m2/repository` and overwrite each other's installed
+SNAPSHOTs, so a build can silently use jars from another branch. The
+[`branch-scoped-local-repository`](https://github.com/lenaschoenburg/branch-scoped-local-repository)
+extension in [`.mvn/extensions.xml`](../.mvn/extensions.xml) keeps installed artifacts separate per
+branch, so several checkouts or [git worktrees](https://git-scm.com/docs/git-worktree) can build
+and install in parallel without interfering.
+
+It is off by default; enable it per build:
+
+```bash
+./mvnw install -DskipTests -DbranchScopedLocalRepo.enabled=true
+```
+
+Before turning it on:
+
+* Pass the flag on the command line of every build in that checkout. Builds without it see the
+  unscoped artifacts instead.
+* The first build on a branch must be a full `install`, and third-party dependencies are
+  downloaded once more.
+* Worktrees on the same branch are still not isolated from each other.
+* Nothing prunes these artifacts, so delete `~/.m2/repository/installed/<branch>/` once the work on
+  a branch is finished.
 
 ## Additional IDE configuration
 
@@ -214,30 +292,44 @@ with `@Language`:
 - Local variables which otherwise would not be properly recognized by IDE for
   language injection.
 
+## Building docs
+
+Information about writing and building the documentation can be found in
+the [docs module](../docs).
+
 ## Building the Web UI
 
-The Trino Web UI is composed of several React components and is written in JSX
-and ES6. This source code is compiled and packaged into browser-compatible
-Javascript, which is then checked in to the Trino source code (in the `dist`
-folder). You must have [Node.js](https://nodejs.org/en/download/) and
-[Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update
-this folder after making changes, simply run:
+The Trino Web UI is a React and Vite project located in
+`core/trino-web-ui/src/main/resources/webapp`. You must have
+[Bun](https://bun.sh/docs/installation) installed to execute these
+commands. (Maven builds download Bun automatically, so a local install is only
+needed to run these commands by hand.) Install dependencies with:
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src install
+    cd core/trino-web-ui/src/main/resources/webapp
+    bun install
 
-If no Javascript dependencies have changed (i.e., no changes to `package.json`),
-it is faster to run:
+For fast local development, run the `WebUiQueryRunner` class. This starts a
+minimal Trino development server configured with the Web UI. Then start the Vite
+development server:
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run package
+    bun run dev
 
-To simplify iteration, you can also run in `watch` mode, which automatically
-re-compiles when changes to source files are detected:
+Open `http://localhost:5173/ui` in your browser. The Vite development server
+provides Hot Module Replacement for quick iteration. By default, requests to
+`/ui/auth` and `/ui/api` are proxied to `http://127.0.0.1:8080/`. To use a
+different backend, update `VITE_BASE_URL` in
+`core/trino-web-ui/src/main/resources/webapp/.env.development`.
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run watch
+To build the Web UI locally, run:
 
-To iterate quickly, simply re-build the project in IntelliJ after packaging is
-complete. Project resources will be hot-reloaded and changes are reflected on
-browser refresh.
+    bun run build
+
+To run frontend checks, run:
+
+    bun run check
+
+Maven builds package the Web UI automatically, and Maven verification runs the
+frontend checks.
 
 ## Releases
 

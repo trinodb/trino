@@ -37,6 +37,7 @@ public final class DateOperators
 {
     private DateOperators() {}
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -51,6 +52,7 @@ public final class DateOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, x));
     }
 
+    // fallible
     @ScalarFunction("date")
     @ScalarOperator(CAST)
     @LiteralParameters("x")
@@ -60,7 +62,21 @@ public final class DateOperators
         // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
 
         try {
-            return parseDate(trim(value).toStringUtf8());
+            return parseDate(trim(value));
+        }
+        catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
+        }
+    }
+
+    // fallible
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.DATE)
+    public static long castFromChar(@SqlType("char(x)") Slice value)
+    {
+        try {
+            return parseDate(trim(value));
         }
         catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);

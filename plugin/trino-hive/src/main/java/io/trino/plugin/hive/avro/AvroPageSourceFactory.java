@@ -47,7 +47,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -142,29 +141,6 @@ public class AvroPageSourceFactory
         }
 
         int hiveTimestampPrecision = getTimestampPrecision(session).getPrecision();
-        if (maskedSchema.getFields().isEmpty()) {
-            // No non-masked columns to select from partition schema.
-            // Hack to return null rows with the same total count as the underlying data file.
-            // This will error if UUID is the same name as base column for underlying storage table, but this should never
-            // return false data. If file data has f+uuid column in schema, then the resolution of read null from not null will fail.
-            SchemaBuilder.FieldAssembler<Schema> nullSchema = SchemaBuilder.record("null_only").fields();
-            for (int i = 0; i < Math.max(columns.size(), 1); i++) {
-                String notAColumnName = null;
-                while (Objects.isNull(notAColumnName) || Objects.nonNull(tableSchema.getField(notAColumnName))) {
-                    notAColumnName = "f" + UUID.randomUUID().toString().replace('-', '_');
-                }
-                nullSchema = nullSchema.name(notAColumnName).type(Schema.create(Schema.Type.NULL)).withDefault(null);
-            }
-            try {
-                return new AvroPageSource(inputFile, nullSchema.endRecord(), new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision)), start, length);
-            }
-            catch (IOException e) {
-                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
-            }
-            catch (AvroTypeException e) {
-                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Avro type resolution error when initializing split from %s".formatted(inputFile.location()), e);
-            }
-        }
 
         try {
             return new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision)), start, length);

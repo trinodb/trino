@@ -52,7 +52,7 @@ public final class RedisTestUtils
 
     public static void loadTpchTable(RedisServer redisServer, TestingTrinoClient trinoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
     {
-        RedisLoader tpchLoader = new RedisLoader(trinoClient.getServer(), trinoClient.getDefaultSession(), redisServer.getJedisPool(), tableName, dataFormat);
+        RedisLoader tpchLoader = new RedisLoader(trinoClient.getServer(), trinoClient.getDefaultSession(), redisServer.getClient(), tableName, dataFormat);
         tpchLoader.execute(format("SELECT * from %s", tpchTableName));
     }
 

@@ -41,15 +41,15 @@ public class TimeSharingTaskHandle
     private final DoubleSupplier utilizationSupplier;
 
     @GuardedBy("this")
-    protected final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
+    private final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
     @GuardedBy("this")
-    protected final List<PrioritizedSplitRunner> runningLeafSplits = new ArrayList<>(10);
+    private final List<PrioritizedSplitRunner> runningLeafSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    protected final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
+    private final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    protected long scheduledNanos;
+    private long scheduledNanos;
     @GuardedBy("this")
-    protected final SplitConcurrencyController concurrencyController;
+    private final SplitConcurrencyController concurrencyController;
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 

@@ -29,12 +29,12 @@ final class TestPinotPlugin
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .put("pinot.controller-urls", "host1:8098")
-                        .put("bootstrap.quiet", "true")
-                        .buildOrThrow(),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("pinot.controller-urls", "host1:8098")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 

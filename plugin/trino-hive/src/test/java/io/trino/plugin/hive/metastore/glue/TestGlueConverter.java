@@ -24,6 +24,7 @@ import io.trino.metastore.Storage;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.TableType;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,7 @@ import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestGlueConverter
 {
@@ -135,7 +137,7 @@ class TestGlueConverter
                     .type("string")
                     .comment("table partition column comment")
                     .build())
-            .storageDescriptor(software.amazon.awssdk.services.glue.model.StorageDescriptor.builder()
+            .storageDescriptor(StorageDescriptor.builder()
                     .bucketColumns(ImmutableList.of("test-bucket-col"))
                     .columns(software.amazon.awssdk.services.glue.model.Column.builder()
                             .name("table-data")
@@ -162,7 +164,7 @@ class TestGlueConverter
             .tableName(glueTable.name())
             .values(ImmutableList.of("val1"))
             .parameters(ImmutableMap.of())
-            .storageDescriptor(software.amazon.awssdk.services.glue.model.StorageDescriptor.builder()
+            .storageDescriptor(StorageDescriptor.builder()
                     .bucketColumns(ImmutableList.of("partition-bucket-col"))
                     .columns(software.amazon.awssdk.services.glue.model.Column.builder()
                             .name("partition-data")
@@ -337,6 +339,56 @@ class TestGlueConverter
                 .build();
 
         assertThat(GlueConverter.fromGlueTable(table, table.databaseName()).getPartitionColumns().getFirst().getType()).isEqualTo(HIVE_STRING);
+    }
+
+    @Test
+    void testConvertTableBadHiveType()
+    {
+        software.amazon.awssdk.services.glue.model.Table table = glueTable.toBuilder()
+                .storageDescriptor(
+                        StorageDescriptor.builder()
+                                .columns(software.amazon.awssdk.services.glue.model.Column.builder()
+                                        .name("badhivetype")
+                                        .type("notarealtype")
+                                        .build())
+                                .serdeInfo(glueTable.storageDescriptor().serdeInfo())
+                                .build())
+                .build();
+
+        assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Column badhivetype has invalid type: notarealtype");
+    }
+
+    @Test
+    void testConvertTableEmptyHiveType()
+    {
+        software.amazon.awssdk.services.glue.model.Table table = glueTable.toBuilder()
+                .storageDescriptor(
+                        StorageDescriptor.builder()
+                                .columns(software.amazon.awssdk.services.glue.model.Column.builder()
+                                        .name("emptyhivetype")
+                                        .type("")
+                                        .build())
+                                .serdeInfo(glueTable.storageDescriptor().serdeInfo())
+                                .build())
+                .build();
+
+        assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Column emptyhivetype has invalid type: ");
+    }
+
+    @Test
+    void testConvertTableNullSerdeInfo()
+    {
+        software.amazon.awssdk.services.glue.model.Table table = glueTable.toBuilder()
+                .storageDescriptor(StorageDescriptor.builder().columns(glueTable.storageDescriptor().columns()).build())
+                .build();
+
+        assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("StorageDescriptor SerDeInfo is null: %s.%s".formatted(glueTable.databaseName(), glueTable.name()));
     }
 
     @Test

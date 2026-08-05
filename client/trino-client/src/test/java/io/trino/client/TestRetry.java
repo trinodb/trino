@@ -99,8 +99,8 @@ public class TestRetry
                 .build();
 
         server.enqueue(statusAndBody(HTTP_OK, newQueryResults("RUNNING"))
-                        .onRequestStart(SocketEffect.Stall.INSTANCE)
-                        .build());
+                .onRequestStart(SocketEffect.Stall.INSTANCE)
+                .build());
         server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED")).build());
 
         try (StatementClient client = newStatementClient(httpClient, session, "SELECT 1", Optional.empty())) {

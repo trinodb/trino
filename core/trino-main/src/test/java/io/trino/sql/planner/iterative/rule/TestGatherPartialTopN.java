@@ -38,8 +38,7 @@ public class TestGatherPartialTopN
     public void testPartialTopNGather()
     {
         tester().assertThat(new GatherPartialTopN())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol orderBy = p.symbol("a");
                     return p.exchange(exchange -> exchange
                             .scope(REMOTE)
@@ -68,8 +67,7 @@ public class TestGatherPartialTopN
     public void testRuleDoesNotFireTwice()
     {
         tester().assertThat(new GatherPartialTopN())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol orderBy = p.symbol("a");
                     return p.exchange(exchange -> exchange
                             .scope(REMOTE)

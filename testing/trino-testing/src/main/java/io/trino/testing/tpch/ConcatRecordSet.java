@@ -14,6 +14,7 @@
 package io.trino.testing.tpch;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
@@ -135,7 +136,7 @@ class ConcatRecordSet
         }
 
         @Override
-        public io.airlift.slice.Slice getSlice(int field)
+        public Slice getSlice(int field)
         {
             checkState(!closed);
             checkPositionIndex(field, types.size());

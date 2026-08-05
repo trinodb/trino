@@ -17,5 +17,5 @@ enum State
 {
     BLOCKED, // all tasks are blocked
     RUNNING, // all tasks are dequeued and running
-    RUNNABLE // some tasks are enqueued and ready to run
+    RUNNABLE, // some tasks are enqueued and ready to run
 }

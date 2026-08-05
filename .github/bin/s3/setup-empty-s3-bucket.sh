@@ -44,3 +44,17 @@ echo "Tagging the AWS S3 bucket ${S3_BUCKET_IDENTIFIER} with TTL tags"
 aws s3api put-bucket-tagging \
   --bucket "${S3_BUCKET_IDENTIFIER}" \
   --tagging "TagSet=[{Key=environment,Value=test},{Key=ttl,Value=${S3_BUCKET_TTL}}]"
+
+echo "Allowing SSE-C encryption for the AWS S3 bucket ${S3_BUCKET_IDENTIFIER}"
+
+# Since April 2026, AWS S3 blocks SSE-C (Server-Side Encryption with Customer-provided keys)
+# by default on new buckets. Unblock it by setting BlockedEncryptionTypes to an empty list.
+aws s3api put-bucket-encryption \
+  --bucket "${S3_BUCKET_IDENTIFIER}" \
+  --server-side-encryption-configuration '{
+    "Rules": [{
+      "BlockedEncryptionTypes": {
+        "EncryptionType": ["NONE"]
+      }
+    }]
+  }'

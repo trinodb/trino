@@ -57,7 +57,7 @@ public final class RequestTestUtilities
 
     public static Function<JsonNode, MockResponse> buildValidatingRequestHandler(Identity expectedUser, MockResponse response)
     {
-        return buildValidatingRequestHandler(expectedUser, jsonNode -> response);
+        return buildValidatingRequestHandler(expectedUser, _ -> response);
     }
 
     public static Function<JsonNode, MockResponse> buildValidatingRequestHandler(Identity expectedUser, Function<JsonNode, MockResponse> customHandler)

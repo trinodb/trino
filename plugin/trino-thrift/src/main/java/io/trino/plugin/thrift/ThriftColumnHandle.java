@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record ThriftColumnHandle(String columnName, Type columnType, String comment, boolean hidden)
+public record ThriftColumnHandle(String columnName, Type columnType, Optional<String> comment, boolean hidden)
         implements ColumnHandle
 {
     public ThriftColumnHandle
@@ -35,7 +35,7 @@ public record ThriftColumnHandle(String columnName, Type columnType, String comm
         return ColumnMetadata.builder()
                 .setName(columnName)
                 .setType(columnType)
-                .setComment(Optional.ofNullable(comment))
+                .setComment(comment)
                 .setHidden(hidden)
                 .build();
     }

@@ -16,6 +16,7 @@ package io.trino.util;
 import io.trino.array.BigArrays;
 import io.trino.array.LongBigArray;
 import it.unimi.dsi.fastutil.Hash;
+import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.AbstractLong2LongMap;
 import it.unimi.dsi.fastutil.longs.AbstractLongCollection;
 import it.unimi.dsi.fastutil.longs.AbstractLongSet;
@@ -29,7 +30,11 @@ import it.unimi.dsi.fastutil.objects.ObjectIterator;
 
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
+import java.util.function.LongFunction;
+import java.util.function.LongUnaryOperator;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static it.unimi.dsi.fastutil.HashCommon.bigArraySize;
@@ -261,7 +266,7 @@ public class Long2LongOpenBigHashMap
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+        long pos = HashCommon.mix(k) & mask;
         long curr = key.get(pos);
         if (curr == 0) {
             return -(pos + 1);
@@ -329,7 +334,7 @@ public class Long2LongOpenBigHashMap
      * @param k the key.
      * @param incr the increment.
      * @return the old value, or the {@linkplain #defaultReturnValue() default
-     * return value} if no value was present for the given key.
+     *         return value} if no value was present for the given key.
      */
     public long addTo(final long k, final long incr)
     {
@@ -344,7 +349,7 @@ public class Long2LongOpenBigHashMap
         else {
             final LongBigArray key = this.key;
             // The starting point.
-            pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+            pos = HashCommon.mix(k) & mask;
             long curr = key.get(pos);
             if (!(curr == 0)) {
                 if (curr == k) {
@@ -394,7 +399,7 @@ public class Long2LongOpenBigHashMap
                     key.set(last, 0);
                     return;
                 }
-                slot = it.unimi.dsi.fastutil.HashCommon.mix(curr) & mask;
+                slot = HashCommon.mix(curr) & mask;
                 if (last <= pos ? last >= slot || slot > pos : last >= slot && slot > pos) {
                     break;
                 }
@@ -416,7 +421,7 @@ public class Long2LongOpenBigHashMap
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+        long pos = HashCommon.mix(k) & mask;
         long curr = key.get(pos);
         if (curr == 0) {
             return defRetValue;
@@ -444,7 +449,7 @@ public class Long2LongOpenBigHashMap
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+        long pos = HashCommon.mix(k) & mask;
         long curr = key.get(pos);
         if (curr == 0) {
             return defRetValue;
@@ -473,7 +478,7 @@ public class Long2LongOpenBigHashMap
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+        long pos = HashCommon.mix(k) & mask;
         long curr = key.get(pos);
         if (curr == 0) {
             return false;
@@ -521,7 +526,7 @@ public class Long2LongOpenBigHashMap
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+        long pos = HashCommon.mix(k) & mask;
         long curr = key.get(pos);
         if (curr == 0) {
             return defaultValue;
@@ -571,7 +576,7 @@ public class Long2LongOpenBigHashMap
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+        long pos = HashCommon.mix(k) & mask;
         long curr = key.get(pos);
         if (curr == 0) {
             return false;
@@ -626,7 +631,7 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long computeIfAbsent(final long k, final java.util.function.LongUnaryOperator mappingFunction)
+    public long computeIfAbsent(final long k, final LongUnaryOperator mappingFunction)
     {
         requireNonNull(mappingFunction);
         final long pos = find(k);
@@ -642,8 +647,9 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long computeIfAbsentNullable(final long k,
-            final java.util.function.LongFunction<? extends Long> mappingFunction)
+    public long computeIfAbsentNullable(
+            final long k,
+            final LongFunction<? extends Long> mappingFunction)
     {
         requireNonNull(mappingFunction);
         final long pos = find(k);
@@ -663,8 +669,9 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long computeIfPresent(final long k,
-            final java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
+    public long computeIfPresent(
+            final long k,
+            final BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);
         final long pos = find(k);
@@ -689,8 +696,9 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long compute(final long k,
-            final java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
+    public long compute(
+            final long k,
+            final BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);
         final long pos = find(k);
@@ -719,8 +727,10 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long merge(final long k, final long v,
-            final java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
+    public long merge(
+            final long k,
+            final long v,
+            final BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);
         final long pos = find(k);
@@ -860,8 +870,8 @@ public class Long2LongOpenBigHashMap
         @Override
         public int hashCode()
         {
-            return it.unimi.dsi.fastutil.HashCommon.long2int(key.get(index))
-                    ^ it.unimi.dsi.fastutil.HashCommon.long2int(value.get(index));
+            return HashCommon.long2int(key.get(index))
+                    ^ HashCommon.long2int(value.get(index));
         }
 
         @Override
@@ -925,7 +935,7 @@ public class Long2LongOpenBigHashMap
                     // We are just enumerating elements from the wrapped list.
                     last = Long.MIN_VALUE;
                     final long k = wrapped.getLong(-pos - 1);
-                    long p = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+                    long p = HashCommon.mix(k) & mask;
                     while (!(k == key.get(p))) {
                         p = (p + 1) & mask;
                     }
@@ -960,7 +970,7 @@ public class Long2LongOpenBigHashMap
                         key.set(last, 0);
                         return;
                     }
-                    slot = it.unimi.dsi.fastutil.HashCommon.mix(curr) & mask;
+                    slot = HashCommon.mix(curr) & mask;
                     if (last <= pos ? last >= slot || slot > pos : last >= slot && slot > pos) {
                         break;
                     }
@@ -1082,7 +1092,7 @@ public class Long2LongOpenBigHashMap
             }
             final LongBigArray key = Long2LongOpenBigHashMap.this.key;
             // The starting point.
-            long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+            long pos = HashCommon.mix(k) & mask;
             long curr = key.get(pos);
             if (curr == 0) {
                 return false;
@@ -1127,7 +1137,7 @@ public class Long2LongOpenBigHashMap
             }
             final LongBigArray key = Long2LongOpenBigHashMap.this.key;
             // The starting point.
-            long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+            long pos = HashCommon.mix(k) & mask;
             long curr = key.get(pos);
             if (curr == 0) {
                 return false;
@@ -1246,7 +1256,7 @@ public class Long2LongOpenBigHashMap
          * {@inheritDoc}
          */
         @Override
-        public void forEach(final java.util.function.LongConsumer consumer)
+        public void forEach(final LongConsumer consumer)
         {
             if (containsNullKey) {
                 consumer.accept(key.get(n));
@@ -1350,9 +1360,11 @@ public class Long2LongOpenBigHashMap
                     Long2LongOpenBigHashMap.this.clear();
                 }
 
-                /** {@inheritDoc} */
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
-                public void forEach(final java.util.function.LongConsumer consumer)
+                public void forEach(final LongConsumer consumer)
                 {
                     if (containsNullKey) {
                         consumer.accept(value.get(n));
@@ -1448,7 +1460,7 @@ public class Long2LongOpenBigHashMap
             while (key.get(--i) == 0) {
                 // Skip
             }
-            pos = it.unimi.dsi.fastutil.HashCommon.mix(key.get(i)) & mask;
+            pos = HashCommon.mix(key.get(i)) & mask;
             if (!(newKey.get(pos) == 0)) {
                 pos = (pos + 1) & mask;
                 while (!(newKey.get(pos) == 0)) {

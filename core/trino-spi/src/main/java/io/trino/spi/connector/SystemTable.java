@@ -100,4 +100,15 @@ public interface SystemTable
     {
         return Optional.empty();
     }
+
+    /**
+     * Returns {@link ConnectorTableCredentials} if the system table requires credentials to access the data.
+     * <p>
+     * Implementing this method requires implementing {@link #splitSource(ConnectorSession, TupleDomain)} too.
+     * The credentials returned by this method will be passed to {@link ConnectorPageSourceProvider }
+     */
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session)
+    {
+        return Optional.empty();
+    }
 }

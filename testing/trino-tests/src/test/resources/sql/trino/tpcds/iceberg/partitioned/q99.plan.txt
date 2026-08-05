@@ -2,16 +2,16 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (cc_name, gid, sm_type)
+                final aggregation over (sm_type, cc_name, gid)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [cc_name, gid, sm_type])
-                            intermediate aggregation over (cc_name, gid, sm_type)
+                        remote exchange (REPARTITION, HASH, [sm_type, cc_name, gid])
+                            intermediate aggregation over (sm_type, cc_name, gid)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            partial aggregation over (cs_call_center_sk, cs_ship_mode_sk, cs_warehouse_sk)
+                                            partial aggregation over (cs_warehouse_sk, cs_ship_mode_sk, cs_call_center_sk)
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (cs_call_center_sk::EQUAL, cs_ship_date_sk::EQUAL, cs_ship_mode_sk::EQUAL, cs_warehouse_sk::EQUAL)
+                                                    dynamic filter (cs_warehouse_sk::EQUAL, cs_ship_mode_sk::EQUAL, cs_call_center_sk::EQUAL, cs_ship_date_sk::EQUAL)
                                                         scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

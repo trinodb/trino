@@ -18,11 +18,14 @@ import com.google.inject.Inject;
 import dev.failsafe.RetryPolicy;
 import io.trino.plugin.base.MappedPageSource;
 import io.trino.plugin.jdbc.MergeJdbcPageSource.ColumnAdaptation;
+import io.trino.plugin.jdbc.MergeJdbcPageSource.MergedRowAdaptation;
+import io.trino.plugin.jdbc.MergeJdbcPageSource.SourceColumn;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -38,8 +41,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.jdbc.DefaultJdbcMetadata.MERGE_ROW_ID;
-import static io.trino.plugin.jdbc.MergeJdbcPageSource.MergedRowAdaptation;
-import static io.trino.plugin.jdbc.MergeJdbcPageSource.SourceColumn;
 import static io.trino.plugin.jdbc.RetryingModule.retry;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -65,6 +66,7 @@ public class JdbcPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {

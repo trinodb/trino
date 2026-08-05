@@ -45,6 +45,7 @@ import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
 import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -115,9 +116,9 @@ public class TestRedshiftTableStatisticsReader
         String tableName = "testallnulls_" + randomNameSuffix();
         String schemaAndTable = TEST_SCHEMA + "." + tableName;
         try {
-            executeInRedshift("CREATE TABLE " + schemaAndTable + " (i BIGINT)");
+            executeInRedshiftWithRetry("CREATE TABLE IF NOT EXISTS " + schemaAndTable + " (i BIGINT)");
             executeInRedshift("INSERT INTO " + schemaAndTable + " (i) VALUES (NULL)");
-            executeInRedshift("ANALYZE VERBOSE " + schemaAndTable);
+            executeInRedshiftWithRetry("ANALYZE VERBOSE " + schemaAndTable);
 
             TableStatistics stats = statsReader.readTableStatistics(
                     SESSION,
@@ -131,7 +132,7 @@ public class TestRedshiftTableStatisticsReader
                     .returns(emptyMap(), from(TableStatistics::getColumnStatistics));
         }
         finally {
-            executeInRedshift("DROP TABLE IF EXISTS " + schemaAndTable);
+            executeInRedshiftWithRetry("DROP TABLE IF EXISTS " + schemaAndTable);
         }
     }
 
@@ -198,7 +199,7 @@ public class TestRedshiftTableStatisticsReader
                 createVarcharJdbcColumnHandle("comment", 117));
 
         try {
-            executeInRedshift("CREATE OR REPLACE VIEW " + schemaAndTable + " AS SELECT custkey, mktsegment, comment FROM " + TEST_SCHEMA + ".customer");
+            executeInRedshiftWithRetry("CREATE OR REPLACE VIEW " + schemaAndTable + " AS SELECT custkey, mktsegment, comment FROM " + TEST_SCHEMA + ".customer");
             TableStatistics tableStatistics = statsReader.readTableStatistics(
                     SESSION,
                     new JdbcTableHandle(
@@ -209,7 +210,7 @@ public class TestRedshiftTableStatisticsReader
             assertThat(tableStatistics).isEqualTo(TableStatistics.empty());
         }
         finally {
-            executeInRedshift("DROP VIEW IF EXISTS " + schemaAndTable);
+            executeInRedshiftWithRetry("DROP VIEW IF EXISTS " + schemaAndTable);
         }
     }
 
@@ -227,7 +228,7 @@ public class TestRedshiftTableStatisticsReader
         try {
             executeInRedshift("CREATE MATERIALIZED VIEW " + schemaAndTable +
                     " AS SELECT custkey, mktsegment, comment FROM " + TEST_SCHEMA + ".customer");
-            executeInRedshift("REFRESH MATERIALIZED VIEW " + schemaAndTable);
+            executeInRedshiftWithRetry("REFRESH MATERIALIZED VIEW " + schemaAndTable);
             TableStatistics tableStatistics = statsReader.readTableStatistics(
                     SESSION,
                     new JdbcTableHandle(
@@ -238,7 +239,7 @@ public class TestRedshiftTableStatisticsReader
             assertThat(tableStatistics).isEqualTo(TableStatistics.empty());
         }
         finally {
-            executeInRedshift("DROP MATERIALIZED VIEW " + schemaAndTable);
+            executeInRedshiftWithRetry("DROP MATERIALIZED VIEW IF EXISTS " + schemaAndTable);
         }
     }
 
@@ -263,7 +264,7 @@ public class TestRedshiftTableStatisticsReader
                         .put("long_decimals_big_integral decimal(38,1)", List.of("-1234567890123456789012345678901234567.8", "1234567890123456789012345678901234567.8"))
                         .buildOrThrow(),
                 "null")) {
-            executeInRedshift("ANALYZE VERBOSE " + TEST_SCHEMA + "." + table.getName());
+            executeInRedshiftWithRetry("ANALYZE VERBOSE " + TEST_SCHEMA + "." + table.getName());
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES " +
@@ -312,7 +313,7 @@ public class TestRedshiftTableStatisticsReader
         String schemaAndTable = TEST_SCHEMA + "." + tableName;
         try {
             executeInRedshift("CREATE TABLE " + schemaAndTable + " AS " + values);
-            executeInRedshift("ANALYZE VERBOSE " + schemaAndTable);
+            executeInRedshiftWithRetry("ANALYZE VERBOSE " + schemaAndTable);
             return statsReader.readTableStatistics(
                     SESSION,
                     new JdbcTableHandle(
@@ -322,7 +323,7 @@ public class TestRedshiftTableStatisticsReader
                     () -> columnHandles);
         }
         finally {
-            executeInRedshift("DROP TABLE IF EXISTS " + schemaAndTable);
+            executeInRedshiftWithRetry("DROP TABLE IF EXISTS " + schemaAndTable);
         }
     }
 

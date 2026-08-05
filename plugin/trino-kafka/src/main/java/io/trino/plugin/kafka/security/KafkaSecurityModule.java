@@ -14,12 +14,11 @@
 package io.trino.plugin.kafka.security;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.kafka.KafkaSecurityConfig;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import java.util.Optional;
 
 public class KafkaSecurityModule
         extends AbstractConfigurationAwareModule
@@ -27,16 +26,9 @@ public class KafkaSecurityModule
     @Override
     protected void setup(Binder binder)
     {
-        bindSecurityModule(
-                SecurityProtocol.SSL,
-                new SslSecurityModule());
-    }
-
-    private void bindSecurityModule(SecurityProtocol securityProtocol, Module module)
-    {
-        install(conditionalModule(
-                KafkaSecurityConfig.class,
-                config -> config.getSecurityProtocol().isPresent() && config.getSecurityProtocol().get().equals(securityProtocol),
-                module));
+        Optional<SecurityProtocol> securityProtocol = buildConfigObject(KafkaSecurityConfig.class).getSecurityProtocol();
+        if (securityProtocol.isPresent() && securityProtocol.get().equals(SecurityProtocol.SSL)) {
+            install(new SslSecurityModule());
+        }
     }
 }

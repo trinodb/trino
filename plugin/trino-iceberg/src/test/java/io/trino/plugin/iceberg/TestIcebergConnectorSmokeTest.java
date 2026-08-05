@@ -24,7 +24,6 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -55,15 +54,14 @@ public class TestIcebergConnectorSmokeTest
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.file-format", format.name(),
                         "iceberg.register-table-procedure.enabled", "true",
-                        "iceberg.writer-sort-buffer-size", "1MB",
-                        "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
+                        "iceberg.writer-sort-buffer-size", "1MB"))
                 .build();
         metastore = getHiveMetastore(queryRunner);
         return queryRunner;
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         metastore.dropTable(getSession().getSchema().orElseThrow(), tableName, false);
         assertThat(metastore.getTable(getSession().getSchema().orElseThrow(), tableName)).as("Table in metastore should be dropped").isEmpty();
@@ -103,12 +101,6 @@ public class TestIcebergConnectorSmokeTest
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 
     @Test

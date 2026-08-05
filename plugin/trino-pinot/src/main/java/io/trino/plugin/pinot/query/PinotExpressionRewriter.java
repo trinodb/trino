@@ -93,7 +93,8 @@ public class PinotExpressionRewriter
     public static ExpressionContext rewriteExpression(SchemaTableName schemaTableName, ExpressionContext expressionContext, Map<String, ColumnHandle> columnHandles)
     {
         requireNonNull(expressionContext, "expressionContext is null");
-        Context context = new Context() {
+        Context context = new Context()
+        {
             @Override
             public SchemaTableName getSchemaTableName()
             {
@@ -233,7 +234,8 @@ public class PinotExpressionRewriter
             // Extracted from org.apache.pinot.core.operator.transform.function.DateTruncTransformFunction
             List<ExpressionContext> arguments = object.getArguments();
             checkState(arguments.size() >= 2 && arguments.size() <= 5,
-                    "Between two to five arguments are required, example: %s", EXAMPLE_INVOCATION);
+                    "Between two to five arguments are required, example: %s",
+                    EXAMPLE_INVOCATION);
 
             ImmutableList.Builder<ExpressionContext> argumentsBuilder = ImmutableList.builder();
 

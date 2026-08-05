@@ -27,7 +27,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.Assignments.Assignment;
 import io.trino.sql.planner.plan.ProjectNode;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -86,7 +86,7 @@ public class UnwrapSingleColumnRowInApply
 
         boolean applied = false;
         ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> applyAssignments = ImmutableMap.builder();
-        for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : node.getSubqueryAssignments().entrySet()) {
+        for (Entry<Symbol, ApplyNode.SetExpression> assignment : node.getSubqueryAssignments().entrySet()) {
             Symbol output = assignment.getKey();
             ApplyNode.SetExpression expression = assignment.getValue();
 
@@ -141,7 +141,7 @@ public class UnwrapSingleColumnRowInApply
         Type type = value.type();
         if (type instanceof RowType rowType) {
             if (rowType.getFields().size() == 1) {
-                Type elementType = rowType.getTypeParameters().get(0);
+                Type elementType = rowType.getFields().getFirst().getType();
 
                 Symbol valueSymbol = context.getSymbolAllocator().newSymbol("input", elementType);
                 Symbol listSymbol = context.getSymbolAllocator().newSymbol("subquery", elementType);

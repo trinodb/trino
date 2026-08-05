@@ -45,13 +45,13 @@ public class BenchmarkReadUleb128Int
 {
     @Param({
             "100",
-            "1000"
+            "1000",
     })
     private int size;
 
     @Param({
             "20000",
-            "4000000"
+            "4000000",
     })
     private int maxValue;
 
@@ -117,7 +117,7 @@ public class BenchmarkReadUleb128Int
         return value | (b << i);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkReadUleb128Int.class)

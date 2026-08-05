@@ -60,18 +60,20 @@ public class TestPartitionedOutputOperator
 
     @Test
     public void testOperatorContextStats()
+            throws Exception
     {
-        PartitionedOutputOperator partitionedOutputOperator = new PagePartitionerBuilder(executor, scheduledExecutor, new TestOutputBuffer())
-                .withTypes(BIGINT).buildPartitionedOutputOperator();
-        Page page = new Page(createLongSequenceBlock(0, 8));
+        try (PartitionedOutputOperator partitionedOutputOperator = new PagePartitionerBuilder(executor, scheduledExecutor, new TestOutputBuffer())
+                .withTypes(BIGINT).buildPartitionedOutputOperator()) {
+            Page page = new Page(createLongSequenceBlock(0, 8));
 
-        partitionedOutputOperator.addInput(page);
+            partitionedOutputOperator.addInput(page);
 
-        OperatorContext operatorContext = partitionedOutputOperator.getOperatorContext();
-        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(0);
-        assertThat(operatorContext.getOutputPositions().getTotalCount()).isEqualTo(page.getPositionCount());
+            OperatorContext operatorContext = partitionedOutputOperator.getOperatorContext();
+            assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(0);
+            assertThat(operatorContext.getOutputPositions().getTotalCount()).isEqualTo(page.getPositionCount());
 
-        partitionedOutputOperator.finish();
-        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+            partitionedOutputOperator.finish();
+            assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+        }
     }
 }

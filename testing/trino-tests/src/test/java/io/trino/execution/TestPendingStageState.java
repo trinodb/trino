@@ -63,7 +63,7 @@ public class TestPendingStageState
         // wait for the query to finish producing results, but don't poll them
         assertEventually(
                 new Duration(10, SECONDS),
-                () -> assertThat(queryRunner.getCoordinator().getFullQueryInfo(queryId).getStages().get().getOutputStage().getState()).isEqualTo(StageState.RUNNING));
+                () -> assertThat(queryRunner.getCoordinator().getFullQueryInfo(queryId).getStages().get().getOutputStage().state()).isEqualTo(StageState.RUNNING));
 
         // wait for the sub stages to go to pending state
         assertEventually(
@@ -71,15 +71,15 @@ public class TestPendingStageState
                 () -> {
                     StagesInfo stagesInfo = queryRunner.getCoordinator().getFullQueryInfo(queryId).getStages().get();
                     List<StageInfo> subStages = stagesInfo.getSubStages(stagesInfo.getOutputStageId());
-                    assertThat(subStages.get(0).getState()).isEqualTo(StageState.PENDING);
+                    assertThat(subStages.get(0).state()).isEqualTo(StageState.PENDING);
                 });
 
         QueryInfo queryInfo = queryRunner.getCoordinator().getFullQueryInfo(queryId);
         assertThat(queryInfo.getState()).isEqualTo(RUNNING);
-        assertThat(queryInfo.getStages().get().getOutputStage().getState()).isEqualTo(StageState.RUNNING);
+        assertThat(queryInfo.getStages().get().getOutputStage().state()).isEqualTo(StageState.RUNNING);
         List<StageInfo> subStages = queryInfo.getStages().get().getSubStages(queryInfo.getStages().get().getOutputStageId());
         assertThat(subStages).hasSize(1);
-        assertThat(subStages.get(0).getState()).isEqualTo(StageState.PENDING);
+        assertThat(subStages.get(0).state()).isEqualTo(StageState.PENDING);
     }
 
     @AfterAll

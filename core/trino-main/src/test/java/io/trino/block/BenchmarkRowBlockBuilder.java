@@ -104,7 +104,7 @@ public class BenchmarkRowBlockBuilder
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkRowBlockBuilder.class)

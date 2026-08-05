@@ -99,6 +99,5 @@ public interface Operator
     @Override
     default void close()
             throws Exception
-    {
-    }
+    {}
 }

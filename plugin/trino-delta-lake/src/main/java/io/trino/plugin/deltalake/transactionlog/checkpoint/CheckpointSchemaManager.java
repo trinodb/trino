@@ -26,7 +26,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +36,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -72,8 +71,8 @@ public class CheckpointSchemaManager
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
-        stringList = (ArrayType) this.typeManager.getType(TypeSignature.arrayType(VARCHAR.getTypeSignature()));
-        MapType stringMap = (MapType) this.typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        stringList = new ArrayType(VARCHAR);
+        MapType stringMap = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
 
         metadataEntryType = RowType.from(ImmutableList.of(
                 RowType.field("id", VARCHAR),
@@ -146,7 +145,7 @@ public class CheckpointSchemaManager
                 "nullCount",
                 RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.physicalName()), column.physicalColumnType())).collect(toImmutableList()))));
 
-        MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        MapType stringMap = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
         ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
         addFields.add(RowType.field("path", VARCHAR));
         if (usePartitionValues) {
@@ -162,7 +161,7 @@ public class CheckpointSchemaManager
             List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(metadataEntry, protocolEntry, typeManager);
             if (!partitionColumns.isEmpty()) {
                 List<RowType.Field> partitionValuesParsed = partitionColumns.stream()
-                        .map(column -> RowType.field(column.basePhysicalColumnName(), typeManager.getType(getTypeSignature(DeltaHiveTypeTranslator.toHiveType(column.type())))))
+                        .map(column -> RowType.field(column.basePhysicalColumnName(), typeManager.getType(getTypeDescriptor(DeltaHiveTypeTranslator.toHiveType(column.type())))))
                         .collect(toImmutableList());
                 addFields.add(RowType.field("partitionValues_parsed", RowType.from(partitionValuesParsed)));
             }

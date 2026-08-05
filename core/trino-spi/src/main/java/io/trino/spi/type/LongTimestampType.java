@@ -60,7 +60,7 @@ final class LongTimestampType
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
     private final Range range;
 
-    public LongTimestampType(int precision)
+    LongTimestampType(int precision)
     {
         super(precision, LongTimestamp.class, Fixed12Block.class);
 
@@ -104,19 +104,6 @@ final class LongTimestampType
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new Fixed12BlockBuilder(null, positionCount);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
-            int valuePosition = block.getUnderlyingValuePosition(position);
-            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(getEpochMicros(valueBlock, valuePosition), getFraction(valueBlock, valuePosition));
-        }
     }
 
     @Override
@@ -173,6 +160,40 @@ final class LongTimestampType
         return Optional.of(range);
     }
 
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        LongTimestamp timestamp = (LongTimestamp) value;
+        long epochMicros = timestamp.getEpochMicros();
+        int picosOfMicro = timestamp.getPicosOfMicro();
+        picosOfMicro -= toIntExact(rescale(1, 0, 12 - getPrecision()));
+        if (picosOfMicro < 0) {
+            if (epochMicros == Long.MIN_VALUE) {
+                return Optional.empty();
+            }
+            epochMicros--;
+            picosOfMicro += PICOSECONDS_PER_MICROSECOND;
+        }
+        return Optional.of(new LongTimestamp(epochMicros, picosOfMicro));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        LongTimestamp timestamp = (LongTimestamp) value;
+        long epochMicros = timestamp.getEpochMicros();
+        int picosOfMicro = timestamp.getPicosOfMicro();
+        picosOfMicro += toIntExact(rescale(1, 0, 12 - getPrecision()));
+        if (picosOfMicro >= PICOSECONDS_PER_MICROSECOND) {
+            if (epochMicros == Long.MAX_VALUE) {
+                return Optional.empty();
+            }
+            epochMicros++;
+            picosOfMicro -= PICOSECONDS_PER_MICROSECOND;
+        }
+        return Optional.of(new LongTimestamp(epochMicros, picosOfMicro));
+    }
+
     @ScalarOperator(READ_VALUE)
     private static LongTimestamp readFlat(
             @FlatFixed byte[] fixedSizeSlice,
@@ -201,10 +222,10 @@ final class LongTimestampType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             LongTimestamp value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value.getEpochMicros());
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, value.getPicosOfMicro());
@@ -214,10 +235,10 @@ final class LongTimestampType
     private static void writeBlockFlat(
             @BlockPosition Fixed12Block block,
             @BlockIndex int position,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, getEpochMicros(block, position));
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, getFraction(block, position));
@@ -243,6 +264,22 @@ final class LongTimestampType
                 getFraction(rightBlock, rightPosition));
     }
 
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition Fixed12Block rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return equal(
+                (long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset),
+                (int) INT_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset + SIZE_OF_LONG),
+                getEpochMicros(rightBlock, rightPosition),
+                getFraction(rightBlock, rightPosition));
+    }
+
     private static boolean equal(long leftEpochMicros, int leftFraction, long rightEpochMicros, int rightFraction)
     {
         return leftEpochMicros == rightEpochMicros && leftFraction == rightFraction;
@@ -260,6 +297,18 @@ final class LongTimestampType
         return xxHash64(
                 getEpochMicros(block, position),
                 getFraction(block, position));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
+    {
+        return xxHash64(
+                (long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset),
+                (int) INT_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset + SIZE_OF_LONG));
     }
 
     private static long xxHash64(long epochMicros, int fraction)

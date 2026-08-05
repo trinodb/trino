@@ -66,7 +66,7 @@ public class KillTarget
 
     public Set<TaskId> getTasks()
     {
-        checkState(!tasks.isEmpty(), "tasks not set in KillTarget: " + this);
+        checkState(!tasks.isEmpty(), "tasks not set in KillTarget: %s", this);
         return tasks;
     }
 

@@ -50,8 +50,7 @@ public class TestPruneAggregationSourceColumns
                         aggregation(
                                 singleGroupingSet("key"),
                                 ImmutableMap.of(
-                                        Optional.of("avg"),
-                                        aggregationFunction("avg", ImmutableList.of("input"))),
+                                        Optional.of("avg"), aggregationFunction("avg", ImmutableList.of("input"))),
                                 ImmutableList.of(),
                                 ImmutableList.of("mask"),
                                 Optional.empty(),

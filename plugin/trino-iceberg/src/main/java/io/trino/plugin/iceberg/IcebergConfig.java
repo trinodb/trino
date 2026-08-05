@@ -21,9 +21,12 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.airlift.units.ThreadCount;
+import io.airlift.units.MinDataSize;
+import io.trino.filesystem.Location;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -40,20 +43,22 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.ParquetFooterCacheType.NONE;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "iceberg.allow-legacy-snapshot-syntax",
         "iceberg.experimental.extended-statistics.enabled",
+        "iceberg.extended-statistics.enabled",
+        "iceberg.file-based-conflict-detection",
 })
 public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
-    public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
-    public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
-    public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
+    public static final int FORMAT_VERSION_SUPPORT_MAX = 3;
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire-snapshots.min-retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove-orphan-files.min-retention";
@@ -61,23 +66,25 @@ public class IcebergConfig
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionOption compressionCodec = HiveCompressionOption.ZSTD;
     private Optional<Integer> maxCommitRetry = Optional.empty();
+    private Optional<Boolean> deleteAfterCommitEnabled = Optional.empty();
+    private Optional<Integer> maxPreviousVersions = Optional.empty();
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
-    private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
     private boolean addFilesProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
-    private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
+    private int formatVersion = 2;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
+    private Optional<DataSize> maxSplitSize = Optional.empty();
     // This is meant to protect users who are misusing schema locations (by
     // putting schemas in locations with extraneous files), so default to false
     // to avoid deleting those files if Trino is unable to check.
@@ -86,18 +93,24 @@ public class IcebergConfig
     private boolean hideMaterializedViewStorageTable = true;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
+    private Optional<String> sortedWritingLocalStagingPath = Optional.empty();
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
-    private int planningThreads = Math.min(Runtime.getRuntime().availableProcessors(), 16);
+    private int planningThreads = Runtime.getRuntime().availableProcessors() * 2;
     private int fileDeleteThreads = Runtime.getRuntime().availableProcessors() * 2;
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
+    private int materializedViewRefreshMaxSnapshotsToExpire = 200;
+    private Duration materializedViewRefreshSnapshotRetentionPeriod = new Duration(4, HOURS);
     private boolean metadataCacheEnabled = true;
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
+    private boolean metadataVirtualThreadsEnabled = true;
     private boolean bucketExecutionEnabled = true;
-    private boolean fileBasedConflictDetectionEnabled = true;
+    private boolean equalityDeletesBlocksHashEnabled = true;
+    private ParquetFooterCacheType parquetFooterCacheType = NONE;
+    private DataSize parquetFooterCacheMemoryMaxSize = DataSize.of(10, MEGABYTE);
 
     public CatalogType getCatalogType()
     {
@@ -147,6 +160,32 @@ public class IcebergConfig
     public IcebergConfig setMaxCommitRetry(Integer maxCommitRetry)
     {
         this.maxCommitRetry = Optional.ofNullable(maxCommitRetry);
+        return this;
+    }
+
+    public Optional<Boolean> isDeleteAfterCommitEnabled()
+    {
+        return deleteAfterCommitEnabled;
+    }
+
+    @Config("iceberg.delete-after-commit-enabled")
+    @ConfigDescription("Whether to delete old tracked metadata files after each table commit")
+    public IcebergConfig setDeleteAfterCommitEnabled(Boolean deleteAfterCommitEnabled)
+    {
+        this.deleteAfterCommitEnabled = Optional.ofNullable(deleteAfterCommitEnabled);
+        return this;
+    }
+
+    public Optional<@Min(1) Integer> getMaxPreviousVersions()
+    {
+        return maxPreviousVersions;
+    }
+
+    @Config("iceberg.max-previous-versions")
+    @ConfigDescription("The number of old metadata files to keep")
+    public IcebergConfig setMaxPreviousVersions(Integer maxPreviousVersions)
+    {
+        this.maxPreviousVersions = Optional.ofNullable(maxPreviousVersions);
         return this;
     }
 
@@ -225,19 +264,6 @@ public class IcebergConfig
     public IcebergConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
     {
         this.tableStatisticsEnabled = tableStatisticsEnabled;
-        return this;
-    }
-
-    public boolean isExtendedStatisticsEnabled()
-    {
-        return extendedStatisticsEnabled;
-    }
-
-    @Config(EXTENDED_STATISTICS_CONFIG)
-    @ConfigDescription(EXTENDED_STATISTICS_DESCRIPTION)
-    public IcebergConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
-    {
-        this.extendedStatisticsEnabled = extendedStatisticsEnabled;
         return this;
     }
 
@@ -380,6 +406,19 @@ public class IcebergConfig
         return this;
     }
 
+    public Optional<DataSize> getMaxSplitSize()
+    {
+        return maxSplitSize;
+    }
+
+    @Config("iceberg.max-split-size")
+    @ConfigDescription("Target maximum split size for Iceberg tables")
+    public IcebergConfig setMaxSplitSize(DataSize maxSplitSize)
+    {
+        this.maxSplitSize = Optional.ofNullable(maxSplitSize);
+        return this;
+    }
+
     public boolean isDeleteSchemaLocationsFallback()
     {
         return this.deleteSchemaLocationsFallback;
@@ -453,6 +492,32 @@ public class IcebergConfig
         return this;
     }
 
+    @NotNull
+    public Optional<String> getSortedWritingLocalStagingPath()
+    {
+        return sortedWritingLocalStagingPath;
+    }
+
+    @Config("iceberg.sorted-writing.local-staging-path")
+    @ConfigDescription("Use provided local directory for staging writes to sorted tables. Use ${USER} placeholder to use different location for each user")
+    public IcebergConfig setSortedWritingLocalStagingPath(String sortedWritingLocalStagingPath)
+    {
+        this.sortedWritingLocalStagingPath = Optional.ofNullable(sortedWritingLocalStagingPath);
+        return this;
+    }
+
+    @AssertTrue(message = "iceberg.sorted-writing.local-staging-path must not use any prefix other than file:// or local://")
+    public boolean isSortedWritingLocalStagingPathValid()
+    {
+        if (sortedWritingLocalStagingPath.isEmpty()) {
+            return true;
+        }
+        Optional<String> scheme = Location.of(sortedWritingLocalStagingPath.get()).scheme();
+        return scheme.isEmpty()
+                || scheme.equals(Optional.of("file"))
+                || scheme.equals(Optional.of("local"));
+    }
+
     @Config("iceberg.query-partition-filter-required")
     @ConfigDescription("Require a filter on at least one partition column")
     public IcebergConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
@@ -491,7 +556,7 @@ public class IcebergConfig
     @ConfigDescription("Number of threads to use for generating splits")
     public IcebergConfig setSplitManagerThreads(String splitManagerThreads)
     {
-        this.splitManagerThreads = ThreadCount.valueOf(splitManagerThreads).getThreadCount();
+        this.splitManagerThreads = ThreadCountParser.DEFAULT.parse(splitManagerThreads);
         return this;
     }
 
@@ -505,7 +570,7 @@ public class IcebergConfig
     @ConfigDescription("Number of threads to use for metadata scans in planning")
     public IcebergConfig setPlanningThreads(String planningThreads)
     {
-        this.planningThreads = ThreadCount.valueOf(planningThreads).getThreadCount();
+        this.planningThreads = ThreadCountParser.DEFAULT.parse(planningThreads);
         return this;
     }
 
@@ -516,10 +581,10 @@ public class IcebergConfig
     }
 
     @Config("iceberg.file-delete-threads")
-    @ConfigDescription("Number of threads to use for deleting files when running expire_snapshots procedure")
+    @ConfigDescription("Number of threads to use for deleting files when running the `expire_snapshots` or `remove_orphan_files` procedure, or when executing `DROP TABLE` queries")
     public IcebergConfig setFileDeleteThreads(String fileDeleteThreads)
     {
-        this.fileDeleteThreads = ThreadCount.valueOf(fileDeleteThreads).getThreadCount();
+        this.fileDeleteThreads = ThreadCountParser.DEFAULT.parse(fileDeleteThreads);
         return this;
     }
 
@@ -548,6 +613,34 @@ public class IcebergConfig
     public IcebergConfig setIncrementalRefreshEnabled(boolean incrementalRefreshEnabled)
     {
         this.incrementalRefreshEnabled = incrementalRefreshEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaterializedViewRefreshMaxSnapshotsToExpire()
+    {
+        return materializedViewRefreshMaxSnapshotsToExpire;
+    }
+
+    @Config("iceberg.materialized-views.refresh-max-snapshots-to-expire")
+    @ConfigDescription("Maximum number of snapshots to remove during materialized view refresh")
+    public IcebergConfig setMaterializedViewRefreshMaxSnapshotsToExpire(int materializedViewRefreshMaxSnapshotsToExpire)
+    {
+        this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMaterializedViewRefreshSnapshotRetentionPeriod()
+    {
+        return materializedViewRefreshSnapshotRetentionPeriod;
+    }
+
+    @Config("iceberg.materialized-views.refresh-snapshot-retention-period")
+    @ConfigDescription("Retention threshold to use when expiring snapshots during materialized view refresh")
+    public IcebergConfig setMaterializedViewRefreshSnapshotRetentionPeriod(Duration materializedViewRefreshSnapshotRetentionPeriod)
+    {
+        this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         return this;
     }
 
@@ -597,6 +690,19 @@ public class IcebergConfig
         return this;
     }
 
+    public boolean isMetadataVirtualThreadsEnabled()
+    {
+        return metadataVirtualThreadsEnabled;
+    }
+
+    @ConfigDescription("Run blocking metadata enumeration I/O on virtual threads")
+    @Config("iceberg.metadata.virtual-threads-enabled")
+    public IcebergConfig setMetadataVirtualThreadsEnabled(boolean metadataVirtualThreadsEnabled)
+    {
+        this.metadataVirtualThreadsEnabled = metadataVirtualThreadsEnabled;
+        return this;
+    }
+
     public boolean isBucketExecutionEnabled()
     {
         return bucketExecutionEnabled;
@@ -610,16 +716,44 @@ public class IcebergConfig
         return this;
     }
 
-    public boolean isFileBasedConflictDetectionEnabled()
+    public boolean isEqualityDeletesBlocksHashEnabled()
     {
-        return fileBasedConflictDetectionEnabled;
+        return equalityDeletesBlocksHashEnabled;
     }
 
-    @Config("iceberg.file-based-conflict-detection")
-    @ConfigDescription("Enable file-based conflict detection: take partition information from the actual written files as a source for the conflict detection system")
-    public IcebergConfig setFileBasedConflictDetectionEnabled(boolean fileBasedConflictDetectionEnabled)
+    @Config("iceberg.equality-deletes-blocks-hash-enabled")
+    @ConfigDescription("Use BlocksHash for optimized equality delete filtering")
+    public IcebergConfig setEqualityDeletesBlocksHashEnabled(boolean equalityDeletesBlocksHashEnabled)
     {
-        this.fileBasedConflictDetectionEnabled = fileBasedConflictDetectionEnabled;
+        this.equalityDeletesBlocksHashEnabled = equalityDeletesBlocksHashEnabled;
+        return this;
+    }
+
+    @NotNull
+    public ParquetFooterCacheType getParquetFooterCacheType()
+    {
+        return parquetFooterCacheType;
+    }
+
+    @Config("iceberg.parquet-footer-cache.type")
+    @ConfigDescription("Type of cache to use for Parquet footer metadata")
+    public IcebergConfig setParquetFooterCacheType(ParquetFooterCacheType parquetFooterCacheType)
+    {
+        this.parquetFooterCacheType = parquetFooterCacheType;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getParquetFooterCacheMemoryMaxSize()
+    {
+        return parquetFooterCacheMemoryMaxSize;
+    }
+
+    @Config("iceberg.parquet-footer-cache.memory.max-size")
+    @ConfigDescription("Maximum size of the in-memory Parquet footer cache")
+    public IcebergConfig setParquetFooterCacheMemoryMaxSize(DataSize parquetFooterCacheMemoryMaxSize)
+    {
+        this.parquetFooterCacheMemoryMaxSize = parquetFooterCacheMemoryMaxSize;
         return this;
     }
 }

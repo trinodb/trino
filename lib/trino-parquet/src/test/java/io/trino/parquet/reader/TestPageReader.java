@@ -22,6 +22,7 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
@@ -41,14 +42,17 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.reader.TestPageReader.DataPageType.V1;
@@ -66,9 +70,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPageReader
 {
-    private static final byte[] DATA_PAGE = new byte[] {1, 2, 3};
+    private static final byte[] DATA_PAGE = {1, 2, 3};
 
-    @Test(dataProvider = "pageParameters")
+    @ParameterizedTest
+    @MethodSource("pageParameters")
     public void singlePage(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
@@ -111,9 +116,20 @@ public class TestPageReader
                 Slices.wrappedBuffer(Arrays.copyOf(bytes, headerSize + 1)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, headerSize + 1, headerSize + 2)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, headerSize + 2, bytes.length))));
+
+        // verify page size limit - should fail when page size exceeds limit
+        long pageSize = pageHeader.getUncompressed_page_size();
+        assertThatThrownBy(() -> {
+            PageReader pageReader = createPageReader(valueCount, compressionCodec, false, ImmutableList.of(Slices.wrappedBuffer(bytes)), pageSize - 1);
+            pageReader.readPage();
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasRootCauseInstanceOf(ParquetCorruptionException.class)
+                .hasMessageContaining("exceeds maximum allowed size");
     }
 
-    @Test(dataProvider = "pageParameters")
+    @ParameterizedTest
+    @MethodSource("pageParameters")
     public void manyPages(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
@@ -151,9 +167,20 @@ public class TestPageReader
                 Slices.wrappedBuffer(Arrays.copyOf(bytes, pageSize - 2)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, pageSize - 2, pageSize * 2)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, pageSize * 2, bytes.length))));
+
+        // verify page size limit - should fail when page size exceeds limit
+        long uncompressedPageSize = pageHeader.getUncompressed_page_size();
+        assertThatThrownBy(() -> {
+            PageReader pageReader = createPageReader(totalValueCount, compressionCodec, false, ImmutableList.of(Slices.wrappedBuffer(bytes)), uncompressedPageSize - 1);
+            pageReader.readPage();
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasRootCauseInstanceOf(ParquetCorruptionException.class)
+                .hasMessageContaining("exceeds maximum allowed size");
     }
 
-    @Test(dataProvider = "pageParameters")
+    @ParameterizedTest
+    @MethodSource("pageParameters")
     public void dictionaryPage(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
@@ -204,6 +231,17 @@ public class TestPageReader
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, dictionaryHeaderSize - 1, dictionaryPageSize - 1)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, dictionaryPageSize - 1, dictionaryPageSize + 1)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, dictionaryPageSize + 1, bytes.length))));
+
+        // verify page size limit - should fail when page size exceeds limit
+        long uncompressedPageSize = pageHeader.getUncompressed_page_size();
+        assertThatThrownBy(() -> {
+            PageReader limitedReader = createPageReader(totalValueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)), uncompressedPageSize - 1);
+            limitedReader.readDictionaryPage();
+            limitedReader.readPage();
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasRootCauseInstanceOf(ParquetCorruptionException.class)
+                .hasMessageContaining("exceeds maximum allowed size");
     }
 
     @Test
@@ -312,10 +350,13 @@ public class TestPageReader
         assertThat(pageReader.readPage()).isNull();
     }
 
-    @DataProvider
-    public Object[][] pageParameters()
+    public static Stream<Arguments> pageParameters()
     {
-        return new Object[][] {{UNCOMPRESSED, V1}, {SNAPPY, V1}, {UNCOMPRESSED, V2}, {SNAPPY, V2}};
+        return Stream.of(
+                Arguments.of(UNCOMPRESSED, V1),
+                Arguments.of(SNAPPY, V1),
+                Arguments.of(UNCOMPRESSED, V2),
+                Arguments.of(SNAPPY, V2));
     }
 
     public enum DataPageType
@@ -384,7 +425,11 @@ public class TestPageReader
     }
 
     private static PageReader createPageReader(int valueCount, CompressionCodec compressionCodec, boolean hasDictionary, List<Slice> slices)
-            throws IOException
+    {
+        return createPageReader(valueCount, compressionCodec, hasDictionary, slices, Long.MAX_VALUE);
+    }
+
+    private static PageReader createPageReader(int valueCount, CompressionCodec compressionCodec, boolean hasDictionary, List<Slice> slices, long maxPageSize)
     {
         EncodingStats.Builder encodingStats = new EncodingStats.Builder();
         if (hasDictionary) {
@@ -409,7 +454,9 @@ public class TestPageReader
                 columnChunkMetaData,
                 new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, INT32, ""), 0, 0),
                 null,
-                Optional.empty());
+                Optional.empty(),
+                Optional.empty(),
+                maxPageSize);
     }
 
     private static void assertDataPageEquals(PageHeader pageHeader, byte[] dataPage, byte[] compressedDataPage, DataPage decompressedPage)

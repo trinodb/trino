@@ -13,59 +13,22 @@
  */
 package io.trino.matching;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class Match
+public record Match(Captures captures)
 {
     public static Match of(Captures captures)
     {
         return new Match(captures);
     }
 
-    private final Captures captures;
-
-    private Match(Captures captures)
+    public Match
     {
-        this.captures = requireNonNull(captures, "captures is null");
+        requireNonNull(captures, "captures is null");
     }
 
     public <T> T capture(Capture<T> capture)
     {
         return captures().get(capture);
-    }
-
-    public Captures captures()
-    {
-        return captures;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Match match = (Match) o;
-        return Objects.equals(captures, match.captures);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(captures);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("captures", captures)
-                .toString();
     }
 }

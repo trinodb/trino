@@ -52,50 +52,46 @@ public final class ValueStreams
 
         if (streamId.getStreamKind() == DATA) {
             switch (type) {
-                case BOOLEAN:
+                case BOOLEAN -> {
                     return new BooleanInputStream(new OrcInputStream(chunkLoader));
-                case BYTE:
+                }
+                case BYTE -> {
                     return new ByteInputStream(new OrcInputStream(chunkLoader));
-                case SHORT:
-                case INT:
-                case LONG:
-                case DATE:
+                }
+                case SHORT, INT, LONG, DATE -> {
                     return createLongStream(new OrcInputStream(chunkLoader), encoding, true);
-                case FLOAT:
+                }
+                case FLOAT -> {
                     return new FloatInputStream(new OrcInputStream(chunkLoader));
-                case DOUBLE:
+                }
+                case DOUBLE -> {
                     return new DoubleInputStream(new OrcInputStream(chunkLoader));
-                case STRING:
-                case VARCHAR:
-                case CHAR:
-                case BINARY:
+                }
+                case STRING, VARCHAR, CHAR, BINARY -> {
                     return new ByteArrayInputStream(new OrcInputStream(chunkLoader));
-                case TIMESTAMP:
-                case TIMESTAMP_INSTANT:
+                }
+                case TIMESTAMP, TIMESTAMP_INSTANT -> {
                     return createLongStream(new OrcInputStream(chunkLoader), encoding, true);
-                case DECIMAL:
+                }
+                case DECIMAL -> {
                     return new DecimalInputStream(chunkLoader);
-                case UNION:
+                }
+                case UNION -> {
                     return new ByteInputStream(new OrcInputStream(chunkLoader));
-                case LIST:
-                case MAP:
-                case STRUCT:
+                }
+                case LIST, MAP, STRUCT -> {
                     // not a DATA
+                }
             }
         }
 
         // length stream of a direct encoded string or binary column
         if (streamId.getStreamKind() == LENGTH) {
             switch (type) {
-                case STRING:
-                case VARCHAR:
-                case CHAR:
-                case BINARY:
-                case MAP:
-                case LIST:
+                case STRING, VARCHAR, CHAR, BINARY, MAP, LIST -> {
                     return createLongStream(new OrcInputStream(chunkLoader), encoding, false);
-                default:
-                    break;
+                }
+                default -> {}
             }
         }
 
@@ -114,13 +110,10 @@ public final class ValueStreams
 
         if (streamId.getStreamKind() == DICTIONARY_DATA) {
             switch (type) {
-                case STRING:
-                case VARCHAR:
-                case CHAR:
-                case BINARY:
+                case STRING, VARCHAR, CHAR, BINARY -> {
                     return new ByteArrayInputStream(new OrcInputStream(chunkLoader));
-                default:
-                    break;
+                }
+                default -> {}
             }
         }
 

@@ -196,7 +196,7 @@ public class InMemoryHashAggregationBuilder
             return;
         }
 
-        full = sizeInMemory > maxPartialMemory.getAsLong();
+        full = sizeInMemory > maxPartialMemory.orElseThrow();
     }
 
     /**

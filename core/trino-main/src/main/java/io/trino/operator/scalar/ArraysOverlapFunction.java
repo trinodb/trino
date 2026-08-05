@@ -22,7 +22,6 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -30,7 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 
-@ScalarFunction("arrays_overlap")
+@ScalarFunction(value = "arrays_overlap", neverFails = true)
 @Description("Returns true if arrays have common elements")
 public final class ArraysOverlapFunction
 {
@@ -40,16 +39,19 @@ public final class ArraysOverlapFunction
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean arraysOverlap(
-            @TypeParameter("E") Type type,
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION,
-                            BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockTypeOperators.BlockPositionIsIdentical elementIdentical,
+                    convention = @Convention(arguments = {
+                            BLOCK_POSITION,
+                            BLOCK_POSITION,
+                    }, result = FAIL_ON_NULL))
+            BlockTypeOperators.BlockPositionIsIdentical elementIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockTypeOperators.BlockPositionHashCode elementHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockTypeOperators.BlockPositionHashCode elementHashCode,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {
@@ -67,7 +69,7 @@ public final class ArraysOverlapFunction
             return false;
         }
 
-        BlockSet smallerSet = new BlockSet(type, elementIdentical, elementHashCode, smallerPositionCount);
+        BlockSet smallerSet = new BlockSet(elementIdentical, elementHashCode, smallerPositionCount);
         for (int position = 0; position < smallerPositionCount; position++) {
             smallerSet.add(smaller, position);
         }

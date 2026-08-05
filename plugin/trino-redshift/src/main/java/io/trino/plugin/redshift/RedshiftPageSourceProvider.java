@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -77,11 +78,12 @@ public class RedshiftPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
         if (split instanceof JdbcSplit) {
-            return jdbcPageSourceProvider.createPageSource(transaction, session, split, table, columns, dynamicFilter);
+            return jdbcPageSourceProvider.createPageSource(transaction, session, split, table, tableCredentials, columns, dynamicFilter);
         }
 
         RedshiftUnloadSplit redshiftUnloadSplit = ((RedshiftUnloadSplit) split);
@@ -104,7 +106,7 @@ public class RedshiftPageSourceProvider
     {
         ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
         TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats);
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty());
         MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();
         MessageColumnIO messageColumn = getColumnIO(fileSchema, fileSchema);
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
@@ -126,6 +128,7 @@ public class RedshiftPageSourceProvider
                 newSimpleAggregatedMemoryContext(),
                 options,
                 RedshiftParquetPageSource::handleException,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }

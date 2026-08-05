@@ -23,13 +23,13 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.hive.NodeVersion;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -92,7 +92,7 @@ public class CheckpointWriterManager
         this.checkpointProcessingParallelism = deltaLakeConfig.getCheckpointProcessingParallelism();
     }
 
-    public void writeCheckpoint(ConnectorSession session, TableSnapshot snapshot, VendedCredentialsHandle credentialsHandle)
+    public void writeCheckpoint(ConnectorSession session, TableSnapshot snapshot, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         try {
             SchemaTableName table = snapshot.getTable();
@@ -107,7 +107,7 @@ public class CheckpointWriterManager
 
             CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
             List<DeltaLakeTransactionLogEntry> checkpointLogEntries;
             try (Stream<DeltaLakeTransactionLogEntry> checkpointLogEntriesStream = snapshot.getCheckpointTransactionLogEntries(
                     session,
@@ -167,7 +167,7 @@ public class CheckpointWriterManager
             Location targetFile = transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(newCheckpointVersion));
             CheckpointWriter checkpointWriter = new CheckpointWriter(typeManager, checkpointSchemaManager, trinoVersion);
             CheckpointEntries checkpointEntries = checkpointBuilder.build();
-            TrinoOutputFile checkpointFile = fileSystemFactory.create(session, credentialsHandle).newOutputFile(targetFile);
+            TrinoOutputFile checkpointFile = fileSystem.newOutputFile(targetFile);
             checkpointWriter.write(checkpointEntries, checkpointFile);
 
             // update last checkpoint file

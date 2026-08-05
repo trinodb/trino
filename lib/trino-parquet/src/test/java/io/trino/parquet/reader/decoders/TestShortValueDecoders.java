@@ -66,7 +66,8 @@ public final class TestShortValueDecoders
 
     private static InputDataProvider createRandomInputDataProvider(int bitWidth)
     {
-        return new InputDataProvider() {
+        return new InputDataProvider()
+        {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
@@ -114,7 +115,7 @@ public final class TestShortValueDecoders
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
                 Random random = new Random(dataSize);
-                short[] constants = new short[] {Short.MIN_VALUE, -4123, 0, 5, 4123, 8956, Short.MAX_VALUE};
+                short[] constants = {Short.MIN_VALUE, -4123, 0, 5, 4123, 8956, Short.MAX_VALUE};
                 short[] values = new short[dataSize];
                 for (int i = 0; i < dataSize; i++) {
                     values[i] = constants[random.nextInt(constants.length)];

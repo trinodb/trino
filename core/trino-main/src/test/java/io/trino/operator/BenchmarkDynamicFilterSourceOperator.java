@@ -95,7 +95,8 @@ public class BenchmarkDynamicFilterSourceOperator
             operatorFactory = new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     1,
                     new PlanNodeId("joinNodeId"),
-                    new DynamicFilterSourceConsumer() {
+                    new DynamicFilterSourceConsumer()
+                    {
                         @Override
                         public void addPartition(TupleDomain<DynamicFilterId> tupleDomain) {}
 
@@ -208,7 +209,7 @@ public class BenchmarkDynamicFilterSourceOperator
         context.cleanup();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkDynamicFilterSourceOperator.class).run();

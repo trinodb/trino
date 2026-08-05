@@ -18,32 +18,21 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.trino.plugin.deltalake.metastore.VendedCredentials;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.deltalake.DeltaLakeTableHandle.WriteType.UPDATE;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeTableHandle
         implements LocatedTableHandle
 {
-    // Insert is not included here because it uses a separate TableHandle type
-    public enum WriteType
-    {
-        UPDATE,
-        DELETE
-    }
-
     private final String schemaName;
     private final String tableName;
     private final boolean managed;
@@ -52,15 +41,11 @@ public class DeltaLakeTableHandle
     private final ProtocolEntry protocolEntry;
     private final TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint;
     private final TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint;
-    private final Optional<WriteType> writeType;
+    private final boolean merge;
     private final long readVersion;
     private final boolean timeTravel;
 
     private final Optional<Set<DeltaLakeColumnHandle>> projectedColumns;
-    // UPDATE only: The list of columns being updated
-    private final Optional<List<DeltaLakeColumnHandle>> updatedColumns;
-    // UPDATE only: The list of columns which need to be copied when applying updates to the new Parquet file
-    private final Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns;
 
     // ANALYZE only
     private final Optional<AnalyzeHandle> analyzeHandle;
@@ -72,8 +57,6 @@ public class DeltaLakeTableHandle
     // Used only for validation when config property delta.query-partition-filter-required is enabled.
     private final Set<DeltaLakeColumnHandle> constraintColumns;
 
-    private final Optional<VendedCredentials> vendedCredentials;
-
     @JsonCreator
     public DeltaLakeTableHandle(
             @JsonProperty("schemaName") String schemaName,
@@ -84,17 +67,13 @@ public class DeltaLakeTableHandle
             @JsonProperty("protocolEntry") ProtocolEntry protocolEntry,
             @JsonProperty("enforcedPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             @JsonProperty("nonPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
-            @JsonProperty("writeType") Optional<WriteType> writeType,
+            @JsonProperty("merge") boolean merge,
             @JsonProperty("projectedColumns") Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
-            @JsonProperty("updatedColumns") Optional<List<DeltaLakeColumnHandle>> updatedColumns,
-            @JsonProperty("updateRowIdColumns") Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             @JsonProperty("analyzeHandle") Optional<AnalyzeHandle> analyzeHandle,
             @JsonProperty("readVersion") long readVersion,
-            @JsonProperty("timeTravel") boolean timeTravel,
-            @JsonProperty("vendedCredentials") Optional<VendedCredentials> vendedCredentials)
+            @JsonProperty("timeTravel") boolean timeTravel)
     {
-        this(
-                schemaName,
+        this(schemaName,
                 tableName,
                 managed,
                 location,
@@ -103,17 +82,14 @@ public class DeltaLakeTableHandle
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
                 ImmutableSet.of(),
-                writeType,
+                merge,
                 projectedColumns,
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 false,
                 false,
                 Optional.empty(),
                 readVersion,
-                timeTravel,
-                vendedCredentials);
+                timeTravel);
     }
 
     public DeltaLakeTableHandle(
@@ -126,17 +102,14 @@ public class DeltaLakeTableHandle
             TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             Set<DeltaLakeColumnHandle> constraintColumns,
-            Optional<WriteType> writeType,
+            boolean merge,
             Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
-            Optional<List<DeltaLakeColumnHandle>> updatedColumns,
-            Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             Optional<AnalyzeHandle> analyzeHandle,
             boolean recordScannedFiles,
             boolean isOptimize,
             Optional<DataSize> maxScannedFileSize,
             long readVersion,
-            boolean timeTravel,
-            Optional<VendedCredentials> vendedCredentials)
+            boolean timeTravel)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -146,12 +119,8 @@ public class DeltaLakeTableHandle
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
         this.enforcedPartitionConstraint = requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null");
         this.nonPartitionConstraint = requireNonNull(nonPartitionConstraint, "nonPartitionConstraint is null");
-        this.writeType = requireNonNull(writeType, "writeType is null");
-        checkArgument(updatedColumns.isPresent() == (writeType.isPresent() && writeType.get() == UPDATE));
-        checkArgument(updateRowIdColumns.isPresent() == (writeType.isPresent() && writeType.get() == UPDATE));
+        this.merge = merge;
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
-        this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
-        this.updateRowIdColumns = requireNonNull(updateRowIdColumns, "rowIdColumns is null");
         this.analyzeHandle = requireNonNull(analyzeHandle, "analyzeHandle is null");
         this.recordScannedFiles = recordScannedFiles;
         this.isOptimize = isOptimize;
@@ -159,7 +128,6 @@ public class DeltaLakeTableHandle
         this.readVersion = readVersion;
         this.timeTravel = timeTravel;
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
-        this.vendedCredentials = requireNonNull(vendedCredentials, "vendedCredentials is null");
     }
 
     public DeltaLakeTableHandle withProjectedColumns(Set<DeltaLakeColumnHandle> projectedColumns)
@@ -174,17 +142,14 @@ public class DeltaLakeTableHandle
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
                 constraintColumns,
-                writeType,
+                merge,
                 Optional.of(projectedColumns),
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
                 isOptimize,
                 maxScannedFileSize,
                 readVersion,
-                timeTravel,
-                vendedCredentials);
+                timeTravel);
     }
 
     public DeltaLakeTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -199,17 +164,36 @@ public class DeltaLakeTableHandle
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
                 constraintColumns,
-                writeType,
+                merge,
                 projectedColumns,
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
                 true,
                 Optional.of(maxScannedFileSize),
                 readVersion,
-                timeTravel,
-                vendedCredentials);
+                timeTravel);
+    }
+
+    public DeltaLakeTableHandle forMerge()
+    {
+        return new DeltaLakeTableHandle(
+                schemaName,
+                tableName,
+                managed,
+                location,
+                metadataEntry,
+                protocolEntry,
+                enforcedPartitionConstraint,
+                nonPartitionConstraint,
+                constraintColumns,
+                true,
+                projectedColumns,
+                analyzeHandle,
+                recordScannedFiles,
+                isOptimize,
+                maxScannedFileSize,
+                readVersion,
+                timeTravel);
     }
 
     @Override
@@ -256,7 +240,7 @@ public class DeltaLakeTableHandle
     @Override
     public VendedCredentialsHandle toCredentialsHandle()
     {
-        return new VendedCredentialsHandle(false, managed, location, vendedCredentials.orElse(VendedCredentials.empty()));
+        return new VendedCredentialsHandle(false, managed, location);
     }
 
     @JsonProperty
@@ -290,9 +274,9 @@ public class DeltaLakeTableHandle
     }
 
     @JsonProperty
-    public Optional<WriteType> getWriteType()
+    public boolean isMerge()
     {
-        return writeType;
+        return merge;
     }
 
     // Projected columns are not needed on workers
@@ -300,18 +284,6 @@ public class DeltaLakeTableHandle
     public Optional<Set<DeltaLakeColumnHandle>> getProjectedColumns()
     {
         return projectedColumns;
-    }
-
-    @JsonProperty
-    public Optional<List<DeltaLakeColumnHandle>> getUpdatedColumns()
-    {
-        return updatedColumns;
-    }
-
-    @JsonProperty
-    public Optional<List<DeltaLakeColumnHandle>> getUpdateRowIdColumns()
-    {
-        return updateRowIdColumns;
     }
 
     @JsonProperty
@@ -356,12 +328,6 @@ public class DeltaLakeTableHandle
         return timeTravel;
     }
 
-    @JsonProperty
-    public Optional<VendedCredentials> getVendedCredentials()
-    {
-        return vendedCredentials;
-    }
-
     @Override
     public String toString()
     {
@@ -388,16 +354,13 @@ public class DeltaLakeTableHandle
                 Objects.equals(protocolEntry, that.protocolEntry) &&
                 Objects.equals(enforcedPartitionConstraint, that.enforcedPartitionConstraint) &&
                 Objects.equals(nonPartitionConstraint, that.nonPartitionConstraint) &&
-                Objects.equals(writeType, that.writeType) &&
+                merge == that.merge &&
                 Objects.equals(projectedColumns, that.projectedColumns) &&
-                Objects.equals(updatedColumns, that.updatedColumns) &&
-                Objects.equals(updateRowIdColumns, that.updateRowIdColumns) &&
                 Objects.equals(analyzeHandle, that.analyzeHandle) &&
                 isOptimize == that.isOptimize &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 readVersion == that.readVersion &&
-                timeTravel == that.timeTravel &&
-                Objects.equals(vendedCredentials, that.vendedCredentials);
+                timeTravel == that.timeTravel;
     }
 
     @Override
@@ -412,16 +375,13 @@ public class DeltaLakeTableHandle
                 protocolEntry,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
-                writeType,
+                merge,
                 projectedColumns,
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
                 isOptimize,
                 maxScannedFileSize,
                 readVersion,
-                timeTravel,
-                vendedCredentials);
+                timeTravel);
     }
 }

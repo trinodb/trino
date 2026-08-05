@@ -83,7 +83,7 @@ public class TestCastDependencies
                         fromType = StandardTypes.VARCHAR,
                         toType = StandardTypes.INTEGER,
                         convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                        MethodHandle cast,
+                MethodHandle cast,
                 @SqlType(StandardTypes.VARCHAR) Slice value)
         {
             try {
@@ -107,7 +107,7 @@ public class TestCastDependencies
                         fromType = "V",
                         toType = StandardTypes.VARCHAR,
                         convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                        MethodHandle cast,
+                MethodHandle cast,
                 @SqlType("V") long value)
         {
             try {
@@ -131,12 +131,12 @@ public class TestCastDependencies
                         fromType = StandardTypes.VARCHAR,
                         toType = "V",
                         convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                        MethodHandle cast,
+                MethodHandle cast,
                 @OperatorDependency(
                         operator = EQUAL,
                         argumentTypes = {"V", "V"},
                         convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                        MethodHandle equals,
+                MethodHandle equals,
                 @SqlType("V") long left,
                 @SqlType(StandardTypes.VARCHAR) Slice right)
         {

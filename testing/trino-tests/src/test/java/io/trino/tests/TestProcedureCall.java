@@ -212,7 +212,7 @@ public class TestProcedureCall
     {
         tester.reset();
         assertThatThrownBy(() -> assertUpdate(sql))
-                .isInstanceOfSatisfying(RuntimeException.class, e -> {
+                .isInstanceOfSatisfying(RuntimeException.class, _ -> {
                     assertThat(tester.getCalledName()).isEqualTo(name);
                     assertThat(tester.getCalledArguments()).isEqualTo(list());
                 })
@@ -223,7 +223,7 @@ public class TestProcedureCall
     {
         tester.reset();
         assertThatThrownBy(() -> assertUpdate(sql))
-                .isInstanceOfSatisfying(RuntimeException.class, e -> assertThat(tester.wasCalled()).isFalse())
+                .isInstanceOfSatisfying(RuntimeException.class, _ -> assertThat(tester.wasCalled()).isFalse())
                 .hasMessage(message);
     }
 

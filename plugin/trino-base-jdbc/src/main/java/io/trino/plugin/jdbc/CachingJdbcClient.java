@@ -66,13 +66,14 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class CachingJdbcClient
@@ -103,8 +104,7 @@ public class CachingJdbcClient
             IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
     {
-        this(
-                Ticker.systemTicker(),
+        this(Ticker.systemTicker(),
                 delegate,
                 sessionPropertiesProviders,
                 identityMapping,
@@ -424,10 +424,10 @@ public class CachingJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
-        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackActions, retryMode);
+        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode);
     }
 
     @Override
@@ -447,9 +447,15 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
     {
-        delegate.rollbackCreateTable(session, handle);
+        delegate.rollbackDestinationTableCreation(session, remoteTableName);
+    }
+
+    @Override
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
+    {
+        delegate.rollbackTemporaryTableCreation(session, handle);
     }
 
     @Override
@@ -599,9 +605,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        return delegate.beginCreateTable(session, tableMetadata);
+        return delegate.beginCreateTable(session, tableMetadata, rollbackActionCollector);
     }
 
     @Override
@@ -658,9 +664,9 @@ public class CachingJdbcClient
     }
 
     /**
-     * @deprecated {@link JdbcTableHandle}  is not a good representation of the table. For example, we don't want
-     * to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
-     * Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
+     * @deprecated {@link JdbcTableHandle} is not a good representation of the table. For example, we don't want
+     *         to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
+     *         Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
      */
     @Deprecated
     public void onDataChanged(JdbcTableHandle handle)
@@ -717,7 +723,7 @@ public class CachingJdbcClient
 
     private static Object getSessionProperty(ConnectorSession session, PropertyMetadata<?> property)
     {
-        return firstNonNull(session.getProperty(property.getName(), property.getJavaType()), NULL_MARKER);
+        return requireNonNullElse(session.getProperty(property.getName(), property.getJavaType()), NULL_MARKER);
     }
 
     private void invalidateSchemasCache()

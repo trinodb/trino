@@ -52,6 +52,7 @@ public class TestCloseIdleWriters
                         "hive.metastore.catalog.dir", metastoreDirectory.toUri().toString(),
                         "delta.target-max-file-size", "100GB",
                         "delta.idle-writer-min-file-size", "0.1MB"))
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .build();
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS tpch");
         return queryRunner;

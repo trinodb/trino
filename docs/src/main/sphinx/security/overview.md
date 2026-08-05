@@ -100,7 +100,7 @@ providers to Trino usernames.
   and allows for regular expression rules to be specified that map complex 
   usernames from other systems (`alice@example.com`) to simple usernames
   (`alice`).
-- {doc}`File group provider <group-file>` provides a way to assign a set
+- {doc}`Group mapping <group-mapping>` provides ways to assign a set
   of usernames to a group name to ease access control.
 
 (cl-access-control)=

@@ -204,18 +204,17 @@ public class BenchmarkPagesSerde
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         BenchmarkData data = new BenchmarkData();
         data.compressionCodec = LZ4; // Get usable stats on compressibility
         data.initialize();
-        System.out.println("Page Size Avg: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).average().getAsDouble());
-        System.out.println("Page Size Min: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).min().getAsLong());
-        System.out.println("Page Size Max: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).max().getAsLong());
+        System.out.println("Page Size Avg: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).average().orElseThrow());
+        System.out.println("Page Size Min: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).min().orElseThrow());
+        System.out.println("Page Size Max: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).max().orElseThrow());
         System.out.println("Page Size Sum: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).sum());
         System.out.println("Page count: " + data.dataPages.length);
-        System.out.println("Compressed: " + Arrays.stream(data.serializedPages).filter(PagesSerdeUtil::isSerializedPageCompressed).count());
 
         benchmark(BenchmarkPagesSerde.class)
                 .withOptions(optionsBuilder -> optionsBuilder.jvmArgs("-Xms4g", "-Xmx4g"))

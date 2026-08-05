@@ -26,7 +26,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 /*
- * This class is exposed to external systems via ResourceGroupStateInfoResource and QueryStateInfoResource.
+ * This class is exposed to external systems via ResourceGroupStateInfoResource.
  * Be careful while changing it.
  */
 public record ResourceGroupInfo(

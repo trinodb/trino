@@ -42,6 +42,7 @@ public class HttpEventListenerFactory
     public EventListener create(Map<String, String> config, EventListenerContext context)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.listener." + getName(),
                 new JsonModule(),
                 binder -> {
                     binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
@@ -55,6 +56,7 @@ public class HttpEventListenerFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

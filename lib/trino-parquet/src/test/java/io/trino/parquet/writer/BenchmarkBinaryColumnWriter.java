@@ -16,7 +16,6 @@ package io.trino.parquet.writer;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -57,7 +56,7 @@ public class BenchmarkBinaryColumnWriter
     @Override
     protected Block generateBlock(int size)
     {
-        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(new PageBuilderStatus().createBlockBuilderStatus(), size);
+        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(null, size);
         for (byte[] value : type.generateData(size, positionLength.getRange())) {
             getTrinoType().writeSlice(blockBuilder, Slices.wrappedBuffer(value));
         }
@@ -66,7 +65,7 @@ public class BenchmarkBinaryColumnWriter
 
     public enum FieldType
     {
-        UNBOUNDED(range -> VARBINARY, (size, range) -> randomBinaryData(size, range.from(), range.to())),
+        UNBOUNDED(_ -> VARBINARY, (size, range) -> randomBinaryData(size, range.from(), range.to())),
         VARCHAR_ASCII_BOUND_EXACT(range -> VarcharType.createVarcharType(max(1, range.to)), (size, range) -> randomAsciiData(size, range.from(), range.to())),
         /**/;
 
@@ -111,7 +110,7 @@ public class BenchmarkBinaryColumnWriter
 
     record Range(int from, int to) {}
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         run(BenchmarkBinaryColumnWriter.class);

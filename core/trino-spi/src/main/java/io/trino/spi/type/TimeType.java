@@ -48,6 +48,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 public final class TimeType
         extends AbstractLongType
 {
+    public static final String NAME = "time";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(TimeType.class, lookup(), long.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -72,7 +73,7 @@ public final class TimeType
 
     private TimeType(int precision)
     {
-        super(new TypeSignature(StandardTypes.TIME, TypeSignatureParameter.numericParameter(precision)));
+        super(new TypeDescriptor(NAME, TypeParameter.numericParameter(precision)));
         this.precision = precision;
     }
 
@@ -87,6 +88,12 @@ public final class TimeType
     public int getPrecision()
     {
         return precision;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + "(" + precision + ")";
     }
 
     @Override
@@ -144,28 +151,28 @@ public final class TimeType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             long value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }
 
     @ScalarOperator(EQUAL)
-    public static boolean equalOperator(long left, long right)
+    private static boolean equalOperator(long left, long right)
     {
         return left == right;
     }
 
     @ScalarOperator(HASH_CODE)
-    public static long hashCodeOperator(long value)
+    private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash(value);
     }
 
     @ScalarOperator(XX_HASH_64)
-    public static long xxHash64Operator(long value)
+    private static long xxHash64Operator(long value)
     {
         return XxHash64.hash(value);
     }
@@ -177,13 +184,13 @@ public final class TimeType
     }
 
     @ScalarOperator(LESS_THAN)
-    public static boolean lessThan(long left, long right)
+    private static boolean lessThan(long left, long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static boolean lessThanOrEqual(long left, long right)
+    private static boolean lessThanOrEqual(long left, long right)
     {
         return left <= right;
     }

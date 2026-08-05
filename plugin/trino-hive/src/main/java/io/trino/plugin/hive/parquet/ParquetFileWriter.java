@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -44,7 +46,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
@@ -57,7 +59,7 @@ public final class ParquetFileWriter
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final ParquetWriter parquetWriter;
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<ParquetDataSource>> validationInputFactory;
@@ -66,7 +68,7 @@ public final class ParquetFileWriter
 
     public ParquetFileWriter(
             TrinoOutputFile outputFile,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
             MessageType messageType,
@@ -80,21 +82,28 @@ public final class ParquetFileWriter
             throws IOException
     {
         this.memoryContext = newSimpleAggregatedMemoryContext();
-        OutputStream outputStream = outputFile.create(memoryContext);
         requireNonNull(trinoVersion, "trinoVersion is null");
         this.validationInputFactory = requireNonNull(validationInputFactory, "validationInputFactory is null");
 
-        this.parquetWriter = new ParquetWriter(
-                outputStream,
-                messageType,
-                primitiveTypes,
-                parquetWriterOptions,
-                compressionCodec,
-                trinoVersion,
-                parquetTimeZone,
-                validationInputFactory.isPresent()
-                        ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
-                        : Optional.empty());
+        OutputStream outputStream = null;
+        try {
+            outputStream = outputFile.create(memoryContext);
+            this.parquetWriter = new ParquetWriter(
+                    outputStream,
+                    messageType,
+                    primitiveTypes,
+                    parquetWriterOptions,
+                    compressionCodec,
+                    trinoVersion,
+                    parquetTimeZone,
+                    validationInputFactory.isPresent()
+                            ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
+                            : Optional.empty());
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, outputStream, rollbackAction::run);
+            throw e;
+        }
 
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
@@ -109,7 +118,7 @@ public final class ParquetFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return parquetWriter.getWrittenBytes() + parquetWriter.getBufferedBytes();
+        return parquetWriter.getEstimatedWrittenBytes();
     }
 
     @Override
@@ -141,19 +150,20 @@ public final class ParquetFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             parquetWriter.close();
         }
         catch (IOException | UncheckedIOException e) {
+            TrinoException trinoException = new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Parquet file", e);
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
-            catch (Exception _) {
-                // ignore
+            catch (Exception rollbackException) {
+                trinoException.addSuppressed(rollbackException);
             }
-            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write parquet to Hive", e);
+            throw trinoException;
         }
 
         if (validationInputFactory.isPresent()) {
@@ -175,7 +185,7 @@ public final class ParquetFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             parquetWriter.close();
         }
         catch (Exception e) {

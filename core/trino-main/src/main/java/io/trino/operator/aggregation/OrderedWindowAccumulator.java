@@ -19,7 +19,6 @@ import io.trino.operator.PagesIndexOrdering;
 import io.trino.operator.window.PagesWindowIndex;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
@@ -52,8 +51,7 @@ public class OrderedWindowAccumulator
             List<Integer> sortKeysArguments,
             List<SortOrder> sortOrders)
     {
-        this(
-                pagesIndexFactory,
+        this(pagesIndexFactory,
                 createPagesIndexWithOrdering(
                         pagesIndexFactory,
                         argumentTypes,
@@ -112,8 +110,7 @@ public class OrderedWindowAccumulator
                 indexCurrentPage();
             }
             for (int channel = 0; channel < argumentTypes.size(); channel++) {
-                ValueBlock value = index.getSingleValueBlock(channel, position).getSingleValueBlock(0);
-                pageBuilder.getBlockBuilder(channel).append(value, 0);
+                index.appendTo(channel, position, pageBuilder.getBlockBuilder(channel));
             }
             pageBuilder.declarePosition();
         }
@@ -161,7 +158,9 @@ public class OrderedWindowAccumulator
         sortKeysArguments.forEach(argument -> {
             checkArgument(
                     argument < argumentTypes.size(),
-                    "invalid argument %s referenced; total number of arguments is %s", argument, argumentTypes.size());
+                    "invalid argument %s referenced; total number of arguments is %s",
+                    argument,
+                    argumentTypes.size());
         });
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(argumentTypes, 10_000);
         PagesIndexOrdering pagesIndexOrdering = pagesIndex.createPagesIndexComparator(sortKeysArguments, sortOrders);

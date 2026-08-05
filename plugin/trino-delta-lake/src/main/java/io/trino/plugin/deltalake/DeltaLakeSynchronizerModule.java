@@ -18,7 +18,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.plugin.deltalake.transactionlog.writer.AzureTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.GcsTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.S3ConditionalWriteLogSynchronizer;
@@ -26,7 +25,6 @@ import io.trino.plugin.deltalake.transactionlog.writer.S3LockBasedTransactionLog
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class DeltaLakeSynchronizerModule
@@ -49,9 +47,12 @@ public class DeltaLakeSynchronizerModule
         binder.bind(S3LockBasedTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
         binder.bind(S3ConditionalWriteLogSynchronizer.class).in(Scopes.SINGLETON);
 
-        install(conditionalModule(S3FileSystemConfig.class, S3FileSystemConfig::isSupportsExclusiveCreate,
-                s3SynchronizerModule(S3ConditionalWriteLogSynchronizer.class),
-                s3SynchronizerModule(S3LockBasedTransactionLogSynchronizer.class)));
+        if (buildConfigObject(DeltaLakeConfig.class).isS3TransactionLogConditionalWritesEnabled()) {
+            install(s3SynchronizerModule(S3ConditionalWriteLogSynchronizer.class));
+        }
+        else {
+            install(s3SynchronizerModule(S3LockBasedTransactionLogSynchronizer.class));
+        }
     }
 
     private static Module s3SynchronizerModule(Class<? extends TransactionLogSynchronizer> synchronizerClass)

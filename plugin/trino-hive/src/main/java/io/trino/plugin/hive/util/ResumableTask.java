@@ -23,7 +23,7 @@ public interface ResumableTask
      * Process the task either fully, or in part.
      *
      * @return a finished status if the task is complete, otherwise includes a continuation future to indicate
-     * when it should be continued to be processed.
+     *         when it should be continued to be processed.
      */
     TaskStatus process();
 

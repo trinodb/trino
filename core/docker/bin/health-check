@@ -2,20 +2,29 @@
 
 set -euo pipefail
 
-function get_property() {
-    grep "^$1=" "$2" | cut -d'=' -f2
+# implemented with bash builtins only: the hardened base image ships no grep or cut
+function get_property_value_or_default() {
+  local line
+  if [ -f "$2" ]; then
+    while IFS= read -r line || [ -n "${line}" ]; do
+      if [[ "${line}" == "$1="* ]]; then
+        printf '%s\n' "${line#*=}"
+        return
+      fi
+    done < "$2"
+  fi
+  # property not found, return default
+  printf '%s\n' "$3"
 }
 
 scheme=http
-port=8080
-
 config=/etc/trino/config.properties
 # prefer to use http even if https is enabled
-if [ "$(get_property 'http-server.http.enabled' "$config")" == "false" ]; then
+if [ "$(get_property_value_or_default 'http-server.http.enabled' "$config" "true")" == "false" ]; then
     scheme=https
-    port=$(get_property http-server.https.port "$config")
+    port=$(get_property_value_or_default http-server.https.port "$config" "8443")
 else
-    port=$(get_property http-server.http.port "$config")
+    port=$(get_property_value_or_default http-server.http.port "$config" "8080")
 fi
 
 endpoint="$scheme://localhost:$port/v1/info"
@@ -26,7 +35,7 @@ if ! info=$(curl --fail --silent --show-error --insecure "$endpoint"); then
     exit 1
 fi
 
-if ! grep -q '"starting":\s*false' <<<"$info" >/dev/null; then
+if [[ ! "${info}" =~ \"starting\"[[:space:]]*:[[:space:]]*false ]]; then
     echo >&2 "Server is starting"
     exit 1
 fi

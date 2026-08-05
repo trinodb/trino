@@ -19,9 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.TestingTicker;
 import io.trino.hive.thrift.metastore.Table;
 import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.Test;
 
 import java.net.SocketTimeoutException;
+import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -183,6 +186,27 @@ public class TestStaticTokenAwareMetastoreClientFactory
         assertEqualHiveClient(metastoreClient3, DEFAULT_CLIENT);
     }
 
+    @Test
+    public void testBackoffAppliedOnConnectionFailure()
+            throws TException
+    {
+        ConnectionCountingThriftMetastoreClientFactory clientFactory = new ConnectionCountingThriftMetastoreClientFactory(
+                ImmutableMap.of(DEFAULT_URI, Optional.empty(), FALLBACK_URI, Optional.of(FALLBACK_CLIENT)));
+        StaticMetastoreConfig config = new StaticMetastoreConfig().setMetastoreUris(ImmutableList.of(DEFAULT_URI, FALLBACK_URI));
+        StaticTokenAwareMetastoreClientFactory metastoreClientFactory = new StaticTokenAwareMetastoreClientFactory(
+                config, new ThriftMetastoreAuthenticationConfig(), clientFactory, new TestingTicker());
+
+        assertEqualHiveClient(metastoreClientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+        assertThat(clientFactory.connectionAttempts()).containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(
+                URI.create(DEFAULT_URI), 1,
+                URI.create(FALLBACK_URI), 1));
+        clientFactory.resetConnectionAttempts();
+        assertEqualHiveClient(metastoreClientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+        // The previous connection failure on DEFAULT_URI is not attempted first again on the second call
+        assertThat(clientFactory.connectionAttempts()).containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(
+                URI.create(FALLBACK_URI), 1));
+    }
+
     private static void assertGetTableException(ThriftMetastoreClient client)
     {
         assertThatThrownBy(() -> client.getTable("foo", "bar"))
@@ -229,5 +253,35 @@ public class TestStaticTokenAwareMetastoreClientFactory
             expected = ((FailureAwareThriftMetastoreClient) expected).getDelegate();
         }
         assertThat(actual).isEqualTo(expected);
+    }
+
+    private static class ConnectionCountingThriftMetastoreClientFactory
+            implements ThriftMetastoreClientFactory
+    {
+        private final ThriftMetastoreClientFactory delegate;
+        private final Map<URI, Integer> attempts = new HashMap<>();
+
+        public ConnectionCountingThriftMetastoreClientFactory(Map<String, Optional<ThriftMetastoreClient>> clients)
+        {
+            this.delegate = new MockThriftMetastoreClientFactory(clients);
+        }
+
+        @Override
+        public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
+                throws TTransportException
+        {
+            attempts.merge(uri, 1, Integer::sum);
+            return delegate.create(uri, delegationToken);
+        }
+
+        public void resetConnectionAttempts()
+        {
+            attempts.clear();
+        }
+
+        public Map<URI, Integer> connectionAttempts()
+        {
+            return ImmutableMap.copyOf(attempts);
+        }
     }
 }

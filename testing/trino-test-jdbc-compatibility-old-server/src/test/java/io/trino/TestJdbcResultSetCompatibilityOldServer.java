@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.jdbc.BaseTestJdbcResultSet;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.TrinoContainer;
+import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -41,6 +41,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestJdbcResultSetCompatibilityOldServer
@@ -68,13 +69,13 @@ public class TestJdbcResultSetCompatibilityOldServer
         try {
             String currentVersionString = Resources.toString(Resources.getResource("trino-test-jdbc-compatibility-old-server-version.txt"), UTF_8).trim();
             Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
-            checkState(matcher.matches());
+            checkState(matcher.matches(), "invalid current version: %s", currentVersionString);
             int currentVersion = parseInt(matcher.group(1));
             ImmutableList.Builder<String> testedTrinoVersions = ImmutableList.builder();
             int testVersion = currentVersion - 1; // last release version
             for (int i = 0; i < NUMBER_OF_TESTED_VERSIONS; i++) {
                 if (testVersion == 456) {
-                    // 456 release was skipped.
+                    // 456 is invalid - release process errors resulted in invalid artifacts.
                     testVersion--;
                 }
                 if (testVersion < FIRST_VERSION) {
@@ -93,7 +94,7 @@ public class TestJdbcResultSetCompatibilityOldServer
             // Instead we return marker Option.empty() as only parameterization. Then we will fail test run in setupTrinoContainer().
             System.err.println("Could not determine Trino versions to test; " + e.getMessage() + "\n" + getStackTraceAsString(e));
             return new Object[][] {
-                    {Optional.empty()}
+                    {Optional.empty()},
             };
         }
     }
@@ -130,6 +131,34 @@ public class TestJdbcResultSetCompatibilityOldServer
 
             removeDockerImage(imageName);
         }
+    }
+
+    @Override
+    public void testNumber()
+            throws Exception
+    {
+        if (parseInt(getTestedTrinoVersion()) < 480) {
+            try (ConnectedStatement statementWrapper = newStatement()) {
+                assertThatThrownBy(() -> statementWrapper.getStatement().executeUpdate("SELECT NUMBER '1'"))
+                        .hasMessageMatching(".*(Unknown resolvedType: NUMBER|Unknown type: number).*");
+            }
+            return;
+        }
+        super.testNumber();
+    }
+
+    @Override
+    public void testVariant()
+            throws Exception
+    {
+        if (parseInt(getTestedTrinoVersion()) < 481) {
+            try (ConnectedStatement statementWrapper = newStatement()) {
+                assertThatThrownBy(() -> statementWrapper.getStatement().executeQuery("SELECT CAST(NULL AS variant)"))
+                        .hasMessageMatching(".*Unknown type: variant.*");
+            }
+            return;
+        }
+        super.testVariant();
     }
 
     @Override

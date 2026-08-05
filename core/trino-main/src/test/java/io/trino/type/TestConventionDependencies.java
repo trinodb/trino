@@ -111,9 +111,11 @@ public class TestConventionDependencies
     {
         @SqlType(StandardTypes.INTEGER)
         public static long testRegularConvention(
-                @FunctionDependency(name = "add",
+                @FunctionDependency(
+                        name = "add",
                         argumentTypes = {StandardTypes.INTEGER, StandardTypes.INTEGER},
-                        convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL)) MethodHandle function,
+                        convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
+                MethodHandle function,
                 @SqlType(StandardTypes.INTEGER) long left,
                 @SqlType(StandardTypes.INTEGER) long right)
         {
@@ -136,7 +138,8 @@ public class TestConventionDependencies
                 @FunctionDependency(
                         name = "add",
                         argumentTypes = {StandardTypes.INTEGER, StandardTypes.INTEGER},
-                        convention = @Convention(arguments = {NEVER_NULL, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle function,
+                        convention = @Convention(arguments = {NEVER_NULL, BLOCK_POSITION}, result = FAIL_ON_NULL))
+                MethodHandle function,
                 @SqlType("array(integer)") Block array)
         {
             long sum = 0;
@@ -162,7 +165,8 @@ public class TestConventionDependencies
                 @FunctionDependency(
                         name = "add",
                         argumentTypes = {StandardTypes.INTEGER, StandardTypes.INTEGER},
-                        convention = @Convention(arguments = {NEVER_NULL, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle function,
+                        convention = @Convention(arguments = {NEVER_NULL, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+                MethodHandle function,
                 @SqlType("array(integer)") Block array)
         {
             ValueBlock arrayValues = array.getUnderlyingValueBlock();

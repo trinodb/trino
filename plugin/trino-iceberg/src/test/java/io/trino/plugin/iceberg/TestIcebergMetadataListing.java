@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -27,17 +27,21 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 public class TestIcebergMetadataListing
         extends AbstractTestQueryFramework
 {
@@ -54,12 +58,22 @@ public class TestIcebergMetadataListing
                 .build();
         QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
+        File dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
+        verify(dataDirectory.mkdirs());
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(baseDir.toPath()));
-        queryRunner.createCatalog("iceberg", "iceberg");
-        queryRunner.installPlugin(new TestingHivePlugin(baseDir.toPath()));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));
+        queryRunner.installPlugin(new IcebergPlugin());
+        queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of(
+                "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                // Intentionally sharing the file metastore directory with Hive
+                "hive.metastore.catalog.dir", dataDirectory.getPath(),
+                "fs.hadoop.enabled", "true"));
+        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.createCatalog("hive", "hive", ImmutableMap.of(
+                "hive.security", "sql-standard",
+                "hive.metastore", "file",
+                // Intentionally sharing the file metastore directory with Iceberg
+                "hive.metastore.catalog.dir", dataDirectory.getPath(),
+                "fs.hadoop.enabled", "true"));
 
         metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());

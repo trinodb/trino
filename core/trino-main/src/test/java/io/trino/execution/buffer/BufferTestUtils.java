@@ -20,7 +20,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.block.BlockAssertions;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
-import io.trino.operator.PageAssertions;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 
@@ -33,6 +32,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
+import static io.trino.operator.PageAssertions.assertPageEquals;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,27 +53,26 @@ public final class BufferTestUtils
         return bufferResult.get();
     }
 
-    static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
+    static void assertBufferResultEquals(List<Type> types, BufferResult actual, BufferResult expected)
     {
-        assertThat(actual.getSerializedPages().size())
+        assertThat(actual.serializedPages().size())
                 .describedAs("page count")
-                .isEqualTo(expected.getSerializedPages().size());
-        assertThat(actual.getToken())
+                .isEqualTo(expected.serializedPages().size());
+        assertThat(actual.token())
                 .describedAs("token")
-                .isEqualTo(expected.getToken());
+                .isEqualTo(expected.token());
         PageDeserializer deserializer = PAGES_SERDE_FACTORY.createDeserializer(Optional.empty());
-        for (int i = 0; i < actual.getSerializedPages().size(); i++) {
-            Page actualPage = deserializer.deserialize(actual.getSerializedPages().get(i));
-            Page expectedPage = deserializer.deserialize(expected.getSerializedPages().get(i));
-            assertThat(actualPage.getChannelCount()).isEqualTo(expectedPage.getChannelCount());
-            PageAssertions.assertPageEquals(types, actualPage, expectedPage);
+        for (int i = 0; i < actual.serializedPages().size(); i++) {
+            Page actualPage = deserializer.deserialize(actual.serializedPages().get(i));
+            Page expectedPage = deserializer.deserialize(expected.serializedPages().get(i));
+            assertPageEquals(types, actualPage, expectedPage);
         }
-        assertThat(actual.isBufferComplete())
+        assertThat(actual.bufferComplete())
                 .describedAs("buffer complete")
-                .isEqualTo(expected.isBufferComplete());
+                .isEqualTo(expected.bufferComplete());
     }
 
-    static BufferResult createBufferResult(String bufferId, long token, List<Page> pages)
+    static BufferResult createBufferResult(long bufferId, long token, List<Page> pages)
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
         ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(pages.size());
@@ -174,14 +173,14 @@ public final class BufferTestUtils
     {
         OutputBufferInfo outputBufferInfo = buffer.getInfo();
 
-        long assignedPages = outputBufferInfo.getPipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::getBufferedPages).sum();
+        long assignedPages = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::bufferedPages).sum();
 
-        assertThat(outputBufferInfo.getTotalBufferedPages() - assignedPages)
+        assertThat(outputBufferInfo.totalBufferedPages() - assignedPages)
                 .describedAs("unassignedPages")
                 .isEqualTo(unassignedPages);
 
-        PipelinedBufferInfo bufferInfo = outputBufferInfo.getPipelinedBufferStates().orElse(ImmutableList.of()).stream()
-                .filter(info -> info.getBufferId().equals(bufferId))
+        PipelinedBufferInfo bufferInfo = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream()
+                .filter(info -> info.bufferId().equals(bufferId))
                 .findAny()
                 .orElse(null);
 
@@ -200,9 +199,9 @@ public final class BufferTestUtils
     static void assertQueueClosed(OutputBuffer buffer, OutputBufferId bufferId, int pagesSent)
     {
         PipelinedBufferInfo bufferInfo = getBufferInfo(buffer, bufferId);
-        assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
-        assertThat(bufferInfo.getPagesSent()).isEqualTo(pagesSent);
-        assertThat(bufferInfo.isFinished()).isEqualTo(true);
+        assertThat(bufferInfo.bufferedPages()).isEqualTo(0);
+        assertThat(bufferInfo.pagesSent()).isEqualTo(pagesSent);
+        assertThat(bufferInfo.finished()).isEqualTo(true);
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -210,27 +209,27 @@ public final class BufferTestUtils
     {
         OutputBufferInfo outputBufferInfo = buffer.getInfo();
 
-        long assignedPages = outputBufferInfo.getPipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::getBufferedPages).sum();
-        assertThat(outputBufferInfo.getTotalBufferedPages() - assignedPages)
+        long assignedPages = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::bufferedPages).sum();
+        assertThat(outputBufferInfo.totalBufferedPages() - assignedPages)
                 .describedAs("unassignedPages")
                 .isEqualTo(unassignedPages);
 
-        PipelinedBufferInfo bufferInfo = outputBufferInfo.getPipelinedBufferStates().orElse(ImmutableList.of()).stream()
-                .filter(info -> info.getBufferId().equals(bufferId))
+        PipelinedBufferInfo bufferInfo = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream()
+                .filter(info -> info.bufferId().equals(bufferId))
                 .findAny()
                 .orElse(null);
 
-        assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
-        assertThat(bufferInfo.getPagesSent()).isEqualTo(pagesSent);
-        assertThat(bufferInfo.isFinished()).isEqualTo(true);
+        assertThat(bufferInfo.bufferedPages()).isEqualTo(0);
+        assertThat(bufferInfo.pagesSent()).isEqualTo(pagesSent);
+        assertThat(bufferInfo.finished()).isEqualTo(true);
     }
 
     static void assertFinished(OutputBuffer buffer)
     {
         assertThat(buffer.getState()).isEqualTo(FINISHED);
-        for (PipelinedBufferInfo bufferInfo : buffer.getInfo().getPipelinedBufferStates().orElse(ImmutableList.of())) {
-            assertThat(bufferInfo.isFinished()).isTrue();
-            assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
+        for (PipelinedBufferInfo bufferInfo : buffer.getInfo().pipelinedBufferStates().orElse(ImmutableList.of())) {
+            assertThat(bufferInfo.finished()).isTrue();
+            assertThat(bufferInfo.bufferedPages()).isEqualTo(0);
         }
     }
 
@@ -242,8 +241,8 @@ public final class BufferTestUtils
 
     private static PipelinedBufferInfo getBufferInfo(OutputBuffer buffer, OutputBufferId bufferId)
     {
-        for (PipelinedBufferInfo bufferInfo : buffer.getInfo().getPipelinedBufferStates().orElse(ImmutableList.of())) {
-            if (bufferInfo.getBufferId().equals(bufferId)) {
+        for (PipelinedBufferInfo bufferInfo : buffer.getInfo().pipelinedBufferStates().orElse(ImmutableList.of())) {
+            if (bufferInfo.bufferId().equals(bufferId)) {
                 return bufferInfo;
             }
         }

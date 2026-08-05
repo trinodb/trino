@@ -29,8 +29,8 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TemplateParameter;
+import io.trino.spi.type.TypeTemplate;
 import jakarta.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -51,6 +51,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
@@ -64,16 +65,16 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
+import static java.util.Comparator.comparing;
 
 public final class FunctionsParserHelper
 {
     private static final Set<OperatorType> COMPARABLE_TYPE_OPERATORS = ImmutableSet.of(EQUAL, HASH_CODE, XX_HASH_64, IDENTICAL, INDETERMINATE);
     private static final Set<OperatorType> ORDERABLE_TYPE_OPERATORS = ImmutableSet.of(COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL);
 
-    private FunctionsParserHelper()
-    {}
+    private FunctionsParserHelper() {}
 
     public static boolean containsAnnotation(Annotation[] annotations, Predicate<Annotation> predicate)
     {
@@ -93,30 +94,30 @@ public final class FunctionsParserHelper
 
         Set<String> orderableRequired = new TreeSet<>(CASE_INSENSITIVE_ORDER);
         Set<String> comparableRequired = new TreeSet<>(CASE_INSENSITIVE_ORDER);
-        HashMultimap<String, String> castableTo = HashMultimap.create();
-        HashMultimap<String, String> castableFrom = HashMultimap.create();
+        HashMultimap<String, TypeTemplate> castableTo = HashMultimap.create();
+        HashMultimap<String, TypeTemplate> castableFrom = HashMultimap.create();
         for (ImplementationDependency dependency : dependencies) {
             if (dependency instanceof OperatorImplementationDependency operatorDependency) {
                 OperatorType operator = operatorDependency.getOperator();
-                List<TypeSignature> argumentTypes = operatorDependency.getArgumentTypes();
+                List<TypeTemplate> argumentTypes = operatorDependency.getArgumentTypes();
                 if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
                     verifyOperatorSignature(operator, argumentTypes);
-                    TypeSignature typeSignature = argumentTypes.get(0);
-                    if (typeParameterNames.contains(typeSignature.getBase())) {
-                        comparableRequired.add(typeSignature.toString());
+                    TypeTemplate argumentType = argumentTypes.getFirst();
+                    if (typeParameterNames.contains(argumentType.baseName())) {
+                        comparableRequired.add(argumentType.baseName());
                     }
                     else {
-                        verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
+                        verifyTemplateDoesNotContainAnyTypeParameters(argumentType, argumentType, typeParameterNames);
                     }
                 }
                 else if (ORDERABLE_TYPE_OPERATORS.contains(operator)) {
                     verifyOperatorSignature(operator, argumentTypes);
-                    TypeSignature typeSignature = argumentTypes.get(0);
-                    if (typeParameterNames.contains(typeSignature.getBase())) {
-                        orderableRequired.add(typeSignature.toString());
+                    TypeTemplate argumentType = argumentTypes.getFirst();
+                    if (typeParameterNames.contains(argumentType.baseName())) {
+                        orderableRequired.add(argumentType.baseName());
                     }
                     else {
-                        verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
+                        verifyTemplateDoesNotContainAnyTypeParameters(argumentType, argumentType, typeParameterNames);
                     }
                 }
                 else if (operator == READ_VALUE) {
@@ -127,19 +128,19 @@ public final class FunctionsParserHelper
                 }
             }
             else if (dependency instanceof CastImplementationDependency castImplementationDependency) {
-                TypeSignature fromType = castImplementationDependency.getFromType();
-                TypeSignature toType = castImplementationDependency.getToType();
-                if (typeParameterNames.contains(fromType.getBase())) {
+                TypeTemplate fromType = castImplementationDependency.getFromType();
+                TypeTemplate toType = castImplementationDependency.getToType();
+                if (typeParameterNames.contains(fromType.baseName())) {
                     // fromType is a type parameter, so it must be castable to the toType, which might also be a type parameter
-                    castableTo.put(fromType.toString().toLowerCase(Locale.ENGLISH), toType.toString());
+                    castableTo.put(fromType.baseName().toLowerCase(Locale.ENGLISH), toType);
                 }
-                else if (typeParameterNames.contains(toType.getBase())) {
-                    // toType is a type parameter, so it must be castable from the toType, which is not a type parameter
-                    castableFrom.put(toType.toString().toLowerCase(Locale.ENGLISH), fromType.toString());
+                else if (typeParameterNames.contains(toType.baseName())) {
+                    // toType is a type parameter, so it must be castable from the fromType, which is not a type parameter
+                    castableFrom.put(toType.baseName().toLowerCase(Locale.ENGLISH), fromType);
                 }
                 else {
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(fromType, fromType, typeParameterNames);
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(toType, toType, typeParameterNames);
+                    verifyTemplateDoesNotContainAnyTypeParameters(fromType, fromType, typeParameterNames);
+                    verifyTemplateDoesNotContainAnyTypeParameters(toType, toType, typeParameterNames);
                 }
             }
         }
@@ -153,18 +154,14 @@ public final class FunctionsParserHelper
             if (orderableRequired.contains(name)) {
                 builder.orderableRequired();
             }
-            castableTo.get(name).stream()
-                    .map(type -> parseTypeSignature(type, typeParameterNames))
-                    .forEach(builder::castableTo);
-            castableFrom.get(name).stream()
-                    .map(type -> parseTypeSignature(type, typeParameterNames))
-                    .forEach(builder::castableFrom);
+            castableTo.get(name).forEach(builder::castableTo);
+            castableFrom.get(name).forEach(builder::castableFrom);
             typeVariableConstraints.add(builder.build());
         }
         return typeVariableConstraints.build();
     }
 
-    private static void verifyOperatorSignature(OperatorType operator, List<TypeSignature> argumentTypes)
+    private static void verifyOperatorSignature(OperatorType operator, List<TypeTemplate> argumentTypes)
     {
         checkArgument(argumentTypes.size() == operator.getArgumentCount() && argumentTypes.stream().distinct().count() == 1,
                 "%s requires %s arguments of the same type",
@@ -172,23 +169,15 @@ public final class FunctionsParserHelper
                 operator.getArgumentCount());
     }
 
-    private static void verifyTypeSignatureDoesNotContainAnyTypeParameters(TypeSignature rootType, TypeSignature typeSignature, Set<String> typeParameterNames)
+    private static void verifyTemplateDoesNotContainAnyTypeParameters(TypeTemplate rootType, TypeTemplate template, Set<String> typeParameterNames)
     {
-        checkArgument(!typeParameterNames.contains(typeSignature.getBase()), "Nested type variables are not allowed: %s", rootType);
+        checkArgument(!typeParameterNames.contains(template.baseName()), "Nested type variables are not allowed: %s", rootType.render());
 
-        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
-            switch (parameter.getKind()) {
-                case TYPE:
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getTypeSignature(), typeParameterNames);
-                    break;
-                case NAMED_TYPE:
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getNamedTypeSignature().getTypeSignature(), typeParameterNames);
-                    break;
-                case LONG:
-                case VARIABLE:
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+        if (template instanceof TypeTemplate.TypeApplication application) {
+            for (TemplateParameter parameter : application.parameters()) {
+                if (parameter instanceof TemplateParameter.TypeArgument argument) {
+                    verifyTemplateDoesNotContainAnyTypeParameters(rootType, argument.type(), typeParameterNames);
+                }
             }
         }
     }
@@ -216,20 +205,27 @@ public final class FunctionsParserHelper
     }
 
     @SafeVarargs
-    public static Set<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
+    public static List<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
     {
-        ImmutableSet.Builder<Method> methods = ImmutableSet.builder();
-        for (Method method : clazz.getDeclaredMethods()) {
-            for (Annotation annotation : method.getAnnotations()) {
-                for (Class<?> annotationClass : annotationClasses) {
-                    if (annotationClass.isInstance(annotation)) {
-                        checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotationClass.getSimpleName());
-                        methods.add(method);
-                    }
-                }
+        return Stream.of(clazz.getDeclaredMethods())
+                // Make function loading deterministic
+                .sorted(comparing(Method::toString))
+                .flatMap(method -> firstAnnotationPresent(method, annotationClasses)
+                        .map(annotated -> {
+                            checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotated.getSimpleName());
+                            return method;
+                        }).stream())
+                .collect(toImmutableList());
+    }
+
+    private static Optional<Class<? extends Annotation>> firstAnnotationPresent(AnnotatedElement annotatedElement, Class<? extends Annotation>[] annotationClasses)
+    {
+        for (Class<? extends Annotation> annotationClass : annotationClasses) {
+            if (annotatedElement.isAnnotationPresent(annotationClass)) {
+                return Optional.of(annotationClass);
             }
         }
-        return methods.build();
+        return Optional.empty();
     }
 
     public static Optional<Constructor<?>> findConstructor(Class<?> clazz)
@@ -286,10 +282,10 @@ public final class FunctionsParserHelper
         return (description == null) ? Optional.empty() : Optional.of(description.value());
     }
 
-    public static void parseLongVariableConstraints(Method inputFunction, Builder signatureBuilder)
+    public static void parseNumericVariableConstraints(Method inputFunction, Builder signatureBuilder)
     {
         Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
-                .forEach(annotation -> signatureBuilder.longVariable(annotation.variable(), annotation.expression()));
+                .forEach(annotation -> signatureBuilder.numericVariable(annotation.variable(), parseNumericExpression(annotation.expression())));
     }
 
     public static Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method, Set<TypeParameter> typeParameters)
@@ -303,7 +299,11 @@ public final class FunctionsParserHelper
             checkArgument(typeParameterNames.contains(specialization.name()), "%s does not match any declared type parameters (%s) [%s]", specialization.name(), typeParameters, method);
             Class<?> existingSpecialization = specializedTypeParameters.get(specialization.name());
             checkArgument(existingSpecialization == null || existingSpecialization.equals(specialization.nativeContainerType()),
-                    "%s has conflicting specializations %s and %s [%s]", specialization.name(), existingSpecialization, specialization.nativeContainerType(), method);
+                    "%s has conflicting specializations %s and %s [%s]",
+                    specialization.name(),
+                    existingSpecialization,
+                    specialization.nativeContainerType(),
+                    method);
             specializedTypeParameters.put(specialization.name(), specialization.nativeContainerType());
         }
         return specializedTypeParameters;

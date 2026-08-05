@@ -119,4 +119,10 @@ public interface OutputBuffer
      * Returns non empty failure cause if the buffer is in state {@link BufferState#FAILED}
      */
     Optional<Throwable> getFailureCause();
+
+    /**
+     * Returns {@code true} if this buffer writes data to external storage,
+     * {@code false} if data stays in-memory within the cluster.
+     */
+    boolean usesExternalStorage();
 }

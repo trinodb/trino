@@ -49,6 +49,7 @@ public class TestIcebergTableWithExternalLocation
             throws Exception
     {
         QueryRunner queryRunner = IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .build();
 
         metastore = getHiveMetastore(queryRunner);

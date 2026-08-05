@@ -65,8 +65,13 @@ public interface ConnectorPageSource
      * This memory should include any buffers, etc. that are used for reading data.
      *
      * @return the memory used so far in table read
+     * @deprecated Implementations should report memory through the {@link MemoryContext} supplied to {@link ConnectorPageSourceProvider}.
      */
-    long getMemoryUsage();
+    @Deprecated
+    default long getMemoryUsage()
+    {
+        return 0;
+    }
 
     /**
      * Immediately finishes this page source.  Trino will always call this method.

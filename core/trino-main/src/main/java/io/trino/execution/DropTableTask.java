@@ -65,14 +65,18 @@ public class DropTableTask
             throw semanticException(
                     GENERIC_USER_ERROR,
                     statement,
-                    "Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?", originalTableName, originalTableName);
+                    "Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?",
+                    originalTableName,
+                    originalTableName);
         }
 
         if (metadata.isView(session, originalTableName)) {
             throw semanticException(
                     GENERIC_USER_ERROR,
                     statement,
-                    "Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", originalTableName, originalTableName);
+                    "Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?",
+                    originalTableName,
+                    originalTableName);
         }
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);

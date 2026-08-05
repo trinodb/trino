@@ -25,8 +25,9 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -58,7 +59,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -80,7 +81,7 @@ public class PlanNodeDecorrelator
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
     }
 
     public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<Symbol> correlation)
@@ -471,18 +472,12 @@ public class PlanNodeDecorrelator
         {
             ImmutableMultimap.Builder<Symbol, Symbol> mapping = ImmutableMultimap.builder();
             for (Expression conjunct : correlatedConjuncts) {
-                if (!(conjunct instanceof Comparison comparison)) {
+                if (!(matchComparison(conjunct) instanceof Comparison.Equal(Reference referenceLeft, Reference referenceRight))) {
                     continue;
                 }
 
-                if (!(comparison.left() instanceof Reference
-                        && comparison.right() instanceof Reference
-                        && comparison.operator() == EQUAL)) {
-                    continue;
-                }
-
-                Symbol left = Symbol.from(comparison.left());
-                Symbol right = Symbol.from(comparison.right());
+                Symbol left = Symbol.from(referenceLeft);
+                Symbol right = Symbol.from(referenceRight);
 
                 if (correlation.contains(left) && !correlation.contains(right)) {
                     mapping.put(left, right);
@@ -501,9 +496,8 @@ public class PlanNodeDecorrelator
             ImmutableSet.Builder<Symbol> constants = ImmutableSet.builder();
 
             correlatedConjuncts.stream()
-                    .filter(Comparison.class::isInstance)
-                    .map(Comparison.class::cast)
-                    .filter(comparison -> comparison.operator() == EQUAL)
+                    .map(IrExpressions::matchComparison)
+                    .filter(comparison -> comparison instanceof Comparison.Equal)
                     .forEach(comparison -> {
                         Expression left = comparison.left();
                         Expression right = comparison.right();

@@ -146,7 +146,7 @@ public class TestRowPatternMatching
                         "     (3, 3, 70, 'B'), " +
                         "     (4, 4, 70, 'C') ");
 
-        //pattern permutation: when multiple permutations match, the first in lexicographical order is preferred
+        // pattern permutation: when multiple permutations match, the first in lexicographical order is preferred
         assertThat(assertions.query(format(query, "PATTERN (PERMUTE(B, C)) " +
                 "                  DEFINE " +
                 "                          B AS B.value < PREV (B.value), " +
@@ -782,8 +782,32 @@ public class TestRowPatternMatching
                         "     (5, 2, 70, 'B'), " +
                         "     (6, 2, 80, 'C') ");
 
+        // after rows 1, 2, 3, 4 are matched, matching starts at row 4. Another match is found starting at row 4.
+        // test using lowercase label
+        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO FIRST c")))
+                .matches("VALUES " +
+                        "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
+                        "     (2, 1, 80, 'B'), " +
+                        "     (3, 1, 70, 'B'), " +
+                        "     (4, 1, 80, 'C'), " +
+                        "     (4, 2, 80, 'A'), " +
+                        "     (5, 2, 70, 'B'), " +
+                        "     (6, 2, 80, 'C') ");
+
         // after rows 1, 2, 3, 4 are matched, matching starts at row 3. Another match is found starting at row 4.
         assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO LAST B")))
+                .matches("VALUES " +
+                        "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
+                        "     (2, 1, 80, 'B'), " +
+                        "     (3, 1, 70, 'B'), " +
+                        "     (4, 1, 80, 'C'), " +
+                        "     (4, 2, 80, 'A'), " +
+                        "     (5, 2, 70, 'B'), " +
+                        "     (6, 2, 80, 'C') ");
+
+        // after rows 1, 2, 3, 4 are matched, matching starts at row 3. Another match is found starting at row 4.
+        // test using lowercase label
+        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO LAST b")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -804,9 +828,34 @@ public class TestRowPatternMatching
                         "     (5, 2, 70, 'B'), " +
                         "     (6, 2, 80, 'C') ");
 
+        // 'SKIP TO B' defaults to 'SKIP TO LAST B', which is the same as above
+        // test using lowercase label
+        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO b")))
+                .matches("VALUES " +
+                        "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
+                        "     (2, 1, 80, 'B'), " +
+                        "     (3, 1, 70, 'B'), " +
+                        "     (4, 1, 80, 'C'), " +
+                        "     (4, 2, 80, 'A'), " +
+                        "     (5, 2, 70, 'B'), " +
+                        "     (6, 2, 80, 'C') ");
+
         // 'SKIP TO U' skips to last C or D. D never matches, so it skips to the last C, which is the last row of the match.
         // after rows 1, 2, 3, 4 are matched, matching starts at row 4. Another match is found starting at row 4.
         assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO U")))
+                .matches("VALUES " +
+                        "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
+                        "     (2, 1, 80, 'B'), " +
+                        "     (3, 1, 70, 'B'), " +
+                        "     (4, 1, 80, 'C'), " +
+                        "     (4, 2, 80, 'A'), " +
+                        "     (5, 2, 70, 'B'), " +
+                        "     (6, 2, 80, 'C') ");
+
+        // 'SKIP TO U' skips to last C or D. D never matches, so it skips to the last C, which is the last row of the match.
+        // after rows 1, 2, 3, 4 are matched, matching starts at row 4. Another match is found starting at row 4.
+        // test using lowercase label
+        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO u")))
                 .matches("VALUES " +
                         "     (1, CAST(1 AS bigint), 90, VARCHAR 'A'), " +
                         "     (2, 1, 80, 'B'), " +
@@ -971,8 +1020,8 @@ public class TestRowPatternMatching
 
         assertThat(assertions.query(format(query, "FIRST(value, 2)")))
                 .matches("VALUES " +
-                        "     (1, 30), " +
-                        "     (2, 30), " +
+                        "     (1, null), " +
+                        "     (2, null), " +
                         "     (3, 30) ");
 
         assertThat(assertions.query(format(query, "LAST(value, 10)")))
@@ -1521,7 +1570,6 @@ public class TestRowPatternMatching
                 "                                  FIRST(CLASSIFIER(), 5) = 'B' AND " +
                 "                                  FIRST(CLASSIFIER(), 6) = 'B' AND " +
                 "                                  FIRST(CLASSIFIER(), 7) = 'B' " +
-
                 "                ) AS m"))
                 .matches("VALUES (VARCHAR 'B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('LAST') ");
     }

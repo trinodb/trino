@@ -71,6 +71,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.LongFunction;
@@ -1003,7 +1004,8 @@ public class TestOpenxJsonFormat
         assertTimestamp(timestampType, "1960-05-10 12:34:56.123456789", LocalDateTime.of(1960, 5, 10, 12, 34, 56, 123_456_789));
 
         // test bounds
-        assertTimestamp(timestampType,
+        assertTimestamp(
+                timestampType,
                 "294247-01-10 04:00:54" + truncateNanosFor(timestampType, ".775807999"),
                 LocalDateTime.of(294247, 1, 10, 4, 0, 54, truncateNanosFor(timestampType, 775_807_999)));
         assertTrinoTimestamp(timestampType, "-290308-12-21 19:59:06.224192000", LocalDateTime.of(-290308, 12, 21, 19, 59, 6, 224_192_000));
@@ -1050,7 +1052,8 @@ public class TestOpenxJsonFormat
                 "dd.MM.yyyy HH:mm");
 
         // fixed offset time zone is allowed
-        assertValueTrino(timestampType,
+        assertValueTrino(
+                timestampType,
                 "\"2020-05-10T12:34:56.123456789-0800\"",
                 toSqlTimestamp(timestampType, LocalDateTime.of(2020, 5, 10, 12 + 8, 34, 56, 123_456_789)),
                 DEFAULT_OPEN_X_JSON_OPTIONS,
@@ -1486,7 +1489,7 @@ public class TestOpenxJsonFormat
         ObjectInspector keyInspector = inspector.getMapKeyObjectInspector();
         ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
         Map<Object, Object> values = new HashMap<>();
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
+        for (Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (!filterNullMapKeys || entry.getKey() != null) {
                 values.put(
@@ -1635,15 +1638,15 @@ public class TestOpenxJsonFormat
     {
         ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
         schema.put(LIST_COLUMNS, columns.stream()
-                .sorted(Comparator.comparing(Column::ordinal))
+                .sorted(Comparator.comparingInt(Column::ordinal))
                 .map(Column::name)
                 .collect(joining(",")));
         schema.put(LIST_COLUMN_TYPES, columns.stream()
-                        .sorted(Comparator.comparing(Column::ordinal))
-                        .map(Column::type)
-                        .map(FormatTestUtils::getJavaObjectInspector)
-                        .map(ObjectInspector::getTypeName)
-                        .collect(joining(",")));
+                .sorted(Comparator.comparingInt(Column::ordinal))
+                .map(Column::type)
+                .map(FormatTestUtils::getJavaObjectInspector)
+                .map(ObjectInspector::getTypeName)
+                .collect(joining(",")));
         schema.putAll(options.toSchema());
         return schema.buildOrThrow();
     }

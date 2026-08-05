@@ -55,7 +55,8 @@ public class HdfsExchangeModule
             binder.bind(FileSystemExchangeStorage.class).to(HadoopFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.addError(new TrinoException(NOT_SUPPORTED,
+            binder.addError(new TrinoException(
+                    NOT_SUPPORTED,
                     format("Scheme %s is not supported as exchange spooling storage in exchange manager type %s", scheme, HdfsExchangeManagerFactory.NAME)));
         }
     }

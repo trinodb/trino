@@ -40,7 +40,7 @@ public class BenchmarkLongColumnReader
 
     @Param({
             "0", "4", "8", "10", "15", "20", "25", "30",
-            "35", "40", "45", "50", "55", "60", "64"
+            "35", "40", "45", "50", "55", "60", "64",
     })
     public int bitWidth;
 
@@ -97,7 +97,7 @@ public class BenchmarkLongColumnReader
         return batch;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         run(BenchmarkLongColumnReader.class);

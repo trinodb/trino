@@ -32,6 +32,4 @@ import io.trino.spi.expression.ConnectorExpression;
         @JsonSubTypes.Type(value = ScalarArgument.class, name = "scalar"),
         @JsonSubTypes.Type(value = TableArgument.class, name = "table"),
 })
-public abstract class Argument
-{
-}
+public abstract class Argument {}

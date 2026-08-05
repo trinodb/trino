@@ -29,8 +29,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Year;
 import java.util.List;
 import java.util.Locale;
-import java.util.OptionalLong;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -55,9 +53,18 @@ final class TrinoSystemRequirements
         verifyOsArchitecture();
         verifyByteOrder();
         verifyUsingG1Gc();
+        verifyVectorApiEnabled();
+        verifyUnixOperatingMBeans();
         verifyFileDescriptor();
         verifySlice();
         verifyUtf8();
+    }
+
+    private static void verifyUnixOperatingMBeans()
+    {
+        if (!(ManagementFactory.getOperatingSystemMXBean() instanceof UnixOperatingSystemMXBean)) {
+            failRequirement("Trino requires access to UnixOperatingSystemMXBean");
+        }
     }
 
     private static void verify64BitJvm()
@@ -100,7 +107,7 @@ final class TrinoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("24.0.1");
+        Version required = Version.parse("25");
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
         }
@@ -123,28 +130,28 @@ final class TrinoSystemRequirements
         }
     }
 
-    private static void verifyFileDescriptor()
+    private static void verifyVectorApiEnabled()
     {
-        OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
-        if (maxFileDescriptorCount.isEmpty()) {
-            // This should never happen since we have verified the OS and JVM above
-            failRequirement("Cannot read OS file descriptor limit");
-        }
-        if (maxFileDescriptorCount.getAsLong() < MIN_FILE_DESCRIPTORS) {
-            failRequirement("Trino requires at least %s file descriptors (found %s)", MIN_FILE_DESCRIPTORS, maxFileDescriptorCount.getAsLong());
-        }
-        if (maxFileDescriptorCount.getAsLong() < RECOMMENDED_FILE_DESCRIPTORS) {
-            warnRequirement("Current OS file descriptor limit is %s. Trino recommends at least %s", maxFileDescriptorCount.getAsLong(), RECOMMENDED_FILE_DESCRIPTORS);
+        if (ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) {
+            failRequirement("Trino requires the Vector API to be enabled/linked at runtime");
         }
     }
 
-    private static OptionalLong getMaxFileDescriptorCount()
+    private static void verifyFileDescriptor()
     {
-        return Stream.of(ManagementFactory.getOperatingSystemMXBean())
-                .filter(UnixOperatingSystemMXBean.class::isInstance)
-                .map(UnixOperatingSystemMXBean.class::cast)
-                .mapToLong(UnixOperatingSystemMXBean::getMaxFileDescriptorCount)
-                .findFirst();
+        long maxFileDescriptorCount = getMaxFileDescriptorCount();
+        if (maxFileDescriptorCount < MIN_FILE_DESCRIPTORS) {
+            failRequirement("Trino requires at least %s file descriptors (found %s)", MIN_FILE_DESCRIPTORS, maxFileDescriptorCount);
+        }
+        if (maxFileDescriptorCount < RECOMMENDED_FILE_DESCRIPTORS) {
+            warnRequirement("Current OS file descriptor limit is %s. Trino recommends at least %s", maxFileDescriptorCount, RECOMMENDED_FILE_DESCRIPTORS);
+        }
+    }
+
+    private static long getMaxFileDescriptorCount()
+    {
+        // This is safe because we have already verified the OS and JVM above
+        return ((UnixOperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean()).getMaxFileDescriptorCount();
     }
 
     private static void verifySlice()

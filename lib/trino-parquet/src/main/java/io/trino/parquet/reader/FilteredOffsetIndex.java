@@ -89,7 +89,8 @@ class FilteredOffsetIndex
             for (int i = 0, n = offsetIndex.getPageCount(); i < n; ++i) {
                 int index = Arrays.binarySearch(indexMap, i);
                 boolean isHidden = index < 0;
-                formatter.format("%spage-%-5d  %20d  %16d  %20d\n",
+                formatter.format(
+                        "%spage-%-5d  %20d  %16d  %20d\n",
                         isHidden ? "- " : "  ",
                         isHidden ? i : index,
                         offsetIndex.getOffset(i),

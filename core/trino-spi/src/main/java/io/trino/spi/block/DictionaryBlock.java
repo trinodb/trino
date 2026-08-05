@@ -312,7 +312,7 @@ public final class DictionaryBlock
     @Override
     public boolean isNull(int position)
     {
-        if (!mayHaveNull) {
+        if (!mayHaveNull()) {
             return false;
         }
         checkValidPosition(position, positionCount);

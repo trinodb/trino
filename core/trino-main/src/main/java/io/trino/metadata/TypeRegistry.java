@@ -26,13 +26,11 @@ import io.trino.cache.NonEvictableCache;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.type.CharParametricType;
@@ -75,6 +73,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static io.trino.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.trino.spi.type.RealType.REAL;
@@ -86,7 +85,8 @@ import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WI
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.spi.type.VariantType.VARIANT;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.ColorType.COLOR;
@@ -112,10 +112,10 @@ public final class TypeRegistry
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
-    private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TypeDescriptor, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
-    private final NonEvictableCache<TypeSignature, Type> parametricTypeCache;
+    private final NonEvictableCache<TypeDescriptor, Type> parametricTypeCache;
     private final NonEvictableCache<String, Type> sqlTypeCache;
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
@@ -127,7 +127,7 @@ public final class TypeRegistry
         requireNonNull(featuresConfig, "featuresConfig is null");
 
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that cannot be used by functions
-        this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
+        this.types.put(UNKNOWN.getTypeDescriptor(), UNKNOWN);
 
         // always add the built-in types; Trino will not function without these
         addType(BOOLEAN);
@@ -138,6 +138,7 @@ public final class TypeRegistry
         addType(TINYINT);
         addType(DOUBLE);
         addType(REAL);
+        addType(NUMBER);
         addType(VARBINARY);
         addType(DATE);
         addType(INTERVAL_YEAR_MONTH);
@@ -152,6 +153,7 @@ public final class TypeRegistry
         addType(JSON_2016);
         addType(COLOR);
         addType(JSON);
+        addType(VARIANT);
         addType(CODE_POINTS);
         addType(IPADDRESS);
         addType(UUID);
@@ -177,7 +179,7 @@ public final class TypeRegistry
         verifyTypes();
     }
 
-    public Type getType(TypeSignature signature)
+    public Type getType(TypeDescriptor signature)
     {
         Type type = types.get(signature);
         if (type == null) {
@@ -201,7 +203,7 @@ public final class TypeRegistry
     public Type fromSqlType(String sqlType)
     {
         try {
-            return sqlTypeCache.get(sqlType, () -> getType(toTypeSignature(SQL_PARSER.createType(sqlType))));
+            return sqlTypeCache.get(sqlType, () -> getType(toTypeDescriptor(SQL_PARSER.createType(sqlType))));
         }
         catch (ParsingException e) {
             throw new TypeNotFoundException(sqlType, e);
@@ -214,31 +216,30 @@ public final class TypeRegistry
         }
     }
 
-    private Type instantiateParametricType(TypeSignature signature)
+    private Type instantiateParametricType(TypeDescriptor signature)
     {
-        List<TypeParameter> parameters = new ArrayList<>();
-
-        for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, typeManager);
-            parameters.add(typeParameter);
-        }
-
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new TypeNotFoundException(signature);
+            throw new TypeNotFoundException(signature.toString());
         }
 
         Type instantiatedType;
         try {
-            instantiatedType = parametricType.createType(typeManager, parameters);
+            instantiatedType = parametricType.createType(typeManager, signature.getParameters());
         }
         catch (IllegalArgumentException e) {
-            throw new TypeNotFoundException(signature, e);
+            throw new TypeNotFoundException(signature.toString(), e);
         }
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        // checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
         return instantiatedType;
+    }
+
+    public boolean isTypeRegistered(String name)
+    {
+        String key = name.toLowerCase(Locale.ENGLISH);
+        return types.containsKey(new TypeDescriptor(key)) || parametricTypes.containsKey(key);
     }
 
     public Collection<Type> getTypes()
@@ -254,7 +255,7 @@ public final class TypeRegistry
     public void addType(Type type)
     {
         requireNonNull(type, "type is null");
-        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
+        Type existingType = types.putIfAbsent(type.getTypeDescriptor(), type);
         checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
     }
 
@@ -263,7 +264,7 @@ public final class TypeRegistry
         requireNonNull(alias, "alias is null");
         requireNonNull(type, "type is null");
 
-        Type existingType = types.putIfAbsent(new TypeSignature(alias), type);
+        Type existingType = types.putIfAbsent(new TypeDescriptor(alias), type);
         checkState(existingType == null || existingType.equals(type), "Alias %s is already mapped to %s", alias, type);
     }
 
@@ -413,7 +414,7 @@ public final class TypeRegistry
     private boolean hasLessThanMethod(Type type)
     {
         try {
-            typeOperators.getLessThanOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            typeOperators.getLessThanOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
             return true;
         }
         catch (UnsupportedOperationException e) {
@@ -424,7 +425,7 @@ public final class TypeRegistry
     private boolean hasLessThanOrEqualMethod(Type type)
     {
         try {
-            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
             return true;
         }
         catch (UnsupportedOperationException e) {
@@ -446,7 +447,7 @@ public final class TypeRegistry
         }
 
         @Override
-        public Type getType(TypeSignature signature)
+        public Type getType(TypeDescriptor signature)
         {
             return typeRegistry.getType(signature);
         }
@@ -461,6 +462,12 @@ public final class TypeRegistry
         public Type getType(TypeId id)
         {
             return typeRegistry.getType(id);
+        }
+
+        @Override
+        public boolean isTypeRegistered(String name)
+        {
+            return typeRegistry.isTypeRegistered(name);
         }
 
         @Override

@@ -23,9 +23,9 @@ import org.weakref.jmx.ObjectNameGenerator;
 
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class ConnectorObjectNameGeneratorModule
         implements Module
@@ -48,7 +48,7 @@ public class ConnectorObjectNameGeneratorModule
     @Provides
     ObjectNameGenerator createPrefixObjectNameGenerator(CatalogName catalogName, ObjectNameGeneratorConfig config)
     {
-        String domainBase = firstNonNull(config.getDomainBase(), defaultDomainBase);
+        String domainBase = requireNonNullElse(config.getDomainBase(), defaultDomainBase);
         return new ConnectorObjectNameGenerator(packageName, domainBase, catalogName.toString());
     }
 

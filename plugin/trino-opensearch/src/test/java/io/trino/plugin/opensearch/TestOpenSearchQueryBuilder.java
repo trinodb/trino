@@ -34,6 +34,7 @@ import org.opensearch.index.query.TermQueryBuilder;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -69,7 +70,7 @@ public class TestOpenSearchQueryBuilder
 
         // List
         assertQueryBuilder(
-                ImmutableMap.of(NAME, Domain.multipleValues(VARCHAR, ImmutableList.of("alice", "bob"))),
+                ImmutableMap.of(NAME, Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("alice"), utf8Slice("bob")))),
                 new BoolQueryBuilder().filter(
                         new BoolQueryBuilder()
                                 .should(new TermQueryBuilder(NAME.name(), "alice"))

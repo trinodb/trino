@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.openlineage;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineage.DatasetFacetsBuilder;
@@ -68,7 +68,7 @@ public class OpenLineageListener
         implements EventListener
 {
     private static final Logger logger = Logger.get(OpenLineageListener.class);
-    private static final ObjectMapper QUERY_STATISTICS_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper QUERY_STATISTICS_MAPPER = new JsonMapperProvider().get();
 
     private final OpenLineage openLineage;
     private final OpenLineageClient client;
@@ -99,7 +99,8 @@ public class OpenLineageListener
             client.emit(event);
             return;
         }
-        logger.debug("Query type %s not supported. Supported query types %s",
+        logger.debug(
+                "Query type %s not supported. Supported query types %s",
                 queryCreatedEvent.getContext().getQueryType().toString(),
                 this.includeQueryTypes);
     }
@@ -112,7 +113,8 @@ public class OpenLineageListener
             client.emit(event);
             return;
         }
-        logger.debug("Query type %s not supported. Supported query types %s",
+        logger.debug(
+                "Query type %s not supported. Supported query types %s",
                 queryCompletedEvent.getContext().getQueryType().toString(),
                 this.includeQueryTypes);
     }
@@ -289,7 +291,11 @@ public class OpenLineageListener
                 .namespace(this.jobNamespace)
                 .name(interpolator.interpolate(new OpenLineageJobContext(queryContext, queryMetadata)))
                 .facets(openLineage.newJobFacetsBuilder()
-                        .jobType(openLineage.newJobTypeJobFacet("BATCH", "TRINO", "QUERY"))
+                        .jobType(openLineage.newJobTypeJobFacetBuilder()
+                                .processingType("BATCH")
+                                .integration("TRINO")
+                                .jobType("QUERY")
+                                .build())
                         .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery(), "trino"))
                         .build());
     }
@@ -318,8 +324,7 @@ public class OpenLineageListener
                                                     .stream()
                                                     .map(field -> openLineage.newSchemaDatasetFacetFieldsBuilder()
                                                             .name(field.getColumn())
-                                                            .build()
-                                                    ).toList())
+                                                            .build()).toList())
                                     .build());
 
                     return inputDatasetBuilder
@@ -348,8 +353,7 @@ public class OpenLineageListener
                                                     .namespace(this.datasetNamespace)
                                                     .name(getDatasetName(inputColumn.getCatalog(), inputColumn.getSchema(), inputColumn.getTable()))
                                                     .build())
-                                            .toList()
-                                    ).build()));
+                                            .toList()).build()));
 
             ImmutableList.Builder<OpenLineage.InputField> inputFields = ImmutableList.builder();
             ioMetadata.getInputs().forEach(input -> {
@@ -375,13 +379,11 @@ public class OpenLineageListener
                                                                     .name(column.getColumnName())
                                                                     .type(column.getColumnType())
                                                                     .build())
-                                                            .toList()
-                                            ).build())
+                                                            .toList()).build())
                                     .dataSource(openLineage.newDatasourceDatasetFacet(
                                             toQualifiedSchemaName(outputMetadata.getCatalogName(), outputMetadata.getSchema()),
                                             trinoURI.resolve(toQualifiedSchemaName(outputMetadata.getCatalogName(), outputMetadata.getSchema()))))
-                                    .build()
-                            ).build());
+                                    .build()).build());
         }
         return ImmutableList.of();
     }

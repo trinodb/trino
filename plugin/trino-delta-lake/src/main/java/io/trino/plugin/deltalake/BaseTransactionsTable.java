@@ -53,19 +53,22 @@ public abstract class BaseTransactionsTable
     private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
+    private final Optional<DeltaLakeTableCredentials> tableCredentials;
 
     public BaseTransactionsTable(
             DeltaMetastoreTable table,
             DeltaLakeFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
-            ConnectorTableMetadata tableMetadata)
+            ConnectorTableMetadata tableMetadata,
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         requireNonNull(typeManager, "typeManager is null");
         this.table = requireNonNull(table, "table is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
     }
 
     @Override
@@ -83,11 +86,11 @@ public abstract class BaseTransactionsTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         long snapshotVersion;
         try {
             // Verify the transaction log is readable
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, tableCredentials, Optional.empty());
             snapshotVersion = tableSnapshot.getVersion();
             transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
         }

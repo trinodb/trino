@@ -64,7 +64,7 @@ final class TestDeltaLakeTableMetadataScheduler
             }
         });
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(proxiedMetastore))));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, () -> Optional.of(new TestingDeltaLakeMetastoreModule(proxiedMetastore))));
         queryRunner.createCatalog("delta", "delta_lake", ImmutableMap.of("delta.metastore.store-table-metadata", "true"));
 
         queryRunner.installPlugin(new JmxPlugin());

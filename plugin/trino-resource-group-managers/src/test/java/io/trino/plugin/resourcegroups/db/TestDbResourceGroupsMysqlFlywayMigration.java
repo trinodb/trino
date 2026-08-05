@@ -14,7 +14,7 @@
 package io.trino.plugin.resourcegroups.db;
 
 import org.testcontainers.containers.JdbcDatabaseContainer;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
 public class TestDbResourceGroupsMysqlFlywayMigration
         extends BaseTestDbResourceGroupsFlywayMigration
@@ -22,7 +22,7 @@ public class TestDbResourceGroupsMysqlFlywayMigration
     @Override
     protected final JdbcDatabaseContainer<?> startContainer()
     {
-        JdbcDatabaseContainer<?> container = new MySQLContainer<>("mysql:8.0.36");
+        JdbcDatabaseContainer<?> container = new MySQLContainer("mysql:8.0.36");
         container.start();
         return container;
     }

@@ -34,7 +34,8 @@ public interface LongWriteFunction
     {
         requireNonNull(implementation, "implementation is null");
 
-        return new LongWriteFunction() {
+        return new LongWriteFunction()
+        {
             @Override
             public void set(PreparedStatement statement, int index, long value)
                     throws SQLException

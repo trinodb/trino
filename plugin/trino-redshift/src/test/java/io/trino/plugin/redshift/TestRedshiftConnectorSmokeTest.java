@@ -16,6 +16,9 @@ package io.trino.plugin.redshift;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
+
+import java.util.List;
 
 public class TestRedshiftConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
@@ -24,7 +27,9 @@ public class TestRedshiftConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -36,5 +41,11 @@ public class TestRedshiftConnectorSmokeTest
         return RedshiftQueryRunner.builder()
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @Override
+    protected TestTable newTrinoTable(String namePrefix, String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(new TrinoSqlExecutorWithRetries(getQueryRunner()), namePrefix, tableDefinition, rowsToInsert);
     }
 }

@@ -13,13 +13,13 @@
  */
 package io.trino.sql.routine.ir;
 
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record IrIf(RowExpression condition, IrStatement ifTrue, Optional<IrStatement> ifFalse)
+public record IrIf(Expression condition, IrStatement ifTrue, Optional<IrStatement> ifFalse)
         implements IrStatement
 {
     public IrIf

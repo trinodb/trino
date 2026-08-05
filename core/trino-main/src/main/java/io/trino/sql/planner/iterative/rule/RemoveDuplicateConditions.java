@@ -39,7 +39,7 @@ public class RemoveDuplicateConditions
 
     private static ExpressionRewriter createRewrite()
     {
-        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
+        return (expression, _) -> ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
     }
 
     private static class Visitor

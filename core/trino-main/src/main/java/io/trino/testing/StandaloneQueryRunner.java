@@ -20,11 +20,11 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -34,6 +34,7 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
@@ -73,7 +74,7 @@ public final class StandaloneQueryRunner
 
     public StandaloneQueryRunner(Session defaultSession)
     {
-        this(defaultSession, builder -> {});
+        this(defaultSession, _ -> {});
     }
 
     public StandaloneQueryRunner(Session defaultSession, Consumer<TestingTrinoServer.Builder> serverProcessor)
@@ -85,9 +86,15 @@ public final class StandaloneQueryRunner
                         .put("query.client.timeout", "10m")
                         .put("exchange.http-client.idle-timeout", "1h")
                         .put("node-scheduler.min-candidates", "1")
+                        // Purge finished-task info quickly so per-task stats are not retained, preserving memory on CI.
+                        // Must stay above task.info-update-interval so the coordinator can fetch a task's final
+                        // TaskInfo (incl. SpoolingOutputStats needed by fault-tolerant execution) before it is evicted.
+                        .put("task.info.max-age", "10s")
+                        .put("task.info-update-interval", "1s")
                         .buildOrThrow());
         serverProcessor.accept(builder);
         this.server = builder.build();
+        server.getInstance(Key.get(ConnectorServicesProvider.class)).loadInitialCatalogs();
 
         this.trinoClient = new TestingDirectTrinoClient(
                 server.getDispatchManager(),
@@ -329,5 +336,11 @@ public final class StandaloneQueryRunner
     public void loadSpoolingManager(String name, Map<String, String> properties)
     {
         server.loadSpoolingManager(name, properties);
+    }
+
+    @Override
+    public void loadBlobCacheManager(String name, Map<String, String> properties)
+    {
+        server.loadBlobCacheManager(name, properties);
     }
 }

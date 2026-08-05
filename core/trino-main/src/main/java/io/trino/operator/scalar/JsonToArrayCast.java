@@ -13,10 +13,9 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -24,12 +23,10 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonCastException;
 import io.trino.util.JsonUtil.BlockBuilderAppender;
 
@@ -40,7 +37,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastFromJson;
@@ -54,21 +52,16 @@ public class JsonToArrayCast
         extends SqlScalarFunction
 {
     public static final JsonToArrayCast JSON_TO_ARRAY = new JsonToArrayCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArray", ArrayType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArray", ArrayType.class, BlockBuilderAppender.class, Slice.class);
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
-
-    static {
-        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
-        new ObjectMapper(JSON_FACTORY);
-    }
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private JsonToArrayCast()
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableFromTypeParameter("T", JSON.getTypeSignature())
-                        .returnType(arrayType(new TypeSignature("T")))
+                        .castableFromTypeParameter("T", JSON.getTypeDescriptor())
+                        .returnType(arrayType(typeVariable("T")))
                         .argumentType(JSON)
                         .build())
                 .nullable()
@@ -92,11 +85,14 @@ public class JsonToArrayCast
     }
 
     @UsedByGeneratedCode
-    public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, ConnectorSession connectorSession, Slice json)
+    public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, Slice json)
     {
-        try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
+                if (jsonParser.nextToken() != null) {
+                    throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+                }
                 return null;
             }
 

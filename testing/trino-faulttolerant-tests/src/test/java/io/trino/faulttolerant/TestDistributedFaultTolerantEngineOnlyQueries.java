@@ -13,19 +13,15 @@
  */
 package io.trino.faulttolerant;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
 import io.trino.testing.AbstractDistributedEngineOnlyQueries;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.NO_FINAL_TASK_INFO_CHECK_INTERVAL;
@@ -40,16 +36,9 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
-                .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
-                .buildOrThrow();
-
         QueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                })
+                .withExchange("filesystem")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
@@ -92,17 +81,17 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
 
         assertQueryReturnsEmptyResult(
                 """
-                        WITH
-                        t1 AS (
-                            SELECT NULL AS address_id FROM %s i1
-                                INNER JOIN %s i2 ON i1.id = i2.id),
-                        t2 AS (
-                            SELECT id AS address_id FROM %s
-                            UNION
-                            SELECT * FROM t1)
-                        SELECT * FROM t2
-                            INNER JOIN %s i ON i.id = t2.address_id
-                        """.formatted(tableName, tableName, tableName, tableName));
+                WITH
+                t1 AS (
+                    SELECT NULL AS address_id FROM %s i1
+                        INNER JOIN %s i2 ON i1.id = i2.id),
+                t2 AS (
+                    SELECT id AS address_id FROM %s
+                    UNION
+                    SELECT * FROM t1)
+                SELECT * FROM t2
+                    INNER JOIN %s i ON i.id = t2.address_id
+                """.formatted(tableName, tableName, tableName, tableName));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -112,19 +101,21 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     {
         // regression test for verifying logic for catching queries with taks missing final info works correctly.
         // https://github.com/trinodb/trino/pull/25080
-        assertUpdate("""
-                     CREATE TABLE blackhole.default.fast (dummy BIGINT)
-                     WITH (split_count = 1,
-                           pages_per_split = 1,
-                           rows_per_page = 1)
-                     """);
-        assertUpdate("""
-                     CREATE TABLE blackhole.default.delay (dummy BIGINT)
-                     WITH (split_count = 1,
-                           pages_per_split = 1,
-                           rows_per_page = 1,
-                           page_processing_delay = '%ss')
-                     """.formatted(((int) NO_FINAL_TASK_INFO_CHECK_INTERVAL.getValue(SECONDS)) + 5));
+        assertUpdate(
+                """
+                CREATE TABLE blackhole.default.fast (dummy BIGINT)
+                WITH (split_count = 1,
+                      pages_per_split = 1,
+                      rows_per_page = 1)
+                """);
+        assertUpdate(
+                """
+                CREATE TABLE blackhole.default.delay (dummy BIGINT)
+                WITH (split_count = 1,
+                      pages_per_split = 1,
+                      rows_per_page = 1,
+                      page_processing_delay = '%ss')
+                """.formatted(((int) NO_FINAL_TASK_INFO_CHECK_INTERVAL.getValue(SECONDS)) + 5));
         assertThat(query("SELECT * FROM blackhole.default.delay UNION ALL SELECT * FROM blackhole.default.fast"))
                 .succeeds()
                 .matches("VALUES BIGINT '0', BIGINT '0'");

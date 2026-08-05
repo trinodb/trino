@@ -61,6 +61,7 @@ public class TestIterativeOptimizer
         try (PlanTester planTester = PlanTester.create(sessionBuilder.build())) {
             PlanOptimizersStatsCollector planOptimizersStatsCollector = new PlanOptimizersStatsCollector(10);
             PlanOptimizer optimizer = new IterativeOptimizer(
+                    "TestRuleStatsCollection",
                     planTester.getPlannerContext(),
                     new RuleStatsRecorder(),
                     planTester.getStatsCalculator(),
@@ -92,11 +93,13 @@ public class TestIterativeOptimizer
                 .setSystemProperty("iterative_optimizer_timeout", "1ms");
 
         try (PlanTester planTester = PlanTester.create(sessionBuilder.build())) {
-            planTester.createCatalog(planTester.getDefaultSession().getCatalog().get(),
+            planTester.createCatalog(
+                    planTester.getDefaultSession().getCatalog().get(),
                     new TpchConnectorFactory(1),
                     ImmutableMap.of());
 
             PlanOptimizer optimizer = new IterativeOptimizer(
+                    "TestTimeoutOnNonConvergingPlan",
                     planTester.getPlannerContext(),
                     new RuleStatsRecorder(),
                     planTester.getStatsCalculator(),

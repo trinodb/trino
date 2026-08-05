@@ -23,10 +23,7 @@ import io.trino.plugin.pinot.auth.password.PinotPasswordAuthenticationProvider;
 import io.trino.plugin.pinot.auth.password.inline.PinotPasswordBrokerAuthenticationConfig;
 import io.trino.plugin.pinot.auth.password.inline.PinotPasswordControllerAuthenticationConfig;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.pinot.auth.PinotAuthenticationType.NONE;
-import static io.trino.plugin.pinot.auth.PinotAuthenticationType.PASSWORD;
 
 public class PinotAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -34,26 +31,16 @@ public class PinotAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        bindAuthenticationProviderModule(
-                NONE,
-                new PinotNoneControllerAuthenticationProviderModule(),
-                new PinotNoneBrokerAuthenticationProviderModule());
-        bindAuthenticationProviderModule(
-                PASSWORD,
-                new PinotPasswordControllerAuthenticationProviderModule(),
-                new PinotPasswordBrokerAuthenticationProviderModule());
-    }
+        PinotAuthenticationTypeConfig authenticationConfig = buildConfigObject(PinotAuthenticationTypeConfig.class);
+        switch (authenticationConfig.getControllerAuthenticationType()) {
+            case NONE -> install(new PinotNoneControllerAuthenticationProviderModule());
+            case PASSWORD -> install(new PinotPasswordControllerAuthenticationProviderModule());
+        }
 
-    private void bindAuthenticationProviderModule(PinotAuthenticationType authType, Module controllerModule, Module brokerModule)
-    {
-        install(conditionalModule(
-                PinotAuthenticationTypeConfig.class,
-                config -> authType == config.getControllerAuthenticationType(),
-                controllerModule));
-        install(conditionalModule(
-                PinotAuthenticationTypeConfig.class,
-                config -> authType == config.getBrokerAuthenticationType(),
-                brokerModule));
+        switch (authenticationConfig.getBrokerAuthenticationType()) {
+            case NONE -> install(new PinotNoneBrokerAuthenticationProviderModule());
+            case PASSWORD -> install(new PinotPasswordBrokerAuthenticationProviderModule());
+        }
     }
 
     private static class PinotNoneControllerAuthenticationProviderModule

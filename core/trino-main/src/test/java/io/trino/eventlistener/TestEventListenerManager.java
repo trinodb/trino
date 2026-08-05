@@ -15,7 +15,7 @@ package io.trino.eventlistener;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.secrets.SecretsResolver;
-import io.trino.client.NodeVersion;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import org.junit.jupiter.api.Test;

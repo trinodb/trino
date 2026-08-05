@@ -35,7 +35,9 @@ public class TestRemoveAggregationInSemiJoin
         tester().assertThat(new RemoveAggregationInSemiJoin())
                 .on(TestRemoveAggregationInSemiJoin::semiJoinWithDistinctAsFilteringSource)
                 .matches(
-                        semiJoin("leftKey", "rightKey", "match",
+                        semiJoin("leftKey",
+                                "rightKey",
+                                "match",
                                 values("leftKey"),
                                 values("rightKey")));
     }

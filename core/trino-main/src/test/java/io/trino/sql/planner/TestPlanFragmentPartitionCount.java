@@ -34,7 +34,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -126,21 +126,21 @@ public class TestPlanFragmentPartitionCount
 
         Plan plan = new Plan(output, StatsAndCosts.empty());
         SubPlan rootSubPlan = fragment(plan);
-        ImmutableMap.Builder<PlanFragmentId, Optional<Integer>> actualPartitionCount = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanFragmentId, OptionalInt> actualPartitionCount = ImmutableMap.builder();
         Traverser.forTree(SubPlan::getChildren).depthFirstPreOrder(rootSubPlan).forEach(subPlan ->
                 actualPartitionCount.put(subPlan.getFragment().getId(), subPlan.getFragment().getPartitionCount()));
 
-        Map<PlanFragmentId, Optional<Integer>> expectedPartitionCount = ImmutableMap.of(
+        Map<PlanFragmentId, OptionalInt> expectedPartitionCount = ImmutableMap.of(
                 // for output fragment
-                new PlanFragmentId("0"), Optional.of(3),
+                new PlanFragmentId("0"), OptionalInt.of(3),
                 // for union exchange fragment
-                new PlanFragmentId("1"), Optional.of(2),
+                new PlanFragmentId("1"), OptionalInt.of(2),
                 // for join fragment
-                new PlanFragmentId("2"), Optional.of(5),
+                new PlanFragmentId("2"), OptionalInt.of(5),
                 // for all other fragments partitionCount should be empty
-                new PlanFragmentId("3"), Optional.empty(),
-                new PlanFragmentId("4"), Optional.empty(),
-                new PlanFragmentId("5"), Optional.empty());
+                new PlanFragmentId("3"), OptionalInt.empty(),
+                new PlanFragmentId("4"), OptionalInt.empty(),
+                new PlanFragmentId("5"), OptionalInt.empty());
 
         assertThat(actualPartitionCount.buildOrThrow()).isEqualTo(expectedPartitionCount);
     }

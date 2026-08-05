@@ -71,14 +71,14 @@ public class TestGrantOnTable
     {
         queryRunner = DistributedQueryRunner.builder(admin).build();
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withListSchemaNames(session -> ImmutableList.of("default"))
-                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName)
+                .withListSchemaNames(_ -> ImmutableList.of("default"))
+                .withListTables((_, schemaName) -> "default".equalsIgnoreCase(schemaName)
                         ? ImmutableList.of(table.getTableName(), view.getTableName(), materializedView.getTableName())
                         : ImmutableList.of())
-                .withGetTableHandle((session, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
+                .withGetTableHandle((_, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
                 .withSchemaGrants(new MutableGrants<>())
                 .withTableGrants(tableGrants)
-                .withGetViews((session, schemaTablePrefix) ->
+                .withGetViews((_, _) ->
                         ImmutableMap.of(
                                 view, new ConnectorViewDefinition(
                                         "SELECT nationkey AS test_column FROM tpch.tiny.nation",
@@ -89,7 +89,7 @@ public class TestGrantOnTable
                                         Optional.empty(),
                                         true,
                                         ImmutableList.of())))
-                .withGetMaterializedViews((connectorSession, prefix) ->
+                .withGetMaterializedViews((_, _) ->
                         ImmutableMap.of(
                                 materializedView, new ConnectorMaterializedViewDefinition(
                                         "SELECT nationkey AS test_column FROM tpch.tiny.nation",
@@ -98,6 +98,7 @@ public class TestGrantOnTable
                                         Optional.of("default"),
                                         ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test_column", BIGINT.getTypeId(), Optional.empty())),
                                         Optional.of(Duration.ZERO),
+                                        Optional.empty(),
                                         Optional.empty(),
                                         Optional.of("alice"),
                                         ImmutableList.of())))
@@ -201,8 +202,8 @@ public class TestGrantOnTable
         queryRunner.execute(admin, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, username));
 
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
-        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s", privilege, randomUsername()), OptionalLong.empty(), Optional.empty());
-        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, randomUsername()), OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s", privilege, randomUsername()), OptionalLong.empty());
+        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, randomUsername()), OptionalLong.empty());
     }
 
     @Test

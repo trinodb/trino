@@ -58,7 +58,7 @@ public final class StaticLookupSourceProvider
         @Override
         public IntPredicate getSpillMask()
         {
-            return i -> false;
+            return _ -> false;
         }
     }
 }

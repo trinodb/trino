@@ -15,20 +15,82 @@ package io.trino.spi.connector;
 
 import io.trino.spi.TrinoException;
 
+import java.util.Optional;
+
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface ConnectorPageSinkProvider
 {
-    ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId);
+    /**
+     * Creates a {@link ConnectorPageSink} for writing data to a newly created table.
+     *
+     * @param transactionHandle the transaction handle for this operation
+     * @param session the session in which the write is being performed
+     * @param outputTableHandle the handle identifying the new table being created
+     * @param tableCredentials credentials for accessing the table data
+     * @param pageSinkId unique identifier for this page sink instance
+     * @return a page sink for writing data to the new table
+     */
+    ConnectorPageSink createPageSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorOutputTableHandle outputTableHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId);
 
-    ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId);
+    /**
+     * Creates a {@link ConnectorPageSink} for inserting data into an existing table.
+     *
+     * @param transactionHandle the transaction handle for this operation
+     * @param session the session in which the insert is being performed
+     * @param insertTableHandle the handle identifying the table for insertion
+     * @param tableCredentials credentials for accessing the table data
+     * @param pageSinkId unique identifier for this page sink instance
+     * @return a page sink for inserting data into the table
+     */
+    ConnectorPageSink createPageSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertTableHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId);
 
-    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
+    /**
+     * Creates a {@link ConnectorPageSink} for executing a table procedure that writes data.
+     *
+     * @param transactionHandle the transaction handle for this operation
+     * @param session the session in which the table execute is being performed
+     * @param tableExecuteHandle the handle identifying the table execute operation
+     * @param tableCredentials credentials for accessing the table data
+     * @param pageSinkId unique identifier for this page sink instance
+     * @return a page sink for writing data during table execute
+     */
+    default ConnectorPageSink createPageSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorTableExecuteHandle tableExecuteHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId)
     {
         throw new IllegalArgumentException("createPageSink not supported for tableExecuteHandle");
     }
 
-    default ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+    /**
+     * Creates a {@link ConnectorMergeSink} for executing SQL MERGE operations.
+     *
+     * @param transactionHandle the transaction handle for this operation
+     * @param session the session in which the merge is being performed
+     * @param mergeHandle the handle identifying the merge operation
+     * @param tableCredentials credentials for accessing the table data
+     * @param pageSinkId unique identifier for this page sink instance
+     * @return a merge sink for executing the MERGE operation
+     */
+    default ConnectorMergeSink createMergeSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorMergeTableHandle mergeHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support SQL MERGE operations");
     }

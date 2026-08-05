@@ -26,7 +26,6 @@ import io.trino.plugin.kafka.schema.ProtobufAnySupportConfig;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 
 import static com.google.inject.Scopes.SINGLETON;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class FileTableDescriptionSupplierModule
@@ -42,9 +41,10 @@ public class FileTableDescriptionSupplierModule
         binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ProtobufAnySupportConfig.class);
-        install(conditionalModule(ProtobufAnySupportConfig.class,
-                ProtobufAnySupportConfig::isProtobufAnySupportEnabled,
-                new FileDescriptorProviderModule()));
+
+        if (buildConfigObject(ProtobufAnySupportConfig.class).isProtobufAnySupportEnabled()) {
+            install(new FileDescriptorProviderModule());
+        }
     }
 
     private static class FileDescriptorProviderModule

@@ -15,10 +15,11 @@ package io.trino.plugin.jdbc;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
@@ -39,9 +40,10 @@ final class MetadataUtil
     public static final JsonCodec<JdbcOutputTableHandle> OUTPUT_TABLE_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
-        JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()))
+                .get();
+        JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
         COLUMN_CODEC = codecFactory.jsonCodec(JdbcColumnHandle.class);
         TABLE_CODEC = codecFactory.jsonCodec(JdbcTableHandle.class);
         OUTPUT_TABLE_CODEC = codecFactory.jsonCodec(JdbcOutputTableHandle.class);

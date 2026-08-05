@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.ranger;
 
-enum RangerTrinoAccessType {
+enum RangerTrinoAccessType
+{
     CREATE,
     DROP,
     SELECT,
@@ -29,5 +30,5 @@ enum RangerTrinoAccessType {
     EXECUTE,
     READ_SYSINFO,
     WRITE_SYSINFO,
-    _ANY
+    _ANY,
 }

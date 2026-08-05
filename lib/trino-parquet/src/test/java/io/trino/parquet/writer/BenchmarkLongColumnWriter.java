@@ -15,7 +15,6 @@ package io.trino.parquet.writer;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.type.Type;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
@@ -33,7 +32,7 @@ public class BenchmarkLongColumnWriter
     private static final Random RANDOM = new Random(23423523L);
 
     @Param({
-            "0", "20", "35", "50", "64"
+            "0", "20", "35", "50", "64",
     })
     public int bitWidth;
 
@@ -52,7 +51,7 @@ public class BenchmarkLongColumnWriter
     @Override
     protected Block generateBlock(int size)
     {
-        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(new PageBuilderStatus().createBlockBuilderStatus(), size);
+        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(null, size);
         for (long value : this.generateDataBatch(size)) {
             getTrinoType().writeLong(blockBuilder, value);
         }
@@ -75,7 +74,7 @@ public class BenchmarkLongColumnWriter
         return batch;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         run(BenchmarkLongColumnWriter.class);

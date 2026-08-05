@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.Envelope;
 import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.array.ObjectBigArray;
@@ -46,7 +45,8 @@ public class SpatialPartitioningStateFactory
             implements GroupedAccumulatorState, SpatialPartitioningState
     {
         private static final int INSTANCE_SIZE = instanceSize(GroupedSpatialPartitioningState.class);
-        private static final int ENVELOPE_SIZE = toIntExact(new Envelope(1, 2, 3, 4).estimateMemorySize());
+        // Rectangle stores 4 doubles (xMin, yMin, xMax, yMax) plus object header
+        private static final int ENVELOPE_SIZE = toIntExact(instanceSize(Rectangle.class));
 
         private long groupId;
         private final IntBigArray partitionCounts = new IntBigArray();

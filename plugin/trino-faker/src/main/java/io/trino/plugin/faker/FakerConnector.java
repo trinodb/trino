@@ -16,6 +16,7 @@ package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
@@ -26,6 +27,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -54,25 +56,28 @@ import static java.util.Objects.requireNonNull;
 public class FakerConnector
         implements Connector
 {
+    private final LifeCycleManager lifeCycleManager;
     private final FakerMetadata metadata;
     private final FakerSplitManager splitManager;
     private final FakerPageSourceProvider pageSourceProvider;
     private final FakerPageSinkProvider pageSinkProvider;
-    private final FakerFunctionProvider functionProvider;
+    private final FunctionBundle functionBundle;
 
     @Inject
     public FakerConnector(
+            LifeCycleManager lifeCycleManager,
             FakerMetadata metadata,
             FakerSplitManager splitManager,
             FakerPageSourceProvider pageSourceProvider,
             FakerPageSinkProvider pageSinkProvider,
-            FakerFunctionProvider functionProvider)
+            FunctionBundle functionBundle)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.functionProvider = requireNonNull(functionProvider, "functionPovider is null");
+        this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
     }
 
     @Override
@@ -236,6 +241,12 @@ public class FakerConnector
     @Override
     public Optional<FunctionProvider> getFunctionProvider()
     {
-        return Optional.of(functionProvider);
+        return Optional.of(functionBundle.toProvider());
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }

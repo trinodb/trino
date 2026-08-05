@@ -26,13 +26,13 @@ public class Failure
 
     Failure(ExecutionFailureInfo failureInfo)
     {
-        super(failureInfo.getMessage(), failureInfo.getCause() == null ? null : new Failure(failureInfo.getCause()));
+        super(failureInfo.message(), failureInfo.cause() == null ? null : new Failure(failureInfo.cause()));
         this.failureInfo = failureInfo;
 
-        for (ExecutionFailureInfo suppressed : failureInfo.getSuppressed()) {
+        for (ExecutionFailureInfo suppressed : failureInfo.suppressed()) {
             addSuppressed(new Failure(suppressed));
         }
-        setStackTrace(failureInfo.getStack().stream()
+        setStackTrace(failureInfo.stack().stream()
                 .map(Failure::toStackTraceElement)
                 .toArray(StackTraceElement[]::new));
     }
@@ -45,7 +45,7 @@ public class Failure
     @Override
     public String toString()
     {
-        String type = getFailureInfo().getType();
+        String type = getFailureInfo().type();
         String message = getMessage();
         if (message != null) {
             return type + ": " + message;

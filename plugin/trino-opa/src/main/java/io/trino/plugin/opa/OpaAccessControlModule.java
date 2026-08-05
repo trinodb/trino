@@ -19,7 +19,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.opa.schema.OpaBatchQueryResult;
 import io.trino.spi.security.SystemAccessControl;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
@@ -30,11 +29,12 @@ public class OpaAccessControlModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(OpaConfig.class);
-        install(conditionalModule(
-                OpaConfig.class,
-                config -> config.getOpaBatchUri().isPresent(),
-                new OpaBatchAccessControlModule(),
-                new OpaSingleAuthorizerModule()));
+        if (buildConfigObject(OpaConfig.class).getOpaBatchUri().isPresent()) {
+            install(new OpaBatchAccessControlModule());
+        }
+        else {
+            install(new OpaSingleAuthorizerModule());
+        }
     }
 
     public static class OpaSingleAuthorizerModule

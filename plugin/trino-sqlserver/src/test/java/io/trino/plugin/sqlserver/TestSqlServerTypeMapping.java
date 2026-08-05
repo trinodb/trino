@@ -14,6 +14,9 @@
 package io.trino.plugin.sqlserver;
 
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestSqlServerTypeMapping
         extends BaseSqlServerTypeMapping
@@ -25,5 +28,12 @@ public class TestSqlServerTypeMapping
         sqlServer = closeAfterClass(new TestingSqlServer());
         return SqlServerQueryRunner.builder(sqlServer)
                 .build();
+    }
+
+    @Test
+    @Override
+    public void testJson()
+    {
+        abort("json type is not supported in SQL Server 2019-CU28-ubuntu-20.04");
     }
 }

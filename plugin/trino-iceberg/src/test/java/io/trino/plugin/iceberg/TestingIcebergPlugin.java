@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -28,18 +29,28 @@ public class TestingIcebergPlugin
         extends IcebergPlugin
 {
     private final Path localFileSystemRootPath;
-    private final Optional<Module> icebergCatalogModule;
+    private final Supplier<Optional<Module>> icebergCatalogModule;
+    private final Supplier<Optional<Module>> additionalOverrideModule;
 
     public TestingIcebergPlugin(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional::empty, Optional::empty);
     }
 
     @Deprecated
-    public TestingIcebergPlugin(Path localFileSystemRootPath, Optional<Module> icebergCatalogModule)
+    public TestingIcebergPlugin(Path localFileSystemRootPath, Supplier<Optional<Module>> icebergCatalogModule)
+    {
+        this(localFileSystemRootPath, icebergCatalogModule, Optional::empty);
+    }
+
+    public TestingIcebergPlugin(
+            Path localFileSystemRootPath,
+            Supplier<Optional<Module>> icebergCatalogModule,
+            Supplier<Optional<Module>> additionalOverrideModule)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
+        this.additionalOverrideModule = requireNonNull(additionalOverrideModule, "additionalOverrideModule is null");
     }
 
     @Override
@@ -48,6 +59,6 @@ public class TestingIcebergPlugin
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(super.getConnectorFactories());
         verify(connectorFactories.size() == 1, "Unexpected connector factories: %s", connectorFactories);
 
-        return ImmutableList.of(new TestingIcebergConnectorFactory(localFileSystemRootPath, icebergCatalogModule));
+        return ImmutableList.of(new TestingIcebergConnectorFactory(localFileSystemRootPath, icebergCatalogModule, additionalOverrideModule));
     }
 }

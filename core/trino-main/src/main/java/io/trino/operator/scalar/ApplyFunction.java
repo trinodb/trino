@@ -21,7 +21,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -30,7 +29,8 @@ import java.util.Optional;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
 
 /**
@@ -49,9 +49,9 @@ public final class ApplyFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .typeVariable("U")
-                        .returnType(new TypeSignature("U"))
-                        .argumentType(new TypeSignature("T"))
-                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
+                        .returnType(typeVariable("U"))
+                        .argumentType(typeVariable("T"))
+                        .argumentType(functionType(typeVariable("T"), typeVariable("U")))
                         .build())
                 .nullable()
                 .argumentNullability(true, false)

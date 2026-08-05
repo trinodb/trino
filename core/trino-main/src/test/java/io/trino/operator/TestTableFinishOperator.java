@@ -52,7 +52,7 @@ import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -112,46 +112,44 @@ public class TestTableFinishOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         tableExecuteContextManager.registerTableExecuteContextForQuery(driverContext.getPipelineContext().getTaskContext().getQueryContext().getQueryId());
-        TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext);
+        try (TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext)) {
+            List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
 
-        List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
+            operator.addInput(rowPagesBuilder(inputTypes).row(4, null, null).buildPage());
+            operator.addInput(rowPagesBuilder(inputTypes).row(5, null, null).buildPage());
+            operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {1}, null).buildPage());
+            operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {2}, null).buildPage());
+            operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).buildPage());
+            operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).buildPage());
 
-        operator.addInput(rowPagesBuilder(inputTypes).row(4, null, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(5, null, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {1}, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {2}, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).build().get(0));
+            assertThat(driverContext.getMemoryUsage()).as("memoryUsage").isGreaterThan(0);
 
-        assertThat(driverContext.getMemoryUsage()).as("memoryUsage").isGreaterThan(0);
+            assertThat(operator.isBlocked().isDone())
+                    .describedAs("isBlocked should be done")
+                    .isTrue();
+            assertThat(operator.needsInput())
+                    .describedAs("needsInput should be true")
+                    .isTrue();
 
-        assertThat(operator.isBlocked().isDone())
-                .describedAs("isBlocked should be done")
-                .isTrue();
-        assertThat(operator.needsInput())
-                .describedAs("needsInput should be true")
-                .isTrue();
+            operator.finish();
+            assertThat(operator.isFinished())
+                    .describedAs("isFinished should be false")
+                    .isFalse();
 
-        operator.finish();
-        assertThat(operator.isFinished())
-                .describedAs("isFinished should be false")
-                .isFalse();
+            assertThat(operator.getOutput()).isNull();
+            List<Type> outputTypes = ImmutableList.of(BIGINT);
+            assertPageEquals(outputTypes, operator.getOutput(), rowPagesBuilder(outputTypes).row(9).buildPage());
 
-        assertThat(operator.getOutput()).isNull();
-        List<Type> outputTypes = ImmutableList.of(BIGINT);
-        assertPageEquals(outputTypes, operator.getOutput(), rowPagesBuilder(outputTypes).row(9).build().get(0));
-
-        assertThat(operator.isBlocked().isDone())
-                .describedAs("isBlocked should be done")
-                .isTrue();
-        assertThat(operator.needsInput())
-                .describedAs("needsInput should be false")
-                .isFalse();
-        assertThat(operator.isFinished())
-                .describedAs("isFinished should be true")
-                .isTrue();
-
-        operator.close();
+            assertThat(operator.isBlocked().isDone())
+                    .describedAs("isBlocked should be done")
+                    .isTrue();
+            assertThat(operator.needsInput())
+                    .describedAs("needsInput should be false")
+                    .isFalse();
+            assertThat(operator.isFinished())
+                    .describedAs("isFinished should be true")
+                    .isTrue();
+        }
 
         assertThat(tableFinisher.getFragments()).isEqualTo(ImmutableList.of(Slices.wrappedBuffer(new byte[] {1}), Slices.wrappedBuffer(new byte[] {2})));
         assertThat(tableFinisher.getComputedStatistics()).hasSize(1);

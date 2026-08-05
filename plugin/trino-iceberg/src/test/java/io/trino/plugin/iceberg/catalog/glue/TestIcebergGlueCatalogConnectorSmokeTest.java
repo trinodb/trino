@@ -13,19 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.TrinoHdfsFileSystemStats;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -50,9 +38,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNullable;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -60,45 +45,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-/*
- * TestIcebergGlueCatalogConnectorSmokeTest currently uses AWS Default Credential Provider Chain,
- * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
- * on ways to set your AWS credentials which will be needed to run this test.
- */
 @TestInstance(PER_CLASS)
 public class TestIcebergGlueCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private final String bucketName;
     private final String schemaName;
-    private final GlueClient glueClient;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private FlociS3AndGlue floci;
+    private GlueClient glueClient;
 
     public TestIcebergGlueCatalogConnectorSmokeTest()
     {
         super(FileFormat.PARQUET);
-        this.bucketName = requireEnv("S3_BUCKET");
+        this.bucketName = "test-iceberg-glue-smoke-" + randomNameSuffix();
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
-        glueClient = GlueClient.create();
-
-        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of());
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
-        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()), new TrinoHdfsFileSystemStats());
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        floci = closeAfterClass(new FlociS3AndGlue());
+        floci.createBucket(bucketName);
+        glueClient = closeAfterClass(floci.createGlueClient());
         return IcebergQueryRunner.builder()
-                .setIcebergProperties(
-                        ImmutableMap.of(
-                                "iceberg.file-format", format.name(),
-                                "iceberg.catalog.type", "glue",
-                                "hive.metastore.glue.default-warehouse-dir", schemaPath(),
-                                "iceberg.register-table-procedure.enabled", "true",
-                                "iceberg.writer-sort-buffer-size", "1MB",
-                                "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
+                .addIcebergProperty("iceberg.file-format", format.name())
+                .addIcebergProperty("iceberg.catalog.type", "glue")
+                .addIcebergProperty("hive.metastore.glue.default-warehouse-dir", schemaPath())
+                .addIcebergProperty("fs.s3.enabled", "true")
+                .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
+                .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
+                .addIcebergProperties(floci.s3AndGlueProperties())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -123,7 +100,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .matches(format("" +
+                .matches(format(
+                        "" +
                                 "\\QCREATE TABLE iceberg.%1$s.region (\n" +
                                 "   regionkey bigint,\n" +
                                 "   name varchar,\n" +
@@ -173,6 +151,17 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         }
     }
 
+    @Test
+    void testCreateViewWithUnsupportedLocation()
+    {
+        String viewName = "test_create_view_with_unsupported_location_" + randomNameSuffix();
+        String viewLocation = schemaPath() + "/" + viewName;
+
+        assertQueryFails(
+                "CREATE OR REPLACE VIEW " + viewName + " WITH (location = '" + viewLocation + "_changed') AS SELECT * FROM nation",
+                "Glue catalog does not support creating views with properties");
+    }
+
     private Table getGlueTable(String tableName)
     {
         return glueClient.getTable(x -> x.databaseName(schemaName).name(tableName)).table();
@@ -190,7 +179,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         glueClient.deleteTable(x -> x.databaseName(schemaName).name(tableName));
         assertThatThrownBy(() -> getGlueTable(tableName))
@@ -206,7 +195,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Override
     protected void deleteDirectory(String location)
     {
-        try (S3Client s3 = S3Client.create()) {
+        try (S3Client s3 = floci.createS3Client()) {
             ListObjectsV2Request listObjectsRequest = ListObjectsV2Request.builder()
                     .bucket(bucketName)
                     .prefix(location)
@@ -230,13 +219,6 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-        return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
-    }
-
-    @Override
     protected String schemaPath()
     {
         return format("s3://%s/%s", bucketName, schemaName);
@@ -245,7 +227,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        try (S3Client s3 = S3Client.create()) {
+        try (S3Client s3 = floci.createS3Client()) {
             ListObjectsV2Request request = ListObjectsV2Request.builder()
                     .bucket(bucketName)
                     .prefix(location)

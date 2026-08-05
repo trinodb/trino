@@ -19,8 +19,8 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -204,7 +204,7 @@ public class TestKafkaPlugin
     private void writeToFile(Path filepath, String content)
             throws IOException
     {
-        try (FileWriter writer = new FileWriter(filepath.toFile(), StandardCharsets.UTF_8)) {
+        try (Writer writer = Files.newBufferedWriter(filepath, StandardCharsets.UTF_8)) {
             writer.write(content);
         }
     }

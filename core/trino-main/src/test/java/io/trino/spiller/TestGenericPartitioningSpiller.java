@@ -19,12 +19,12 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
 import io.trino.SequencePageBuilder;
+import io.trino.execution.TaskManagerConfig;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.SpillContext;
 import io.trino.operator.TestingOperatorContext;
 import io.trino.spi.Page;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpiller.PartitioningSpillResult;
 import org.junit.jupiter.api.AfterAll;
@@ -45,7 +45,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
+import static io.trino.operator.PageAssertions.assertPagesEqual;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -82,10 +83,11 @@ public class TestGenericPartitioningSpiller
         featuresConfig.setSpillerThreads("8");
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         SingleStreamSpillerFactory singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
-                new TestingBlockEncodingSerde(),
+                TESTING_BLOCK_ENCODING_SERDE,
                 new SpillerStats(),
                 featuresConfig,
-                new NodeSpillConfig());
+                new NodeSpillConfig(),
+                new TaskManagerConfig());
         factory = new GenericPartitioningSpillerFactory(singleStreamSpillerFactory);
         scheduledExecutor = newSingleThreadScheduledExecutor();
     }
@@ -108,7 +110,8 @@ public class TestGenericPartitioningSpiller
                 TYPES,
                 new FourFixedPartitionsPartitionFunction(0),
                 mockSpillContext(),
-                mockMemoryContext(scheduledExecutor))) {
+                mockMemoryContext(scheduledExecutor),
+                "testOperator")) {
             RowPagesBuilder builder = RowPagesBuilder.rowPagesBuilder(TYPES);
             builder.addSequencePage(10, SECOND_PARTITION_START, 5, 10, 15);
             builder.addSequencePage(10, FIRST_PARTITION_START, -5, 0, 5);
@@ -164,9 +167,10 @@ public class TestGenericPartitioningSpiller
                 TYPES,
                 new ModuloPartitionFunction(0, 4),
                 mockSpillContext(),
-                mockMemoryContext(scheduledExecutor))) {
+                mockMemoryContext(scheduledExecutor),
+                "testOperator")) {
             Page page = SequencePageBuilder.createSequencePage(TYPES, 10, FIRST_PARTITION_START, 5, 10, 15);
-            PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
+            PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, _ -> true);
             assertThat(spillResult.getRetained().getPositionCount()).isEqualTo(0);
             getFutureValue(spillResult.getSpillingFuture());
 
@@ -191,10 +195,11 @@ public class TestGenericPartitioningSpiller
                 types,
                 new ModuloPartitionFunction(0, partitionCount),
                 mockSpillContext(),
-                memoryContext)) {
+                memoryContext,
+                "testOperator")) {
             for (int i = 0; i < 50_000; i++) {
                 Page page = SequencePageBuilder.createSequencePage(types, partitionCount, 0);
-                PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
+                PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, _ -> true);
                 assertThat(spillResult.getRetained().getPositionCount()).isEqualTo(0);
                 getFutureValue(spillResult.getSpillingFuture());
                 getFutureValue(spiller.flush());
@@ -213,11 +218,7 @@ public class TestGenericPartitioningSpiller
         for (int partition = 0; partition < expectedPartitions.size(); partition++) {
             List<Page> actualSpill = ImmutableList.copyOf(spiller.getSpilledPages(partition));
             List<Page> expectedSpill = expectedPartitions.get(partition);
-
-            assertThat(actualSpill).hasSize(expectedSpill.size());
-            for (int j = 0; j < actualSpill.size(); j++) {
-                assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
-            }
+            assertPagesEqual(types, actualSpill, expectedSpill);
         }
     }
 
@@ -229,7 +230,7 @@ public class TestGenericPartitioningSpiller
 
     private static SpillContext mockSpillContext()
     {
-        return bytes -> {};
+        return _ -> {};
     }
 
     private static class FourFixedPartitionsPartitionFunction

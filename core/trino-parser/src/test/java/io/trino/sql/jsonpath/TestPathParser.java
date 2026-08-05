@@ -58,7 +58,7 @@ import java.util.Optional;
 
 import static io.trino.sql.jsonpath.tree.ArithmeticBinary.Operator.ADD;
 import static io.trino.sql.jsonpath.tree.ArithmeticBinary.Operator.DIVIDE;
-import static io.trino.sql.jsonpath.tree.ArithmeticBinary.Operator.MODULUS;
+import static io.trino.sql.jsonpath.tree.ArithmeticBinary.Operator.MODULO;
 import static io.trino.sql.jsonpath.tree.ArithmeticBinary.Operator.MULTIPLY;
 import static io.trino.sql.jsonpath.tree.ArithmeticBinary.Operator.SUBTRACT;
 import static io.trino.sql.jsonpath.tree.ArithmeticUnary.Sign.MINUS;
@@ -193,7 +193,7 @@ public class TestPathParser
                 .isEqualTo(new JsonPath(true, new ArithmeticBinary(DIVIDE, new ContextVariable(), new SqlValueLiteral(new LongLiteral("2")))));
 
         assertThat(path("lax $ % 2"))
-                .isEqualTo(new JsonPath(true, new ArithmeticBinary(MODULUS, new ContextVariable(), new SqlValueLiteral(new LongLiteral("2")))));
+                .isEqualTo(new JsonPath(true, new ArithmeticBinary(MODULO, new ContextVariable(), new SqlValueLiteral(new LongLiteral("2")))));
     }
 
     @Test

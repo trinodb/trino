@@ -20,7 +20,7 @@ public final class AvroHiveConstants
     // file metadata
     public static final String WRITER_TIME_ZONE = "writer.time.zone";
 
-    //hive table properties
+    // hive table properties
     public static final String SCHEMA_LITERAL = "avro.schema.literal";
     public static final String SCHEMA_URL = "avro.schema.url";
     public static final String SCHEMA_NONE = "none";

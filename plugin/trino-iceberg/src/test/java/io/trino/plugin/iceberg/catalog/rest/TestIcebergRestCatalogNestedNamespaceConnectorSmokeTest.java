@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -42,13 +41,10 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -104,7 +100,6 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                 .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.writer-sort-buffer-size", "1MB")
-                .put("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .buildOrThrow();
 
         Map<String, String> nestedNamespaceEnabled = ImmutableMap.<String, String>builder()
@@ -178,7 +173,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                         "WITH \\(\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        format("   location = '.*/" + schemaName + "/region.*'\n") +
+                        "   location = '.*/" + schemaName + "/region.*'\n" +
                         "\\)");
     }
 
@@ -193,13 +188,17 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                 .skippingTypesCheck()
                 .matches("SELECT * FROM nation");
 
+        String viewLocation = backend.loadView(toIdentifier(viewName)).location();
         assertThat((String) computeScalar("SHOW CREATE VIEW " + viewName))
                 .isEqualTo(
                         """
-                        CREATE VIEW iceberg."level_1.level_2".%s SECURITY DEFINER AS
+                        CREATE VIEW iceberg."level_1.level_2".%s SECURITY DEFINER
+                        WITH (
+                           location = '%s'
+                        ) AS
                         SELECT *
                         FROM
-                          nation""".formatted(viewName));
+                          nation""".formatted(viewName, viewLocation));
 
         assertUpdate("DROP  VIEW " + viewName);
     }
@@ -235,9 +234,8 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
-                .hasMessageContaining("Failed to drop table")
-                .cause()
-                .hasMessageMatching("Server error: NotFoundException: Failed to open input stream for file: (.*)");
+                .hasMessageMatching("Failed to open input stream for file: .*avro")
+                .hasNoCause();
     }
 
     @Test
@@ -257,15 +255,6 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        if (format == PARQUET) {
-            return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
-        }
-        return checkOrcFileSorting(fileSystem, path, sortColumnName);
-    }
-
-    @Override
     protected void deleteDirectory(String location)
     {
         try {
@@ -277,7 +266,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         backend.dropTable(toIdentifier(tableName), false);
     }
@@ -298,7 +287,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return java.nio.file.Files.exists(Path.of(location));
+        return Files.exists(Path.of(location));
     }
 
     private TableIdentifier toIdentifier(String tableName)

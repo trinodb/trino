@@ -48,32 +48,39 @@ public class MapAggregationStateFactory
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER)) MethodHandle keyReadFlat,
+                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
+            MethodHandle keyReadFlat,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle keyWriteFlat,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+            MethodHandle keyWriteFlat,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = FLAT, result = FAIL_ON_NULL)) MethodHandle keyHashFlat,
+                    convention = @Convention(arguments = FLAT, result = FAIL_ON_NULL))
+            MethodHandle keyHashFlat,
             @OperatorDependency(
                     operator = OperatorType.IDENTICAL,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle keyIdenticalFlatBlock,
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+            MethodHandle keyIdenticalFlatBlock,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle keyHashBlock,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL))
+            MethodHandle keyHashBlock,
             @TypeParameter("V") Type valueType,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "V",
-                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER)) MethodHandle valueReadFlat,
+                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
+            MethodHandle valueReadFlat,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "V",
-                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle valueWriteFlat)
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+            MethodHandle valueWriteFlat)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.keyReadFlat = requireNonNull(keyReadFlat, "keyReadFlat is null");

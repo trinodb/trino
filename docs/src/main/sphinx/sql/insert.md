@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-INSERT INTO table_name [ ( column [, ... ] ) ] query
+INSERT INTO table_name [ @ branch_name ] [ ( column [, ... ] ) ] query
 ```
 
 ## Description
@@ -50,6 +50,12 @@ That column will be `null`:
 ```
 INSERT INTO nation (nationkey, name, regionkey)
 VALUES (26, 'POLAND', 3);
+```
+
+Insert a single row into `audit` branch of the `cities` table:
+
+```sql
+INSERT INTO cities @ audit VALUES (1, 'San Francisco');
 ```
 
 ## See also

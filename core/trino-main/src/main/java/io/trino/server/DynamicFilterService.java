@@ -79,7 +79,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.intersection;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.collect.Sets.union;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
@@ -88,7 +87,6 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.predicate.Domain.union;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
@@ -105,8 +103,7 @@ public class DynamicFilterService
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final TypeOperators typeOperators;
-    private final DataSize largeMaxSizePerFilter;
-    private final DataSize smallMaxSizePerFilter;
+    private final DataSize maxSizePerFilter;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
@@ -115,8 +112,7 @@ public class DynamicFilterService
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.largeMaxSizePerFilter = dynamicFilterConfig.getLargeMaxSizePerFilter();
-        this.smallMaxSizePerFilter = dynamicFilterConfig.getSmallMaxSizePerFilter();
+        this.maxSizePerFilter = dynamicFilterConfig.getMaxSizePerFilter();
     }
 
     public void registerQuery(Session session, PlanNode queryPlan, SubPlan fragmentedPlan)
@@ -152,16 +148,8 @@ public class DynamicFilterService
                 dynamicFilters,
                 lazyDynamicFilters,
                 replicatedDynamicFilters,
-                getDynamicFilterSizeLimit(session),
+                maxSizePerFilter,
                 0));
-    }
-
-    private DataSize getDynamicFilterSizeLimit(Session session)
-    {
-        if (isEnableLargeDynamicFilters(session)) {
-            return largeMaxSizePerFilter;
-        }
-        return smallMaxSizePerFilter;
     }
 
     public void registerQueryRetry(QueryId queryId, int attemptId)
@@ -380,8 +368,8 @@ public class DynamicFilterService
 
     public void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(taskId.getQueryId());
-        int taskAttemptId = taskId.getAttemptId();
+        DynamicFilterContext context = dynamicFilterContexts.get(taskId.queryId());
+        int taskAttemptId = taskId.attemptId();
         if (context == null || taskAttemptId < context.getAttemptId()) {
             // query has been removed or dynamic filters are from a previous query attempt
             return;
@@ -389,14 +377,14 @@ public class DynamicFilterService
         checkState(
                 context.isTaskRetriesEnabled() || taskAttemptId == context.getAttemptId(),
                 "Query %s retry attempt %s has not been registered with dynamic filter service",
-                taskId.getQueryId(),
+                taskId.queryId(),
                 taskAttemptId);
         context.addTaskDynamicFilters(taskId, newDynamicFilters);
     }
 
     public void stageCannotScheduleMoreTasks(StageId stageId, int attemptId, int numberOfTasks)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(stageId.getQueryId());
+        DynamicFilterContext context = dynamicFilterContexts.get(stageId.queryId());
         if (context == null || attemptId < context.getAttemptId()) {
             // query has been removed or not registered (e.g. dynamic filtering is disabled)
             // or a newer attempt has already been triggered
@@ -732,7 +720,7 @@ public class DynamicFilterService
         private void collectPartitioned(TaskId taskId, Domain domain)
         {
             synchronized (collectedTasks) {
-                if (!collectedTasks.checkedAdd(taskId.getPartitionId())) {
+                if (!collectedTasks.checkedAdd(taskId.partitionId())) {
                     return;
                 }
             }
@@ -915,7 +903,7 @@ public class DynamicFilterService
             this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
             requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
             this.lazyDynamicFilters = lazyDynamicFilters.stream()
-                    .collect(toImmutableMap(identity(), filter -> SettableFuture.create()));
+                    .collect(toImmutableMap(identity(), _ -> SettableFuture.create()));
             this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
             this.dynamicFilterSizeLimit = requireNonNull(dynamicFilterSizeLimit, "dynamicFilterSizeLimit is null");
             ImmutableMap.Builder<DynamicFilterId, DynamicFilterCollectionContext> collectionContexts = ImmutableMap.builder();
@@ -969,7 +957,7 @@ public class DynamicFilterService
                 collectionContext.collect(taskId, domain);
             });
 
-            if (stageDynamicFilters.computeIfAbsent(taskId.getStageId(), key -> newConcurrentHashSet()).addAll(newDynamicFilters.keySet())) {
+            if (stageDynamicFilters.computeIfAbsent(taskId.stageId(), _ -> ConcurrentHashMap.newKeySet()).addAll(newDynamicFilters.keySet())) {
                 updateExpectedTaskCount();
             }
         }

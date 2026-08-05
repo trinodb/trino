@@ -18,6 +18,7 @@ import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.encodings.ColumnData;
 import io.trino.hive.formats.encodings.EncodeOutput;
+import io.trino.plugin.base.util.NumberParser;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -91,7 +92,7 @@ public class DoubleEncoding
             throws FileCorruptionException
     {
         try {
-            type.writeDouble(builder, Double.parseDouble(slice.toStringAscii(offset, length)));
+            type.writeDouble(builder, NumberParser.parseDouble(slice, offset, length));
         }
         catch (NumberFormatException e) {
             builder.appendNull();
@@ -102,7 +103,7 @@ public class DoubleEncoding
             throws FileCorruptionException
     {
         try {
-            return Double.parseDouble(slice.toStringAscii(start, length));
+            return NumberParser.parseDouble(slice, start, length);
         }
         catch (NumberFormatException e) {
             throw new FileCorruptionException(e, "Invalid double value");

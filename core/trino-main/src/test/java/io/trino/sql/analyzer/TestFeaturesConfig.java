@@ -54,20 +54,22 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
                 .setExchangeCompressionCodec(NONE)
+                .setExchangeVectorizedSerdeEnabled(true)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(500, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)
                 .setMaxRecursionDepth(10)
                 .setMaxGroupingSets(2048)
-                .setOmitDateTimeTypePrecision(false)
                 .setLegacyCatalogRoles(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
                 .setColumnarFilterEvaluationEnabled(true)
+                .setAdaptiveFilterReorderingEnabled(true)
                 .setLegacyArithmeticDecimalOperators(false)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
+                .setLegacyVarcharToCharCoercion(false)
+                .setExternalExchangeEncryptionEnabled(true));
     }
 
     @Test
@@ -89,20 +91,22 @@ public class TestFeaturesConfig
                 .put("memory-revoking-threshold", "0.2")
                 .put("memory-revoking-target", "0.8")
                 .put("exchange.compression-codec", "ZSTD")
+                .put("exchange.experimental.vectorized-serde.enabled", "false")
                 .put("exchange.data-integrity-verification", "RETRY")
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("filter-and-project-min-output-page-size", "1MB")
                 .put("filter-and-project-min-output-page-row-count", "2048")
                 .put("max-recursion-depth", "8")
                 .put("analyzer.max-grouping-sets", "2047")
-                .put("deprecated.omit-datetime-type-precision", "true")
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("experimental.columnar-filter-evaluation.enabled", "false")
+                .put("experimental.adaptive-filter-reordering.enabled", "false")
                 .put("deprecated.legacy-arithmetic-decimal-operators", "true")
-                .put("fault-tolerant-execution-exchange-encryption-enabled", "false")
+                .put("deprecated.legacy-varchar-to-char-coercion", "true")
+                .put("external-exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -121,20 +125,22 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.2)
                 .setMemoryRevokingTarget(0.8)
                 .setExchangeCompressionCodec(ZSTD)
+                .setExchangeVectorizedSerdeEnabled(false)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.RETRY)
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(1, MEGABYTE))
                 .setFilterAndProjectMinOutputPageRowCount(2048)
                 .setMaxRecursionDepth(8)
                 .setMaxGroupingSets(2047)
-                .setOmitDateTimeTypePrecision(true)
                 .setLegacyCatalogRoles(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
                 .setColumnarFilterEvaluationEnabled(false)
+                .setAdaptiveFilterReorderingEnabled(false)
                 .setLegacyArithmeticDecimalOperators(true)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
+                .setLegacyVarcharToCharCoercion(true)
+                .setExternalExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

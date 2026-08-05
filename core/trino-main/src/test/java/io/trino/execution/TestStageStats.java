@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -92,7 +93,7 @@ public class TestStageStats
             new Duration(202, NANOSECONDS),
 
             DataSize.ofBytes(34),
-            Optional.of(new io.trino.execution.DistributionSnapshot(getTDigestHistogram(10))),
+            Optional.of(io.trino.plugin.base.metrics.DistributionSnapshot.fromDistribution(getTDigestHistogram(10))),
             DataSize.ofBytes(35),
             DataSize.ofBytes(36),
             37,
@@ -119,7 +120,7 @@ public class TestStageStats
     @Test
     public void testJson()
     {
-        JsonCodec<StageStats> codec = JsonCodec.jsonCodec(StageStats.class);
+        JsonCodec<StageStats> codec = jsonCodec(StageStats.class);
 
         String json = codec.toJson(EXPECTED);
         StageStats actual = codec.fromJson(json);
@@ -131,7 +132,7 @@ public class TestStageStats
     {
         assertThat(actual.getSchedulingComplete().toEpochMilli()).isEqualTo(0);
 
-        assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).getCount()).isEqualTo(1.0);
+        assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).count()).isEqualTo(1.0);
 
         assertThat(actual.getTotalTasks()).isEqualTo(4);
         assertThat(actual.getRunningTasks()).isEqualTo(5);

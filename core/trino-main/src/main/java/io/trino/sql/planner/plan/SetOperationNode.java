@@ -31,6 +31,7 @@ import io.trino.sql.planner.Symbol;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -108,7 +109,7 @@ public abstract class SetOperationNode
     public Map<Symbol, Reference> sourceSymbolMap(int sourceIndex)
     {
         ImmutableMap.Builder<Symbol, Reference> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Collection<Symbol>> entry : outputToInputs.asMap().entrySet()) {
+        for (Entry<Symbol, Collection<Symbol>> entry : outputToInputs.asMap().entrySet()) {
             builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toSymbolReference());
         }
 

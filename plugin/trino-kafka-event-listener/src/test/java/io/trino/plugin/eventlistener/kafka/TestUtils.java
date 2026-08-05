@@ -14,6 +14,7 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
@@ -81,7 +82,9 @@ public final class TestUtils
                 Optional.of(new ResourceGroupId("name")),
                 new HashMap<>(), // sessionProperties
                 new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(1000L)),
-                "serverAddress", "serverVersion", "environment",
+                "serverAddress",
+                "serverVersion",
+                "environment",
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.QUERY.toString());
 
@@ -105,6 +108,7 @@ public final class TestUtils
                 ofSeconds(1),
                 ofSeconds(1),
                 ofSeconds(1),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -144,6 +148,8 @@ public final class TestUtils
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryFailureInfo = Optional.of(
@@ -165,6 +171,7 @@ public final class TestUtils
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
+                Optional.empty(),
                 queryFailureInfo,
                 List.of(new TrinoWarning(new WarningCode(101, "TestCode"), "Test error message")),
                 Instant.now(),

@@ -42,7 +42,7 @@ public final class CachingStatsProvider
     private final TableStatsProvider tableStatsProvider;
     private final RuntimeInfoProvider runtimeInfoProvider;
 
-    private final Map<PlanNode, PlanNodeStatsEstimate> cache = new IdentityHashMap<>();
+    private final Map<PlanNode, PlanNodeStatsEstimate> cache = new IdentityHashMap<>(0);
 
     public CachingStatsProvider(StatsCalculator statsCalculator, Session session, TableStatsProvider tableStatsProvider)
     {

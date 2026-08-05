@@ -25,7 +25,7 @@ Versions before 350 are not supported.
 (cli-installation)=
 ## Installation
 
-Download {maven_download}`cli`, rename it to `trino`, make it executable with
+Download {download_gh}`cli`, rename it to `trino`, make it executable with
 `chmod +x`, and run it to show the version of the CLI:
 
 ```text
@@ -152,7 +152,7 @@ mode:
     [](cli-troubleshooting). Displays more information about query
     processing statistics.
 * - `--decimal-data-size`
-  - Show data size and rate in base 10 (KB, MB, etc.) rather than the default 
+  - Show data size and rate in base 10 (kB, MB, etc.) rather than the default
     base 2 (KiB, MiB, etc.).
 * - `--disable-auto-suggestion`
   - Disables autocomplete suggestions.
@@ -163,6 +163,9 @@ mode:
     EMACS editors. Defaults to `EMACS`.
 * - `--extra-credential`
   - Extra credentials (property can be used multiple times; format is key=value)
+* - `--extra-header`
+  - HTTP header to add to the authenticated HTTP requests
+    (property can be used multiple times; format is key=value).
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`
@@ -206,6 +209,15 @@ mode:
   - Specifies the name of the application or source connecting to Trino.
     Defaults to `trino-cli`. The value can be used as input for
     [](/admin/resource-groups).
+* - `--theme=<theme>`
+  - Selects the color theme for styled output. Options are `AUTO`, `DARK`,
+    `LIGHT`, `NONE`, `SOLARIZED_DARK`, `SOLARIZED_LIGHT`, `DRACULA`, `NORD`, or
+    `GRUVBOX_DARK`. Defaults to `AUTO`, which uses `DARK` for an interactive
+    terminal and disables color for a non-interactive terminal or when the
+    `NO_COLOR` environment variable is set. An explicit value other than `AUTO`
+    always applies, even when `NO_COLOR` is set. Use `NONE` to disable color.
+    The named schemes use 24-bit color, which is approximated on terminals
+    without truecolor support.
 * - `--timezone`
   - Sets the time zone for the session using the [time zone name](
     <https://wikipedia.org/wiki/List_of_tz_database_time_zones>). Defaults to

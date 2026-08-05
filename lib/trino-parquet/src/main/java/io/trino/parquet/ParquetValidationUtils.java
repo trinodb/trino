@@ -14,6 +14,7 @@
 package io.trino.parquet;
 
 import com.google.errorprone.annotations.FormatMethod;
+import io.trino.parquet.crypto.ParquetCryptoException;
 
 public final class ParquetValidationUtils
 {
@@ -25,6 +26,14 @@ public final class ParquetValidationUtils
     {
         if (!condition) {
             throw new ParquetCorruptionException(dataSourceId, formatString, args);
+        }
+    }
+
+    @FormatMethod
+    public static void validateParquetCrypto(boolean condition, ParquetDataSourceId dataSourceId, String formatString, Object... args)
+    {
+        if (!condition) {
+            throw new ParquetCryptoException(dataSourceId, formatString, args);
         }
     }
 }

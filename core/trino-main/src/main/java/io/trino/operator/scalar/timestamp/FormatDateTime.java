@@ -28,7 +28,7 @@ import org.joda.time.format.DateTimeFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.type.DateTimes.round;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Formats the given time by the given format")
@@ -84,14 +84,14 @@ public final class FormatDateTime
             }
 
             switch (c) {
-                case 'z':
-                case 'Z':
+                case 'z', 'Z' -> {
                     return true;
-                case '\'':
+                }
+                case '\'' -> {
                     // '' (two apostrophes) in a pattern denote single apostrophe and here we interpret this as "start quote" + "end quote".
                     // This has no impact on method's result value.
                     quoted = true;
-                    break;
+                }
             }
         }
         return false;

@@ -28,7 +28,7 @@ import io.trino.spi.function.ScalarFunctionAdapter;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -39,8 +39,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeDescriptor.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class AiFunctions
         implements FunctionProvider
 {
-    private static final TypeSignature TEXT = VARCHAR.getTypeSignature();
+    private static final TypeDescriptor TEXT = VARCHAR.getTypeDescriptor();
     private static final List<FunctionMetadata> FUNCTIONS = ImmutableList.<FunctionMetadata>builder()
             .add(function("ai_analyze_sentiment")
                     .description("Perform sentiment analysis on text")
@@ -226,7 +226,7 @@ public class AiFunctions
                 .nondeterministic();
     }
 
-    private static Signature signature(TypeSignature returnType, TypeSignature... argumentTypes)
+    private static Signature signature(TypeDescriptor returnType, TypeDescriptor... argumentTypes)
     {
         return Signature.builder()
                 .returnType(returnType)

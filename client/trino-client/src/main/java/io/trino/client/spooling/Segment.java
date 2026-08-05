@@ -31,7 +31,8 @@ import static java.util.Objects.requireNonNull;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = InlineSegment.class, name = "inline"),
-        @JsonSubTypes.Type(value = SpooledSegment.class, name = "spooled")})
+        @JsonSubTypes.Type(value = SpooledSegment.class, name = "spooled"),
+})
 public abstract class Segment
 {
     private final DataAttributes metadata;

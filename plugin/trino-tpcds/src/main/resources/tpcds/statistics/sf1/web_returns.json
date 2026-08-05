@@ -86,10 +86,10 @@
       "dataSize" : null
     },
     "wr_reason_sk" : {
-      "distinctValuesCount" : 35,
+      "distinctValuesCount" : 75,
       "nullsCount" : 3212,
       "min" : 1,
-      "max" : 35,
+      "max" : 75,
       "dataSize" : null
     },
     "wr_order_number" : {

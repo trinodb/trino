@@ -43,7 +43,7 @@ echo "Waiting for the Amazon Redshift cluster ${REDSHIFT_CLUSTER_IDENTIFIER} on 
 aws redshift wait cluster-available \
   --cluster-identifier ${REDSHIFT_CLUSTER_IDENTIFIER}
 
-echo "The Amazon Redshift cluster ${REDSHIFT_CLUSTER_IDENTIFIER} on the region ${AWS_REGION} is available for queries."
+echo "The Amazon Redshift cluster ${REDSHIFT_CLUSTER_IDENTIFIER} on the region ${AWS_REGION} reports available status."
 
 REDSHIFT_CLUSTER_DESCRIPTION=$(aws redshift describe-clusters --cluster-identifier ${REDSHIFT_CLUSTER_IDENTIFIER})
 
@@ -52,3 +52,21 @@ export REDSHIFT_PORT=$(echo ${REDSHIFT_CLUSTER_DESCRIPTION} | jq -r '.Clusters[0
 export REDSHIFT_CLUSTER_DATABASE_NAME=$(echo ${REDSHIFT_CLUSTER_DESCRIPTION} | jq -r '.Clusters[0].DBName' )
 export REDSHIFT_USER=$(echo ${REDSHIFT_CLUSTER_DESCRIPTION} | jq -r '.Clusters[0].MasterUsername' )
 export REDSHIFT_PASSWORD
+
+# The AWS API status "available" doesn't guarantee the endpoint is accepting connections yet.
+# Poll the actual TCP port until Redshift is truly ready.
+echo "Waiting for the Redshift endpoint ${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT} to accept connections..."
+MAX_RETRIES=30
+RETRY_INTERVAL_SECONDS=10
+for ((i=1; i<=MAX_RETRIES; i++)); do
+    if nc -z -w 5 "${REDSHIFT_ENDPOINT}" "${REDSHIFT_PORT}" 2>/dev/null; then
+        echo "The Amazon Redshift cluster ${REDSHIFT_CLUSTER_IDENTIFIER} on the region ${AWS_REGION} is accepting connections."
+        break
+    fi
+    if [ "$i" -eq "$MAX_RETRIES" ]; then
+        echo "ERROR: Redshift endpoint ${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT} did not become reachable after $((MAX_RETRIES * RETRY_INTERVAL_SECONDS)) seconds."
+        exit 1
+    fi
+    echo "  Attempt ${i}/${MAX_RETRIES}: endpoint not ready yet, retrying in ${RETRY_INTERVAL_SECONDS}s..."
+    sleep ${RETRY_INTERVAL_SECONDS}
+done

@@ -74,10 +74,10 @@ final class TestArrayVectorFunctions
                 .isEqualTo(0.0);
         assertThat(assertions.function("euclidean_distance", "ARRAY[REAL '3.4028235e+38f']", "ARRAY[REAL '-3.4028235e+38f']"))
                 .hasType(DOUBLE)
-                .isEqualTo(6.805646932770577E38);
+                .isEqualTo(6.805646932770577e38);
         assertThat(assertions.function("euclidean_distance", "ARRAY[REAL '-3.4028235e+38f']", "ARRAY[REAL '3.4028235e+38f']"))
                 .hasType(DOUBLE)
-                .isEqualTo(6.805646932770577E38);
+                .isEqualTo(6.805646932770577e38);
         assertThat(assertions.function("euclidean_distance", "ARRAY[REAL '1.4E-45']", "ARRAY[REAL '1.4E-45']"))
                 .hasType(DOUBLE)
                 .isEqualTo(0.0);
@@ -86,16 +86,16 @@ final class TestArrayVectorFunctions
                 .isEqualTo(0.0);
         assertThat(assertions.function("euclidean_distance", "ARRAY[REAL '1.4E-45']", "ARRAY[REAL '-1.4E-45']"))
                 .hasType(DOUBLE)
-                .isEqualTo(2.802596928649634E-45);
+                .isEqualTo(2.802596928649634e-45);
         assertThat(assertions.function("euclidean_distance", "ARRAY[REAL '-1.4E-45']", "ARRAY[REAL '1.4E-45']"))
                 .hasType(DOUBLE)
-                .isEqualTo(2.802596928649634E-45);
+                .isEqualTo(2.802596928649634e-45);
         assertThat(assertions.function("euclidean_distance", "ARRAY[REAL '3.4028235e+38f']", "ARRAY[REAL '1.4E-45']"))
                 .hasType(DOUBLE)
-                .isEqualTo(3.4028234663852886E38);
+                .isEqualTo(3.4028234663852886e38);
         assertThat(assertions.function("euclidean_distance", "ARRAY[REAL '1.4E-45']", "ARRAY[REAL '3.4028235e+38f']"))
                 .hasType(DOUBLE)
-                .isEqualTo(3.4028234663852886E38);
+                .isEqualTo(3.4028234663852886e38);
 
         // double type's min and max
         assertThat(assertions.function("euclidean_distance", "ARRAY[DOUBLE '1.7976931348623157E+309']", "ARRAY[DOUBLE '1.7976931348623157E+309']"))
@@ -169,34 +169,34 @@ final class TestArrayVectorFunctions
         // real type's min and max
         assertThat(assertions.function("dot_product", "ARRAY[REAL '3.4028235e+38f']", "ARRAY[REAL '3.4028235e+38f']"))
                 .hasType(DOUBLE)
-                .isEqualTo(1.1579207543382391E77);
+                .isEqualTo(1.1579207543382391e77);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '-3.4028235e+38f']", "ARRAY[REAL '-3.4028235e+38f']"))
                 .hasType(DOUBLE)
-                .isEqualTo(1.1579207543382391E77);
+                .isEqualTo(1.1579207543382391e77);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '3.4028235e+38f']", "ARRAY[REAL '-3.4028235e+38f']"))
                 .hasType(DOUBLE)
-                .isEqualTo(-1.1579207543382391E77);
+                .isEqualTo(-1.1579207543382391e77);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '-3.4028235e+38f']", "ARRAY[REAL '3.4028235e+38f']"))
                 .hasType(DOUBLE)
-                .isEqualTo(-1.1579207543382391E77);
+                .isEqualTo(-1.1579207543382391e77);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '1.4E-45']", "ARRAY[REAL '1.4E-45']"))
                 .hasType(DOUBLE)
-                .isEqualTo(1.9636373861190906E-90);
+                .isEqualTo(1.9636373861190906e-90);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '-1.4E-45']", "ARRAY[REAL '-1.4E-45']"))
                 .hasType(DOUBLE)
-                .isEqualTo(1.9636373861190906E-90);
+                .isEqualTo(1.9636373861190906e-90);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '1.4E-45']", "ARRAY[REAL '-1.4E-45']"))
                 .hasType(DOUBLE)
-                .isEqualTo(-1.9636373861190906E-90);
+                .isEqualTo(-1.9636373861190906e-90);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '-1.4E-45']", "ARRAY[REAL '1.4E-45']"))
                 .hasType(DOUBLE)
-                .isEqualTo(-1.9636373861190906E-90);
+                .isEqualTo(-1.9636373861190906e-90);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '3.4028235e+38f']", "ARRAY[REAL '1.4E-45']"))
                 .hasType(DOUBLE)
-                .isEqualTo(4.7683712978141557E-7);
+                .isEqualTo(4.7683712978141557e-7);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '1.4E-45']", "ARRAY[REAL '3.4028235e+38f']"))
                 .hasType(DOUBLE)
-                .isEqualTo(4.7683712978141557E-7);
+                .isEqualTo(4.7683712978141557e-7);
 
         // double type's min and max
         assertThat(assertions.function("dot_product", "ARRAY[DOUBLE '1.7976931348623157E+309']", "ARRAY[DOUBLE '1.7976931348623157E+309']"))

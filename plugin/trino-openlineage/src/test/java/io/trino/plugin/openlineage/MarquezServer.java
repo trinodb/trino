@@ -16,8 +16,8 @@ package io.trino.plugin.openlineage;
 import com.google.common.io.Closer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
@@ -62,7 +62,7 @@ public class MarquezServer
     }
 
     private final GenericContainer<?> dockerContainerAPI;
-    private final PostgreSQLContainer<?> dockerContainerPostgres;
+    private final PostgreSQLContainer dockerContainerPostgres;
     private final GenericContainer<?> dockerWebUIContainerAPI;
 
     public MarquezServer()
@@ -75,7 +75,7 @@ public class MarquezServer
         network = Network.newNetwork();
         closer.register(this.network::close);
 
-        this.dockerContainerPostgres = new PostgreSQLContainer<>("postgres:14")
+        this.dockerContainerPostgres = new PostgreSQLContainer("postgres:14")
                 .withNetwork(network)
                 .withNetworkAliases(POSTGRES_HOST)
                 .withDatabaseName(POSTGRES_DB)

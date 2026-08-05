@@ -118,10 +118,10 @@ creating a new instance of the connector:
 
 ```java
 @Override
-public Connector create(String connectorName, Map<String, String> config, ConnectorContext context)
+public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
 {
     requireNonNull(config, "config is null");
-    Bootstrap app = new Bootstrap(new ExampleModule());
+    Bootstrap app = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, new ExampleModule());
     Injector injector = app
             .doNotInitializeLogging()
             .setRequiredConfigurationProperties(config)
@@ -768,9 +768,9 @@ The following example creates a SqlMap object for a `map(varchar, varchar)` colu
 ```java
 private SqlMap encodeMap(Map<String, ?> map)
 {
-    MapType mapType = typeManager.getType(TypeSignature.mapType(
-                            VARCHAR.getTypeSignature(),
-                            VARCHAR.getTypeSignature()));
+    MapType mapType = typeManager.getType(TypeDescriptor.mapType(
+                            VARCHAR.getTypeDescriptor(),
+                            VARCHAR.getTypeDescriptor()));
     MapBlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
     if (map == null) {
         values.appendNull();
@@ -837,3 +837,8 @@ public CompletableFuture<?> appendPage(Page page)
     return NOT_BLOCKED;
 }
 ```
+
+:::{note}
+When packaging the connector with Trino as a new dependency, register the
+artifact in `core/trino-server/src/main/provisio/trino.xml`
+:::

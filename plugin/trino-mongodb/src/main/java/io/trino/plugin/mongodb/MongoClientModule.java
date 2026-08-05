@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -35,7 +37,7 @@ import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -56,17 +58,20 @@ public class MongoClientModule
         configBinder(binder).bindConfig(MongoClientConfig.class);
         newSetBinder(binder, MongoClientSettingConfigurator.class);
 
-        install(conditionalModule(
-                MongoClientConfig.class,
-                MongoClientConfig::getTlsEnabled,
-                new MongoTlsModule()));
+        MongoClientConfig clientConfig = buildConfigObject(MongoClientConfig.class);
 
-        install(conditionalModule(
-                MongoClientConfig.class,
-                MongoClientConfig::isAllowLocalScheduling,
-                internalBinder -> internalBinder.bind(MongoServerDetailsProvider.class).toInstance(ImmutableList::of),
-                internalBinder -> internalBinder.bind(MongoServerDetailsProvider.class).to(SessionBasedMongoServerDetailsProvider.class).in(Scopes.SINGLETON)));
+        if (clientConfig.getTlsEnabled()) {
+            install(new MongoTlsModule());
+        }
 
+        if (clientConfig.isAllowLocalScheduling()) {
+            binder.bind(MongoServerDetailsProvider.class).toInstance(ImmutableList::of);
+        }
+        else {
+            binder.bind(MongoServerDetailsProvider.class).to(SessionBasedMongoServerDetailsProvider.class).in(Scopes.SINGLETON);
+        }
+
+        closingBinder(binder).registerCloseable(MongoSession.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
@@ -74,10 +79,12 @@ public class MongoClientModule
     @Provides
     public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config, Set<MongoClientSettingConfigurator> configurators, OpenTelemetry openTelemetry)
     {
-        MongoClientSettings.Builder options = MongoClientSettings.builder();
-        configurators.forEach(configurator -> configurator.configure(options));
-        options.addCommandListener(MongoTelemetry.builder(openTelemetry).build().newCommandListener());
-        MongoClient client = MongoClients.create(options.build());
+        Supplier<MongoClient> client = Suppliers.memoize(() -> {
+            MongoClientSettings.Builder options = MongoClientSettings.builder();
+            configurators.forEach(configurator -> configurator.configure(options));
+            options.addCommandListener(MongoTelemetry.builder(openTelemetry).build().createCommandListener());
+            return MongoClients.create(options.build());
+        });
 
         return new MongoSession(
                 typeManager,

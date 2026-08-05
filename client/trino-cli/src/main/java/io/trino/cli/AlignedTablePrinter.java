@@ -17,6 +17,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.client.Column;
+import org.jline.utils.AttributedString;
+import org.jline.utils.AttributedStyle;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -38,6 +40,7 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.jline.utils.AttributedString.stripAnsi;
+import static org.jline.utils.AttributedStyle.DEFAULT;
 import static org.jline.utils.WCWidth.wcwidth;
 
 public class AlignedTablePrinter
@@ -50,11 +53,12 @@ public class AlignedTablePrinter
     private final List<String> fieldNames;
     private final List<Boolean> numericFields;
     private final Writer writer;
+    private final Theme theme;
 
     private boolean headerRendered;
     private long rowCount;
 
-    public AlignedTablePrinter(List<Column> columns, Writer writer)
+    public AlignedTablePrinter(List<Column> columns, Writer writer, Theme theme)
     {
         requireNonNull(columns, "columns is null");
         this.fieldNames = columns.stream()
@@ -65,6 +69,7 @@ public class AlignedTablePrinter
                 .map(signature -> NUMERIC_TYPES.contains(signature.getRawType()))
                 .collect(toImmutableList());
         this.writer = requireNonNull(writer, "writer is null");
+        this.theme = requireNonNull(theme, "theme is null");
     }
 
     @Override
@@ -102,7 +107,7 @@ public class AlignedTablePrinter
                 if (i > 0) {
                     writer.append('|');
                 }
-                writer.append(center(fieldNames.get(i), columnWidth[i], 1));
+                writer.append(colored(center(fieldNames.get(i), columnWidth[i], 1), theme.keyword()));
             }
             writer.append('\n');
 
@@ -144,6 +149,14 @@ public class AlignedTablePrinter
         }
 
         writer.flush();
+    }
+
+    private String colored(String value, AttributedStyle style)
+    {
+        if ((style == DEFAULT) || value.isEmpty()) {
+            return value;
+        }
+        return new AttributedString(value, style).toAnsi();
     }
 
     private static String center(String value, int maxWidth, int padding)

@@ -52,6 +52,7 @@ public final class SmallintType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "smallint";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(SmallintType.class, lookup(), long.class);
     private static final VarHandle SHORT_HANDLE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -59,7 +60,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(new TypeSignature(StandardTypes.SMALLINT), long.class, ShortArrayBlock.class);
+        super(new TypeDescriptor(NAME), long.class, ShortArrayBlock.class);
     }
 
     @Override
@@ -87,6 +88,12 @@ public final class SmallintType
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new ShortArrayBlockBuilder(null, positionCount);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override
@@ -152,17 +159,6 @@ public final class SmallintType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((ShortArrayBlockBuilder) blockBuilder).writeShort(getShort(block, position));
-        }
-    }
-
-    @Override
     public long getLong(Block block, int position)
     {
         return getShort(block, position);
@@ -188,10 +184,10 @@ public final class SmallintType
     private void checkValueValid(long value)
     {
         if (value > Short.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT for type %s", value, getTypeDescriptor()));
         }
         if (value < Short.MIN_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT for type %s", value, getTypeDescriptor()));
         }
     }
 

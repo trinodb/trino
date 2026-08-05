@@ -28,7 +28,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.type.UuidOperators.castFromVarcharToUuid;
@@ -106,7 +106,7 @@ public class TestUuidType
                 .isLessThan(0);
 
         MethodHandle compareFromBlock = new TypeOperators().getComparisonUnorderedFirstOperator(UUID, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
-        long comparisonFromBlock = (long) compareFromBlock.invoke(nativeValueToBlock(UUID, lowerSlice), 0, nativeValueToBlock(UUID, higherSlice), 0);
+        long comparisonFromBlock = (long) compareFromBlock.invoke(writeNativeValue(UUID, lowerSlice), 0, writeNativeValue(UUID, higherSlice), 0);
         assertThat(comparisonFromBlock)
                 .as("block-position comparison operator result")
                 .isLessThan(0);

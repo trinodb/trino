@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.trino.spi.BlocksHash;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -36,6 +37,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
 
 public final class FlatHash
+        implements BlocksHash
 {
     private static final int INSTANCE_SIZE = instanceSize(FlatHash.class);
 
@@ -79,14 +81,13 @@ public final class FlatHash
     private int nextGroupId;
     private int maxFill;
 
-    public FlatHash(FlatHashStrategy flatHashStrategy, GroupByHashMode hashMode, int expectedSize, UpdateMemory checkMemoryReservation)
+    public FlatHash(FlatHashStrategy flatHashStrategy, boolean cacheHashValue, int expectedSize, UpdateMemory checkMemoryReservation)
     {
         this.flatHashStrategy = requireNonNull(flatHashStrategy, "flatHashStrategy is null");
         this.checkMemoryReservation = requireNonNull(checkMemoryReservation, "checkMemoryReservation is null");
         boolean hasVariableData = flatHashStrategy.isAnyVariableWidth();
         this.variableWidthData = hasVariableData ? new AppendOnlyVariableWidthData() : null;
-        requireNonNull(hashMode, "hashMode is null");
-        this.cacheHashValue = hashMode.isHashCached();
+        this.cacheHashValue = cacheHashValue;
 
         // the record is laid out as follows:
         // 1. optional raw hash (long)
@@ -128,6 +129,7 @@ public final class FlatHash
                 .toArray(byte[][]::new);
     }
 
+    @Override
     public long getEstimatedSize()
     {
         return sumExact(
@@ -230,11 +232,22 @@ public final class FlatHash
         }
     }
 
-    public void computeHashes(Block[] blocks, long[] hashes, int offset, int length)
+    @Override
+    public int getIfPresent(Block[] blocks, int position)
     {
-        flatHashStrategy.hashBlocksBatched(blocks, hashes, offset, length);
+        long hash = flatHashStrategy.hash(blocks, position);
+        int index = getIndex(blocks, position, hash);
+        if (index >= 0) {
+            int groupId = groupIdsByHash[index];
+            if (groupId < 0) {
+                throw new IllegalStateException("groupId out of range");
+            }
+            return groupId;
+        }
+        return -1;
     }
 
+    @Override
     public int putIfAbsent(Block[] blocks, int position)
     {
         long hash = flatHashStrategy.hash(blocks, position);

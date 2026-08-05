@@ -31,11 +31,11 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
@@ -45,6 +45,7 @@ import java.time.LocalTime;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -61,10 +62,11 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.type.DateTimes.toLocalDateTime;
 import static io.trino.type.DateTimes.toZonedDateTime;
 import static io.trino.type.JsonType.JSON;
@@ -76,20 +78,21 @@ import static java.lang.String.format;
 public final class FormatFunction
         extends SqlScalarFunction
 {
-    public static final String NAME = "$format";
+    public static final String FORMAT_FUNCTION_NAME = "$format";
 
     public static final FormatFunction FORMAT_FUNCTION = new FormatFunction();
     private static final MethodHandle METHOD_HANDLE = methodHandle(FormatFunction.class, "sqlFormat", List.class, ConnectorSession.class, Slice.class, SqlRow.class);
     private static final CatalogSchemaFunctionName JSON_FORMAT_NAME = builtinFunctionName("json_format");
+    private static final Pattern JAVA_UTIL_EXCEPTION_PATTERN = Pattern.compile("^java\\.util\\.(\\w+)Exception");
 
     private FormatFunction()
     {
-        super(FunctionMetadata.scalarBuilder(NAME)
+        super(FunctionMetadata.scalarBuilder(FORMAT_FUNCTION_NAME)
                 .signature(Signature.builder()
-                        .variadicTypeParameter("T", "row")
-                        .argumentType(VARCHAR.getTypeSignature())
-                        .argumentType(new TypeSignature("T"))
-                        .returnType(VARCHAR.getTypeSignature())
+                        .rowTypeParameter("T")
+                        .argumentType(VARCHAR.getTypeDescriptor())
+                        .argumentType(typeVariable("T"))
+                        .returnType(VARCHAR.getTypeDescriptor())
                         .build())
                 .hidden()
                 .description("formats the input arguments using a format string")
@@ -100,7 +103,7 @@ public final class FormatFunction
     public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        boundSignature.getArgumentTypes().get(1).getTypeParameters()
+        ((RowType) boundSignature.getArgumentTypes().get(1)).getFieldTypes()
                 .forEach(type -> addDependencies(builder, type));
         return builder.build();
     }
@@ -135,9 +138,9 @@ public final class FormatFunction
     @Override
     public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type rowType = boundSignature.getArgumentType(1);
+        RowType rowType = (RowType) boundSignature.getArgumentType(1);
 
-        List<BiFunction<Block, Integer, Object>> converters = rowType.getTypeParameters().stream()
+        List<BiFunction<Block, Integer, Object>> converters = rowType.getFieldTypes().stream()
                 .map(type -> converter(functionDependencies, type))
                 .collect(toImmutableList());
 
@@ -166,7 +169,7 @@ public final class FormatFunction
             return utf8Slice(format(session.getLocale(), format, args));
         }
         catch (IllegalFormatException e) {
-            String message = e.toString().replaceFirst("^java\\.util\\.(\\w+)Exception", "$1");
+            String message = JAVA_UTIL_EXCEPTION_PATTERN.matcher(e.toString()).replaceFirst("$1");
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid format string: %s (%s)", format, message), e);
         }
     }
@@ -180,7 +183,7 @@ public final class FormatFunction
     private static BiFunction<Block, Integer, Object> valueConverter(FunctionDependencies functionDependencies, Type type)
     {
         if (type.equals(UNKNOWN)) {
-            return (block, position) -> null;
+            return (_, _) -> null;
         }
         if (type.equals(BOOLEAN)) {
             return BOOLEAN::getBoolean;

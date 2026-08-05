@@ -21,7 +21,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
-import io.trino.execution.ThreadCountParser;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -33,7 +33,7 @@ public class DirectExchangeClientConfig
     private DataSize maxBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private int concurrentRequestMultiplier = 3;
     private Duration maxErrorDuration = new Duration(1, TimeUnit.MINUTES);
-    private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
+    private DataSize maxResponseSize = new HttpClientConfig().getMaxResponseContentLength();
     private int clientThreads = 25;
     private int pageBufferClientMaxCallbackThreads = 25;
     private boolean acknowledgePages = true;

@@ -21,7 +21,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.reflect.TypeToken;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.matching.Pattern;
-import io.trino.matching.pattern.TypeOfPattern;
+import io.trino.matching.TypeOfPattern;
 
 import java.util.Set;
 import java.util.concurrent.ExecutionException;

@@ -15,8 +15,7 @@ package io.trino.plugin.ai.functions;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.opentelemetry.api.trace.Tracer;
-import io.trino.spi.catalog.CatalogName;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -40,14 +39,13 @@ public class AiConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new AiModule(),
-                binder -> {
-                    binder.bind(Tracer.class).toInstance(context.getTracer());
-                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                });
+                new ConnectorContextModule(catalogName, context));
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

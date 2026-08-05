@@ -18,13 +18,11 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
@@ -349,6 +347,15 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
+    default void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
+    {
+        checkCanSelectFromColumns(context, tableName, columnNames);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanSelectFromColumns(ConnectorSecurityContext, SchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         denySelectColumns(tableName.toString(), columnNames);
@@ -359,6 +366,15 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
+    default void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        checkCanInsertIntoTable(context, tableName);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanInsertIntoTable(ConnectorSecurityContext, SchemaTableName, Optional)}
+     */
+    @Deprecated
     default void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyInsertTable(tableName.toString());
@@ -369,6 +385,15 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
+    default void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        checkCanDeleteFromTable(context, tableName);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanDeleteFromTable(ConnectorSecurityContext, SchemaTableName, Optional)}
+     */
+    @Deprecated
     default void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
@@ -389,6 +414,15 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
+    default void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
+    {
+        checkCanUpdateTableColumns(context, tableName, updatedColumns);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanUpdateTableColumns(ConnectorSecurityContext, SchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
     {
         denyUpdateTableColumns(tableName.toString(), updatedColumns);
@@ -449,6 +483,15 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
+    default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext, SchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
@@ -795,21 +838,6 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Get column mask associated with the given table, column and identity.
-     * <p>
-     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
-     * must be written in terms of columns in the table.
-     *
-     * @return the mask if present, or empty if not applicable
-     * @deprecated use {@link #getColumnMasks(ConnectorSecurityContext, SchemaTableName, List)}
-     */
-    @Deprecated
-    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        return Optional.empty();
-    }
-
-    /**
      * Bulk method for getting column masks for a subset of columns in a table.
      * <p>
      * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
@@ -819,9 +847,6 @@ public interface ConnectorAccessControl
      */
     default Map<ColumnSchema, ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
     {
-        return columns.stream()
-                .map(column -> Map.entry(column, getColumnMask(context, tableName, column.getName(), column.getType())))
-                .filter(entry -> entry.getValue().isPresent())
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+        return emptyMap();
     }
 }

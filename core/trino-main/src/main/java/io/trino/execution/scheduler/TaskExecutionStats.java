@@ -43,23 +43,13 @@ public class TaskExecutionStats
 
     public void update(TaskInfo info)
     {
-        TaskState state = info.taskStatus().getState();
+        TaskState state = info.taskStatus().state();
         switch (state) {
-            case FINISHED:
-                finishedTasks.update(info.stats());
-                break;
-            case FAILED:
-                failedTasks.update(info);
-                break;
-            case CANCELED:
-            case ABORTED:
-                abortedTasks.update(info.stats());
-                break;
-            case PLANNED:
-            case RUNNING:
-            case FLUSHING:
-            default:
-                log.error("Unexpected task state: %s", state);
+            case FINISHED -> finishedTasks.update(info.stats());
+            case FAILED -> failedTasks.update(info);
+            case CANCELED, ABORTED -> abortedTasks.update(info.stats());
+            case PLANNED, RUNNING, FLUSHING -> log.error("Unexpected task state: %s", state);
+            default -> log.error("Unexpected task state: %s", state);
         }
     }
 
@@ -95,12 +85,12 @@ public class TaskExecutionStats
 
         public void update(TaskStats stats)
         {
-            elapsedTime.add(stats.getElapsedTime());
-            scheduledTime.add(stats.getTotalScheduledTime());
-            cpuTime.add(stats.getTotalCpuTime());
-            inputBlockedTime.add(stats.getInputBlockedTime());
-            outputBlockedTime.add(stats.getOutputBlockedTime());
-            peakMemoryReservationInBytes.add(stats.getPeakUserMemoryReservation().toBytes());
+            elapsedTime.add(stats.elapsedTime());
+            scheduledTime.add(stats.totalScheduledTime());
+            cpuTime.add(stats.totalCpuTime());
+            inputBlockedTime.add(stats.inputBlockedTime());
+            outputBlockedTime.add(stats.outputBlockedTime());
+            peakMemoryReservationInBytes.add(stats.peakUserMemoryReservation().toBytes());
         }
 
         @Managed
@@ -155,26 +145,17 @@ public class TaskExecutionStats
 
         public void update(TaskInfo info)
         {
-            ExecutionFailureInfo failureInfo = info.taskStatus().getFailures().stream()
+            ExecutionFailureInfo failureInfo = info.taskStatus().failures().stream()
                     .findFirst()
                     .orElseGet(() -> toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
-            ErrorType errorType = Optional.ofNullable(failureInfo.getErrorCode()).map(ErrorCode::getType).orElse(INTERNAL_ERROR);
+            ErrorType errorType = Optional.ofNullable(failureInfo.errorCode()).map(ErrorCode::getType).orElse(INTERNAL_ERROR);
             TaskStats stats = info.stats();
             switch (errorType) {
-                case USER_ERROR:
-                    userError.update(stats);
-                    break;
-                case INTERNAL_ERROR:
-                    internalError.update(stats);
-                    break;
-                case EXTERNAL:
-                    externalError.update(stats);
-                    break;
-                case INSUFFICIENT_RESOURCES:
-                    insufficientResources.update(stats);
-                    break;
-                default:
-                    log.error("Unexpected error type: %s", errorType);
+                case USER_ERROR -> userError.update(stats);
+                case INTERNAL_ERROR -> internalError.update(stats);
+                case EXTERNAL -> externalError.update(stats);
+                case INSUFFICIENT_RESOURCES -> insufficientResources.update(stats);
+                default -> log.error("Unexpected error type: %s", errorType);
             }
         }
 

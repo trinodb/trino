@@ -23,6 +23,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -83,6 +84,7 @@ public final class LegacyApproximateLongPercentileAggregations
         state.setPercentile(otherState.getPercentile());
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.BIGINT)
     public static void output(@AggregationState QuantileDigestAndPercentileState state, BlockBuilder out)
     {

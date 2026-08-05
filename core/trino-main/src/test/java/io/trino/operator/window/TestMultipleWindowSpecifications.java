@@ -26,7 +26,8 @@ public class TestMultipleWindowSpecifications
     @Test
     public void testIdenticalWindowSpecifications()
     {
-        assertWindowQuery("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
+        assertWindowQuery(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 1L, 3L)
@@ -41,7 +42,8 @@ public class TestMultipleWindowSpecifications
                         .row(34, "O", 6L, 80L)
                         .build());
 
-        assertWindowQueryWithNulls("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
+        assertWindowQueryWithNulls(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 1L, 3L)
@@ -61,7 +63,8 @@ public class TestMultipleWindowSpecifications
     public void testIntersectingWindowSpecifications()
     {
         // Intersection previous to current row
-        assertWindowQuery("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
+        assertWindowQuery(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 0L, 3L)
@@ -76,7 +79,8 @@ public class TestMultipleWindowSpecifications
                         .row(34, "O", 2L, 73L)
                         .build());
 
-        assertWindowQueryWithNulls("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
+        assertWindowQueryWithNulls(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 0L, 3L)
@@ -92,7 +96,8 @@ public class TestMultipleWindowSpecifications
                         .build());
 
         // Intersection at current row
-        assertWindowQuery("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW), " +
+        assertWindowQuery(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 1L, 14L)
@@ -107,7 +112,8 @@ public class TestMultipleWindowSpecifications
                         .row(34, "O", 2L, 34L)
                         .build());
 
-        assertWindowQueryWithNulls("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW), " +
+        assertWindowQueryWithNulls(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 1L, 14L)
@@ -123,7 +129,8 @@ public class TestMultipleWindowSpecifications
                         .build());
 
         // Intersection following current row
-        assertWindowQuery("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING), " +
+        assertWindowQuery(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 2L, 11L)
@@ -138,7 +145,8 @@ public class TestMultipleWindowSpecifications
                         .row(34, "O", 1L, null)
                         .build());
 
-        assertWindowQueryWithNulls("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING), " +
+        assertWindowQueryWithNulls(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 2L, 11L)
@@ -157,7 +165,8 @@ public class TestMultipleWindowSpecifications
     @Test
     public void testDisjointWindowSpecifications()
     {
-        assertWindowQuery("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
+        assertWindowQuery(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 0L, 3L)
@@ -172,7 +181,8 @@ public class TestMultipleWindowSpecifications
                         .row(34, "O", 2L, 66L)
                         .build());
 
-        assertWindowQueryWithNulls("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
+        assertWindowQueryWithNulls(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 0L, 3L)
@@ -187,7 +197,8 @@ public class TestMultipleWindowSpecifications
                         .row(null, null, 2L, null)
                         .build());
 
-        assertWindowQuery("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
+        assertWindowQuery(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3, "F", 0L, 44L)
@@ -202,7 +213,8 @@ public class TestMultipleWindowSpecifications
                         .row(34, "O", 2L, null)
                         .build());
 
-        assertWindowQueryWithNulls("count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
+        assertWindowQueryWithNulls(
+                "count(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 3 PRECEDING AND 2 PRECEDING), " +
                         "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT, BIGINT)
                         .row(3L, "F", 0L, 11L)

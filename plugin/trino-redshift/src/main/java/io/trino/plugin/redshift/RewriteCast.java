@@ -56,16 +56,11 @@ public class RewriteCast
         }
 
         return switch (targetType) {
-            case SmallintType smallintType ->
-                    Optional.of(new JdbcTypeHandle(SMALLINT, Optional.of(smallintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            case IntegerType integerType ->
-                    Optional.of(new JdbcTypeHandle(INTEGER, Optional.of(integerType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            case BigintType bigintType ->
-                    Optional.of(new JdbcTypeHandle(BIGINT, Optional.of(bigintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            case CharType charType ->
-                    Optional.of(new JdbcTypeHandle(CHAR, Optional.of(charType.getBaseName()), Optional.of(charType.getLength()), Optional.empty(), Optional.empty(), Optional.empty()));
-            case VarcharType varcharType ->
-                    Optional.of(new JdbcTypeHandle(VARCHAR, Optional.of(varcharType.getBaseName()), varcharType.getLength(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case SmallintType smallintType -> Optional.of(new JdbcTypeHandle(SMALLINT, Optional.of(smallintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case IntegerType integerType -> Optional.of(new JdbcTypeHandle(INTEGER, Optional.of(integerType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case BigintType bigintType -> Optional.of(new JdbcTypeHandle(BIGINT, Optional.of(bigintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case CharType charType -> Optional.of(new JdbcTypeHandle(CHAR, Optional.of(charType.getBaseName()), Optional.of(charType.getLength()), Optional.empty(), Optional.empty(), Optional.empty()));
+            case VarcharType varcharType -> Optional.of(new JdbcTypeHandle(VARCHAR, Optional.of(varcharType.getBaseName()), varcharType.getLength(), Optional.empty(), Optional.empty(), Optional.empty()));
             default -> Optional.empty();
         };
     }
@@ -73,13 +68,12 @@ public class RewriteCast
     private boolean pushdownSupported(JdbcTypeHandle sourceType, Type targetType)
     {
         return switch (targetType) {
-            case SmallintType _, IntegerType _, BigintType _ ->
-                    SUPPORTED_SOURCE_TYPE_FOR_INTEGRAL_CAST.contains(sourceType.jdbcType());
+            case SmallintType _, IntegerType _, BigintType _ -> SUPPORTED_SOURCE_TYPE_FOR_INTEGRAL_CAST.contains(sourceType.jdbcType());
             // varchar -> char is unsupported as varchar supports multi-byte characters whereas char supports only single byte characters.
             case CharType _ -> CHAR == sourceType.jdbcType();
-            // char -> varchar is not supported as Redshift doesn't pad char value with blanks whereas Trino pads char value with blanks.
+            // char -> varchar trims trailing spaces (see buildCast) to match the engine's char-to-varchar coercion.
             // cast to unbounded varchar is unsupported as Redshift doesn't support unbounded varchar
-            case VarcharType varcharType -> VARCHAR == sourceType.jdbcType() && !varcharType.isUnbounded() && varcharType.getBoundedLength() <= REDSHIFT_MAX_VARCHAR;
+            case VarcharType varcharType -> (VARCHAR == sourceType.jdbcType() || CHAR == sourceType.jdbcType()) && !varcharType.isUnbounded() && varcharType.getBoundedLength() <= REDSHIFT_MAX_VARCHAR;
             default -> false;
         };
     }
@@ -95,6 +89,11 @@ public class RewriteCast
         // Do not cast unnecessary with extra space padding when target char type has more length than source char type
         if (sourceType instanceof CharType sourceCharType && targetType instanceof CharType targetCharType && sourceCharType.getLength() < targetCharType.getLength()) {
             return expression;
+        }
+        if (sourceType instanceof CharType && targetType instanceof VarcharType) {
+            // Trino coerces char to varchar by trimming trailing spaces, but Redshift's CAST(char AS varchar) keeps
+            // the blank padding. RTRIM the source so the pushed-down result matches the engine's NO PAD value.
+            return "CAST(RTRIM(%s) AS %s)".formatted(expression, castType);
         }
         return "CAST(%s AS %s)".formatted(expression, castType);
     }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>477-SNAPSHOT</version>
+        <version>484-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -46,8 +46,20 @@
         </dependency>
 
         <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <!-- It's either used and on classpath anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
             <optional>true</optional>
         </dependency>
 
@@ -61,7 +73,7 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <!-- it's either on classpath because anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
+            <!-- It's either used and on classpath anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
             <optional>true</optional>
         </dependency>
 
@@ -73,38 +85,13 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-            <!-- it's either on classpath because anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
+            <!-- It's either used and on classpath anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
             <optional>true</optional>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- testing -->
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-core</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.inject</groupId>
-                    <artifactId>guice</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
         </dependency>
 

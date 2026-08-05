@@ -259,8 +259,8 @@ public class OpenXJsonSerializer
         }
         if (type instanceof MapType mapType) {
             return !isStructuralType(mapType.getKeyType()) &&
-                   isSupportedType(mapType.getKeyType()) &&
-                   isSupportedType(mapType.getValueType());
+                    isSupportedType(mapType.getKeyType()) &&
+                    isSupportedType(mapType.getValueType());
         }
         if (type instanceof RowType rowType) {
             return rowType.getFields().stream()
@@ -269,18 +269,18 @@ public class OpenXJsonSerializer
         }
 
         return BOOLEAN.equals(type) ||
-               BIGINT.equals(type) ||
-               INTEGER.equals(type) ||
-               SMALLINT.equals(type) ||
-               TINYINT.equals(type) ||
-               type instanceof DecimalType ||
-               REAL.equals(type) ||
-               DOUBLE.equals(type) ||
-               DATE.equals(type) ||
-               type instanceof TimestampType ||
-               VARBINARY.equals(type) ||
-               type instanceof VarcharType ||
-               type instanceof CharType;
+                BIGINT.equals(type) ||
+                INTEGER.equals(type) ||
+                SMALLINT.equals(type) ||
+                TINYINT.equals(type) ||
+                type instanceof DecimalType ||
+                REAL.equals(type) ||
+                DOUBLE.equals(type) ||
+                DATE.equals(type) ||
+                type instanceof TimestampType ||
+                VARBINARY.equals(type) ||
+                type instanceof VarcharType ||
+                type instanceof CharType;
     }
 
     private static boolean isStructuralType(Type type)

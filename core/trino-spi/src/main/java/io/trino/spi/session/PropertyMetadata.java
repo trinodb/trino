@@ -147,7 +147,7 @@ public final class PropertyMetadata<T>
 
     public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, boolean hidden)
     {
-        return booleanProperty(name, description, defaultValue, value -> {}, hidden);
+        return booleanProperty(name, description, defaultValue, _ -> {}, hidden);
     }
 
     public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, Consumer<Boolean> validation, boolean hidden)
@@ -169,7 +169,7 @@ public final class PropertyMetadata<T>
 
     public static PropertyMetadata<Integer> integerProperty(String name, String description, Integer defaultValue, boolean hidden)
     {
-        return integerProperty(name, description, defaultValue, value -> {}, hidden);
+        return integerProperty(name, description, defaultValue, _ -> {}, hidden);
     }
 
     public static PropertyMetadata<Integer> integerProperty(String name, String description, Integer defaultValue, Consumer<Integer> validation, boolean hidden)
@@ -191,7 +191,7 @@ public final class PropertyMetadata<T>
 
     public static PropertyMetadata<Long> longProperty(String name, String description, Long defaultValue, boolean hidden)
     {
-        return longProperty(name, description, defaultValue, value -> {}, hidden);
+        return longProperty(name, description, defaultValue, _ -> {}, hidden);
     }
 
     public static PropertyMetadata<Long> longProperty(String name, String description, Long defaultValue, Consumer<Long> validation, boolean hidden)
@@ -213,7 +213,7 @@ public final class PropertyMetadata<T>
 
     public static PropertyMetadata<Double> doubleProperty(String name, String description, Double defaultValue, boolean hidden)
     {
-        return doubleProperty(name, description, defaultValue, value -> {}, hidden);
+        return doubleProperty(name, description, defaultValue, _ -> {}, hidden);
     }
 
     public static PropertyMetadata<Double> doubleProperty(String name, String description, Double defaultValue, Consumer<Double> validation, boolean hidden)
@@ -235,7 +235,7 @@ public final class PropertyMetadata<T>
 
     public static PropertyMetadata<String> stringProperty(String name, String description, String defaultValue, boolean hidden)
     {
-        return stringProperty(name, description, defaultValue, value -> {}, hidden);
+        return stringProperty(name, description, defaultValue, _ -> {}, hidden);
     }
 
     public static PropertyMetadata<String> stringProperty(String name, String description, String defaultValue, Consumer<String> validation, boolean hidden)
@@ -257,7 +257,7 @@ public final class PropertyMetadata<T>
 
     public static <T extends Enum<T>> PropertyMetadata<T> enumProperty(String name, String descriptionPrefix, Class<T> type, T defaultValue, boolean hidden)
     {
-        return enumProperty(name, descriptionPrefix, type, defaultValue, value -> {}, hidden);
+        return enumProperty(name, descriptionPrefix, type, defaultValue, _ -> {}, hidden);
     }
 
     public static <T extends Enum<T>> PropertyMetadata<T> enumProperty(String name, String descriptionPrefix, Class<T> type, T defaultValue, Consumer<T> validation, boolean hidden)

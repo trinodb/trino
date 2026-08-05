@@ -71,19 +71,21 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                  SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ARRAY,
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_ROW_TYPE,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_MERGE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -191,8 +193,8 @@ public class TestClickHouseConnectorTest
         assertUpdate("INSERT INTO " + tableName + "(x,y,a) SELECT 123, 456, 111", 1);
 
         // the columns are referenced by order_by/partition_by property can not be dropped
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x'.*");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing: 'x', required columns: 'x'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing: 'a', required columns: 'a'.*");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
@@ -370,7 +372,7 @@ public class TestClickHouseConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertUpdate("DROP TABLE " + tableName);
 
-        //Log families
+        // Log families
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'log')");
         assertUpdate("DROP TABLE " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'tinylog')");
@@ -378,7 +380,7 @@ public class TestClickHouseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'stripelog')");
         assertUpdate("DROP TABLE " + tableName);
 
-        //NOT support engine
+        // NOT support engine
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')",
                 ".* Unable to set catalog 'clickhouse' table property 'engine' to.*");
     }
@@ -577,36 +579,30 @@ public class TestClickHouseConnectorTest
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        switch (dataMappingTestSetup.getTrinoTypeName()) {
-            case "boolean":
+        return switch (dataMappingTestSetup.getTrinoTypeName()) {
+            case "boolean" -> {
                 // ClickHouse does not have built-in support for boolean type and we map boolean to tinyint.
                 // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
-                return Optional.empty();
-
-            case "varbinary":
+                yield Optional.empty();
+            }
+            case "varbinary" -> {
                 // here in this test class we map ClickHouse String into varchar, so varbinary ends up a varchar
-                return Optional.empty();
-
-            case "date":
+                yield Optional.empty();
+            }
+            case "date" -> {
                 // The connector supports date type, but these values are unsupported in ClickHouse
                 // See BaseClickHouseTypeMapping for additional test coverage
                 if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'") ||
                         dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'") ||
                         dataMappingTestSetup.getHighValueLiteral().equals("DATE '9999-12-31'")) {
-                    return Optional.empty();
+                    yield Optional.empty();
                 }
-                return Optional.of(dataMappingTestSetup);
-
-            case "time":
-            case "time(6)":
-            case "timestamp":
-            case "timestamp(6)":
-            case "timestamp(3) with time zone":
-            case "timestamp(6) with time zone":
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        return Optional.of(dataMappingTestSetup);
+                yield Optional.of(dataMappingTestSetup);
+            }
+            case "time", "time(6)", "timestamp", "timestamp(6)",
+                 "timestamp(3) with time zone", "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
+            default -> Optional.of(dataMappingTestSetup);
+        };
     }
 
     // TODO: Remove override once decimal predicate pushdown is implemented (https://github.com/trinodb/trino/issues/7100)
@@ -615,7 +611,8 @@ public class TestClickHouseConnectorTest
     public void testNumericAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
+        try (TestTable testTable = createAggregationTestTable(
+                schemaName + ".test_aggregation_pushdown",
                 ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -694,12 +691,17 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
-    @Override
+    @Override // ClickHouse char is an alias for String type with no length or padding semantics
     public void testCharTrailingSpace()
     {
-        assertThatThrownBy(super::testCharTrailingSpace)
-                .hasMessageStartingWith("Failed to execute statement: CREATE TABLE tpch.char_trailing_space");
-        abort("Implement test for ClickHouse");
+        String schema = getSession().getSchema().orElseThrow();
+        try (TestTable table = new TestTable(onRemoteDatabase(), schema + ".char_trailing_space", "(x char(10))", List.of("'test'"))) {
+            String tableName = table.getName();
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test'", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test  '", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " WHERE x = char ' test'");
+        }
     }
 
     @Override

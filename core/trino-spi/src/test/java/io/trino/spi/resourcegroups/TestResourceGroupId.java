@@ -16,9 +16,10 @@ package io.trino.spi.resourcegroups;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestResourceGroupId
+class TestResourceGroupId
 {
     @Test
     public void testBasic()
@@ -31,7 +32,7 @@ public class TestResourceGroupId
     @Test
     public void testCodec()
     {
-        JsonCodec<ResourceGroupId> codec = JsonCodec.jsonCodec(ResourceGroupId.class);
+        JsonCodec<ResourceGroupId> codec = jsonCodec(ResourceGroupId.class);
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("test.test"), "foo");
         assertThat(codec.fromJson(codec.toJson(resourceGroupId))).isEqualTo(resourceGroupId);
 

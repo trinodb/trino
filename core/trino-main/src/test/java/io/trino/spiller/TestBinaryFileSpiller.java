@@ -17,13 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
+import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -44,7 +43,8 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.execution.buffer.PagesSerdes.createSpillingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
+import static io.trino.operator.PageAssertions.assertPagesEqual;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -81,10 +81,9 @@ public class TestBinaryFileSpiller
         featuresConfig.setSpillerSpillPaths(ImmutableList.of(spillPath.getAbsolutePath()));
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
-        BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig);
+        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(TESTING_BLOCK_ENCODING_SERDE, spillerStats, featuresConfig, nodeSpillConfig, new TaskManagerConfig());
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
-        PagesSerdeFactory pagesSerdeFactory = createSpillingPagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.getSpillCompressionCodec());
+        PagesSerdeFactory pagesSerdeFactory = createSpillingPagesSerdeFactory(TESTING_BLOCK_ENCODING_SERDE, nodeSpillConfig.getSpillCompressionCodec());
         serializer = pagesSerdeFactory.createSerializer(Optional.empty());
         memoryContext = newSimpleAggregatedMemoryContext();
     }
@@ -101,7 +100,7 @@ public class TestBinaryFileSpiller
     public void testFileSpiller()
             throws Exception
     {
-        try (Spiller spiller = factory.create(TYPES, bytes -> {}, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, _ -> {}, memoryContext)) {
             testSimpleSpiller(spiller);
         }
     }
@@ -122,7 +121,7 @@ public class TestBinaryFileSpiller
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
-        try (Spiller spiller = factory.create(TYPES, bytes -> {}, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, _ -> {}, memoryContext)) {
             testSpiller(types, spiller, ImmutableList.of(page));
         }
     }
@@ -162,7 +161,7 @@ public class TestBinaryFileSpiller
         assertThat(spillerStats.getTotalSpilledBytes() - spilledBytesBefore).isEqualTo(spilledBytes);
         // At this point, the buffers should still be accounted for in the memory context, because
         // the spiller (FileSingleStreamSpiller) doesn't release its memory reservation until it's closed.
-        assertThat(memoryContext.getBytes()).isEqualTo((long) spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
+        assertThat(memoryContext.getBytes()).isEqualTo((long) spills.length * SpillFile.BUFFER_SIZE);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
         assertThat(actualSpills).hasSize(spills.length);
@@ -170,11 +169,7 @@ public class TestBinaryFileSpiller
         for (int i = 0; i < actualSpills.size(); i++) {
             List<Page> actualSpill = ImmutableList.copyOf(actualSpills.get(i));
             List<Page> expectedSpill = spills[i];
-
-            assertThat(actualSpill).hasSize(expectedSpill.size());
-            for (int j = 0; j < actualSpill.size(); j++) {
-                assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
-            }
+            assertPagesEqual(types, actualSpill, expectedSpill);
         }
         spiller.close();
         assertThat(memoryContext.getBytes()).isEqualTo(0);

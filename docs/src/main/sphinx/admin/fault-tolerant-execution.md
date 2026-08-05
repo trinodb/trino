@@ -71,6 +71,11 @@ execution on a Trino cluster:
     fault-tolerant execution and typically only to deactivate with `NONE`, since
     switching between modes on a cluster is not tested.
   - `NONE`
+* - `retry-policy.allowed`
+  - List of retry policies that are allowed to be configured for a cluster.
+    This property is used to prevent a user from configuring a retry policy that
+    is not meant to be used on the given cluster.
+  - `NONE`, `QUERY`, `TASK` 
 * - `exchange.deduplication-buffer-size`
   - [Data size](prop-type-data-size) of the coordinator's in-memory buffer used
     by fault-tolerant execution to store output of query
@@ -392,6 +397,11 @@ all worker nodes. In this file, set the `exchange-manager.name` configuration
 property to `filesystem` or `hdfs`, and set additional configuration properties as needed
 for your storage solution.
 
+You can also specify the location of the exchange manager configuration file
+in `config.properties` with the `exchange-manager.config-file` property.
+When this property is set, Trino loads the exchange manager configuration
+from the specified path instead of the default `etc/exchange-manager.properties`.
+
 The following table lists the available configuration properties for
 `exchange-manager.properties`, their default values, and which file systems
 the property may be configured for:
@@ -409,6 +419,11 @@ the property may be configured for:
     store spooling data.
   -
   - Any
+* - `exchange.max-page-storage-size`
+  - Max storage size of a page written to a sink, including the page itself
+    and its size.
+  - `16MB`
+  - Any
 * - `exchange.sink-buffer-pool-min-size`
   - The minimum buffer pool size for an exchange sink. The larger the buffer
     pool size, the larger the write parallelism and memory usage.
@@ -421,7 +436,7 @@ the property may be configured for:
   - Any
 * - `exchange.sink-max-file-size`
   - Max [data size](prop-type-data-size) of files written by exchange sinks.
-  - ``1GB``
+  - `1GB`
   - Any
 * - `exchange.source-concurrent-readers`
   - Number of concurrent readers to read from spooling storage. The larger the
@@ -502,6 +517,21 @@ the property may be configured for:
   - Maximum number of times the exchange manager's Azure client should
     retry a request.
   - `10`
+  - Azure Blob Storage
+* - `exchange.azure.max-connections`
+  - Maximum number of concurrent HTTP connections in the Azure storage
+    connection pool.
+  - `500`
+  - Azure Blob Storage
+* - `exchange.azure.pending-acquire-max-count`
+  - Maximum number of pending connection acquire requests in the Azure
+    storage connection pool.
+  - `1000`
+  - Azure Blob Storage
+* - `exchange.azure.connection-acquisition-timeout`
+  - Maximum time to wait for a connection to be acquired from the Azure
+    storage connection pool.
+  - `1m`
   - Azure Blob Storage
 * - `exchange.hdfs.block-size`
   - Block [data size](prop-type-data-size) for HDFS storage.

@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.operator.TestDriverStats.assertExpectedDriverStats;
 import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -90,7 +92,7 @@ public class TestPipelineStats
     @Test
     public void testJson()
     {
-        JsonCodec<PipelineStats> codec = JsonCodec.jsonCodec(PipelineStats.class);
+        JsonCodec<PipelineStats> codec = jsonCodec(PipelineStats.class);
 
         String json = codec.toJson(EXPECTED);
         PipelineStats actual = codec.fromJson(json);
@@ -121,8 +123,8 @@ public class TestPipelineStats
 
         assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(7));
 
-        assertThat(actual.getQueuedTime().getCount()).isEqualTo(8.0);
-        assertThat(actual.getElapsedTime().getCount()).isEqualTo(9.0);
+        assertThat(actual.getQueuedTime().count()).isEqualTo(8.0);
+        assertThat(actual.getElapsedTime().count()).isEqualTo(9.0);
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(10, NANOSECONDS));
         assertThat(actual.getTotalCpuTime()).isEqualTo(new Duration(11, NANOSECONDS));
@@ -147,11 +149,9 @@ public class TestPipelineStats
 
         assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(20));
 
-        assertThat(actual.getOperatorSummaries()).hasSize(1);
-        assertExpectedOperatorStats(actual.getOperatorSummaries().get(0));
+        assertExpectedOperatorStats(getOnlyElement(actual.getOperatorSummaries()));
 
-        assertThat(actual.getDrivers()).hasSize(1);
-        assertExpectedDriverStats(actual.getDrivers().get(0));
+        assertExpectedDriverStats(getOnlyElement(actual.getDrivers()));
     }
 
     private static DistributionSnapshot getTestDistribution(int count)

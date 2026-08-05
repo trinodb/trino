@@ -14,6 +14,4 @@
 package io.trino.plugin.kafka.encoder.json.format;
 
 public class UnimplementedJsonDateTimeFormatter
-        implements JsonDateTimeFormatter
-{
-}
+        implements JsonDateTimeFormatter {}

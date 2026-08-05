@@ -16,7 +16,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_store_sk])
                                                     partial aggregation over (sr_customer_sk, sr_store_sk)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (sr_returned_date_sk::EQUAL, sr_store_sk::EQUAL)
+                                                            dynamic filter (sr_store_sk::EQUAL, sr_returned_date_sk::EQUAL)
                                                                 scan store_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

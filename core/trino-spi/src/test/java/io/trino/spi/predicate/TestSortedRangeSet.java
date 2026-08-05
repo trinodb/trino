@@ -13,10 +13,9 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
@@ -30,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestSortedRangeSet
+class TestSortedRangeSet
 {
     @Test
     public void testEmptySet()
@@ -292,7 +292,8 @@ public class TestSortedRangeSet
 
         // ranges
         testRangeSet = SortedRangeSet.of(
-                Range.range(BIGINT, 499L, false, 505L, false), LongStream.range(100, 201).filter(i -> i % 10 == 0)
+                Range.range(BIGINT, 499L, false, 505L, false),
+                LongStream.range(100, 201).filter(i -> i % 10 == 0)
                         .mapToObj(i -> Range.range(BIGINT, i * 5, false, (i + 1) * 5, false)).toList().toArray(Range[]::new));
         // beginning of set
         assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 500L));
@@ -809,14 +810,13 @@ public class TestSortedRangeSet
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+        JsonMapper mapper = new JsonMapperProvider()
+                .withJsonDeserializers(Map.of(
+                        Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
+                        Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())))
+                .withJsonSerializers(Map.of(
+                        Block.class, new TestingBlockJsonSerde.Serializer(new TestingBlockEncodingSerde())))
+                .get();
 
         SortedRangeSet set = SortedRangeSet.all(BIGINT);
         assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));

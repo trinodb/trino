@@ -30,7 +30,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -250,7 +249,7 @@ public class TestJdbcPreparedStatement
                 ParameterMetaData parameterMetaData = statement.getParameterMetaData();
                 assertThat(parameterMetaData.getParameterCount()).isEqualTo(15);
 
-                assertThat(parameterMetaData.getParameterClassName(1)).isEqualTo("unknown");
+                assertThat(parameterMetaData.getParameterClassName(1)).isEqualTo("java.lang.Object");
                 assertThat(parameterMetaData.getParameterType(1)).isEqualTo(Types.NULL);
                 assertThat(parameterMetaData.getParameterTypeName(1)).isEqualTo("unknown");
                 assertThat(parameterMetaData.isNullable(1)).isEqualTo(parameterNullableUnknown);
@@ -295,21 +294,21 @@ public class TestJdbcPreparedStatement
                 assertThat(parameterMetaData.isSigned(6)).isFalse();
                 assertThat(parameterMetaData.getParameterMode(6)).isEqualTo(parameterModeUnknown);
 
-                assertThat(parameterMetaData.getParameterClassName(7)).isEqualTo(String.class.getName());
+                assertThat(parameterMetaData.getParameterClassName(7)).isEqualTo("io.trino.jdbc.Row");
                 assertThat(parameterMetaData.getParameterType(7)).isEqualTo(Types.JAVA_OBJECT);
                 assertThat(parameterMetaData.getParameterTypeName(7)).isEqualTo("row");
                 assertThat(parameterMetaData.isNullable(7)).isEqualTo(parameterNullableUnknown);
                 assertThat(parameterMetaData.isSigned(7)).isFalse();
                 assertThat(parameterMetaData.getParameterMode(7)).isEqualTo(parameterModeUnknown);
 
-                assertThat(parameterMetaData.getParameterClassName(8)).isEqualTo(Array.class.getName());
+                assertThat(parameterMetaData.getParameterClassName(8)).isEqualTo("java.sql.Array");
                 assertThat(parameterMetaData.getParameterType(8)).isEqualTo(Types.ARRAY);
                 assertThat(parameterMetaData.getParameterTypeName(8)).isEqualTo("array");
                 assertThat(parameterMetaData.isNullable(8)).isEqualTo(parameterNullableUnknown);
                 assertThat(parameterMetaData.isSigned(8)).isFalse();
                 assertThat(parameterMetaData.getParameterMode(8)).isEqualTo(parameterModeUnknown);
 
-                assertThat(parameterMetaData.getParameterClassName(9)).isEqualTo(String.class.getName());
+                assertThat(parameterMetaData.getParameterClassName(9)).isEqualTo("java.util.Map");
                 assertThat(parameterMetaData.getParameterType(9)).isEqualTo(Types.JAVA_OBJECT);
                 assertThat(parameterMetaData.getParameterTypeName(9)).isEqualTo("map");
                 assertThat(parameterMetaData.isNullable(9)).isEqualTo(parameterNullableUnknown);
@@ -935,6 +934,11 @@ public class TestJdbcPreparedStatement
     {
         assertBind((ps, i) -> ps.setBigDecimal(i, BigDecimal.valueOf(123)), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
         assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123)), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+        // BigDecimal values such that BigDecimal.toString() produces scientific notation (e.g. "0E-10") which currently isn't valid Trino decimal literal
+        assertThat(new BigDecimal("0E-10").toString()).contains("E-10");
+        assertThat(new BigDecimal("1E+2").toString()).contains("E+2");
+        assertBind((ps, i) -> ps.setBigDecimal(i, new BigDecimal("0E-10")), explicitPrepare).roundTripsAs(Types.DECIMAL, new BigDecimal("0.0000000000"));
+        assertBind((ps, i) -> ps.setBigDecimal(i, new BigDecimal("1E+2")), explicitPrepare).roundTripsAs(Types.DECIMAL, new BigDecimal("100"));
 
         for (int type : asList(Types.DECIMAL, Types.NUMERIC)) {
             assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
@@ -949,6 +953,9 @@ public class TestJdbcPreparedStatement
             assertBind((ps, i) -> ps.setObject(i, "123", type), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
             assertBind((ps, i) -> ps.setObject(i, true, type), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(1));
             assertBind((ps, i) -> ps.setObject(i, false, type), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(0));
+            // BigDecimal values such that BigDecimal.toString() produces scientific notation (e.g. "0E-10") which currently isn't valid Trino decimal literal
+            assertBind((ps, i) -> ps.setObject(i, new BigDecimal("0E-10"), type), explicitPrepare).roundTripsAs(Types.DECIMAL, new BigDecimal("0.0000000000"));
+            assertBind((ps, i) -> ps.setObject(i, new BigDecimal("1E+2"), type), explicitPrepare).roundTripsAs(Types.DECIMAL, new BigDecimal("100"));
         }
     }
 
@@ -1475,7 +1482,8 @@ public class TestJdbcPreparedStatement
     public void testExplicitPrepare()
             throws Exception
     {
-        testExplicitPrepareSetting(true,
+        testExplicitPrepareSetting(
+                true,
                 "EXECUTE %statement% USING %values%");
     }
 
@@ -1483,7 +1491,8 @@ public class TestJdbcPreparedStatement
     public void testExecuteImmediate()
             throws Exception
     {
-        testExplicitPrepareSetting(false,
+        testExplicitPrepareSetting(
+                false,
                 "EXECUTE IMMEDIATE '%query%' USING %values%");
     }
 
@@ -1495,14 +1504,14 @@ public class TestJdbcPreparedStatement
     private Connection createConnection(boolean explicitPrepare)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s?explicitPrepare=" + explicitPrepare, server.getAddress());
+        String url = format("jdbc:trino://%s?explicitPrepare=%s", server.getAddress(), explicitPrepare);
         return DriverManager.getConnection(url, "test", null);
     }
 
     private Connection createConnection(String catalog, String schema, boolean explicitPrepare)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s/%s/%s?explicitPrepare=" + explicitPrepare, server.getAddress(), catalog, schema);
+        String url = format("jdbc:trino://%s/%s/%s?explicitPrepare=%s", server.getAddress(), catalog, schema, explicitPrepare);
         return DriverManager.getConnection(url, "test", null);
     }
 

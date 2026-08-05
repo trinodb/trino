@@ -104,7 +104,7 @@ public class KerberosAuthenticator
                     INDEFINITE_LIFETIME,
                     new Oid[] {
                             new Oid("1.2.840.113554.1.2.2"), // kerberos 5
-                            new Oid("1.3.6.1.5.5.2") // spnego
+                            new Oid("1.3.6.1.5.5.2"), // spnego
                     },
                     ACCEPT_ONLY));
         }

@@ -43,8 +43,7 @@ public class Column
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("properties") Optional<Map<String, String>> properties)
     {
-        this(
-                name,
+        this(name,
                 type,
                 comment,
                 properties.orElse(ImmutableMap.of()));

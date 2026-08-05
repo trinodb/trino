@@ -55,11 +55,21 @@ function test_javahome {
     [[ $? == "0" ]]
 }
 
+function test_less_utf8 {
+    local CONTAINER_NAME=$1
+    local PLATFORM=$2
+    local result
+    result=$(docker run --rm --platform "${PLATFORM}" "${CONTAINER_NAME}" \
+        /bin/bash -c 'printf "│\n" | LESS=-FX less')
+    [[ "${result}" == "│" ]]
+}
+
 function test_container {
     local CONTAINER_NAME=$1
     local PLATFORM=$2
     echo "🐢 Validating ${CONTAINER_NAME} on platform ${PLATFORM}..."
     test_javahome "${CONTAINER_NAME}" "${PLATFORM}"
+    test_less_utf8 "${CONTAINER_NAME}" "${PLATFORM}"
     test_trino_starts "${CONTAINER_NAME}" "${PLATFORM}"
     echo "🎉 Validated ${CONTAINER_NAME} on platform ${PLATFORM}"
 }

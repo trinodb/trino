@@ -80,7 +80,7 @@ public final class AstUtils
         OptionalInt hash = subtreeHasher.apply(node);
 
         if (hash.isPresent()) {
-            return hash.getAsInt();
+            return hash.orElseThrow();
         }
 
         List<? extends Node> children = node.getChildren();

@@ -107,16 +107,16 @@ public class TestShowQueries
                                     .setType(BIGINT)
                                     .build());
                 })
-                .withListSchemaNames(session -> ImmutableList.of("mockschema"))
-                .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                .withListSchemaNames(_ -> ImmutableList.of("mockschema"))
+                .withListTables((_, _) -> ImmutableList.of("mockTable"))
                 .withTableFunctions(ImmutableList.of(new SimpleTableFunction()))
-                .withGetTableHandle((session, schemaTableName) -> {
+                .withGetTableHandle((_, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("mockview")) {
                         return null;
                     }
                     return new MockConnectorTableHandle(schemaTableName);
                 })
-                .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of(
+                .withGetViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("mockschema", "mockview"), new ConnectorViewDefinition(
                                 "SELECT cola_ AS test_column FROM mock_table",
                                 Optional.empty(),
@@ -180,18 +180,18 @@ public class TestShowQueries
         assertThat(assertions.query("SHOW FUNCTIONS FROM mock.system LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
 
         assertThat(assertions.query("SHOW FUNCTIONS FROM testing_catalog.system LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
 
         assertThat(assertions.query("SHOW FUNCTIONS LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')," +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')," +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
     }
 
     @Test
@@ -220,7 +220,7 @@ public class TestShowQueries
     public void testListingEmptyCatalogs()
     {
         assertions.executeExclusively(() -> {
-            assertions.getQueryRunner().getAccessControl().denyCatalogs(catalog -> false);
+            assertions.getQueryRunner().getAccessControl().denyCatalogs(_ -> false);
             assertions.assertQueryReturnsEmptyResult("SHOW CATALOGS");
             assertions.getQueryRunner().getAccessControl().reset();
         });
@@ -277,29 +277,29 @@ public class TestShowQueries
         assertThat(assertions.getQueryRunner().execute("SHOW CREATE TABLE mock.mockschema.default_column_value").getOnlyValue())
                 .isEqualTo(
                         """
-                                CREATE TABLE mock.mockschema.default_column_value (
-                                   col_null boolean DEFAULT null,
-                                   col_boolean boolean DEFAULT true,
-                                   col_tinyint tinyint DEFAULT 1,
-                                   col_smallint smallint DEFAULT 10,
-                                   col_int integer DEFAULT 100,
-                                   col_bigint bigint DEFAULT 1000,
-                                   col_real real DEFAULT REAL '1.1',
-                                   col_double double DEFAULT DOUBLE '2.2',
-                                   col_short_decimal decimal(3, 1) DEFAULT DECIMAL '32.1',
-                                   col_long_decimal decimal(38, 18) DEFAULT DECIMAL '12345678901234567890.123456789012345678',
-                                   col_char char(5) DEFAULT 'char',
-                                   col_varchar varchar(10) DEFAULT 'varchar',
-                                   col_unbounded_varchar varchar DEFAULT 'unbounded varchar',
-                                   col_varbinary varbinary DEFAULT X'123456',
-                                   col_time time(0) DEFAULT TIME '00:00:00',
-                                   col_long_time time(12) DEFAULT TIME '00:00:00.000000000000',
-                                   col_date date DEFAULT DATE '1970-01-01',
-                                   col_short_timestamp timestamp(0) DEFAULT TIMESTAMP '1970-01-01 00:00:00',
-                                   col_long_timestamp timestamp(12) DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000999999',
-                                   col_short_timestamptz timestamp(0) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00 UTC',
-                                   col_long_timestamptz timestamp(12) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000000000 UTC'
-                                )""");
+                        CREATE TABLE mock.mockschema.default_column_value (
+                           col_null boolean DEFAULT null,
+                           col_boolean boolean DEFAULT true,
+                           col_tinyint tinyint DEFAULT 1,
+                           col_smallint smallint DEFAULT 10,
+                           col_int integer DEFAULT 100,
+                           col_bigint bigint DEFAULT 1000,
+                           col_real real DEFAULT REAL '1.1',
+                           col_double double DEFAULT DOUBLE '2.2',
+                           col_short_decimal decimal(3, 1) DEFAULT DECIMAL '32.1',
+                           col_long_decimal decimal(38, 18) DEFAULT DECIMAL '12345678901234567890.123456789012345678',
+                           col_char char(5) DEFAULT 'char',
+                           col_varchar varchar(10) DEFAULT 'varchar',
+                           col_unbounded_varchar varchar DEFAULT 'unbounded varchar',
+                           col_varbinary varbinary DEFAULT X'123456',
+                           col_time time(0) DEFAULT TIME '00:00:00',
+                           col_long_time time(12) DEFAULT TIME '00:00:00.000000000000',
+                           col_date date DEFAULT DATE '1970-01-01',
+                           col_short_timestamp timestamp(0) DEFAULT TIMESTAMP '1970-01-01 00:00:00',
+                           col_long_timestamp timestamp(12) DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000999999',
+                           col_short_timestamptz timestamp(0) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00 UTC',
+                           col_long_timestamptz timestamp(12) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000000000 UTC'
+                        )""");
     }
 
     @Test

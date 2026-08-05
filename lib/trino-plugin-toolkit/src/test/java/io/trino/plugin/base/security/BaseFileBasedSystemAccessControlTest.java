@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
@@ -42,7 +43,6 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -55,8 +55,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.UPDATE;
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -106,6 +106,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
     private static final String SHOWN_TABLES_ACCESS_DENIED_MESSAGE = "Cannot show tables of .*";
     private static final String SELECT_TABLE_ACCESS_DENIED_MESSAGE = "Cannot select from table .*";
+    private static final String SELECT_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot select from columns \\[%s\\] in table or view %s";
     private static final String SHOW_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot show columns of table .*";
     private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot add a column to table .*";
     private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot drop a column from table .*";
@@ -185,16 +186,17 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 "Cannot set authorization for schema some-catalog.unknown to ROLE some_role");
         accessControl.checkCanShowCreateSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"));
 
-        accessControl.checkCanSelectFromColumns(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), Optional.empty(), ImmutableSet.of());
         accessControl.checkCanShowColumns(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
-        accessControl.checkCanInsertIntoTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
-        accessControl.checkCanDeleteFromTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanInsertIntoTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), Optional.empty());
+        accessControl.checkCanDeleteFromTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), Optional.empty());
         accessControl.checkCanTruncateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
 
         accessControl.checkCanCreateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), Map.of());
         accessControl.checkCanDropTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanTruncateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
-        accessControl.checkCanRenameTable(UNKNOWN,
+        accessControl.checkCanRenameTable(
+                UNKNOWN,
                 new CatalogSchemaTableName("some-catalog", "unknown", "unknown"),
                 new CatalogSchemaTableName("some-catalog", "unknown", "new_unknown"));
         assertAccessDenied(
@@ -444,33 +446,37 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
-        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), Optional.empty(), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), Optional.empty(), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(
                 ALICE,
                 new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                Optional.empty(),
                 ImmutableSet.of("bobcolumn", "private", "restricted"));
 
-        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), Optional.empty(), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), Optional.empty(), ImmutableSet.of("bobcolumn"));
         assertAccessDenied(
                 () -> accessControl.checkCanSelectFromColumns(
                         CHARLIE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                        Optional.empty(),
                         ImmutableSet.of("bobcolumn", "private")),
-                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
-        accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of());
+                SELECT_COLUMNS_ACCESS_DENIED_MESSAGE.formatted("private", "some-catalog.bobschema.bobcolumns"));
+        accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), Optional.empty(), ImmutableSet.of());
 
         assertAccessDenied(
                 () -> accessControl.checkCanSelectFromColumns(
                         ADMIN,
                         new CatalogSchemaTableName("secret", "secret", "secret"),
+                        Optional.empty(),
                         ImmutableSet.of()),
                 SELECT_TABLE_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(
                 () -> accessControl.checkCanSelectFromColumns(
                         JOE,
                         new CatalogSchemaTableName("secret", "secret", "secret"),
+                        Optional.empty(),
                         ImmutableSet.of()),
                 SELECT_TABLE_ACCESS_DENIED_MESSAGE);
     }
@@ -618,10 +624,10 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
     private static void assertTableRulesForCheckCanInsertIntoTable(SystemAccessControl accessControl)
     {
-        accessControl.checkCanInsertIntoTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
-        accessControl.checkCanInsertIntoTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
-        assertAccessDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), INSERT_TABLE_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanInsertIntoTable(BOB, new CatalogSchemaTableName("some-catalog", "test", "test")), INSERT_TABLE_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanInsertIntoTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), Optional.empty());
+        accessControl.checkCanInsertIntoTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), Optional.empty());
+        assertAccessDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), Optional.empty()), INSERT_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanInsertIntoTable(BOB, new CatalogSchemaTableName("some-catalog", "test", "test"), Optional.empty()), INSERT_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -698,8 +704,8 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
-        accessControl.checkCanDeleteFromTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
-        assertAccessDenied(() -> accessControl.checkCanDeleteFromTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), DELETE_TABLE_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanDeleteFromTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), Optional.empty());
+        assertAccessDenied(() -> accessControl.checkCanDeleteFromTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), Optional.empty()), DELETE_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -976,7 +982,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     @Test
     public void testQueryDocsExample()
     {
-        Path rulesFile = Paths.get("../../docs/src/main/sphinx/security/query-access.json");
+        Path rulesFile = Path.of("../../docs/src/main/sphinx/security/query-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
         accessControlManager.checkCanExecuteQuery(admin, queryId);
@@ -1007,7 +1013,8 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(dave, alice),
                 "Cannot kill query");
-        assertAccessDenied(() -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
                 "Cannot kill query");
         assertAccessDenied(
                 () -> accessControlManager.checkCanViewQueryOwnedBy(dave, bob),
@@ -1066,7 +1073,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     @Test
     public void testSystemInformationDocsExample()
     {
-        Path rulesFile = Paths.get("../../docs/src/main/sphinx/security/system-information-access.json");
+        Path rulesFile = Path.of("../../docs/src/main/sphinx/security/system-information-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
         accessControlManager.checkCanReadSystemInformation(admin);
@@ -1124,7 +1131,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     @Test
     public void testSessionPropertyDocsExample()
     {
-        Path rulesFile = Paths.get("../../docs/src/main/sphinx/security/session-property-access.json");
+        Path rulesFile = Path.of("../../docs/src/main/sphinx/security/session-property-access.json");
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
         Identity bannedUser = Identity.ofUser("banned_user");
         SystemSecurityContext bannedUserContext = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId, queryStart);
@@ -1427,14 +1434,14 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 .collect(toImmutableList());
 
         assertThat(accessControl.getColumnMasks(
-                 ALICE,
-                 new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                 columns)).isEmpty();
+                ALICE,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                columns)).isEmpty();
 
         Map<ColumnSchema, ViewExpression> charlieColumnMasks = accessControl.getColumnMasks(
-                 CHARLIE,
-                 new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                 columns);
+                CHARLIE,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                columns);
         assertThat(charlieColumnMasks).doesNotContainKey(createColumnSchema("private"));
         assertThat(charlieColumnMasks).doesNotContainKey(createColumnSchema("restricted"));
         assertViewExpressionEquals(
@@ -1446,7 +1453,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         .build());
         assertViewExpressionEquals(
                 charlieColumnMasks.get(createColumnSchema("masked_with_user")),
-                 ViewExpression.builder()
+                ViewExpression.builder()
                         .identity("mask-user")
                         .catalog("some-catalog")
                         .schema("bobschema")
@@ -1835,7 +1842,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     @Test
     public void testAuthorizationDocsExample()
     {
-        Path rulesFile = Paths.get("../../docs/src/main/sphinx/security/authorization.json");
+        Path rulesFile = Path.of("../../docs/src/main/sphinx/security/authorization.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
         List<String> schema = List.of("catalog", "schema");
         List<String> tableOrView = List.of("catalog", "schema", "table_or_view");
@@ -1896,7 +1903,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     protected Path getResourcePath(String resourceName)
             throws URISyntaxException
     {
-        return Paths.get(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
+        return Path.of(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
     }
 
     private static void assertAccessDenied(ThrowingCallable callable, String expectedMessage)

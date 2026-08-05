@@ -15,7 +15,6 @@ package io.trino.plugin.ai.functions;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import com.google.common.net.HttpHeaders;
 import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -28,27 +27,28 @@ import io.trino.spi.TrinoException;
 import java.net.URI;
 import java.util.List;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.http.client.HeaderNames.AUTHORIZATION;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.opentelemetry.api.trace.StatusCode.ERROR;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_OPERATION_NAME;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_PROVIDER_NAME;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_REQUEST_MODEL;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_REQUEST_SEED;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_RESPONSE_ID;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_RESPONSE_MODEL;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_INPUT_TOKENS;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_OUTPUT_TOKENS;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiOperationNameIncubatingValues.CHAT;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiProviderNameIncubatingValues.OPENAI;
-import static io.opentelemetry.semconv.incubating.OpenaiIncubatingAttributes.OPENAI_RESPONSE_SERVICE_TIER;
-import static io.opentelemetry.semconv.incubating.OpenaiIncubatingAttributes.OPENAI_RESPONSE_SYSTEM_FINGERPRINT;
 import static io.trino.plugin.ai.functions.AiErrorCode.AI_ERROR;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_OPERATION_NAME;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_PROVIDER_NAME;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_REQUEST_MODEL;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_REQUEST_SEED;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_RESPONSE_ID;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_RESPONSE_MODEL;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_USAGE_INPUT_TOKENS;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_USAGE_OUTPUT_TOKENS;
+import static io.trino.plugin.ai.functions.GenAiAttributes.OPENAI_RESPONSE_SERVICE_TIER;
+import static io.trino.plugin.ai.functions.GenAiAttributes.OPENAI_RESPONSE_SYSTEM_FINGERPRINT;
+import static io.trino.plugin.ai.functions.GenAiAttributes.OPERATION_NAME_CHAT;
+import static io.trino.plugin.ai.functions.GenAiAttributes.PROVIDER_NAME_OPENAI;
 import static java.util.Objects.requireNonNull;
 
 public class OpenAiClient
@@ -84,14 +84,14 @@ public class OpenAiClient
 
         Request request = preparePost()
                 .setUri(uri)
-                .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .setHeader(AUTHORIZATION, "Bearer " + apiKey)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(CHAT_REQUEST_CODEC, body))
                 .build();
 
-        Span span = tracer.spanBuilder(CHAT + " " + model)
-                .setAttribute(GEN_AI_OPERATION_NAME, CHAT)
-                .setAttribute(GEN_AI_PROVIDER_NAME, OPENAI)
+        Span span = tracer.spanBuilder(OPERATION_NAME_CHAT + " " + model)
+                .setAttribute(GEN_AI_OPERATION_NAME, OPERATION_NAME_CHAT)
+                .setAttribute(GEN_AI_PROVIDER_NAME, PROVIDER_NAME_OPENAI)
                 .setAttribute(GEN_AI_REQUEST_MODEL, model)
                 .setAttribute(GEN_AI_REQUEST_SEED, body.seed())
                 .setSpanKind(SpanKind.CLIENT)

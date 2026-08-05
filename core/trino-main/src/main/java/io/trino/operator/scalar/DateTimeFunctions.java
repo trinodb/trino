@@ -57,14 +57,13 @@ import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -90,14 +89,14 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
     private static final Slice ISO_8601_DATE_FORMAT = utf8Slice("%Y-%m-%d");
-    private static final DateTimeFieldProvider[] DATE_FIELDS = new DateTimeFieldProvider[] {
+    private static final DateTimeFieldProvider[] DATE_FIELDS = {
             new DateTimeFieldProvider("day", ISOChronology::dayOfMonth),
             new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
             new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
             new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
-            new DateTimeFieldProvider("year", ISOChronology::year)
+            new DateTimeFieldProvider("year", ISOChronology::year),
     };
-    private static final DateTimeFieldProvider[] TIMESTAMP_FIELDS = new DateTimeFieldProvider[] {
+    private static final DateTimeFieldProvider[] TIMESTAMP_FIELDS = {
             new DateTimeFieldProvider("millisecond", ISOChronology::millisOfSecond),
             new DateTimeFieldProvider("second", ISOChronology::secondOfMinute),
             new DateTimeFieldProvider("minute", ISOChronology::minuteOfHour),
@@ -106,12 +105,12 @@ public final class DateTimeFunctions
             new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
             new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
             new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
-            new DateTimeFieldProvider("year", ISOChronology::year)
+            new DateTimeFieldProvider("year", ISOChronology::year),
     };
 
     private DateTimeFunctions() {}
 
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @Description("Current timestamp with time zone")
     @SqlType("timestamp(3) with time zone")
     public static long now(ConnectorSession session)
@@ -120,7 +119,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Current date")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DATE)
     public static long currentDate(ConnectorSession session)
     {
@@ -133,7 +132,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Current time zone")
-    @ScalarFunction("current_timezone")
+    @ScalarFunction(value = "current_timezone", neverFails = true)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentTimeZone(ConnectorSession session)
     {
@@ -311,8 +310,13 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long addFieldValueDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
     {
-        long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), toIntExact(value));
-        return MILLISECONDS.toDays(millis);
+        try {
+            long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), value);
+            return MILLISECONDS.toDays(millis);
+        }
+        catch (IllegalArgumentException | ArithmeticException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Description("Difference of the given dates in the given unit")
@@ -424,7 +428,7 @@ public final class DateTimeFunctions
     {
         if (ISO_8601_DATE_FORMAT.equals(formatString)) {
             try {
-                long days = DateTimeUtils.parseDate(dateTime.toStringUtf8());
+                long days = DateTimeUtils.parseDate(dateTime);
                 return scaleEpochMillisToMicros(days * MILLISECONDS_PER_DAY);
             }
             catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
@@ -445,7 +449,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Millisecond of the second of the given interval")
-    @ScalarFunction("millisecond")
+    @ScalarFunction(value = "millisecond", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long millisecondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
@@ -453,7 +457,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Second of the minute of the given interval")
-    @ScalarFunction("second")
+    @ScalarFunction(value = "second", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long secondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
@@ -461,7 +465,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Minute of the hour of the given interval")
-    @ScalarFunction("minute")
+    @ScalarFunction(value = "minute", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long minuteFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
@@ -469,7 +473,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Hour of the day of the given interval")
-    @ScalarFunction("hour")
+    @ScalarFunction(value = "hour", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long hourFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
@@ -477,7 +481,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Day of the week of the given date")
-    @ScalarFunction(value = "day_of_week", alias = "dow")
+    @ScalarFunction(value = "day_of_week", alias = "dow", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
@@ -485,7 +489,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Day of the month of the given date")
-    @ScalarFunction(value = "day", alias = "day_of_month")
+    @ScalarFunction(value = "day", alias = "day_of_month", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long dayFromDate(@SqlType(StandardTypes.DATE) long date)
     {
@@ -493,7 +497,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Day of the month of the given interval")
-    @ScalarFunction(value = "day", alias = "day_of_month")
+    @ScalarFunction(value = "day", alias = "day_of_month", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long dayFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
@@ -510,7 +514,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Day of the year of the given date")
-    @ScalarFunction(value = "day_of_year", alias = "doy")
+    @ScalarFunction(value = "day_of_year", alias = "doy", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfYearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
@@ -518,7 +522,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Week of the year of the given date")
-    @ScalarFunction(value = "week", alias = "week_of_year")
+    @ScalarFunction(value = "week", alias = "week_of_year", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long weekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
@@ -534,7 +538,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Month of the year of the given date")
-    @ScalarFunction("month")
+    @ScalarFunction(value = "month", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long monthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
@@ -542,7 +546,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Month of the year of the given interval")
-    @ScalarFunction("month")
+    @ScalarFunction(value = "month", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long monthFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
     {
@@ -550,7 +554,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Quarter of the year of the given date")
-    @ScalarFunction("quarter")
+    @ScalarFunction(value = "quarter", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long quarterFromDate(@SqlType(StandardTypes.DATE) long date)
     {
@@ -558,7 +562,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Year of the given date")
-    @ScalarFunction("year")
+    @ScalarFunction(value = "year", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
@@ -566,7 +570,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Year of the given interval")
-    @ScalarFunction("year")
+    @ScalarFunction(value = "year", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
     {
@@ -584,53 +588,69 @@ public final class DateTimeFunctions
 
             if (escaped) {
                 switch (character) {
-                    case 'a': // %a Abbreviated weekday name (Sun..Sat)
+                    case 'a' -> {
+                        // %a Abbreviated weekday name (Sun..Sat)
                         builder.appendDayOfWeekShortText();
-                        break;
-                    case 'b': // %b Abbreviated month name (Jan..Dec)
+                    }
+                    case 'b' -> {
+                        // %b Abbreviated month name (Jan..Dec)
                         builder.appendMonthOfYearShortText();
-                        break;
-                    case 'c': // %c Month, numeric (0..12)
+                    }
+                    case 'c' -> {
+                        // %c Month, numeric (0..12)
                         builder.appendMonthOfYear(1);
-                        break;
-                    case 'd': // %d Day of the month, numeric (00..31)
+                    }
+                    case 'd' -> {
+                        // %d Day of the month, numeric (00..31)
                         builder.appendDayOfMonth(2);
-                        break;
-                    case 'e': // %e Day of the month, numeric (0..31)
+                    }
+                    case 'e' -> {
+                        // %e Day of the month, numeric (0..31)
                         builder.appendDayOfMonth(1);
-                        break;
-                    case 'f': // %f Microseconds (000000..999999)
+                    }
+                    case 'f' -> {
+                        // %f Microseconds (000000..999999)
                         builder.appendFractionOfSecond(6, 9);
-                        break;
-                    case 'H': // %H Hour (00..23)
+                    }
+                    case 'H' -> {
+                        // %H Hour (00..23)
                         builder.appendHourOfDay(2);
-                        break;
-                    case 'h': // %h Hour (01..12)
-                    case 'I': // %I Hour (01..12)
+                    }
+                    case 'h', 'I' -> {
+                        // %h Hour (01..12)
+                        // %I Hour (01..12)
                         builder.appendClockhourOfHalfday(2);
-                        break;
-                    case 'i': // %i Minutes, numeric (00..59)
+                    }
+                    case 'i' -> {
+                        // %i Minutes, numeric (00..59)
                         builder.appendMinuteOfHour(2);
-                        break;
-                    case 'j': // %j Day of year (001..366)
+                    }
+                    case 'j' -> {
+                        // %j Day of year (001..366)
                         builder.appendDayOfYear(3);
-                        break;
-                    case 'k': // %k Hour (0..23)
+                    }
+                    case 'k' -> {
+                        // %k Hour (0..23)
                         builder.appendHourOfDay(1);
-                        break;
-                    case 'l': // %l Hour (1..12)
+                    }
+                    case 'l' -> {
+                        // %l Hour (1..12)
                         builder.appendClockhourOfHalfday(1);
-                        break;
-                    case 'M': // %M Month name (January..December)
+                    }
+                    case 'M' -> {
+                        // %M Month name (January..December)
                         builder.appendMonthOfYearText();
-                        break;
-                    case 'm': // %m Month, numeric (00..12)
+                    }
+                    case 'm' -> {
+                        // %m Month, numeric (00..12)
                         builder.appendMonthOfYear(2);
-                        break;
-                    case 'p': // %p AM or PM
+                    }
+                    case 'p' -> {
+                        // %p AM or PM
                         builder.appendHalfdayOfDayText();
-                        break;
-                    case 'r': // %r Time, 12-hour (hh:mm:ss followed by AM or PM)
+                    }
+                    case 'r' -> {
+                        // %r Time, 12-hour (hh:mm:ss followed by AM or PM)
                         builder.appendClockhourOfHalfday(2)
                                 .appendLiteral(':')
                                 .appendMinuteOfHour(2)
@@ -638,46 +658,57 @@ public final class DateTimeFunctions
                                 .appendSecondOfMinute(2)
                                 .appendLiteral(' ')
                                 .appendHalfdayOfDayText();
-                        break;
-                    case 'S': // %S Seconds (00..59)
-                    case 's': // %s Seconds (00..59)
+                    }
+                    case 'S', 's' -> {
+                        // %S Seconds (00..59)
+                        // %s Seconds (00..59)
                         builder.appendSecondOfMinute(2);
-                        break;
-                    case 'T': // %T Time, 24-hour (hh:mm:ss)
+                    }
+                    case 'T' -> {
+                        // %T Time, 24-hour (hh:mm:ss)
                         builder.appendHourOfDay(2)
                                 .appendLiteral(':')
                                 .appendMinuteOfHour(2)
                                 .appendLiteral(':')
                                 .appendSecondOfMinute(2);
-                        break;
-                    case 'v': // %v Week (01..53), where Monday is the first day of the week; used with %x
+                    }
+                    case 'v' -> {
+                        // %v Week (01..53), where Monday is the first day of the week; used with %x
                         builder.appendWeekOfWeekyear(2);
-                        break;
-                    case 'x': // %x Year for the week, where Monday is the first day of the week, numeric, four digits; used with %v
+                    }
+                    case 'x' -> {
+                        // %x Year for the week, where Monday is the first day of the week, numeric, four digits; used with %v
                         builder.appendWeekyear(4, 4);
-                        break;
-                    case 'W': // %W Weekday name (Sunday..Saturday)
+                    }
+                    case 'W' -> {
+                        // %W Weekday name (Sunday..Saturday)
                         builder.appendDayOfWeekText();
-                        break;
-                    case 'Y': // %Y Year, numeric, four digits
+                    }
+                    case 'Y' -> {
+                        // %Y Year, numeric, four digits
                         builder.appendYear(4, 4);
-                        break;
-                    case 'y': // %y Year, numeric (two digits)
+                    }
+                    case 'y' -> {
+                        // %y Year, numeric (two digits)
                         builder.appendTwoDigitYear(PIVOT_YEAR);
-                        break;
-                    case 'w': // %w Day of the week (0=Sunday..6=Saturday)
-                    case 'U': // %U Week (00..53), where Sunday is the first day of the week
-                    case 'u': // %u Week (00..53), where Monday is the first day of the week
-                    case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
-                    case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
-                    case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
+                    }
+                    case 'w', 'U', 'u', 'V', 'X', 'D' -> {
+                        // %w Day of the week (0=Sunday..6=Saturday)
+                        // %U Week (00..53), where Sunday is the first day of the week
+                        // %u Week (00..53), where Monday is the first day of the week
+                        // %V Week (01..53), where Sunday is the first day of the week; used with %X
+                        // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
+                        // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, ...)
                         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%%%s not supported in date format string", character));
-                    case '%': // %% A literal “%” character
+                    }
+                    case '%' -> {
+                        // %% A literal "%" character
                         builder.appendLiteral('%');
-                        break;
-                    default: // %<x> The literal character represented by <x>
+                    }
+                    default -> {
+                        // %<x> The literal character represented by <x>
                         builder.appendLiteral(character);
-                        break;
+                    }
                 }
                 escaped = false;
             }

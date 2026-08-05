@@ -13,7 +13,7 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
-import com.google.common.collect.Ordering;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.TDigest;
@@ -28,9 +28,9 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.assertj.core.util.VisibleForTesting;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +40,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.collect.Comparators.max;
+import static com.google.common.collect.Comparators.min;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
@@ -70,14 +72,12 @@ public class ExponentialGrowthPartitionMemoryEstimator
                 ClusterMemoryManager clusterMemoryManager,
                 MemoryManagerConfig memoryManagerConfig)
         {
-            this(
-                    clusterMemoryManager::getWorkersMemoryInfo,
+            this(clusterMemoryManager::getWorkersMemoryInfo,
                     memoryManagerConfig.isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled());
         }
 
         @VisibleForTesting
-        Factory(
-                Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
+        Factory(Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
                 boolean memoryRequirementIncreaseOnWorkerCrashEnabled)
         {
             this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
@@ -110,7 +110,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         {
             Map<String, Optional<MemoryInfo>> workerMemoryInfos = workerMemoryInfoSupplier.get();
             long maxNodePoolSizeBytes = -1;
-            for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
+            for (Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
                 if (entry.getValue().isEmpty()) {
                     continue;
                 }
@@ -164,7 +164,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
     @Override
     public MemoryRequirements getInitialMemoryRequirements()
     {
-        DataSize memory = Ordering.natural().max(defaultInitialMemoryLimit, getEstimatedMemoryUsage());
+        DataSize memory = max(defaultInitialMemoryLimit, getEstimatedMemoryUsage());
         memory = capMemoryToMaxNodeSize(memory);
         return new MemoryRequirements(memory);
     }
@@ -175,7 +175,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
 
         // start with the maximum of previously used memory and actual usage
-        DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
+        DataSize newMemory = max(peakMemoryUsage, previousMemory);
         if (shouldIncreaseMemoryRequirement(errorCode)) {
             if (remainingAttempts == 1) {
                 // on last attempt try as much memory as possible
@@ -188,7 +188,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         }
 
         // if we are still below current estimate for new partition let's bump further
-        newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage());
+        newMemory = max(newMemory, getEstimatedMemoryUsage());
 
         newMemory = capMemoryToMaxNodeSize(newMemory);
         return new MemoryRequirements(newMemory);
@@ -200,7 +200,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         if (currentMaxNodePoolSize.isEmpty()) {
             return memory;
         }
-        return Ordering.natural().min(memory, currentMaxNodePoolSize.get());
+        return min(memory, currentMaxNodePoolSize.get());
     }
 
     @Override
@@ -228,7 +228,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
 
     private String memoryUsageDistributionInfo()
     {
-        double[] quantiles = new double[] {0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99};
+        double[] quantiles = {0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99};
         double[] values;
         synchronized (this) {
             values = memoryUsageDistribution.valuesAt(quantiles);

@@ -14,77 +14,46 @@
 package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
 
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
-public final class CatalogSchemaFunctionName
+public record CatalogSchemaFunctionName(String catalogName, SchemaFunctionName schemaFunctionName)
 {
-    private final String catalogName;
-    private final SchemaFunctionName schemaFunctionName;
-
-    public CatalogSchemaFunctionName(String catalogName, SchemaFunctionName schemaFunctionName)
+    public CatalogSchemaFunctionName
     {
-        this.catalogName = catalogName.toLowerCase(ROOT);
+        catalogName = catalogName.toLowerCase(ROOT);
         if (catalogName.isEmpty()) {
             throw new IllegalArgumentException("catalogName is empty");
         }
-        this.schemaFunctionName = requireNonNull(schemaFunctionName, "schemaFunctionName is null");
+        requireNonNull(schemaFunctionName, "schemaFunctionName is null");
     }
 
     @JsonCreator
-    public CatalogSchemaFunctionName(
-            @JsonProperty String catalogName,
-            @JsonProperty String schemaName,
-            @JsonProperty String functionName)
+    public CatalogSchemaFunctionName(@JsonProperty String catalogName, @JsonProperty String schemaName, @JsonProperty String functionName)
     {
         this(catalogName, new SchemaFunctionName(schemaName, functionName));
     }
 
-    @JsonProperty
-    public String getCatalogName()
-    {
-        return catalogName;
-    }
-
-    public SchemaFunctionName getSchemaFunctionName()
+    @Override
+    @JsonIgnore
+    public SchemaFunctionName schemaFunctionName()
     {
         return schemaFunctionName;
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public String schemaName()
     {
-        return schemaFunctionName.getSchemaName();
+        return schemaFunctionName.schemaName();
     }
 
     @JsonProperty
-    public String getFunctionName()
+    public String functionName()
     {
-        return schemaFunctionName.getFunctionName();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        CatalogSchemaFunctionName that = (CatalogSchemaFunctionName) o;
-        return Objects.equals(catalogName, that.catalogName) &&
-                Objects.equals(schemaFunctionName, that.schemaFunctionName);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(catalogName, schemaFunctionName);
+        return schemaFunctionName.functionName();
     }
 
     @Override

@@ -70,14 +70,15 @@ public class TestGroupIdOperator
     @Test
     public void testGroupId()
     {
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(ImmutableList.of(), BIGINT, VARCHAR, BOOLEAN, BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT, VARCHAR, BOOLEAN, BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 100, 400, 0, 1000)
                 .addSequencePage(3, 200, 500, 0, 1100)
                 .build();
 
         GroupIdOperatorFactory operatorFactory =
-                new GroupIdOperatorFactory(0,
+                new GroupIdOperatorFactory(
+                        0,
                         new PlanNodeId("test"),
                         ImmutableList.of(VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT),
                         ImmutableList.of(ImmutableMap.of(0, 1, 1, 2, 3, 0), ImmutableMap.of(2, 3, 3, 0)));

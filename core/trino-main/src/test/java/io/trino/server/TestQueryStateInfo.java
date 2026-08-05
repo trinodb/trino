@@ -18,12 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.resourcegroups.InternalResourceGroup;
 import io.trino.operator.RetryPolicy;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.QueryType;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -51,7 +51,7 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);
@@ -71,7 +71,7 @@ public class TestQueryStateInfo
         QueryStateInfo query = createQueuedQueryStateInfo(
                 new BasicQueryInfo(createQueryInfo("query_root_a_x", QUEUED, "SELECT 1")),
                 Optional.of(rootAX.getId()),
-                Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())));
+                Optional.of(ImmutableList.of(rootAX.getFullInfo(), rootA.getFullInfo(), root.getFullInfo())));
 
         assertThat(query.getQuery()).isEqualTo("SELECT 1");
         assertThat(query.getQueryId().toString()).isEqualTo("query_root_a_x");
@@ -83,14 +83,14 @@ public class TestQueryStateInfo
         assertThat(chainInfo).hasSize(3);
 
         ResourceGroupInfo rootAInfo = chainInfo.get(1);
-        ResourceGroupInfo expectedRootAInfo = rootA.getInfo();
+        ResourceGroupInfo expectedRootAInfo = rootA.getFullInfo();
         assertThat(rootAInfo.id()).isEqualTo(expectedRootAInfo.id());
         assertThat(rootAInfo.state()).isEqualTo(expectedRootAInfo.state());
         assertThat(rootAInfo.numRunningQueries()).isEqualTo(expectedRootAInfo.numRunningQueries());
         assertThat(rootAInfo.numQueuedQueries()).isEqualTo(expectedRootAInfo.numQueuedQueries());
 
         ResourceGroupInfo actualRootInfo = chainInfo.get(2);
-        ResourceGroupInfo expectedRootInfo = root.getInfo();
+        ResourceGroupInfo expectedRootInfo = root.getFullInfo();
         assertThat(actualRootInfo.id()).isEqualTo(expectedRootInfo.id());
         assertThat(actualRootInfo.state()).isEqualTo(expectedRootInfo.state());
         assertThat(actualRootInfo.numRunningQueries()).isEqualTo(expectedRootInfo.numRunningQueries());
@@ -179,6 +179,8 @@ public class TestQueryStateInfo
                         DataSize.valueOf("41GB"),
                         ImmutableList.of(),
                         DynamicFiltersStats.EMPTY,
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
                         ImmutableList.of(),
                         ImmutableList.of()),
                 Optional.empty(),
@@ -200,6 +202,7 @@ public class TestQueryStateInfo
                 null,
                 ImmutableList.of(),
                 ImmutableSet.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),

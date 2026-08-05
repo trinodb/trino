@@ -24,8 +24,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testcontainers.containers.OracleContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.oracle.OracleContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -116,7 +116,9 @@ public class TestJdbcVendorCompatibility
                 Statement statement = connection.createStatement();
                 ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
             checkRepresentation(
-                    connection, statement, "X'12345678'",
+                    connection,
+                    statement,
+                    "X'12345678'",
                     ImmutableList.of(
                             "bytea E'\\\\x12345678'", // PostgreSQL
                             "hextoraw('12345678')"), // Oracle
@@ -210,7 +212,9 @@ public class TestJdbcVendorCompatibility
                 Statement statement = connection.createStatement();
                 ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
             checkRepresentation(
-                    connection, statement, "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Trino
+                    connection,
+                    statement,
+                    "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Trino
                     ImmutableList.of(
                             "TIMESTAMP WITH TIME ZONE '1970-01-01 00:00:00.000 +00:00'", // PostgreSQL
                             "from_tz(TIMESTAMP '1970-01-01 00:00:00.000', '+00:00')"), // Oracle
@@ -230,7 +234,9 @@ public class TestJdbcVendorCompatibility
                     });
 
             checkRepresentation(
-                    connection, statement, "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Trino
+                    connection,
+                    statement,
+                    "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Trino
                     ImmutableList.of(
                             "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 +03:15'", // PostgreSQL
                             "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', '+03:15')"), // Oracle
@@ -252,7 +258,9 @@ public class TestJdbcVendorCompatibility
                     });
 
             checkRepresentation(
-                    connection, statement, "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Trino
+                    connection,
+                    statement,
+                    "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Trino
                     ImmutableList.of(
                             "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 Europe/Warsaw'", // PostgreSQL
                             "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', 'Europe/Warsaw')"), // Oracle
@@ -539,7 +547,7 @@ public class TestJdbcVendorCompatibility
 
         OracleReferenceDriver()
         {
-            oracleServer = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+            oracleServer = new OracleContainer("gvenzl/oracle-free:23.9-slim")
                     .usingSid();
             oracleServer.start();
         }
@@ -618,7 +626,7 @@ public class TestJdbcVendorCompatibility
     private static class PostgresqlReferenceDriver
             implements ReferenceDriver
     {
-        private final PostgreSQLContainer<?> postgresqlContainer;
+        private final PostgreSQLContainer postgresqlContainer;
         private Connection connection;
         private Statement statement;
         private Optional<Optional<String>> timezoneSet = Optional.empty();
@@ -626,7 +634,7 @@ public class TestJdbcVendorCompatibility
         PostgresqlReferenceDriver()
         {
             // Use the current latest PostgreSQL version as the reference
-            postgresqlContainer = new PostgreSQLContainer<>("postgres:15");
+            postgresqlContainer = new PostgreSQLContainer("postgres:15");
             postgresqlContainer.start();
         }
 

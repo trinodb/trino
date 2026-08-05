@@ -38,7 +38,8 @@ public class TestSparkMetastoreUtil
     @Test
     public void testSparkLongStatsToColumnStatistics()
     {
-        Map<String, String> columnStatistics = Map.of("spark.sql.statistics.colStats.c_long.min", "1",
+        Map<String, String> columnStatistics = Map.of(
+                "spark.sql.statistics.colStats.c_long.min", "1",
                 "spark.sql.statistics.colStats.c_long.distinctCount", "4",
                 "spark.sql.statistics.colStats.c_long.maxLen", "4",
                 "spark.sql.statistics.colStats.c_long.avgLen", "4",
@@ -61,7 +62,8 @@ public class TestSparkMetastoreUtil
     @Test
     public void testSparkDoubleStatsToColumnStatistics()
     {
-        Map<String, String> columnStatistics = Map.of("spark.sql.statistics.colStats.c_double.min", "0.3",
+        Map<String, String> columnStatistics = Map.of(
+                "spark.sql.statistics.colStats.c_double.min", "0.3",
                 "spark.sql.statistics.colStats.c_double.distinctCount", "10",
                 "spark.sql.statistics.colStats.c_double.maxLen", "4",
                 "spark.sql.statistics.colStats.c_double.avgLen", "4",
@@ -84,7 +86,8 @@ public class TestSparkMetastoreUtil
     @Test
     public void testSparkDecimalStatsToColumnStatistics()
     {
-        Map<String, String> columnStatistics = Map.of("spark.sql.statistics.colStats.c_decimal.min", "0.3",
+        Map<String, String> columnStatistics = Map.of(
+                "spark.sql.statistics.colStats.c_decimal.min", "0.3",
                 "spark.sql.statistics.colStats.c_decimal.distinctCount", "10",
                 "spark.sql.statistics.colStats.c_decimal.maxLen", "4",
                 "spark.sql.statistics.colStats.c_decimal.avgLen", "4",
@@ -108,7 +111,8 @@ public class TestSparkMetastoreUtil
     @Test
     public void testSparkBooleanStatsToColumnStatistics()
     {
-        Map<String, String> columnStatistics = Map.of("spark.sql.statistics.colStats.c_bool.min", "false",
+        Map<String, String> columnStatistics = Map.of(
+                "spark.sql.statistics.colStats.c_bool.min", "false",
                 "spark.sql.statistics.colStats.c_bool.distinctCount", "2",
                 "spark.sql.statistics.colStats.c_bool.maxLen", "1",
                 "spark.sql.statistics.colStats.c_bool.avgLen", "1",
@@ -130,7 +134,8 @@ public class TestSparkMetastoreUtil
     @Test
     public void testSparkDateStatsToColumnStatistics()
     {
-        Map<String, String> columnStatistics = Map.of("spark.sql.statistics.colStats.c_date.min", "2000-01-01",
+        Map<String, String> columnStatistics = Map.of(
+                "spark.sql.statistics.colStats.c_date.min", "2000-01-01",
                 "spark.sql.statistics.colStats.c_date.distinctCount", "10",
                 "spark.sql.statistics.colStats.c_date.maxLen", "4",
                 "spark.sql.statistics.colStats.c_date.avgLen", "4",

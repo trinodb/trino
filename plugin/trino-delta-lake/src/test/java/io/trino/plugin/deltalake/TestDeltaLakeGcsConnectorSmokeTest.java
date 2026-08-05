@@ -136,7 +136,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     protected Map<String, String> hiveStorageConfiguration()
     {
         return ImmutableMap.<String, String>builder()
-                .put("fs.native-gcs.enabled", "true")
+                .put("fs.gcs.enabled", "true")
                 .put("gcs.json-key", gcpCredentials)
                 .buildOrThrow();
     }

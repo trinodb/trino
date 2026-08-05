@@ -119,7 +119,7 @@ final class ObjectCasts
         throw invalidConversion(x, targetSqlType);
     }
 
-    public static long castToLong(Object x, int targetSqlType)
+    public static long castToBigint(Object x, int targetSqlType)
             throws SQLException
     {
         if (x instanceof Boolean) {

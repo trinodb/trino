@@ -48,6 +48,11 @@ distributed between fragments:
 
 ### EXPLAIN (TYPE LOGICAL)
 
+:::{warning}
+EXPLAIN (TYPE LOGICAL) is deprecated and will be removed in a future release.
+Use EXPLAIN (TYPE DISTRIBUTED) instead.
+:::
+
 Process the supplied query statement and create a logical plan in text format:
 
 ```
@@ -93,6 +98,12 @@ EXPLAIN (TYPE LOGICAL) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 :::{warning}
 The output format is not guaranteed to be backward compatible across Trino versions.
 :::
+
+:::{warning}
+EXPLAIN (TYPE LOGICAL) is deprecated and will be removed in a future release.
+Use EXPLAIN (TYPE DISTRIBUTED) instead.
+:::
+
 
 Process the supplied query statement and create a logical plan in JSON format:
 

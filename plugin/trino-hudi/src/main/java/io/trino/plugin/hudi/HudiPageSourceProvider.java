@@ -34,6 +34,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.TransformConnectorPageSource;
+import io.trino.plugin.hive.parquet.ParquetPageSourceFactory.ParquetReaderProvider;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -42,12 +43,13 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.Type;
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
@@ -82,7 +84,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_TYPE_SIGNATURE;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_TYPE;
-import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.ParquetReaderProvider;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createParquetPageSource;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetMessageType;
@@ -97,7 +98,6 @@ import static io.trino.plugin.hudi.HudiSessionProperties.getParquetSmallFileThre
 import static io.trino.plugin.hudi.HudiSessionProperties.isParquetVectorizedDecodingEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldUseParquetColumnNames;
 import static io.trino.plugin.hudi.HudiUtil.getHudiFileFormat;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
@@ -112,6 +112,7 @@ import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.StandardTypes.VARBINARY;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
@@ -145,11 +146,13 @@ public class HudiPageSourceProvider
     }
 
     @Override
+    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to non-deprecated createPageSource overload
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit connectorSplit,
             ConnectorTableHandle connectorTable,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
@@ -192,17 +195,17 @@ public class HudiPageSourceProvider
                 transforms.constantValue(partitionBlocks.get(column.getName()));
             }
             else if (column.getName().equals(PARTITION_COLUMN_NAME)) {
-                transforms.constantValue(nativeValueToBlock(PARTITION_TYPE_SIGNATURE, utf8Slice(toPartitionName(split.partitionKeys()))));
+                transforms.constantValue(writeNativeValue(PARTITION_TYPE_SIGNATURE, utf8Slice(toPartitionName(split.partitionKeys()))));
             }
             else if (column.getName().equals(PATH_COLUMN_NAME)) {
-                transforms.constantValue(nativeValueToBlock(PATH_TYPE, utf8Slice(path)));
+                transforms.constantValue(writeNativeValue(PATH_TYPE, utf8Slice(path)));
             }
             else if (column.getName().equals(FILE_SIZE_COLUMN_NAME)) {
-                transforms.constantValue(nativeValueToBlock(FILE_SIZE_TYPE_SIGNATURE, split.fileSize()));
+                transforms.constantValue(writeNativeValue(FILE_SIZE_TYPE_SIGNATURE, split.fileSize()));
             }
             else if (column.getName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
                 long packedTimestamp = packDateTimeWithZone(split.fileModifiedTime(), UTC_KEY);
-                transforms.constantValue(nativeValueToBlock(FILE_MODIFIED_TIME_TYPE_SIGNATURE, packedTimestamp));
+                transforms.constantValue(writeNativeValue(FILE_MODIFIED_TIME_TYPE_SIGNATURE, packedTimestamp));
             }
             else {
                 transforms.column(delegateIndex);
@@ -230,7 +233,7 @@ public class HudiPageSourceProvider
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, OptionalLong.of(hudiSplit.fileSize()), options, memoryContext, dataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
@@ -271,7 +274,8 @@ public class HudiPageSourceProvider
                     options,
                     exception -> handleException(dataSourceId, exception),
                     Optional.of(parquetPredicate),
-                    Optional.empty());
+                    Optional.empty(),
+                    parquetMetadata.getDecryptionContext());
             return createParquetPageSource(columns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
         }
         catch (IOException | RuntimeException e) {
@@ -312,18 +316,18 @@ public class HudiPageSourceProvider
                 .filter(HiveColumnHandle::isPartitionKey)
                 .collect(toMap(
                         HiveColumnHandle::getName,
-                        columnHandle -> nativeValueToBlock(
+                        columnHandle -> writeNativeValue(
                                 columnHandle.getType(),
                                 partitionToNativeValue(
                                         columnHandle.getName(),
                                         partitionKeys,
-                                        columnHandle.getType().getTypeSignature()).orElse(null))));
+                                        columnHandle.getType()).orElse(null))));
     }
 
     private static Optional<Object> partitionToNativeValue(
             String partitionColumnName,
             List<HivePartitionKey> partitionKeys,
-            TypeSignature partitionDataType)
+            Type partitionDataType)
     {
         HivePartitionKey partitionKey = partitionKeys.stream().filter(key -> key.name().equalsIgnoreCase(partitionColumnName)).findFirst().orElse(null);
         if (isNull(partitionKey)) {
@@ -331,7 +335,7 @@ public class HudiPageSourceProvider
         }
 
         String partitionValue = partitionKey.value();
-        String baseType = partitionDataType.getBase();
+        String baseType = partitionDataType.getBaseName();
         try {
             return switch (baseType) {
                 case TINYINT, SMALLINT, INTEGER, BIGINT -> Optional.of(parseLong(partitionValue));

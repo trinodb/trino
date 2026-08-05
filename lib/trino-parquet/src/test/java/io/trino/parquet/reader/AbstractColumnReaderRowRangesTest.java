@@ -20,6 +20,7 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.spi.block.Block;
@@ -38,8 +39,9 @@ import org.apache.parquet.column.values.fallback.FallbackValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -61,7 +63,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.ParquetTestUtils.toTrinoDictionaryPage;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
-import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import static io.trino.parquet.reader.TestingRowRanges.toRowRange;
 import static io.trino.parquet.reader.TestingRowRanges.toRowRanges;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -74,11 +75,13 @@ import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractColumnReaderRowRangesTest
 {
     private static final Random RANDOM = new Random(104729L);
 
-    @Test(dataProvider = "testRowRangesProvider")
+    @ParameterizedTest
+    @MethodSource("testRowRangesProvider")
     public void testReadFilteredPage(
             ColumnReaderInput columnReaderInput,
             BatchSkipper skipper,
@@ -162,7 +165,6 @@ public abstract class AbstractColumnReaderRowRangesTest
         return valueDecoders::getIntDecoder;
     }
 
-    @DataProvider
     public Object[][] testRowRangesProvider()
     {
         Object[][] columnReaders = Stream.of(getColumnReaderProviders())
@@ -285,8 +287,8 @@ public abstract class AbstractColumnReaderRowRangesTest
     private static ColumnReaderInput[] getColumnReaderInputs(ColumnReaderProvider columnReaderProvider)
     {
         Object[][] definitionLevelsProviders = Arrays.stream(DefinitionLevelsProvider.ofDefinitionLevel(
-                columnReaderProvider.getField().getDefinitionLevel(),
-                columnReaderProvider.getField().isRequired()))
+                        columnReaderProvider.getField().getDefinitionLevel(),
+                        columnReaderProvider.getField().isRequired()))
                 .collect(toDataProvider());
         PrimitiveField field = columnReaderProvider.getField();
 
@@ -495,12 +497,12 @@ public abstract class AbstractColumnReaderRowRangesTest
     {
         NONE,
         ALL,
-        MIXED
+        MIXED,
     }
 
     /**
      * @return mapping from row index to nullability of the values for that row. e.g
-     * 5 -&gt; (false, true, false) means that the row 5 consist of (null, some value, null)
+     *         5 -&gt; (false, true, false) means that the row 5 consist of (null, some value, null)
      */
     private static Int2ObjectMap<BooleanList> getRequiredPositions(List<TestingPage> testingPages, int maxDef, boolean required)
     {
@@ -564,7 +566,10 @@ public abstract class AbstractColumnReaderRowRangesTest
                 UNCOMPRESSED,
                 inputPages.iterator(),
                 dictionaryEncoding == DictionaryEncoding.ALL || (dictionaryEncoding == DictionaryEncoding.MIXED && testingPages.size() == 1),
-                false);
+                false,
+                Optional.empty(),
+                -1,
+                -1);
     }
 
     private static List<Page> createDataPages(List<TestingPage> testingPages, ValuesWriter encoder, int maxDef, boolean required)
@@ -599,7 +604,8 @@ public abstract class AbstractColumnReaderRowRangesTest
                 valueCount * 4,
                 OptionalLong.of(testingPage.pageRowRange().start()),
                 null,
-                false);
+                false,
+                0);
         encoder.reset();
         return dataPage;
     }

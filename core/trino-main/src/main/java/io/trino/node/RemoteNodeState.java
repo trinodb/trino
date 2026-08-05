@@ -24,8 +24,8 @@ import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.trino.client.NodeVersion;
 import io.trino.server.ServerInfo;
+import io.trino.spi.NodeVersion;
 
 import java.net.ConnectException;
 import java.net.URI;
@@ -38,6 +38,7 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -46,7 +47,6 @@ import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.node.NodeState.GONE;
 import static io.trino.node.NodeState.INACTIVE;
 import static io.trino.node.NodeState.INVALID;
-import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -128,8 +128,7 @@ public class RemoteNodeState
         HttpResponseFuture<JsonResponse<ServerInfo>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(SERVER_INFO_CODEC));
         ListenableFuture<Boolean> transformSuccess = Futures.transform(
                 responseFuture,
-                result ->
-                {
+                result -> {
                     try {
                         // If the result is null, mark the node as INACTIVE to prevent work from being scheduled on it
                         NodeState nodeState;
@@ -175,16 +174,18 @@ public class RemoteNodeState
                         logWarning("Error processing node state from %s: %s", infoUri, e.getMessage());
                         throw e;
                     }
-                }, directExecutor());
+                },
+                directExecutor());
         ListenableFuture<Boolean> catching = Futures.catching(
                 transformSuccess,
-                Throwable.class, t ->
-                {
+                Throwable.class,
+                t -> {
                     // Any failure results in the node being marked a GONE or INACTIVE to prevent work from being scheduled on it
                     nodeState.set(t instanceof ConnectException ? GONE : INACTIVE);
                     logWarning("Error fetching node state from %s: %s", infoUri, t.getMessage());
                     return false;
-                }, directExecutor());
+                },
+                directExecutor());
 
         future.compareAndSet(null, catching);
         addSuccessCallback(catching, _ -> {

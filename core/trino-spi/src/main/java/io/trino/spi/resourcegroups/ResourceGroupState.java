@@ -17,5 +17,5 @@ public enum ResourceGroupState
 {
     CAN_RUN,
     CAN_QUEUE,
-    FULL
+    FULL,
 }

@@ -14,10 +14,10 @@
 package io.trino.operator.scalar.timestamp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.execution.buffer.BenchmarkDataGenerator;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimeWithTimeZoneCast;
@@ -34,8 +34,9 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -55,7 +56,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
@@ -74,7 +75,7 @@ public class BenchmarkCastTimestampToVarchar
     @Benchmark
     public List<Optional<Page>> benchmarkCastToVarchar(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.pageProcessor.process(SESSION, data.yieldSignal, data.localMemoryContext, SourcePage.create(data.page)));
+        return ImmutableList.copyOf(data.pageProcessor.process(SESSION, data.localMemoryContext, SourcePage.create(data.page)));
     }
 
     @State(Scope.Thread)
@@ -86,7 +87,6 @@ public class BenchmarkCastTimestampToVarchar
         private int precision;
         private Random random;
 
-        private DriverYieldSignal yieldSignal;
         private LocalMemoryContext localMemoryContext;
         private PageProcessor pageProcessor;
         private Page page;
@@ -95,41 +95,39 @@ public class BenchmarkCastTimestampToVarchar
         public void setup()
         {
             random = new Random(0);
-            yieldSignal = new DriverYieldSignal();
             localMemoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
 
             Type sourceType;
             switch (type) {
-                case "TIME":
+                case "TIME" -> {
                     TimeType timeType = TimeType.createTimeType(precision);
                     sourceType = timeType;
                     page = createTimePage(random, timeType);
-                    break;
-                case "TIME_WITH_TIME_ZONE":
+                }
+                case "TIME_WITH_TIME_ZONE" -> {
                     TimeWithTimeZoneType timeTzType = TimeWithTimeZoneType.createTimeWithTimeZoneType(precision);
                     sourceType = timeTzType;
                     page = createTimeTzPage(random, timeTzType);
-                    break;
-                case "TIMESTAMP":
+                }
+                case "TIMESTAMP" -> {
                     TimestampType timestampType = TimestampType.createTimestampType(precision);
                     sourceType = timestampType;
                     page = createTimestampPage(random, timestampType);
-                    break;
-                case "TIMESTAMP_WITH_TIME_ZONE":
+                }
+                case "TIMESTAMP_WITH_TIME_ZONE" -> {
                     TimestampWithTimeZoneType timestampTzType = TimestampWithTimeZoneType.createTimestampWithTimeZoneType(precision);
                     sourceType = timestampTzType;
                     page = createTimestampTzPage(random, timestampTzType);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported type: " + type);
+                }
+                default -> throw new IllegalArgumentException("Unsupported type: " + type);
             }
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-            List<RowExpression> timestampProjections = ImmutableList.of(new CallExpression(
+            List<Expression> timestampProjections = ImmutableList.of(call(
                     functionResolution.getCoercion(sourceType, VarcharType.createUnboundedVarcharType()),
-                    ImmutableList.of(field(0, sourceType))));
+                    new Reference(sourceType, "$col_0")));
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), timestampProjections)
+                    .compilePageProcessor(Optional.empty(), timestampProjections, ImmutableMap.of(new Symbol(sourceType, "$col_0"), 0))
                     .get();
         }
 

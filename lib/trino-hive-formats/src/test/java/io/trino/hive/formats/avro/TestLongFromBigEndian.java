@@ -145,7 +145,7 @@ public class TestLongFromBigEndian
     @Test
     public void testBigEndianResize()
     {
-        //test identity
+        // test identity
         assertThat(fitBigEndianValueToByteArraySize(2, 8)).isEqualTo(Longs.toByteArray(2));
         assertThat(fitBigEndianValueToByteArraySize(Int128.valueOf(Long.MAX_VALUE), 16)).isEqualTo(Int128.valueOf(Long.MAX_VALUE).toBigEndianBytes());
 
@@ -162,11 +162,11 @@ public class TestLongFromBigEndian
         assertThat(fitBigEndianValueToByteArraySize(new byte[] {2, 4, 5}, 5)).isEqualTo(new byte[] {0, 0, 2, 4, 5});
         assertThat(fitBigEndianValueToByteArraySize(new byte[] {-7, 4, 5}, 6)).isEqualTo(new byte[] {-1, -1, -1, -7, 4, 5});
 
-        //fails size down prereq 1
+        // fails size down prereq 1
         assertThatThrownBy(() -> fitBigEndianValueToByteArraySize(new byte[] {0x7F}, 0)).isInstanceOf(ArithmeticException.class);
         assertThatThrownBy(() -> fitBigEndianValueToByteArraySize(new byte[] {0x00, 0x02, (byte) 200, -34}, -3)).isInstanceOf(ArithmeticException.class);
 
-        //fails size down prereq 2
+        // fails size down prereq 2
         assertThatThrownBy(() -> fitBigEndianValueToByteArraySize(new byte[] {0x01, 0x02, 0x03}, 2)).isInstanceOf(ArithmeticException.class);
         assertThatThrownBy(() -> fitBigEndianValueToByteArraySize(new byte[] {-2, 0x02, 0x03}, 2)).isInstanceOf(ArithmeticException.class);
 

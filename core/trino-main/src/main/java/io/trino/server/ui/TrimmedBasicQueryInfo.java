@@ -55,6 +55,7 @@ public class TrimmedBasicQueryInfo
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
     private final Optional<Set<String>> clientTags;
+    private final Optional<String> traceToken;
 
     public TrimmedBasicQueryInfo(BasicQueryInfo queryInfo)
     {
@@ -82,6 +83,7 @@ public class TrimmedBasicQueryInfo
         this.queryType = requireNonNull(queryInfo.getQueryType(), "queryType is null");
         this.retryPolicy = requireNonNull(queryInfo.getRetryPolicy(), "retryPolicy is null");
         this.clientTags = Optional.ofNullable(queryInfo.getSession().getClientTags());
+        this.traceToken = requireNonNull(queryInfo.getSession().getTraceToken(), "traceToken is null");
     }
 
     @JsonProperty
@@ -190,6 +192,12 @@ public class TrimmedBasicQueryInfo
     public Optional<Set<String>> getClientTags()
     {
         return clientTags;
+    }
+
+    @JsonProperty
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     @Override

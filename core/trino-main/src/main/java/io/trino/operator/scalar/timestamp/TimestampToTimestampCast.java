@@ -22,8 +22,8 @@ import io.trino.spi.type.LongTimestamp;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TimestampType.MAX_PRECISION;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
-import static io.trino.type.DateTimes.round;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.roundToNearest;
 
 @ScalarOperator(CAST)

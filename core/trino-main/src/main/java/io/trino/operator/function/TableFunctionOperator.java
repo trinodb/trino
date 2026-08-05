@@ -592,7 +592,8 @@ public class TableFunctionOperator
                         passThroughSourcesCount,
                         requiredChannels,
                         markerChannels,
-                        passThroughSpecifications);
+                        passThroughSpecifications,
+                        operatorContext.aggregateUserMemoryContext());
 
                 partitionStart = partitionEnd;
                 return WorkProcessor.ProcessState.ofResult(partition);

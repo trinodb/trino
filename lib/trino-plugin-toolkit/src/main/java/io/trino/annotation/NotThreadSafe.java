@@ -26,6 +26,4 @@ import static java.lang.annotation.RetentionPolicy.CLASS;
 @Documented
 @Target(value = TYPE)
 @Retention(value = CLASS)
-public @interface NotThreadSafe
-{
-}
+public @interface NotThreadSafe {}

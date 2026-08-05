@@ -51,7 +51,7 @@ public class TransactionDirectoryListingCacheKey
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-               estimatedSizeOf(path.toString()) +
+                estimatedSizeOf(path.toString()) +
                 schemaTableName.getRetainedSizeInBytes();
     }
 
@@ -66,8 +66,8 @@ public class TransactionDirectoryListingCacheKey
         }
         TransactionDirectoryListingCacheKey that = (TransactionDirectoryListingCacheKey) o;
         return transactionId == that.transactionId &&
-               path.equals(that.path) &&
-               schemaTableName.equals(that.schemaTableName);
+                path.equals(that.path) &&
+                schemaTableName.equals(that.schemaTableName);
     }
 
     @Override

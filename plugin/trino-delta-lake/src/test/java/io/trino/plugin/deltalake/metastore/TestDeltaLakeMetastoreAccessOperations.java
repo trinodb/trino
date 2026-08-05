@@ -24,7 +24,6 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Table;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
-import io.trino.plugin.deltalake.TestingDeltaLakeUtils;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -40,6 +39,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.hive.metastore.MetastoreInvocations.filterInvocations;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
@@ -50,6 +50,7 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -72,9 +73,9 @@ public class TestDeltaLakeMetastoreAccessOperations
                 .addDeltaProperty("delta.metastore.store-table-metadata-interval", "30m") // Use a large interval to avoid interference with the test
                 .build();
 
-        metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+        metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
-        metadataScheduler = TestingDeltaLakeUtils.getConnectorService(queryRunner, DeltaLakeTableMetadataScheduler.class);
+        metadataScheduler = getConnectorService(queryRunner, DeltaLakeTableMetadataScheduler.class);
 
         return queryRunner;
     }
@@ -200,6 +201,133 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_select_mview_where_view AS SELECT age FROM test_select_mview_where_table",
                 "This connector does not support creating materialized views");
+    }
+
+    @Test
+    public void testInformationSchemaColumns()
+    {
+        testInformationSchemaColumns(true);
+        testInformationSchemaColumns(false);
+    }
+
+    public void testInformationSchemaColumns(boolean storeTableMetadata)
+    {
+        String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(sessionWithStoreTableMetadata(storeTableMetadata))
+                .setSchema(schemaName)
+                .build();
+
+        int tables = 5;
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
+            // Produce multiple snapshots and metadata files
+            assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('abc', 11)", 1);
+            assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('xyz', 12)", 1);
+
+            removeMetadataCachingPropertiesFromMetastore(schemaName, "test_select_i_s_columns" + i);
+
+            assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
+            removeMetadataCachingPropertiesFromMetastore(schemaName, "test_other_select_i_s_columns" + i);
+        }
+
+        // Bulk retrieval
+        assertMetastoreInvocations(
+                session,
+                "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLES)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .build(),
+                storeTableMetadata ?
+                        ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, tables * 2)
+                        .addCopies(REPLACE_TABLE, tables * 2)
+                        .build()
+                        :
+                        ImmutableMultiset.<MetastoreMethod>builder()
+                        .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .build());
+
+        // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
+        assertMetastoreInvocations(session, "DESCRIBE test_select_i_s_columns0",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_ALL_DATABASES)
+                        .add(GET_TABLE)
+                        .build());
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "DROP TABLE test_select_i_s_columns" + i);
+            assertUpdate(session, "DROP TABLE test_other_select_i_s_columns" + i);
+        }
+    }
+
+    @Test
+    public void testSystemMetadataTableComments()
+    {
+        testSystemMetadataTableComments(true);
+        testSystemMetadataTableComments(false);
+    }
+
+    public void testSystemMetadataTableComments(boolean storeTableMetadata)
+    {
+        String schemaName = "test_s_m_table_comments" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(sessionWithStoreTableMetadata(storeTableMetadata))
+                .setSchema(schemaName)
+                .build();
+
+        int tables = 5;
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "CREATE TABLE test_select_s_m_t_comments" + i + "(id varchar, age integer)");
+            // Produce multiple snapshots and metadata files
+            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('abc', 11)", 1);
+            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('xyz', 12)", 1);
+
+            removeMetadataCachingPropertiesFromMetastore(schemaName, "test_select_s_m_t_comments" + i);
+            assertUpdate(session, "CREATE TABLE test_other_select_s_m_t_comments" + i + "(id varchar, age integer)"); // won't match the filter
+            removeMetadataCachingPropertiesFromMetastore(schemaName, "test_other_select_s_m_t_comments" + i);
+        }
+
+        // Bulk retrieval
+        assertMetastoreInvocations(
+                session,
+                "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLES)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .build(),
+                storeTableMetadata ?
+                        ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, tables * 2)
+                        .addCopies(REPLACE_TABLE, tables * 2)
+                        .build()
+                        :
+                        ImmutableMultiset.<MetastoreMethod>builder()
+                        .build());
+
+        // Bulk retrieval for two schemas
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLES, 2)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 1)
+                        .build());
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "DROP TABLE test_select_s_m_t_comments" + i);
+            assertUpdate(session, "DROP TABLE test_other_select_s_m_t_comments" + i);
+        }
     }
 
     @Test
@@ -391,7 +519,10 @@ public class TestDeltaLakeMetastoreAccessOperations
                         .add(GET_TABLE)
                         .build());
         removeMetadataCachingPropertiesFromMetastore("test_ctas_without_cache");
-        assertMetastoreInvocations(session, "CREATE OR REPLACE TABLE test_ctas_without_cache AS SELECT 1 AS age", ImmutableMultiset.<MetastoreMethod>builder()
+        assertMetastoreInvocations(
+                session,
+                "CREATE OR REPLACE TABLE test_ctas_without_cache AS SELECT 1 AS age",
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
                         .add(REPLACE_TABLE)
@@ -544,11 +675,14 @@ public class TestDeltaLakeMetastoreAccessOperations
 
             assertMetastoreInvocations(session, "INSERT INTO " + table.getName() + " VALUES 1", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "UPDATE " + table.getName() + " SET col = 2", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
-            assertMetastoreInvocations(session, "MERGE INTO " + table.getName() + " t " +
+            assertMetastoreInvocations(
+                    session,
+                    "MERGE INTO " + table.getName() + " t " +
                             "USING (SELECT * FROM (VALUES 2)) AS s(col) " +
                             "ON (t.col = s.col) " +
                             "WHEN MATCHED THEN UPDATE SET col = 3",
-                    ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
+                    ImmutableMultiset.of(GET_TABLE),
+                    asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "DELETE FROM " + table.getName() + " WHERE col = 3", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata)); // row level delete
             assertMetastoreInvocations(session, "DELETE FROM " + table.getName(), ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata)); // metadata delete
         }
@@ -571,7 +705,12 @@ public class TestDeltaLakeMetastoreAccessOperations
 
     private void removeMetadataCachingPropertiesFromMetastore(String tableName)
     {
-        Table table = metastore.getTable(getSession().getSchema().orElseThrow(), tableName).orElseThrow();
+        removeMetadataCachingPropertiesFromMetastore(getSession().getSchema().orElseThrow(), tableName);
+    }
+
+    private void removeMetadataCachingPropertiesFromMetastore(String schema, String tableName)
+    {
+        Table table = metastore.getTable(schema, tableName).orElseThrow();
         Table newMetastoreTable = Table.builder(table)
                 .setParameters(Maps.filterKeys(table.getParameters(), key -> !key.equals("trino_last_transaction_version")))
                 .build();

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -48,12 +49,15 @@ public class OpenSearchServer
     {
         container = new OpenSearchContainer<>(image);
         container.withNetwork(network);
+        // When the Docker filesystem crosses the flood-stage watermark, the disk threshold monitor applies a
+        // cluster-wide create-index block, and every test that creates an index fails with a 403.
+        container.withEnv("cluster.routing.allocation.disk.threshold_enabled", "false");
         if (secured) {
             container.withSecurityEnabled();
         }
 
         configurationPath = createTempDirectory(null);
-        for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
+        for (Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();
 

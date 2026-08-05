@@ -14,13 +14,11 @@
 package io.trino.parquet.writer.valuewriter;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter;
-import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -61,6 +59,16 @@ public class DictionaryFallbackValuesWriter
         // so the actual size of the page written could be much more smaller
         // due to dictionary encoding. This prevents page being too big when fallback happens.
         return rawDataByteSize;
+    }
+
+    public long getEstimatedBufferedSize()
+    {
+        long estimatedBufferedSize = currentWriter.getBufferedSize();
+        if (!fellBackAlready && firstPage && initialWriter != null &&
+                !initialWriter.isCompressionSatisfying(rawDataByteSize, estimatedBufferedSize)) {
+            return rawDataByteSize;
+        }
+        return estimatedBufferedSize;
     }
 
     @Override
@@ -166,11 +174,19 @@ public class DictionaryFallbackValuesWriter
     }
 
     @Override
-    public void writeBytes(Binary value)
+    public void writeBytes(Slice value)
     {
         // For raw data, length(4 bytes int) is stored, followed by the binary content itself
         rawDataByteSize += value.length() + Integer.BYTES;
         currentWriter.writeBytes(value);
+        checkFallback();
+    }
+
+    @Override
+    public void writeBytes(Slice base, int offset, int length)
+    {
+        rawDataByteSize += length + Integer.BYTES;
+        currentWriter.writeBytes(base, offset, length);
         checkFallback();
     }
 

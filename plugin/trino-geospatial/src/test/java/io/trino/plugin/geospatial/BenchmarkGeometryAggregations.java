@@ -133,7 +133,7 @@ public class BenchmarkGeometryAggregations
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         new BenchmarkGeometryAggregations().verify();

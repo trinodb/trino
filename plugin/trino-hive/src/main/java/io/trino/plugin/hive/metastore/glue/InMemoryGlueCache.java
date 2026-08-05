@@ -57,8 +57,8 @@ import java.util.function.Supplier;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
+import static java.time.Duration.ofMillis;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class InMemoryGlueCache
         implements GlueCache
@@ -419,7 +419,7 @@ class InMemoryGlueCache
             Supplier<V> loader)
     {
         if (expiresAfterWriteMillis.isEmpty()) {
-            return SafeCaches.emptyLoadingCache(CacheLoader.from(ignores -> loader.get()), true);
+            return SafeCaches.emptyLoadingCache(CacheLoader.from(_ -> loader.get()), true);
         }
 
         CacheLoader<? super K, V> cacheLoader = CacheLoader.from(loader::get);
@@ -427,12 +427,12 @@ class InMemoryGlueCache
         // this does not use EvictableCache because we want to inject values directly into the cache,
         // and we want a lock per key, instead of striped locks
         CacheBuilder<? super K, ? super V> cacheBuilder = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS)
+                .expireAfterWrite(ofMillis(expiresAfterWriteMillis.getAsLong()))
                 .maximumSize(maximumSize)
                 .recordStats();
 
         if (refreshMillis.isPresent() && (expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
-            cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
+            cacheBuilder.refreshAfterWrite(ofMillis(refreshMillis.getAsLong()));
             cacheLoader = asyncReloading(cacheLoader, refreshExecutor);
         }
 

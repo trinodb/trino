@@ -17,7 +17,7 @@ creating tables in an external SingleStore database.
 
 To connect to SingleStore, you need:
 
-- SingleStore version 7.8 or higher.
+- SingleStore version 8.7 or higher.
 - Network access from the Trino coordinator and workers to SingleStore. Port
   3306 is the default port.
 
@@ -176,8 +176,8 @@ this table:
   - `DOUBLE`
   -
 * - `DECIMAL(p, s)`
-  - `DECIMAL(p, s)`
-  - See [Singlestore DECIMAL type handling](singlestore-decimal-handling)
+  - `DECIMAL(p, s)` or `NUMBER`
+  - Maps to Trino `DECIMAL` when `p ≤ 38`. Otherwise, maps to `NUMBER`.
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -256,7 +256,7 @@ this table:
   -
 * - `DECIMAL(p, s)`
   - `DECIMAL(p, s)`
-  - See [Singlestore DECIMAL type handling](singlestore-decimal-handling)
+  -
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -296,10 +296,6 @@ this table:
 :::
 
 No other types are supported.
-
-(singlestore-decimal-handling)=
-```{include} decimal-type-handling.fragment
-```
 
 ```{include} jdbc-type-mapping.fragment
 ```

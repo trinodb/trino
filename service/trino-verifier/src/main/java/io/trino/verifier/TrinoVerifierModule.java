@@ -46,8 +46,7 @@ public class TrinoVerifierModule
     {
         for (String eventClientType : eventClientTypes) {
             switch (eventClientType) {
-                case "human-readable" ->
-                        consumers.addBinding().to(HumanReadableEventClient.class).in(Scopes.SINGLETON);
+                case "human-readable" -> consumers.addBinding().to(HumanReadableEventClient.class).in(Scopes.SINGLETON);
                 case "file" -> consumers.addBinding().to(JsonEventClient.class).in(Scopes.SINGLETON);
                 case "database" -> {
                     jsonCodecBinder(binder).bindListJsonCodec(String.class);

@@ -29,7 +29,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.trino.execution.DistributionSnapshot.pruneMetrics;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -81,7 +80,6 @@ public class OperatorStats
     private final DataSize revocableMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakRevocableMemoryReservation;
-    private final DataSize peakTotalMemoryReservation;
 
     private final DataSize spilledDataSize;
 
@@ -136,7 +134,6 @@ public class OperatorStats
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
-            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
 
             @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
@@ -194,7 +191,6 @@ public class OperatorStats
 
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
-        this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
 
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
@@ -420,12 +416,6 @@ public class OperatorStats
     }
 
     @JsonProperty
-    public DataSize getPeakTotalMemoryReservation()
-    {
-        return peakTotalMemoryReservation;
-    }
-
-    @JsonProperty
     public DataSize getSpilledDataSize()
     {
         return spilledDataSize;
@@ -498,7 +488,6 @@ public class OperatorStats
         long revocableMemoryReservation = this.revocableMemoryReservation.toBytes();
         long peakUserMemory = this.peakUserMemoryReservation.toBytes();
         long peakRevocableMemory = this.peakRevocableMemoryReservation.toBytes();
-        long peakTotalMemory = this.peakTotalMemoryReservation.toBytes();
 
         long spilledDataSize = this.spilledDataSize.toBytes();
 
@@ -548,7 +537,6 @@ public class OperatorStats
 
             peakUserMemory = max(peakUserMemory, operator.getPeakUserMemoryReservation().toBytes());
             peakRevocableMemory = max(peakRevocableMemory, operator.getPeakRevocableMemoryReservation().toBytes());
-            peakTotalMemory = max(peakTotalMemory, operator.getPeakTotalMemoryReservation().toBytes());
 
             spilledDataSize += operator.getSpilledDataSize().toBytes();
 
@@ -608,7 +596,6 @@ public class OperatorStats
                 DataSize.ofBytes(revocableMemoryReservation),
                 DataSize.ofBytes(peakUserMemory),
                 DataSize.ofBytes(peakRevocableMemory),
-                DataSize.ofBytes(peakTotalMemory),
 
                 DataSize.ofBytes(spilledDataSize),
 
@@ -634,51 +621,6 @@ public class OperatorStats
             return null;
         }
         return (Mergeable<T>) base.mergeWith(others);
-    }
-
-    public OperatorStats pruneDigests()
-    {
-        return new OperatorStats(
-                stageId,
-                pipelineId,
-                operatorId,
-                planNodeId,
-                sourceId,
-                operatorType,
-                totalDrivers,
-                addInputCalls,
-                addInputWall,
-                addInputCpu,
-                physicalInputDataSize,
-                physicalInputPositions,
-                physicalInputReadTime,
-                internalNetworkInputDataSize,
-                internalNetworkInputPositions,
-                inputDataSize,
-                inputPositions,
-                sumSquaredInputPositions,
-                getOutputCalls,
-                getOutputWall,
-                getOutputCpu,
-                outputDataSize,
-                outputPositions,
-                dynamicFilterSplitsProcessed,
-                pruneMetrics(metrics),
-                pruneMetrics(connectorMetrics),
-                pruneMetrics(pipelineMetrics),
-                physicalWrittenDataSize,
-                blockedWall,
-                finishCalls,
-                finishWall,
-                finishCpu,
-                userMemoryReservation,
-                revocableMemoryReservation,
-                peakUserMemoryReservation,
-                peakRevocableMemoryReservation,
-                peakTotalMemoryReservation,
-                spilledDataSize,
-                blockedReason,
-                info);
     }
 
     public OperatorStats summarize()
@@ -724,7 +666,6 @@ public class OperatorStats
                 revocableMemoryReservation,
                 peakUserMemoryReservation,
                 peakRevocableMemoryReservation,
-                peakTotalMemoryReservation,
                 spilledDataSize,
                 blockedReason,
                 info);
@@ -769,7 +710,6 @@ public class OperatorStats
                 revocableMemoryReservation,
                 peakUserMemoryReservation,
                 peakRevocableMemoryReservation,
-                peakTotalMemoryReservation,
                 spilledDataSize,
                 blockedReason,
                 info);
@@ -814,7 +754,6 @@ public class OperatorStats
                 revocableMemoryReservation,
                 peakUserMemoryReservation,
                 peakRevocableMemoryReservation,
-                peakTotalMemoryReservation,
                 spilledDataSize,
                 blockedReason,
                 info);

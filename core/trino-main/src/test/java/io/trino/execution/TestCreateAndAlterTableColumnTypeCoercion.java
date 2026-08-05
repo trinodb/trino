@@ -60,13 +60,13 @@ public class TestCreateAndAlterTableColumnTypeCoercion
     {
         return MockConnectorFactory.builder()
                 .withName(catalogName)
-                .withGetTableHandle((session, schemaTableName) -> {
+                .withGetTableHandle((_, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("existing_table")) {
                         return new MockConnectorTableHandle(schemaTableName);
                     }
                     return null;
                 })
-                .withGetSupportedType((session, type) -> {
+                .withGetSupportedType((_, type) -> {
                     if (type instanceof TimestampType) {
                         return Optional.of(VARCHAR);
                     }

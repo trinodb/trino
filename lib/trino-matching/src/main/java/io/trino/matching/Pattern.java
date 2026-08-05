@@ -14,11 +14,6 @@
 package io.trino.matching;
 
 import com.google.common.collect.Iterables;
-import io.trino.matching.pattern.CapturePattern;
-import io.trino.matching.pattern.FilterPattern;
-import io.trino.matching.pattern.OrPattern;
-import io.trino.matching.pattern.TypeOfPattern;
-import io.trino.matching.pattern.WithPattern;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +27,14 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public abstract class Pattern<T>
+public abstract sealed class Pattern<T>
+        permits CapturePattern,
+                CustomPattern,
+                EqualsPattern,
+                FilterPattern,
+                OrPattern,
+                TypeOfPattern,
+                WithPattern
 {
     private final Optional<Pattern<?>> previous;
 
@@ -56,7 +58,7 @@ public abstract class Pattern<T>
         this.previous = requireNonNull(previous, "previous is null");
     }
 
-    //FIXME make sure there's a proper toString,
+    // FIXME make sure there's a proper toString,
     // like with(propName)\n\tfilter(isEmpty)
     // or with(propName) map(isEmpty) equalTo(true)
     public static <F, C, T extends Iterable<S>, S> PropertyPattern<F, C, T> empty(Property<F, C, T> property)
@@ -76,7 +78,7 @@ public abstract class Pattern<T>
 
     public Pattern<T> matching(Predicate<? super T> predicate)
     {
-        return matching((t, context) -> predicate.test(t));
+        return matching((t, _) -> predicate.test(t));
     }
 
     public Pattern<T> matching(BiPredicate<? super T, ?> predicate)
@@ -104,8 +106,6 @@ public abstract class Pattern<T>
     }
 
     public abstract <C> Stream<Match> accept(Object object, Captures captures, C context);
-
-    public abstract void accept(PatternVisitor patternVisitor);
 
     public <C> boolean matches(Object object, C context)
     {
@@ -136,8 +136,8 @@ public abstract class Pattern<T>
     @Override
     public String toString()
     {
-        DefaultPrinter printer = new DefaultPrinter();
-        accept(printer);
+        PatternPrinter printer = new PatternPrinter();
+        printer.print(this);
         return printer.result();
     }
 }

@@ -19,7 +19,8 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 
-public enum S3GlacierFilter {
+public enum S3GlacierFilter
+{
     READ_ALL,
     READ_NON_GLACIER,
     READ_NON_GLACIER_AND_RESTORED;

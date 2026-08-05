@@ -14,11 +14,11 @@
 package io.trino.sql.routine.ir;
 
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
 
 import static java.util.Objects.requireNonNull;
 
-public record IrVariable(int field, Type type, RowExpression defaultValue)
+public record IrVariable(int field, Type type, Expression defaultValue)
         implements IrNode
 {
     public IrVariable

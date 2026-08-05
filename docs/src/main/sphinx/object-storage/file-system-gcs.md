@@ -4,7 +4,7 @@ Trino includes a native implementation to access [Google Cloud Storage
 (GCS)](https://cloud.google.com/storage/) with a catalog using the Delta Lake,
 Hive, Hudi, or Iceberg connectors.
 
-Enable the native implementation with `fs.native-gcs.enabled=true` in your
+Enable the native implementation with `fs.gcs.enabled=true` in your
 catalog properties file.
 
 ## General configuration
@@ -18,7 +18,7 @@ Storage file system support:
 
 * - Property
   - Description
-* - `fs.native-gcs.enabled`
+* - `fs.gcs.enabled`
   - Activate the native implementation for Google Cloud Storage support.
     Defaults to `false`. Set to `true` to use Google Cloud Storage and enable
     all other properties.
@@ -68,9 +68,18 @@ Cloud Storage:
 
 * - Property
   - Description
-* - `gcs.use-access-token`
-  - Flag to set usage of a client-provided OAuth 2.0 token to access Google
-    Cloud Storage. Defaults to `false`.
+* - `gcs.auth-type`
+  - Authentication type to use for Google Cloud Storage access. Default to `SERVICE_ACCOUNT`.
+  Supported values are:
+    * `SERVICE_ACCOUNT`: loads credentials from the environment. Either `gcs.json-key` or
+      `gcs.json-key-file-path` can be set in addition to override the default
+      credentials provider.
+    * `ACCESS_TOKEN`: usage of client-provided OAuth 2.0 token to access Google
+      Cloud Storage.
+    * `APPLICATION_DEFAULT`: Attempts to obtain Google Application Default
+      Credentials (ADC) from the environment. If no ADC is available, the
+      filesystem falls back to `NoCredentials.getInstance()` to explicitly
+      indicate unauthenticated GCS access.
 * - `gcs.json-key`
   - Your Google Cloud service account key in JSON format. Not to be set together
     with `gcs.json-key-file-path`.
@@ -82,16 +91,18 @@ Cloud Storage:
 (fs-legacy-gcs-migration)=
 ## Migration from legacy Google Cloud Storage file system
 
-Trino includes legacy Google Cloud Storage support to use with a catalog using
-the Delta Lake, Hive, Hudi, or Iceberg connectors. Upgrading existing
-deployments to the current native implementation is recommended. Legacy support
-is deprecated and will be removed.
+Previous Trino releases included a legacy Google Cloud Storage file system
+implementation used by catalogs configured with `fs.hadoop.enabled` and
+`hive.gcs.*` properties. That legacy support has been removed. Use the native
+Google Cloud Storage file system implementation.
 
 To migrate a catalog to use the native file system implementation for Google
 Cloud Storage, make the following edits to your catalog configuration:
 
-1. Add the `fs.native-gcs.enabled=true` catalog configuration property.
-2. Refer to the following table to rename your existing legacy catalog
+1. Add the `fs.gcs.enabled=true` catalog configuration property.
+2. If your catalog enabled `fs.hadoop.enabled` only for legacy Google Cloud
+   Storage access, remove that property.
+3. Refer to the following table to rename your existing legacy catalog
    configuration properties to the corresponding native configuration
    properties. Supported configuration values are identical unless otherwise
    noted.
@@ -103,7 +114,7 @@ Cloud Storage, make the following edits to your catalog configuration:
      - Native property
      - Notes
    * - `hive.gcs.use-access-token`
-     - `gcs.use-access-token`
+     - `gcs.auth-type`
      -
    * - `hive.gcs.json-key-file-path`
      - `gcs.json-key-file-path`

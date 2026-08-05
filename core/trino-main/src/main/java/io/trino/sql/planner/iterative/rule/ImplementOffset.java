@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.Comparison;
+import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -29,8 +29,10 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.offset;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -54,6 +56,13 @@ public class ImplementOffset
 {
     private static final Pattern<OffsetNode> PATTERN = offset();
 
+    private final Metadata metadata;
+
+    public ImplementOffset(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
     @Override
     public Pattern<OffsetNode> getPattern()
     {
@@ -76,7 +85,8 @@ public class ImplementOffset
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 rowNumberNode,
-                new Comparison(
+                comparison(
+                        metadata,
                         GREATER_THAN,
                         rowNumberSymbol.toSymbolReference(),
                         new Constant(BIGINT, parent.getCount())));

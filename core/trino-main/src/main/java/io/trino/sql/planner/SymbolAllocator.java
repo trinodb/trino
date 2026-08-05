@@ -39,11 +39,6 @@ public class SymbolAllocator
     private final Map<String, Symbol> symbols;
     private int nextId;
 
-    public SymbolAllocator()
-    {
-        symbols = new HashMap<>();
-    }
-
     public SymbolAllocator(Collection<Symbol> initial)
     {
         symbols = new HashMap<>(initial.stream()
@@ -87,7 +82,7 @@ public class SymbolAllocator
     public Symbol newSymbol(Expression expression)
     {
         String nameHint = switch (expression) {
-            case Call call -> call.function().name().getFunctionName();
+            case Call call -> call.function().name().functionName();
             case Reference reference -> reference.name();
             default -> "expr";
         };

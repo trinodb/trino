@@ -39,7 +39,7 @@ public class ExchangeS3Config
 {
     public enum S3SseType
     {
-        NONE, S3, KMS;
+        NONE, S3, KMS,
     }
 
     private String s3AwsAccessKey;
@@ -310,6 +310,6 @@ public class ExchangeS3Config
     public boolean isSseConfigValid()
     {
         return sseType == KMS && getSseKmsKeyId().isPresent() ||
-               sseType != KMS && getSseKmsKeyId().isEmpty();
+                sseType != KMS && getSseKmsKeyId().isEmpty();
     }
 }

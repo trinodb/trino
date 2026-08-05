@@ -13,211 +13,74 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.delete.DeleteFile;
-import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergSplit
+public record IcebergSplit(
+        @JsonProperty("path") String path,
+        @JsonProperty("start") long start,
+        @JsonProperty("length") long length,
+        @JsonProperty("fileSize") long fileSize,
+        @JsonProperty("fileRecordCount") long fileRecordCount,
+        @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
+        @JsonProperty("specId") int specId,
+        @JsonProperty("partitionValues") List<Block> partitionValues,
+        @JsonProperty("deletes") List<DeleteFile> deletes,
+        @JsonProperty("splitWeight") SplitWeight splitWeight,
+        @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
+        @JsonProperty("affinityKey") Optional<String> affinityKey,
+        @JsonProperty("dataSequenceNumber") OptionalLong dataSequenceNumber,
+        @JsonProperty("fileFirstRowId") OptionalLong fileFirstRowId,
+        @JsonProperty("parquetFileDecryptionData") Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(IcebergSplit.class);
 
-    private final String path;
-    private final long start;
-    private final long length;
-    private final long fileSize;
-    private final long fileRecordCount;
-    private final IcebergFileFormat fileFormat;
-    private final Optional<List<Object>> partitionValues;
-    private final String partitionSpecJson;
-    private final String partitionDataJson;
-    private final List<DeleteFile> deletes;
-    private final SplitWeight splitWeight;
-    private final TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
-    private final Map<String, String> fileIoProperties;
-    private final long dataSequenceNumber;
-    private final List<HostAddress> addresses;
-
-    @JsonCreator
-    public IcebergSplit(
-            @JsonProperty("path") String path,
-            @JsonProperty("start") long start,
-            @JsonProperty("length") long length,
-            @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("fileRecordCount") long fileRecordCount,
-            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
-            @JsonProperty("partitionSpecJson") String partitionSpecJson,
-            @JsonProperty("partitionDataJson") String partitionDataJson,
-            @JsonProperty("deletes") List<DeleteFile> deletes,
-            @JsonProperty("splitWeight") SplitWeight splitWeight,
-            @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
-            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties,
-            @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
+    public IcebergSplit
     {
-        this(
-                path,
-                start,
-                length,
-                fileSize,
-                fileRecordCount,
-                fileFormat,
-                Optional.empty(),
-                partitionSpecJson,
-                partitionDataJson,
-                deletes,
-                splitWeight,
-                fileStatisticsDomain,
-                fileIoProperties,
-                ImmutableList.of(),
-                dataSequenceNumber);
+        requireNonNull(path, "path is null");
+        requireNonNull(fileFormat, "fileFormat is null");
+        partitionValues = ImmutableList.copyOf(partitionValues);
+        deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
+        requireNonNull(splitWeight, "splitWeight is null");
+        requireNonNull(fileStatisticsDomain, "fileStatisticsDomain is null");
+        requireNonNull(affinityKey, "affinityKey is null");
+        requireNonNull(dataSequenceNumber, "dataSequenceNumber is null");
+        requireNonNull(fileFirstRowId, "fileFirstRowId is null");
+        requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
     }
 
-    public IcebergSplit(
-            String path,
-            long start,
-            long length,
-            long fileSize,
-            long fileRecordCount,
-            IcebergFileFormat fileFormat,
-            Optional<List<Object>> partitionValues,
-            String partitionSpecJson,
-            String partitionDataJson,
-            List<DeleteFile> deletes,
-            SplitWeight splitWeight,
-            TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
-            Map<String, String> fileIoProperties,
-            List<HostAddress> addresses,
-            long dataSequenceNumber)
-    {
-        this.path = requireNonNull(path, "path is null");
-        this.start = start;
-        this.length = length;
-        this.fileSize = fileSize;
-        this.fileRecordCount = fileRecordCount;
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
-        this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
-        this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
-        this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
-        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
-        this.fileStatisticsDomain = requireNonNull(fileStatisticsDomain, "fileStatisticsDomain is null");
-        this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
-        this.addresses = requireNonNull(addresses, "addresses is null");
-        this.dataSequenceNumber = dataSequenceNumber;
-    }
-
-    @JsonIgnore
     @Override
-    public List<HostAddress> getAddresses()
+    public Optional<String> getAffinityKey()
     {
-        return addresses;
+        return affinityKey;
     }
 
-    @JsonProperty
-    public String getPath()
-    {
-        return path;
-    }
-
-    @JsonProperty
-    public long getStart()
-    {
-        return start;
-    }
-
-    @JsonProperty
-    public long getLength()
-    {
-        return length;
-    }
-
-    @JsonProperty
-    public long getFileSize()
-    {
-        return fileSize;
-    }
-
-    @JsonProperty
-    public long getFileRecordCount()
-    {
-        return fileRecordCount;
-    }
-
-    @JsonProperty
-    public IcebergFileFormat getFileFormat()
-    {
-        return fileFormat;
-    }
-
-    @JsonProperty
-    public String getPartitionSpecJson()
-    {
-        return partitionSpecJson;
-    }
-
-    /**
-     * Trino (stack) values of the partition columns. The values are the result of evaluating
-     * the partition expressions on the partition data.
-     */
-    @JsonIgnore
-    public Optional<List<Object>> getPartitionValues()
-    {
-        return partitionValues;
-    }
-
-    @JsonProperty
-    public String getPartitionDataJson()
-    {
-        return partitionDataJson;
-    }
-
-    @JsonProperty
-    public List<DeleteFile> getDeletes()
-    {
-        return deletes;
-    }
-
-    @JsonProperty
     @Override
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
-    }
-
-    @JsonProperty
-    public TupleDomain<IcebergColumnHandle> getFileStatisticsDomain()
-    {
-        return fileStatisticsDomain;
-    }
-
-    @JsonProperty
-    public Map<String, String> getFileIoProperties()
-    {
-        return fileIoProperties;
-    }
-
-    @JsonProperty
-    public long getDataSequenceNumber()
-    {
-        return dataSequenceNumber;
     }
 
     @Override
@@ -225,13 +88,16 @@ public class IcebergSplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
-                + estimatedSizeOf(partitionSpecJson)
-                + estimatedSizeOf(partitionDataJson)
+                + SIZE_OF_LONG * 4 // start, length, fileSize, fileRecordCount
+                + SIZE_OF_INT // specId
+                + estimatedSizeOf(partitionValues, Block::getRetainedSizeInBytes)
                 + estimatedSizeOf(deletes, DeleteFile::retainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
-                + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
-                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
+                + (dataSequenceNumber.isPresent() ? SIZE_OF_LONG : 0)
+                + sizeOf(affinityKey, SizeOf::estimatedSizeOf)
+                + (fileFirstRowId.isPresent() ? SIZE_OF_LONG : 0)
+                + sizeOf(parquetFileDecryptionData, ParquetFileDecryptionData::getRetainedSizeInBytes);
     }
 
     @Override
@@ -248,5 +114,41 @@ public class IcebergSplit
                     .mapToLong(DeleteFile::recordCount).sum());
         }
         return helper.toString();
+    }
+
+    public record ParquetFileDecryptionData(byte[] fileEncryptionKey, byte[] fileAadPrefix)
+    {
+        private static final int INSTANCE_SIZE = instanceSize(ParquetFileDecryptionData.class);
+
+        public ParquetFileDecryptionData
+        {
+            requireNonNull(fileEncryptionKey, "fileEncryptionKey is null");
+            requireNonNull(fileAadPrefix, "fileAadPrefix is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return o instanceof ParquetFileDecryptionData other
+                    && Arrays.equals(fileEncryptionKey, other.fileEncryptionKey)
+                    && Arrays.equals(fileAadPrefix, other.fileAadPrefix);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(Arrays.hashCode(fileEncryptionKey), Arrays.hashCode(fileAadPrefix));
+        }
+
+        @Override
+        public String toString()
+        {
+            return "[REDACTED]";
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + SizeOf.sizeOf(fileEncryptionKey) + SizeOf.sizeOf(fileAadPrefix);
+        }
     }
 }

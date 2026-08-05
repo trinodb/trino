@@ -46,32 +46,32 @@ public class MinByNStateFactory
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "K",
                     convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
-                    MethodHandle keyReadFlat,
+            MethodHandle keyReadFlat,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "K",
                     convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
-                    MethodHandle keyWriteFlat,
+            MethodHandle keyWriteFlat,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "V",
                     convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
-                    MethodHandle valueReadFlat,
+            MethodHandle valueReadFlat,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "V",
                     convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
-                    MethodHandle valueWriteFlat,
+            MethodHandle valueWriteFlat,
             @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"K", "K"},
                     convention = @Convention(arguments = {FLAT, FLAT}, result = FAIL_ON_NULL))
-                    MethodHandle compareFlatFlat,
+            MethodHandle compareFlatFlat,
             @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"K", "K"},
                     convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
-                    MethodHandle compareFlatBlock,
+            MethodHandle compareFlatBlock,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType)
     {

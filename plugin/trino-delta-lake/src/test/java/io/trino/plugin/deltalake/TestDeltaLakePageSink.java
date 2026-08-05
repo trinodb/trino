@@ -19,20 +19,19 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSink;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.tpch.LineItem;
@@ -56,6 +55,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_READER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_WRITER_VERSION;
@@ -63,14 +64,13 @@ import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.round;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -125,7 +125,7 @@ public class TestDeltaLakePageSink
             assertThat(dataFileInfos).hasSize(1);
             DataFileInfo dataFileInfo = dataFileInfos.get(0);
 
-            List<File> files = ImmutableList.copyOf(new File(tablePath).listFiles((dir, name) -> !name.endsWith(".crc")));
+            List<File> files = ImmutableList.copyOf(new File(tablePath).listFiles((_, name) -> !name.endsWith(".crc")));
             assertThat(files).hasSize(1);
             File outputFile = files.get(0);
 
@@ -163,7 +163,7 @@ public class TestDeltaLakePageSink
         DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig();
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
         for (DeltaLakeColumnHandle column : getColumnHandles()) {
-            deltaTable.addColumn(column.columnName(), serializeColumnType(NONE, new AtomicInteger(), column.type()), true, null, ImmutableMap.of());
+            deltaTable.addColumn(column.columnName(), serializeColumnType(NONE, new AtomicInteger(), column.type()), true, Optional.empty(), ImmutableMap.of());
         }
         String schemaString = serializeSchemaAsJson(deltaTable.build());
         DeltaLakeOutputTableHandle tableHandle = new DeltaLakeOutputTableHandle(
@@ -180,23 +180,24 @@ public class TestDeltaLakePageSink
                 NONE,
                 OptionalInt.empty(),
                 false,
+                Optional.of(getColumnHandles()),
                 OptionalLong.empty(),
-                new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()),
-                VendedCredentialsHandle.empty(outputPath));
+                new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()));
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
-                new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators())),
-                new DefaultDeltaLakeFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
-                JsonCodec.jsonCodec(DataFileInfo.class),
-                JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
+                new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()))),
+                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()),
+                jsonCodec(DataFileInfo.class),
+                jsonCodec(DeltaLakeMergeResult.class),
                 stats,
                 new FileFormatDataSourceStats(),
                 deltaLakeConfig,
                 new ParquetReaderConfig(),
-                new TestingTypeManager(),
+                new ParquetWriterConfig(),
+                TESTING_TYPE_MANAGER,
                 new NodeVersion("test-version"));
 
-        return provider.createPageSink(transaction, SESSION, tableHandle, TESTING_PAGE_SINK_ID);
+        return provider.createPageSink(transaction, SESSION, tableHandle, Optional.empty(), TESTING_PAGE_SINK_ID);
     }
 
     private static List<DeltaLakeColumnHandle> getColumnHandles()

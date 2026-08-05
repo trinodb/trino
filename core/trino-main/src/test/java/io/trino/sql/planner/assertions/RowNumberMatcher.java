@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.RowNumberNode;
@@ -58,7 +55,7 @@ public class RowNumberMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -66,7 +63,7 @@ public class RowNumberMatcher
 
         if (partitionBy.isPresent()) {
             List<Symbol> expected = partitionBy.get().stream()
-                    .map(alias -> alias.toSymbol(symbolAliases))
+                    .map(alias -> alias.toSymbol(context.symbolAliases()))
                     .collect(toImmutableList());
 
             if (!expected.equals(rowNumberNode.getPartitionBy())) {
@@ -75,7 +72,7 @@ public class RowNumberMatcher
         }
 
         if (rowNumberSymbol.isPresent()) {
-            Symbol expected = rowNumberSymbol.get().toSymbol(symbolAliases);
+            Symbol expected = rowNumberSymbol.get().toSymbol(context.symbolAliases());
             if (!expected.equals(rowNumberNode.getRowNumberSymbol())) {
                 return NO_MATCH;
             }

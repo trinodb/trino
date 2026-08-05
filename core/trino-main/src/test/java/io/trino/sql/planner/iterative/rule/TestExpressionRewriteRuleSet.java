@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -41,7 +42,7 @@ public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
 {
     private final ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
-            (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.ir.ExpressionRewriter<>()
+            (expression, _) -> ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
             {
                 @Override
                 protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
@@ -53,7 +54,7 @@ public class TestExpressionRewriteRuleSet
                 public Expression rewriteRow(Row node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
                     // rewrite Row items to preserve Row structure of ValuesNode
-                    return new Row(node.items().stream().map(item -> new Constant(INTEGER, 0L)).collect(toImmutableList()));
+                    return new Row(node.items().stream().map(_ -> new Constant(INTEGER, 0L)).collect(toImmutableList()), node.type());
                 }
             }, expression));
 
@@ -70,7 +71,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testAggregationExpressionRewrite()
     {
-        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> new Reference(BIGINT, "y"));
+        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((_, _) -> new Reference(BIGINT, "y"));
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
@@ -78,8 +79,7 @@ public class TestExpressionRewriteRuleSet
                                 p.symbol("count_1", BigintType.BIGINT),
                                 PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "x"))),
                                 ImmutableList.of(BigintType.BIGINT))
-                        .source(
-                                p.values(p.symbol("x"), p.symbol("y")))))
+                        .source(p.values(p.symbol("x"), p.symbol("y")))))
                 .matches(
                         PlanMatchPattern.aggregation(
                                 ImmutableMap.of("count_1", PlanMatchPattern.aggregationFunction("count", ImmutableList.of("y"))),

@@ -17,10 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
-import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.StageStats;
@@ -67,6 +65,7 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGE
 import static io.trino.plugin.base.TemporaryTables.temporaryTableNamePrefix;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -126,13 +125,9 @@ public abstract class BaseFailureRecoveryTest
                 ImmutableMap.of(
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         "scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString()),
-                new AbstractConfigurationAwareModule() {
-                    @Override
-                    protected void setup(Binder binder)
-                    {
-                        configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
-                        newOptionalBinder(binder, FailureInjector.class).setBinding().to(TestingFailureInjector.class).in(Scopes.SINGLETON);
-                    }
+                binder -> {
+                    configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
+                    newOptionalBinder(binder, FailureInjector.class).setBinding().to(TestingFailureInjector.class).in(Scopes.SINGLETON);
                 });
     }
 
@@ -152,7 +147,7 @@ public abstract class BaseFailureRecoveryTest
 
     protected void testSelect(String query, Optional<Session> session)
     {
-        testSelect(query, session, queryId -> {});
+        testSelect(query, session, _ -> {});
     }
 
     protected void testSelect(String query, Optional<Session> session, Consumer<QueryId> queryAssertion)
@@ -279,14 +274,14 @@ public abstract class BaseFailureRecoveryTest
                 Optional.empty(),
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
                 """
-                        MERGE INTO <table> t
-                        USING (SELECT orderkey, 'X' clerk FROM <table>) s
-                        ON t.orderkey = s.orderkey
-                        WHEN MATCHED AND s.orderkey > 1000
-                            THEN UPDATE SET clerk = t.clerk || s.clerk
-                        WHEN MATCHED AND s.orderkey <= 1000
-                            THEN DELETE
-                        """,
+                MERGE INTO <table> t
+                USING (SELECT orderkey, 'X' clerk FROM <table>) s
+                ON t.orderkey = s.orderkey
+                WHEN MATCHED AND s.orderkey > 1000
+                    THEN UPDATE SET clerk = t.clerk || s.clerk
+                WHEN MATCHED AND s.orderkey <= 1000
+                    THEN DELETE
+                """,
                 Optional.of("DROP TABLE <table>"),
                 true,
                 Optional.of("orderkey"));
@@ -455,42 +450,49 @@ public abstract class BaseFailureRecoveryTest
     // Provided as a protected method here in case this is not a one-sized-fits-all solution
     protected void checkTemporaryTables(Set<String> queryIds)
     {
-        // queryId -> temporary table names
-        Map<String, Set<String>> remainingTemporaryTables = new HashMap<>();
-        // queryId -> assertion messages
-        Map<String, Set<String>> assertionErrorMessages = new HashMap<>();
-        for (String queryId : queryIds) {
-            String temporaryTablePrefix = temporaryTableNamePrefix(queryId);
-            MaterializedResult temporaryTablesResult = getQueryRunner()
-                    .execute("SHOW TABLES LIKE '%s%%' ESCAPE '\\'".formatted(temporaryTablePrefix.replace("_", "\\_")));
-            // Unfortunately, information_schema is not strictly consistent with recently dropped tables,
-            // and for some connectors, it can return tables that have been recently dropped. Therefore,
-            // we can't rely simply on SHOW TABLES LIKE returning no results - we have to try to query the table
-            for (MaterializedRow temporaryTableRow : temporaryTablesResult.getMaterializedRows()) {
-                String temporaryTableName = (String) temporaryTableRow.getField(0);
-                try {
-                    assertThatThrownBy(() -> getQueryRunner().execute("SELECT 1 FROM %s WHERE 1 = 0".formatted(temporaryTableName)))
-                            .hasMessageContaining(".%s' does not exist", temporaryTableName);
-                }
-                catch (AssertionError e) {
-                    remainingTemporaryTables.computeIfAbsent(queryId, _ -> new HashSet<>()).add(temporaryTableName);
-                    assertionErrorMessages.computeIfAbsent(queryId, _ -> new HashSet<>()).add(e.getMessage());
-                }
-            }
+        if (!checkNoRemainingTmpTables()) {
+            return;
         }
 
-        if (checkNoRemainingTmpTables()) {
-            assertThat(remainingTemporaryTables.isEmpty())
-                    .as("There should be no remaining tmp_trino tables that are queryable. They are:\n%s",
-                            remainingTemporaryTables.entrySet().stream()
-                                    .map(entry -> "\tFor queryId [%s] (prefix [%s]) remaining tables: [%s]\n\t\tWith errors: [%s]".formatted(
-                                            entry.getKey(),
-                                            temporaryTableNamePrefix(entry.getKey()),
-                                            Joiner.on(",").join(entry.getValue()),
-                                            Joiner.on("],\n[").join(assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
-                                    .collect(joining("\n")))
-                    .isTrue();
-        }
+        assertEventually(
+                new Duration(30, SECONDS),
+                new Duration(1, SECONDS),
+                () -> {
+                    // queryId -> temporary table names
+                    Map<String, Set<String>> remainingTemporaryTables = new HashMap<>();
+                    // queryId -> assertion messages
+                    Map<String, Set<String>> assertionErrorMessages = new HashMap<>();
+                    for (String queryId : queryIds) {
+                        String temporaryTablePrefix = temporaryTableNamePrefix(queryId);
+                        MaterializedResult temporaryTablesResult = getQueryRunner()
+                                .execute("SHOW TABLES LIKE '%s%%' ESCAPE '\\'".formatted(temporaryTablePrefix.replace("_", "\\_")));
+                        // Unfortunately, information_schema is not strictly consistent with recently dropped tables,
+                        // and for some connectors, it can return tables that have been recently dropped. Therefore,
+                        // we can't rely simply on SHOW TABLES LIKE returning no results - we have to try to query the table
+                        for (MaterializedRow temporaryTableRow : temporaryTablesResult.getMaterializedRows()) {
+                            String temporaryTableName = (String) temporaryTableRow.getField(0);
+                            try {
+                                assertThatThrownBy(() -> getQueryRunner().execute("SELECT 1 FROM %s WHERE 1 = 0".formatted(temporaryTableName)))
+                                        .hasMessageContaining(".%s' does not exist", temporaryTableName);
+                            }
+                            catch (AssertionError e) {
+                                remainingTemporaryTables.computeIfAbsent(queryId, _ -> new HashSet<>()).add(temporaryTableName);
+                                assertionErrorMessages.computeIfAbsent(queryId, _ -> new HashSet<>()).add(e.getMessage());
+                            }
+                        }
+                    }
+
+                    assertThat(remainingTemporaryTables.isEmpty())
+                            .as("There should be no remaining tmp_trino tables that are queryable. They are:\n%s",
+                                    remainingTemporaryTables.entrySet().stream()
+                                            .map(entry -> "\tFor queryId [%s] (prefix [%s]) remaining tables: [%s]\n\t\tWith errors: [%s]".formatted(
+                                                    entry.getKey(),
+                                                    temporaryTableNamePrefix(entry.getKey()),
+                                                    Joiner.on(",").join(entry.getValue()),
+                                                    Joiner.on("],\n[").join(assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
+                                            .collect(joining("\n")))
+                            .isTrue();
+                });
     }
 
     protected boolean checkNoRemainingTmpTables()
@@ -498,9 +500,7 @@ public abstract class BaseFailureRecoveryTest
         return true;
     }
 
-    protected void addPrimaryKeyForMergeTarget(Session session, String tableName, String primaryKey)
-    {
-    }
+    protected void addPrimaryKeyForMergeTarget(Session session, String tableName, String primaryKey) {}
 
     protected class FailureRecoveryAssert
     {
@@ -613,12 +613,12 @@ public abstract class BaseFailureRecoveryTest
             String queryId = null;
             try {
                 resultWithPlan = getDistributedQueryRunner().executeWithPlan(withTraceToken(session, traceToken), resolveTableName(query, tableName));
-                queryId = resultWithPlan.queryId().getId();
+                queryId = resultWithPlan.queryId().id();
             }
             catch (RuntimeException e) {
                 failure = e;
                 if (e instanceof QueryFailedException queryFailedException) {
-                    queryId = queryFailedException.getQueryId().getId();
+                    queryId = queryFailedException.getQueryId().id();
                 }
             }
 
@@ -675,12 +675,12 @@ public abstract class BaseFailureRecoveryTest
 
         public FailureRecoveryAssert finishesSuccessfully()
         {
-            return finishesSuccessfully(queryId -> {});
+            return finishesSuccessfully(_ -> {});
         }
 
         public FailureRecoveryAssert finishesSuccessfullyWithoutTaskFailures()
         {
-            return finishesSuccessfully(queryId -> {}, false);
+            return finishesSuccessfully(_ -> {}, false);
         }
 
         private FailureRecoveryAssert finishesSuccessfully(Consumer<QueryId> queryAssertion)
@@ -695,7 +695,7 @@ public abstract class BaseFailureRecoveryTest
             MaterializedResult expectedQueryResult = expected.getQueryResult();
             OptionalInt failureStageId = getFailureStageId(() -> expectedQueryResult);
             ExecutionResult actual = executeActual(failureStageId);
-            int failedTasksCount = getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks();
+            int failedTasksCount = getStageStats(actual.getQueryResult(), failureStageId.orElseThrow()).getFailedTasks();
             if (expectTaskFailures) {
                 assertThat(failedTasksCount).withFailMessage("expected some task failures").isGreaterThan(0);
             }
@@ -969,7 +969,7 @@ public abstract class BaseFailureRecoveryTest
     protected Object[] parallelTest(String name, Runnable runnable)
     {
         return new Object[] {
-                new ParallelTestRunnable(name, runnable)
+                new ParallelTestRunnable(name, runnable),
         };
     }
 

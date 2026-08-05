@@ -18,13 +18,13 @@ import io.trino.orc.metadata.statistics.ColumnStatistics;
 
 public interface OrcPredicate
 {
-    OrcPredicate TRUE = (numberOfRows, statisticsByColumnIndex) -> true;
+    OrcPredicate TRUE = (_, _) -> true;
 
     /**
      * Should the ORC reader process a file section with the specified statistics.
      *
      * @param numberOfRows the number of rows in the segment; this can be used with
-     * {@code ColumnStatistics} to determine if a column is only null
+     *         {@code ColumnStatistics} to determine if a column is only null
      * @param allColumnStatistics column statistics
      */
     boolean matches(long numberOfRows, ColumnMetadata<ColumnStatistics> allColumnStatistics);

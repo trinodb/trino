@@ -13,10 +13,13 @@
  */
 package io.trino.operator;
 
+import io.airlift.slice.Slices;
 import io.trino.RowPagesBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -39,6 +42,7 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -49,8 +53,8 @@ import static org.openjdk.jmh.annotations.Mode.AverageTime;
 @OutputTimeUnit(MILLISECONDS)
 @BenchmarkMode(AverageTime)
 @Fork(2)
-@Warmup(iterations = 3)
-@Measurement(iterations = 10, time = 2, timeUnit = SECONDS)
+@Warmup(iterations = 10, time = 1, timeUnit = SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = SECONDS)
 public class BenchmarkPagesIndexOrdering
 {
     private static final Random RANDOM = new Random(633969769);
@@ -62,6 +66,8 @@ public class BenchmarkPagesIndexOrdering
     {
         @Param({"1", "10"})
         protected int numberOfChannels = 1;
+        @Param({"BIGINT", "VARCHAR"})
+        protected String typeName = "BIGINT";
 
         private List<Type> types;
         private List<Integer> sortChannels;
@@ -71,7 +77,8 @@ public class BenchmarkPagesIndexOrdering
         @Setup
         public void setup()
         {
-            types = nCopies(numberOfChannels, BIGINT);
+            Type type = getType(typeName);
+            types = nCopies(numberOfChannels, type);
             sortChannels = IntStream.range(0, numberOfChannels).boxed().collect(toImmutableList());
             sortOrders = nCopies(numberOfChannels, ASC_NULLS_FIRST);
 
@@ -80,13 +87,26 @@ public class BenchmarkPagesIndexOrdering
                 for (int row = 0; row < ROWS_PER_PAGE; row++) {
                     Object[] values = new Object[numberOfChannels];
                     for (int channel = 0; channel < numberOfChannels; channel++) {
-                        values[channel] = RANDOM.nextLong();
+                        values[channel] = switch (type) {
+                            case BigintType _ -> RANDOM.nextLong();
+                            case VarcharType _ -> Slices.utf8Slice(String.valueOf(RANDOM.nextLong()));
+                            default -> throw new IllegalArgumentException("Unsupported type: " + typeName);
+                        };
                     }
                     pagesBuilder.row(values);
                 }
                 pagesBuilder.pageBreak();
             }
             pages = pagesBuilder.build();
+        }
+
+        private static Type getType(String typeName)
+        {
+            return switch (typeName) {
+                case "BIGINT" -> BIGINT;
+                case "VARCHAR" -> VARCHAR;
+                default -> throw new IllegalArgumentException("Unsupported type: " + typeName);
+            };
         }
     }
 
@@ -107,7 +127,7 @@ public class BenchmarkPagesIndexOrdering
         benchmarkQuickSort(context);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkPagesIndexOrdering.class).run();

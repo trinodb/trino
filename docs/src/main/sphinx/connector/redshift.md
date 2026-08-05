@@ -260,5 +260,5 @@ deactivate the parallel read during a client session for a specific query, and
 potentially re-activate it again afterward.
 
 Additionally, define further required [S3 configuration such as IAM key, role,
-or region](/object-storage/file-system-s3), except `fs.native-s3.enabled`,
+or region](/object-storage/file-system-s3), except `fs.s3.enabled`,
 

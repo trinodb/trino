@@ -87,7 +87,8 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
                 strictOutput(ImmutableList.of("ORDERKEY", "EXTENDEDPRICE"),
-                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                        tableScan("lineitem", ImmutableMap.of(
+                                "ORDERKEY", "orderkey",
                                 "EXTENDEDPRICE", "extendedprice"))));
     }
 
@@ -96,7 +97,8 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXTENDEDPRICE"),
-                        strictTableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                        strictTableScan("lineitem", ImmutableMap.of(
+                                "ORDERKEY", "orderkey",
                                 "EXTENDEDPRICE", "extendedprice"))));
     }
 
@@ -231,7 +233,8 @@ public class TestPlanMatchingFramework
     {
         assertThatThrownBy(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
                 strictOutput(ImmutableList.of("ORDERKEY"),
-                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                        tableScan("lineitem", ImmutableMap.of(
+                                "ORDERKEY", "orderkey",
                                 "EXTENDEDPRICE", "extendedprice")))))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageStartingWith("Plan does not match");

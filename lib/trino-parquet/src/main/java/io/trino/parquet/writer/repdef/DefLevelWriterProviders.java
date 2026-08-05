@@ -15,11 +15,14 @@ package io.trino.parquet.writer.repdef;
 
 import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariantBlock;
 
 import java.util.Optional;
 
@@ -27,14 +30,20 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class DefLevelWriterProviders
+public final class DefLevelWriterProviders
 {
     private DefLevelWriterProviders() {}
 
     public static DefLevelWriterProvider of(Block block, int maxDefinitionLevel)
     {
-        if (block.getUnderlyingValueBlock() instanceof RowBlock) {
+        Block valueBlock = block.getUnderlyingValueBlock();
+
+        if (valueBlock instanceof RowBlock) {
             return new RowDefLevelWriterProvider(block, maxDefinitionLevel);
+        }
+        if (valueBlock instanceof VariantBlock) {
+            // Treat VARIANT like a struct/row at the group level
+            return new VariantDefLevelWriterProvider(block, maxDefinitionLevel);
         }
         return new PrimitiveDefLevelWriterProvider(block, maxDefinitionLevel);
     }
@@ -86,6 +95,16 @@ public class DefLevelWriterProviders
                     if (!block.mayHaveNull()) {
                         encoder.writeRepeatInteger(maxDefinitionLevel, positionsCount);
                         nonNullsCount = positionsCount;
+                    }
+                    else if (block instanceof ValueBlock valueBlock) {
+                        Optional<Bitmap> validity = valueBlock.getValidityBitmap();
+                        if (validity.isPresent()) {
+                            nonNullsCount = encoder.writeBitmap(validity.orElseThrow(), offset, positionsCount, maxDefinitionLevel, maxDefinitionLevel - 1);
+                        }
+                        else {
+                            encoder.writeRepeatInteger(maxDefinitionLevel, positionsCount);
+                            nonNullsCount = positionsCount;
+                        }
                     }
                     else {
                         for (int position = offset; position < offset + positionsCount; position++) {
@@ -326,6 +345,73 @@ public class DefLevelWriterProviders
                                 maxDefinitionValuesCount += valuesCount.maxDefinitionLevelValuesCount();
                                 totalValuesCount += valuesCount.totalValuesCount();
                             }
+                        }
+                    }
+                    offset += positionsCount;
+                    return new ValuesCount(totalValuesCount, maxDefinitionValuesCount);
+                }
+            };
+        }
+    }
+
+    static class VariantDefLevelWriterProvider
+            implements DefLevelWriterProvider
+    {
+        private final Block block;
+        private final int maxDefinitionLevel;
+
+        VariantDefLevelWriterProvider(Block block, int maxDefinitionLevel)
+        {
+            this.block = requireNonNull(block, "block is null");
+            this.maxDefinitionLevel = maxDefinitionLevel;
+        }
+
+        @Override
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
+        {
+            checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for variant definition level writer");
+            return new DefinitionLevelWriter()
+            {
+                private final DefinitionLevelWriter nestedWriter = nestedWriterOptional.orElseThrow();
+
+                private int offset;
+
+                @Override
+                public ValuesCount writeDefinitionLevels()
+                {
+                    return writeDefinitionLevels(block.getPositionCount());
+                }
+
+                @Override
+                public ValuesCount writeDefinitionLevels(int positionsCount)
+                {
+                    checkValidPosition(offset, positionsCount, block.getPositionCount());
+                    if (!block.mayHaveNull()) {
+                        // No null variants: just pass through to nested writer
+                        offset += positionsCount;
+                        return nestedWriter.writeDefinitionLevels(positionsCount);
+                    }
+
+                    int maxDefinitionValuesCount = 0;
+                    int totalValuesCount = 0;
+                    for (int position = offset; position < offset + positionsCount; ) {
+                        if (block.isNull(position)) {
+                            // VARIANT group is null at this position
+                            encoder.writeInteger(maxDefinitionLevel - 1);
+                            totalValuesCount++;
+                            position++;
+                        }
+                        else {
+                            // Consecutive non-null variants: delegate to nested writer
+                            int consecutiveNonNullsCount = 1;
+                            position++;
+                            while (position < offset + positionsCount && !block.isNull(position)) {
+                                position++;
+                                consecutiveNonNullsCount++;
+                            }
+                            ValuesCount valuesCount = nestedWriter.writeDefinitionLevels(consecutiveNonNullsCount);
+                            maxDefinitionValuesCount += valuesCount.maxDefinitionLevelValuesCount();
+                            totalValuesCount += valuesCount.totalValuesCount();
                         }
                     }
                     offset += positionsCount;

@@ -75,7 +75,7 @@ public class BlackHoleNodePartitioningProvider
             }
 
             // clear the sign bit
-            hash &= 0x7fff_ffff_ffff_ffffL;
+            hash &= 0x7FFF_FFFF_FFFF_FFFFL;
 
             return (int) (hash % bucketCount);
         };

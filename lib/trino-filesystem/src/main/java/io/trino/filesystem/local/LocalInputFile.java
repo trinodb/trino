@@ -96,7 +96,7 @@ public class LocalInputFile
                 throw handleException(location, e);
             }
         }
-        return length.getAsLong();
+        return length.orElseThrow();
     }
 
     @Override

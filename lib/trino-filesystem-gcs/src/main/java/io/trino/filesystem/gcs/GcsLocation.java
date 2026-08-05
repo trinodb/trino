@@ -23,8 +23,6 @@ record GcsLocation(Location location)
     GcsLocation
     {
         // Note: Underscores are allowed in bucket names, see https://cloud.google.com/storage/docs/buckets#naming.
-        // Generation numbers are not supported, i.e. gs://bucket/path#generation.
-        // For more details on generation numbers see https://cloud.google.com/storage/docs/object-versioning.
 
         requireNonNull(location, "location");
         checkArgument(location.scheme().isPresent(), "No scheme for GCS location: %s", location);
@@ -32,8 +30,6 @@ record GcsLocation(Location location)
         checkArgument(location.host().isPresent(), "No bucket for GCS location: %s", location);
         checkArgument(location.userInfo().isEmpty(), "GCS location contains user info: %s", location);
         checkArgument(location.port().isEmpty(), "GCS location contains port: %s", location);
-        checkArgument(!location.path().contains("#"), "GCS generation numbers are not supported: %s", location);
-        checkArgument(!location.path().contains("?"), "Invalid character '?': %s", location);
     }
 
     public String scheme()

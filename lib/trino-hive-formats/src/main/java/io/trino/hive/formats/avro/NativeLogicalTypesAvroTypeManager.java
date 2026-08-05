@@ -110,14 +110,14 @@ public class NativeLogicalTypesAvroTypeManager
     static Type getAvroLogicalTypeSpiType(AvroLogicalType avroLogicalType)
     {
         return switch (avroLogicalType) {
-            case DateLogicalType __ -> DateType.DATE;
+            case DateLogicalType _ -> DateType.DATE;
             case BytesDecimalLogicalType bytesDecimalLogicalType -> DecimalType.createDecimalType(bytesDecimalLogicalType.precision(), bytesDecimalLogicalType.scale());
             case FixedDecimalLogicalType fixedDecimalLogicalType -> DecimalType.createDecimalType(fixedDecimalLogicalType.precision(), fixedDecimalLogicalType.scale());
-            case TimeMillisLogicalType __ -> TimeType.TIME_MILLIS;
-            case TimeMicrosLogicalType __ -> TimeType.TIME_MICROS;
-            case TimestampMillisLogicalType __ -> TimestampType.TIMESTAMP_MILLIS;
-            case TimestampMicrosLogicalType __ -> TimestampType.TIMESTAMP_MICROS;
-            case StringUUIDLogicalType __ -> UuidType.UUID;
+            case TimeMillisLogicalType _ -> TimeType.TIME_MILLIS;
+            case TimeMicrosLogicalType _ -> TimeType.TIME_MICROS;
+            case TimestampMillisLogicalType _ -> TimestampType.TIMESTAMP_MILLIS;
+            case TimestampMicrosLogicalType _ -> TimestampType.TIMESTAMP_MICROS;
+            case StringUUIDLogicalType _ -> UuidType.UUID;
         };
     }
 
@@ -228,10 +228,10 @@ public class NativeLogicalTypesAvroTypeManager
     static Optional<AvroLogicalType> validateAndLogIssues(Schema schema)
     {
         switch (validateLogicalType(schema)) {
-            case NoLogicalType ignored -> {
+            case NoLogicalType _ -> {
                 return Optional.empty();
             }
-            case NonNativeAvroLogicalType ignored -> {
+            case NonNativeAvroLogicalType _ -> {
                 log.debug("Unrecognized logical type %s", schema);
                 return Optional.empty();
             }
@@ -256,7 +256,7 @@ public class NativeLogicalTypesAvroTypeManager
             case DATE, DECIMAL, TIME_MILLIS, TIME_MICROS, TIMESTAMP_MILLIS, TIMESTAMP_MICROS, UUID:
                 logicalType = fromSchemaIgnoreInvalid(schema);
                 break;
-            case LOCAL_TIMESTAMP_MICROS + LOCAL_TIMESTAMP_MILLIS:
+            case LOCAL_TIMESTAMP_MICROS, LOCAL_TIMESTAMP_MILLIS:
                 log.debug("Logical type %s not currently supported by by Trino", typeName);
                 // fall through
             default:
@@ -278,7 +278,10 @@ public class NativeLogicalTypesAvroTypeManager
     }
 
     public abstract static sealed class ValidateLogicalTypeResult
-            permits NoLogicalType, NonNativeAvroLogicalType, InvalidNativeAvroLogicalType, ValidNativeAvroLogicalType {}
+            permits InvalidNativeAvroLogicalType,
+                    NoLogicalType,
+                    NonNativeAvroLogicalType,
+                    ValidNativeAvroLogicalType {}
 
     protected static final class NoLogicalType
             extends ValidateLogicalTypeResult {}
@@ -344,7 +347,7 @@ public class NativeLogicalTypesAvroTypeManager
      * Decode a long from the two's complement big-endian representation.
      *
      * @param bytes the two's complement big-endian encoding of the number. It must contain at least 1 byte.
-     * It may contain more than 8 bytes if the leading bytes are not significant (either zeros or -1)
+     *         It may contain more than 8 bytes if the leading bytes are not significant (either zeros or -1)
      * @throws ArithmeticException if the bytes represent a number outside the range [-2^63, 2^63 - 1]
      */
     // Styled from io.trino.spi.type.Int128.fromBigEndian

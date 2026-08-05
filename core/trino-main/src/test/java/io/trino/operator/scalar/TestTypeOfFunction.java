@@ -110,6 +110,6 @@ public class TestTypeOfFunction
     {
         assertTrinoExceptionThrownBy(assertions.expression("typeof(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:12: Unexpected parameters (<function>) for function typeof. Expected: typeof(t) T");
+                .hasMessage("line 1:12: Unexpected parameters (<function>) for function typeof. Expected: typeof(T) T");
     }
 }

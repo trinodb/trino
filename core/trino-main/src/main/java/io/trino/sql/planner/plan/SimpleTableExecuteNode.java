@@ -27,17 +27,17 @@ import static java.util.Objects.requireNonNull;
 public class SimpleTableExecuteNode
         extends PlanNode
 {
-    private final Symbol output;
+    private final List<Symbol> outputs;
     private final TableExecuteHandle executeHandle;
 
     @JsonCreator
     public SimpleTableExecuteNode(
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("output") Symbol output,
+            @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("executeHandle") TableExecuteHandle executeHandle)
     {
         super(id);
-        this.output = requireNonNull(output, "output is null");
+        this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.executeHandle = requireNonNull(executeHandle, "executeHandle is null");
     }
 
@@ -48,16 +48,11 @@ public class SimpleTableExecuteNode
         return ImmutableList.of();
     }
 
+    @JsonProperty("outputs")
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.of(output);
-    }
-
-    @JsonProperty
-    public Symbol getOutput()
-    {
-        return output;
+        return outputs;
     }
 
     @Override

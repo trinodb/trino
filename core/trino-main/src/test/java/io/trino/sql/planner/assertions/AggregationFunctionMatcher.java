@@ -20,7 +20,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -46,7 +46,7 @@ public class AggregationFunctionMatcher
         }
 
         AggregationFunction expectedCall = callMaker.getExpectedValue(symbolAliases);
-        for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
             Aggregation aggregation = assignment.getValue();
             if (aggregationMatches(aggregation, expectedCall)) {
                 checkState(result.isEmpty(), "Ambiguous function calls in %s", aggregationNode);
@@ -59,7 +59,7 @@ public class AggregationFunctionMatcher
 
     private static boolean aggregationMatches(Aggregation aggregation, AggregationFunction expectedCall)
     {
-        return Objects.equals(expectedCall.name(), aggregation.getResolvedFunction().signature().getName().getFunctionName()) &&
+        return Objects.equals(expectedCall.name(), aggregation.getResolvedFunction().signature().getName().functionName()) &&
                 Objects.equals(expectedCall.filter(), aggregation.getFilter()) &&
                 Objects.equals(expectedCall.orderingScheme(), aggregation.getOrderingScheme()) &&
                 expectedCall.distinct() == aggregation.isDistinct() &&

@@ -23,6 +23,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
@@ -59,12 +60,6 @@ final class TestExasolConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            // Tests requires write access which is not implemented
-            case SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_LIMIT_PUSHDOWN,
-                 SUPPORTS_TOPN_PUSHDOWN -> false;
-
             // Parallel writing is not supported due to restrictions of the Exasol JDBC driver.
             case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_ARRAY,
@@ -74,15 +69,25 @@ final class TestExasolConnectorTest
                  SUPPORTS_DELETE,
                  SUPPORTS_INSERT,
                  SUPPORTS_MAP_TYPE,
+                 SUPPORTS_ROW_TYPE,
                  SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
                  SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_MERGE -> false;
 
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
+    {
+        // Use Exasol executor because the connector does not support creating tables
+        return new TestTable(exasolServer.getSqlExecutor(), TEST_SCHEMA + "." + namePrefix, tableDefinition, rowsToInsert);
     }
 
     @Override
@@ -237,9 +242,28 @@ final class TestExasolConnectorTest
     @Test
     void testPredicatePushdownForChars()
     {
+        // Equality against a varchar literal: the char column is coerced to varchar (trailing spaces trimmed,
+        // NO PAD comparison), but UnwrapCastInComparison rewrites c = varchar back to c = char(n) because the
+        // literal '0' round-trips through char(1) unchanged, so the predicate still pushes down as a char comparison.
         predicatePushdownTest("CHAR(1)", "'0'", "=", "'0'");
-        predicatePushdownTest("CHAR(1)", "'0'", "<=", "'0'");
+        // Ordering comparison against a char literal: char ordering is PAD SPACE, so the comparison must stay char-to-char
+        // (no char->varchar coercion) to remain pushable. Comparing a char column to a varchar literal with <= would
+        // leave a residual CAST(c AS varchar) that is not pushed down, so an explicit char literal is used here.
+        predicatePushdownTest("CHAR(1)", "'0'", "<=", "CAST('0' AS CHAR(1))");
         predicatePushdownTest("CHAR(7)", "'my_char'", "=", "CAST('my_char' AS CHAR(7))");
+    }
+
+    @Test
+    void testPredicatePushdownForNegativeTimestamp()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), TEST_SCHEMA + ".test_negative_timestamp_predicate", "(dt TIMESTAMP)")) {
+            // Exasol cannot store negative TIMESTAMP values, so store the positive value and filter with
+            // the corresponding negative Trino timestamp to verify predicate binding does not lose the year sign.
+            onRemoteDatabase().execute(format("INSERT INTO %s VALUES (TIMESTAMP '2013-03-11')", table.getName()));
+
+            assertThat(query(format("SELECT dt FROM %s WHERE dt = TIMESTAMP '-2013-03-11'", table.getName())))
+                    .isFullyPushedDown();
+        }
     }
 
     private void predicatePushdownTest(String exasolType, String exasolLiteral, String operator, String filterLiteral)

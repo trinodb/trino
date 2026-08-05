@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
@@ -50,10 +51,12 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -488,14 +491,14 @@ public class CheckpointWriter
     {
         return valuesOptional.map(
                 values -> {
-                    Map<String, Type> fieldTypes = valuesType.getFields().stream().collect(toMap(
+                    Map<String, Type> fieldTypes = valuesType.getFields().stream().collect(toImmutableMap(
                             // anonymous row fields are not expected here
                             field -> field.getName().orElseThrow(),
                             RowType.Field::getType));
 
                     return values.entrySet().stream()
                             .collect(toMap(
-                                    Map.Entry::getKey,
+                                    Entry::getKey,
                                     entry -> {
                                         Type type = fieldTypes.get(entry.getKey());
                                         Object value = entry.getValue();
@@ -511,6 +514,7 @@ public class CheckpointWriter
                                             // This is TIMESTAMP_NTZ type in Delta Lake
                                             return value;
                                         }
+                                        checkState(Primitives.wrap(type.getJavaType()).isInstance(value), "Unexpected value class for type %s, expected %s, got %s", type, type.getJavaType(), value.getClass());
                                         return value;
                                     }));
                 });
@@ -522,7 +526,7 @@ public class CheckpointWriter
                 values ->
                         values.entrySet().stream()
                                 .collect(toMap(
-                                        Map.Entry::getKey,
+                                        Entry::getKey,
                                         entry -> {
                                             Object value = entry.getValue();
                                             if (value instanceof Integer) {
@@ -592,7 +596,7 @@ public class CheckpointWriter
         }
         MapType mapType = (MapType) field.getType();
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBlockBuilder, valueBlockBuilder) -> {
-            for (Map.Entry<String, String> entry : values.entrySet()) {
+            for (Entry<String, String> entry : values.entrySet()) {
                 mapType.getKeyType().writeSlice(keyBlockBuilder, utf8Slice(entry.getKey()));
                 if (entry.getValue() == null) {
                     valueBlockBuilder.appendNull();

@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
@@ -52,11 +53,11 @@ public final class IcebergAvroFileWriter
     private final Schema icebergSchema;
     private final List<Type> types;
     private final FileAppender<Record> avroWriter;
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
 
     public IcebergAvroFileWriter(
             OutputFile file,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             Schema icebergSchema,
             List<Type> types,
             HiveCompressionCodec hiveCompressionCodec)
@@ -101,14 +102,14 @@ public final class IcebergAvroFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             avroWriter.close();
         }
         catch (IOException e) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Exception ex) {
                 if (!e.equals(ex)) {
@@ -124,7 +125,7 @@ public final class IcebergAvroFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             avroWriter.close();
         }
         catch (Exception e) {

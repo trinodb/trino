@@ -17,6 +17,7 @@ import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -77,7 +78,8 @@ public class RetryOptionsConfigurer
         }
     }
 
-    private RetrySettings retrySettings()
+    @VisibleForTesting
+    RetrySettings retrySettings()
     {
         long maxDelay = retryDelay.toMillis() * (long) pow(retryMultiplier, retries);
 

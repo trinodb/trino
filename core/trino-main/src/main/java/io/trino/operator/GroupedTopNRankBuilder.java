@@ -19,6 +19,7 @@ import io.trino.array.LongBigArray;
 import io.trino.operator.RowReferencePageManager.LoadCursor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -198,7 +199,8 @@ public class GroupedTopNRankBuilder
                 Page page = pageManager.getPage(rowId);
                 int position = pageManager.getPosition(rowId);
                 for (int i = 0; i < sourceTypes.size(); i++) {
-                    sourceTypes.get(i).appendTo(page.getBlock(i), position, pageBuilder.getBlockBuilder(i));
+                    Block block = page.getBlock(i);
+                    pageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
                 }
                 if (produceRanking) {
                     BIGINT.writeLong(pageBuilder.getBlockBuilder(sourceTypes.size()), rankingOutput.get(currentIndexInGroup));

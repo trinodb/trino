@@ -14,6 +14,7 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.Lists;
+import io.trino.spi.variant.Header;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
@@ -44,15 +45,18 @@ public class ParquetTypeVisitor<T>
         LogicalTypeAnnotation annotation = group.getLogicalTypeAnnotation();
         if (LogicalTypeAnnotation.listType().equals(annotation)) {
             checkArgument(!group.isRepetition(REPEATED),
-                    "Invalid list: top-level group is repeated: %s", group);
+                    "Invalid list: top-level group is repeated: %s",
+                    group);
             checkArgument(group.getFieldCount() == 1,
-                    "Invalid list: does not contain single repeated field: %s", group);
+                    "Invalid list: does not contain single repeated field: %s",
+                    group);
 
             GroupType repeatedElement = group.getFields().get(0).asGroupType();
             checkArgument(repeatedElement.isRepetition(REPEATED),
                     "Invalid list: inner group is not repeated");
             checkArgument(repeatedElement.getFieldCount() <= 1,
-                    "Invalid list: repeated group is not a single field: %s", group);
+                    "Invalid list: repeated group is not a single field: %s",
+                    group);
 
             visitor.fieldNames.push(repeatedElement.getName());
             try {
@@ -69,9 +73,11 @@ public class ParquetTypeVisitor<T>
         }
         if (LogicalTypeAnnotation.mapType().equals(annotation)) {
             checkArgument(!group.isRepetition(REPEATED),
-                    "Invalid map: top-level group is repeated: %s", group);
+                    "Invalid map: top-level group is repeated: %s",
+                    group);
             checkArgument(group.getFieldCount() == 1,
-                    "Invalid map: does not contain single repeated field: %s", group);
+                    "Invalid map: does not contain single repeated field: %s",
+                    group);
 
             GroupType repeatedKeyValue = group.getType(0).asGroupType();
             checkArgument(repeatedKeyValue.isRepetition(REPEATED),
@@ -103,6 +109,10 @@ public class ParquetTypeVisitor<T>
             finally {
                 visitor.fieldNames.pop();
             }
+        }
+        if (LogicalTypeAnnotation.variantType(Header.VERSION).equals(annotation)) {
+            checkArgument(group.getFieldCount() == 2, "Invalid variant: expected 2 fields (metadata, value): %s", group);
+            return visitor.variant(group);
         }
         return visitor.struct(group, visitFields(group, visitor));
     }
@@ -144,6 +154,11 @@ public class ParquetTypeVisitor<T>
     }
 
     public T map(GroupType map, T key, T value)
+    {
+        return null;
+    }
+
+    public T variant(GroupType variant)
     {
         return null;
     }

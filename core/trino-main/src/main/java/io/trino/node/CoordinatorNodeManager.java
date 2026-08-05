@@ -88,8 +88,7 @@ public final class CoordinatorNodeManager
             CurrentNodeState currentNodeState,
             @ForNodeManager HttpClient httpClient)
     {
-        this(
-                nodeInventory,
+        this(nodeInventory,
                 currentNode,
                 currentNodeState,
                 nodeInfo.getEnvironment(),
@@ -282,6 +281,19 @@ public final class CoordinatorNodeManager
     public int getShuttingDownNodeCount()
     {
         return getAllNodes().shuttingDownNodes().size();
+    }
+
+    @Managed
+    public int getActiveCoordinatorCount()
+    {
+        return getAllNodes().activeCoordinators().size();
+    }
+
+    @Managed
+    public int getActiveWorkerCount()
+    {
+        AllNodes allNodes = getAllNodes();
+        return allNodes.activeNodes().size() - allNodes.activeCoordinators().size();
     }
 
     @VisibleForTesting

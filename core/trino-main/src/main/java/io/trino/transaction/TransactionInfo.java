@@ -36,7 +36,7 @@ public class TransactionInfo
     private final Duration idleTime;
     private final List<String> catalogNames;
     private final Optional<String> writtenCatalogName;
-    private final Set<CatalogHandle> activeCatalogs;
+    private final Set<CatalogHandle> registeredCatalogs;
 
     public TransactionInfo(
             TransactionId transactionId,
@@ -47,7 +47,7 @@ public class TransactionInfo
             Duration idleTime,
             List<String> catalogNames,
             Optional<String> writtenCatalogName,
-            Set<CatalogHandle> activeCatalogs)
+            Set<CatalogHandle> registeredCatalogs)
     {
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
@@ -57,7 +57,7 @@ public class TransactionInfo
         this.idleTime = requireNonNull(idleTime, "idleTime is null");
         this.catalogNames = ImmutableList.copyOf(requireNonNull(catalogNames, "catalogNames is null"));
         this.writtenCatalogName = requireNonNull(writtenCatalogName, "writtenCatalogName is null");
-        this.activeCatalogs = ImmutableSet.copyOf(requireNonNull(activeCatalogs, "activeCatalogs is null"));
+        this.registeredCatalogs = ImmutableSet.copyOf(requireNonNull(registeredCatalogs, "registeredCatalogs is null"));
     }
 
     public TransactionId getTransactionId()
@@ -100,8 +100,8 @@ public class TransactionInfo
         return writtenCatalogName;
     }
 
-    public Set<CatalogHandle> getActiveCatalogs()
+    public Set<CatalogHandle> getRegisteredCatalogs()
     {
-        return activeCatalogs;
+        return registeredCatalogs;
     }
 }

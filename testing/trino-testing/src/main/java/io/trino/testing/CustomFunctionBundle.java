@@ -13,8 +13,8 @@
  */
 package io.trino.testing;
 
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.spi.function.FunctionBundle;
 
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.operator.scalar.InvokeFunction.INVOKE_FUNCTION;

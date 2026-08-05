@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,11 +36,11 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import org.assertj.core.util.VisibleForTesting;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -321,7 +322,7 @@ public class PushPartialAggregationThroughJoin
     private PlanNode toIntermediateAggregation(AggregationNode partialAggregation, PlanNode source, Context context)
     {
         ImmutableMap.Builder<Symbol, Aggregation> intermediateAggregation = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : partialAggregation.getAggregations().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : partialAggregation.getAggregations().entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
 

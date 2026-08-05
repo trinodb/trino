@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.system.files;
 import org.apache.iceberg.ManifestContent;
 import org.apache.iceberg.ManifestFile;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -36,99 +37,16 @@ public record TrinoManifestFile(
         Long addedRowsCount,
         Long existingRowsCount,
         Long deletedRowsCount,
-        Long firstRowId)
+        Long firstRowId,
+        ByteBuffer keyMetadata)
         implements ManifestFile
 {
     private static final long INSTANCE_SIZE = instanceSize(TrinoManifestFile.class);
 
     @Override
-    public String path()
-    {
-        return path;
-    }
-
-    @Override
-    public long length()
-    {
-        return length;
-    }
-
-    @Override
-    public int partitionSpecId()
-    {
-        return partitionSpecId;
-    }
-
-    @Override
-    public ManifestContent content()
-    {
-        return content;
-    }
-
-    @Override
-    public long sequenceNumber()
-    {
-        return sequenceNumber;
-    }
-
-    @Override
-    public long minSequenceNumber()
-    {
-        return minSequenceNumber;
-    }
-
-    @Override
-    public Long snapshotId()
-    {
-        return snapshotId;
-    }
-
-    @Override
-    public Integer addedFilesCount()
-    {
-        return addedFilesCount;
-    }
-
-    @Override
-    public Long addedRowsCount()
-    {
-        return addedRowsCount;
-    }
-
-    @Override
-    public Integer existingFilesCount()
-    {
-        return existingFilesCount;
-    }
-
-    @Override
-    public Long existingRowsCount()
-    {
-        return existingRowsCount;
-    }
-
-    @Override
-    public Integer deletedFilesCount()
-    {
-        return deletedFilesCount;
-    }
-
-    @Override
-    public Long deletedRowsCount()
-    {
-        return deletedRowsCount;
-    }
-
-    @Override
     public List<PartitionFieldSummary> partitions()
     {
         throw new UnsupportedOperationException("Not implemented");
-    }
-
-    @Override
-    public Long firstRowId()
-    {
-        return firstRowId;
     }
 
     @Override
@@ -153,7 +71,8 @@ public record TrinoManifestFile(
                 + sizeOf(addedRowsCount)
                 + sizeOf(existingRowsCount)
                 + sizeOf(deletedRowsCount)
-                + sizeOf(firstRowId);
+                + sizeOf(firstRowId)
+                + (keyMetadata != null ? keyMetadata.remaining() : 0);
     }
 
     public static TrinoManifestFile from(ManifestFile manifestFile)
@@ -172,6 +91,7 @@ public record TrinoManifestFile(
                 manifestFile.addedRowsCount(),
                 manifestFile.existingRowsCount(),
                 manifestFile.deletedRowsCount(),
-                manifestFile.firstRowId());
+                manifestFile.firstRowId(),
+                manifestFile.keyMetadata());
     }
 }

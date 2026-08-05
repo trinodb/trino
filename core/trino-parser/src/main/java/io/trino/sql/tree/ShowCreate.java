@@ -31,7 +31,6 @@ public class ShowCreate
         SCHEMA,
         MATERIALIZED_VIEW,
         FUNCTION,
-        /**/;
     }
 
     private final Type type;

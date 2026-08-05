@@ -50,7 +50,7 @@ public class HttpLocationFactory
         requireNonNull(queryId, "queryId is null");
         return uriBuilderFrom(baseUri)
                 .appendPath("/v1/query")
-                .appendPath(queryId.toString())
+                .appendPath(queryId.id())
                 .build();
     }
 

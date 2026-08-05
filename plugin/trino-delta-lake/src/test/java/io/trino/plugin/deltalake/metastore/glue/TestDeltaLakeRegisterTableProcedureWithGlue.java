@@ -15,17 +15,12 @@ package io.trino.plugin.deltalake.metastore.glue;
 
 import io.trino.plugin.deltalake.BaseDeltaLakeRegisterTableProcedureTest;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestDeltaLakeRegisterTableProcedureWithGlue
@@ -33,29 +28,40 @@ public class TestDeltaLakeRegisterTableProcedureWithGlue
 {
     private GlueHiveMetastore metastore;
     private String schema;
+    private String bucketName;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Path warehouseDir = Files.createTempDirectory("warehouse-dir");
-        closeAfterClass(() -> deleteRecursively(warehouseDir, ALLOW_INSECURE));
-        metastore = createTestingGlueHiveMetastore(warehouseDir, this::closeAfterClass);
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        bucketName = "test-delta-lake-register-table-" + randomNameSuffix();
+        floci.createBucket(bucketName);
         schema = "test_delta_lake_register_table" + randomNameSuffix();
-        return DeltaLakeQueryRunner.builder(schema)
+        QueryRunner queryRunner = DeltaLakeQueryRunner.builder(schema)
                 .addDeltaProperty("hive.metastore", "glue")
-                .addDeltaProperty("hive.metastore.glue.region", requireEnv("AWS_REGION"))
-                .addDeltaProperty("hive.metastore.glue.default-warehouse-dir", warehouseDir.toUri().toString())
+                .addDeltaProperty("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
+                .addDeltaProperty("fs.s3.enabled", "true")
+                .addDeltaProperties(floci.s3AndGlueProperties())
                 .addDeltaProperty("delta.unique-table-location", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .setSchemaLocation("s3://%s/%s".formatted(bucketName, schema))
                 .build();
+        metastore = getConnectorService(queryRunner, GlueHiveMetastore.class);
+        return queryRunner;
     }
 
     @AfterAll
     public void tearDown()
     {
-        // Data is on the local disk and will be deleted by query runner cleanup
-        metastore.dropDatabase(schema, false);
-        metastore.shutdown();
+        if (metastore != null) {
+            metastore.dropDatabase(schema, false);
+        }
+    }
+
+    @Override
+    protected String nonExistingTableLocation()
+    {
+        return "s3://%s/non-existing-table".formatted(bucketName);
     }
 }

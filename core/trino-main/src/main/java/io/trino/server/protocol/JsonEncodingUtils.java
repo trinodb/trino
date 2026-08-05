@@ -34,6 +34,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
@@ -43,12 +44,17 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.VariantType;
+import io.trino.spi.variant.Variant;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
+import io.trino.util.variant.VariantUtil;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
@@ -63,6 +69,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonEncodingUtils
@@ -83,16 +90,17 @@ public final class JsonEncodingUtils
     {
         verify(!types.isEmpty(), "Columns must not be empty");
 
-        boolean supportsParametricDateTime = requireNonNull(session, "session is null")
-                .getClientCapabilities()
-                .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        Set<String> clientCapabilities = session.getClientCapabilities();
+        boolean supportsParametricDateTime = clientCapabilities.contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        boolean supportsVariant = clientCapabilities.contains(ClientCapabilities.VARIANT.toString());
+        boolean supportsVariantBinary = clientCapabilities.contains(ClientCapabilities.VARIANT_BINARY.toString());
 
         return types.stream()
-                .map(type -> createTypeEncoder(type, supportsParametricDateTime))
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime)
+    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsVariant, boolean supportsVariantBinary)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -105,12 +113,13 @@ public final class JsonEncodingUtils
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
+            case VariantType _ -> new VariantEncoder(supportsVariant, supportsVariantBinary);
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
-            case RowType rowType -> new RowEncoder(rowType, rowType.getTypeParameters()
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
+            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
+            case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
-                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime))
+                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
                     .toArray(TypeEncoder[]::new));
             case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime);
         };
@@ -143,13 +152,13 @@ public final class JsonEncodingUtils
         }
     }
 
-    public interface TypeEncoder
+    public sealed interface TypeEncoder
     {
         void encode(JsonGenerator generator, Block block, int position)
                 throws IOException;
     }
 
-    private static class BigintEncoder
+    private static final class BigintEncoder
             implements TypeEncoder
     {
         @Override
@@ -164,7 +173,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class IntegerEncoder
+    private static final class IntegerEncoder
             implements TypeEncoder
     {
         @Override
@@ -179,7 +188,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class BooleanEncoder
+    private static final class BooleanEncoder
             implements TypeEncoder
     {
         @Override
@@ -194,7 +203,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class SmallintEncoder
+    private static final class SmallintEncoder
             implements TypeEncoder
     {
         @Override
@@ -209,7 +218,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class TinyintEncoder
+    private static final class TinyintEncoder
             implements TypeEncoder
     {
         @Override
@@ -224,7 +233,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class DoubleEncoder
+    private static final class DoubleEncoder
             implements TypeEncoder
     {
         @Override
@@ -239,7 +248,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class RealEncoder
+    private static final class RealEncoder
             implements TypeEncoder
     {
         @Override
@@ -254,7 +263,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class VarcharEncoder
+    private static final class VarcharEncoder
             implements TypeEncoder
     {
         @Override
@@ -270,7 +279,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class CharEncoder
+    private static final class CharEncoder
             implements TypeEncoder
     {
         private final int length;
@@ -293,7 +302,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class VarbinaryEncoder
+    private static final class VarbinaryEncoder
             implements TypeEncoder
     {
         @Override
@@ -311,7 +320,47 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class ArrayEncoder
+    private static final class VariantEncoder
+            implements TypeEncoder
+    {
+        private final boolean supportsVariant;
+        private final boolean supportsVariantBinary;
+
+        public VariantEncoder(boolean supportsVariant, boolean supportsVariantBinary)
+        {
+            this.supportsVariant = supportsVariant;
+            this.supportsVariantBinary = supportsVariantBinary;
+        }
+
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+
+            Variant variant = VARIANT.getObject(block, position);
+            if (supportsVariantBinary) {
+                generator.writeStartObject();
+                generator.writeStringField("metadata", Base64.getEncoder().encodeToString(variant.metadata().toSlice().getBytes()));
+                generator.writeStringField("value", Base64.getEncoder().encodeToString(variant.data().getBytes()));
+                generator.writeEndObject();
+            }
+            else {
+                String json = VariantUtil.asJson(variant).toStringUtf8();
+                if (supportsVariant) {
+                    generator.writeRawValue(json);
+                }
+                else {
+                    generator.writeString(json);
+                }
+            }
+        }
+    }
+
+    private static final class ArrayEncoder
             implements TypeEncoder
     {
         private final ArrayType arrayType;
@@ -341,7 +390,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class MapEncoder
+    private static final class MapEncoder
             implements TypeEncoder
     {
         private final MapType mapType;
@@ -380,7 +429,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class RowEncoder
+    private static final class RowEncoder
             implements TypeEncoder
     {
         private final RowType rowType;
@@ -409,7 +458,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class TypeObjectValueEncoder
+    private static final class TypeObjectValueEncoder
             implements TypeEncoder
     {
         private final Type type;
@@ -436,6 +485,9 @@ public final class JsonEncodingUtils
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
                 case SqlDate dateValue -> generator.writeString(dateValue.toString());
                 case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
+                // When client does not have NUMBER capability, NUMBER values are sent as varchar (strings).
+                // When it has the capability, they are also sent as strings.
+                case SqlNumber number -> generator.writeString(number.toString());
                 case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlTime timeValue -> generator.writeString(timeValue.toString());

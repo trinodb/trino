@@ -30,17 +30,19 @@ public class HiveMetastoreModule
         extends AbstractConfigurationAwareModule
 {
     private final Optional<HiveMetastore> metastore;
+    private final boolean impersonationEnabled;
 
-    public HiveMetastoreModule(Optional<HiveMetastore> metastore)
+    public HiveMetastoreModule(Optional<HiveMetastore> metastore, boolean impersonationEnabled)
     {
         this.metastore = metastore;
+        this.impersonationEnabled = impersonationEnabled;
     }
 
     @Override
     protected void setup(Binder binder)
     {
         if (metastore.isPresent()) {
-            binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore.get()));
+            binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore.get(), impersonationEnabled));
             binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
         }
         else {

@@ -25,7 +25,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class TestRowBlockEncoding
+final class TestRowBlockEncoding
         extends BaseBlockEncodingTest<Object[]>
 {
     @Override

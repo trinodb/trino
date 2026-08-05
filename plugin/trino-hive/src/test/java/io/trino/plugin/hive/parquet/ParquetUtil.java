@@ -24,6 +24,7 @@ import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.Schema;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
@@ -80,6 +81,7 @@ final class ParquetUtil
         HivePageSourceFactory hivePageSourceFactory = new ParquetPageSourceFactory(
                 fileSystemFactory,
                 new FileFormatDataSourceStats(),
+                Optional.empty(),
                 new ParquetReaderConfig(),
                 hiveConfig);
 
@@ -96,7 +98,8 @@ final class ParquetUtil
                         Optional.empty(),
                         OptionalInt.empty(),
                         false,
-                        NO_ACID_TRANSACTION)
+                        NO_ACID_TRANSACTION,
+                        MemoryContext.NO_LIMIT)
                 .orElseThrow();
     }
 

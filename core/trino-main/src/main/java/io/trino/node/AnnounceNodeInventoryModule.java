@@ -46,5 +46,8 @@ public class AnnounceNodeInventoryModule
                     config.setIdleTimeout(new Duration(3, SECONDS));
                     config.setRequestTimeout(new Duration(3, SECONDS));
                 }).build());
+
+        // internal communication setup for discovery http client
+        install(new InternalCommunicationForDiscoveryModule(ForAnnouncer.class));
     }
 }

@@ -16,14 +16,15 @@ package io.trino.sql.gen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.FullConnectorSession;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Domain.DiscreteSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.ConnectorIdentity;
@@ -46,7 +47,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
-import static io.trino.spi.predicate.Domain.DiscreteSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -82,12 +82,7 @@ public class BenchmarkDynamicPageFilter
     @Param("false")
     public boolean nullsAllowed;
 
-    @Param({
-            "INT32_RANDOM",
-            "INT64_RANDOM",
-            "INT64_FIXED_32K", // LongBitSetFilter
-            "REAL_RANDOM",
-    })
+    @Param
     public DataSet inputDataSet;
 
     private List<Page> inputData;
@@ -97,6 +92,7 @@ public class BenchmarkDynamicPageFilter
     {
         INT32_RANDOM(INTEGER, (block, r) -> INTEGER.writeLong(block, r.nextInt())),
         INT64_RANDOM(BIGINT, (block, r) -> BIGINT.writeLong(block, r.nextLong())),
+        // LongBitSetFilter
         INT64_FIXED_32K(BIGINT, (block, r) -> BIGINT.writeLong(block, r.nextLong() % 32768)),
         REAL_RANDOM(REAL, (block, r) -> REAL.writeLong(block, floatToIntBits(r.nextFloat()))),
         /**/;
@@ -121,8 +117,7 @@ public class BenchmarkDynamicPageFilter
                 }
             }
             return TupleDomain.withColumnDomains(ImmutableMap.of(
-                    new TestingColumnHandle("dummy"),
-                    Domain.create(ValueSet.copyOf(type, valuesBuilder.build()), nullsAllowed)));
+                    new TestingColumnHandle("dummy"), Domain.create(ValueSet.copyOf(type, valuesBuilder.build()), nullsAllowed)));
         }
 
         private List<Page> createInputTestData(
@@ -226,7 +221,7 @@ public class BenchmarkDynamicPageFilter
         return value < chance;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Throwable
     {
         benchmark(BenchmarkDynamicPageFilter.class, WarmupMode.BULK)

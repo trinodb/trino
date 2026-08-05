@@ -14,9 +14,12 @@
 package io.trino.spi.type;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -29,22 +32,41 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class TestingTypeManager
+/**
+ * This class is only meant to be used within the trino-spi module. For all other modules, use InternalTypeManager.TESTING_TYPE_MANAGER
+ */
+public final class TestingTypeManager
         implements TypeManager
 {
     private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS, DATE, ID, HYPER_LOG_LOG);
+    private static final Set<String> PARAMETRIC_TYPES = ImmutableSet.of(StandardTypes.ARRAY, StandardTypes.ROW, StandardTypes.MAP);
 
     private final TypeOperators typeOperators = new TypeOperators();
 
     @Override
-    public Type getType(TypeSignature signature)
+    public Type getType(TypeDescriptor signature)
     {
         for (Type type : TYPES) {
-            if (signature.getBase().equals(type.getTypeSignature().getBase())) {
+            if (signature.getBase().equals(type.getBaseName())) {
                 return type;
             }
         }
-        throw new TypeNotFoundException(signature);
+
+        List<TypeParameter> parameters = signature.getParameters();
+        return switch (signature.getBase()) {
+            case StandardTypes.MAP -> new MapType(
+                    getType(((TypeParameter.Type) parameters.get(0)).type()),
+                    getType(((TypeParameter.Type) parameters.get(1)).type()),
+                    typeOperators);
+            case StandardTypes.ARRAY -> new ArrayType(getType(((TypeParameter.Type) parameters.get(0)).type()));
+            case StandardTypes.ROW -> RowType.from(signature.getParameters().stream()
+                    .map(parameter -> {
+                        TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
+                        return new RowType.Field(typeParameter.name(), getType(typeParameter.type()));
+                    })
+                    .collect(toImmutableList()));
+            default -> throw new TypeNotFoundException(signature.toString());
+        };
     }
 
     @Override
@@ -62,6 +84,17 @@ public class TestingTypeManager
             }
         }
         throw new IllegalArgumentException("Type not found: " + id);
+    }
+
+    @Override
+    public boolean isTypeRegistered(String name)
+    {
+        for (Type type : TYPES) {
+            if (type.getBaseName().equals(name)) {
+                return true;
+            }
+        }
+        return PARAMETRIC_TYPES.contains(name);
     }
 
     @Override

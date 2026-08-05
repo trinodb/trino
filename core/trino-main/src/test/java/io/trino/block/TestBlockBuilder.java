@@ -94,7 +94,7 @@ public class TestBlockBuilder
         blockBuilder.appendNull();
         BIGINT.writeLong(blockBuilder, 43L);
         blockBuilder.appendNull();
-        int[] positions = new int[] {0, 1, 1, 1, 4};
+        int[] positions = {0, 1, 1, 1, 4};
 
         // test getPositions for block
         Block block = blockBuilder.build();
@@ -113,7 +113,7 @@ public class TestBlockBuilder
 
         // assert we should not copy ids
         AtomicBoolean isIdentical = new AtomicBoolean(false);
-        block.getPositions(positions, 0, positions.length - 1).retainedBytesForEachPart((part, size) -> {
+        block.getPositions(positions, 0, positions.length - 1).retainedBytesForEachPart((part, _) -> {
             if (part == positions) {
                 isIdentical.set(true);
             }

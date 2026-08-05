@@ -43,11 +43,10 @@ public class TestMySqlGlobalTransactionMyConnectorSmokeTest
     }
 
     @Override
+    @SuppressWarnings("SwitchStatementWithTooFewBranches")
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_MERGE,
-                 SUPPORTS_ROW_LEVEL_UPDATE -> true;
             case SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };

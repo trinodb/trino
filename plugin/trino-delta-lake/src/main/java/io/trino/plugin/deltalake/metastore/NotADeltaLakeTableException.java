@@ -24,8 +24,7 @@ public class NotADeltaLakeTableException
 {
     public NotADeltaLakeTableException(String databaseName, String tableName)
     {
-        super(
-                UNSUPPORTED_TABLE_TYPE,
+        super(UNSUPPORTED_TABLE_TYPE,
                 format("%s.%s is not a Delta Lake table", requireNonNull(databaseName, "databaseName is null"), requireNonNull(tableName, "tableName is null")));
     }
 }

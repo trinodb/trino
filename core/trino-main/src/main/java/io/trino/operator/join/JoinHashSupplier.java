@@ -61,7 +61,7 @@ public class JoinHashSupplier
             LongArrayList addresses,
             List<ObjectArrayList<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            Optional<Integer> sortChannel,
+            OptionalInt sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
             HashArraySizeSupplier hashArraySizeSupplier,
             OptionalInt singleBigintJoinChannel)
@@ -89,7 +89,7 @@ public class JoinHashSupplier
         this.pageInstancesRetainedSizeInBytes = getPageInstancesRetainedSizeInBytes(channels);
 
         this.pagesHash = switch (getPagesHashType(addresses, singleBigintJoinChannel)) {
-            case BIGINT -> new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.getAsInt());
+            case BIGINT -> new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.orElseThrow());
             case DEFAULT -> new DefaultPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
         };
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
@@ -125,7 +125,7 @@ public class JoinHashSupplier
             LongArrayList addresses,
             List<ObjectArrayList<Block>> channels,
             long blocksSizeInBytes,
-            Optional<Integer> sortChannel,
+            OptionalInt sortChannel,
             OptionalInt singleBigintJoinChannel,
             HashArraySizeSupplier hashArraySizeSupplier)
     {
@@ -153,9 +153,10 @@ public class JoinHashSupplier
         return Page.getInstanceSizeInBytes(channels.size()) * pagesCount;
     }
 
-    public enum PagesHashType {
+    public enum PagesHashType
+    {
         BIGINT,
-        DEFAULT
+        DEFAULT,
     }
 
     private static PagesHashType getPagesHashType(LongArrayList addresses, OptionalInt singleBigintJoinChannel)

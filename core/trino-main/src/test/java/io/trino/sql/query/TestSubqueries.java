@@ -316,7 +316,8 @@ public class TestSubqueries
                                 anyTree(
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
-                                                        aggregation(ImmutableMap.of(), PARTIAL,
+                                                        aggregation(ImmutableMap.of(),
+                                                                PARTIAL,
                                                                 values("a"))))))));
 
         assertThat(assertions.query(
@@ -333,7 +334,8 @@ public class TestSubqueries
                                 anyTree(
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
-                                                        aggregation(ImmutableMap.of(), PARTIAL,
+                                                        aggregation(ImmutableMap.of(),
+                                                                PARTIAL,
                                                                 values("u_cid"))))))));
 
         assertThat(assertions.query(
@@ -484,7 +486,8 @@ public class TestSubqueries
                                 anyTree(
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
-                                                        aggregation(ImmutableMap.of(), PARTIAL,
+                                                        aggregation(ImmutableMap.of(),
+                                                                PARTIAL,
                                                                 values("a"))))))));
 
         assertions.assertQueryAndPlan(
@@ -501,7 +504,8 @@ public class TestSubqueries
                                                                 anyTree(
                                                                         aggregation(ImmutableMap.of(), FINAL,
                                                                                 anyTree(
-                                                                                        aggregation(ImmutableMap.of(), PARTIAL,
+                                                                                        aggregation(ImmutableMap.of(),
+                                                                                                PARTIAL,
                                                                                                 values("t_a", "t_b"))))))))))));
 
         assertions.assertQueryAndPlan(
@@ -562,7 +566,8 @@ public class TestSubqueries
                                                                 anyTree(
                                                                         aggregation(ImmutableMap.of(), FINAL,
                                                                                 anyTree(
-                                                                                        aggregation(ImmutableMap.of(), PARTIAL,
+                                                                                        aggregation(ImmutableMap.of(),
+                                                                                                PARTIAL,
                                                                                                 values("t_a", "t_b"))))))))))));
 
         assertions.assertQueryAndPlan(
@@ -575,7 +580,8 @@ public class TestSubqueries
                                 anyTree(
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
-                                                        aggregation(ImmutableMap.of(), PARTIAL,
+                                                        aggregation(ImmutableMap.of(),
+                                                                PARTIAL,
                                                                 values("a"))))))));
 
         assertThat(assertions.query(
@@ -593,7 +599,8 @@ public class TestSubqueries
                                 anyTree(
                                         aggregation(ImmutableMap.of(), FINAL,
                                                 anyTree(
-                                                        aggregation(ImmutableMap.of(), PARTIAL,
+                                                        aggregation(ImmutableMap.of(),
+                                                                PARTIAL,
                                                                 values("a"))))))));
     }
 
@@ -1724,7 +1731,7 @@ public class TestSubqueries
                 .matches("SELECT CAST(ROW(1, 'a') AS row(a integer, b varchar(1)))");
 
         // The quoted identifiers are needed due to some pre-existing inconsistencies
-        // in how identifiers are canonicalized (see TypeSignatureTranslator.canonicalize())
+        // in how identifiers are canonicalized (see TypeDescriptorTranslator.canonicalize())
         assertThat(assertions.query(
                 "SELECT (SELECT t.* AS (x, y) FROM (SELECT 1, 'a') t)"))
                 .matches("SELECT CAST(ROW(1, 'a') AS row(\"X\" integer, \"Y\" varchar(1)))");

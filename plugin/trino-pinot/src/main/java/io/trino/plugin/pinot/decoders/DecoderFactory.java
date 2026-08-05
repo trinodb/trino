@@ -66,7 +66,7 @@ public class DecoderFactory
         if (type instanceof VarbinaryType) {
             return new VarbinaryDecoder();
         }
-        if (type.getTypeSignature().getBase().equals(JSON)) {
+        if (type.getBaseName().equals(JSON)) {
             return new JsonDecoder();
         }
         return new VarcharDecoder();

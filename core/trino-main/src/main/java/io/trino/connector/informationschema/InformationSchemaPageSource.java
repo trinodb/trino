@@ -51,7 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.trino.metadata.MetadataListing.getRelationTypes;
@@ -62,7 +62,6 @@ import static io.trino.metadata.MetadataListing.listTablePrivileges;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -208,30 +207,14 @@ public class InformationSchemaPageSource
         while (pages.isEmpty() && prefixIterator.get().hasNext() && !closed && !isLimitExhausted()) {
             QualifiedTablePrefix prefix = prefixIterator.get().next();
             switch (table) {
-                case COLUMNS:
-                    addColumnsRecords(prefix);
-                    break;
-                case TABLES:
-                    addTablesRecords(prefix);
-                    break;
-                case VIEWS:
-                    addViewsRecords(prefix);
-                    break;
-                case SCHEMATA:
-                    addSchemataRecords();
-                    break;
-                case TABLE_PRIVILEGES:
-                    addTablePrivilegesRecords(prefix);
-                    break;
-                case ROLES:
-                    addRolesRecords();
-                    break;
-                case APPLICABLE_ROLES:
-                    addApplicableRolesRecords();
-                    break;
-                case ENABLED_ROLES:
-                    addEnabledRolesRecords();
-                    break;
+                case COLUMNS -> addColumnsRecords(prefix);
+                case TABLES -> addTablesRecords(prefix);
+                case VIEWS -> addViewsRecords(prefix);
+                case SCHEMATA -> addSchemataRecords();
+                case TABLE_PRIVILEGES -> addTablePrivilegesRecords(prefix);
+                case ROLES -> addRolesRecords();
+                case APPLICABLE_ROLES -> addApplicableRolesRecords();
+                case ENABLED_ROLES -> addEnabledRolesRecords();
             }
         }
         if (!prefixIterator.get().hasNext() || isLimitExhausted()) {
@@ -257,10 +240,10 @@ public class InformationSchemaPageSource
                         ordinalPosition,
                         column.getDefaultValue().orElse(null),
                         column.isNullable() ? "YES" : "NO",
-                        getDisplayLabel(column.getType(), isOmitDateTimeTypePrecision(session)),
-                        column.getComment(),
-                        column.getExtraInfo(),
-                        column.getComment());
+                        column.getType().getDisplayName(),
+                        column.getComment().orElse(null),
+                        column.getExtraInfo().orElse(null),
+                        column.getComment().orElse(null));
                 ordinalPosition++;
                 if (isLimitExhausted()) {
                     return;
@@ -398,7 +381,7 @@ public class InformationSchemaPageSource
     {
         pageBuilder.declarePosition();
         for (int i = 0; i < types.size(); i++) {
-            writeNativeValue(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
+            writeNativeValue(types.get(i), pageBuilder.getBlockBuilder(i), values[i] instanceof String string ? utf8Slice(string) : values[i]);
         }
         if (pageBuilder.isFull()) {
             flushPageBuilder();
@@ -417,6 +400,6 @@ public class InformationSchemaPageSource
 
     private boolean isLimitExhausted()
     {
-        return limit.isPresent() && recordCount >= limit.getAsLong();
+        return limit.isPresent() && recordCount >= limit.orElseThrow();
     }
 }

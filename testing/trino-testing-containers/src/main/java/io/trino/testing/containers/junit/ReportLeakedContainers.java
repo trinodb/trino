@@ -85,6 +85,8 @@ public final class ReportLeakedContainers
                     .withStatusFilter(List.of("created", "restarting", "running", "paused"))
                     .exec()
                     .stream()
+                    // testcontainers/sshd is implicitly started by testcontainers and we trust the library to stop if when no longer needed
+                    .filter(container -> !container.getImage().startsWith("testcontainers/sshd:"))
                     .filter(container -> !ignoredIds.contains(container.getId()))
                     .collect(toImmutableList());
 

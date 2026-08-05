@@ -13,27 +13,22 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
-import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -138,13 +133,15 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testPublicRoleIsGrantedToAnyone()
     {
-        assertContains(listApplicableRoles("some_user"), applicableRoles("some_user", "USER", "public", "NO"));
+        assertContains(listApplicableRoles("some_user"), applicableRoles(
+                new Role("some_user", "USER", "public", "NO")));
     }
 
     @Test
     public void testAdminRoleIsGrantedToAdmin()
     {
-        assertContains(listApplicableRoles("admin"), applicableRoles("admin", "USER", "admin", "YES"));
+        assertContains(listApplicableRoles("admin"), applicableRoles(
+                new Role("admin", "USER", "admin", "YES")));
     }
 
     @Test
@@ -152,7 +149,8 @@ abstract class AbstractTestHiveRoles
     {
         executeFromAdmin(createRoleSql("role1"));
         executeFromAdmin(grantRoleToUserSql("role1", "user"));
-        assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                new Role("user", "USER", "role1", "NO")));
         cleanup();
     }
 
@@ -164,8 +162,8 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO"));
+                new Role("user", "USER", "role1", "NO"),
+                new Role("role1", "ROLE", "role2", "NO")));
         cleanup();
     }
 
@@ -177,8 +175,8 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "YES",
-                "role1", "ROLE", "role2", "YES"));
+                new Role("user", "USER", "role1", "YES"),
+                new Role("role1", "ROLE", "role2", "YES")));
         cleanup();
     }
 
@@ -196,8 +194,8 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "YES",
-                "role1", "ROLE", "role2", "YES"));
+                new Role("user", "USER", "role1", "YES"),
+                new Role("role1", "ROLE", "role2", "YES")));
         cleanup();
     }
 
@@ -219,10 +217,12 @@ abstract class AbstractTestHiveRoles
     {
         executeFromAdmin(createRoleSql("role1"));
         executeFromAdmin(grantRoleToUserSql("role1", "user"));
-        assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                new Role("user", "USER", "role1", "NO")));
 
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
-        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
+                new Role("user", "USER", "public", "NO")));
         cleanup();
     }
 
@@ -234,13 +234,13 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO"));
+                new Role("user", "USER", "role1", "NO"),
+                new Role("role1", "ROLE", "role2", "NO")));
 
         executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "public", "NO",
-                "user", "USER", "role1", "NO"));
+                new Role("user", "USER", "public", "NO"),
+                new Role("user", "USER", "role1", "NO")));
         cleanup();
     }
 
@@ -249,10 +249,12 @@ abstract class AbstractTestHiveRoles
     {
         executeFromAdmin(createRoleSql("role1"));
         executeFromAdmin(grantRoleToUserSql("role1", "user"));
-        assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
+        assertContains(listApplicableRoles("user"), applicableRoles(
+                new Role("user", "USER", "role1", "NO")));
 
         executeFromAdmin(dropRoleSql("role1"));
-        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
+                new Role("user", "USER", "public", "NO")));
         cleanup();
     }
 
@@ -266,12 +268,13 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO",
-                "role2", "ROLE", "role3", "NO"));
+                new Role("user", "USER", "role1", "NO"),
+                new Role("role1", "ROLE", "role2", "NO"),
+                new Role("role2", "ROLE", "role3", "NO")));
 
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
-        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
+                new Role("user", "USER", "public", "NO")));
         cleanup();
     }
 
@@ -285,14 +288,14 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO",
-                "role2", "ROLE", "role3", "NO"));
+                new Role("user", "USER", "role1", "NO"),
+                new Role("role1", "ROLE", "role2", "NO"),
+                new Role("role2", "ROLE", "role3", "NO")));
 
         executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "public", "NO",
-                "user", "USER", "role1", "NO"));
+                new Role("user", "USER", "public", "NO"),
+                new Role("user", "USER", "role1", "NO")));
         cleanup();
     }
 
@@ -306,14 +309,14 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO",
-                "role2", "ROLE", "role3", "NO"));
+                new Role("user", "USER", "role1", "NO"),
+                new Role("role1", "ROLE", "role2", "NO"),
+                new Role("role2", "ROLE", "role3", "NO")));
 
         executeFromAdmin(dropRoleSql("role2"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "public", "NO",
-                "user", "USER", "role1", "NO"));
+                new Role("user", "USER", "public", "NO"),
+                new Role("user", "USER", "role1", "NO")));
         cleanup();
     }
 
@@ -325,14 +328,14 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "YES",
-                "role1", "ROLE", "role2", "YES"));
+                new Role("user", "USER", "role1", "YES"),
+                new Role("role1", "ROLE", "role2", "YES")));
 
         executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO"));
+                new Role("user", "USER", "role1", "NO"),
+                new Role("role1", "ROLE", "role2", "NO")));
         cleanup();
     }
 
@@ -344,22 +347,23 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "YES",
-                "role1", "ROLE", "role2", "YES"));
+                new Role("user", "USER", "role1", "YES"),
+                new Role("role1", "ROLE", "role2", "YES")));
 
         executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
         executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO"));
+                new Role("user", "USER", "role1", "NO"),
+                new Role("role1", "ROLE", "role2", "NO")));
 
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
-        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+        assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
+                new Role("user", "USER", "public", "NO")));
         cleanup();
     }
 
@@ -413,10 +417,10 @@ abstract class AbstractTestHiveRoles
         MaterializedResult actual = getQueryRunner().execute(unsetRole, "SELECT * FROM hive.information_schema.applicable_roles");
         MaterializedResult expected = MaterializedResult.resultBuilder(
                         unsetRole,
-                        createUnboundedVarcharType(),
-                        createUnboundedVarcharType(),
-                        createUnboundedVarcharType(),
-                        createUnboundedVarcharType())
+                        VARCHAR,
+                        VARCHAR,
+                        VARCHAR,
+                        VARCHAR)
                 .row("set_user_1", "USER", "public", "NO")
                 .row("set_user_1", "USER", "set_role_1", "NO")
                 .row("set_role_1", "ROLE", "set_role_2", "NO")
@@ -425,7 +429,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(unsetRole, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(unsetRole, createUnboundedVarcharType())
+        expected = MaterializedResult.resultBuilder(unsetRole, VARCHAR)
                 .row("public")
                 .row("set_role_1")
                 .row("set_role_2")
@@ -434,7 +438,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRoleAll, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRoleAll, createUnboundedVarcharType())
+        expected = MaterializedResult.resultBuilder(setRoleAll, VARCHAR)
                 .row("public")
                 .row("set_role_1")
                 .row("set_role_2")
@@ -443,13 +447,13 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRoleNone, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRoleNone, createUnboundedVarcharType())
+        expected = MaterializedResult.resultBuilder(setRoleNone, VARCHAR)
                 .row("public")
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRole1, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRole1, createUnboundedVarcharType())
+        expected = MaterializedResult.resultBuilder(setRole1, VARCHAR)
                 .row("public")
                 .row("set_role_1")
                 .row("set_role_2")
@@ -458,7 +462,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRole2, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRole2, createUnboundedVarcharType())
+        expected = MaterializedResult.resultBuilder(setRole2, VARCHAR)
                 .row("public")
                 .row("set_role_2")
                 .row("set_role_3")
@@ -466,7 +470,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(actual, expected);
 
         actual = getQueryRunner().execute(setRole3, "SELECT * FROM hive.information_schema.enabled_roles");
-        expected = MaterializedResult.resultBuilder(setRole3, createUnboundedVarcharType())
+        expected = MaterializedResult.resultBuilder(setRole3, VARCHAR)
                 .row("public")
                 .row("set_role_3")
                 .build();
@@ -495,28 +499,16 @@ abstract class AbstractTestHiveRoles
         return executeFromUser(user, "SELECT * FROM hive.information_schema.applicable_roles");
     }
 
-    private MaterializedResult applicableRoles(String... values)
+    private MaterializedResult applicableRoles(Role... roles)
     {
-        List<Type> types = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType());
-        int rowLength = types.size();
-        checkArgument(values.length % rowLength == 0);
-        MaterializedResult.Builder result = MaterializedResult.resultBuilder(getSession(), types);
-        Object[] row = null;
-        for (int i = 0; i < values.length; i++) {
-            if (i % rowLength == 0) {
-                if (row != null) {
-                    result.row(row);
-                }
-                row = new Object[rowLength];
-            }
-            checkState(row != null);
-            row[i % rowLength] = values[i];
-        }
-        if (row != null) {
-            result.row(row);
+        var result = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR);
+        for (Role role : roles) {
+            result.row(role.grantee(), role.granteeType(), role.roleName(), role.isGrantable());
         }
         return result.build();
     }
+
+    private record Role(String grantee, String granteeType, String roleName, String isGrantable) {}
 
     private MaterializedResult executeFromAdmin(String sql)
     {

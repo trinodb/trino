@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.Function;
 import io.trino.hive.thrift.metastore.Partition;
 import io.trino.hive.thrift.metastore.Table;
 import io.trino.hive.thrift.metastore.TableMeta;
@@ -212,13 +213,13 @@ public sealed interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    Optional<io.trino.hive.thrift.metastore.Function> getFunction(String databaseName, String functionName);
+    Optional<Function> getFunction(String databaseName, String functionName);
 
     Collection<String> getFunctions(String databaseName, String functionNamePattern);
 
-    void createFunction(io.trino.hive.thrift.metastore.Function function);
+    void createFunction(Function function);
 
-    void alterFunction(io.trino.hive.thrift.metastore.Function function);
+    void alterFunction(Function function);
 
     void dropFunction(String databaseName, String functionName);
 }

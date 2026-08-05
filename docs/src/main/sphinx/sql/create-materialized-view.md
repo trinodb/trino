@@ -6,6 +6,7 @@
 CREATE [ OR REPLACE ] MATERIALIZED VIEW
 [ IF NOT EXISTS ] view_name
 [ GRACE PERIOD interval ]
+[ WHEN STALE ( INLINE | FAIL ) ]
 [ COMMENT string ]
 [ WITH properties ]
 AS query
@@ -48,6 +49,21 @@ is used for querying:
   queries are within the grace period.
 * Every [](refresh-materialized-view) operation resets the start time for the
   grace period.
+
+(mv-when-stale)=
+The optional `WHEN STALE` clause specifies the behavior when the materialized
+view is stale (outside the grace period):
+
+* `INLINE` - When the materialized view is stale, it is expanded like a logical
+  view, and queries accessing the materialized view will use the underlying
+  query definition to retrieve up-to-date data. This is the default behavior
+  when `WHEN STALE` is not specified.
+* `FAIL` - When the materialized view is stale, queries accessing it fail with
+  an error. 
+
+Note that the `WHEN STALE` clause requires connector support. If a connector 
+does not support this feature, using `WHEN STALE` with any value other than 
+`INLINE` results in an error.
 
 The optional `COMMENT` clause causes a `string` comment to be stored with
 the metadata about the materialized view. The comment is displayed with the
@@ -107,6 +123,31 @@ Set multiple properties:
 
 ```
 WITH ( format = 'ORC', partitioning = ARRAY['_date'] )
+```
+
+Create a materialized view with a grace period and WHEN STALE behavior that
+fails when the view is stale:
+
+```
+CREATE MATERIALIZED VIEW orders_summary
+GRACE PERIOD INTERVAL '1' HOUR
+WHEN STALE FAIL
+AS
+    SELECT orderdate, sum(totalprice) AS price
+    FROM orders
+    GROUP BY orderdate;
+```
+
+Create a materialized view with explicit INLINE behavior (default):
+
+```
+CREATE MATERIALIZED VIEW orders_summary
+GRACE PERIOD INTERVAL '1' HOUR
+WHEN STALE INLINE
+AS
+    SELECT orderdate, sum(totalprice) AS price
+    FROM orders
+    GROUP BY orderdate;
 ```
 
 Show defined materialized view properties for all catalogs:

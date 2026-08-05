@@ -19,11 +19,11 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.json.JsonPathEvaluator;
-import io.trino.json.JsonPathInvocationContext;
-import io.trino.json.PathEvaluationException;
-import io.trino.json.ir.IrJsonPath;
-import io.trino.json.ir.TypedValue;
+import io.trino.jsonpath.JsonPathEvaluator;
+import io.trino.jsonpath.JsonPathInvocationContext;
+import io.trino.jsonpath.PathEvaluationException;
+import io.trino.jsonpath.ir.IrJsonPath;
+import io.trino.jsonpath.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SqlScalarFunction;
@@ -37,24 +37,25 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
+import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -77,14 +78,14 @@ public class JsonQueryFunction
         super(FunctionMetadata.scalarBuilder(JSON_QUERY_FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(new TypeSignature(JSON_2016))
-                        .argumentTypes(ImmutableList.of(
-                                new TypeSignature(JSON_2016),
-                                new TypeSignature(JsonPath2016Type.NAME),
-                                new TypeSignature("T"),
-                                new TypeSignature(TINYINT),
-                                new TypeSignature(TINYINT),
-                                new TypeSignature(TINYINT)))
+                        .returnType(type(JSON_2016))
+                        .argumentTypes(
+                                type(JSON_2016),
+                                type(SqlJsonPathType.NAME),
+                                typeVariable("T"),
+                                type(TINYINT),
+                                type(TINYINT),
+                                type(TINYINT))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false, false, false)
@@ -180,19 +181,16 @@ public class JsonQueryFunction
 
         // apply array wrapper behavior
         switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {
-            case WITHOUT:
+            case WITHOUT -> {
                 // do nothing
-                break;
-            case UNCONDITIONAL:
-                sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
-                break;
-            case CONDITIONAL:
+            }
+            case UNCONDITIONAL -> sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
+            case CONDITIONAL -> {
                 if (sequence.size() != 1 || (!sequence.get(0).isArray() && !sequence.get(0).isObject())) {
                     sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
                 }
-                break;
-            default:
-                throw new IllegalStateException("unexpected array wrapper behavior");
+            }
+            default -> throw new IllegalStateException("unexpected array wrapper behavior");
         }
 
         // singleton sequence - return the only item

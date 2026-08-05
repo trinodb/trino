@@ -96,7 +96,7 @@ public class AdaptivePlanner
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final CachingTableStatsProvider tableStatsProvider;
-    private final Set<PlanNodeId> cummulativeChangedPlanNodes = new HashSet<>();
+    private final Set<PlanNodeId> cumulativeChangedPlanNodes = new HashSet<>();
 
     public AdaptivePlanner(
             Session session,
@@ -175,10 +175,10 @@ public class AdaptivePlanner
             return root;
         }
 
-        this.cummulativeChangedPlanNodes.addAll(optimizationResult.changedPlanNodes());
+        this.cumulativeChangedPlanNodes.addAll(optimizationResult.changedPlanNodes());
 
         if (debugEnabled) {
-            log.info("Cumulative changed nodes for %s: %s", session.getQueryId(), cummulativeChangedPlanNodes);
+            log.info("Cumulative changed nodes for %s: %s", session.getQueryId(), cumulativeChangedPlanNodes);
         }
 
         if (debugEnabled) {
@@ -193,7 +193,7 @@ public class AdaptivePlanner
         }
 
         // Add the adaptive plan node recursively where initialPlan remain as it is and optimizedPlan as new currentPlan
-        PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), cummulativeChangedPlanNodes);
+        PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), cumulativeChangedPlanNodes);
         // validate the adaptive plan
         try (var _ = scopedSpan(plannerContext.getTracer(), "validate-adaptive-plan")) {
             planSanityChecker.validateAdaptivePlan(adaptivePlan, session, plannerContext, warningCollector);
@@ -279,7 +279,9 @@ public class AdaptivePlanner
     }
 
     private Map<ExchangeSourceId, SubPlan> getUnchangedSubPlans(
-            PlanNode adaptivePlan, Set<PlanNodeId> changedPlanIds, Map<ExchangeSourceId, SubPlan> exchangeSourceIdToSubPlan)
+            PlanNode adaptivePlan,
+            Set<PlanNodeId> changedPlanIds,
+            Map<ExchangeSourceId, SubPlan> exchangeSourceIdToSubPlan)
     {
         Set<PlanNodeId> changedPlanIdsWithDownstream = new HashSet<>();
         for (PlanNodeId changedId : changedPlanIds) {
@@ -448,7 +450,8 @@ public class AdaptivePlanner
 
             if (sourceSubPlans.size() != sourceIds.size()) {
                 throw new IllegalStateException(
-                        String.format("Source subPlans not found for exchange node %s; sourceIds: %s; filteredSubPlans: %s; allSubPlans: %s",
+                        String.format(
+                                "Source subPlans not found for exchange node %s; sourceIds: %s; filteredSubPlans: %s; allSubPlans: %s",
                                 node.getId(),
                                 sourceIds,
                                 sourceSubPlans.stream().map(subPlan -> subPlan.getFragment().getId() + "->" + subPlan.getFragment().getRoot().getId()).collect(toImmutableList()),
@@ -488,8 +491,7 @@ public class AdaptivePlanner
         @Override
         public PlanNode visitAdaptivePlanNode(AdaptivePlanNode node, RewriteContext<List<SubPlan>> context)
         {
-            verify(
-                    !containsAdaptivePlanNode(node.getCurrentPlan()),
+            verify(!containsAdaptivePlanNode(node.getCurrentPlan()),
                     "Adaptive plan node cannot have a nested adaptive plan node");
             return node.getCurrentPlan();
         }
@@ -501,8 +503,7 @@ public class AdaptivePlanner
         @Override
         public PlanNode visitAdaptivePlanNode(AdaptivePlanNode node, RewriteContext<List<SubPlan>> context)
         {
-            verify(
-                    !containsAdaptivePlanNode(node.getInitialPlan()),
+            verify(!containsAdaptivePlanNode(node.getInitialPlan()),
                     "Adaptive plan node cannot have a nested adaptive plan node");
             return node.getInitialPlan();
         }

@@ -22,6 +22,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
+import io.trino.sql.tree.Node;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -66,12 +67,12 @@ public final class DeterminismEvaluator
         }
     }
 
-    public static boolean containsCurrentTimeFunctions(Expression expression)
+    public static boolean containsCurrentTimeFunctions(Node node)
     {
-        requireNonNull(expression, "expression is null");
+        requireNonNull(node, "node is null");
 
         AtomicBoolean hasTemporalFunction = new AtomicBoolean(false);
-        new DeterminismEvaluator.TemporalFunctionVisitor().process(expression, hasTemporalFunction);
+        new DeterminismEvaluator.TemporalFunctionVisitor().process(node, hasTemporalFunction);
         return hasTemporalFunction.get();
     }
 

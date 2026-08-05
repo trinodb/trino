@@ -27,7 +27,7 @@ import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.datatable.DataTableFactory;
 import org.apache.pinot.common.proto.Server;
-import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
+import org.apache.pinot.common.utils.grpc.ServerGrpcQueryClient;
 import org.apache.pinot.spi.utils.CommonConstants.Query.Response.MetadataKeys;
 import org.apache.pinot.spi.utils.CommonConstants.Query.Response.ResponseType;
 
@@ -150,7 +150,7 @@ public class PinotGrpcDataFetcher
 
     public interface GrpcQueryClientFactory
     {
-        GrpcQueryClient create(HostAndPort hostAndPort);
+        ServerGrpcQueryClient create(HostAndPort hostAndPort);
     }
 
     public static class PlainTextGrpcQueryClientFactory
@@ -169,9 +169,9 @@ public class PinotGrpcDataFetcher
         }
 
         @Override
-        public GrpcQueryClient create(HostAndPort hostAndPort)
+        public ServerGrpcQueryClient create(HostAndPort hostAndPort)
         {
-            return new GrpcQueryClient(hostAndPort.getHost(), hostAndPort.getPort(), config);
+            return new ServerGrpcQueryClient(hostAndPort.getHost(), hostAndPort.getPort(), config);
         }
     }
 
@@ -214,16 +214,16 @@ public class PinotGrpcDataFetcher
         }
 
         @Override
-        public GrpcQueryClient create(HostAndPort hostAndPort)
+        public ServerGrpcQueryClient create(HostAndPort hostAndPort)
         {
-            return new GrpcQueryClient(hostAndPort.getHost(), hostAndPort.getPort(), config);
+            return new ServerGrpcQueryClient(hostAndPort.getHost(), hostAndPort.getPort(), config);
         }
     }
 
     public static class PinotGrpcServerQueryClient
     {
         private final PinotHostMapper pinotHostMapper;
-        private final Map<HostAndPort, GrpcQueryClient> clientCache = new ConcurrentHashMap<>();
+        private final Map<HostAndPort, ServerGrpcQueryClient> clientCache = new ConcurrentHashMap<>();
         private final int grpcPort;
         private final GrpcQueryClientFactory grpcQueryClientFactory;
         private final Optional<String> proxyUri;
@@ -242,9 +242,9 @@ public class PinotGrpcDataFetcher
         public Iterator<PinotDataTableWithSize> queryPinot(String query, String serverHost, List<String> segments)
         {
             HostAndPort mappedHostAndPort = pinotHostMapper.getServerGrpcHostAndPort(serverHost, grpcPort);
-            // GrpcQueryClient does not implement Closeable. The idle timeout is 30 minutes (grpc default).
-            GrpcQueryClient client = clientCache.computeIfAbsent(mappedHostAndPort, hostAndPort -> {
-                GrpcQueryClient queryClient = proxyUri.isPresent() ? grpcQueryClientFactory.create(HostAndPort.fromString(proxyUri.get())) : grpcQueryClientFactory.create(hostAndPort);
+            // ServerGrpcQueryClient does not implement Closeable. The idle timeout is 30 minutes (grpc default).
+            ServerGrpcQueryClient client = clientCache.computeIfAbsent(mappedHostAndPort, hostAndPort -> {
+                ServerGrpcQueryClient queryClient = proxyUri.isPresent() ? grpcQueryClientFactory.create(HostAndPort.fromString(proxyUri.get())) : grpcQueryClientFactory.create(hostAndPort);
                 closer.register(queryClient);
                 return queryClient;
             });

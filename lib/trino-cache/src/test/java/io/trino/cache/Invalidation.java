@@ -19,5 +19,4 @@ enum Invalidation
     INVALIDATE_PREDEFINED_KEYS,
     INVALIDATE_SELECTED_KEYS,
     INVALIDATE_ALL,
-    /**/;
 }

@@ -17,5 +17,4 @@ public enum HashingAlgorithm
 {
     BCRYPT,
     PBKDF2,
-    /**/;
 }

@@ -53,6 +53,7 @@ public class StaticSelector
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
+            Optional<Pattern> queryTextRegex,
             Optional<String> queryType,
             ResourceGroupIdTemplate group)
     {
@@ -63,6 +64,7 @@ public class StaticSelector
         requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
+        requireNonNull(queryTextRegex, "queryTextRegex is null");
         requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
 
@@ -85,13 +87,17 @@ public class StaticSelector
                     return new PatternMatcher(variableNames, sourceRegexValue, criteria -> criteria.getSource().orElse(""));
                 }))
                 .add(userGroupRegex.map(userGroupRegexValue ->
-                            new BasicMatcher(criteria -> criteria.getUserGroups().stream().anyMatch(userGroup -> userGroupRegexValue.matcher(userGroup).matches()))))
+                        new BasicMatcher(criteria -> criteria.getUserGroups().stream().anyMatch(userGroup -> userGroupRegexValue.matcher(userGroup).matches()))))
+                .add(queryTextRegex.map(queryTextRegexValue -> {
+                    addNamedGroups(queryTextRegexValue, variableNames);
+                    return new PatternMatcher(variableNames, queryTextRegexValue, SelectionCriteria::getQueryText);
+                }))
                 .add(queryType.map(queryTypeValue ->
-                            new BasicMatcher(criteria -> queryTypeValue.equalsIgnoreCase(criteria.getQueryType().orElse("")))))
+                        new BasicMatcher(criteria -> queryTypeValue.equalsIgnoreCase(criteria.getQueryType().orElse("")))))
                 .add(selectorResourceEstimate.map(selectorResourceEstimateValue ->
-                            new BasicMatcher(criteria -> selectorResourceEstimateValue.match(criteria.getResourceEstimates()))))
+                        new BasicMatcher(criteria -> selectorResourceEstimateValue.match(criteria.getResourceEstimates()))))
                 .add(clientTags.map(clientTagsValue ->
-                            new BasicMatcher(criteria -> criteria.getTags().containsAll(clientTagsValue))))
+                        new BasicMatcher(criteria -> criteria.getTags().containsAll(clientTagsValue))))
                 .build()
                 .stream()
                 .flatMap(Optional::stream) // remove any empty optionals
@@ -126,7 +132,7 @@ public class StaticSelector
         Matcher matcher = NAMED_GROUPS_PATTERN.matcher(pattern.toString());
         while (matcher.find()) {
             String name = matcher.group(1);
-            checkArgument(!variables.contains(name), "Multiple definitions found for variable ${" + name + "}");
+            checkArgument(!variables.contains(name), "Multiple definitions found for variable ${%s}", name);
             variables.add(name);
         }
     }
@@ -154,8 +160,10 @@ public class StaticSelector
         }
     }
 
-    private record PatternMatcher(Set<String> variableNames, Pattern pattern,
-                                  Function<SelectionCriteria, String> valueExtractor)
+    private record PatternMatcher(
+            Set<String> variableNames,
+            Pattern pattern,
+            Function<SelectionCriteria, String> valueExtractor)
             implements SelectionMatcher
     {
         @Override

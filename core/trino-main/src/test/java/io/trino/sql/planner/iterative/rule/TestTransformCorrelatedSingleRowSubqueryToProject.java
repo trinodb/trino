@@ -66,7 +66,8 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                 p.tableScan(
                                         tester().getCurrentCatalogTableHandle(TINY_SCHEMA_NAME, "nation"),
                                         ImmutableList.of(p.symbol("l_nationkey")),
-                                        ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
+                                        ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle(
+                                                "nationkey",
                                                 BIGINT))),
                                 p.project(
                                         Assignments.of(p.symbol("l_expr2", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "l_nationkey"), new Constant(INTEGER, 1L)))),

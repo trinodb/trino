@@ -14,13 +14,16 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -33,15 +36,15 @@ public class EvaluateCallWithNullInput
         implements IrOptimizerRule
 {
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Call call)) {
+        if (!(expression instanceof Call(ResolvedFunction function, List<Expression> arguments))) {
             return Optional.empty();
         }
 
-        FunctionNullability nullability = call.function().functionNullability();
-        for (int i = 0; i < call.arguments().size(); i++) {
-            if (isConstantNull(call.arguments().get(i)) && !nullability.isArgumentNullable(i)) {
+        FunctionNullability nullability = function.functionNullability();
+        for (int i = 0; i < arguments.size(); i++) {
+            if (isConstantNull(arguments.get(i)) && !nullability.isArgumentNullable(i)) {
                 return Optional.of(new Constant(expression.type(), null));
             }
         }

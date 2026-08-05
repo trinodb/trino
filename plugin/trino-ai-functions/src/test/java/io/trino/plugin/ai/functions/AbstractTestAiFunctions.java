@@ -74,16 +74,17 @@ public abstract class AbstractTestAiFunctions
     {
         assertThat(assertions.query("SHOW FUNCTIONS LIKE 'ai$_%' ESCAPE '$'"))
                 .skippingTypesCheck()
-                .matches("""
-                         VALUES
-                         ('ai_analyze_sentiment', 'varchar', 'varchar', 'scalar', false, 'Perform sentiment analysis on text'),
-                         ('ai_classify', 'varchar', 'varchar, array(varchar)', 'scalar', false, 'Classify text with the provided labels'),
-                         ('ai_extract', 'map(varchar,varchar)', 'varchar, array(varchar)', 'scalar', false, 'Extract values for the provided labels from text'),
-                         ('ai_fix_grammar', 'varchar', 'varchar', 'scalar', false, 'Correct grammatical errors in text'),
-                         ('ai_gen', 'varchar', 'varchar', 'scalar', false, 'Generate text based on a prompt'),
-                         ('ai_mask', 'varchar', 'varchar, array(varchar)', 'scalar', false, 'Mask values for the provided labels in text'),
-                         ('ai_translate', 'varchar', 'varchar, varchar', 'scalar', false, 'Translate text to the specified language')
-                         """);
+                .matches(
+                        """
+                        VALUES
+                        ('ai_analyze_sentiment', 'varchar', 'varchar', 'scalar', false, 'Perform sentiment analysis on text'),
+                        ('ai_classify', 'varchar', 'varchar, array(varchar)', 'scalar', false, 'Classify text with the provided labels'),
+                        ('ai_extract', 'map(varchar,varchar)', 'varchar, array(varchar)', 'scalar', false, 'Extract values for the provided labels from text'),
+                        ('ai_fix_grammar', 'varchar', 'varchar', 'scalar', false, 'Correct grammatical errors in text'),
+                        ('ai_gen', 'varchar', 'varchar', 'scalar', false, 'Generate text based on a prompt'),
+                        ('ai_mask', 'varchar', 'varchar, array(varchar)', 'scalar', false, 'Mask values for the provided labels in text'),
+                        ('ai_translate', 'varchar', 'varchar, varchar', 'scalar', false, 'Translate text to the specified language')
+                        """);
     }
 
     @Test

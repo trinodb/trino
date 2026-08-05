@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
@@ -33,8 +34,13 @@ import java.util.UUID;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampFromNanos;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -43,7 +49,9 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
@@ -60,8 +68,8 @@ public final class IcebergTypes
 
     /**
      * Convert value from Trino representation to Iceberg representation.
-     * <p>
-     * Note: This accepts a Trino type because, currently, no two Iceberg types translate to one Trino type.
+     * Returns raw Java values suitable for Iceberg's Conversions.toByteBuffer().
+     * For nano timestamps, this will throw TrinoException if the value is outside the supported range.
      */
     public static Object convertTrinoValueToIceberg(io.trino.spi.type.Type type, Object trinoNativeValue)
     {
@@ -114,6 +122,16 @@ public final class IcebergTypes
             return timestampTzToMicros((LongTimestampWithTimeZone) trinoNativeValue);
         }
 
+        if (type.equals(TIMESTAMP_NANOS)) {
+            // Will throw TrinoException if out of range
+            return timestampToNanos((LongTimestamp) trinoNativeValue);
+        }
+
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            // Will throw TrinoException if out of range
+            return timestampTzToNanos((LongTimestampWithTimeZone) trinoNativeValue);
+        }
+
         if (type instanceof VarcharType) {
             return ((Slice) trinoNativeValue).toStringUtf8();
         }
@@ -124,6 +142,12 @@ public final class IcebergTypes
 
         if (type == UuidType.UUID) {
             return trinoUuidToJavaUuid(((Slice) trinoNativeValue));
+        }
+
+        // Geometry and Geography should never reach here - they're excluded from
+        // predicate pushdown and statistics collection
+        if (isGeospatialType(type)) {
+            throw new UnsupportedOperationException("Geometry/Geography values cannot be converted for Iceberg expressions or statistics");
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
@@ -185,8 +209,21 @@ public final class IcebergTypes
             }
             return epochMicros;
         }
+        if (icebergType instanceof Types.TimestampNanoType icebergTimestampNanoType) {
+            long epochNanos = (long) value;
+            if (icebergTimestampNanoType.shouldAdjustToUTC()) {
+                return timestampTzFromNanos(epochNanos);
+            }
+            return timestampFromNanos(epochNanos);
+        }
         if (icebergType instanceof Types.UUIDType) {
             return javaUuidToTrinoUuid((UUID) value);
+        }
+
+        // Geometry and Geography should never reach here - they're excluded from
+        // partitioning and statistics
+        if (icebergType instanceof Types.GeometryType || icebergType instanceof Types.GeographyType) {
+            throw new UnsupportedOperationException("Geometry/Geography values cannot be converted from Iceberg partition or statistics values");
         }
 
         throw new UnsupportedOperationException("Unsupported iceberg type: " + icebergType);

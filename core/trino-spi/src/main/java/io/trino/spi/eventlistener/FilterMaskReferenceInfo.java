@@ -19,7 +19,6 @@ package io.trino.spi.eventlistener;
 public sealed interface FilterMaskReferenceInfo
         extends TableReferenceInfo
         permits RowFilterReferenceInfo, ColumnMaskReferenceInfo
-
 {
     String expression();
 

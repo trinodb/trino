@@ -14,6 +14,7 @@
 package io.trino.spi.security;
 
 import java.security.Principal;
+import java.util.Optional;
 
 public interface PasswordAuthenticator
 {
@@ -23,5 +24,16 @@ public interface PasswordAuthenticator
      * @return the authenticated entity
      * @throws AccessDeniedException if not allowed
      */
+    @Deprecated
     Principal createAuthenticatedPrincipal(String user, String password);
+
+    /**
+     * If implemented and authenticated; provide an {@link Identity}.
+     *
+     * @return the authenticated {@link Identity}
+     */
+    default Optional<Identity> createAuthenticatedIdentity(String user, String password)
+    {
+        return Optional.empty();
+    }
 }

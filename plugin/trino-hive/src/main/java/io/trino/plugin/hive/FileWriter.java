@@ -15,8 +15,6 @@ package io.trino.plugin.hive;
 
 import io.trino.spi.Page;
 
-import java.io.Closeable;
-
 public interface FileWriter
 {
     long getWrittenBytes();
@@ -26,9 +24,9 @@ public interface FileWriter
     void appendRows(Page dataPage);
 
     /**
-     * Commits written data. Returns rollback {@link Closeable} which can be used to cleanup on failure.
+     * Commits written data. Returns rollback action which can be used to clean up on failure.
      */
-    Closeable commit();
+    RollbackAction commit();
 
     void rollback();
 

@@ -187,19 +187,19 @@ public final class PrioritizedSplitRunner
             ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
-            long quantaScheduledNanos = elapsed.getWall().roundTo(NANOSECONDS);
+            long quantaScheduledNanos = elapsed.wall().roundTo(NANOSECONDS);
             scheduledNanos.addAndGet(quantaScheduledNanos);
 
             priority.set(taskHandle.addScheduledNanos(quantaScheduledNanos));
 
             if (blocked == NOT_BLOCKED) {
-                unblockedQuantaWallTime.add(elapsed.getWall());
+                unblockedQuantaWallTime.add(elapsed.wall());
             }
             else {
-                blockedQuantaWallTime.add(elapsed.getWall());
+                blockedQuantaWallTime.add(elapsed.wall());
             }
 
-            long quantaCpuNanos = elapsed.getCpu().roundTo(NANOSECONDS);
+            long quantaCpuNanos = elapsed.cpu().roundTo(NANOSECONDS);
             cpuTimeNanos.addAndGet(quantaCpuNanos);
 
             globalCpuTimeMicros.update(quantaCpuNanos / 1000);
@@ -274,7 +274,8 @@ public final class PrioritizedSplitRunner
 
     public String getInfo()
     {
-        return format("Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
+        return format(
+                "Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
                 taskHandle.getTaskId(),
                 splitId,
                 split.getInfo(),

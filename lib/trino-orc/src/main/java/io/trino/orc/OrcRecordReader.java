@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
 import java.util.function.Predicate;
@@ -134,8 +135,8 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
 
-    private final Optional<Long> startRowPosition;
-    private final Optional<Long> endRowPosition;
+    private final OptionalLong startRowPosition;
+    private final OptionalLong endRowPosition;
 
     public OrcRecordReader(
             List<OrcColumn> readColumns,
@@ -184,7 +185,7 @@ public class OrcRecordReader
         this.appendRowNumberColumn = appendRowNumberColumn;
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
-        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(orcTypes, readTypes));
+        this.writeChecksumBuilder = writeValidation.map(_ -> createWriteChecksumBuilder(orcTypes, readTypes));
         this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
@@ -209,8 +210,8 @@ public class OrcRecordReader
         long totalRowCount = 0;
         long fileRowCount = 0;
         long totalDataLength = 0;
-        Optional<Long> startRowPosition = Optional.empty();
-        Optional<Long> endRowPosition = Optional.empty();
+        OptionalLong startRowPosition = OptionalLong.empty();
+        OptionalLong endRowPosition = OptionalLong.empty();
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
         if (fileStats.isEmpty() || predicate.matches(numberOfRows, fileStats.get())) {
@@ -224,9 +225,9 @@ public class OrcRecordReader
                     totalDataLength += stripe.getDataLength();
 
                     if (startRowPosition.isEmpty()) {
-                        startRowPosition = Optional.of(fileRowCount);
+                        startRowPosition = OptionalLong.of(fileRowCount);
                     }
-                    endRowPosition = Optional.of(fileRowCount + stripe.getNumberOfRows());
+                    endRowPosition = OptionalLong.of(fileRowCount + stripe.getNumberOfRows());
                 }
                 fileRowCount += stripe.getNumberOfRows();
             }
@@ -379,12 +380,12 @@ public class OrcRecordReader
         return orcTypes;
     }
 
-    public Optional<Long> getStartRowPosition()
+    public OptionalLong getStartRowPosition()
     {
         return startRowPosition;
     }
 
-    public Optional<Long> getEndRowPosition()
+    public OptionalLong getEndRowPosition()
     {
         return endRowPosition;
     }
@@ -408,8 +409,10 @@ public class OrcRecordReader
             List<Long> columnHashes = actualChecksum.getColumnHashes();
             for (int i = 0; i < columnHashes.size(); i++) {
                 int columnIndex = i;
-                validateWrite(validation -> validation.getChecksum().getColumnHashes().get(columnIndex).equals(columnHashes.get(columnIndex)),
-                        "Invalid checksum for column %s", columnIndex);
+                validateWrite(
+                        validation -> validation.getChecksum().getColumnHashes().get(columnIndex).equals(columnHashes.get(columnIndex)),
+                        "Invalid checksum for column %s",
+                        columnIndex);
             }
             validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
         }
@@ -575,7 +578,9 @@ public class OrcRecordReader
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
-                    block = selectedPositions.apply(block);
+                    // loaded blocks already reflect the previous selection, so the incoming
+                    // positions apply to them directly
+                    block = block.getPositions(positions, offset, size);
                     retainedSizeInBytes += block.getRetainedSizeInBytes();
                     blocks[i] = block;
                 }
@@ -827,7 +832,7 @@ public class OrcRecordReader
 
     /**
      * @return The memory reserved by this OrcRecordReader. It does not include non-leaf level StreamReaders'
-     * instance sizes.
+     *         instance sizes.
      */
     @VisibleForTesting
     long getMemoryUsage()
@@ -875,8 +880,8 @@ public class OrcRecordReader
             // Assumption: bytes that are not part of any range are never read
             while (index < diskRanges.size()) {
                 DiskRange range = diskRanges.get(index);
-                if (range.getEnd() > desiredOffset) {
-                    checkArgument(range.getOffset() <= desiredOffset);
+                if (range.end() > desiredOffset) {
+                    checkArgument(range.offset() <= desiredOffset);
                     return range;
                 }
                 index++;

@@ -107,10 +107,10 @@
       "dataSize" : null
     },
     "cr_reason_sk" : {
-      "distinctValuesCount" : 35,
+      "distinctValuesCount" : 75,
       "nullsCount" : 2840,
       "min" : 1,
-      "max" : 35,
+      "max" : 75,
       "dataSize" : null
     },
     "cr_order_number" : {

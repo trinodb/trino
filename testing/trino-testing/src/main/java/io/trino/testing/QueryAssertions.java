@@ -54,6 +54,11 @@ public final class QueryAssertions
 
     private QueryAssertions() {}
 
+    public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count)
+    {
+        assertUpdate(queryRunner, session, sql, count, Optional.empty());
+    }
+
     public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count, Optional<Consumer<Plan>> planAssertion)
     {
         if (queryRunner instanceof DistributedQueryRunner distributedQueryRunner) {
@@ -88,11 +93,11 @@ public final class QueryAssertions
 
         if (results.getUpdateCount().isPresent()) {
             if (count.isEmpty()) {
-                fail("expected no update count, but got " + results.getUpdateCount().getAsLong());
+                fail("expected no update count, but got " + results.getUpdateCount().orElseThrow());
             }
-            assertThat(results.getUpdateCount().getAsLong())
+            assertThat(results.getUpdateCount().orElseThrow())
                     .describedAs("update count")
-                    .isEqualTo(count.getAsLong());
+                    .isEqualTo(count.orElseThrow());
         }
         else if (count.isPresent()) {
             fail("update count is not present");
@@ -135,11 +140,11 @@ public final class QueryAssertions
 
         if (results.getUpdateCount().isPresent()) {
             if (count.isEmpty()) {
-                fail("expected no update count, but got " + results.getUpdateCount().getAsLong() + " for query " + queryId);
+                fail("expected no update count, but got " + results.getUpdateCount().orElseThrow() + " for query " + queryId);
             }
-            assertThat(results.getUpdateCount().getAsLong())
+            assertThat(results.getUpdateCount().orElseThrow())
                     .describedAs("update count for query " + queryId)
-                    .isEqualTo(count.getAsLong());
+                    .isEqualTo(count.orElseThrow());
         }
         else if (count.isPresent()) {
             fail("update count is not present for query " + queryId);
@@ -256,7 +261,7 @@ public final class QueryAssertions
                     .isEqualTo(1);
             assertThat(row.getField(0))
                     .describedAs("For query: \n " + actual + "\n:")
-                    .isEqualTo(actualResults.getUpdateCount().getAsLong());
+                    .isEqualTo(actualResults.getUpdateCount().orElseThrow());
         }
 
         if (ensureOrdering) {
@@ -336,7 +341,7 @@ public final class QueryAssertions
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
-        if (compareUpdate) {
+        if (compareUpdate && !actualResults.getUpdateType().equals(Optional.of("ALTER TABLE EXECUTE"))) {
             if (actualResults.getUpdateType().isEmpty()) {
                 fail("update type not present for query " + queryId + ": \n" + actual);
             }
@@ -355,7 +360,7 @@ public final class QueryAssertions
                     .isEqualTo(1);
             assertThat(row.getField(0))
                     .describedAs("For query " + queryId + ": \n " + actual + "\n:")
-                    .isEqualTo(actualResults.getUpdateCount().getAsLong());
+                    .isEqualTo(actualResults.getUpdateCount().orElseThrow());
         }
 
         if (ensureOrdering) {
@@ -429,7 +434,8 @@ public final class QueryAssertions
     {
         for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
             if (!all.getMaterializedRows().contains(row)) {
-                fail(format("expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
+                fail(format(
+                        "expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
                         row,
                         all.getMaterializedRows().size(),
                         Joiner.on("\n    ").join(Iterables.limit(all, 100)),
@@ -457,7 +463,7 @@ public final class QueryAssertions
         assertEventually(timeout, () -> assertQueryFails(queryRunner, session, sql, expectedMessageRegExp));
     }
 
-    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    public static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
             MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
@@ -470,7 +476,7 @@ public final class QueryAssertions
         }
     }
 
-    protected static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    public static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
     {
         QueryId queryId = null;
         try {

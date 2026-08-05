@@ -15,75 +15,97 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TrinoNumber;
 
+import java.math.BigDecimal;
+
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class BooleanOperators
 {
+    public static final String NOT_FUNCTION_NAME = "$not";
+
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
 
     private BooleanOperators() {}
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? floatToRawIntBits(1.0f) : floatToRawIntBits(0.0f);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long castToBigint(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
+    @ScalarOperator(value = CAST, neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber castToNumber(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return TrinoNumber.from(value ? BigDecimal.ONE : BigDecimal.ZERO);
+    }
+
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        return value ? TRUE : FALSE;
+        Slice slice = value ? TRUE : FALSE;
+        // slice is all-ASCII, so slice.length() here returns actual code points count
+        if (slice.length() <= x) {
+            return slice;
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", value, x));
     }
 
     @SqlType(StandardTypes.BOOLEAN)
-    @ScalarFunction(value = "$not", hidden = true) // TODO: this should not be callable from SQL
+    @ScalarFunction(value = NOT_FUNCTION_NAME, hidden = true, neverFails = true) // TODO: this should not be callable from SQL
     public static boolean not(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return !value;

@@ -106,7 +106,7 @@ public class TestOrcLz4
                     LZ4,
                     ImmutableList.of("x", "y", "z"),
                     ImmutableList.of(BIGINT, INTEGER, BIGINT),
-                    Stream.generate(() -> (Function<Integer, Object>) (fieldIndex) -> switch (fieldIndex) {
+                    Stream.generate(() -> (Function<Integer, Object>) fieldIndex -> switch (fieldIndex) {
                         case 0, 2 -> random.nextLong();
                         case 1 -> random.nextInt();
                         default -> new IllegalArgumentException();

@@ -34,7 +34,6 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
@@ -50,11 +49,13 @@ public class FileBasedSystemAccessControlModule
     public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(FileBasedAccessControlConfig.class);
-        install(conditionalModule(
-                FileBasedAccessControlConfig.class,
-                FileBasedAccessControlConfig::isHttp,
-                new HttpSystemAccessControlModule(),
-                new LocalSystemAccessControlModule()));
+
+        if (buildConfigObject(FileBasedAccessControlConfig.class).isHttp()) {
+            install(new HttpSystemAccessControlModule());
+        }
+        else {
+            install(new LocalSystemAccessControlModule());
+        }
     }
 
     @Inject

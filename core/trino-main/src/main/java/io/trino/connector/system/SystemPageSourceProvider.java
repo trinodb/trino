@@ -31,10 +31,12 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RecordSet;
@@ -80,8 +82,10 @@ public class SystemPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
@@ -89,7 +93,7 @@ public class SystemPageSourceProvider
         // if the split is not a SystemSplit, we immediately delegate to the Connector to build a PageSource
         if (!(split instanceof SystemSplit systemSplit)) {
             return connectorPageSourceProvider.orElseThrow()
-                    .createPageSource(systemTransaction.getConnectorTransactionHandle(), session, split, table, columns, dynamicFilter);
+                    .createPageSource(systemTransaction.getConnectorTransactionHandle(), session, split, table, tableCredentials, columns, dynamicFilter, memoryContext);
         }
 
         SchemaTableName tableName = ((SystemTableHandle) table).schemaTableName();

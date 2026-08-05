@@ -25,7 +25,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import redis.clients.jedis.Jedis;
 
 import java.util.Map;
 import java.util.UUID;
@@ -70,7 +69,9 @@ public abstract class AbstractTestMinimalFunctionality
         this.stringValueTableName = stringValueTableDescription.tableName();
         this.hashValueTableName = hashValueTableDescription.tableName();
 
-        installRedisPlugin(redisServer, queryRunner,
+        installRedisPlugin(
+                redisServer,
+                queryRunner,
                 ImmutableMap.<SchemaTableName, RedisTableDescription>builder()
                         .put(createTableDescription(new RedisTableDescription(tableName, "default", null, null)))
                         .put(createTableDescription(stringValueTableDescription))
@@ -98,19 +99,18 @@ public abstract class AbstractTestMinimalFunctionality
     {
         JsonEncoder jsonEncoder = new JsonEncoder();
         for (long i = 0; i < count; i++) {
-            Object value = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
-            try (Jedis jedis = redisServer.getJedisPool().getResource()) {
-                jedis.set(tableName + ":" + i, jsonEncoder.toString(value));
-                jedis.set(stringValueTableName + ":" + i, jsonEncoder.toString(value));
-                jedis.hmset(hashValueTableName + ":" + i, (Map<String, String>) value);
-            }
+            Map<String, String> value = ImmutableMap.of(
+                    "id", Long.toString(i),
+                    "value", UUID.randomUUID().toString());
+
+            redisServer.getClient().set(tableName + ":" + i, jsonEncoder.toString(value));
+            redisServer.getClient().set(stringValueTableName + ":" + i, jsonEncoder.toString(value));
+            redisServer.getClient().hset(hashValueTableName + ":" + i, value);
         }
     }
 
     protected void clearData()
     {
-        try (Jedis jedis = redisServer.getJedisPool().getResource()) {
-            jedis.flushAll();
-        }
+        redisServer.getClient().flushAll();
     }
 }

@@ -140,7 +140,7 @@ public class BenchmarkGroupedTopNRankBuilder
         return ImmutableList.copyOf(builder.buildResult());
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         BenchmarkData data = new BenchmarkData();

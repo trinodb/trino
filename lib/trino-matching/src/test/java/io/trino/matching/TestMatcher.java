@@ -44,16 +44,16 @@ public class TestMatcher
     @Test
     public void trivialMatchers()
     {
-        //any
+        // any
         assertMatch(any(), 42);
         assertMatch(any(), "John Doe");
 
-        //class based
+        // class based
         assertMatch(typeOf(Integer.class), 42);
         assertMatch(typeOf(Number.class), 42);
         assertNoMatch(typeOf(Integer.class), "John Doe");
 
-        //predicate-based
+        // predicate-based
         assertMatch(typeOf(Integer.class).matching(x -> x > 0), 42);
         assertNoMatch(typeOf(Integer.class).matching(x -> x > 0), -1);
     }
@@ -92,9 +92,9 @@ public class TestMatcher
 
         assertMatch(pattern, new ProjectNode(new ScanNode("t")));
         assertNoMatch(pattern, new ScanNode("t"));
-        //TODO this needs a custom Option type to work , or NPEs will happen.
-        //Optional does not allow null values.
-        //assertNoMatch(pattern, new ProjectNode(null));
+        // TODO this needs a custom Option type to work , or NPEs will happen.
+        // Optional does not allow null values.
+        // assertNoMatch(pattern, new ProjectNode(null));
         assertNoMatch(pattern, new ProjectNode(new ProjectNode(null)));
     }
 
@@ -141,7 +141,7 @@ public class TestMatcher
         ProjectNode tree = new ProjectNode(new FilterNode(new ScanNode("orders"), null));
 
         Match match = assertMatch(pattern, tree);
-        //notice the concrete type despite no casts:
+        // notice the concrete type despite no casts:
         FilterNode capturedFilter = match.capture(filter);
         assertThat(tree.getSource()).isEqualTo(capturedFilter);
         assertThat(((FilterNode) tree.getSource()).getSource()).isEqualTo(match.capture(scan));

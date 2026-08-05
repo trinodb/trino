@@ -14,11 +14,12 @@
 package io.trino.server.protocol;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.client.QueryData;
@@ -55,11 +56,13 @@ import static org.assertj.core.api.Fail.fail;
 
 public class TestQueryDataSerialization
 {
+    private static final JsonMapper SERVER_MAPPER = new JsonMapperProvider()
+            .withModules(Set.of(new ServerQueryDataJacksonModule()))
+            .get();
+
     private static final List<Column> COLUMNS_LIST = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint")));
     private static final TrinoJsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
-    private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new ServerQueryDataJacksonModule())))
-            .jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(SERVER_MAPPER).jsonCodec(QueryResults.class);
 
     @Test
     public void testNullDataSerialization()
@@ -141,11 +144,13 @@ public class TestQueryDataSerialization
                         spooled(
                                 URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/1"),
                                 URI.create("http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/1"),
-                                dataAttributes(100, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256"))),
+                                dataAttributes(100, 100, 1024),
+                                Map.of("x-amz-server-side-encryption", List.of("AES256"))),
                         spooled(
                                 URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/2"),
                                 URI.create("http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/2"),
-                                dataAttributes(200, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256")))))
+                                dataAttributes(200, 100, 1024),
+                                Map.of("x-amz-server-side-encryption", List.of("AES256")))))
                 .withAttributes(DataAttributes.builder()
                         .set(SCHEMA, "serializedSchema")
                         .build())
@@ -202,7 +207,8 @@ public class TestQueryDataSerialization
         EncodedQueryData spooledQueryData = new EncodedQueryData("json+zstd", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(spooled(
                 URI.create("http://coordinator:8080/v1/segments/uuid"),
                 URI.create("http://coordinator:8080/v1/segments/uuid"),
-                dataAttributes(10, 2, 1256), headers())));
+                dataAttributes(10, 2, 1256),
+                headers())));
         assertThat(spooledQueryData.toString()).isEqualTo("EncodedQueryData{encoding=json+zstd, segments=[SpooledSegment{offset=10, rows=2, size=1256, headers=[x-amz-server-side-encryption]}], metadata=[decryption_key]}");
     }
 
@@ -264,7 +270,8 @@ public class TestQueryDataSerialization
                     "spilledBytes": 0
                   },
                   "warnings": []
-                }""", expectedDataField);
+                }""",
+                expectedDataField);
     }
 
     private static void assertEquals(QueryData left, QueryData right)

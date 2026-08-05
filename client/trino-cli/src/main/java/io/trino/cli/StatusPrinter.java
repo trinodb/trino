@@ -22,12 +22,15 @@ import io.trino.client.StatementClient;
 import io.trino.client.StatementStats;
 import org.jline.terminal.Attributes;
 import org.jline.terminal.Terminal;
+import org.jline.utils.AttributedString;
+import org.jline.utils.AttributedStyle;
 
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.OptionalInt;
 
+import static com.google.common.base.Strings.padStart;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctDuration;
@@ -49,6 +52,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.jline.utils.AttributedStyle.DEFAULT;
 
 public class StatusPrinter
 {
@@ -61,10 +65,11 @@ public class StatusPrinter
     private final ConsolePrinter console;
     private final boolean checkInput;
     private final boolean decimalDataSize;
+    private final Theme theme;
 
     private boolean debug;
 
-    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize)
+    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize, Theme theme)
     {
         this.client = client;
         this.out = out;
@@ -72,6 +77,7 @@ public class StatusPrinter
         this.debug = debug;
         this.checkInput = checkInput;
         this.decimalDataSize = decimalDataSize;
+        this.theme = requireNonNull(theme, "theme is null");
     }
 
 /*
@@ -99,7 +105,7 @@ Spilled: 20GB
         long start = System.nanoTime();
         long lastPrint = System.nanoTime();
         try {
-            WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console);
+            WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console, theme);
             while (client.isRunning()) {
                 try {
                     // exit status loop if there is pending output
@@ -176,9 +182,10 @@ Spilled: 20GB
         out.println();
 
         // Query 12, FINISHED, 1 node
-        String querySummary = format("Query %s, %s, %,d %s",
+        String querySummary = format(
+                "Query %s, %s, %,d %s",
                 results.getId(),
-                stats.getState(),
+                coloredState(stats.getState()),
                 nodes,
                 pluralize("node", nodes));
         out.println(querySummary);
@@ -188,16 +195,18 @@ Spilled: 20GB
         }
 
         // Splits: 1000 total, 842 done (84.20%)
-        String splitsSummary = format("Splits: %,d total, %,d done (%.2f%%)",
-                stats.getTotalSplits(),
-                stats.getCompletedSplits(),
+        String splitsSummary = format(
+                "Splits: %s total, %s done (%.2f%%)",
+                coloredCount(stats.getTotalSplits()),
+                coloredCount(stats.getCompletedSplits()),
                 stats.getProgressPercentage().orElse(0.0));
         out.println(splitsSummary);
 
         if (debug) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = millis(stats.getCpuTimeMillis());
-            String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+            String cpuTimeSummary = format(
+                    "CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                     cpuTime.getValue(SECONDS),
                     formatCountRate(stats.getProcessedRows(), cpuTime, false),
                     formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true, decimalDataSize),
@@ -207,7 +216,8 @@ Spilled: 20GB
             double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
 
             // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-            String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+            String perNodeSummary = format(
+                    "Per Node: %.1f parallelism, %5s rows/s, %8s",
                     parallelism / nodes,
                     formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
                     formatDataRate(bytes(stats.getProcessedBytes() / nodes), wallTime, true, decimalDataSize));
@@ -226,12 +236,13 @@ Spilled: 20GB
         }
 
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
-        String statsLine = format("%s [%s rows, %s] [%s rows/s, %s]",
+        String statsLine = format(
+                "%s [%s rows, %s] [%s rows/s, %s]",
                 formatFinalTime(wallTime),
-                formatCount(stats.getProcessedRows()),
-                formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize),
-                formatCountRate(stats.getProcessedRows(), wallTime, false),
-                formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize));
+                coloredNumber(formatCount(stats.getProcessedRows())),
+                coloredNumber(formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize)),
+                coloredNumber(formatCountRate(stats.getProcessedRows(), wallTime, false)),
+                coloredNumber(formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize)));
 
         out.println(statsLine);
 
@@ -258,7 +269,7 @@ Spilled: 20GB
                 reprintLine("must be at least");
                 reprintLine("80 characters wide");
                 reprintLine("");
-                reprintLine(stats.getState());
+                reprintLine(coloredState(stats.getState()));
                 reprintLine(format("%s %d%%", formatTime(wallTime), progressPercentage));
                 return;
             }
@@ -266,12 +277,13 @@ Spilled: 20GB
             int nodes = stats.getNodes();
 
             // Query 10, RUNNING, 1 node, 778 splits
-            String querySummary = format("Query %s, %s, %,d %s, %,d splits",
+            String querySummary = format(
+                    "Query %s, %s, %,d %s, %s splits",
                     results.getId(),
-                    stats.getState(),
+                    coloredState(stats.getState()),
                     nodes,
                     pluralize("node", nodes),
-                    stats.getTotalSplits());
+                    coloredCount(stats.getTotalSplits()));
             reprintLine(querySummary);
 
             String url = results.getInfoUri().toString();
@@ -285,7 +297,8 @@ Spilled: 20GB
 
             if (debug) {
                 // Splits:   620 queued, 34 running, 124 done
-                String splitsSummary = format("Splits:   %,d queued, %,d running, %,d done",
+                String splitsSummary = format(
+                        "Splits:   %,d queued, %,d running, %,d done",
                         stats.getQueuedSplits(),
                         stats.getRunningSplits(),
                         stats.getCompletedSplits());
@@ -293,7 +306,8 @@ Spilled: 20GB
 
                 // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
                 Duration cpuTime = millis(stats.getCpuTimeMillis());
-                String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+                String cpuTimeSummary = format(
+                        "CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                         cpuTime.getValue(SECONDS),
                         formatCountRate(stats.getProcessedRows(), cpuTime, false),
                         formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true, decimalDataSize),
@@ -303,7 +317,8 @@ Spilled: 20GB
                 double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-                String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+                String perNodeSummary = format(
+                        "Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
                         formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
                         formatDataRate(bytes(stats.getProcessedBytes() / nodes), wallTime, true, decimalDataSize));
@@ -331,12 +346,13 @@ Spilled: 20GB
                         (int) ceil(stats.getRunningPercentage().orElse(0.0)));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
-                String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
+                String progressLine = format(
+                        "%s [%s rows, %s] [%s rows/s, %s] [%s] %d%%",
                         formatTime(wallTime),
-                        formatCount(stats.getProcessedRows()),
-                        formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize),
-                        formatCountRate(stats.getProcessedRows(), wallTime, false),
-                        formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize),
+                        coloredNumber(formatCount(stats.getProcessedRows()), 5),
+                        coloredNumber(formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize), 6),
+                        coloredNumber(formatCountRate(stats.getProcessedRows(), wallTime, false), 5),
+                        coloredNumber(formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize), 8),
                         progressBar,
                         progressPercentage);
 
@@ -346,12 +362,13 @@ Spilled: 20GB
                 String progressBar = formatProgressBar(progressWidth, Ints.saturatedCast(nanosSince(start).roundTo(SECONDS)));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
-                String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
+                String progressLine = format(
+                        "%s [%s rows, %s] [%s rows/s, %s] [%s]",
                         formatTime(wallTime),
-                        formatCount(stats.getProcessedRows()),
-                        formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize),
-                        formatCountRate(stats.getProcessedRows(), wallTime, false),
-                        formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize),
+                        coloredNumber(formatCount(stats.getProcessedRows()), 5),
+                        coloredNumber(formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize), 6),
+                        coloredNumber(formatCountRate(stats.getProcessedRows(), wallTime, false), 5),
+                        coloredNumber(formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize), 8),
                         progressBar);
 
                 reprintLine(progressLine);
@@ -361,7 +378,8 @@ Spilled: 20GB
             reprintLine("");
 
             // STAGE  S    ROWS    RPS  BYTES    BPS   QUEUED    RUN   DONE
-            String stagesHeader = format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
+            String stagesHeader = format(
+                    "%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
                     "STAGE",
                     "S",
                     "ROWS",
@@ -371,15 +389,16 @@ Spilled: 20GB
                     "QUEUED",
                     "RUN",
                     "DONE");
-            reprintLine(stagesHeader);
+            reprintLine(colored(stagesHeader, theme.keyword()));
 
             printStageTree(stats.getRootStage(), "");
         }
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
-            String querySummary = format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
+            String querySummary = format(
+                    "Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
                     results.getId(),
-                    stats.getState(),
+                    coloredState(stats.getState()),
 
                     formatCount(stats.getProcessedRows()),
                     formatDataSize(bytes(stats.getProcessedBytes()), false, decimalDataSize),
@@ -423,19 +442,20 @@ Spilled: 20GB
             rowsPerSecond = formatCountRate(stage.getProcessedRows(), elapsedTime, false);
         }
 
-        String stageSummary = format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
+        String stageSummary = format(
+                "%10s%s  %s  %s  %s  %s  %s  %s  %s",
                 name,
-                stageStateCharacter(stage.getState()),
+                coloredStateCharacter(stage.getState()),
 
-                formatCount(stage.getProcessedRows()),
-                rowsPerSecond,
+                coloredNumber(formatCount(stage.getProcessedRows()), 5),
+                coloredNumber(rowsPerSecond, 6),
 
-                formatDataSize(bytes(stage.getProcessedBytes()), false, decimalDataSize),
-                bytesPerSecond,
+                coloredNumber(formatDataSize(bytes(stage.getProcessedBytes()), false, decimalDataSize), 5),
+                coloredNumber(bytesPerSecond, 7),
 
-                stage.getQueuedSplits(),
-                stage.getRunningSplits(),
-                stage.getCompletedSplits());
+                coloredNumber(String.valueOf(stage.getQueuedSplits()), 6),
+                coloredNumber(String.valueOf(stage.getRunningSplits()), 5),
+                coloredNumber(String.valueOf(stage.getCompletedSplits()), 5));
         reprintLine(stageSummary);
 
         for (StageStats subStage : stage.getSubStages()) {
@@ -470,6 +490,50 @@ Spilled: 20GB
         return "FAILED".equals(state) ? 'X' : state.charAt(0);
     }
 
+    private String coloredState(String state)
+    {
+        return colored(state, stateStyle(state));
+    }
+
+    private String coloredStateCharacter(String state)
+    {
+        return colored(String.valueOf(stageStateCharacter(state)), stateStyle(state));
+    }
+
+    private AttributedStyle stateStyle(String state)
+    {
+        if ("FINISHED".equals(state)) {
+            return theme.string();
+        }
+        if ("FAILED".equals(state)) {
+            return theme.error();
+        }
+        return theme.warning();
+    }
+
+    private String coloredCount(long value)
+    {
+        return colored(format("%,d", value), theme.number());
+    }
+
+    private String coloredNumber(String value)
+    {
+        return colored(value, theme.number());
+    }
+
+    private String coloredNumber(String value, int width)
+    {
+        return colored(padStart(value, width, ' '), theme.number());
+    }
+
+    private String colored(String value, AttributedStyle style)
+    {
+        if ((style == DEFAULT) || value.isEmpty()) {
+            return value;
+        }
+        return new AttributedString(value, style).toAnsi();
+    }
+
     private static Duration millis(long millis)
     {
         return new Duration(millis, MILLISECONDS);
@@ -494,9 +558,9 @@ Spilled: 20GB
         private static final int DISPLAYED_WARNINGS = 5;
         private final ConsolePrinter console;
 
-        ConsoleWarningsPrinter(ConsolePrinter console)
+        ConsoleWarningsPrinter(ConsolePrinter console, Theme theme)
         {
-            super(OptionalInt.of(DISPLAYED_WARNINGS));
+            super(OptionalInt.of(DISPLAYED_WARNINGS), theme);
             this.console = requireNonNull(console, "console is null");
         }
 

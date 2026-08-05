@@ -135,7 +135,7 @@ public class TableScanNode
         domains.keySet().stream()
                 .filter(column -> !visibleColumns.contains(column))
                 .findAny()
-                .ifPresent(column -> {
+                .ifPresent(_ -> {
                     throw new IllegalArgumentException(format(
                             "enforcedConstraint references a column that is not part of the plan. " +
                                     "enforcedConstraint keys: %s, visibleColumns: %s",

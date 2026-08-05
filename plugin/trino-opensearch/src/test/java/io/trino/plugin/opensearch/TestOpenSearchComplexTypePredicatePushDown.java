@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.apache.http.HttpHost;
+import org.apache.hc.core5.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.opensearch.client.Request;
@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 final class TestOpenSearchComplexTypePredicatePushDown
         extends AbstractTestQueryFramework
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private OpenSearchServer opensearch;
     private RestHighLevelClient client;
@@ -78,8 +78,8 @@ final class TestOpenSearchComplexTypePredicatePushDown
             Map<String, Object> document = new HashMap<>();
             document.put("col", null);
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
-            String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
+            String jsonDocument = JSON_MAPPER.writeValueAsString(document);
+            String jsonIndex = JSON_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
         }
 
@@ -130,8 +130,8 @@ final class TestOpenSearchComplexTypePredicatePushDown
             document.put("col", inner);
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
 
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
-            String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
+            String jsonDocument = JSON_MAPPER.writeValueAsString(document);
+            String jsonIndex = JSON_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
         }
 
@@ -180,39 +180,39 @@ final class TestOpenSearchComplexTypePredicatePushDown
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
         @Language("JSON")
         String properties =
-                  """
-                  {
-                      "properties": {
-                          "col1Row": {
-                              "properties": {
-                                  "a": {
-                                      "type": "long"
-                                  },
-                                  "b": {
-                                      "type": "long"
-                                  },
-                                  "c": {
-                                      "properties": {
-                                          "c1": {
-                                              "type": "long"
-                                          },
-                                          "c2": {
-                                              "properties": {
-                                                  "c21": {
-                                                      "type": "long"
-                                                  },
-                                                  "c22": {
-                                                      "type": "long"
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  }
-                  """;
+                """
+                {
+                    "properties": {
+                        "col1Row": {
+                            "properties": {
+                                "a": {
+                                    "type": "long"
+                                },
+                                "b": {
+                                    "type": "long"
+                                },
+                                "c": {
+                                    "properties": {
+                                        "c1": {
+                                            "type": "long"
+                                        },
+                                        "c2": {
+                                            "properties": {
+                                                "c21": {
+                                                    "type": "long"
+                                                },
+                                                "c22": {
+                                                    "type": "long"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                """;
 
         int a = 2;
         int b = 100;
@@ -236,8 +236,8 @@ final class TestOpenSearchComplexTypePredicatePushDown
                             .buildOrThrow())
                     .buildOrThrow();
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
-            String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
+            String jsonDocument = JSON_MAPPER.writeValueAsString(document);
+            String jsonIndex = JSON_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
 
             a = a + 2;
@@ -295,22 +295,22 @@ final class TestOpenSearchComplexTypePredicatePushDown
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
         @Language("JSON")
         String properties =
-                  """
-                  {
-                      "_meta": {
-                          "trino": {
-                              "colArray": {
-                                  "isArray": true
-                              }
-                          }
-                      },
-                      "properties": {
-                          "colArray": {
-                              "type": "long"
-                          }
-                      }
-                  }
-                  """;
+                """
+                {
+                    "_meta": {
+                        "trino": {
+                            "colArray": {
+                                "isArray": true
+                            }
+                        }
+                    },
+                    "properties": {
+                        "colArray": {
+                            "type": "long"
+                        }
+                    }
+                }
+                """;
 
         StringBuilder payload = new StringBuilder();
         for (int i = 0; i < 10000; i++) {
@@ -322,8 +322,8 @@ final class TestOpenSearchComplexTypePredicatePushDown
                     .buildOrThrow();
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
 
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
-            String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
+            String jsonDocument = JSON_MAPPER.writeValueAsString(document);
+            String jsonIndex = JSON_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
         }
         createIndex(tableName, properties);

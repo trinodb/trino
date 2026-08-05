@@ -322,12 +322,12 @@ public class BloomFilter
     @VisibleForTesting
     public static final class OrcMurmur3
     {
-        private static final long C1 = 0x87c37b91114253d5L;
-        private static final long C2 = 0x4cf5ad432745937fL;
+        private static final long C1 = 0x87C37B91114253D5L;
+        private static final long C2 = 0x4CF5AD432745937FL;
         private static final int R1 = 31;
         private static final int R2 = 27;
         private static final int M = 5;
-        private static final int N1 = 0x52dce729;
+        private static final int N1 = 0x52DCE729;
 
         private static final int DEFAULT_SEED = 104729;
 
@@ -363,19 +363,19 @@ public class BloomFilter
             long k = 0;
             switch (data.length - current) {
                 case 7:
-                    k ^= ((long) data[current + 6] & 0xff) << 48;
+                    k ^= ((long) data[current + 6] & 0xFF) << 48;
                 case 6:
-                    k ^= ((long) data[current + 5] & 0xff) << 40;
+                    k ^= ((long) data[current + 5] & 0xFF) << 40;
                 case 5:
-                    k ^= ((long) data[current + 4] & 0xff) << 32;
+                    k ^= ((long) data[current + 4] & 0xFF) << 32;
                 case 4:
-                    k ^= ((long) data[current + 3] & 0xff) << 24;
+                    k ^= ((long) data[current + 3] & 0xFF) << 24;
                 case 3:
-                    k ^= ((long) data[current + 2] & 0xff) << 16;
+                    k ^= ((long) data[current + 2] & 0xFF) << 16;
                 case 2:
-                    k ^= ((long) data[current + 1] & 0xff) << 8;
+                    k ^= ((long) data[current + 1] & 0xFF) << 8;
                 case 1:
-                    k ^= ((long) data[current] & 0xff);
+                    k ^= ((long) data[current] & 0xFF);
                     k *= C1;
                     k = Long.rotateLeft(k, R1);
                     k *= C2;
@@ -413,19 +413,19 @@ public class BloomFilter
             long k = 0;
             switch (data.length() - current) {
                 case 7:
-                    k ^= ((long) data.getByteUnchecked(current + 6) & 0xff) << 48;
+                    k ^= ((long) data.getByteUnchecked(current + 6) & 0xFF) << 48;
                 case 6:
-                    k ^= ((long) data.getByteUnchecked(current + 5) & 0xff) << 40;
+                    k ^= ((long) data.getByteUnchecked(current + 5) & 0xFF) << 40;
                 case 5:
-                    k ^= ((long) data.getByteUnchecked(current + 4) & 0xff) << 32;
+                    k ^= ((long) data.getByteUnchecked(current + 4) & 0xFF) << 32;
                 case 4:
-                    k ^= ((long) data.getByteUnchecked(current + 3) & 0xff) << 24;
+                    k ^= ((long) data.getByteUnchecked(current + 3) & 0xFF) << 24;
                 case 3:
-                    k ^= ((long) data.getByteUnchecked(current + 2) & 0xff) << 16;
+                    k ^= ((long) data.getByteUnchecked(current + 2) & 0xFF) << 16;
                 case 2:
-                    k ^= ((long) data.getByteUnchecked(current + 1) & 0xff) << 8;
+                    k ^= ((long) data.getByteUnchecked(current + 1) & 0xFF) << 8;
                 case 1:
-                    k ^= ((long) data.getByteUnchecked(current) & 0xff);
+                    k ^= ((long) data.getByteUnchecked(current) & 0xFF);
                     k *= C1;
                     k = Long.rotateLeft(k, R1);
                     k *= C2;
@@ -442,9 +442,9 @@ public class BloomFilter
         private static long fmix64(long h)
         {
             h ^= (h >>> 33);
-            h *= 0xff51afd7ed558ccdL;
+            h *= 0xFF51AFD7ED558CCDL;
             h ^= (h >>> 33);
-            h *= 0xc4ceb9fe1a85ec53L;
+            h *= 0xC4CEB9FE1A85EC53L;
             h ^= (h >>> 33);
             return h;
         }

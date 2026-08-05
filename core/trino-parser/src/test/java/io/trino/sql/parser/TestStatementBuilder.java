@@ -341,7 +341,8 @@ public class TestStatementBuilder
     @Test
     public void testStringFormatter()
     {
-        assertSqlFormatter("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801'",
+        assertSqlFormatter(
+                "U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801'",
                 "'hello测试\uDBFF\uDFFFworld编码'");
         assertSqlFormatter("'hello world'", "'hello world'");
         assertSqlFormatter("U&'!+10FFFF!6d4B!8Bd5ABC!6d4B!8Bd5' UESCAPE '!'", "'\uDBFF\uDFFF测试ABC测试'");
@@ -373,7 +374,8 @@ public class TestStatementBuilder
         printTpchQuery(19, "part brand 1", "part brand 2", "part brand 3", 11, 22, 33);
         printTpchQuery(20, "part name like", "2013-03-05", "nation name");
         printTpchQuery(21, "nation name");
-        printTpchQuery(22,
+        printTpchQuery(
+                22,
                 "phone 1",
                 "phone 2",
                 "phone 3",

@@ -16,6 +16,7 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
@@ -23,11 +24,13 @@ import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.DropBranch;
+import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.GenericDataType;
@@ -41,6 +44,7 @@ import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshView;
+import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -49,6 +53,7 @@ import io.trino.sql.tree.ShowSchemas;
 import io.trino.sql.tree.ShowSession;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
@@ -63,6 +68,8 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.PLUS;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.IGNORE;
@@ -446,6 +453,7 @@ public class TestSqlFormatter
                         false,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.empty())))
                 .isEqualTo("CREATE MATERIALIZED VIEW test_mv AS\n" +
@@ -460,6 +468,7 @@ public class TestSqlFormatter
                         false,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.of("攻殻機動隊"))))
                 .isEqualTo("CREATE MATERIALIZED VIEW test_mv\n" +
@@ -467,6 +476,25 @@ public class TestSqlFormatter
                         "SELECT *\n" +
                         "FROM\n" +
                         "  test_base\n");
+        assertThat(formatSql(
+                new CreateMaterializedView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test_mv"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.of(WhenStaleBehavior.FAIL),
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE MATERIALIZED VIEW test_mv
+                        WHEN STALE FAIL AS
+                        SELECT *
+                        FROM
+                          test_base
+                        """);
     }
 
     @Test
@@ -476,31 +504,36 @@ public class TestSqlFormatter
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
                                 Optional.empty()),
                         Optional.empty(),
-                        false, false)))
+                        false,
+                        false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
         assertThat(formatSql(
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
                                 Optional.of("攻殻機動隊")),
                         Optional.empty(),
-                        false, false)))
+                        false,
+                        false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR COMMENT '攻殻機動隊'");
         assertThat(formatSql(
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
@@ -513,7 +546,8 @@ public class TestSqlFormatter
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
@@ -526,7 +560,8 @@ public class TestSqlFormatter
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
@@ -535,6 +570,52 @@ public class TestSqlFormatter
                         false,
                         false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR AFTER b");
+    }
+
+    @Test
+    public void testAlterColumnSetDefault()
+    {
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new LongLiteral(new NodeLocation(1, 46), "123"),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT 123");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 23), "foo", false),
+                        new Identifier(new NodeLocation(1, 27), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
+                new LongLiteral(new NodeLocation(1, 56), "123"),
+                true)))
+                .isEqualTo("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DEFAULT 123");
+    }
+
+    @Test
+    public void testAlterColumnDropDefault()
+    {
+        assertThat(formatSql(new DropDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a DROP DEFAULT");
+
+        assertThat(formatSql(new DropDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 23), "foo", false),
+                        new Identifier(new NodeLocation(1, 27), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
+                true)))
+                .isEqualTo("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b DROP DEFAULT");
     }
 
     @Test
@@ -600,6 +681,41 @@ public class TestSqlFormatter
                         ImmutableList.of())))
                 .isEqualTo("EXECUTE IMMEDIATE\n" +
                         "'SELECT * FROM foo WHERE col1 = ''攻殻機動隊'''");
+    }
+
+    @Test
+    void testMerge()
+    {
+        assertThat(formatSql(new Merge(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t")),
+                table(QualifiedName.of("changes")),
+                new BooleanLiteral(new NodeLocation(1, 1), "true"),
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t
+                           USING changes
+                           ON true
+                        WHEN MATCHED
+                           THEN DELETE\
+                        """);
+
+        // with alias for the source table
+        assertThat(formatSql(new Merge(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t")),
+                aliased(table(QualifiedName.of("changes")), "s"),
+                new BooleanLiteral(new NodeLocation(1, 1), "true"),
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t
+                           USING changes s
+                           ON true
+                        WHEN MATCHED
+                           THEN DELETE\
+                        """);
     }
 
     @Test
@@ -761,5 +877,29 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new ShowBranches(new NodeLocation(1, 1), QualifiedName.of("a"))))
                 .isEqualTo("SHOW BRANCHES FROM TABLE a");
+    }
+
+    @Test
+    public void testArithmeticUnary()
+    {
+        assertThat(formatSql(
+                new ArithmeticUnaryExpression(new NodeLocation(1, 1), PLUS, new LongLiteral(new NodeLocation(1, 2), "1"))))
+                .isEqualTo("+1");
+
+        assertThat(formatSql(
+                new ArithmeticUnaryExpression(new NodeLocation(1, 1), MINUS, new LongLiteral(new NodeLocation(1, 3), "1"))))
+                .isEqualTo("-(1)");
+
+        assertThat(formatSql(
+                new ArithmeticUnaryExpression(new NodeLocation(1, 1), PLUS, new SubqueryExpression(
+                        new NodeLocation(1, 3),
+                        simpleQuery(selectList(new LongLiteral(new NodeLocation(1, 10), "1")))))))
+                .isEqualTo("+(SELECT 1\n\n)");
+
+        assertThat(formatSql(
+                new ArithmeticUnaryExpression(new NodeLocation(1, 1), MINUS, new SubqueryExpression(
+                        new NodeLocation(1, 3),
+                        simpleQuery(selectList(new LongLiteral(new NodeLocation(1, 10), "1")))))))
+                .isEqualTo("-(SELECT 1\n\n)");
     }
 }

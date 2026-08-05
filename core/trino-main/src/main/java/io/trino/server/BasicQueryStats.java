@@ -27,6 +27,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -41,6 +42,7 @@ public class BasicQueryStats
     private final Instant endTime;
 
     private final Duration queuedTime;
+    private final Duration resourceWaitingTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
 
@@ -83,6 +85,7 @@ public class BasicQueryStats
             @JsonProperty("createTime") Instant createTime,
             @JsonProperty("endTime") Instant endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
+            @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("failedTasks") int failedTasks,
@@ -119,6 +122,7 @@ public class BasicQueryStats
         this.endTime = endTime;
 
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
 
@@ -169,6 +173,7 @@ public class BasicQueryStats
         this(queryStats.getCreateTime(),
                 queryStats.getEndTime(),
                 queryStats.getQueuedTime(),
+                queryStats.getResourceWaitingTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
                 queryStats.getFailedTasks(),
@@ -208,9 +213,10 @@ public class BasicQueryStats
         return new BasicQueryStats(
                 now,
                 now,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 0,
                 0,
                 0,
@@ -228,14 +234,14 @@ public class BasicQueryStats
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
                 OptionalDouble.empty(),
@@ -258,6 +264,12 @@ public class BasicQueryStats
     public Duration getQueuedTime()
     {
         return queuedTime;
+    }
+
+    @JsonProperty
+    public Duration getResourceWaitingTime()
+    {
+        return resourceWaitingTime;
     }
 
     @JsonProperty

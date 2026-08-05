@@ -73,19 +73,16 @@ public class TestIgniteConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
-                 SUPPORTS_ROW_LEVEL_UPDATE,
-                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
+            case SUPPORTS_JOIN_PUSHDOWN -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                  SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ARRAY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
@@ -473,24 +470,23 @@ public class TestIgniteConnectorTest
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        switch (dataMappingTestSetup.getTrinoTypeName()) {
-            case "date":
+        return switch (dataMappingTestSetup.getTrinoTypeName()) {
+            case "date" -> {
                 // Ignite doesn't support these days
                 if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'") || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")) {
-                    return Optional.empty();
+                    yield Optional.empty();
                 }
-                break;
+                yield Optional.of(dataMappingTestSetup);
+            }
 
-            case "time":
-            case "time(6)":
-            case "timestamp":
-            case "timestamp(6)":
-            case "timestamp(3) with time zone":
-            case "timestamp(6) with time zone":
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        return Optional.of(dataMappingTestSetup);
+            case "time",
+                 "time(6)",
+                 "timestamp",
+                 "timestamp(6)",
+                 "timestamp(3) with time zone",
+                 "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
+            default -> Optional.of(dataMappingTestSetup);
+        };
     }
 
     @Test

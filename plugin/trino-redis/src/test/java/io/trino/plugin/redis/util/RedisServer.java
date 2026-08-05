@@ -15,9 +15,16 @@ package io.trino.plugin.redis.util;
 
 import com.google.common.net.HostAndPort;
 import org.testcontainers.containers.GenericContainer;
-import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.Connection;
+import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.Protocol;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.SslOptions;
 
 import java.io.Closeable;
+import java.io.File;
+
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class RedisServer
         implements Closeable
@@ -29,8 +36,11 @@ public class RedisServer
     public static final String USER = "test";
     public static final String PASSWORD = "password";
 
+    public static final String TLS_STORE_PASSWORD = "changeit";
+    private static final String CONTAINER_CERTS_DIR = "/etc/redis/certs/";
+
     private final GenericContainer<?> container;
-    private final JedisPool jedisPool;
+    private final RedisClient redisClient;
 
     public RedisServer()
     {
@@ -39,28 +49,50 @@ public class RedisServer
 
     public RedisServer(String version, boolean setAccessControl)
     {
+        this(version, setAccessControl, false);
+    }
+
+    public static RedisServer createTlsServer()
+    {
+        return new RedisServer(LATEST_VERSION, false, true);
+    }
+
+    private RedisServer(String version, boolean setAccessControl, boolean tls)
+    {
         container = new GenericContainer<>("redis:" + version)
                 .withExposedPorts(PORT);
         if (setAccessControl) {
             container.withCommand("redis-server", "--requirepass", PASSWORD);
-            container.start();
-            jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT), null, PASSWORD);
-            jedisPool.getResource().aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
         }
-        else {
-            container.start();
-            jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT));
+        if (tls) {
+            configureTls(container);
+        }
+        container.start();
+
+        DefaultJedisClientConfig.Builder clientConfig = DefaultJedisClientConfig.builder();
+        if (setAccessControl) {
+            clientConfig.password(PASSWORD);
+        }
+        if (tls) {
+            clientConfig.sslOptions(buildClientSslOptions());
+        }
+        redisClient = RedisClient.builder()
+                .hostAndPort(container.getHost(), container.getMappedPort(PORT))
+                .clientConfig(clientConfig.build())
+                .build();
+        if (setAccessControl) {
+            aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
         }
     }
 
-    public JedisPool getJedisPool()
+    public RedisClient getClient()
     {
-        return jedisPool;
+        return redisClient;
     }
 
-    public void destroyJedisPool()
+    public void closeClient()
     {
-        jedisPool.destroy();
+        redisClient.close();
     }
 
     public HostAndPort getHostAndPort()
@@ -68,10 +100,62 @@ public class RedisServer
         return HostAndPort.fromParts(container.getHost(), container.getMappedPort(PORT));
     }
 
+    public static String getKeystorePath()
+    {
+        return forClasspathResource("tls/keystore.p12").getResolvedPath();
+    }
+
+    public static String getTruststorePath()
+    {
+        return forClasspathResource("tls/truststore.p12").getResolvedPath();
+    }
+
     @Override
     public void close()
     {
-        jedisPool.destroy();
+        redisClient.close();
         container.close();
+    }
+
+    private void aclSetUser(String user, String... rules)
+    {
+        String[] args = new String[2 + rules.length];
+        args[0] = "SETUSER";
+        args[1] = user;
+        System.arraycopy(rules, 0, args, 2, rules.length);
+
+        try (Connection connection = redisClient.getPool().getResource()) {
+            connection.sendCommand(Protocol.Command.ACL, args);
+            connection.getStatusCodeReply();
+        }
+    }
+
+    private static void configureTls(GenericContainer<?> container)
+    {
+        container
+                .withCopyFileToContainer(forClasspathResource("tls/ca.crt", 0644), CONTAINER_CERTS_DIR + "ca.crt")
+                .withCopyFileToContainer(forClasspathResource("tls/redis.crt", 0644), CONTAINER_CERTS_DIR + "redis.crt")
+                .withCopyFileToContainer(forClasspathResource("tls/redis.key", 0644), CONTAINER_CERTS_DIR + "redis.key")
+                .withCommand(
+                        "redis-server",
+                        // serve TLS on the exposed port and disable the plaintext port
+                        "--tls-port",
+                        Integer.toString(PORT),
+                        "--port",
+                        "0",
+                        "--tls-cert-file",
+                        CONTAINER_CERTS_DIR + "redis.crt",
+                        "--tls-key-file",
+                        CONTAINER_CERTS_DIR + "redis.key",
+                        "--tls-ca-cert-file",
+                        CONTAINER_CERTS_DIR + "ca.crt");
+    }
+
+    private static SslOptions buildClientSslOptions()
+    {
+        return SslOptions.builder()
+                .keystore(new File(getKeystorePath()), TLS_STORE_PASSWORD.toCharArray())
+                .truststore(new File(getTruststorePath()), TLS_STORE_PASSWORD.toCharArray())
+                .build();
     }
 }

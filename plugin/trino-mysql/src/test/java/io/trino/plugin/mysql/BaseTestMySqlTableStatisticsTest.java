@@ -199,7 +199,8 @@ public abstract class BaseTestMySqlTableStatisticsTest
     {
         String tableName = "test_stats_table_with_nulls_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " AS " +
                         "SELECT " +
                         "    orderkey, " +

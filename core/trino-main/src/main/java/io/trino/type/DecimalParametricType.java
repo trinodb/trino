@@ -38,8 +38,10 @@ public class DecimalParametricType
     {
         return switch (parameters.size()) {
             case 0 -> DecimalType.createDecimalType();
-            case 1 -> DecimalType.createDecimalType(parameters.get(0).getLongLiteral().intValue());
-            case 2 -> DecimalType.createDecimalType(parameters.get(0).getLongLiteral().intValue(), parameters.get(1).getLongLiteral().intValue());
+            case 1 -> DecimalType.createDecimalType((int) ((TypeParameter.Numeric) parameters.get(0)).value());
+            case 2 -> DecimalType.createDecimalType(
+                    (int) ((TypeParameter.Numeric) parameters.get(0)).value(),
+                    (int) ((TypeParameter.Numeric) parameters.get(1)).value());
             default -> throw new IllegalArgumentException("Expected 0, 1 or 2 parameters for DECIMAL type constructor.");
         };
     }

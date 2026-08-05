@@ -40,7 +40,7 @@ import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.rowType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -140,7 +140,7 @@ public class TestSetColumnTypeTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetColumnType(asQualifiedName(tableName), QualifiedName.of("col", "b"), toSqlType(INTEGER), false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessageContaining("Field 'b' does not exist within row(a bigint)");
+                .hasMessageContaining("Field 'b' does not exist within row(\"a\" bigint)");
     }
 
     @Test
@@ -155,7 +155,7 @@ public class TestSetColumnTypeTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetColumnType(asQualifiedName(tableName), QualifiedName.of("col", "a"), toSqlType(INTEGER), false)))
                 .hasErrorCode(AMBIGUOUS_NAME)
-                .hasMessageContaining("Field path [col, a] within row(a bigint, a bigint) is ambiguous");
+                .hasMessageContaining("Field path [col, a] within row(\"a\" bigint, \"a\" bigint) is ambiguous");
     }
 
     private static ConnectorTableMetadata rowTable(QualifiedObjectName tableName, Field... fields)

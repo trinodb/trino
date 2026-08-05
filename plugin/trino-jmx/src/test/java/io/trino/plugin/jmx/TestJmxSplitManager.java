@@ -17,22 +17,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
 import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -80,19 +80,13 @@ public class TestJmxSplitManager
 
     private final JmxConnector jmxConnector =
             (JmxConnector) new JmxConnectorFactory()
-                    .create(CONNECTOR_ID, ImmutableMap.of(
-                            "jmx.dump-tables", TEST_BEANS,
-                            "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
-                            "jmx.max-entries", "1000",
-                            "bootstrap.quiet", "true"),
-                            new ConnectorContext()
-                            {
-                                @Override
-                                public NodeManager getNodeManager()
-                                {
-                                    return nodeManager;
-                                }
-                            });
+                    .create(CONNECTOR_ID,
+                            ImmutableMap.of(
+                                    "jmx.dump-tables", TEST_BEANS,
+                                    "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
+                                    "jmx.max-entries", "1000",
+                                    "bootstrap.quiet", "true"),
+                            new TestingConnectorContext(nodeManager));
 
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
 
@@ -115,7 +109,7 @@ public class TestJmxSplitManager
             TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice(nodeIdentifier))));
             JmxTableHandle tableHandle = new JmxTableHandle(new SchemaTableName("schema", "tableName"), ImmutableList.of("objectName"), ImmutableList.of(columnHandle), true, nodeTupleDomain);
 
-            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, DynamicFilter.EMPTY, alwaysTrue());
+            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, ImmutableSet.of(), alwaysTrue());
             List<ConnectorSplit> allSplits = getAllSplits(splitSource);
 
             assertThat(allSplits).hasSize(1);
@@ -130,7 +124,7 @@ public class TestJmxSplitManager
             throws Exception
     {
         JmxTableHandle tableHandle = new JmxTableHandle(new SchemaTableName("schema", "tableName"), ImmutableList.of("objectName"), ImmutableList.of(columnHandle), true, TupleDomain.all());
-        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, DynamicFilter.EMPTY, alwaysTrue());
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, ImmutableSet.of(), alwaysTrue());
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
         assertThat(allSplits).hasSize(nodes.size());
 
@@ -183,7 +177,7 @@ public class TestJmxSplitManager
                 jmxTableHandle.nodeFilter());
 
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandleWithUnknownObject).values());
-        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandleWithUnknownObject, DynamicFilter.EMPTY, alwaysTrue());
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandleWithUnknownObject, ImmutableSet.of(), alwaysTrue());
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
         ConnectorSplit split = allSplits.getFirst();
 
@@ -245,7 +239,7 @@ public class TestJmxSplitManager
         JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName, Optional.empty(), Optional.empty());
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
-        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, DynamicFilter.EMPTY, alwaysTrue());
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, ImmutableSet.of(), alwaysTrue());
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
         assertThat(allSplits).hasSize(nodes.size());
         ConnectorSplit split = allSplits.get(0);
@@ -258,7 +252,7 @@ public class TestJmxSplitManager
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
+            splits.addAll(splitSource.getNextBatch(1000, DynamicFilterSnapshot.EMPTY).get());
         }
         return splits.build();
     }

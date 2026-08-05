@@ -37,7 +37,7 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_PARTITION_ST
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_TABLE_STATISTICS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Execution(SAME_THREAD)// metastore invocation counters shares mutable state so can't be run from many threads simultaneously
+@Execution(SAME_THREAD) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestHiveMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {

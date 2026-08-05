@@ -44,9 +44,9 @@ public record CatalogVersion(String version)
     private static boolean isAllowedCharacter(char c)
     {
         return ('0' <= c && c <= '9') ||
-               ('a' <= c && c <= 'z') ||
-               c == '_' ||
-               c == '-';
+                ('a' <= c && c <= 'z') ||
+                c == '_' ||
+                c == '-';
     }
 
     @JsonValue

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -44,10 +45,10 @@ import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -88,6 +89,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.hash.Hashing.sha256;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.metastore.Partitions.toPartitionValues;
@@ -146,18 +149,19 @@ public class FileHiveMetastore
 
     private final String currentVersion;
     private final VersionCompatibility versionCompatibility;
+    @GuardedBy("this") // filesystem is thread safe, but file system access needs to be synchronized to avoid dirty reads
     private final TrinoFileSystem fileSystem;
     private final Location catalogDirectory;
     private final boolean disableLocationChecks;
     private final boolean hideDeltaLakeTables;
 
-    private final JsonCodec<DatabaseMetadata> databaseCodec = JsonCodec.jsonCodec(DatabaseMetadata.class);
-    private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
-    private final JsonCodec<PartitionMetadata> partitionCodec = JsonCodec.jsonCodec(PartitionMetadata.class);
-    private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
-    private final JsonCodec<LanguageFunction> functionCodec = JsonCodec.jsonCodec(LanguageFunction.class);
-    private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
-    private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
+    private final JsonCodec<DatabaseMetadata> databaseCodec = jsonCodec(DatabaseMetadata.class);
+    private final JsonCodec<TableMetadata> tableCodec = jsonCodec(TableMetadata.class);
+    private final JsonCodec<PartitionMetadata> partitionCodec = jsonCodec(PartitionMetadata.class);
+    private final JsonCodec<List<PermissionMetadata>> permissionsCodec = listJsonCodec(PermissionMetadata.class);
+    private final JsonCodec<LanguageFunction> functionCodec = jsonCodec(LanguageFunction.class);
+    private final JsonCodec<List<String>> rolesCodec = listJsonCodec(String.class);
+    private final JsonCodec<List<RoleGrant>> roleGrantsCodec = listJsonCodec(RoleGrant.class);
 
     public FileHiveMetastore(NodeVersion nodeVersion, TrinoFileSystemFactory fileSystemFactory, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
@@ -742,6 +746,7 @@ public class FileHiveMetastore
         });
     }
 
+    @GuardedBy("this")
     private void alterTable(String databaseName, String tableName, Function<TableMetadata, TableMetadata> alterFunction)
     {
         requireNonNull(databaseName, "databaseName is null");
@@ -817,6 +822,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private void verifiedPartition(Table table, Partition partition)
     {
         Location partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
@@ -1016,11 +1022,13 @@ public class FileHiveMetastore
         return result.build();
     }
 
+    @GuardedBy("this")
     private Set<RoleGrant> readRoleGrantsFile()
     {
         return ImmutableSet.copyOf(readFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec).orElse(ImmutableList.of()));
     }
 
+    @GuardedBy("this")
     private void writeRoleGrantsFile(Set<RoleGrant> roleGrants)
     {
         writeFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec, ImmutableList.copyOf(roleGrants), true);
@@ -1041,14 +1049,18 @@ public class FileHiveMetastore
 
         List<List<String>> partitions = listPartitions(tableMetadataDirectory, table.getPartitionColumns());
 
-        List<String> partitionNames = partitions.stream()
-                .map(partitionValues -> makePartitionName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
-                .filter(partitionName -> isValidPartition(table, partitionName))
-                .collect(toImmutableList());
+        ImmutableList.Builder<String> partitionNames = ImmutableList.builder();
+        for (List<String> partitionValues : partitions) {
+            String partitionName = makePartitionName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues));
+            if (isValidPartition(table, partitionName)) {
+                partitionNames.add(partitionName);
+            }
+        }
 
-        return Optional.of(partitionNames);
+        return Optional.of(partitionNames.build());
     }
 
+    @GuardedBy("this")
     private boolean isValidPartition(Table table, String partitionName)
     {
         Location location = getSchemaFile(PARTITION, getPartitionMetadataDirectory(table, partitionName));
@@ -1060,6 +1072,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private List<List<String>> listPartitions(Location directory, List<io.trino.metastore.Column> partitionColumns)
     {
         if (partitionColumns.isEmpty()) {
@@ -1311,6 +1324,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private Set<HivePrivilegeInfo> readPermissionsFile(Location permissionFilePath)
     {
         return readFile("permissions", permissionFilePath, permissionsCodec).orElse(ImmutableList.of()).stream()
@@ -1318,6 +1332,7 @@ public class FileHiveMetastore
                 .collect(toImmutableSet());
     }
 
+    @GuardedBy("this")
     private Set<HivePrivilegeInfo> readAllPermissions(Location permissionsDirectory)
     {
         try {
@@ -1336,6 +1351,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private void deleteDirectoryAndSchema(SchemaType type, Location metadataDirectory)
     {
         try {
@@ -1376,11 +1392,13 @@ public class FileHiveMetastore
                 UNSAFE_ASSUME_COMPATIBILITY));
     }
 
+    @GuardedBy("this")
     private <T> Optional<T> readSchemaFile(SchemaType type, Location metadataDirectory, JsonCodec<T> codec)
     {
         return readFile(type + " schema", getSchemaFile(type, metadataDirectory), codec);
     }
 
+    @GuardedBy("this")
     private <T> Optional<T> readFile(String type, Location file, JsonCodec<T> codec)
     {
         try {
@@ -1392,15 +1410,17 @@ public class FileHiveMetastore
             if (getCausalChain(e).stream().anyMatch(FileNotFoundException.class::isInstance)) {
                 return Optional.empty();
             }
-            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not read " + type, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not read %s from %s".formatted(type, file), e);
         }
     }
 
+    @GuardedBy("this")
     private <T> void writeSchemaFile(SchemaType type, Location directory, JsonCodec<T> codec, T value, boolean overwrite)
     {
         writeFile(type + " schema", getSchemaFile(type, directory), codec, value, overwrite);
     }
 
+    @GuardedBy("this")
     private <T> void writeFile(String type, Location location, JsonCodec<T> codec, T value, boolean overwrite)
     {
         try {
@@ -1431,6 +1451,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private void renameSchemaFile(SchemaType type, Location oldMetadataDirectory, Location newMetadataDirectory)
     {
         try {
@@ -1441,6 +1462,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private void deleteSchemaFile(SchemaType type, Location metadataDirectory)
     {
         try {

@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestSystemRuntimeConnector
         extends AbstractTestQueryFramework
 {
-    private static final Function<SchemaTableName, List<ColumnMetadata>> DEFAULT_GET_COLUMNS = table -> ImmutableList.of(new ColumnMetadata("c", VARCHAR));
+    private static final Function<SchemaTableName, List<ColumnMetadata>> DEFAULT_GET_COLUMNS = _ -> ImmutableList.of(new ColumnMetadata("c", VARCHAR));
     private static final AtomicLong counter = new AtomicLong();
 
     private static Function<SchemaTableName, List<ColumnMetadata>> getColumns;
@@ -75,19 +75,21 @@ public class TestSystemRuntimeConnector
                 .setSchema("default")
                 .build();
 
-        QueryRunner queryRunner = DistributedQueryRunner
+        DistributedQueryRunner queryRunner = DistributedQueryRunner
                 .builder(defaultSession)
-                .enableBackupCoordinator()
                 .setWorkerCount(1)
                 .build();
+
+        queryRunner.addCoordinator();
+
         queryRunner.installPlugin(new Plugin()
         {
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of())
-                        .withListTables((session, s) -> ImmutableList.of("test_table"))
+                        .withGetViews((_, _) -> ImmutableMap.of())
+                        .withListTables((_, _) -> ImmutableList.of("test_table"))
                         .withGetColumns(tableName -> getColumns.apply(tableName))
                         .build();
                 return ImmutableList.of(connectorFactory);
@@ -216,7 +218,7 @@ public class TestSystemRuntimeConnector
     public void testQueryDuringAnalysisIsCaptured()
     {
         SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
-        getColumns = schemaTableName -> {
+        getColumns = _ -> {
             try {
                 return metadataFuture.get();
             }
@@ -253,7 +255,7 @@ public class TestSystemRuntimeConnector
     public void testQueryKillingDuringAnalysis()
     {
         SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
-        getColumns = schemaTableName -> {
+        getColumns = _ -> {
             try {
                 return metadataFuture.get();
             }
@@ -297,6 +299,13 @@ public class TestSystemRuntimeConnector
     {
         getQueryRunner().execute("SELECT 1");
         getQueryRunner().execute("SELECT * FROM system.runtime.tasks");
+    }
+
+    @Test
+    public void testNonExistentTable()
+    {
+        assertThat(query("SELECT * FROM system.runtime.non_existent_table"))
+                .failure().hasMessageContaining("Table 'system.runtime.non_existent_table' does not exist");
     }
 
     private static void run(int repetitions, double successRate, Runnable test)

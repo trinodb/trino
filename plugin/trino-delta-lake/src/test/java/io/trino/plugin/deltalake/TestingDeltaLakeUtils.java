@@ -64,14 +64,11 @@ public final class TestingDeltaLakeUtils
                 new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
                 TupleDomain.none(),
                 TupleDomain.none(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                false,
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false,
-                Optional.empty());
+                false);
     }
 
     public static DeltaLakeTableHandle createTable(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
@@ -85,14 +82,11 @@ public final class TestingDeltaLakeUtils
                 protocolEntry,
                 TupleDomain.none(),
                 TupleDomain.none(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                false,
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false,
-                Optional.empty());
+                false);
     }
 
     public static List<AddFileEntry> getTableActiveFiles(TransactionLogAccess transactionLogAccess, TrinoFileSystemFactory fileSystemFactory, String tableLocation)
@@ -103,10 +97,10 @@ public final class TestingDeltaLakeUtils
         // force entries to have JSON serializable statistics
         transactionLogAccess.flushCache();
 
-        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(dummyTable, tableLocation), Optional.empty());
+        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(dummyTable, tableLocation), Optional.empty(), Optional.empty());
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, fileSystemFactory.create(SESSION), snapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, fileSystemFactory.create(SESSION), snapshot);
-        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), snapshot, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), Optional.empty(), snapshot, TupleDomain.all(), alwaysTrue())) {
             return addFileEntries.collect(toImmutableList());
         }
     }

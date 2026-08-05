@@ -20,6 +20,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.StandardTypes;
@@ -47,6 +48,7 @@ public final class CustomSum
         state.setValue(state.getValue() + otherState.getValue());
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.BIGINT)
     public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {

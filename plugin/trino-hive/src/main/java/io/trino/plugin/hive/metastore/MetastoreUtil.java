@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -166,12 +167,12 @@ public final class MetastoreUtil
             schema.put(BUCKET_COUNT, "0");
         }
 
-        for (Map.Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
+        for (Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
             schema.put(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
 
         if (sd.getStorageFormat().getSerde().equals(AVRO_SERDE_CLASS) && tableSd.isPresent()) {
-            for (Map.Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
+            for (Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
                 schema.put(param.getKey(), nullToEmpty(param.getValue()));
             }
         }
@@ -219,7 +220,7 @@ public final class MetastoreUtil
         }
 
         if (parameters != null) {
-            for (Map.Entry<String, String> entry : parameters.entrySet()) {
+            for (Entry<String, String> entry : parameters.entrySet()) {
                 // add non-null parameters to the schema
                 if (entry.getValue() != null) {
                     schema.put(entry.getKey(), entry.getValue());
@@ -317,7 +318,7 @@ public final class MetastoreUtil
 
     /**
      * @param assumeCanonicalPartitionKeys allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats. If false, non-char types will be replaced
-     * with the wildcard
+     *         with the wildcard
      * @return the domain for each partition key to either the wildcard or an equals check, or empty if {@code TupleDomain.isNone()}
      */
     public static Optional<List<String>> partitionKeyFilterToStringList(List<String> columnNames, TupleDomain<String> partitionKeysFilter, boolean assumeCanonicalPartitionKeys)
@@ -476,7 +477,7 @@ public final class MetastoreUtil
     {
         HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
         // Partitioned table without statistics
-        if (basicStatistics.getRowCount().isEmpty() || basicStatistics.getRowCount().getAsLong() == 0L) {
+        if (basicStatistics.getRowCount().isEmpty() || basicStatistics.getRowCount().orElseThrow() == 0L) {
             HiveBasicStatistics sparkBasicStatistics = getSparkBasicStatistics(parameters);
             if (sparkBasicStatistics.getRowCount().isPresent()) {
                 return sparkBasicStatistics;

@@ -18,7 +18,7 @@ like Oracle and Hive, or different Oracle database instances.
 
 To connect to Oracle, you need:
 
-- Oracle 19 or higher.
+- Oracle 23 or higher.
 - Network access from the Trino coordinator and workers to Oracle.
   Port 1521 is the default port.
 
@@ -66,6 +66,7 @@ them, change the properties in the catalog configuration file:
 oracle.connection-pool.max-size=30
 oracle.connection-pool.min-size=1
 oracle.connection-pool.inactive-timeout=20m
+oracle.connection-pool.wait-duration=3s
 ```
 
 To disable connection pooling, update properties to include the following:
@@ -168,14 +169,18 @@ Trino data type mapping:
   - Trino type
   - Notes
 * - `NUMBER(p, s)`
-  - `DECIMAL(p, s)`
-  -  See [](oracle-number-mapping)
-* - `NUMBER(p)`
-  - `DECIMAL(p, 0)`
-  - See [](oracle-number-mapping)
+  - `DECIMAL(pʹ, sʹ)` or `NUMBER`
+  - Maps to Trino `DECIMAL` when input data can be represented as Trino `DECIMAL` losslessly.
+    When `1 ≤ p ≤ 38` and `0 ≤ s ≤ p`, then `pʹ = p` and `sʹ = s`, otherwise, a wider type is used. \
+    When input cannot be represented as Trino `DECIMAL` losslessly, maps to `NUMBER`.
+* - `NUMBER`
+  - `NUMBER`
+  -
 * - `FLOAT[(p)]`
   - `DOUBLE`
-  -
+  - When `p` exceeds 53, numeric values may be subject to precision loss. 
+    The default precision of the [FLOAT data type](https://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj27281.html) 
+    in Oracle is 53.
 * - `BINARY_FLOAT`
   - `REAL`
   -
@@ -255,6 +260,9 @@ tables, `Oracle to Trino` type mapping is used.
 * - `DECIMAL(p, s)`
   - `NUMBER(p, s)`
   -
+* - `NUMBER`
+  - `NUMBER`
+  -
 * - `REAL`
   - `BINARY_FLOAT`
   -
@@ -285,25 +293,6 @@ tables, `Oracle to Trino` type mapping is used.
 :::
 
 No other types are supported.
-
-(oracle-number-mapping)=
-### Mapping numeric types
-
-An Oracle `NUMBER(p, s)` maps to Trino's `DECIMAL(p, s)` except in these
-conditions:
-
-- No precision is specified for the column (example: `NUMBER` or
-  `NUMBER(*)`), unless `oracle.number.default-scale` is set.
-- Scale (`s` ) is greater than precision.
-- Precision (`p` ) is greater than 38.
-- Scale is negative and the difference between `p` and `s` is greater than
-  38, unless `oracle.number.rounding-mode` is set to a different value than
-  `UNNECESSARY`.
-
-If `s` is negative, `NUMBER(p, s)` maps to `DECIMAL(p + s, 0)`.
-
-For Oracle `NUMBER` (without precision and scale), you can change
-`oracle.number.default-scale=s` and map the column to `DECIMAL(38, s)`.
 
 (oracle-datetime-mapping)=
 ### Mapping datetime types
@@ -534,7 +523,6 @@ The connector supports pushdown for a number of operations:
 
 - {ref}`join-pushdown`
 - {ref}`limit-pushdown`
-- {ref}`topn-pushdown`
 
 In addition, the connector supports {ref}`aggregation-pushdown` for the
 following functions:

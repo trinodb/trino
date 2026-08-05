@@ -57,7 +57,6 @@ public class CassandraClientConfig
     {
         NONE,
         PASSWORD,
-        /**/
     }
 
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;

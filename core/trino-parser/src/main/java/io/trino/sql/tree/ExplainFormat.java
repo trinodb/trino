@@ -28,7 +28,7 @@ public class ExplainFormat
     {
         TEXT,
         GRAPHVIZ,
-        JSON
+        JSON,
     }
 
     private final Type type;

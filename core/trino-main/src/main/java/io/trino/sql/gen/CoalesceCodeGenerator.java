@@ -18,8 +18,8 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Expression;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,27 +32,29 @@ public class CoalesceCodeGenerator
         implements BytecodeGenerator
 {
     private final Type returnType;
-    private final List<RowExpression> arguments;
+    private final List<Expression> arguments;
 
-    public CoalesceCodeGenerator(SpecialForm specialForm)
+    public CoalesceCodeGenerator(Coalesce coalesce)
     {
-        requireNonNull(specialForm, "specialForm is null");
-        returnType = specialForm.type();
-        arguments = specialForm.arguments();
+        requireNonNull(coalesce, "coalesce is null");
+        returnType = coalesce.type();
+        arguments = coalesce.operands();
     }
 
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
+        Class<?> returnJavaType = generatorContext.getCallSiteBinder().getAccessibleType(returnType.getJavaType());
+
         List<BytecodeNode> operands = new ArrayList<>();
-        for (RowExpression expression : arguments) {
+        for (Expression expression : arguments) {
             operands.add(generatorContext.generate(expression));
         }
 
         Variable wasNull = generatorContext.wasNull();
         BytecodeNode nullValue = new BytecodeBlock()
                 .append(wasNull.set(constantTrue()))
-                .pushJavaDefault(returnType.getJavaType());
+                .pushJavaDefault(returnJavaType);
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (BytecodeNode operand : operands.reversed()) {
@@ -64,7 +66,7 @@ public class CoalesceCodeGenerator
 
             // if value was null, pop the null value, clear the null flag, and process the next operand
             ifStatement.ifTrue()
-                    .pop(returnType.getJavaType())
+                    .pop(returnJavaType)
                     .append(wasNull.set(constantFalse()))
                     .append(nullValue);
 

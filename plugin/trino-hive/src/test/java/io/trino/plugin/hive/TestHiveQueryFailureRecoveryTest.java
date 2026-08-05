@@ -15,9 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -43,7 +42,7 @@ public class TestHiveQueryFailureRecoveryTest
         super(RetryPolicy.QUERY);
     }
 
-    private Hive3MinioDataLake hiveMinioDataLake;
+    private Hive3FlociDataLake hiveFlociDataLake;
     private MinioStorage minioStorage;
 
     @Override
@@ -55,19 +54,16 @@ public class TestHiveQueryFailureRecoveryTest
             throws Exception
     {
         String bucketName = "test-hive-insert-overwrite-" + randomNameSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
-        this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        this.hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
 
         this.minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
         minioStorage.start();
 
-        return S3HiveQueryRunner.builder(hiveMinioDataLake)
+        return S3HiveQueryRunner.builder(hiveFlociDataLake)
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
                 .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();
@@ -77,7 +73,7 @@ public class TestHiveQueryFailureRecoveryTest
     public void destroy()
             throws Exception
     {
-        hiveMinioDataLake = null; // closed by closeAfterClass
+        hiveFlociDataLake = null; // closed by closeAfterClass
         minioStorage = null; // closed by closeAfterClass
     }
 }

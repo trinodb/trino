@@ -16,10 +16,17 @@ package io.trino.parquet;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.plugin.tpcds.TpcdsRecordSet;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
+import io.trino.tpcds.Results;
+import io.trino.tpcds.Session;
+import io.trino.tpcds.Table;
+import io.trino.tpcds.column.Column;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
@@ -49,6 +56,35 @@ public final class BenchmarkParquetFormatUtils
 
     private BenchmarkParquetFormatUtils() {}
 
+    public static TestData createTpcdsDataSet(Table table)
+    {
+        List<Column> columns = ImmutableList.copyOf(table.getColumns());
+        Session session = Session.getDefaultSession()
+                .withScale(1)
+                .withParallelism(1)
+                .withChunkNumber(1)
+                .withTable(table);
+        TpcdsRecordSet recordSet = new TpcdsRecordSet(Results.constructResults(table, session), columns);
+
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        long dataSize = 0;
+        try (RecordPageSource pageSource = new RecordPageSource(recordSet)) {
+            while (!pageSource.isFinished() && dataSize < MIN_DATA_SIZE) {
+                SourcePage sourcePage = pageSource.getNextSourcePage();
+                if (sourcePage != null) {
+                    Page page = sourcePage.getPage();
+                    pages.add(page);
+                    dataSize += page.getSizeInBytes();
+                }
+            }
+        }
+
+        return new TestData(
+                columns.stream().map(Column::getName).collect(toImmutableList()),
+                recordSet.getColumnTypes(),
+                pages.build());
+    }
+
     @SafeVarargs
     public static <E extends TpchEntity> TestData createTpchDataSet(TpchTable<E> tpchTable, TpchColumn<E>... columns)
     {
@@ -70,23 +106,12 @@ public final class BenchmarkParquetFormatUtils
                 TpchColumn<E> column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                 switch (column.getType().getBase()) {
-                    case IDENTIFIER:
-                        BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
-                        break;
-                    case INTEGER:
-                        INTEGER.writeLong(blockBuilder, column.getInteger(row));
-                        break;
-                    case DATE:
-                        DATE.writeLong(blockBuilder, column.getDate(row));
-                        break;
-                    case DOUBLE:
-                        DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
-                        break;
-                    case VARCHAR:
-                        createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported type " + column.getType());
+                    case IDENTIFIER -> BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
+                    case INTEGER -> INTEGER.writeLong(blockBuilder, column.getInteger(row));
+                    case DATE -> DATE.writeLong(blockBuilder, column.getDate(row));
+                    case DOUBLE -> DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
+                    case VARCHAR -> createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
+                    default -> throw new IllegalArgumentException("Unsupported type " + column.getType());
                 }
             }
             if (pageBuilder.isFull()) {
@@ -125,7 +150,8 @@ public final class BenchmarkParquetFormatUtils
             double compressionRatio = inputSizeStats.getSum() / outputSizeStats.getSum();
             String compression = result.getParams().getParam("compression");
             String dataSet = result.getParams().getParam("dataSet");
-            System.out.printf("  %-10s  %-30s  %-10s  %2.2f  %10s ± %11s (%5.2f%%) (N = %d, α = 99.9%%)\n",
+            System.out.printf(
+                    "  %-10s  %-30s  %-10s  %2.2f  %10s ± %11s (%5.2f%%) (N = %d, α = 99.9%%)\n",
                     result.getPrimaryResult().getLabel(),
                     dataSet,
                     compression,

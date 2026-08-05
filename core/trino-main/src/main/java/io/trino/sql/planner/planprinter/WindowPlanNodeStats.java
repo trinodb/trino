@@ -37,8 +37,7 @@ public class WindowPlanNodeStats
             Map<String, BasicOperatorStats> operatorStats,
             WindowOperatorStats windowOperatorStats)
     {
-        super(
-                planNodeId,
+        super(planNodeId,
                 planNodeScheduledTime,
                 planNodeCpuTime,
                 planNodeBlockedTime,

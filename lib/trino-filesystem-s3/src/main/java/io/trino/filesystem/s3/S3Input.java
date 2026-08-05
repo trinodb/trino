@@ -27,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 
+import static io.trino.filesystem.s3.S3Exceptions.handleS3Exception;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -58,7 +59,7 @@ final class S3Input
             return;
         }
 
-        String range = "bytes=%s-%s".formatted(position, (position + length) - 1);
+        String range = "bytes=" + position + "-" + ((position + length) - 1);
         GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
 
         int n = read(buffer, offset, length, rangeRequest);
@@ -77,7 +78,7 @@ final class S3Input
             return 0;
         }
 
-        String range = "bytes=-%s".formatted(length);
+        String range = "bytes=-" + length;
         GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
 
         return read(buffer, offset, length, rangeRequest);
@@ -117,7 +118,7 @@ final class S3Input
             throw new FileNotFoundException(location.toString());
         }
         catch (SdkException e) {
-            throw new IOException("Failed to open S3 file: " + location, e);
+            throw handleS3Exception(e, "Failed to open S3 file: " + location);
         }
     }
 }

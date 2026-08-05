@@ -228,7 +228,9 @@ public class InMemoryRecordSet
                 }
                 else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
                     checkArgument(value instanceof Integer || value instanceof Long,
-                            "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %d to be an instance of Integer or Long, but is a %s",
+                            i,
+                            value.getClass().getSimpleName());
                 }
                 else if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && !timestampWithTimeZoneType.isShort()) {
                     checkArgument(value instanceof LongTimestampWithTimeZone, "Expected value %s to be an instance of LongTimestampWithTimeZone, but is a %s", i, value.getClass().getSimpleName());
@@ -238,27 +240,39 @@ public class InMemoryRecordSet
                 }
                 else if (VARCHAR.equals(type)) {
                     checkArgument(value instanceof String || value instanceof byte[],
-                            "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %d to be an instance of String or byte[], but is a %s",
+                            i,
+                            value.getClass().getSimpleName());
                 }
                 else if (VARBINARY.equals(type)) {
                     checkArgument(value instanceof Slice,
-                            "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %d to be an instance of Slice, but is a %s",
+                            i,
+                            value.getClass().getSimpleName());
                 }
                 else if (type instanceof ArrayType) {
                     checkArgument(value instanceof Block,
-                            "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %d to be an instance of Block, but is a %s",
+                            i,
+                            value.getClass().getSimpleName());
                 }
                 else if (type instanceof RowType) {
                     checkArgument(value instanceof Block,
-                            "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %d to be an instance of Block, but is a %s",
+                            i,
+                            value.getClass().getSimpleName());
                 }
                 else if (type instanceof DecimalType decimalType && decimalType.isShort()) {
                     checkArgument(value instanceof Long,
-                            "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %d to be an instance of Long, but is a %s",
+                            i,
+                            value.getClass().getSimpleName());
                 }
                 else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
                     checkArgument(value instanceof Int128,
-                            "Expected value %d to be an instance of LongDecimal, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %d to be an instance of LongDecimal, but is a %s",
+                            i,
+                            value.getClass().getSimpleName());
                 }
                 else {
                     throw new IllegalStateException("Unsupported column type " + types.get(i));

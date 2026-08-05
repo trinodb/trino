@@ -19,13 +19,11 @@ import static java.util.Objects.requireNonNull;
 public record VendedCredentialsHandle(
         boolean catalogOwned,
         boolean managed,
-        String tableLocation,
-        VendedCredentials vendedCredentials)
+        String tableLocation)
 {
     public VendedCredentialsHandle
     {
         requireNonNull(tableLocation, "tableLocation is null");
-        requireNonNull(vendedCredentials, "vendedCredentials is null");
 
         if (catalogOwned) {
             checkArgument(managed, "catalog-owned table must be managed");
@@ -34,11 +32,11 @@ public record VendedCredentialsHandle(
 
     public static VendedCredentialsHandle empty(String tableLocation)
     {
-        return new VendedCredentialsHandle(false, false, tableLocation, VendedCredentials.empty());
+        return new VendedCredentialsHandle(false, false, tableLocation);
     }
 
     public static VendedCredentialsHandle of(DeltaMetastoreTable table)
     {
-        return new VendedCredentialsHandle(table.catalogOwned(), table.managed(), table.location(), table.vendedCredentials().orElse(VendedCredentials.empty()));
+        return new VendedCredentialsHandle(table.catalogOwned(), table.managed(), table.location());
     }
 }

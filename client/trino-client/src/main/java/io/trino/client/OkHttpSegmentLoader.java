@@ -61,13 +61,11 @@ public class OkHttpSegmentLoader
                 .build();
 
         Response response = callFactory.newCall(request).execute();
-        if (response.body() == null) {
-            throw new IOException("Could not open segment for streaming, got empty body");
-        }
-
         if (response.isSuccessful()) {
             return response.body().byteStream();
         }
+
+        response.close();
         throw new IOException(format("Could not open segment for streaming, got error '%s' with code %d", response.message(), response.code()));
     }
 

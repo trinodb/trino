@@ -16,14 +16,25 @@ package io.trino.metadata;
 import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorName;
 
+import static io.trino.metadata.CatalogStatus.OPERATIONAL;
 import static java.util.Objects.requireNonNull;
 
-public record CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName, boolean loaded)
+public record CatalogInfo(
+        String catalogName,
+        CatalogHandle catalogHandle,
+        ConnectorName connectorName,
+        CatalogStatus catalogStatus)
 {
     public CatalogInfo
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(connectorName, "connectorName is null");
+        requireNonNull(catalogStatus, "catalogStatus is null");
+    }
+
+    public boolean isOperational()
+    {
+        return catalogStatus == OPERATIONAL;
     }
 }

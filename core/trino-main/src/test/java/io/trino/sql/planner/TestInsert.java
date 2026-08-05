@@ -20,15 +20,13 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchPartitioningHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.MatchContext;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
-import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -65,7 +63,7 @@ public class TestInsert
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
         planTester.installPlugin(
                 new MockConnectorPlugin(MockConnectorFactory.builder()
-                        .withGetTableHandle((session, schemaTableName) -> {
+                        .withGetTableHandle((_, schemaTableName) -> {
                             if (schemaTableName.getTableName().equals("test_table_preferred_partitioning")) {
                                 return new MockConnectorTableHandle(schemaTableName);
                             }
@@ -76,10 +74,10 @@ public class TestInsert
 
                             return null;
                         })
-                        .withGetColumns(name -> ImmutableList.of(
+                        .withGetColumns(_ -> ImmutableList.of(
                                 new ColumnMetadata("column1", INTEGER),
                                 new ColumnMetadata("column2", INTEGER)))
-                        .withGetInsertLayout((session, tableName) -> {
+                        .withGetInsertLayout((_, tableName) -> {
                             if (tableName.getTableName().equals("test_table_preferred_partitioning")) {
                                 return Optional.of(new ConnectorTableLayout(ImmutableList.of("column1")));
                             }
@@ -90,7 +88,7 @@ public class TestInsert
 
                             return Optional.empty();
                         })
-                        .withGetNewTableLayout((session, tableMetadata) -> {
+                        .withGetNewTableLayout((_, tableMetadata) -> {
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_preferred_partitioning")) {
                                 return Optional.of(new ConnectorTableLayout(ImmutableList.of("column1")));
                             }
@@ -119,7 +117,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                ImmutableList.of(),
+                                                ImmutableSet.of("column1"),
                                                 values("column1", "column2"))))));
     }
 
@@ -132,7 +133,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE,
+                                        REPARTITION,
+                                        ImmutableList.of(),
+                                        ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 
@@ -151,7 +155,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                ImmutableList.of(),
+                                                ImmutableSet.of("column1"),
                                                 values("column1", "column2"))
                                                 .with(exchangeWithoutSystemPartitioning()))
                                         .with(exchangeWithoutSystemPartitioning()))));
@@ -166,7 +173,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                ImmutableList.of(),
+                                                ImmutableSet.of("column1"),
                                                 values("column1", "column2"))))));
     }
 
@@ -180,7 +190,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE,
+                                        REPARTITION,
+                                        ImmutableList.of(),
+                                        ImmutableSet.of(),
                                         values("column2")))));
     }
 
@@ -193,7 +206,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE,
+                                        REPARTITION,
+                                        ImmutableList.of(),
+                                        ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 
@@ -212,7 +228,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                ImmutableList.of(),
+                                                ImmutableSet.of("column1"),
                                                 values("column1", "column2"))
                                                 .with(exchangeWithoutSystemPartitioning()))
                                         .with(exchangeWithoutSystemPartitioning()))));
@@ -227,7 +246,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE,
+                                        REPARTITION,
+                                        ImmutableList.of(),
+                                        ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 
@@ -242,7 +264,7 @@ public class TestInsert
             }
 
             @Override
-            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            public MatchResult detailMatches(PlanNode node, MatchContext context)
             {
                 return new MatchResult(!(((ExchangeNode) node).getPartitioningScheme().getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
             }

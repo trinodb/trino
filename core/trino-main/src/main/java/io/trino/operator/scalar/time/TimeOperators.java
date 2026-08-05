@@ -28,17 +28,21 @@ import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.TimeType.MAX_PRECISION;
-import static io.trino.type.DateTimes.MINUTES_PER_HOUR;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_HOUR;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MINUTE;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.SECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.rescaleWithRounding;
-import static io.trino.type.DateTimes.round;
 import static io.trino.type.DateTimes.scaleFactor;
+import static java.lang.Math.floorMod;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class TimeOperators
 {
@@ -56,6 +60,7 @@ public final class TimeOperators
         return interval;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters({"x", "p"})
     @SqlType("time(p)")
@@ -92,7 +97,7 @@ public final class TimeOperators
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
     public static long timePlusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return add(time, interval * PICOSECONDS_PER_MILLISECOND);
+        return add(time, (long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
     }
 
     @ScalarOperator(ADD)
@@ -110,13 +115,14 @@ public final class TimeOperators
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
     public static long timeMinusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
-        return add(time, -interval * PICOSECONDS_PER_MILLISECOND);
+        return add(time, -(long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@LiteralParameter("p") long precision, @SqlType("time(p)") long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @LiteralParameter("p") long precision, @SqlType("time(p)") long value)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
             throw new IllegalArgumentException("Invalid precision: " + precision);
@@ -149,7 +155,11 @@ public final class TimeOperators
             }
         }
 
-        return Slices.wrappedBuffer(bytes);
+        // bytes are all-ASCII, so length here returns actual code points count
+        if (bytes.length <= x) {
+            return Slices.wrappedBuffer(bytes);
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", new String(bytes, US_ASCII), x));
     }
 
     private static void appendTwoDecimalDigits(int index, byte[] bytes, int value)
@@ -162,7 +172,7 @@ public final class TimeOperators
 
     public static long add(long picos, long delta)
     {
-        long result = (picos + delta) % PICOSECONDS_PER_DAY;
+        long result = (picos + (delta % PICOSECONDS_PER_DAY)) % PICOSECONDS_PER_DAY;
         if (result < 0) {
             result += PICOSECONDS_PER_DAY;
         }

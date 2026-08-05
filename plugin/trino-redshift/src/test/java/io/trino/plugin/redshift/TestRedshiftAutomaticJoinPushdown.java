@@ -15,11 +15,14 @@ package io.trino.plugin.redshift;
 
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
-import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -34,6 +37,12 @@ public class TestRedshiftAutomaticJoinPushdown
                 .build();
     }
 
+    @Override
+    protected TestTable newTrinoTable(String namePrefix, String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(new TrinoSqlExecutorWithRetries(getQueryRunner()), namePrefix, tableDefinition, rowsToInsert);
+    }
+
     @Test
     @Override
     @Disabled
@@ -42,7 +51,7 @@ public class TestRedshiftAutomaticJoinPushdown
     @Override
     protected void gatherStats(String tableName)
     {
-        executeInRedshift(handle -> {
+        executeInRedshiftWithRetry(handle -> {
             handle.execute(format("ANALYZE VERBOSE %s.%s", TEST_SCHEMA, tableName));
             for (int i = 0; i < 5; i++) {
                 long actualCount = handle.createQuery(format("SELECT count(*) FROM %s.%s", TEST_SCHEMA, tableName))

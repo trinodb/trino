@@ -79,7 +79,8 @@ public class TestOrderBy
     @Test
     public void testRequiredOrderByInUnion()
     {
-        assertPlan("VALUES 1 " +
+        assertPlan(
+                "VALUES 1 " +
                         "UNION ALL " +
                         "VALUES 2 " +
                         "ORDER BY 1 ",
@@ -94,7 +95,8 @@ public class TestOrderBy
     @Test
     public void testRedundantOrderByInUnion()
     {
-        assertPlan("SELECT * FROM (" +
+        assertPlan(
+                "SELECT * FROM (" +
                         "   VALUES 1 " +
                         "   UNION ALL " +
                         "   VALUES 2 " +
@@ -132,7 +134,9 @@ public class TestOrderBy
                 """,
                 output(
                         topN(1, ImmutableList.of(sort("c", ASCENDING, LAST)), TopNNode.Step.FINAL,
-                                topN(1, ImmutableList.of(sort("c", ASCENDING, LAST)), TopNNode.Step.PARTIAL,
+                                topN(1,
+                                        ImmutableList.of(sort("c", ASCENDING, LAST)),
+                                        TopNNode.Step.PARTIAL,
                                         values("c")))));
     }
 
@@ -152,7 +156,8 @@ public class TestOrderBy
                                 node(FilterNode.class,
                                         node(RowNumberNode.class,
                                                 exchange(LOCAL,
-                                                        sort(exchange(LOCAL,
+                                                        sort(exchange(
+                                                                LOCAL,
                                                                 values("c")))))))));
     }
 }

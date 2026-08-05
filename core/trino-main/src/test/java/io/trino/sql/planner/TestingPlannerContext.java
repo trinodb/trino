@@ -13,11 +13,16 @@
  */
 package io.trino.sql.planner;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.FeaturesConfig;
+import io.trino.block.BlockJsonSerde;
 import io.trino.connector.CatalogServiceProvider;
-import io.trino.metadata.BlockEncodingManager;
-import io.trino.metadata.FunctionBundle;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
@@ -27,22 +32,27 @@ import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SystemFunctionBundle;
-import io.trino.metadata.TestMetadataManager;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
+import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.type.TypeDeserializer;
 
 import java.util.ArrayList;
@@ -50,7 +60,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.tracing.Tracing.noopTracer;
-import static io.trino.client.NodeVersion.UNKNOWN;
+import static io.trino.spi.NodeVersion.UNKNOWN;
+import static io.trino.testing.PlanTester.TESTING_BLOCK_ENCODING_MANAGER;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingPlannerContext
@@ -125,7 +136,7 @@ public final class TestingPlannerContext
             globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
             functionBundles.forEach(globalFunctionCatalog::addFunctions);
 
-            BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
+            BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, typeManager);
 
             LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(
                     new SqlParser(),
@@ -136,7 +147,7 @@ public final class TestingPlannerContext
 
             Metadata metadata = this.metadata;
             if (metadata == null) {
-                TestMetadataManager.Builder builder = TestMetadataManager.builder()
+                TestingMetadataManager.Builder builder = TestingMetadataManager.builder()
                         .withTypeManager(typeManager)
                         .withLanguageFunctionManager(languageFunctionManager)
                         .withGlobalFunctionCatalog(globalFunctionCatalog);
@@ -151,7 +162,19 @@ public final class TestingPlannerContext
                     new JsonExistsFunction(functionManager, metadata, typeManager),
                     new JsonValueFunction(functionManager, metadata, typeManager),
                     new JsonQueryFunction(functionManager, metadata, typeManager)));
-            typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
+
+            JsonMapper jsonMapper = new JsonMapperProvider()
+                    .withJsonDeserializers(ImmutableMap.of(
+                            Type.class, new TypeDeserializer(typeManager),
+                            TypeDescriptor.class, new TypeDescriptorDeserializer(),
+                            Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)))
+                    .withJsonSerializers(ImmutableMap.of(
+                            Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)))
+                    .get();
+
+            JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
+            JsonCodec<IrJsonPath> irJsonPathJsonCodec = codecFactory.jsonCodec(IrJsonPath.class);
+            typeRegistry.addType(new SqlJsonPathType(irJsonPathJsonCodec));
 
             return new PlannerContext(
                     metadata,
@@ -160,7 +183,9 @@ public final class TestingPlannerContext
                     typeManager,
                     functionManager,
                     languageFunctionManager,
-                    noopTracer());
+                    noopTracer(),
+                    codecFactory.jsonCodec(Expression.class),
+                    featuresConfig);
         }
     }
 }

@@ -446,20 +446,16 @@ public class BenchmarkColumnReaders
         @SuppressWarnings("unused")
         @Param({
                 "boolean",
-
                 "tinyint",
                 "integer",
                 "bigint",
                 "decimal(10,5)",
-
                 "timestamp",
-
                 "real",
                 "double",
-
                 "varchar",
                 "varbinary",
-                "uuid"
+                "uuid",
         })
         private String typeName;
 
@@ -502,6 +498,9 @@ public class BenchmarkColumnReaders
     public static class BooleanWithNullBenchmarkData
             extends BenchmarkData
     {
+        @Param({"0.01", "0.1", "0.5", "0.9"})
+        private double nullRate;
+
         @Setup
         public void setup()
                 throws Exception
@@ -513,7 +512,7 @@ public class BenchmarkColumnReaders
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextBoolean() ? random.nextBoolean() : null);
+                values.add(random.nextDouble() < nullRate ? null : random.nextBoolean());
             }
             return values.iterator();
         }
@@ -1209,8 +1208,7 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(
-                    getTableColumns("lineitem", DecimalTypeMapping.DOUBLE),
+            setup(getTableColumns("lineitem", DecimalTypeMapping.DOUBLE),
                     getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
         }
     }
@@ -1231,7 +1229,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkColumnReaders.class).run();

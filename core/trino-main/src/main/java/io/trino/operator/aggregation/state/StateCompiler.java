@@ -20,7 +20,6 @@ import com.google.common.collect.Ordering;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -54,11 +53,13 @@ import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InternalDataAccessor;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 
 import java.lang.annotation.Annotation;
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -105,14 +106,18 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
 public final class StateCompiler
@@ -221,9 +226,8 @@ public final class StateCompiler
         generateSerialize(definition, callSiteBinder, clazz, fields);
         generateDeserialize(definition, callSiteBinder, clazz, fields);
 
-        // grouped aggregation state fields use engine classes, so generated class must be able to see both plugin and system classes
-        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader(), StateCompiler.class.getClassLoader());
-        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
+        // the serializer may reference the plugin-defined state interface by name
+        Class<?> serializerClass = defineHiddenClass(definition, AccumulatorStateSerializer.class, clazz, callSiteBinder.getClassData());
         try {
             //noinspection unchecked
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
@@ -239,7 +243,7 @@ public final class StateCompiler
 
         Type type = getSerializedType(fields);
 
-        body.comment("return %s", type.getTypeSignature())
+        body.comment("return %s", type.getTypeDescriptor())
                 .append(constantType(callSiteBinder, type))
                 .retObject();
     }
@@ -427,11 +431,11 @@ public final class StateCompiler
         ClassDefinition singleStateClassDefinition = generateInOutSingleStateClass(type, callSiteBinder);
         ClassDefinition groupedStateClassDefinition = generateInOutGroupedStateClass(type, callSiteBinder);
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(StateCompiler.class.getClassLoader(), callSiteBinder.getBindings());
-        Class<? extends InOut> singleStateClass = defineClass(singleStateClassDefinition, InOut.class, classLoader);
-        Class<? extends InOut> groupedStateClass = defineClass(groupedStateClassDefinition, InOut.class, classLoader);
+        // both class definitions share the binder, so they receive the same class data
+        Class<? extends InOut> singleStateClass = defineHiddenClass(singleStateClassDefinition, InOut.class, callSiteBinder.getClassData());
+        Class<? extends InOut> groupedStateClass = defineHiddenClass(groupedStateClassDefinition, InOut.class, callSiteBinder.getClassData());
 
-        return generateStateFactory(InOut.class, singleStateClass, groupedStateClass, classLoader);
+        return generateStateFactory(InOut.class, singleStateClass, groupedStateClass);
     }
 
     private static ClassDefinition generateInOutSingleStateClass(Type type, CallSiteBinder callSiteBinder)
@@ -561,7 +565,8 @@ public final class StateCompiler
         return definition;
     }
 
-    private static void generateInOutMethods(Type type,
+    private static void generateInOutMethods(
+            Type type,
             ClassDefinition definition,
             Function<Scope, BytecodeExpression> valueGetter,
             Function<Scope, BytecodeExpression> nullGetter,
@@ -783,19 +788,16 @@ public final class StateCompiler
             }
         }
 
-        // grouped aggregation state fields use engine classes, so generated class must be able to see both plugin and system classes
-        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader(), StateCompiler.class.getClassLoader());
-        Class<? extends T> singleStateClass = generateSingleStateClass(clazz, fieldTypes, classLoader);
-        Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, fieldTypes, classLoader);
+        Class<? extends T> singleStateClass = generateSingleStateClass(clazz, fieldTypes);
+        Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, fieldTypes);
 
-        return generateStateFactory(clazz, singleStateClass, groupedStateClass, classLoader);
+        return generateStateFactory(clazz, singleStateClass, groupedStateClass);
     }
 
     private static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(
             Class<T> clazz,
             Class<? extends T> singleStateClass,
-            Class<? extends T> groupedStateClass,
-            DynamicClassLoader classLoader)
+            Class<? extends T> groupedStateClass)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -806,23 +808,25 @@ public final class StateCompiler
         // Generate constructor
         definition.declareDefaultConstructor(a(PUBLIC));
 
-        // Generate single state creation method
+        // The state classes are hidden and cannot be instantiated by name, so the factory
+        // invokes their constructor handles bound as class data constants
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
+
+        MethodHandle singleStateConstructor = constructorMethodHandle(singleStateClass).asType(methodType(AccumulatorState.class));
         definition.declareMethod(a(PUBLIC), "createSingleState", type(AccumulatorState.class))
                 .getBody()
-                .newObject(singleStateClass)
-                .dup()
-                .invokeConstructor(singleStateClass)
-                .retObject();
+                .append(loadConstant(callSiteBinder, singleStateConstructor, MethodHandle.class)
+                        .invoke("invokeExact", AccumulatorState.class)
+                        .ret());
 
-        // Generate grouped state creation method
+        MethodHandle groupedStateConstructor = constructorMethodHandle(groupedStateClass).asType(methodType(AccumulatorState.class));
         definition.declareMethod(a(PUBLIC), "createGroupedState", type(AccumulatorState.class))
                 .getBody()
-                .newObject(groupedStateClass)
-                .dup()
-                .invokeConstructor(groupedStateClass)
-                .retObject();
+                .append(loadConstant(callSiteBinder, groupedStateConstructor, MethodHandle.class)
+                        .invoke("invokeExact", AccumulatorState.class)
+                        .ret());
 
-        Class<?> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
+        Class<?> factoryClass = defineHiddenClass(definition, AccumulatorStateFactory.class, callSiteBinder.getClassData());
         try {
             //noinspection unchecked
             return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
@@ -832,7 +836,7 @@ public final class StateCompiler
         }
     }
 
-    private static <T> Class<? extends T> generateSingleStateClass(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    private static <T> Class<? extends T> generateSingleStateClass(Class<T> clazz, Map<String, Type> fieldTypes)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -867,7 +871,8 @@ public final class StateCompiler
 
         generateCopy(definition, fields, fieldDefinitions);
 
-        return defineClass(definition, clazz, classLoader);
+        // the state class implements the plugin-defined state interface
+        return defineHiddenClass(definition, clazz, clazz, ImmutableList.of());
     }
 
     private static void generateCopy(ClassDefinition definition, List<StateField> fields, List<FieldDefinition> fieldDefinitions)
@@ -934,7 +939,7 @@ public final class StateCompiler
         return instanceSize;
     }
 
-    private static <T> Class<? extends T> generateGroupedStateClass(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    private static <T> Class<? extends T> generateGroupedStateClass(Class<T> clazz, Map<String, Type> fieldTypes)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -965,7 +970,8 @@ public final class StateCompiler
         // Generate getEstimatedSize
         estimatedSize(definition, fieldDefinitions);
 
-        return defineClass(definition, clazz, classLoader);
+        // the state class implements the plugin-defined state interface
+        return defineHiddenClass(definition, clazz, clazz, ImmutableList.of());
     }
 
     private static FieldDefinition generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
@@ -999,9 +1005,9 @@ public final class StateCompiler
         MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
         getter.getBody()
                 .append(getter.getThis().getField(field).invoke(
-                        "get",
-                        stateField.getType(),
-                        getter.getThis().invoke("getGroupId", int.class).cast(long.class))
+                                "get",
+                                stateField.getType(),
+                                getter.getThis().invoke("getGroupId", int.class).cast(long.class))
                         .ret());
 
         // Generate setter
@@ -1098,7 +1104,7 @@ public final class StateCompiler
 
     private static void checkInterface(Class<?> clazz, List<StateField> fields)
     {
-        checkArgument(clazz.isInterface(), clazz.getName() + " is not an interface");
+        checkArgument(clazz.isInterface(), "%s is not an interface", clazz.getName());
         Set<String> setters = new HashSet<>();
         Set<String> getters = new HashSet<>();
         Set<String> isGetters = new HashSet<>();
@@ -1128,14 +1134,19 @@ public final class StateCompiler
             if (method.getName().startsWith("get")) {
                 String name = method.getName().substring(3);
                 checkArgument(fieldTypes.get(name).equals(method.getReturnType()),
-                        "Expected %s to return type %s, but found %s", method.getName(), fieldTypes.get(name), method.getReturnType());
+                        "Expected %s to return type %s, but found %s",
+                        method.getName(),
+                        fieldTypes.get(name),
+                        method.getReturnType());
                 checkArgument(method.getParameterTypes().length == 0, "Expected %s to have zero parameters", method.getName());
                 getters.add(name);
             }
             else if (method.getName().startsWith("is")) {
                 String name = method.getName().substring(2);
                 checkArgument(fieldTypes.get(name) == boolean.class,
-                        "Expected %s to have type boolean, but found %s", name, fieldTypes.get(name));
+                        "Expected %s to have type boolean, but found %s",
+                        name,
+                        fieldTypes.get(name));
                 checkArgument(method.getParameterTypes().length == 0, "Expected %s to have zero parameters", method.getName());
                 checkArgument(method.getReturnType() == boolean.class, "Expected %s to return boolean", method.getName());
                 isGetters.add(name);
@@ -1144,7 +1155,10 @@ public final class StateCompiler
                 String name = method.getName().substring(3);
                 checkArgument(method.getParameterTypes().length == 1, "Expected setter to have one parameter");
                 checkArgument(fieldTypes.get(name).equals(method.getParameterTypes()[0]),
-                        "Expected %s to accept type %s, but found %s", method.getName(), fieldTypes.get(name), method.getParameterTypes()[0]);
+                        "Expected %s to accept type %s, but found %s",
+                        method.getName(),
+                        fieldTypes.get(name),
+                        method.getParameterTypes()[0]);
                 checkArgument(getInitialValue(method) == null, "initial value annotation not allowed on setter");
                 checkArgument(method.getReturnType().equals(void.class), "%s may not return a value", method.getName());
                 setters.add(name);
@@ -1177,7 +1191,9 @@ public final class StateCompiler
                         type.isAssignableFrom(sqlType.get().getJavaType()) ||
                                 ((type == byte.class) && TINYINT.equals(sqlType.get())) ||
                                 ((type == int.class) && INTEGER.equals(sqlType.get())),
-                        "Stack type (%s) and provided sql type (%s) are incompatible", type.getName(), sqlType.get().getDisplayName());
+                        "Stack type (%s) and provided sql type (%s) are incompatible",
+                        type.getName(),
+                        sqlType.get().getDisplayName());
             }
             else {
                 sqlType = sqlTypeFromStackType(type);
@@ -1204,6 +1220,9 @@ public final class StateCompiler
             }
             if (stackType == Slice.class) {
                 return Optional.of(VARBINARY);
+            }
+            if (stackType == TrinoNumber.class) {
+                return Optional.of(NUMBER);
             }
             return Optional.empty();
         }

@@ -20,7 +20,6 @@ import io.trino.sql.tree.Identifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -48,11 +47,11 @@ public final class ReservedIdentifiers
             .collect(toImmutableSet());
 
     @SuppressWarnings("CallToPrintStackTrace")
-    public static void main(String[] args)
+    static void main(String[] args)
     {
         if ((args.length == 2) && args[0].equals("validateDocs")) {
             try {
-                validateDocs(Paths.get(args[1]));
+                validateDocs(Path.of(args[1]));
             }
             catch (Throwable t) {
                 t.printStackTrace();

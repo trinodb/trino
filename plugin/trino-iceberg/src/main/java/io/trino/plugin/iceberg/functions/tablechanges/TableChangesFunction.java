@@ -76,8 +76,7 @@ public class TableChangesFunction
     @Inject
     public TableChangesFunction(TrinoCatalogFactory trinoCatalogFactory, TypeManager typeManager)
     {
-        super(
-                "system",
+        super("system",
                 FUNCTION_NAME,
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder()
@@ -96,7 +95,8 @@ public class TableChangesFunction
                                 .name(END_SNAPSHOT_VAR_NAME)
                                 .type(BIGINT)
                                 .build()),
-                GENERIC_TABLE);
+                GENERIC_TABLE,
+                "");
 
         this.trinoCatalogFactory = requireNonNull(trinoCatalogFactory, "trinoCatalogFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -148,7 +148,7 @@ public class TableChangesFunction
                 .build());
         List<IcebergColumnHandle> columnHandles = columnHandlesBuilder.build();
 
-        accessControl.checkCanSelectFromColumns(null, schemaTableName, columnHandles.stream()
+        accessControl.checkCanSelectFromColumns(null, schemaTableName, Optional.empty(), columnHandles.stream()
                 .map(IcebergColumnHandle::getName)
                 .collect(toImmutableSet()));
 

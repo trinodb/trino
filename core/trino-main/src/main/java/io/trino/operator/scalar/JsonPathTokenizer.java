@@ -128,24 +128,16 @@ public class JsonPathTokenizer
         while (hasNextCharacter() && (escaped || peekCharacter() != QUOTE)) {
             if (escaped) {
                 switch (peekCharacter()) {
-                    case QUOTE:
-                    case BACKSLASH:
-                        token.append(peekCharacter());
-                        break;
-                    default:
-                        throw invalidJsonPath();
+                    case QUOTE, BACKSLASH -> token.append(peekCharacter());
+                    default -> throw invalidJsonPath();
                 }
                 escaped = false;
             }
             else {
                 switch (peekCharacter()) {
-                    case BACKSLASH:
-                        escaped = true;
-                        break;
-                    case QUOTE:
-                        throw new VerifyException("Should be handled by loop condition");
-                    default:
-                        token.append(peekCharacter());
+                    case BACKSLASH -> escaped = true;
+                    case QUOTE -> throw new VerifyException("Should be handled by loop condition");
+                    default -> token.append(peekCharacter());
                 }
             }
             nextCharacter();

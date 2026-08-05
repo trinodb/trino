@@ -126,7 +126,7 @@ public final class PinotQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();

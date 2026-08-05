@@ -32,10 +32,11 @@ public class FileCatalogStoreFactory
     @Override
     public CatalogStore create(Map<String, String> config)
     {
-        Bootstrap app = new Bootstrap(new FileCatalogStoreModule());
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.store." + getName(), new FileCatalogStoreModule());
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

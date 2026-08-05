@@ -13,17 +13,12 @@
  */
 package io.trino.type;
 
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.ParametricType;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 
@@ -47,21 +42,13 @@ public final class RowParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
-        checkArgument(
-                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
-                "Expected only named types as a parameters, got %s",
-                parameters);
-
-        List<TypeSignatureParameter> typeSignatureParameters = parameters.stream()
-                .map(TypeParameter::getNamedType)
-                .map(parameter -> TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(parameter.getName(), parameter.getType().getTypeSignature())))
-                .collect(toList());
-
         List<RowType.Field> fields = parameters.stream()
-                .map(TypeParameter::getNamedType)
-                .map(parameter -> new RowType.Field(parameter.getName().map(RowFieldName::getName), parameter.getType()))
+                .map(parameter -> switch (parameter) {
+                    case TypeParameter.Type type -> new RowType.Field(type.name(), typeManager.getType(type.type()));
+                    default -> throw new IllegalArgumentException("Expected only types as parameters, got " + parameter);
+                })
                 .collect(toList());
 
-        return RowType.createWithTypeSignature(new TypeSignature(StandardTypes.ROW, typeSignatureParameters), fields);
+        return RowType.from(fields);
     }
 }

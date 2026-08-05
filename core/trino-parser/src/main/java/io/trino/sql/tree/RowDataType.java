@@ -120,7 +120,7 @@ public final class RowDataType
         @Override
         protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
         {
-            return visitor.visitRowField(this, context);
+            return visitor.visitRowDataTypeField(this, context);
         }
 
         @Override

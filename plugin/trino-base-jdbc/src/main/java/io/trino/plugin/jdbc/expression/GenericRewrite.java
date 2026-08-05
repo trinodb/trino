@@ -59,8 +59,9 @@ public class GenericRewrite
     public io.trino.matching.Pattern<ConnectorExpression> getPattern()
     {
         // TODO make ConnectorExpressionRule.getPattern result type flexible
-        //noinspection unchecked
-        return (io.trino.matching.Pattern<ConnectorExpression>) expressionPattern.getPattern();
+        @SuppressWarnings("unchecked")
+        var pattern = (io.trino.matching.Pattern<ConnectorExpression>) expressionPattern.getPattern();
+        return pattern;
     }
 
     @Override

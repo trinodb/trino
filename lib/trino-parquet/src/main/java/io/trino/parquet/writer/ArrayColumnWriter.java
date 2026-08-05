@@ -48,7 +48,8 @@ public class ArrayColumnWriter
     {
         ColumnarArray columnarArray = ColumnarArray.toColumnarArray(columnChunk.getBlock());
         elementWriter.writeBlock(
-                new ColumnChunk(columnarArray.getElementsBlock(),
+                new ColumnChunk(
+                        columnarArray.getElementsBlock(),
                         ImmutableList.<DefLevelWriterProvider>builder()
                                 .addAll(columnChunk.getDefLevelWriterProviders())
                                 .add(DefLevelWriterProviders.of(columnarArray, maxDefinitionLevel))
@@ -73,9 +74,15 @@ public class ArrayColumnWriter
     }
 
     @Override
-    public long getBufferedBytes()
+    public long getEstimatedBufferedBytes(CompressionStats compressionStats)
     {
-        return elementWriter.getBufferedBytes();
+        return elementWriter.getEstimatedBufferedBytes(compressionStats);
+    }
+
+    @Override
+    public CompressionStats getCompressionStats()
+    {
+        return elementWriter.getCompressionStats();
     }
 
     @Override

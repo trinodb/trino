@@ -40,7 +40,9 @@ public class TestParquetReaderConfig
                 .setUseBloomFilter(true)
                 .setSmallFileThreshold(DataSize.of(3, MEGABYTE))
                 .setVectorizedDecodingEnabled(true)
-                .setMaxFooterReadSize(DataSize.of(15, MEGABYTE)));
+                .setFooterReadSize(DataSize.of(48, KILOBYTE))
+                .setMaxFooterReadSize(DataSize.of(15, MEGABYTE))
+                .setMaxPageReadSize(DataSize.of(500, MEGABYTE)));
     }
 
     @Test
@@ -56,7 +58,9 @@ public class TestParquetReaderConfig
                 .put("parquet.use-bloom-filter", "false")
                 .put("parquet.small-file-threshold", "1kB")
                 .put("parquet.experimental.vectorized-decoding.enabled", "false")
+                .put("parquet.footer-read-size", "57kB")
                 .put("parquet.max-footer-read-size", "25MB")
+                .put("parquet.max-page-read-size", "123MB")
                 .buildOrThrow();
 
         ParquetReaderConfig expected = new ParquetReaderConfig()
@@ -69,7 +73,9 @@ public class TestParquetReaderConfig
                 .setUseBloomFilter(false)
                 .setSmallFileThreshold(DataSize.of(1, KILOBYTE))
                 .setVectorizedDecodingEnabled(false)
-                .setMaxFooterReadSize(DataSize.of(25, MEGABYTE));
+                .setFooterReadSize(DataSize.of(57, KILOBYTE))
+                .setMaxFooterReadSize(DataSize.of(25, MEGABYTE))
+                .setMaxPageReadSize(DataSize.of(123, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

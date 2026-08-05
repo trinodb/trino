@@ -15,7 +15,6 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Inject;
 import io.trino.spi.HostAddress;
@@ -27,8 +26,10 @@ import java.net.UnknownHostException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Comparators.isInStrictOrder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 
 public class SubnetBasedTopology
@@ -94,7 +95,7 @@ public class SubnetBasedTopology
 
     private static void validateHierarchy(List<Integer> lengths, AddressProtocol protocol)
     {
-        if (!Ordering.natural().isStrictlyOrdered(lengths)) {
+        if (!isInStrictOrder(lengths, naturalOrder())) {
             throw new IllegalArgumentException("Subnet hierarchy should be listed in the order of increasing prefix lengths");
         }
 
@@ -125,6 +126,7 @@ public class SubnetBasedTopology
         }
 
         // Compute a mask with n leading bits set
+
         byte[] computeSubnetMask(int n)
         {
             checkArgument(n > 0 && n < getTotalBitCount(), "Invalid length for subnet mask");
@@ -136,7 +138,7 @@ public class SubnetBasedTopology
                     break;
                 }
 
-                mask[i] = (byte) 0xff;
+                mask[i] = (byte) 0xFF;
                 n -= Byte.SIZE;
             }
 

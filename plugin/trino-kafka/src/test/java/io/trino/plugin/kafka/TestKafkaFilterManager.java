@@ -39,8 +39,8 @@ public class TestKafkaFilterManager
         assertThat(KafkaFilterManager.filterValuesByDomain(testDomain, source)).isEqualTo(Set.of(3L));
 
         testDomain = Domain.create(SortedRangeSet.copyOf(BIGINT,
-                ImmutableList.of(
-                        Range.range(BIGINT, 2L, true, 4L, true))),
+                        ImmutableList.of(
+                                Range.range(BIGINT, 2L, true, 4L, true))),
                 false);
 
         assertThat(KafkaFilterManager.filterValuesByDomain(testDomain, source)).isEqualTo(Set.of(2L, 3L, 4L));
@@ -60,8 +60,8 @@ public class TestKafkaFilterManager
         assertThat(KafkaFilterManager.filterRangeByDomain(testDomain).get().end()).isEqualTo(9L);
 
         testDomain = Domain.create(SortedRangeSet.copyOf(BIGINT,
-                ImmutableList.of(
-                        Range.range(BIGINT, 2L, true, 4L, true))),
+                        ImmutableList.of(
+                                Range.range(BIGINT, 2L, true, 4L, true))),
                 false);
 
         assertThat(KafkaFilterManager.filterRangeByDomain(testDomain)).isPresent();

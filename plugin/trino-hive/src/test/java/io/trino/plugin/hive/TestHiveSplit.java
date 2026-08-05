@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.hive;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
 import io.trino.metastore.HiveTypeName;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +38,7 @@ import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveSplit
@@ -45,9 +46,10 @@ public class TestHiveSplit
     @Test
     public void testJsonRoundTrip()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TestingTypeManager())));
-        JsonCodec<HiveSplit> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveSplit.class);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
+        JsonCodec<HiveSplit> codec = new JsonCodecFactory(jsonMapper).jsonCodec(HiveSplit.class);
 
         Map<String, String> schema = ImmutableMap.<String, String>builder()
                 .put("foo", "bar")
@@ -72,6 +74,7 @@ public class TestHiveSplit
                 new Schema("abc", true, schema),
                 partitionKeys,
                 addresses,
+                Optional.of("path:42:87"),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 true,

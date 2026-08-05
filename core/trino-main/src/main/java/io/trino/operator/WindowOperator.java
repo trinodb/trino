@@ -492,7 +492,7 @@ public class WindowOperator
         public enum Type
         {
             START,
-            END
+            END,
         }
 
         public FrameBoundKey(int functionIndex, Type type)
@@ -768,12 +768,20 @@ public class WindowOperator
         {
             // Convert revocable memory to user memory as inMemoryPagesIndexWithHashStrategies holds on to memory so we no longer can revoke
             if (localRevocableMemoryContext.getBytes() > 0) {
-                long currentRevocableBytes = localRevocableMemoryContext.getBytes();
-                localRevocableMemoryContext.setBytes(0);
-                if (!localUserMemoryContext.trySetBytes(localUserMemoryContext.getBytes() + currentRevocableBytes)) {
-                    // TODO: this might fail (even though we have just released memory), but we don't
-                    // have a proper way to atomically convert memory reservations
-                    localRevocableMemoryContext.setBytes(currentRevocableBytes);
+                if (spiller.isEmpty()) {
+                    // No spill happened, try to build result from memory. Revocable memory needs to be converted to user memory as producing output stage is no longer revocable.
+                    long currentRevocableBytes = localRevocableMemoryContext.getBytes();
+                    localRevocableMemoryContext.setBytes(0);
+                    if (!localUserMemoryContext.trySetBytes(localUserMemoryContext.getBytes() + currentRevocableBytes)) {
+                        // TODO: this might fail (even though we have just released memory), but we don't
+                        // have a proper way to atomically convert memory reservations
+                        localRevocableMemoryContext.setBytes(currentRevocableBytes);
+                        spillingWhenConvertingRevocableMemory = true;
+                        return TransformationState.blocked(spill());
+                    }
+                }
+                else {
+                    // Spill happened previously - spill current in-memory data
                     spillingWhenConvertingRevocableMemory = true;
                     return TransformationState.blocked(spill());
                 }
@@ -809,7 +817,7 @@ public class WindowOperator
             PeekingIterator<Page> sortedPages = peekingIterator(inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages());
             Page anyPage = sortedPages.peek();
             verify(anyPage.getPositionCount() != 0, "PagesIndex.getSortedPages returned an empty page");
-            currentSpillGroupRowPage = Optional.of(anyPage.getSingleValuePage(/* any */0));
+            currentSpillGroupRowPage = Optional.of(anyPage.getSingleValuePage(/* any */ 0));
             spillInProgress = Optional.of(asVoid(spiller.get().spill(sortedPages)));
 
             return spillInProgress.get();

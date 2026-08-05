@@ -15,11 +15,13 @@ package io.trino.sql.ir.optimizer.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.HashSet;
 import java.util.List;
@@ -27,11 +29,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Remove duplicate deterministic arguments and any argument after the first
- * non-null constant. E.g,
+ * non-null argument. E.g,
  * <ul>
  *     <li>{@code Coalesce(a, b, c, a, d) -> Coalesce(a, b, c, d)}
  *     <li>{@code Coalesce(a, b, 'hello', c, d) -> Coalesce(a, b, 'hello')}
@@ -40,10 +44,17 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 public class RemoveRedundantCoalesceArguments
         implements IrOptimizerRule
 {
-    @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    private final PlannerContext plannerContext;
+
+    public RemoveRedundantCoalesceArguments(PlannerContext plannerContext)
     {
-        if (!(expression instanceof Coalesce coalesce)) {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+    }
+
+    @Override
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
+    {
+        if (!(expression instanceof Coalesce(List<Expression> operands))) {
             return Optional.empty();
         }
 
@@ -52,8 +63,8 @@ public class RemoveRedundantCoalesceArguments
         boolean removed = false;
         Set<Expression> seen = new HashSet<>();
         int last = 0;
-        for (int i = 0; i < coalesce.operands().size(); i++) {
-            Expression argument = coalesce.operands().get(i);
+        for (int i = 0; i < operands.size(); i++) {
+            Expression argument = operands.get(i);
             last = i;
 
             if (seen.contains(argument) || (argument instanceof Constant constant && constant.value() == null)) {
@@ -66,12 +77,12 @@ public class RemoveRedundantCoalesceArguments
                 }
             }
 
-            if (argument instanceof Constant constant && constant.value() != null) {
+            if (!mayBeNull(plannerContext, argument)) {
                 break;
             }
         }
 
-        if (!removed && last == coalesce.operands().size() - 1) {
+        if (!removed && last == operands.size() - 1) {
             return Optional.empty();
         }
 

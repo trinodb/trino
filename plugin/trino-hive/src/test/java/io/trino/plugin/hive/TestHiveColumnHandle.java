@@ -13,11 +13,12 @@
  */
 package io.trino.plugin.hive;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.metastore.HiveType;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.RowType;
@@ -87,9 +88,10 @@ public class TestHiveColumnHandle
 
     private void testRoundTrip(HiveColumnHandle expected)
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
-        JsonCodec<HiveColumnHandle> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveColumnHandle.class);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
+        JsonCodec<HiveColumnHandle> codec = new JsonCodecFactory(jsonMapper).jsonCodec(HiveColumnHandle.class);
 
         String json = codec.toJson(expected);
         HiveColumnHandle actual = codec.fromJson(json);

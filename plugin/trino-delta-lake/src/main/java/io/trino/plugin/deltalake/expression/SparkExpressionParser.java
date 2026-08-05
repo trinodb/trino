@@ -15,17 +15,20 @@ package io.trino.plugin.deltalake.expression;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.antlr.v4.runtime.ANTLRErrorListener;
+import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.DefaultErrorStrategy;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class SparkExpressionParser
 {
@@ -53,7 +56,7 @@ public final class SparkExpressionParser
             return (SparkExpression) invokeParser(expression, SparkExpressionBaseParser::standaloneExpression);
         }
         catch (Exception e) {
-            throw new ParsingException("Cannot parse Spark expression [%s]: %s".formatted(expression, firstNonNull(e.getMessage(), e)), e);
+            throw new ParsingException("Cannot parse Spark expression [%s]: %s".formatted(expression, requireNonNullElse(e.getMessage(), e)), e);
         }
     }
 
@@ -68,20 +71,20 @@ public final class SparkExpressionParser
             lexer.addErrorListener(ERROR_LISTENER);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(ERROR_LISTENER);
 
             ParserRuleContext tree;
             try {
                 // first, try parsing with potentially faster SLL mode
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                parser.setErrorHandler(new BailErrorStrategy());
                 tree = parseFunction.apply(parser);
             }
-            catch (ParsingException ex) {
+            catch (ParseCancellationException e) {
                 // if we fail, parse with LL mode
-                tokenStream.seek(0); // rewind input stream
                 parser.reset();
-
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                parser.setErrorHandler(new DefaultErrorStrategy());
+                parser.addErrorListener(ERROR_LISTENER);
                 tree = parseFunction.apply(parser);
             }
             return new SparkExpressionBuilder().visit(tree);

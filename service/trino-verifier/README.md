@@ -43,12 +43,11 @@ test.gateway=jdbc:trino://localhost:8081
 thread-count=1
 ```
 
-Lastly, download the [Maven verifier plugin][maven_download] for the same 
-release as your Trino instance by navigating to the directory for that 
+Lastly, download the [Maven verifier
+plugin](https://repo.maven.apache.org/maven2/io/trino/trino-verifier/) for the
+same release as your Trino instance by navigating to the directory for that
 release, and selecting the ``trino-verifier-*.jar`` file. Once it is downloaded,
 rename it to `verifier`, make it executable with `chmod +x`, then run it:
-
-[maven_download]: https://repo.maven.apache.org/maven2/io/trino/trino-verifier/
 
 ```
 ./verifier config.properties

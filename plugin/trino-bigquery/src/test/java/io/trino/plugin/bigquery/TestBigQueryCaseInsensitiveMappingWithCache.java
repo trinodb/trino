@@ -15,7 +15,11 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.parallel.Execution;
 
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
+
+@Execution(SAME_THREAD) // run single-threaded to avoid interference with other tests
 final class TestBigQueryCaseInsensitiveMappingWithCache
         extends BaseBigQueryCaseInsensitiveMapping
 {
@@ -23,7 +27,7 @@ final class TestBigQueryCaseInsensitiveMappingWithCache
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BigQueryQueryRunner.builder()
+        return BigQueryQueryRunner.builder(BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY)
                 .setConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("bigquery.case-insensitive-name-matching", "true")
                         .put("bigquery.case-insensitive-name-matching.cache-ttl", "1m")

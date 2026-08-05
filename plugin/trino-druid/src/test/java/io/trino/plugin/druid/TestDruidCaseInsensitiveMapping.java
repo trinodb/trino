@@ -27,8 +27,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
-import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchDataFromSourceToTarget;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_REGION;
@@ -122,7 +122,7 @@ public class TestDruidCaseInsensitiveMapping
                 this.druidServer,
                 "region",
                 "casesensitivename",
-                // when you create a second datasource with the same name (ignoring case) the filename mentioned in firehose's ingestion config, must match with the first one.
+                // when you create a second datasource with the same name (ignoring case) the filename mentioned in the input source's ingestion config, must match with the first one.
                 // Otherwise druid's loadstatus (and system tables) fails to register the second datasource created.
                 Optional.of("CaseSensitiveName"));
 
@@ -170,7 +170,7 @@ public class TestDruidCaseInsensitiveMapping
                 this.druidServer,
                 "region",
                 "casesensitivename",
-                // when you create a second datasource with the same name (ignoring case) the filename mentioned in firehose's ingestion config, must match with the first one.
+                // when you create a second datasource with the same name (ignoring case) the filename mentioned in the input source's ingestion config, must match with the first one.
                 // Otherwise druid's loadstatus (and system tables) fails to register the second datasource created.
                 Optional.of("CaseSensitiveName"));
 

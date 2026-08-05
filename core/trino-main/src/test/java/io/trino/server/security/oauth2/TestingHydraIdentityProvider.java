@@ -14,7 +14,7 @@
 package io.trino.server.security.oauth2;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +22,7 @@ import com.google.common.io.Resources;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Key;
 import com.nimbusds.oauth2.sdk.GrantType;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -48,10 +49,11 @@ import okhttp3.Response;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
@@ -59,6 +61,7 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
@@ -71,13 +74,15 @@ import static java.util.Objects.requireNonNull;
 public class TestingHydraIdentityProvider
         implements AutoCloseable
 {
+    private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse(PostgreSQLContainer.IMAGE)
+            .withTag(PostgreSQLContainer.DEFAULT_TAG);
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.11.10";
     private static final String ISSUER = "https://localhost:4444/";
     private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
 
     private final Network network = Network.newNetwork();
 
-    private final PostgreSQLContainer<?> databaseContainer = new PostgreSQLContainer<>()
+    private final PostgreSQLContainer databaseContainer = new PostgreSQLContainer(POSTGRES_IMAGE)
             .withNetwork(network)
             .withNetworkAliases("database")
             .withUsername("hydra")
@@ -89,7 +94,7 @@ public class TestingHydraIdentityProvider
             .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofMinutes(5)));
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final JsonMapper mapper = new JsonMapper();
     private final Duration ttlAccessToken;
     private final boolean useJwt;
     private final boolean exposeFixedPorts;
@@ -165,19 +170,24 @@ public class TestingHydraIdentityProvider
             String callbackUrl,
             String logoutCallbackUrl)
     {
+        String[] command = ImmutableList.<String>builder()
+                .add("clients", "create")
+                .add("--endpoint", "https://hydra:4445")
+                .add("--skip-tls-verify")
+                .add("--id", clientId)
+                .add("--secret", clientSecret)
+                .add("--audience", String.join(",", audiences))
+                .add("--grant-types", "authorization_code,refresh_token,client_credentials")
+                .add("--response-types", "token,code,id_token")
+                .add("--scope", "openid,offline")
+                .add("--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue())
+                .add("--callbacks", callbackUrl)
+                .add("--post-logout-callbacks", logoutCallbackUrl)
+                .build()
+                .toArray(String[]::new);
+
         createHydraContainer()
-                .withCommand("clients", "create",
-                        "--endpoint", "https://hydra:4445",
-                        "--skip-tls-verify",
-                        "--id", clientId,
-                        "--secret", clientSecret,
-                        "--audience", String.join(",", audiences),
-                        "--grant-types", "authorization_code,refresh_token,client_credentials",
-                        "--response-types", "token,code,id_token",
-                        "--scope", "openid,offline",
-                        "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
-                        "--callbacks", callbackUrl,
-                        "--post-logout-callbacks", logoutCallbackUrl)
+                .withCommand(command)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }
@@ -227,15 +237,14 @@ public class TestingHydraIdentityProvider
         NodeInfo nodeInfo = new NodeInfo(new NodeConfig()
                 .setEnvironment("test")
                 .setNodeInternalAddress(InetAddresses.toAddrString(InetAddress.getLocalHost())));
-        HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet());
+        HttpServerConfig config = new HttpServerConfig();
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
+        return new TestingHttpServer("testing-login-and-consent-server", httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet());
     }
 
     private class AcceptAllLoginsAndConsentsServlet
             extends HttpServlet
     {
-        private final ObjectMapper mapper = new ObjectMapper();
         private final OkHttpClient httpClient;
 
         public AcceptAllLoginsAndConsentsServlet()
@@ -377,7 +386,7 @@ public class TestingHydraIdentityProvider
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging logging = Logging.initialize();

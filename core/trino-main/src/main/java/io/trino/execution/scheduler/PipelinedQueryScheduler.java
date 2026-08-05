@@ -79,7 +79,6 @@ import io.trino.tracing.TrinoAttributes;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -89,6 +88,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -109,7 +109,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -370,7 +369,7 @@ public class PipelinedQueryScheduler
             if (state == DistributedStagesSchedulerState.FAILED) {
                 StageFailureInfo stageFailureInfo = distributedStagesScheduler.getFailureCause()
                         .orElseGet(() -> new StageFailureInfo(toFailure(new VerifyException("distributedStagesScheduler failed but failure cause is not present")), Optional.empty()));
-                ErrorCode errorCode = stageFailureInfo.getFailureInfo().getErrorCode();
+                ErrorCode errorCode = stageFailureInfo.getFailureInfo().errorCode();
                 if (shouldRetry(errorCode)) {
                     long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(retryDelayScaleFactor, currentAttempt.get())), retryMaxDelay.toMillis());
                     currentAttempt.incrementAndGet();
@@ -506,7 +505,7 @@ public class PipelinedQueryScheduler
         @Override
         public void taskCreated(PlanFragmentId fragmentId, RemoteTask task)
         {
-            URI taskUri = uriBuilderFrom(task.getTaskStatus().getSelf())
+            URI taskUri = uriBuilderFrom(task.getTaskStatus().self())
                     .appendPath("results")
                     .appendPath("0").build();
             DirectExchangeInput input = new DirectExchangeInput(task.getTaskId(), taskUri.toString());
@@ -1168,8 +1167,7 @@ public class PipelinedQueryScheduler
             if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                 // no remote source
                 bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, partitionCount);
-                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session).allNodes());
-                Collections.shuffle(stageNodeList);
+                stageNodeList = bucketNodeMap.getDistinctNodes();
             }
             else {
                 // remote source requires nodePartitionMap
@@ -1263,7 +1261,7 @@ public class PipelinedQueryScheduler
                 }
             }
 
-            Set<StageId> finishedStages = newConcurrentHashSet();
+            Set<StageId> finishedStages = ConcurrentHashMap.newKeySet();
             for (StageExecution stageExecution : stageExecutions.values()) {
                 stageExecution.addStateChangeListener(state -> {
                     if (stateMachine.getState().isDone()) {
@@ -1319,17 +1317,12 @@ public class PipelinedQueryScheduler
                         schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
                         if (result.getBlockedReason().isPresent()) {
                             switch (result.getBlockedReason().get()) {
-                                case WRITER_SCALING:
+                                case WRITER_SCALING -> {
                                     // no-op
-                                    break;
-                                case WAITING_FOR_SOURCE:
-                                    schedulerStats.getWaitingForSource().update(1);
-                                    break;
-                                case SPLIT_QUEUES_FULL:
-                                    schedulerStats.getSplitQueuesFull().update(1);
-                                    break;
-                                default:
-                                    throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
+                                }
+                                case WAITING_FOR_SOURCE -> schedulerStats.getWaitingForSource().update(1);
+                                case SPLIT_QUEUES_FULL -> schedulerStats.getSplitQueuesFull().update(1);
+                                default -> throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
                             }
                         }
                     }
@@ -1340,9 +1333,11 @@ public class PipelinedQueryScheduler
                         futures.addAll(blockedStages);
                         // allow for schedule to resume scheduling (e.g. when some active stage completes
                         // and dependent stages can be started)
-                        stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
-                        try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
-                            tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
+                        if (blockedStages.size() == stagesScheduleResult.getStagesToSchedule().size()) {
+                            stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
+                            try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
+                                tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
+                            }
                         }
                         for (ListenableFuture<Void> blockedStage : blockedStages) {
                             blockedStage.cancel(true);
@@ -1361,17 +1356,12 @@ public class PipelinedQueryScheduler
                 fail(t, Optional.empty());
             }
             finally {
-                RuntimeException closeError = new RuntimeException();
                 for (StageScheduler scheduler : stageSchedulers.values()) {
                     try {
                         scheduler.close();
                     }
                     catch (Throwable t) {
                         fail(t, Optional.empty());
-                        // Self-suppression not permitted
-                        if (closeError != t) {
-                            closeError.addSuppressed(t);
-                        }
                     }
                 }
             }
@@ -1405,7 +1395,7 @@ public class PipelinedQueryScheduler
 
         public void reportTaskFailure(TaskId taskId, Throwable failureCause)
         {
-            StageExecution stageExecution = stageExecutions.get(taskId.getStageId());
+            StageExecution stageExecution = stageExecutions.get(taskId.stageId());
             if (stageExecution == null) {
                 return;
             }
@@ -1416,7 +1406,7 @@ public class PipelinedQueryScheduler
             }
 
             stageExecution.failTask(taskId, failureCause);
-            stateMachine.transitionToFailed(failureCause, Optional.of(taskId.getStageId()));
+            stateMachine.transitionToFailed(failureCause, Optional.of(taskId.stageId()));
             stageExecutions.values().forEach(StageExecution::abort);
         }
 
@@ -1598,8 +1588,7 @@ public class PipelinedQueryScheduler
     }
 
     private sealed interface BucketToPartitionKey
-            permits ConstantKey, PartitioningKey
-    {}
+            permits ConstantKey, PartitioningKey {}
 
     enum ConstantKey
             implements BucketToPartitionKey

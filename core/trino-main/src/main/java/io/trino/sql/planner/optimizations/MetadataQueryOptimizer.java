@@ -195,7 +195,7 @@ public class MetadataQueryOptimizer
                 }
                 else if (source instanceof ProjectNode project) {
                     // verify projections are deterministic
-                    if (!Iterables.all(project.getAssignments().getExpressions(), DeterminismEvaluator::isDeterministic)) {
+                    if (!Iterables.all(project.getAssignments().expressions(), DeterminismEvaluator::isDeterministic)) {
                         return Optional.empty();
                     }
                     source = project.getSource();

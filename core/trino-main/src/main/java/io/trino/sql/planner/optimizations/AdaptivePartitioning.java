@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.cost.RuntimeInfoProvider;
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -32,6 +33,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -40,7 +42,6 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxParti
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
-import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -126,7 +127,11 @@ public class AdaptivePartitioning
 
             if (estimatedMemoryConsumptionInBytes > runtimeAdaptivePartitioningMaxTaskSizeInBytes * partitionCount) {
                 log.info("Stage %s.%s has an estimated memory consumption of %s, changing partition count from %s to %s",
-                        context.session().getQueryId(), fragment.getId(), succinctBytes(estimatedMemoryConsumptionInBytes), partitionCount, runtimeAdaptivePartitioningPartitionCount);
+                        context.session().getQueryId(),
+                        fragment.getId(),
+                        succinctBytes(estimatedMemoryConsumptionInBytes),
+                        partitionCount,
+                        runtimeAdaptivePartitioningPartitionCount);
                 Rewriter rewriter = new Rewriter(runtimeAdaptivePartitioningPartitionCount, context.idAllocator(), runtimeInfoProvider);
                 PlanNode planNode = rewriteWith(rewriter, plan);
                 return new Result(planNode, rewriter.getChangedPlanIds());
@@ -178,7 +183,7 @@ public class AdaptivePartitioning
             // for FTE it only makes sense to set partition count for hash partitioned fragments
             if (node.getScope() == REMOTE
                     && node.getPartitioningScheme().getPartitioning().getHandle() == FIXED_HASH_DISTRIBUTION) {
-                partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
+                partitioningScheme = partitioningScheme.withPartitionCount(OptionalInt.of(partitionCount));
                 changedPlanIds.add(node.getId());
             }
 
@@ -210,7 +215,7 @@ public class AdaptivePartitioning
             }
 
             PartitioningScheme newPartitioningSchema = sourcePartitioningScheme.get()
-                    .withPartitionCount(Optional.of(partitionCount))
+                    .withPartitionCount(OptionalInt.of(partitionCount))
                     .withPartitioningHandle(FIXED_HASH_DISTRIBUTION);
 
             PlanNodeId nodeId = idAllocator.getNextId();

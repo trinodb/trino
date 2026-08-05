@@ -23,10 +23,11 @@ import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
+import io.trino.client.EncodedVariant;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
-import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
@@ -65,6 +66,7 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -115,7 +117,7 @@ abstract class AbstractTrinoResultSet
             1_000_000_000L,
             10_000_000_000L,
             100_000_000_000L,
-            1000_000_000_000L
+            1000_000_000_000L,
     };
 
     private static final int MAX_DATETIME_PRECISION = 12;
@@ -139,21 +141,36 @@ abstract class AbstractTrinoResultSet
     @VisibleForTesting
     static final Map<String, Class<?>> DEFAULT_OBJECT_REPRESENTATION = ImmutableMap.<String, Class<?>>builder()
             .put("decimal", BigDecimal.class)
-            .put("date", java.sql.Date.class)
-            .put("time", java.sql.Time.class)
-            .put("time with time zone", java.sql.Time.class)
-            .put("timestamp", java.sql.Timestamp.class)
-            .put("timestamp with time zone", java.sql.Timestamp.class)
+            .put("number", Number.class)
+            .put("date", Date.class)
+            .put("time", Time.class)
+            .put("time with time zone", Time.class)
+            .put("timestamp", Timestamp.class)
+            .put("timestamp with time zone", Timestamp.class)
             .put("interval year to month", TrinoIntervalYearMonth.class)
             .put("interval day to second", TrinoIntervalDayTime.class)
             .put("map", Map.class)
             .put("row", Row.class)
+            .put("variant", Object.class)
             .buildOrThrow();
 
     @VisibleForTesting
     static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
+                    .add("number", String.class, Number.class, value -> {
+                        switch (value) {
+                            case "NaN":
+                                return Double.NaN;
+                            case "+Infinity":
+                                return Double.POSITIVE_INFINITY;
+                            case "-Infinity":
+                                return Double.NEGATIVE_INFINITY;
+                            default:
+                                return new BigDecimal(value);
+                        }
+                    })
+                    .add("number", String.class, BigDecimal.class, value -> new BigDecimal(value))
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
                     .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE))
                     .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE).toLocalDate())
@@ -185,6 +202,11 @@ abstract class AbstractTrinoResultSet
                         }
                         return result;
                     })
+                    .add("variant", EncodedVariant.class, Object.class, value -> decodeVariant(value).toObject())
+                    .add("variant", EncodedVariant.class, String.class, value -> decodeVariant(value).toJson())
+                    .add("variant", EncodedVariant.class, Variant.class, AbstractTrinoResultSet::decodeVariant)
+                    .add("variant", EncodedVariant.class, Map.class, value -> variantToMap(decodeVariant(value)))
+                    .add("variant", EncodedVariant.class, List.class, value -> variantToList(decodeVariant(value)))
                     .build();
     protected final CloseableIterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
@@ -412,7 +434,7 @@ abstract class AbstractTrinoResultSet
             }
         }
 
-        throw new IllegalArgumentException("Expected column to be a time type but is " + columnInfo.getColumnTypeName());
+        throw new SQLException("Expected column to be a time type but is " + columnInfo.getColumnTypeName());
     }
 
     @Override
@@ -449,7 +471,7 @@ abstract class AbstractTrinoResultSet
             }
         }
 
-        throw new IllegalArgumentException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
+        throw new SQLException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
     }
 
     private static Instant parseTimestampWithTimeZoneAsInstant(String value)
@@ -661,8 +683,8 @@ abstract class AbstractTrinoResultSet
         return column(columnIndex);
     }
 
-    @jakarta.annotation.Nullable
-    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @jakarta.annotation.Nullable Object value)
+    @Nullable
+    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @Nullable Object value)
             throws SQLException
     {
         requireNonNull(columnType, "columnType is null");
@@ -689,7 +711,7 @@ abstract class AbstractTrinoResultSet
                 ClientTypeSignature valueType = typeSignatures.get(1);
                 Map<?, ?> mapValue = (Map<?, ?>) value;
                 Map<Object, Object> converted = Maps.newHashMapWithExpectedSize(mapValue.size());
-                for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
+                for (Entry<?, ?> entry : mapValue.entrySet()) {
                     converted.put(convertFromClientRepresentation(keyType, entry.getKey()), convertFromClientRepresentation(valueType, entry.getValue()));
                 }
                 return unmodifiableMap(converted);
@@ -705,8 +727,8 @@ abstract class AbstractTrinoResultSet
                     io.trino.client.RowField field = fields.get(i);
                     ClientTypeSignatureParameter clientTypeSignatureParameter = typeArguments.get(i);
                     verify(clientTypeSignatureParameter.getKind() == ClientTypeSignatureParameter.ParameterKind.NAMED_TYPE, "Not a NAMED_TYPE: %s", clientTypeSignatureParameter);
-                    verify(field.getName().equals(clientTypeSignatureParameter.getNamedTypeSignature().getName()), "Name mismatch: %s, %s", field, clientTypeSignatureParameter);
-                    Object converted = convertFromClientRepresentation(clientTypeSignatureParameter.getNamedTypeSignature().getTypeSignature(), field.getValue());
+                    verify(field.getName().equals(clientTypeSignatureParameter.getName()), "Name mismatch: %s, %s", field, clientTypeSignatureParameter);
+                    Object converted = convertFromClientRepresentation(clientTypeSignatureParameter.getTypeSignature(), field.getValue());
                     builder.addField(field.getName(), converted);
                 }
                 return builder.build();
@@ -724,6 +746,29 @@ abstract class AbstractTrinoResultSet
     private static TrinoIntervalYearMonth parseIntervalYearMonth(String value)
     {
         return new TrinoIntervalYearMonth(IntervalYearMonth.parseMonths(value));
+    }
+
+    private static Variant decodeVariant(EncodedVariant value)
+    {
+        return Variant.fromBytes(value.getMetadataBytes(), value.getValueBytes());
+    }
+
+    private static Map<?, ?> variantToMap(Variant variant)
+            throws SQLException
+    {
+        if (variant.valueType() != Variant.ValueType.OBJECT) {
+            throw new SQLException("VARIANT is not an object");
+        }
+        return (Map<?, ?>) variant.toObject();
+    }
+
+    private static List<?> variantToList(Variant variant)
+            throws SQLException
+    {
+        if (variant.valueType() != Variant.ValueType.ARRAY) {
+            throw new SQLException("VARIANT is not an array");
+        }
+        return (List<?>) variant.toObject();
     }
 
     private static TrinoIntervalDayTime parseIntervalDayTime(String value)
@@ -1822,7 +1867,11 @@ abstract class AbstractTrinoResultSet
 
         try {
             T converted = TYPE_CONVERSIONS.convert(columnTypeSignature, object, type);
-            verify(converted != null, "Conversion cannot return null for non-null input, as this breaks wasNull()");
+            boolean variantObjectRepresentation = type == Object.class &&
+                    columnTypeSignature.getRawType().equals("variant");
+            // VARIANT null is a non-SQL-null value whose Java object representation is null.
+            verify(converted != null || variantObjectRepresentation,
+                    "Conversion cannot return null for non-null input, as this breaks wasNull()");
             return converted;
         }
         catch (NoConversionRegisteredException e) {
@@ -1939,6 +1988,14 @@ abstract class AbstractTrinoResultSet
             if (bigDecimal.isPresent()) {
                 return bigDecimal.get();
             }
+            switch ((String) value) {
+                case "NaN":
+                    return Double.NaN;
+                case "+Infinity":
+                    return Double.POSITIVE_INFINITY;
+                case "-Infinity":
+                    return Double.NEGATIVE_INFINITY;
+            }
         }
         throw new SQLException("Value is not a number: " + value);
     }
@@ -1976,7 +2033,7 @@ abstract class AbstractTrinoResultSet
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
                     .setColumnTypeSignature(column.getTypeSignature())
-                    .setNullable(Nullable.UNKNOWN)
+                    .setNullable(ColumnInfo.Nullable.UNKNOWN)
                     .setCurrency(false);
             setTypeInfo(builder, column.getTypeSignature());
             list.add(builder.build());

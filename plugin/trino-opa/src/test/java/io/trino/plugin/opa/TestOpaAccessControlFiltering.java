@@ -200,18 +200,19 @@ final class TestOpaAccessControlFiltering
         assertThat(result).containsExactlyInAnyOrderElementsOf(tables.stream().filter(table -> table.getTableName().equals("table_one")).collect(toImmutableSet()));
 
         Set<String> expectedRequests = tables.stream()
-                .map(table -> """
-                              {
-                                  "operation": "FilterTables",
-                                  "resource": {
-                                      "table": {
-                                          "tableName": "%s",
-                                          "schemaName": "%s",
-                                          "catalogName": "my_catalog"
-                                      }
-                                  }
-                              }
-                              """.formatted(table.getTableName(), table.getSchemaName()))
+                .map(table ->
+                        """
+                {
+                    "operation": "FilterTables",
+                    "resource": {
+                        "table": {
+                            "tableName": "%s",
+                            "schemaName": "%s",
+                            "catalogName": "my_catalog"
+                        }
+                    }
+                }
+                """.formatted(table.getTableName(), table.getSchemaName()))
                 .collect(toImmutableSet());
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
@@ -304,25 +305,26 @@ final class TestOpaAccessControlFiltering
         assertThat(result).containsExactly(functionTwo);
 
         Set<String> expectedRequests = requestedFunctions.stream()
-                .map(function -> """
-                                 {
-                                     "operation": "FilterFunctions",
-                                     "resource": {
-                                         "function": {
-                                             "catalogName": "my_catalog",
-                                             "schemaName": "%s",
-                                             "functionName": "%s"
-                                         }
-                                     }
-                                 }\
-                                 """.formatted(function.getSchemaName(), function.getFunctionName()))
+                .map(function ->
+                        """
+                {
+                    "operation": "FilterFunctions",
+                    "resource": {
+                        "function": {
+                            "catalogName": "my_catalog",
+                            "schemaName": "%s",
+                            "functionName": "%s"
+                        }
+                    }
+                }\
+                """.formatted(function.schemaName(), function.functionName()))
                 .collect(toImmutableSet());
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
 
     private static void assertFilteringAccessControlMethodDoesNotSendRequests(Function<OpaAccessControl, Collection<?>> method)
     {
-        InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
         assertThat(method.apply(createOpaAuthorizer(simpleOpaConfig(), httpClientForEmptyRequest))).isEmpty();
         assertThat(httpClientForEmptyRequest.getRequests()).isEmpty();
     }

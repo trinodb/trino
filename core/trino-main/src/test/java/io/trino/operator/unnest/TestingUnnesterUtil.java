@@ -14,7 +14,6 @@
 package io.trino.operator.unnest;
 
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
@@ -31,7 +30,6 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -111,9 +109,8 @@ public final class TestingUnnesterUtil
 
             if (type instanceof ArrayType arrayType) {
                 Type elementType = arrayType.getElementType();
-                if (elementType instanceof RowType) {
-                    List<Type> rowTypes = elementType.getTypeParameters();
-                    Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowTypes, maxCardinalities, totalEntries);
+                if (elementType instanceof RowType rowType) {
+                    Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowType.getFieldTypes(), maxCardinalities, totalEntries);
                     for (Block block : blocks) {
                         outputBlocks[outputChannel++] = block;
                     }
@@ -146,9 +143,8 @@ public final class TestingUnnesterUtil
         for (Type unnestType : unnestTypes) {
             if (unnestType instanceof ArrayType arrayType) {
                 Type elementType = arrayType.getElementType();
-                if (elementType instanceof RowType) {
-                    List<Type> rowTypes = elementType.getTypeParameters();
-                    outputTypes.addAll(rowTypes);
+                if (elementType instanceof RowType rowType) {
+                    outputTypes.addAll(rowType.getFieldTypes());
                 }
                 else {
                     outputTypes.add(elementType);
@@ -167,31 +163,6 @@ public final class TestingUnnesterUtil
         return outputTypes;
     }
 
-    static Page mergePages(List<Type> types, List<Page> pages)
-    {
-        PageBuilder pageBuilder = new PageBuilder(types);
-        int totalPositionCount = 0;
-        for (Page page : pages) {
-            verify(page.getChannelCount() == types.size(), "Number of channels in page %s is not equal to number of types %s", page.getChannelCount(), types.size());
-
-            for (int i = 0; i < types.size(); i++) {
-                BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                Block block = page.getBlock(i);
-                for (int position = 0; position < page.getPositionCount(); position++) {
-                    if (block.isNull(position)) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        types.get(i).appendTo(block, position, blockBuilder);
-                    }
-                }
-            }
-            totalPositionCount += page.getPositionCount();
-        }
-        pageBuilder.declarePositions(totalPositionCount);
-        return pageBuilder.build();
-    }
-
     private static Block buildExpectedReplicatedBlock(Block block, Type type, int[] maxCardinalities, int totalEntries)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, totalEntries);
@@ -199,7 +170,7 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = maxCardinalities[i];
             for (int j = 0; j < cardinality; j++) {
-                type.appendTo(block, i, blockBuilder);
+                blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
             }
         }
         return blockBuilder.build();
@@ -216,7 +187,7 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = columnarArray.getLength(i);
             for (int j = 0; j < cardinality; j++) {
-                type.appendTo(elementBlock, elementBlockPosition++, blockBuilder);
+                blockBuilder.append(elementBlock.getUnderlyingValueBlock(), elementBlock.getUnderlyingValuePosition(elementBlockPosition++));
             }
 
             int maxCardinality = maxCardinalities[i];
@@ -241,8 +212,8 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = columnarMap.getEntryCount(i);
             for (int j = 0; j < cardinality; j++) {
-                keyType.appendTo(keyBlock, blockPosition, keyBlockBuilder);
-                valueType.appendTo(valuesBlock, blockPosition, valueBlockBuilder);
+                keyBlockBuilder.append(keyBlock.getUnderlyingValueBlock(), keyBlock.getUnderlyingValuePosition(blockPosition));
+                valueBlockBuilder.append(valuesBlock.getUnderlyingValueBlock(), valuesBlock.getUnderlyingValuePosition(blockPosition));
                 blockPosition++;
             }
 
@@ -274,7 +245,8 @@ public final class TestingUnnesterUtil
                 int rowBlockIndex = columnarArray.getOffset(j);
                 int cardinality = columnarArray.getLength(j);
                 for (int k = 0; k < cardinality; k++) {
-                    rowTypes.get(i).appendTo(fields.get(i), rowBlockIndex + k, blockBuilder);
+                    Block rawBlock = fields.get(i);
+                    blockBuilder.append(rawBlock.getUnderlyingValueBlock(), rawBlock.getUnderlyingValuePosition(rowBlockIndex + k));
                 }
 
                 int maxCardinality = maxCardinalities[j];

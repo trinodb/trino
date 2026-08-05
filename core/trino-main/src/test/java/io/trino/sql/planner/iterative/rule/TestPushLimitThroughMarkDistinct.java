@@ -32,8 +32,7 @@ public class TestPushLimitThroughMarkDistinct
     {
         tester().assertThat(new PushLimitThroughMarkDistinct())
                 .on(p ->
-                        p.limit(
-                                1,
+                        p.limit(1,
                                 p.markDistinct(
                                         p.symbol("foo"), ImmutableList.of(p.symbol("bar")), p.values())))
                 .matches(
@@ -47,8 +46,7 @@ public class TestPushLimitThroughMarkDistinct
     {
         tester().assertThat(new PushLimitThroughMarkDistinct())
                 .on(p ->
-                        p.limit(
-                                1,
+                        p.limit(1,
                                 ImmutableList.of(p.symbol("foo")),
                                 p.markDistinct(
                                         p.symbol("foo"), ImmutableList.of(p.symbol("bar")), p.values())))

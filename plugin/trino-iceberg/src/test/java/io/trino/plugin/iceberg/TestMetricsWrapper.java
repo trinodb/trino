@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import org.apache.iceberg.Metrics;
 import org.junit.jupiter.api.Test;
 
@@ -72,7 +72,7 @@ public class TestMetricsWrapper
 
     private static Set<String> getJsonProperties(Type type)
     {
-        ObjectMapper mapper = new ObjectMapperProvider().get();
+        JsonMapper mapper = new JsonMapperProvider().get();
         return mapper.getSerializationConfig()
                 .introspect(mapper.getTypeFactory().constructType(type))
                 .findProperties()

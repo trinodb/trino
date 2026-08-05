@@ -30,7 +30,9 @@ import static io.trino.testng.services.Listeners.formatTestName;
 import static java.lang.String.format;
 
 public class ProgressLoggingListener
-        implements IClassListener, ITestListener, IInvokedMethodListener
+        implements IClassListener,
+                   IInvokedMethodListener,
+                   ITestListener
 {
     private static final Logger LOGGER = Logger.get(ProgressLoggingListener.class);
     private final boolean enabled;

@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+import io.airlift.configuration.ConfigurationAwareModule;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
@@ -25,6 +26,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -34,26 +36,33 @@ import static java.util.Objects.requireNonNull;
 public class TestingIcebergConnectorFactory
         implements ConnectorFactory
 {
-    private final Optional<Module> icebergCatalogModule;
-    private final Module module;
+    private final Path localFileSystemRootPath;
+    private final Supplier<Optional<Module>> icebergCatalogModule;
+    private final Supplier<Optional<Module>> additionalOverrideModule;
 
     public TestingIcebergConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional::empty, Optional::empty);
     }
 
     @Deprecated
     public TestingIcebergConnectorFactory(
             Path localFileSystemRootPath,
-            Optional<Module> icebergCatalogModule)
+            Supplier<Optional<Module>> icebergCatalogModule)
     {
-        boolean ignored = localFileSystemRootPath.toFile().mkdirs();
+        this(localFileSystemRootPath, icebergCatalogModule, Optional::empty);
+    }
+
+    public TestingIcebergConnectorFactory(
+            Path localFileSystemRootPath,
+            Supplier<Optional<Module>> icebergCatalogModule,
+            Supplier<Optional<Module>> additionalOverrideModule)
+    {
+        this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
+        var rootPath = localFileSystemRootPath.toFile();
+        var _ = rootPath.mkdirs();
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
-        this.module = binder -> {
-            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
-            configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
-        };
+        this.additionalOverrideModule = requireNonNull(additionalOverrideModule, "additionalOverrideModule is null");
     }
 
     @Override
@@ -71,6 +80,16 @@ public class TestingIcebergConnectorFactory
                     .put("iceberg.catalog.type", "TESTING_FILE_METASTORE")
                     .buildOrThrow();
         }
-        return createConnector(catalogName, config, context, module, icebergCatalogModule);
+        Module localModule = binder -> {
+            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+            configBinder(binder).bindConfigDefaults(
+                    FileHiveMetastoreConfig.class,
+                    metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));
+        };
+        Module module = additionalOverrideModule.get()
+                .map(override -> (Module) ConfigurationAwareModule.combine(localModule, override))
+                .orElse(localModule);
+        return createConnector(catalogName, config, context, module, icebergCatalogModule.get());
     }
 }

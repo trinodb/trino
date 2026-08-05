@@ -55,8 +55,10 @@ public class KeyManagementServer
         copyResourceToContainer("kms/kms.key", "/kms.key");
         copyResourceToContainer("kms/kms.crt", "/kms.crt");
         withRunCommand(
-                ImmutableList.of("server",
-                        "--config", "config.yml"));
+                ImmutableList.of(
+                        "server",
+                        "--config",
+                        "config.yml"));
     }
 
     @Override

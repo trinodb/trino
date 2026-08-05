@@ -60,8 +60,7 @@ public class QueryRangeTableFunction
 
     public QueryRangeTableFunction(LokiMetadata metadata)
     {
-        super(
-                SCHEMA_NAME,
+        super(SCHEMA_NAME,
                 NAME,
                 List.of(
                         ScalarArgumentSpecification.builder()
@@ -81,7 +80,8 @@ public class QueryRangeTableFunction
                                 .type(INTEGER)
                                 .defaultValue(0L)
                                 .build()),
-                GENERIC_TABLE);
+                GENERIC_TABLE,
+                "");
 
         this.metadata = requireNonNull(metadata, "metadata is null");
     }

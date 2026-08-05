@@ -14,9 +14,6 @@
 
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
@@ -48,7 +45,7 @@ public class TableExecuteMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -58,7 +55,7 @@ public class TableExecuteMatcher
         }
 
         if (!columns.stream()
-                .map(symbol -> Symbol.from(symbolAliases.get(symbol)))
+                .map(symbol -> Symbol.from(context.symbolAliases().get(symbol)))
                 .collect(toImmutableList())
                 .equals(tableExecuteNode.getColumns())) {
             return NO_MATCH;

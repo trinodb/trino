@@ -29,6 +29,7 @@ import org.weakref.jmx.ObjectNames;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -59,7 +60,7 @@ public class OptimizerStatsMBeanExporter
     {
         checkState(mbeanExports.isEmpty(), "MBeans already exported");
 
-        for (Map.Entry<Class<?>, OptimizerStats> entry : optimizerStats.entrySet()) {
+        for (Entry<Class<?>, OptimizerStats> entry : optimizerStats.entrySet()) {
             verify(!entry.getKey().getSimpleName().isEmpty());
             try {
                 mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), PlanOptimizer.class, ImmutableMap.<String, String>builder()
@@ -72,7 +73,7 @@ public class OptimizerStatsMBeanExporter
             }
         }
 
-        for (Map.Entry<Class<?>, RuleStats> entry : ruleStats.entrySet()) {
+        for (Entry<Class<?>, RuleStats> entry : ruleStats.entrySet()) {
             verify(!entry.getKey().getSimpleName().isEmpty());
             try {
                 mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), IterativeOptimizer.class, ImmutableMap.<String, String>builder()

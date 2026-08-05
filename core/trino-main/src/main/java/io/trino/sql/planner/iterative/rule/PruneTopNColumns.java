@@ -37,8 +37,8 @@ public class PruneTopNColumns
     protected Optional<PlanNode> pushDownProjectOff(Context context, TopNNode topNNode, Set<Symbol> referencedOutputs)
     {
         Set<Symbol> prunedTopNInputs = Streams.concat(
-                referencedOutputs.stream(),
-                topNNode.getOrderingScheme().orderBy().stream())
+                        referencedOutputs.stream(),
+                        topNNode.getOrderingScheme().orderBy().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), topNNode, prunedTopNInputs);

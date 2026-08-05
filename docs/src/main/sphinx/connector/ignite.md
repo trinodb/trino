@@ -20,7 +20,8 @@ To connect to an Ignite server, you need:
 - Ignite version 2.9.0 or latter
 - Network access from the Trino coordinator and workers to the Ignite
   server. Port 10800 is the default port.
-- Specify `--add-opens=java.base/java.nio=ALL-UNNAMED` in the `jvm.config` when starting the Trino server.
+- Specify `--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED`
+  in the `jvm.config` when starting the Trino server.
 
 ## Configuration
 

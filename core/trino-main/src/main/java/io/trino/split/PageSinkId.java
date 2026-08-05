@@ -25,10 +25,10 @@ public class PageSinkId
 
     public static PageSinkId fromTaskId(TaskId taskId)
     {
-        long stageId = taskId.getStageId().getId();
-        long partitionId = taskId.getPartitionId();
+        long stageId = taskId.stageId().id();
+        long partitionId = taskId.partitionId();
         checkArgument(partitionId == (partitionId & 0x00FFFFFF), "partitionId is out of allowable range");
-        long attemptId = taskId.getAttemptId();
+        long attemptId = taskId.attemptId();
         checkArgument(attemptId == (attemptId & 0xFF), "attemptId is out of allowable range");
         long id = (stageId << 32) + (partitionId << 8) + attemptId;
         return new PageSinkId(id);

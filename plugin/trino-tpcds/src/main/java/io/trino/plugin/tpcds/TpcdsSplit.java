@@ -106,8 +106,8 @@ public class TpcdsSplit
         }
         TpcdsSplit other = (TpcdsSplit) obj;
         return this.totalParts == other.totalParts &&
-               this.partNumber == other.partNumber &&
-               this.noSexism == other.noSexism;
+                this.partNumber == other.partNumber &&
+                this.noSexism == other.noSexism;
     }
 
     @Override

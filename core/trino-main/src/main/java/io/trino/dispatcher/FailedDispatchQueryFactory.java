@@ -15,10 +15,10 @@ package io.trino.dispatcher;
 
 import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.event.QueryMonitor;
 import io.trino.execution.LocationFactory;
 import io.trino.server.BasicQueryInfo;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import java.util.Optional;

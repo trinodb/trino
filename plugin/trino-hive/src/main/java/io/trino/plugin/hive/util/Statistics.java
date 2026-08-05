@@ -30,6 +30,8 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -94,25 +96,30 @@ public final class Statistics
     private static void setColumnStatisticsForEmptyPartition(Type columnType, HiveColumnStatistics.Builder result, HiveColumnStatisticType columnStatisticType)
     {
         switch (columnStatisticType) {
-            case MAX_VALUE_SIZE_IN_BYTES:
+            case MAX_VALUE_SIZE_IN_BYTES -> {
                 result.setMaxValueSizeInBytes(0);
                 return;
-            case TOTAL_SIZE_IN_BYTES:
+            }
+            case TOTAL_SIZE_IN_BYTES -> {
                 result.setAverageColumnLength(0);
                 return;
-            case NUMBER_OF_DISTINCT_VALUES:
+            }
+            case NUMBER_OF_DISTINCT_VALUES -> {
                 result.setDistinctValuesWithNullCount(0);
                 return;
-            case NUMBER_OF_NON_NULL_VALUES:
+            }
+            case NUMBER_OF_NON_NULL_VALUES -> {
                 result.setNullsCount(0);
                 return;
-            case NUMBER_OF_TRUE_VALUES:
+            }
+            case NUMBER_OF_TRUE_VALUES -> {
                 result.setBooleanStatistics(new BooleanStatistics(OptionalLong.of(0L), OptionalLong.of(0L)));
                 return;
-            case MIN_VALUE:
-            case MAX_VALUE:
+            }
+            case MIN_VALUE, MAX_VALUE -> {
                 setMinMaxForEmptyPartition(columnType, result);
                 return;
+            }
         }
         throw new TrinoException(HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE, "Unknown column statistics type: " + columnStatisticType.name());
     }
@@ -128,10 +135,12 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
         }
+        else if (type instanceof TimestampType) {
+            result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
+        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()));
         }
-        // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -153,7 +162,9 @@ public final class Statistics
     private static List<String> getPartitionValues(ComputedStatistics statistics, List<String> partitionColumns, List<Type> partitionColumnTypes)
     {
         checkArgument(statistics.getGroupingColumns().equals(partitionColumns),
-                "Unexpected grouping. Partition columns: %s. Grouping columns: %s", partitionColumns, statistics.getGroupingColumns());
+                "Unexpected grouping. Partition columns: %s. Grouping columns: %s",
+                partitionColumns,
+                statistics.getGroupingColumns());
         Page partitionColumnsPage = new Page(1, statistics.getGroupingValues().toArray(new Block[] {}));
         return createPartitionValues(partitionColumnTypes, partitionColumnsPage, 0);
     }
@@ -171,7 +182,7 @@ public final class Statistics
     {
         Map<String, Map<HiveColumnStatisticType, Block>> result = new HashMap<>();
         computedStatistics.forEach((metadata, block) -> {
-            Map<HiveColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), key -> new HashMap<>());
+            Map<HiveColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), _ -> new HashMap<>());
             columnStatistics.put(HiveColumnStatisticType.from(metadata), block);
         });
         return result.entrySet()
@@ -240,10 +251,12 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(getDateValue(type, min), getDateValue(type, max)));
         }
+        else if (type instanceof TimestampType) {
+            result.setIntegerStatistics(new IntegerStatistics(getTimestampEpochMicro(type, min), getTimestampEpochMicro(type, max)));
+        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(type, min), getDecimalValue(type, max)));
         }
-        // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -288,6 +301,19 @@ public final class Statistics
         return Optional.of(LocalDate.ofEpochDay(days));
     }
 
+    private static OptionalLong getTimestampEpochMicro(Type type, Block block)
+    {
+        verify(type instanceof TimestampType, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return OptionalLong.empty();
+        }
+        if (((TimestampType) type).isShort()) {
+            return OptionalLong.of(type.getLong(block, 0));
+        }
+        // Note: we're truncating even for the max value. Statistics are estimate so this should be fine.
+        return OptionalLong.of(((LongTimestamp) type.getObject(block, 0)).getEpochMicros());
+    }
+
     private static Optional<BigDecimal> getDecimalValue(Type type, Block block)
     {
         verify(type instanceof DecimalType, "Unsupported type: %s", type);
@@ -303,10 +329,10 @@ public final class Statistics
             return OptionalDouble.empty();
         }
 
-        long nonNullsCount = numNonNullValues.getAsLong();
+        long nonNullsCount = numNonNullValues.orElseThrow();
         if (nonNullsCount <= 0) {
             return OptionalDouble.empty();
         }
-        return OptionalDouble.of(((double) totalSizeInBytes.getAsLong()) / nonNullsCount);
+        return OptionalDouble.of(((double) totalSizeInBytes.orElseThrow()) / nonNullsCount);
     }
 }

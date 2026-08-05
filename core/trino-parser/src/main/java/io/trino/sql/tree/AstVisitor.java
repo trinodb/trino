@@ -72,17 +72,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitBetweenPredicate(BetweenPredicate node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitCoalesceExpression(CoalesceExpression node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitComparisonExpression(ComparisonExpression node, C context)
     {
         return visitExpression(node, context);
     }
@@ -312,12 +302,32 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
-    protected R visitInPredicate(InPredicate node, C context)
+    protected R visitIntervalQualifier(IntervalQualifier node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitSimpleIntervalQualifier(SimpleIntervalQualifier node, C context)
+    {
+        return visitIntervalQualifier(node, context);
+    }
+
+    protected R visitCompositeIntervalQualifier(CompositeIntervalQualifier node, C context)
+    {
+        return visitIntervalQualifier(node, context);
+    }
+
+    protected R visitFunctionCall(FunctionCall node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitFunctionCall(FunctionCall node, C context)
+    protected R visitStaticMethodCall(StaticMethodCall node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitMethodCall(MethodCall node, C context)
     {
         return visitExpression(node, context);
     }
@@ -377,6 +387,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitOverlay(Overlay node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitNullIfExpression(NullIfExpression node, C context)
     {
         return visitExpression(node, context);
@@ -422,19 +437,64 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitLikePredicate(LikePredicate node, C context)
+    protected R visitPredicated(Predicated node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitIsNotNullPredicate(IsNotNullPredicate node, C context)
+    protected R visitPredicate(Predicate node, C context)
     {
-        return visitExpression(node, context);
+        return visitNode(node, context);
+    }
+
+    protected R visitBetweenPredicate(BetweenPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitComparisonPredicate(ComparisonPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitDistinctFromPredicate(DistinctFromPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitInPredicate(InPredicate node, C context)
+    {
+        return visitPredicate(node, context);
     }
 
     protected R visitIsNullPredicate(IsNullPredicate node, C context)
     {
-        return visitExpression(node, context);
+        return visitPredicate(node, context);
+    }
+
+    protected R visitBooleanTestPredicate(BooleanTestPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitLikePredicate(LikePredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitMatchPredicate(MatchPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitOverlapsPredicate(OverlapsPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, C context)
+    {
+        return visitPredicate(node, context);
     }
 
     protected R visitArray(Array node, C context)
@@ -443,6 +503,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitArrayWildcardSubscript(ArrayWildcardSubscript node, C context)
     {
         return visitExpression(node, context);
     }
@@ -487,6 +552,11 @@ public abstract class AstVisitor<R, C>
         return visitRelation(node, context);
     }
 
+    protected R visitNearest(Nearest node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
     protected R visitValues(Values node, C context)
     {
         return visitQueryBody(node, context);
@@ -495,6 +565,11 @@ public abstract class AstVisitor<R, C>
     protected R visitRow(Row node, C context)
     {
         return visitExpression(node, context);
+    }
+
+    protected R visitRowField(Row.Field node, C context)
+    {
+        return visitNode(node, context);
     }
 
     protected R visitTableSubquery(TableSubquery node, C context)
@@ -512,12 +587,32 @@ public abstract class AstVisitor<R, C>
         return visitRelation(node, context);
     }
 
+    protected R visitPivot(Pivot node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitPivotAggregation(PivotAggregation node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPivotValueGroup(PivotValueGroup node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitJoin(Join node, C context)
     {
         return visitRelation(node, context);
     }
 
     protected R visitExists(ExistsPredicate node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitUniquePredicate(UniquePredicate node, C context)
     {
         return visitExpression(node, context);
     }
@@ -688,6 +783,16 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitAddColumn(AddColumn node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetDefaultValue(SetDefaultValue node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropDefaultValue(DropDefaultValue node, C context)
     {
         return visitStatement(node, context);
     }
@@ -872,6 +977,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitAtLocal(AtLocal node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitGroupBy(GroupBy node, C context)
     {
         return visitNode(node, context);
@@ -895,11 +1005,6 @@ public abstract class AstVisitor<R, C>
     protected R visitAutoGroupBy(AutoGroupBy node, C context)
     {
         return visitGroupingElement(node, context);
-    }
-
-    protected R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
-    {
-        return visitExpression(node, context);
     }
 
     protected R visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, C context)
@@ -952,7 +1057,7 @@ public abstract class AstVisitor<R, C>
         return visitDataType(node, context);
     }
 
-    protected R visitRowField(RowDataType.Field node, C context)
+    protected R visitRowDataTypeField(RowDataType.Field node, C context)
     {
         return visitNode(node, context);
     }
@@ -972,7 +1077,7 @@ public abstract class AstVisitor<R, C>
         return visitDataTypeParameter(node, context);
     }
 
-    protected R visitIntervalDataType(IntervalDayTimeDataType node, C context)
+    protected R visitIntervalDataType(IntervalDataType node, C context)
     {
         return visitDataType(node, context);
     }

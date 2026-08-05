@@ -89,7 +89,7 @@ public class TpchSplit
         }
         TpchSplit other = (TpchSplit) obj;
         return this.totalParts == other.totalParts &&
-               this.partNumber == other.partNumber;
+                this.partNumber == other.partNumber;
     }
 
     @Override

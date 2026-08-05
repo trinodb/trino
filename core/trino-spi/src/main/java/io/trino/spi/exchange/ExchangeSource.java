@@ -33,11 +33,11 @@ public interface ExchangeSource
      * Add more {@link ExchangeSourceHandle}'s to be read by the {@link ExchangeSource}.
      *
      * @param handles list of {@link ExchangeSourceHandle}'s describing what exchange data to
-     * read. The full list of handles is returned by {@link ExchangeSourceHandleSource}.
-     * The coordinator decides what items from that list should be handled by what task and creates
-     * sub-lists that are further getting sent to a worker to be read.
-     * The <code>handles</code> list may contain {@link ExchangeSourceHandle}'s created by more than
-     * a single {@link Exchange}.
+     *         read. The full list of handles is returned by {@link ExchangeSourceHandleSource}.
+     *         The coordinator decides what items from that list should be handled by what task and creates
+     *         sub-lists that are further getting sent to a worker to be read.
+     *         The <code>handles</code> list may contain {@link ExchangeSourceHandle}'s created by more than
+     *         a single {@link Exchange}.
      */
     void addSourceHandles(List<ExchangeSourceHandle> handles);
 
@@ -81,7 +81,7 @@ public interface ExchangeSource
      * The engine will keep calling this method until {@link #isFinished()} returns {@code true}
      *
      * @return data written to an exchange using {@link ExchangeSink#add(int, Slice)}.
-     * The slice is always returned as a whole as written (the exchange does not split and does not merge slices).
+     *         The slice is always returned as a whole as written (the exchange does not split and does not merge slices).
      */
     @Nullable
     Slice read();

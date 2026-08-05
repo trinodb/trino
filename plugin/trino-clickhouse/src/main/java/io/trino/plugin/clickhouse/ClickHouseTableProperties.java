@@ -37,10 +37,10 @@ public final class ClickHouseTableProperties
 {
     public static final String ENGINE_PROPERTY = "engine";
     // MergeTree engine properties
-    public static final String ORDER_BY_PROPERTY = "order_by"; //required
-    public static final String PARTITION_BY_PROPERTY = "partition_by"; //optional
-    public static final String PRIMARY_KEY_PROPERTY = "primary_key"; //optional
-    public static final String SAMPLE_BY_PROPERTY = "sample_by"; //optional
+    public static final String ORDER_BY_PROPERTY = "order_by"; // required
+    public static final String PARTITION_BY_PROPERTY = "partition_by"; // optional
+    public static final String PRIMARY_KEY_PROPERTY = "primary_key"; // optional
+    public static final String SAMPLE_BY_PROPERTY = "sample_by"; // optional
 
     public static final ClickHouseEngineType DEFAULT_TABLE_ENGINE = ClickHouseEngineType.LOG;
 

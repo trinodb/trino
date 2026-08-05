@@ -27,10 +27,14 @@ import io.trino.client.uri.TrinoUri;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.junit5.StartStop;
+import okhttp3.Cache;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -38,7 +42,6 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Properties;
 
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.SET_COOKIE;
@@ -47,6 +50,7 @@ import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static io.trino.client.auth.external.ExternalRedirectStrategy.PRINT;
+import static java.io.OutputStream.nullOutputStream;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -58,6 +62,9 @@ public class TestQueryRunner
 
     @StartStop
     private final MockWebServer server = new MockWebServer();
+
+    @TempDir
+    private Path tempDirectory;
 
     @Test
     public void testCookie()
@@ -89,6 +96,28 @@ public class TestQueryRunner
         assertThat(server.takeRequest().getHeaders().get("Cookie")).isNull();
         assertThat(server.takeRequest().getHeaders().get("Cookie")).isEqualTo("a=apple");
         assertThat(server.takeRequest().getHeaders().get("Cookie")).isEqualTo("a=apple");
+    }
+
+    @Test
+    public void testCloseClosesAllHttpClients()
+    {
+        OkHttpClient httpClient = newClientWithCache("http-client");
+        OkHttpClient segmentHttpClient = newClientWithCache("segment-http-client");
+        QueryRunner queryRunner = new QueryRunner(
+                Theme.DARK,
+                createClientSession(server),
+                false,
+                httpClient,
+                segmentHttpClient,
+                1000,
+                500);
+
+        queryRunner.close();
+
+        assertThat(httpClient.dispatcher().executorService().isShutdown()).isTrue();
+        assertThat(segmentHttpClient.dispatcher().executorService().isShutdown()).isTrue();
+        assertThat(httpClient.cache().isClosed()).isTrue();
+        assertThat(segmentHttpClient.cache().isClosed()).isTrue();
     }
 
     static TrinoUri createTrinoUri(MockWebServer server, boolean insecureSsl)
@@ -130,7 +159,7 @@ public class TestQueryRunner
                         .setProgressPercentage(OptionalDouble.empty())
                         .setRunningPercentage(OptionalDouble.empty())
                         .build(),
-                //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                // new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
                 null,
@@ -141,6 +170,7 @@ public class TestQueryRunner
     static QueryRunner createQueryRunner(TrinoUri uri, ClientSession clientSession)
     {
         return new QueryRunner(
+                Theme.DARK,
                 uri,
                 clientSession,
                 false,
@@ -151,5 +181,12 @@ public class TestQueryRunner
     static PrintStream nullPrintStream()
     {
         return new PrintStream(nullOutputStream());
+    }
+
+    private OkHttpClient newClientWithCache(String cacheDirectory)
+    {
+        return new OkHttpClient.Builder()
+                .cache(new Cache(tempDirectory.resolve(cacheDirectory).toFile(), 1024))
+                .build();
     }
 }

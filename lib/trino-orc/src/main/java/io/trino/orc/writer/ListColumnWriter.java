@@ -107,18 +107,16 @@ public class ListColumnWriter
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
+        nonNullValueCount += presentStream.writeBlock(block);
         ColumnarArray columnarArray = toColumnarArray(block);
         writeColumnarArray(columnarArray);
     }
 
     private void writeColumnarArray(ColumnarArray columnarArray)
     {
-        // write nulls and lengths
+        // write lengths
         for (int position = 0; position < columnarArray.getPositionCount(); position++) {
-            boolean present = !columnarArray.isNull(position);
-            presentStream.writeBoolean(present);
-            if (present) {
-                nonNullValueCount++;
+            if (!columnarArray.isNull(position)) {
                 lengthStream.writeLong(columnarArray.getLength(position));
             }
         }

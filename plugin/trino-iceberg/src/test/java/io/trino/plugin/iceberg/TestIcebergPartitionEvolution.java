@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -37,6 +38,33 @@ public class TestIcebergPartitionEvolution
         return IcebergQueryRunner.builder()
                 .setInitialTables(ImmutableList.of(TpchTable.NATION))
                 .build();
+    }
+
+    @Test
+    public void testSelectPartition()
+    {
+        String tableName = "test_select_partition_from_files" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey', 'truncate(name, 1)']) AS SELECT * FROM nation WHERE nationkey <= 2", 3);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = DEFAULT");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey <= 2", 3);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['nationkey', 'regionkey', 'truncate(name, 1)']");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey <= 2", 3);
+
+        List<MaterializedRow> files = computeActual("SELECT partition FROM \"" + tableName + "$files\"").getMaterializedRows();
+        assertThat(files).hasSize(7);
+        List<List<Object>> partitionColumn = files.stream().map(materializedRow -> ((MaterializedRow) materializedRow.getField(0)).getFields()).toList();
+        assertThat(partitionColumn).containsExactlyInAnyOrder(
+                // ['regionkey', 'truncate(name, 1)']
+                Lists.newArrayList(1L, "B", null),
+                Lists.newArrayList(0L, "A", null),
+                Lists.newArrayList(1L, "A", null),
+                // DEFAULT
+                Lists.newArrayList(null, null, null),
+                // ['nationkey', 'regionkey', 'truncate(name, 1)']
+                Lists.newArrayList(1L, "B", 2L),
+                Lists.newArrayList(0L, "A", 0L),
+                Lists.newArrayList(1L, "A", 1L));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

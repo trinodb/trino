@@ -20,7 +20,7 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.tracing.TracingHiveMetastore;
 import io.trino.plugin.hive.HideDeltaLakeTables;
-import io.trino.plugin.hive.NodeVersion;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
@@ -39,7 +39,8 @@ public class FileHiveMetastoreFactory
             Tracer tracer)
     {
         // file metastore does not support impersonation, so create a single shared instance
-        metastore = new TracingHiveMetastore(tracer,
+        metastore = new TracingHiveMetastore(
+                tracer,
                 new FileHiveMetastore(nodeVersion, fileSystemFactory, hideDeltaLakeTables, config));
     }
 

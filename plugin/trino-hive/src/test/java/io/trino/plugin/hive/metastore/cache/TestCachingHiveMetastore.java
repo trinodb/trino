@@ -422,13 +422,13 @@ public class TestCachingHiveMetastore
                         .put(keyColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("val1"), true, utf8Slice("val2"), true)), false))
                         .buildOrThrow()));
 
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(0.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(0.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(0.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(0.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withSingleValueFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(1.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(1.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoSingleValueFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(2.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(2.0);
     }
 
     @Test
@@ -1068,7 +1068,8 @@ public class TestCachingHiveMetastore
 
     private void acquireSharedReadLock()
     {
-        metastore.acquireSharedReadLock(new AcidTransactionOwner("test"),
+        metastore.acquireSharedReadLock(
+                new AcidTransactionOwner("test"),
                 "queryId",
                 5,
                 Collections.singletonList(new SchemaTableName("test", "test")),
@@ -1089,7 +1090,7 @@ public class TestCachingHiveMetastore
     {
         private final CachingHiveMetastore cachingHiveMetastore;
         private final MockThriftMetastoreClient thriftClient;
-        private Consumer<CachingHiveMetastore> metastoreInteractions = hiveMetastore -> {};
+        private Consumer<CachingHiveMetastore> metastoreInteractions = _ -> {};
 
         private PartitionCachingAssertions(Executor refreshExecutor)
         {
@@ -1125,7 +1126,7 @@ public class TestCachingHiveMetastore
 
         void omitsCacheForNumberOfOperations(int expectedCacheOmittingOperations)
         {
-            //load caches
+            // load caches
             metastoreInteractions.accept(cachingHiveMetastore);
 
             int startingAccessCount = thriftClient.getAccessCount();
@@ -1134,8 +1135,10 @@ public class TestCachingHiveMetastore
                 int currentAccessCount = thriftClient.getAccessCount();
                 int timesCacheHasBeenOmitted = (currentAccessCount - startingAccessCount) / i;
                 assertThat(timesCacheHasBeenOmitted)
-                        .describedAs(format("Metastore is expected to not use cache %s times, but it does not use it %s times.",
-                                expectedCacheOmittingOperations, timesCacheHasBeenOmitted))
+                        .describedAs(format(
+                                "Metastore is expected to not use cache %s times, but it does not use it %s times.",
+                                expectedCacheOmittingOperations,
+                                timesCacheHasBeenOmitted))
                         .isEqualTo(expectedCacheOmittingOperations);
             }
         }

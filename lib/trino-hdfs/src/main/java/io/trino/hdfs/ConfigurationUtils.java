@@ -19,7 +19,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.File;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -54,7 +54,7 @@ public final class ConfigurationUtils
 
     public static void copy(Configuration from, Configuration to)
     {
-        for (Map.Entry<String, String> entry : from) {
+        for (Entry<String, String> entry : from) {
             to.set(entry.getKey(), entry.getValue());
         }
     }

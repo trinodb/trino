@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIdentity
+class TestIdentity
 {
     private static final Identity TEST_IDENTITY = Identity.forUser("user")
             // part of identity:

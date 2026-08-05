@@ -40,7 +40,7 @@ must be taken:
 
 - Copy the `kafka-protobuf-provider` and `kafka-protobuf-types` JAR files
   from [Confluent](https://packages.confluent.io/maven/io/confluent/) for
-  Confluent version 7.9.0 to the Kafka connector plugin directory (`<install
+  Confluent version 8.1.1 to the Kafka connector plugin directory (`<install
   directory>/plugin/kafka`) on all nodes in the cluster.
   The plugin directory depends on the {doc}`/installation` method.
 - By copying those JARs and using them, you agree to the terms of the [Confluent
@@ -1305,7 +1305,7 @@ The schema evolution behavior is as follows:
   Data created with an older schema no longer outputs the data from the column that was removed.
 - Column is renamed in the new schema:
   This is equivalent to removing the column and adding a new one, and data created with an older schema
-  produces a *default* value when table is using the new schema.
+  produces a *default* value when the table is using the new schema.
 - Changing type of column in the new schema:
   If the type coercion is supported by Avro, then the conversion happens. An
   error is thrown for incompatible types.
@@ -1415,7 +1415,7 @@ The schema evolution behavior is as follows:
   Data created with an older schema no longer outputs the data from the column that was removed.
 - Column is renamed in the new schema:
   This is equivalent to removing the column and adding a new one, and data created with an older schema
-  produces a *default* value when table is using the new schema.
+  produces a *default* value when the table is using the new schema.
 - Changing type of column in the new schema:
   If the type coercion is supported by Protobuf, then the conversion happens. An error is thrown for incompatible types.
 

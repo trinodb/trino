@@ -30,6 +30,8 @@ import io.trino.client.uri.TrinoUri;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import picocli.CommandLine;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 import java.lang.annotation.Retention;
 import java.net.URI;
@@ -47,6 +49,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.uri.PropertyName.ACCESS_TOKEN;
 import static io.trino.client.uri.PropertyName.CATALOG;
 import static io.trino.client.uri.PropertyName.CLIENT_INFO;
@@ -56,6 +59,7 @@ import static io.trino.client.uri.PropertyName.ENCODING;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
+import static io.trino.client.uri.PropertyName.EXTRA_HEADERS;
 import static io.trino.client.uri.PropertyName.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
 import static io.trino.client.uri.PropertyName.KERBEROS_CONFIG_PATH;
@@ -90,8 +94,6 @@ import static java.lang.String.format;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static picocli.CommandLine.Option;
-import static picocli.CommandLine.Parameters;
 
 public class ClientOptions
 {
@@ -204,6 +206,10 @@ public class ClientOptions
     @Option(names = "--client-tags", paramLabel = "<tags>", description = "Client tags", converter = ClientTagsConverter.class)
     public Optional<Set<String>> clientTags;
 
+    @PropertyMapping(EXTRA_HEADERS)
+    @Option(names = "--extra-header", paramLabel = "<header>", description = "Additional HTTP header to add to HTTP requests (property can be used multiple times; format is key=value)")
+    public List<ExtraHeader> extraHeaders = new ArrayList<>();
+
     @PropertyMapping(TRACE_TOKEN)
     @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
     public Optional<String> traceToken;
@@ -250,11 +256,11 @@ public class ClientOptions
 
     @PropertyMapping(RESOURCE_ESTIMATES)
     @Option(names = "--resource-estimate", paramLabel = "<estimate>", description = "Resource estimate (property can be used multiple times; format is key=value)")
-    public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
+    public List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
 
     @PropertyMapping(SESSION_PROPERTIES)
     @Option(names = "--session", paramLabel = "<session>", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
-    public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
+    public List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
     @PropertyMapping(SESSION_USER)
     @Option(names = "--session-user", paramLabel = "<user>", description = "Username to impersonate")
@@ -262,7 +268,7 @@ public class ClientOptions
 
     @PropertyMapping(EXTRA_CREDENTIALS)
     @Option(names = "--extra-credential", paramLabel = "<credential>", description = "Extra credentials (property can be used multiple times; format is key=value)")
-    public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
+    public List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
     @PropertyMapping(SOCKS_PROXY)
     @Option(names = "--socks-proxy", paramLabel = "<proxy>", description = "SOCKS proxy to use for server connections")
@@ -300,6 +306,9 @@ public class ClientOptions
     @Option(names = "--decimal-data-size", description = "Show data size and rate in base 10 rather than base 2")
     public boolean decimalDataSize;
 
+    @Option(names = "--theme", paramLabel = "<theme>", defaultValue = "AUTO", description = "Color theme [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
+    public Theme theme;
+
     @Option(names = "--max-buffered-rows", paramLabel = "<maxBufferedRows>", description = "Maximum number of rows to buffer in memory before writing to output (default: ${DEFAULT-VALUE})")
     public int maxBufferedRows = 10_000;
 
@@ -319,7 +328,7 @@ public class ClientOptions
         CSV_HEADER_UNQUOTED,
         JSON,
         MARKDOWN,
-        NULL
+        NULL,
     }
 
     @Retention(RUNTIME)
@@ -394,8 +403,8 @@ public class ClientOptions
         if (krb5RemoteServiceName.isPresent()) {
             krb5ConfigPath.ifPresent(builder::setKerberosConfigPath);
             krb5KeytabPath.ifPresent(builder::setKerberosKeytabPath);
+            krb5CredentialCachePath.ifPresent(builder::setKerberosCredentialCachePath);
         }
-        krb5CredentialCachePath.ifPresent(builder::setKerberosCredentialCachePath);
         krb5Principal.ifPresent(builder::setKerberosPrincipal);
         if (krb5DisableRemoteServiceHostnameCanonicalization) {
             builder.setKerberosUseCanonicalHostname(false);
@@ -421,6 +430,9 @@ public class ClientOptions
         }
         if (!sessionProperties.isEmpty()) {
             builder.setSessionProperties(toProperties(sessionProperties));
+        }
+        if (!extraHeaders.isEmpty()) {
+            builder.setExtraHeaders(toExtraHeaders(extraHeaders));
         }
         if (!resourceEstimates.isEmpty()) {
             builder.setResourceEstimates(toResourceEstimates(resourceEstimates));
@@ -496,6 +508,15 @@ public class ClientOptions
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    public static Map<String, String> toExtraHeaders(List<ExtraHeader> extraHeaders)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (ExtraHeader extraHeader : extraHeaders) {
+            builder.put(extraHeader.getHeader(), extraHeader.getValue());
+        }
+        return builder.buildOrThrow();
     }
 
     private static Map<String, String> toProperties(List<ClientSessionProperty> sessionProperties)
@@ -602,6 +623,59 @@ public class ClientOptions
         public int hashCode()
         {
             return Objects.hash(resource, estimate);
+        }
+    }
+
+    public static final class ExtraHeader
+    {
+        private final String header;
+        private final String value;
+
+        public ExtraHeader(String headerAndValue)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(headerAndValue);
+            checkArgument(nameValue.size() == 2, "Header and value: %s", headerAndValue);
+            this.header = nameValue.get(0);
+            this.value = nameValue.get(1);
+
+            checkArgument(!TRINO_HEADERS.isProtocolHeader(header), "Header '%s' is a protocol header and cannot be set as an extra header", header);
+            checkArgument(!header.isEmpty(), "Header name is empty");
+            checkArgument(!value.isEmpty(), "Header value is empty");
+        }
+
+        public ExtraHeader(String header, String value)
+        {
+            this.header = header;
+            this.value = value;
+        }
+
+        public String getHeader()
+        {
+            return header;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ExtraHeader other = (ExtraHeader) o;
+            return Objects.equals(header, other.header) && Objects.equals(value, other.value);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(header, value);
         }
     }
 

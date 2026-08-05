@@ -82,7 +82,7 @@ public class JsonSerializer
     @Override
     public List<? extends Type> getTypes()
     {
-        return type.getTypeParameters();
+        return type.getFieldTypes();
     }
 
     @Override

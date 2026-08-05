@@ -15,8 +15,8 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [d_day_name, d_week_seq, ss_store_sk])
                                                             intermediate aggregation over (d_day_name, d_week_seq, ss_store_sk)
                                                                 join (INNER, REPLICATED):
-                                                                    partial aggregation over (ss_sold_date_sk, ss_store_sk)
-                                                                        dynamic filter (ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                                    partial aggregation over (ss_store_sk, ss_sold_date_sk)
+                                                                        dynamic filter (ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL)
                                                                             scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -43,8 +43,8 @@ local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [d_day_name_89, d_week_seq_79, ss_store_sk_55])
                                                                 intermediate aggregation over (d_day_name_89, d_week_seq_79, ss_store_sk_55)
                                                                     join (INNER, REPLICATED):
-                                                                        partial aggregation over (ss_sold_date_sk_71, ss_store_sk_55)
-                                                                            dynamic filter (ss_sold_date_sk_71::EQUAL, ss_store_sk_55::EQUAL)
+                                                                        partial aggregation over (ss_store_sk_55, ss_sold_date_sk_71)
+                                                                            dynamic filter (ss_store_sk_55::EQUAL, ss_sold_date_sk_71::EQUAL)
                                                                                 scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])

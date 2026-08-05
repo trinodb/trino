@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -25,27 +27,39 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.types.Types;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -53,9 +67,11 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -65,6 +81,7 @@ public abstract class BaseIcebergSystemTables
     private final IcebergFileFormat format;
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     protected BaseIcebergSystemTables(IcebergFileFormat format)
     {
@@ -80,6 +97,7 @@ public abstract class BaseIcebergSystemTables
                 .build();
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
         return queryRunner;
     }
 
@@ -138,11 +156,11 @@ public abstract class BaseIcebergSystemTables
     {
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$partitions\"",
-                "VALUES ('partition', 'row(_date date)', '', '')," +
+                "VALUES ('partition', 'row(\"_date\" date)', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_count', 'bigint', '', '')," +
                         "('total_size', 'bigint', '', '')," +
-                        "('data', 'row(_bigint row(min bigint, max bigint, null_count bigint, nan_count bigint))', '', '')");
+                        "('data', 'row(\"_bigint\" row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint, \"nan_count\" bigint))', '', '')");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table$partitions\"");
         assertThat(result.getRowCount()).isEqualTo(3);
@@ -179,19 +197,23 @@ public abstract class BaseIcebergSystemTables
         assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(1)).isEqualTo(3L);
 
         // Test if min/max values, null value count and nan value count are computed correctly.
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 1L, 1L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 1.1d, 1.1d, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 1.2f, 1.2f, 0L, null)));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 2L, 2L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L)),
                 new MaterializedRow(DEFAULT_PRECISION, 2.2f, 2.2f, 0L, null)));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 3L, 3L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 3.3, 3.3d, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L))));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 4L, 6L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L)),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L))));
@@ -214,13 +236,45 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testPartitionsTableWithManyColumns()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/30311: the data column builds one
+        // ROW(min, max, null_count, nan_count) per column, and packing those fields into partial row
+        // constructors by a fixed count exceeded the 64KB JVM method size limit for bulky field types
+        String columns = IntStream.rangeClosed(1, 121)
+                .mapToObj(column -> "col_%03d timestamp(6) with time zone".formatted(column))
+                .collect(joining(", "));
+
+        try (TestTable table = newTrinoTable("test_partitions_many_columns", "(" + columns + ")")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (col_001) VALUES TIMESTAMP '2022-01-01 12:00:00.000000 UTC'", 1);
+            assertThat(computeActual("SELECT data FROM \"" + table.getName() + "$partitions\"").getRowCount())
+                    .isEqualTo(1);
+        }
+    }
+
+    @Test
+    public void testPartitionsTableWithReservedKeywordColumnName()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partitions_reserved_keyword",
+                "(\"group\" varchar, \"order\" bigint, _date date) WITH (partitioning = ARRAY['_date'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, DATE '2024-01-01'), ('b', 2, DATE '2024-01-02')", 2);
+
+            assertQuery(
+                    "SELECT partition._date, record_count, data.\"group\".min, data.\"order\".max FROM \"" + table.getName() + "$partitions\"",
+                    "VALUES (DATE '2024-01-01', 1, 'a', 1), (DATE '2024-01-02', 1, 'b', 2)");
+        }
+    }
+
+    @Test
     public void testPartitionsTableOnDropColumn()
     {
         MaterializedResult resultAfterDrop = computeActual("SELECT * from test_schema.\"test_table_drop_column$partitions\"");
         assertThat(resultAfterDrop.getRowCount()).isEqualTo(3);
         Map<LocalDate, MaterializedRow> rowsByPartitionAfterDrop = resultAfterDrop.getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
-        assertThat(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
     }
 
@@ -228,6 +282,73 @@ public abstract class BaseIcebergSystemTables
     public void testFilesTableOnDropColumn()
     {
         assertQuery("SELECT sum(record_count) FROM test_schema.\"test_table_drop_column$files\"", "VALUES 6");
+    }
+
+    @Test
+    public void testFilesAndPartitionsTableWithoutSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_without_snapshot");
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$files\"").getRowCount()).isEqualTo(0);
+            assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$partitions\"").getRowCount()).isEqualTo(0);
+        }
+        finally {
+            catalog.dropTable(SESSION, tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataTablesWithoutSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_metadata_tables_without_snapshot");
+        createTableWithoutSnapshot(tableName);
+        try {
+            for (TableType tableType : TableType.values()) {
+                if (tableType == TableType.DATA || tableType == TableType.MATERIALIZED_VIEW_STORAGE) {
+                    continue;
+                }
+                String metadataTable = tableNameWithType(tableName.getTableName(), tableType);
+                assertThatCode(() -> computeActual("SELECT * FROM test_schema.\"" + metadataTable + "\""))
+                        .describedAs(tableType.name())
+                        .doesNotThrowAnyException();
+            }
+        }
+        finally {
+            catalog.dropTable(SESSION, tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataTablesForNonExistentTable()
+    {
+        String tableName = "nonexistent_table";
+        for (TableType tableType : TableType.values()) {
+            if (tableType == TableType.DATA || tableType == TableType.MATERIALIZED_VIEW_STORAGE) {
+                continue;
+            }
+            String metadataTable = tableNameWithType(tableName, tableType);
+            assertThat(query("SELECT * FROM test_schema.\"" + metadataTable + "\""))
+                    .describedAs(tableType.name())
+                    .failure().hasMessageMatching(".* Table '.*.\"" + tableName + "\\$" + tableType.name().toLowerCase(ENGLISH) + "\"' does not exist");
+        }
+    }
+
+    // Create the table with the Iceberg API so that it has no snapshot (Trino CREATE TABLE would add an empty one)
+    private void createTableWithoutSnapshot(SchemaTableName tableName)
+    {
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "_bigint", Types.LongType.get()),
+                Types.NestedField.optional(2, "_date", Types.DateType.get()));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        tableName,
+                        schema,
+                        PartitionSpec.builderFor(schema).identity("_date").build(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, tableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
     }
 
     @Test
@@ -328,6 +449,7 @@ public abstract class BaseIcebergSystemTables
             assertThat(query("SHOW COLUMNS FROM \"" + table.getName() + "$all_manifests\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
+                            "('content', 'integer', '', '')," +
                             "('path', 'varchar', '', '')," +
                             "('length', 'bigint', '', '')," +
                             "('partition_spec_id', 'integer', '', '')," +
@@ -338,7 +460,7 @@ public abstract class BaseIcebergSystemTables
                             "('added_delete_files_count', 'integer', '', '')," +
                             "('existing_delete_files_count', 'integer', '', '')," +
                             "('deleted_delete_files_count', 'integer', '', '')," +
-                            "('partition_summaries', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')," +
+                            "('partition_summaries', 'array(row(\"contains_null\" boolean, \"contains_nan\" boolean, \"lower_bound\" varchar, \"upper_bound\" varchar))', '', '')," +
                             "('reference_snapshot_id', 'bigint', '', '')");
 
             assertThat((String) computeScalar("SELECT path FROM \"" + table.getName() + "$all_manifests\"")).endsWith("-m0.avro");
@@ -353,10 +475,15 @@ public abstract class BaseIcebergSystemTables
             assertThat((Integer) computeScalar("SELECT deleted_delete_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
             assertThat((List<?>) computeScalar("SELECT partition_summaries FROM \"" + table.getName() + "$all_manifests\"")).isEmpty();
             assertThat((Long) computeScalar("SELECT reference_snapshot_id FROM \"" + table.getName() + "$all_manifests\"")).isPositive();
+            // Verify initial manifest contains DATA files (content = 0)
+            assertThat((Integer) computeScalar("SELECT content FROM \"" + table.getName() + "$all_manifests\"")).isZero();
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
             assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\"")).isEqualTo(3);
             assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE added_delete_files_count > 0")).isEqualTo(1);
+            // Verify after DELETE we have both DATA manifests (content = 0) and DELETE manifests (content = 1)
+            assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE content = 0")).isEqualTo(2);
+            assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE content = 1")).isEqualTo(1);
         }
     }
 
@@ -373,7 +500,8 @@ public abstract class BaseIcebergSystemTables
     public void testManifestsTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$manifests\"",
-                "VALUES ('path', 'varchar', '', '')," +
+                "VALUES ('content', 'integer', '', '')," +
+                        "('path', 'varchar', '', '')," +
                         "('length', 'bigint', '', '')," +
                         "('partition_spec_id', 'integer', '', '')," +
                         "('added_snapshot_id', 'bigint', '', '')," +
@@ -383,33 +511,34 @@ public abstract class BaseIcebergSystemTables
                         "('existing_rows_count', 'bigint', '', '')," +
                         "('deleted_data_files_count', 'integer', '', '')," +
                         "('deleted_rows_count', 'bigint', '', '')," +
-                        "('partition_summaries', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')");
+                        "('partition_summaries', 'array(row(\"contains_null\" boolean, \"contains_nan\" boolean, \"lower_bound\" varchar, \"upper_bound\" varchar))', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table$manifests\""))
+        assertThat(query("SELECT content, added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table$manifests\""))
                 .matches(
                         "VALUES " +
-                                "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))) , " +
-                                "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+                                "    (0, 2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))) , " +
+                                "    (0, 2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+        assertQuery("SELECT DISTINCT content FROM test_schema.\"test_table$manifests\"", "VALUES 0");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
+        assertThat(query("SELECT content, added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
                 .matches(
                         "VALUES " +
-                                "(3, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+                                "(0, 3, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_with_dml$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_with_dml$manifests\""))
+        assertThat(query("SELECT content, added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_with_dml$manifests\""))
                 .matches(
                         "VALUES " +
                                 // INSERT on '2022-01-01', '2022-02-02', '2022-03-03' partitions
-                                "(3, BIGINT '0', BIGINT '6', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-03-03')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(0, 3, BIGINT '0', BIGINT '6', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-03-03')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
                                 // UPDATE on '2022-01-01' partition
-                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
-                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(1, 1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(0, 1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
                                 // DELETE from '2022-02-02' partition
-                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-02-02', '2022-02-02')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(1, 1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-02-02', '2022-02-02')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
                                 // INSERT on '2022-03-03', '2022-04-04' partitions
-                                "(2, BIGINT '0', BIGINT '2', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-03-03', '2022-04-04')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+                                "(0, 2, BIGINT '0', BIGINT '2', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-03-03', '2022-04-04')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
     }
 
     @Test
@@ -424,6 +553,87 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testFilesTableDeleteFileDeduplication()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_files_delete_dedup_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = testTable.getName();
+            Table icebergTable = loadTable(tableName);
+
+            // Verify initial state: only data files, no delete files
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 0"))
+                    .matches("VALUES BIGINT '5'"); // one data file per regionkey partition
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0"))
+                    .matches("VALUES BIGINT '0'");
+
+            // Write a position delete via MOR path
+            assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+            // Write an equality delete file for regionkey=2
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Long[] {2L})),
+                    ImmutableMap.of("regionkey", 2L),
+                    Optional.empty());
+
+            // Verify: each file path should appear exactly once (no duplicates)
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '1'"); // exactly 1 position delete file
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 2"))
+                    .matches("VALUES BIGINT '1'"); // exactly 1 equality delete file
+
+            // Verify no duplicate file paths exist
+            assertThat(query("SELECT count(file_path) - count(DISTINCT file_path) FROM \"" + tableName + "$files\""))
+                    .matches("VALUES BIGINT '0'");
+        }
+    }
+
+    @Test
+    public void testFilesTableDeletionVectors()
+    {
+        try (TestTable testTable = newTrinoTable("test_files_dv_", "(id INTEGER) WITH (format_version = 3, format = 'PARQUET')")) {
+            String tableName = testTable.getName();
+
+            // Insert data across multiple data files
+            for (int i = 0; i < 3; i++) {
+                assertUpdate("INSERT INTO " + tableName + " SELECT x FROM UNNEST(sequence(%s, %s)) t(x)".formatted(i * 100 + 1, (i + 1) * 100), 100);
+            }
+
+            // Verify initial state: 3 data files, no delete files
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 0"))
+                    .matches("VALUES BIGINT '3'");
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0"))
+                    .matches("VALUES BIGINT '0'");
+
+            // Delete rows to create deletion vectors (stored in shared Puffin files)
+            assertUpdate("DELETE FROM " + tableName + " WHERE id % 2 = 0", 150);
+
+            // In v3, deletion vectors for multiple data files are stored in a single Puffin file.
+            // The $files table shows one entry per DV (one per data file), all sharing the same file_path.
+            // content_offset and content_size_in_bytes distinguish individual DVs within the shared Puffin file.
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '3'"); // one DV entry per data file
+            assertThat(query("SELECT count_if(file_format = 'PUFFIN') FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '3'");
+            // All DV entries share the same Puffin file path
+            assertThat(query("SELECT count(DISTINCT file_path) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '1'");
+
+            // Each DV entry has distinct content_offset within the shared Puffin file
+            assertThat(query("SELECT count(DISTINCT content_offset) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '3'");
+            // All DV entries have non-null content_offset and content_size_in_bytes
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 1 AND content_offset IS NOT NULL AND content_size_in_bytes IS NOT NULL"))
+                    .matches("VALUES BIGINT '3'");
+            // Data files have null content_offset and content_size_in_bytes
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 0 AND content_offset IS NULL AND content_size_in_bytes IS NULL"))
+                    .matches("VALUES BIGINT '3'");
+        }
+    }
+
+    @Test
     public void testFilesPartitionTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
@@ -431,20 +641,29 @@ public abstract class BaseIcebergSystemTables
                         "('file_path', 'varchar', '', '')," +
                         "('file_format', 'varchar', '', '')," +
                         "('spec_id', 'integer', '', '')," +
-                        "('partition', 'row(_date date)', '', '')," +
+                        "('partition', 'row(\"_date\" date)', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_size_in_bytes', 'bigint', '', '')," +
                         "('column_sizes', 'map(integer, bigint)', '', '')," +
                         "('value_counts', 'map(integer, bigint)', '', '')," +
                         "('null_value_counts', 'map(integer, bigint)', '', '')," +
                         "('nan_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                        "('lower_bounds', 'row(\"1\" bigint, \"2\" date)', '', '')," +
+                        "('upper_bounds', 'row(\"1\" bigint, \"2\" date)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')," +
                         "('sort_order_id', 'integer', '', '')," +
-                        "('readable_metrics', 'json', '', '')");
+                        "('readable_metrics', 'json', '', '')," +
+                        "('added_snapshot_id', 'bigint', '', '')," +
+                        "('file_sequence_number', 'bigint', '', '')," +
+                        "('data_sequence_number', 'bigint', '', '')," +
+                        "('referenced_data_file', 'varchar', '', '')," +
+                        "('pos', 'bigint', '', '')," +
+                        "('manifest_location', 'varchar', '', '')," +
+                        "('first_row_id', 'bigint', '', '')," +
+                        "('content_offset', 'bigint', '', '')," +
+                        "('content_size_in_bytes', 'bigint', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
 
         long offset = format == PARQUET ? 4L : 3L;
@@ -455,6 +674,18 @@ public abstract class BaseIcebergSystemTables
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
                         .build());
+    }
+
+    @Test
+    public void testFilesTableAddedSnapshotId()
+    {
+        assertThat(query("SELECT count(*) FROM test_schema.\"test_table$files\" WHERE added_snapshot_id IS NOT NULL"))
+                .matches("VALUES BIGINT '4'");
+        assertThat(query("SELECT count(DISTINCT added_snapshot_id) FROM test_schema.\"test_table$files\""))
+                .matches("VALUES BIGINT '2'");
+        assertThat(query("SELECT count(*) FROM test_schema.\"test_table$files\" f " +
+                "WHERE f.added_snapshot_id IN (SELECT snapshot_id FROM test_schema.\"test_table$snapshots\")"))
+                .matches("VALUES BIGINT '4'");
     }
 
     @Test
@@ -503,7 +734,7 @@ public abstract class BaseIcebergSystemTables
         testFilesTableReadableMetrics(
                 "varchar",
                 "VALUES 'alice', 'bob'",
-                "{\"x\":{\"column_size\":" + columnSize(48) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":\"alice\",\"upper_bound\":\"bob\"}}");
+                "{\"x\":{\"column_size\":" + columnSize(50) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":\"alice\",\"upper_bound\":\"bob\"}}");
         testFilesTableReadableMetrics(
                 "uuid",
                 "VALUES UUID '09e1efb9-9e87-465e-abaf-0c67f4841114', UUID '0f2ef2b3-3c5a-4834-ba91-61be53ff8fbb'",
@@ -511,7 +742,7 @@ public abstract class BaseIcebergSystemTables
         testFilesTableReadableMetrics(
                 "varbinary",
                 "VALUES x'12', x'34'",
-                "{\"x\":{\"column_size\":" + columnSize(42) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":" + value("\"12\"", null) + ",\"upper_bound\":" + value("\"34\"", null) + "}}");
+                "{\"x\":{\"column_size\":" + columnSize(44) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":" + value("\"12\"", null) + ",\"upper_bound\":" + value("\"34\"", null) + "}}");
         testFilesTableReadableMetrics(
                 "row(y int)",
                 "SELECT (CAST(ROW(123) AS ROW(y int)))",
@@ -614,10 +845,10 @@ public abstract class BaseIcebergSystemTables
                             "('snapshot_id', 'bigint', '', '')," +
                             "('sequence_number', 'bigint', '', '')," +
                             "('file_sequence_number', 'bigint', '', '')," +
-                            "('data_file', 'row(content integer, file_path varchar, file_format varchar, spec_id integer, record_count bigint, file_size_in_bytes bigint, " +
-                            "column_sizes map(integer, bigint), value_counts map(integer, bigint), null_value_counts map(integer, bigint), nan_value_counts map(integer, bigint), " +
-                            "lower_bounds map(integer, varchar), upper_bounds map(integer, varchar), key_metadata varbinary, split_offsets array(bigint), " +
-                            "equality_ids array(integer), sort_order_id integer)', '', '')," +
+                            "('data_file', 'row(\"content\" integer, \"file_path\" varchar, \"file_format\" varchar, \"spec_id\" integer, \"record_count\" bigint, \"file_size_in_bytes\" bigint, " +
+                            "\"column_sizes\" map(integer, bigint), \"value_counts\" map(integer, bigint), \"null_value_counts\" map(integer, bigint), \"nan_value_counts\" map(integer, bigint), " +
+                            "\"lower_bounds\" map(integer, varchar), \"upper_bounds\" map(integer, varchar), \"key_metadata\" varbinary, \"split_offsets\" array(bigint), " +
+                            "\"equality_ids\" array(integer), \"sort_order_id\" integer)', '', '')," +
                             "('readable_metrics', 'json', '', '')");
 
             Table icebergTable = loadTable(table.getName());
@@ -690,7 +921,7 @@ public abstract class BaseIcebergSystemTables
             assertThat(deleteFile.getField(4)).isEqualTo(1L); // record_count
             assertThat((long) deleteFile.getField(5)).isPositive(); // file_size_in_bytes
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> columnSizes = (Map<Integer, Long>) deleteFile.getField(6);
             switch (format) {
                 case ORC -> assertThat(columnSizes).isNull();
@@ -706,7 +937,7 @@ public abstract class BaseIcebergSystemTables
             assertThat(deleteFile.getField(9)).isEqualTo(value(Map.of(), null)); // nan_value_counts
 
             // lower_bounds
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, String> lowerBounds = (Map<Integer, String>) deleteFile.getField(10);
             assertThat(lowerBounds)
                     .hasSize(2)
@@ -714,7 +945,7 @@ public abstract class BaseIcebergSystemTables
                     .satisfies(_ -> assertThat(lowerBounds.get(DELETE_FILE_PATH.fieldId())).contains(table.getName()));
 
             // upper_bounds
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, String> upperBounds = (Map<Integer, String>) deleteFile.getField(11);
             assertThat(upperBounds)
                     .hasSize(2)
@@ -727,7 +958,8 @@ public abstract class BaseIcebergSystemTables
             assertThat(deleteFile.getField(15)).isNull(); // sort_order_id
 
             assertThat(computeScalar("SELECT readable_metrics FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
-                    .isEqualTo("""
+                    .isEqualTo(
+                            """
                             {\
                             "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
                             "id":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null}\
@@ -776,7 +1008,8 @@ public abstract class BaseIcebergSystemTables
             assertThat(dataFile.getField(15)).isEqualTo(0); // sort_order_id
 
             assertThat(computeScalar("SELECT readable_metrics FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
-                    .isEqualTo("""
+                    .isEqualTo(
+                            """
                             {\
                             "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
                             "id":{"column_size":51,"value_count":1,"null_value_count":0,"nan_value_count":null,"lower_bound":1,"upper_bound":1}\
@@ -785,9 +1018,49 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    void testEntriesTableWithNullSortOrderId()
+            throws Exception
+    {
+        // Iceberg spec (table spec v1/v2/v3) marks data_file.sort_order_id as optional: a null value
+        // is a valid on-disk state meaning "unsorted", and readers must tolerate it. Writers such as
+        // PyIceberg emit null here on default appends. Trino's own writer populates 0, which is why
+        // reaching the code path from SQL is impossible — commit a DataFile directly through the
+        // Iceberg Java API to produce a manifest entry with sort_order_id unset.
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries_null_sort_order", "AS SELECT 1 id")) {
+            Table icebergTable = loadTable(table.getName());
+            DataFile dataFile = DataFiles.builder(icebergTable.spec())
+                    .withPath(icebergTable.location() + "/data/synthetic-no-sort-order." + format.name().toLowerCase(ENGLISH))
+                    .withFormat(FileFormat.fromString(format.name()))
+                    .withFileSizeInBytes(1234)
+                    .withRecordCount(1)
+                    .build();
+            // DataFiles.Builder defaults sort_order_id to SortOrder.unsorted().orderId() (== 0).
+            // The spec-valid null state is what PyIceberg emits; reach it by clearing the inherited
+            // BaseFile.sortOrderId field so the manifest row is written with the column unset.
+            Field sortOrderIdField = dataFile.getClass().getSuperclass().getDeclaredField("sortOrderId");
+            sortOrderIdField.setAccessible(true);
+            sortOrderIdField.set(dataFile, null);
+            assertThat(dataFile.sortOrderId()).isNull();
+
+            icebergTable.newAppend().appendFile(dataFile).commit();
+            long appendedSnapshotId = icebergTable.currentSnapshot().snapshotId();
+
+            // Reading $entries must not throw and must surface the null as SQL NULL.
+            assertThat(computeScalar("SELECT data_file.sort_order_id FROM \"" + table.getName() + "$entries\"" +
+                    " WHERE snapshot_id = " + appendedSnapshotId))
+                    .isNull();
+            // $all_entries shares the same code path and must also tolerate the null.
+            assertThat(computeScalar("SELECT data_file.sort_order_id FROM \"" + table.getName() + "$all_entries\"" +
+                    " WHERE snapshot_id = " + appendedSnapshotId))
+                    .isNull();
+        }
+    }
+
+    @Test
     public void testPartitionsColumns()
     {
-        try (TestTable testTable = newTrinoTable("test_partition_columns", """
+        try (TestTable testTable = newTrinoTable("test_partition_columns",
+                """
                 WITH (partitioning = ARRAY[
                     '"r1.f1"',
                     'bucket(b1, 4)'
@@ -799,7 +1072,8 @@ public abstract class BaseIcebergSystemTables
                     .matches("SELECT CAST(ROW(1, 3) AS ROW(\"r1.f1\" INTEGER, b1_bucket INTEGER))");
         }
 
-        try (TestTable testTable = newTrinoTable("test_partition_columns", """
+        try (TestTable testTable = newTrinoTable("test_partition_columns",
+                """
                 WITH (partitioning = ARRAY[
                     '"r1.f2"',
                     'bucket(b1, 4)',
@@ -824,10 +1098,10 @@ public abstract class BaseIcebergSystemTables
                             "('snapshot_id', 'bigint', '', '')," +
                             "('sequence_number', 'bigint', '', '')," +
                             "('file_sequence_number', 'bigint', '', '')," +
-                            "('data_file', 'row(content integer, file_path varchar, file_format varchar, spec_id integer, partition row(dt date), record_count bigint, file_size_in_bytes bigint, " +
-                            "column_sizes map(integer, bigint), value_counts map(integer, bigint), null_value_counts map(integer, bigint), nan_value_counts map(integer, bigint), " +
-                            "lower_bounds map(integer, varchar), upper_bounds map(integer, varchar), key_metadata varbinary, split_offsets array(bigint), " +
-                            "equality_ids array(integer), sort_order_id integer)', '', '')," +
+                            "('data_file', 'row(\"content\" integer, \"file_path\" varchar, \"file_format\" varchar, \"spec_id\" integer, \"partition\" row(\"dt\" date), \"record_count\" bigint, \"file_size_in_bytes\" bigint, " +
+                            "\"column_sizes\" map(integer, bigint), \"value_counts\" map(integer, bigint), \"null_value_counts\" map(integer, bigint), \"nan_value_counts\" map(integer, bigint), " +
+                            "\"lower_bounds\" map(integer, varchar), \"upper_bounds\" map(integer, varchar), \"key_metadata\" varbinary, \"split_offsets\" array(bigint), " +
+                            "\"equality_ids\" array(integer), \"sort_order_id\" integer)', '', '')," +
                             "('readable_metrics', 'json', '', '')");
 
             assertThat(query("SELECT data_file.partition FROM \"" + table.getName() + "$entries\""))

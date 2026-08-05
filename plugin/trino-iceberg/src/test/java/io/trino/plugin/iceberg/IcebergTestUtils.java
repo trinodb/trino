@@ -31,10 +31,10 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.metadata.OrcType;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.metadata.BlockMetadata;
-import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.ParquetTestUtils;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -46,20 +46,25 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
+import io.trino.plugin.iceberg.encryption.PlaintextEncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.block.Block;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.parquet.format.SchemaElement;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -69,8 +74,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -83,6 +86,7 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.fromFilePath;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class IcebergTestUtils
@@ -90,13 +94,20 @@ public final class IcebergTestUtils
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new IcebergSessionProperties(
                     new IcebergConfig(),
+                    new IcebergEncryptionConfig(),
                     new OrcReaderConfig(),
                     new OrcWriterConfig(),
                     new ParquetReaderConfig(),
                     new ParquetWriterConfig()).getSessionProperties())
             .build();
 
+    public static final TableStatisticsReader TABLE_STATISTICS_READER = new TableStatisticsReader(
+            TESTING_TYPE_MANAGER,
+            newDirectExecutorService());
+
     public static final ForwardingFileIoFactory FILE_IO_FACTORY = new ForwardingFileIoFactory(newDirectExecutorService());
+
+    public static final EncryptionManagerFactory ENCRYPTION_MANAGER_FACTORY = new PlaintextEncryptionManagerFactory();
 
     private IcebergTestUtils() {}
 
@@ -104,7 +115,6 @@ public final class IcebergTestUtils
     {
         return Session.builder(session)
                 .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "20")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "1kB")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "20")
                 .build();
     }
@@ -166,54 +176,73 @@ public final class IcebergTestUtils
         };
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings("unchecked")
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
     {
-        ParquetMetadata parquetMetadata = getParquetFileMetadata(inputFile);
-        List<BlockMetadata> blocks;
-        try {
-            blocks = parquetMetadata.getBlocks();
+        try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            SchemaElement sortColumn = parquetMetadata.getParquetMetadata().getSchema()
+                    .stream()
+                    .filter(column -> column.getName().equals(sortColumnName))
+                    .collect(onlyElement());
+            Type sortColumnType = getType(sortColumn.getType());
+            try (ParquetReader parquetReader = ParquetTestUtils.createParquetReader(
+                    dataSource,
+                    parquetMetadata,
+                    List.of(sortColumnType),
+                    List.of(sortColumnName))) {
+                Comparable<Object> previousMax = null;
+                for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
+                    Block block = page.getBlock(0);
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        Comparable<Object> current = (Comparable<Object>) readNativeValue(sortColumnType, block, position);
+                        if (previousMax != null && previousMax.compareTo(current) > 0) {
+                            return false;
+                        }
+                        previousMax = current;
+                    }
+                }
+            }
+            return true;
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
 
-        Comparable previousMax = null;
-        verify(blocks.size() > 1, "Test must produce at least two row groups");
-        for (BlockMetadata blockMetaData : blocks) {
-            ColumnChunkMetadata columnMetadata = blockMetaData.columns().stream()
-                    .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
-                    .collect(onlyElement());
-            if (previousMax != null) {
-                if (previousMax.compareTo(columnMetadata.getStatistics().genericGetMin()) > 0) {
-                    return false;
-                }
-            }
-            previousMax = columnMetadata.getStatistics().genericGetMax();
-        }
-        return true;
+    private static Type getType(org.apache.parquet.format.Type parquetType)
+    {
+        return switch (parquetType) {
+            case org.apache.parquet.format.Type.BYTE_ARRAY -> VARCHAR;
+            default -> throw new IllegalArgumentException("Unsupported parquet type: " + parquetType);
+        };
+    }
+
+    public static <T> T getConnectorService(QueryRunner queryRunner, Class<T> clazz)
+    {
+        Connector connector = queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG);
+        return ((IcebergConnector) connector).getInjector().getInstance(clazz);
     }
 
     public static TrinoFileSystemFactory getFileSystemFactory(QueryRunner queryRunner)
     {
-        return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG))
-                .getInjector().getInstance(TrinoFileSystemFactory.class);
+        return getConnectorService(queryRunner, TrinoFileSystemFactory.class);
     }
 
     public static HiveMetastore getHiveMetastore(QueryRunner queryRunner)
     {
-        return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                .getInstance(HiveMetastoreFactory.class)
+        return getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
     }
 
-    public static BaseTable loadTable(String tableName,
+    public static BaseTable loadTable(
+            String tableName,
             HiveMetastore metastore,
             TrinoFileSystemFactory fileSystemFactory,
             String catalogName,
             String schemaName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient())));
         TrinoCatalog catalog = getTrinoCatalog(metastore, fileSystemFactory, catalogName);
         return loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
     }
@@ -223,7 +252,16 @@ public final class IcebergTestUtils
             TrinoFileSystemFactory fileSystemFactory,
             String catalogName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
+        return getTrinoCatalog(metastore, fileSystemFactory, catalogName, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient())));
+    }
+
+    public static TrinoCatalog getTrinoCatalog(
+            HiveMetastore metastore,
+            TrinoFileSystemFactory fileSystemFactory,
+            String catalogName,
+            EncryptionManagerFactory encryptionManagerFactory)
+    {
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, encryptionManagerFactory);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName(catalogName),
@@ -231,13 +269,14 @@ public final class IcebergTestUtils
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 tableOperationsProvider,
                 false,
                 false,
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService());
     }
 
     public static Map<String, Long> getMetadataFileAndUpdatedMillis(TrinoFileSystem trinoFileSystem, String tableLocation)
@@ -248,7 +287,7 @@ public final class IcebergTestUtils
         while (fileIterator.hasNext()) {
             FileEntry entry = fileIterator.next();
             if (fromFilePath(entry.location().path()) == METADATA_JSON) {
-                TableMetadata tableMetadata = TableMetadataParser.read(null, new ForwardingInputFile(trinoFileSystem.newInputFile(entry.location())));
+                TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingInputFile(trinoFileSystem.newInputFile(entry.location())));
                 metadataFiles.put(entry.location().path(), tableMetadata.lastUpdatedMillis());
             }
         }
@@ -258,7 +297,7 @@ public final class IcebergTestUtils
     public static ParquetMetadata getParquetFileMetadata(TrinoInputFile inputFile)
     {
         try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
-            return MetadataReader.readFooter(dataSource);
+            return MetadataReader.readFooter(dataSource, Optional.empty());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

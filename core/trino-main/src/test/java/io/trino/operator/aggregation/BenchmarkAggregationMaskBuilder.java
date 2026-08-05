@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.spi.Page;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
@@ -23,17 +24,21 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 @State(Scope.Thread)
@@ -76,17 +81,17 @@ public class BenchmarkAggregationMaskBuilder
 
         Block shortRleNoNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.empty(), new short[] {42}), positions);
         Block shortNoNulls = new ShortArrayBlock(new long[positions].length, Optional.empty(), new short[positions]);
-        Block shortSomeNulls = new ShortArrayBlock(new long[positions].length, someNulls(positions, 0.3), new short[positions]);
+        Block shortSomeNulls = new ShortArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new short[positions]);
 
         Block intRleNoNulls = RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {42}), positions);
         Block intNoNulls = new IntArrayBlock(new long[positions].length, Optional.empty(), new int[positions]);
-        Block intSomeNulls = new IntArrayBlock(new long[positions].length, someNulls(positions, 0.3), new int[positions]);
+        Block intSomeNulls = new IntArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new int[positions]);
 
         Block longRleNoNulls = RunLengthEncodedBlock.create(new LongArrayBlock(1, Optional.empty(), new long[] {42}), positions);
         Block longNoNulls = new LongArrayBlock(new long[positions].length, Optional.empty(), new long[positions]);
-        Block longSomeNulls = new LongArrayBlock(new long[positions].length, someNulls(positions, 0.3), new long[positions]);
+        Block longSomeNulls = new LongArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new long[positions]);
 
-        Block rleAllNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.of(new boolean[] {true}), new short[] {42}), positions);
+        Block rleAllNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.of(new long[] {0}), new short[] {42}), positions);
 
         arguments = new Page(
                 shortRleNoNulls,
@@ -101,14 +106,15 @@ public class BenchmarkAggregationMaskBuilder
                 rleAllNulls);
     }
 
-    private static Optional<boolean[]> someNulls(int positions, double nullRatio)
+    private static Optional<long[]> someNullValidity(int positions, double nullRatio)
     {
-        boolean[] nulls = new boolean[positions];
-        for (int i = 0; i < nulls.length; i++) {
-            // 0.7 ^ 3 = 0.343
-            nulls[i] = ThreadLocalRandom.current().nextDouble() < nullRatio;
+        long[] validity = new long[wordsForBits(positions)];
+        for (int position = 0; position < positions; position++) {
+            if (ThreadLocalRandom.current().nextDouble() >= nullRatio) {
+                set(validity, 0, position);
+            }
         }
-        return Optional.of(nulls);
+        return Optional.of(validity);
     }
 
     @Benchmark
@@ -219,7 +225,66 @@ public class BenchmarkAggregationMaskBuilder
         return allBlocksBuilderCompiled.buildAggregationMask(arguments, Optional.empty());
     }
 
-    public static void main(String[] args)
+    @Benchmark
+    public Object booleanMaskCurrent(BooleanMaskData data)
+    {
+        data.currentMask.reset(data.positionCount);
+        data.currentMask.applyMaskBlock(data.maskBlock);
+        return data.currentMask;
+    }
+
+    @Benchmark
+    public Object booleanMaskCompiled(BooleanMaskData data)
+    {
+        return data.compiledMaskBuilder.buildAggregationMask(data.page, Optional.of(data.maskBlock));
+    }
+
+    @Benchmark
+    public Object booleanMaskScalar(BooleanMaskData data)
+    {
+        return data.scalarMaskBuilder.buildAggregationMask(data.page, Optional.of(data.maskBlock));
+    }
+
+    @State(Scope.Thread)
+    public static class BooleanMaskData
+    {
+        private static final int POSITION_COUNT = 10_000;
+
+        @Param({"0.1", "0.5", "0.9"})
+        public double selectivity;
+
+        @Param({"0.0", "0.1"})
+        public double nullRate;
+
+        private final AggregationMaskBuilder compiledMaskBuilder = compiledMaskBuilder();
+        private final AggregationMaskBuilder scalarMaskBuilder = new HandCodedAggregationMaskBuilder(-1, -1, -1);
+        private final AggregationMask currentMask = AggregationMask.createSelectAll(0);
+
+        private int positionCount;
+        private Page page;
+        private BitArrayBlock maskBlock;
+
+        @Setup
+        public void setup()
+        {
+            positionCount = POSITION_COUNT;
+            page = new Page(positionCount);
+            long[] values = new long[wordsForBits(positionCount)];
+            long[] validity = nullRate == 0 ? null : new long[wordsForBits(positionCount)];
+            Random random = new Random(73462743L);
+            for (int position = 0; position < positionCount; position++) {
+                if (random.nextDouble() < selectivity) {
+                    set(values, 0, position);
+                }
+                if (validity != null && random.nextDouble() >= nullRate) {
+                    set(validity, 0, position);
+                }
+            }
+            maskBlock = new BitArrayBlock(positionCount, Optional.ofNullable(validity), values);
+        }
+    }
+
+    static void main()
             throws Throwable
     {
         BenchmarkAggregationMaskBuilder bench = new BenchmarkAggregationMaskBuilder();

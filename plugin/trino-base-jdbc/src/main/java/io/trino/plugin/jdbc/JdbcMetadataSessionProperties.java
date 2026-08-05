@@ -33,6 +33,7 @@ public class JdbcMetadataSessionProperties
 {
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String JOIN_PUSHDOWN_ENABLED = "join_pushdown_enabled";
+    @Deprecated
     public static final String COMPLEX_JOIN_PUSHDOWN_ENABLED = "complex_join_pushdown_enabled";
     public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
@@ -102,6 +103,7 @@ public class JdbcMetadataSessionProperties
         return session.getProperty(JOIN_PUSHDOWN_ENABLED, Boolean.class);
     }
 
+    @Deprecated
     public static boolean isComplexJoinPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(COMPLEX_JOIN_PUSHDOWN_ENABLED, Boolean.class);

@@ -90,7 +90,7 @@ public class TestTable
 
     public static TestTable fromColumns(SqlExecutor sqlExecutor, String namePrefix, Map<String, List<String>> columns, String defaultValue)
     {
-        return fromColumns(sqlExecutor, namePrefix, columns, column -> defaultValue);
+        return fromColumns(sqlExecutor, namePrefix, columns, _ -> defaultValue);
     }
 
     private static TestTable fromColumns(SqlExecutor sqlExecutor, String namePrefix, Map<String, List<String>> columns, Function<String, String> defaultValueSupplier)

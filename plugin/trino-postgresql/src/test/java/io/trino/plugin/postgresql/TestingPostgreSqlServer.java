@@ -14,12 +14,11 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import io.trino.plugin.jdbc.RemoteLogTracingEvent;
 import org.intellij.lang.annotations.Language;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
@@ -34,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -48,12 +48,17 @@ import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
-import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
+import static org.testcontainers.postgresql.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingPostgreSqlServer
         implements AutoCloseable
 {
-    public static final String DEFAULT_IMAGE_NAME = "postgres:12";
+    // the oldest supported PostgreSQL version
+    public static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("postgres:12");
+    // first PostgreSQL version that expanded PostgreSQL numeric type
+    public static final DockerImageName IMAGE_15_NAME = DockerImageName.parse("postgres:15");
+    // newest tested PostgreSQL version
+    public static final DockerImageName LATEST_IMAGE_NAME = DockerImageName.parse("postgres:18");
 
     private static final String USER = "test";
     private static final String PASSWORD = "test";
@@ -63,33 +68,27 @@ public class TestingPostgreSqlServer
     private static final String LOG_RUNNING_STATEMENT_PREFIX = "LOG:  execute <unnamed>";
     private static final String LOG_CANCELLATION_EVENT = "ERROR:  canceling statement due to user request";
 
-    private static final Pattern SQL_QUERY_FIND_PATTERN = Pattern.compile("^(: |/C_\\d: )(.*)"); //In PgSQL cursor queries and non-cursor queries are logged differently
+    private static final Pattern SQL_QUERY_FIND_PATTERN = Pattern.compile("^(: |/C_\\d: )(.*)"); // In PgSQL cursor queries and non-cursor queries are logged differently
     private static final String LOG_CANCELLED_STATEMENT_PREFIX = "STATEMENT:  ";
 
-    private final PostgreSQLContainer<?> dockerContainer;
-    private final Set<RemoteLogTracingEvent> tracingEvents = Sets.newConcurrentHashSet();
+    private final PostgreSQLContainer dockerContainer;
+    private final Set<RemoteLogTracingEvent> tracingEvents = ConcurrentHashMap.newKeySet();
 
     private final Closeable cleanup;
 
     public TestingPostgreSqlServer()
     {
-        this(false);
+        this(DEFAULT_IMAGE_NAME);
     }
 
-    public TestingPostgreSqlServer(boolean shouldExposeFixedPorts)
+    public TestingPostgreSqlServer(DockerImageName dockerImageName)
     {
-        // Use the oldest supported PostgreSQL version
-        this(DEFAULT_IMAGE_NAME, shouldExposeFixedPorts);
-    }
-
-    public TestingPostgreSqlServer(String dockerImageName, boolean shouldExposeFixedPorts)
-    {
-        this(DockerImageName.parse(dockerImageName), shouldExposeFixedPorts);
+        this(dockerImageName, false);
     }
 
     public TestingPostgreSqlServer(DockerImageName dockerImageName, boolean shouldExposeFixedPorts)
     {
-        dockerContainer = new PostgreSQLContainer<>(dockerImageName)
+        dockerContainer = new PostgreSQLContainer(dockerImageName)
                 .withStartupAttempts(3)
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)

@@ -40,8 +40,6 @@ public class TestDeltaLakeConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(DeltaLakeConfig.class)
-                .setDataFileCacheSize(DeltaLakeConfig.DEFAULT_DATA_FILE_CACHE_SIZE)
-                .setDataFileCacheTtl(new Duration(30, MINUTES))
                 .setMetadataCacheTtl(new Duration(30, TimeUnit.MINUTES))
                 .setMetadataCacheMaxRetainedSize(DeltaLakeConfig.DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE)
                 .setTransactionLogMaxCachedFileSize(DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
@@ -51,9 +49,9 @@ public class TestDeltaLakeConfig
                 .setMaxSplitSize(DataSize.of(128, DataSize.Unit.MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
                 .setMaxPartitionsPerWriter(100)
+                .setS3TransactionLogConditionalWritesEnabled(true)
                 .setUnsafeWritesEnabled(false)
                 .setDefaultCheckpointWritingInterval(10)
-                .setCheckpointFilteringEnabled(true)
                 .setCheckpointRowStatisticsWritingEnabled(true)
                 .setVacuumMinRetention(new Duration(7, DAYS))
                 .setHiveCatalogName(null)
@@ -75,9 +73,11 @@ public class TestDeltaLakeConfig
                 .setProjectionPushdownEnabled(true)
                 .setQueryPartitionFilterRequired(false)
                 .setDeletionVectorsEnabled(false)
-                .setDeltaLogFileSystemCacheDisabled(false)
+                .setDeltaLogBlobCacheDisabled(false)
                 .setMetadataParallelism(8)
-                .setCheckpointProcessingParallelism(4));
+                .setMetadataVirtualThreadsEnabled(true)
+                .setCheckpointProcessingParallelism(4)
+                .setLoadMetadataFromChecksumFile(true));
     }
 
     @Test
@@ -87,17 +87,15 @@ public class TestDeltaLakeConfig
                 .put("delta.metadata.cache-ttl", "10m")
                 .put("delta.metadata.cache-max-retained-size", "1GB")
                 .put("delta.transaction-log.max-cached-file-size", "1MB")
-                .put("delta.metadata.live-files.cache-size", "0 MB")
-                .put("delta.metadata.live-files.cache-ttl", "60m")
                 .put("delta.domain-compaction-threshold", "500")
                 .put("delta.max-outstanding-splits", "200")
                 .put("delta.max-splits-per-second", "10")
                 .put("delta.max-split-size", "10 MB")
                 .put("delta.minimum-assigned-split-weight", "0.01")
                 .put("delta.max-partitions-per-writer", "200")
+                .put("delta.s3.transaction-log-conditional-writes.enabled", "false")
                 .put("delta.enable-non-concurrent-writes", "true")
                 .put("delta.default-checkpoint-writing-interval", "15")
-                .put("delta.checkpoint-filtering.enabled", "false")
                 .put("delta.checkpoint-row-statistics-writing.enabled", "false")
                 .put("delta.vacuum.min-retention", "13h")
                 .put("delta.hive-catalog-name", "hive")
@@ -121,12 +119,12 @@ public class TestDeltaLakeConfig
                 .put("delta.deletion-vectors-enabled", "true")
                 .put("delta.fs.cache.disable-transaction-log-caching", "true")
                 .put("delta.metadata.parallelism", "10")
+                .put("delta.metadata.virtual-threads-enabled", "false")
                 .put("delta.checkpoint-processing.parallelism", "8")
+                .put("delta.load-metadata-from-checksum-file", "false")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
-                .setDataFileCacheSize(DataSize.succinctBytes(0))
-                .setDataFileCacheTtl(new Duration(60, MINUTES))
                 .setMetadataCacheTtl(new Duration(10, TimeUnit.MINUTES))
                 .setMetadataCacheMaxRetainedSize(DataSize.of(1, GIGABYTE))
                 .setTransactionLogMaxCachedFileSize(DataSize.of(1, MEGABYTE))
@@ -136,10 +134,10 @@ public class TestDeltaLakeConfig
                 .setMaxSplitSize(DataSize.of(10, DataSize.Unit.MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.01)
                 .setMaxPartitionsPerWriter(200)
+                .setS3TransactionLogConditionalWritesEnabled(false)
                 .setUnsafeWritesEnabled(true)
                 .setDefaultCheckpointWritingInterval(15)
                 .setCheckpointRowStatisticsWritingEnabled(false)
-                .setCheckpointFilteringEnabled(false)
                 .setVacuumMinRetention(new Duration(13, HOURS))
                 .setHiveCatalogName("hive")
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
@@ -160,9 +158,11 @@ public class TestDeltaLakeConfig
                 .setProjectionPushdownEnabled(false)
                 .setQueryPartitionFilterRequired(true)
                 .setDeletionVectorsEnabled(true)
-                .setDeltaLogFileSystemCacheDisabled(true)
+                .setDeltaLogBlobCacheDisabled(true)
                 .setMetadataParallelism(10)
-                .setCheckpointProcessingParallelism(8);
+                .setMetadataVirtualThreadsEnabled(false)
+                .setCheckpointProcessingParallelism(8)
+                .setLoadMetadataFromChecksumFile(false);
 
         assertFullMapping(properties, expected);
     }

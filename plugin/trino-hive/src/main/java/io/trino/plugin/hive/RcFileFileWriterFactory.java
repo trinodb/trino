@@ -26,13 +26,13 @@ import io.trino.hive.formats.encodings.text.TextEncodingOptions;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 
-import java.io.Closeable;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
@@ -134,7 +134,7 @@ public class RcFileFileWriterFactory
                 validationInputFactory = Optional.of(() -> fileSystem.newInputFile(location));
             }
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(location);
 
             return Optional.of(new RcFileFileWriter(
                     outputStream,

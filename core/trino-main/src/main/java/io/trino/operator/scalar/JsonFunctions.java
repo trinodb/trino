@@ -13,11 +13,11 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonParser.NumberType;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
-import com.google.common.primitives.Doubles;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.TrinoException;
@@ -36,7 +36,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
@@ -54,15 +53,17 @@ import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 
 public final class JsonFunctions
 {
-    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder()
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
             .disable(CANONICALIZE_FIELD_NAMES)
-            .build();
+            .build());
 
-    private static final JsonFactory MAPPING_JSON_FACTORY = new MappingJsonFactory()
-            .disable(CANONICALIZE_FIELD_NAMES);
+    private static final JsonMapper MAPPING_JSON_MAPPER = new JsonMapper(MappingJsonFactory.builder()
+            .disable(CANONICALIZE_FIELD_NAMES)
+            .build());
 
     private JsonFunctions() {}
 
+    // fallible
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JsonPathType.NAME)
     @LiteralParameters("x")
@@ -71,6 +72,7 @@ public final class JsonFunctions
         return new JsonPath(pattern.toStringUtf8());
     }
 
+    // fallible
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(JsonPathType.NAME)
@@ -91,7 +93,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isJsonScalar(@SqlType(StandardTypes.JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             JsonToken nextToken = parser.nextToken();
             if (nextToken == null) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
@@ -146,7 +148,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BIGINT)
     public static Long jsonArrayLength(@SqlType(StandardTypes.JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -183,7 +185,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -223,7 +225,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long value)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -264,11 +266,11 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        if (!Doubles.isFinite(value)) {
+        if (!Double.isFinite(value)) {
             return false;
         }
 
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -285,7 +287,7 @@ public final class JsonFunctions
 
                 // noinspection FloatingPointEquality
                 if ((token == VALUE_NUMBER_FLOAT) && (parser.getDoubleValue() == value) &&
-                        Doubles.isFinite(parser.getDoubleValue())) {
+                        Double.isFinite(parser.getDoubleValue())) {
                     return true;
                 }
             }
@@ -312,7 +314,7 @@ public final class JsonFunctions
     {
         String valueString = value.toStringUtf8();
 
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -356,7 +358,7 @@ public final class JsonFunctions
             return null;
         }
 
-        try (JsonParser parser = createJsonParser(MAPPING_JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(MAPPING_JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }

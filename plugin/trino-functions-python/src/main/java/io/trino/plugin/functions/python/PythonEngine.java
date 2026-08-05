@@ -13,16 +13,6 @@
  */
 package io.trino.plugin.functions.python;
 
-import com.dylibso.chicory.runtime.ExportFunction;
-import com.dylibso.chicory.runtime.HostFunction;
-import com.dylibso.chicory.runtime.ImportValues;
-import com.dylibso.chicory.runtime.Instance;
-import com.dylibso.chicory.runtime.Memory;
-import com.dylibso.chicory.wasi.WasiOptions;
-import com.dylibso.chicory.wasi.WasiPreview1;
-import com.dylibso.chicory.wasm.ChicoryException;
-import com.dylibso.chicory.wasm.WasmModule;
-import com.dylibso.chicory.wasm.types.FunctionType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.jimfs.Configuration;
@@ -39,6 +29,16 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.wasm.python.Python;
 import io.trino.wasm.python.PythonMachine;
+import run.endive.runtime.ExportFunction;
+import run.endive.runtime.HostFunction;
+import run.endive.runtime.ImportValues;
+import run.endive.runtime.Instance;
+import run.endive.runtime.Memory;
+import run.endive.wasi.WasiOptions;
+import run.endive.wasi.WasiPreview1;
+import run.endive.wasm.WasmEngineException;
+import run.endive.wasm.WasmModule;
+import run.endive.wasm.types.FunctionType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -52,7 +52,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.dylibso.chicory.wasm.types.ValType.I32;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.functions.python.TrinoTypes.binaryToJava;
@@ -65,12 +64,13 @@ import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static run.endive.wasm.types.ValType.I32;
 
 final class PythonEngine
         implements Closeable
 {
     private static final Logger log = Logger.get(PythonEngine.class);
-    private static final com.dylibso.chicory.log.Logger logger = JdkLogger.get(PythonEngine.class);
+    private static final run.endive.log.Logger logger = JdkLogger.get(PythonEngine.class);
 
     private static final Configuration FS_CONFIG = Configuration.unix().toBuilder()
             .setAttributeViews("unix")
@@ -141,7 +141,7 @@ final class PythonEngine
         try {
             doSetup(returnType, argumentTypes, handlerName);
         }
-        catch (ChicoryException e) {
+        catch (WasmEngineException e) {
             throw fatalError("Python error", e);
         }
     }
@@ -201,7 +201,7 @@ final class PythonEngine
         try {
             resultAddress = execute(argAddress);
         }
-        catch (ChicoryException e) {
+        catch (WasmEngineException e) {
             throw fatalError("Failed to invoke Python function", e);
         }
 
@@ -223,7 +223,7 @@ final class PythonEngine
         return binaryToJava(returnType, input);
     }
 
-    public TrinoException fatalError(String message, ChicoryException e)
+    public TrinoException fatalError(String message, WasmEngineException e)
     {
         String error = stderr.toString(UTF_8).strip();
         if (!error.isEmpty()) {

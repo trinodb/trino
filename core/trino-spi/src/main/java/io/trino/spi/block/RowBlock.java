@@ -22,11 +22,14 @@ import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.checkBitRange;
+import static io.trino.spi.block.Bitmap.compactBitmap;
+import static io.trino.spi.block.Bitmap.copyBitmapAndAppendUnset;
+import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.BlockUtil.arraySame;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -35,14 +38,14 @@ public final class RowBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(RowBlock.class);
 
+    private final int startOffset;
     private final int positionCount;
     @Nullable
-    private final boolean[] rowIsNull;
+    private final long[] valueIsValid;
     /**
      * Field blocks have the same position count as this row block. The field value of a null row must be null.
      */
     private final Block[] fieldBlocks;
-    private final List<Block> fieldBlocksList;
 
     private volatile long sizeInBytes = -1;
     private volatile long retainedSizeInBytes = -1;
@@ -52,106 +55,163 @@ public final class RowBlock
      */
     public static RowBlock fromFieldBlocks(int positionCount, Block[] fieldBlocks)
     {
-        return createRowBlockInternal(positionCount, null, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, null, fieldBlocks);
     }
 
     /**
      * Create a row block directly from field blocks that are not null-suppressed. The field value of a null row must be null.
      */
-    public static RowBlock fromNotNullSuppressedFieldBlocks(int positionCount, Optional<boolean[]> rowIsNullOptional, Block[] fieldBlocks)
+    public static RowBlock fromNotNullSuppressedFieldBlocks(int positionCount, Optional<long[]> valueIsValidOptional, Block[] fieldBlocks)
     {
         // verify that field values for null rows are null
-        if (rowIsNullOptional.isPresent()) {
-            boolean[] rowIsNull = rowIsNullOptional.get();
-            checkArrayRange(rowIsNull, 0, positionCount);
+        if (valueIsValidOptional.isPresent()) {
+            long[] valueIsValid = valueIsValidOptional.get();
+            checkBitRange(valueIsValid, 0, positionCount);
 
             for (int fieldIndex = 0; fieldIndex < fieldBlocks.length; fieldIndex++) {
                 Block field = fieldBlocks[fieldIndex];
                 for (int position = 0; position < positionCount; position++) {
-                    if (rowIsNull[position] && !field.isNull(position)) {
+                    if (!Bitmap.isSet(valueIsValid, 0, position) && !field.isNull(position)) {
                         throw new IllegalArgumentException(format("Field value for null row must be null: field %s, position %s", fieldIndex, position));
                     }
                 }
             }
         }
-        return createRowBlockInternal(positionCount, rowIsNullOptional.orElse(null), fieldBlocks);
+        return createRowBlockInternal(0, positionCount, valueIsValidOptional.orElse(null), fieldBlocks);
     }
 
-    static RowBlock createRowBlockInternal(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
+    static RowBlock createRowBlockInternal(int startOffset, int positionCount, @Nullable long[] valueIsValid, Block[] fieldBlocks)
     {
-        return new RowBlock(positionCount, rowIsNull, fieldBlocks);
+        return new RowBlock(startOffset, positionCount, valueIsValid, fieldBlocks);
     }
 
     /**
      * Use createRowBlockInternal or fromFieldBlocks instead of this method. The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private RowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
+    private RowBlock(int startOffset, int positionCount, @Nullable long[] valueIsValid, Block[] fieldBlocks)
     {
+        if (startOffset < 0) {
+            throw new IllegalArgumentException("startOffset is negative");
+        }
+
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
         }
 
-        if (rowIsNull != null && rowIsNull.length < positionCount) {
-            throw new IllegalArgumentException("rowIsNull length is less than positionCount");
-        }
+        checkBitRange(valueIsValid, startOffset, positionCount);
 
         requireNonNull(fieldBlocks, "fieldBlocks is null");
-        if (fieldBlocks.length == 0) {
-            throw new IllegalArgumentException("Row block must contain at least one field");
-        }
+        if (fieldBlocks.length > 0) {
+            int firstFieldBlockPositionCount = fieldBlocks[0].getPositionCount();
+            for (int i = 1; i < fieldBlocks.length; i++) {
+                if (firstFieldBlockPositionCount != fieldBlocks[i].getPositionCount()) {
+                    throw new IllegalArgumentException(format("length of field blocks differ: field 0: %s, block %s: %s", firstFieldBlockPositionCount, i, fieldBlocks[i].getPositionCount()));
+                }
+            }
 
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            if (positionCount != fieldBlocks[i].getPositionCount()) {
-                throw new IllegalArgumentException("Expected field %s to have %s positions but has %s positions".formatted(i, positionCount, fieldBlocks[i].getPositionCount()));
+            if (firstFieldBlockPositionCount - startOffset < positionCount) {
+                throw new IllegalArgumentException("fieldBlock length is less than positionCount");
             }
         }
 
+        this.startOffset = startOffset;
         this.positionCount = positionCount;
-        this.rowIsNull = positionCount == 0 ? null : rowIsNull;
+        this.valueIsValid = positionCount == 0 ? null : valueIsValid;
         this.fieldBlocks = fieldBlocks;
-        this.fieldBlocksList = List.of(fieldBlocks);
     }
 
-    Block[] getRawFieldBlocks()
-    {
-        return fieldBlocks;
-    }
-
+    /**
+     * Returns the field blocks for this row block's visible region.
+     * <p>
+     * If {@code startOffset == 0} and the field blocks already have {@code positionCount}
+     * positions, returns the underlying blocks as is. Otherwise, returns per-field
+     * region views created via {@link Block#getRegion(int, int)} using this block's
+     * {@code startOffset} and {@code positionCount}. No data is copied.
+     * </p>
+     *
+     * @return unmodifiable list of blocks covering the visible region
+     */
     public List<Block> getFieldBlocks()
     {
-        return fieldBlocksList;
+        if ((startOffset == 0) && (fieldBlocks[0].getPositionCount() == positionCount)) {
+            return List.of(fieldBlocks);
+        }
+        return Arrays.stream(fieldBlocks).map(block -> block.getRegion(startOffset, positionCount)).toList();
     }
 
     public Block getFieldBlock(int fieldIndex)
     {
+        if ((startOffset == 0) && (fieldBlocks[fieldIndex].getPositionCount() == positionCount)) {
+            return fieldBlocks[fieldIndex];
+        }
+        return fieldBlocks[fieldIndex].getRegion(startOffset, positionCount);
+    }
+
+    public Block[] getRawFieldBlocks()
+    {
+        return fieldBlocks;
+    }
+
+    public Block getRawFieldBlock(int fieldIndex)
+    {
         return fieldBlocks[fieldIndex];
+    }
+
+    public int getOffsetBase()
+    {
+        return startOffset;
+    }
+
+    /**
+     * Creates a projection by replacing the visible field blocks for this row block.
+     * The replacement fields must correspond to {@link #getFieldBlocks()}, not {@link #getRawFieldBlocks()}.
+     * The replacement field count may differ from this block's field count.
+     * If this block is zero-aligned, the existing validity bitmap is reused.
+     * Otherwise, the visible validity bits are normalized and the returned block has an offset base of zero.
+     */
+    public RowBlock createProjection(Block[] newVisibleFieldBlocks)
+    {
+        requireNonNull(newVisibleFieldBlocks, "newVisibleFieldBlocks is null");
+
+        for (int i = 0; i < newVisibleFieldBlocks.length; i++) {
+            Block fieldBlock = newVisibleFieldBlocks[i];
+            if (fieldBlock == null) {
+                throw new NullPointerException(format("newVisibleFieldBlocks[%s] is null", i));
+            }
+            if (fieldBlock.getPositionCount() != positionCount) {
+                throw new IllegalArgumentException(format("newVisibleFieldBlocks must have the same position count as this block; expected %s but field %s has %s", positionCount, i, fieldBlock.getPositionCount()));
+            }
+        }
+
+        if (startOffset == 0) {
+            return new RowBlock(0, positionCount, valueIsValid, newVisibleFieldBlocks);
+        }
+
+        long[] newValueIsValid = compactBitmap(valueIsValid, startOffset, positionCount);
+        return new RowBlock(0, positionCount, newValueIsValid, newVisibleFieldBlocks);
     }
 
     @Override
     public boolean mayHaveNull()
     {
-        return rowIsNull != null;
+        return valueIsValid != null;
     }
 
     @Override
     public boolean hasNull()
     {
-        if (rowIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (rowIsNull[i]) {
-                return true;
-            }
-        }
-        return false;
+        return Bitmap.hasUnsetBit(valueIsValid, startOffset, positionCount);
     }
 
+    /// Returns raw validity bitmap words using the [Bitmap] encoding, or null if all positions are valid.
+    ///
+    /// The returned array is raw block storage. Use [getValidityBitmap()] unless the caller already has the matching
+    /// raw bit offset.
     @Nullable
-    boolean[] getRawRowIsNull()
+    public long[] getRawValueIsValid()
     {
-        return rowIsNull;
+        return valueIsValid;
     }
 
     @Override
@@ -169,7 +229,7 @@ public final class RowBlock
 
         long sizeInBytes = Byte.BYTES * (long) positionCount;
         for (Block fieldBlock : fieldBlocks) {
-            sizeInBytes += fieldBlock.getSizeInBytes();
+            sizeInBytes += fieldBlock.getRegionSizeInBytes(startOffset, positionCount);
         }
         this.sizeInBytes = sizeInBytes;
         return sizeInBytes;
@@ -180,7 +240,7 @@ public final class RowBlock
     {
         long retainedSizeInBytes = this.retainedSizeInBytes;
         if (retainedSizeInBytes < 0) {
-            retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlocks) + sizeOf(rowIsNull);
+            retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlocks) + sizeOf(valueIsValid);
             for (Block fieldBlock : fieldBlocks) {
                 retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
             }
@@ -195,36 +255,28 @@ public final class RowBlock
         for (Block fieldBlock : fieldBlocks) {
             consumer.accept(fieldBlock, fieldBlock.getRetainedSizeInBytes());
         }
-        if (rowIsNull != null) {
-            consumer.accept(rowIsNull, sizeOf(rowIsNull));
+        if (valueIsValid != null) {
+            consumer.accept(valueIsValid, sizeOf(valueIsValid));
         }
+        consumer.accept(fieldBlocks, sizeOf(fieldBlocks));
         consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
     public String toString()
     {
-        return format("RowBlock{fieldCount=%d, positionCount=%d}", fieldBlocks.length, positionCount);
+        return format("RowBlock{startOffset=%d, fieldCount=%d, positionCount=%d}", startOffset, fieldBlocks.length, positionCount);
     }
 
     @Override
     public RowBlock copyWithAppendedNull()
     {
-        boolean[] newRowIsNull;
-        if (rowIsNull != null) {
-            newRowIsNull = Arrays.copyOf(rowIsNull, positionCount + 1);
-        }
-        else {
-            newRowIsNull = new boolean[positionCount + 1];
-        }
-        // mark the (new) last element as null
-        newRowIsNull[positionCount] = true;
-
+        long[] newValueIsValid = copyBitmapAndAppendUnset(valueIsValid, startOffset, positionCount);
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].copyWithAppendedNull();
         }
-        return new RowBlock(positionCount + 1, newRowIsNull, newBlocks);
+        return new RowBlock(startOffset, positionCount + 1, newValueIsValid, newBlocks);
     }
 
     @Override
@@ -234,24 +286,29 @@ public final class RowBlock
 
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < newBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].copyPositions(positions, offset, length);
+            Block fieldBlock = fieldBlocks[i];
+            // If the row block has a non-zero starting offset, we have to create a temporary field block starting
+            // from the correct offset before copying positions
+            if (startOffset != 0) {
+                fieldBlock = fieldBlock.getRegion(startOffset, positionCount);
+            }
+            newBlocks[i] = fieldBlock.copyPositions(positions, offset, length);
         }
 
-        boolean[] newRowIsNull = null;
-        if (rowIsNull != null) {
-            boolean hasNull = false;
-            newRowIsNull = new boolean[length];
+        long[] newValueIsValid = null;
+        if (valueIsValid != null) {
+            newValueIsValid = new long[Bitmap.wordsForBits(length)];
             for (int i = 0; i < length; i++) {
-                boolean isNull = rowIsNull[positions[offset + i]];
-                newRowIsNull[i] = isNull;
-                hasNull |= isNull;
+                if (Bitmap.isSet(valueIsValid, startOffset, positions[offset + i])) {
+                    set(newValueIsValid, 0, i);
+                }
             }
-            if (!hasNull) {
-                newRowIsNull = null;
+            if (!Bitmap.hasUnsetBit(newValueIsValid, 0, length)) {
+                newValueIsValid = null;
             }
         }
 
-        return new RowBlock(length, newRowIsNull, newBlocks);
+        return new RowBlock(0, length, newValueIsValid, newBlocks);
     }
 
     @Override
@@ -259,15 +316,7 @@ public final class RowBlock
     {
         checkValidRegion(positionCount, positionOffset, length);
 
-        // This copies the null array, but this dramatically simplifies this class.
-        // Without a copy here, we would need a null array offset, and that would mean that the
-        // null array would be offset while the field blocks are not offset, which is confusing.
-        boolean[] newRowIsNull = compactIsNull(rowIsNull, positionOffset, length);
-        Block[] newBlocks = new Block[fieldBlocks.length];
-        for (int i = 0; i < newBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].getRegion(positionOffset, length);
-        }
-        return new RowBlock(length, newRowIsNull, newBlocks);
+        return new RowBlock(startOffset + positionOffset, length, valueIsValid, fieldBlocks);
     }
 
     @Override
@@ -277,7 +326,7 @@ public final class RowBlock
 
         long regionSizeInBytes = Byte.BYTES * (long) length;
         for (Block fieldBlock : fieldBlocks) {
-            regionSizeInBytes += fieldBlock.getRegionSizeInBytes(position, length);
+            regionSizeInBytes += fieldBlock.getRegionSizeInBytes(startOffset + position, length);
         }
         return regionSizeInBytes;
     }
@@ -289,42 +338,42 @@ public final class RowBlock
 
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].copyRegion(positionOffset, length);
+            newBlocks[i] = fieldBlocks[i].copyRegion(startOffset + positionOffset, length);
         }
 
-        boolean[] newRowIsNull = compactIsNull(rowIsNull, positionOffset, length);
-        if (newRowIsNull == rowIsNull && arraySame(newBlocks, fieldBlocks)) {
+        long[] newValueIsValid = compactBitmap(valueIsValid, startOffset + positionOffset, length);
+        if (startOffset == 0 && newValueIsValid == valueIsValid && arraySame(newBlocks, fieldBlocks)) {
             return this;
         }
-        return new RowBlock(length, newRowIsNull, newBlocks);
+        return new RowBlock(0, length, newValueIsValid, newBlocks);
     }
 
     public SqlRow getRow(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         if (isNull(position)) {
             throw new IllegalStateException("Position is null");
         }
-        return new SqlRow(position, fieldBlocks);
+        return new SqlRow(startOffset + position, fieldBlocks);
     }
 
     @Override
     public RowBlock getSingleValueBlock(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].getSingleValueBlock(position);
+            newBlocks[i] = fieldBlocks[i].getSingleValueBlock(startOffset + position);
         }
-        boolean[] newRowIsNull = isNull(position) ? new boolean[] {true} : null;
-        return new RowBlock(1, newRowIsNull, newBlocks);
+        long[] newValueIsValid = isNull(position) ? new long[] {0} : null;
+        return new RowBlock(0, 1, newValueIsValid, newBlocks);
     }
 
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
 
         if (isNull(position)) {
             return 0;
@@ -332,7 +381,7 @@ public final class RowBlock
 
         long size = 0;
         for (Block fieldBlock : fieldBlocks) {
-            size += fieldBlock.getEstimatedDataSizeForStats(position);
+            size += fieldBlock.getEstimatedDataSizeForStats(startOffset + position);
         }
         return size;
     }
@@ -340,8 +389,11 @@ public final class RowBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(this, position);
-        return rowIsNull != null && rowIsNull[position];
+        if (!mayHaveNull()) {
+            return false;
+        }
+        checkValidPosition(position, positionCount);
+        return !Bitmap.isSet(valueIsValid, startOffset, position);
     }
 
     /**
@@ -353,13 +405,13 @@ public final class RowBlock
     {
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
             RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(fieldBlock -> RunLengthEncodedBlock.create(fieldBlock, runLengthEncodedBlock.getPositionCount()))
                     .toList();
         }
         if (block instanceof DictionaryBlock dictionaryBlock) {
             RowBlock rowBlock = (RowBlock) dictionaryBlock.getDictionary();
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(dictionaryBlock::createProjection)
                     .toList();
         }
@@ -386,7 +438,7 @@ public final class RowBlock
                 throw new IllegalStateException("Expected run length encoded block value to be null");
             }
             // all values are null, so return a zero-length block of the correct type
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(fieldBlock -> fieldBlock.getRegion(0, 0))
                     .toList();
         }
@@ -401,7 +453,7 @@ public final class RowBlock
             }
             int nonNullPositionCount = idCount;
             RowBlock rowBlock = (RowBlock) dictionaryBlock.getDictionary();
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(field -> DictionaryBlock.create(nonNullPositionCount, field, newIds))
                     .toList();
         }
@@ -415,7 +467,7 @@ public final class RowBlock
                 }
             }
             int nonNullPositionCount = idCount;
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(field -> DictionaryBlock.create(nonNullPositionCount, field, nonNullPositions))
                     .toList();
         }
@@ -429,8 +481,11 @@ public final class RowBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(rowIsNull, 0, positionCount);
+        if (valueIsValid == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new Bitmap(valueIsValid, startOffset, positionCount));
     }
 }

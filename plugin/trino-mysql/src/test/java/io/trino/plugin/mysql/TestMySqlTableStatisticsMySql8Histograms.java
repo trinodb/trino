@@ -33,8 +33,7 @@ public class TestMySqlTableStatisticsMySql8Histograms
 {
     public TestMySqlTableStatisticsMySql8Histograms()
     {
-        super(
-                DEFAULT_IMAGE_8,
+        super(DEFAULT_IMAGE_8,
                 Function.identity(),
                 Function.identity());
     }

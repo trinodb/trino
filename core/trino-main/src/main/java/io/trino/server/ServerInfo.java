@@ -14,8 +14,8 @@
 package io.trino.server;
 
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
 import io.trino.node.NodeState;
+import io.trino.spi.NodeVersion;
 
 import java.util.Optional;
 

@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +34,7 @@ public class DbSourceExactMatchSelector
         implements ResourceGroupSelector
 {
     private static final Logger log = Logger.get(DbSourceExactMatchSelector.class);
-    private static final JsonCodec<ResourceGroupId> resourceGroupIdCodec = JsonCodec.jsonCodec(ResourceGroupId.class);
+    private static final JsonCodec<ResourceGroupId> resourceGroupIdCodec = jsonCodec(ResourceGroupId.class);
     private final ResourceGroupsDao dao;
     private final String environment;
     private final AtomicReference<Long> daoOfflineStart = new AtomicReference<>();

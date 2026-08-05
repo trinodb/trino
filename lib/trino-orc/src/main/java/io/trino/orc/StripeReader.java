@@ -135,7 +135,7 @@ public class StripeReader
 
         // handle stripes with more than one row group
         boolean invalidCheckPoint = false;
-        if (rowsInRowGroup.isPresent() && stripe.getNumberOfRows() > rowsInRowGroup.getAsInt()) {
+        if (rowsInRowGroup.isPresent() && stripe.getNumberOfRows() > rowsInRowGroup.orElseThrow()) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
@@ -264,7 +264,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
         for (Entry<StreamId, DiskRange> entry : diskRanges.entrySet()) {
             DiskRange diskRange = entry.getValue();
-            diskRangesBuilder.put(entry.getKey(), new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength()));
+            diskRangesBuilder.put(entry.getKey(), new DiskRange(stripeOffset + diskRange.offset(), diskRange.length()));
         }
         diskRanges = diskRangesBuilder.buildOrThrow();
 

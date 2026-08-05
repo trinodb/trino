@@ -14,7 +14,6 @@
 package io.trino.faulttolerant.iceberg;
 
 import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
@@ -40,10 +39,7 @@ public class TestIcebergFaultTolerantExecutionTest
 
         return IcebergQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
                 .build();
     }
 }

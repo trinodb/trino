@@ -42,7 +42,7 @@ import java.util.stream.IntStream;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -65,13 +65,6 @@ public class BenchmarkGroupedTypedHistogram
         //        @Param({"1", "5", "50"})
         @Param("32") // size of entries--we have no idea here, could be 8 long (common in anecdotal) or longer strings
         private int rowSize;
-        // these must be manually set in each class now; the mechanism to change and test was removed; the enum was kept in case we want to revisit. Retesting showed linear was superior
-        //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
-//        @Param({"LINEAR"}) // found to be best, by about 10-15%
-//        private ProbeType mainProbeTyepe;
-//        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
-//        @Param({"LINEAR"}) // found to best
-//        private ProbeType valueStoreProbeType;
 
         private final Random random = new Random();
         private Page[] pages;
@@ -92,7 +85,7 @@ public class BenchmarkGroupedTypedHistogram
                 for (int i = 0; i < rowCount; i++) {
                     // makes sure rows don't exceed rowSize
                     String str = String.valueOf(i % 10);
-                    String item = IntStream.range(0, rowSize).mapToObj(x -> str).collect(Collectors.joining());
+                    String item = IntStream.range(0, rowSize).mapToObj(_ -> str).collect(Collectors.joining());
                     boolean distinctValue = random.nextDouble() < distinctFraction;
 
                     if (distinctValue) {
@@ -148,16 +141,11 @@ public class BenchmarkGroupedTypedHistogram
         testSharedGroupWithLargeBlocksRunner(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkGroupedTypedHistogram.class)
                 .withOptions(optionsBuilder -> optionsBuilder.addProfiler(GCProfiler.class))
                 .run();
-    }
-
-    public enum ProbeType
-    {
-        LINEAR, SUM_OF_COUNT, SUM_OF_SQUARE
     }
 }

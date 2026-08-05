@@ -35,9 +35,9 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -86,7 +86,7 @@ public class IcebergTablesSystemTable
 
         Domain schemaDomain = constraint.getDomain(0, VARCHAR);
 
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
+        List<String> schemaFilter = tryGetVarcharValues(schemaDomain);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             TrinoCatalog catalog = catalogFactory.create(connectorSession.getIdentity());
@@ -99,12 +99,16 @@ public class IcebergTablesSystemTable
         }
     }
 
-    private static <T> Optional<String> tryGetSingleVarcharValue(Domain domain)
+    private static List<String> tryGetVarcharValues(Domain domain)
     {
-        if (!domain.isSingleValue()) {
-            return Optional.empty();
+        if (domain.isSingleValue()) {
+            return ImmutableList.of(((Slice) domain.getSingleValue()).toStringUtf8());
         }
-        Object value = domain.getSingleValue();
-        return Optional.of(((Slice) value).toStringUtf8());
+        if (domain.isNullableDiscreteSet()) {
+            return domain.getNullableDiscreteSet().getNonNullValues().stream()
+                    .map(value -> ((Slice) value).toStringUtf8())
+                    .collect(toImmutableList());
+        }
+        return ImmutableList.of();
     }
 }

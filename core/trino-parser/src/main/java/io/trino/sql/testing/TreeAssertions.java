@@ -88,8 +88,10 @@ public final class TreeAssertions
     {
         Joiner joiner = Joiner.on("\n    ");
         return "Actual [%s]:%n    %s%nExpected [%s]:%n    %s%n".formatted(
-                actual.size(), joiner.join(actual),
-                expected.size(), joiner.join(expected));
+                actual.size(),
+                joiner.join(actual),
+                expected.size(),
+                joiner.join(expected));
     }
 
     private static <T> int differingIndex(List<T> actual, List<T> expected)

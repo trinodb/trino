@@ -15,6 +15,7 @@ package io.trino.operator.join;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.TaskContext;
+import io.trino.operator.join.spilling.PartitionedConsumption;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -40,11 +41,11 @@ public interface LookupSourceFactory
         return immediateFuture(new PartitionedConsumption<>(
                 1,
                 emptyList(),
-                i -> {
+                _ -> {
                     throw new UnsupportedOperationException();
                 },
-                i -> {},
-                i -> {
+                _ -> {},
+                _ -> {
                     throw new UnsupportedOperationException();
                 }));
     }

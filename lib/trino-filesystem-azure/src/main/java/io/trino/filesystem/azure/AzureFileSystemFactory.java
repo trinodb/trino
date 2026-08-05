@@ -21,6 +21,7 @@ import com.azure.core.util.HttpClientOptions;
 import com.azure.core.util.TracingOptions;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.nio.NioIoHandler;
@@ -31,11 +32,15 @@ import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import reactor.netty.resources.ConnectionProvider;
 
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.filesystem.azure.AzureFileSystemConstants.EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -68,6 +73,9 @@ public class AzureFileSystemFactory
                 config.getMaxWriteConcurrency(),
                 config.getMaxSingleUploadSize(),
                 config.getMaxHttpRequests(),
+                config.getMaxHttpConnections(),
+                config.getConnectionPoolMaxIdleTime(),
+                config.getHttpRequestTimeout(),
                 config.getApplicationId(),
                 config.isMultipartWriteEnabled());
     }
@@ -81,6 +89,9 @@ public class AzureFileSystemFactory
             int maxWriteConcurrency,
             DataSize maxSingleUploadSize,
             int maxHttpRequests,
+            int maxHttpConnections,
+            Duration connectionPoolMaxIdleTime,
+            Duration httpRequestTimeout,
             String applicationId,
             boolean multipart)
     {
@@ -91,15 +102,23 @@ public class AzureFileSystemFactory
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
         this.maxWriteConcurrency = maxWriteConcurrency;
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
+        requireNonNull(connectionPoolMaxIdleTime, "connectionPoolMaxIdleTime is null");
+        requireNonNull(httpRequestTimeout, "httpRequestTimeout is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
-        this.connectionProvider = ConnectionProvider.create(applicationId, maxHttpRequests);
+        this.connectionProvider = ConnectionProvider.builder(applicationId)
+                .maxConnections(maxHttpConnections)
+                .maxIdleTime(connectionPoolMaxIdleTime.toJavaTime())
+                .build();
         this.eventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
         clientOptions.setApplicationId(applicationId);
+        clientOptions.setMaximumConnectionPoolSize(maxHttpConnections);
         httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
         this.multipart = multipart;
-        this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(maxHttpRequests);
+        this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(
+                maxHttpRequests,
+                httpRequestTimeout.toJavaTime());
     }
 
     @PreDestroy
@@ -127,7 +146,19 @@ public class AzureFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
+        AzureAuth effectiveAuth = getEffectiveAuth(identity);
+        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
+    }
+
+    private AzureAuth getEffectiveAuth(ConnectorIdentity identity)
+    {
+        Map<String, String> sasTokens = identity.getExtraCredentials().entrySet().stream()
+                .filter(e -> e.getKey().startsWith(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX))
+                .collect(toImmutableMap(e -> e.getKey().substring(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX.length()), Entry::getValue));
+        if (!sasTokens.isEmpty()) {
+            return new AzureAuthSasToken(sasTokens);
+        }
+        return auth;
     }
 
     public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, EventLoopGroup eventLoopGroup, HttpClientOptions clientOptions)

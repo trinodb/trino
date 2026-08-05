@@ -14,7 +14,7 @@
 package io.trino.plugin.httpquery;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
+import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import org.junit.jupiter.api.Test;
 
@@ -29,10 +29,11 @@ final class TestHttpEventListenerPlugin
 
         EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());
         factory.create(
-                ImmutableMap.<String, String>builder()
-                        .put("http-event-listener.connect-ingest-uri", "http://localhost:8080")
-                        .put("bootstrap.quiet", "true")
-                        .buildOrThrow(), new TestingEventListenerContext())
+                        ImmutableMap.<String, String>builder()
+                                .put("http-event-listener.connect-ingest-uri", "http://localhost:8080")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingEventListenerContext())
                 .shutdown();
     }
 }

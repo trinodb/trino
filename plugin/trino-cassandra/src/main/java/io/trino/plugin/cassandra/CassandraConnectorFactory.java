@@ -16,7 +16,7 @@ package io.trino.plugin.cassandra;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -44,13 +44,15 @@ public class CassandraConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
-                binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
+                "io.trino.bootstrap.catalog." + catalogName,
+                new ConnectorContextModule(catalogName, context),
                 new MBeanModule(),
                 new JsonModule(),
-                new CassandraClientModule(context.getTypeManager()),
+                new CassandraClientModule(),
                 new MBeanServerModule());
 
         Injector injector = app.doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

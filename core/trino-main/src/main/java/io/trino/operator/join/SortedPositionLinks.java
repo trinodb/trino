@@ -83,7 +83,7 @@ public final class SortedPositionLinks
             // make sure that from value is the smaller one
             if (comparator.compare(from, to) > 0) {
                 // _from_ is larger so, just add to current chain _to_
-                positionLinks.computeIfAbsent(to, key -> new IntArrayList()).add(from);
+                positionLinks.computeIfAbsent(to, _ -> new IntArrayList()).add(from);
                 return to;
             }
             // _to_ is larger so, move the chain to _from_

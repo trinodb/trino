@@ -33,6 +33,7 @@ import io.trino.execution.DenyTask;
 import io.trino.execution.DropBranchTask;
 import io.trino.execution.DropCatalogTask;
 import io.trino.execution.DropColumnTask;
+import io.trino.execution.DropDefaultValueTask;
 import io.trino.execution.DropFunctionTask;
 import io.trino.execution.DropMaterializedViewTask;
 import io.trino.execution.DropNotNullConstraintTask;
@@ -57,6 +58,7 @@ import io.trino.execution.RevokeTask;
 import io.trino.execution.RollbackTask;
 import io.trino.execution.SetAuthorizationTask;
 import io.trino.execution.SetColumnTypeTask;
+import io.trino.execution.SetDefaultValueTask;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetRoleTask;
@@ -89,6 +91,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropNotNullConstraint;
@@ -119,6 +122,7 @@ import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
+import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -242,6 +246,8 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Revoke.class, RevokeTask.class))
             .add(dataDefinitionStatement(RevokeRoles.class, RevokeRolesTask.class))
             .add(dataDefinitionStatement(Rollback.class, RollbackTask.class))
+            .add(dataDefinitionStatement(SetDefaultValue.class, SetDefaultValueTask.class))
+            .add(dataDefinitionStatement(DropDefaultValue.class, DropDefaultValueTask.class))
             .add(dataDefinitionStatement(SetColumnType.class, SetColumnTypeTask.class))
             .add(dataDefinitionStatement(DropNotNullConstraint.class, DropNotNullConstraintTask.class))
             .add(dataDefinitionStatement(SetPath.class, SetPathTask.class))
@@ -270,10 +276,10 @@ public final class StatementUtils
         // ExplainAnalyze is special because it has the type of the target query.
         // It is thus not in STATEMENT_QUERY_TYPES and must be added here.
         return Stream.concat(
-                Stream.of(ExplainAnalyze.class),
-                STATEMENT_QUERY_TYPES.entrySet().stream()
-                        .filter(entry -> entry.getValue().getQueryType() != DATA_DEFINITION)
-                        .map(Map.Entry::getKey))
+                        Stream.of(ExplainAnalyze.class),
+                        STATEMENT_QUERY_TYPES.entrySet().stream()
+                                .filter(entry -> entry.getValue().getQueryType() != DATA_DEFINITION)
+                                .map(Map.Entry::getKey))
                 .collect(toImmutableSet());
     }
 
@@ -320,7 +326,8 @@ public final class StatementUtils
         private final QueryType queryType;
         private final Optional<Class<? extends DataDefinitionTask<T>>> taskType;
 
-        private StatementTypeInfo(Class<T> statementType,
+        private StatementTypeInfo(
+                Class<T> statementType,
                 QueryType queryType,
                 Optional<Class<? extends DataDefinitionTask<T>>> taskType)
         {

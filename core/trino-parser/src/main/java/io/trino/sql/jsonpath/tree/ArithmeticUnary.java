@@ -46,6 +46,6 @@ public class ArithmeticUnary
     public enum Sign
     {
         PLUS,
-        MINUS
+        MINUS,
     }
 }

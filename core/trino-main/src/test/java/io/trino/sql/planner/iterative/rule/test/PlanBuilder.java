@@ -41,7 +41,7 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
@@ -112,6 +112,7 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
@@ -432,7 +433,7 @@ public class PlanBuilder
 
         private AggregationBuilder addAggregation(Symbol output, AggregationFunction aggregation, List<Type> inputTypes, Optional<Symbol> mask)
         {
-            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
+            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeDescriptorProvider.fromTypes(inputTypes), new AllowAllAccessControl());
             return addAggregation(output, new Aggregation(
                     resolvedFunction,
                     aggregation.arguments(),
@@ -509,7 +510,7 @@ public class PlanBuilder
 
     public ApplyNode apply(Map<Symbol, ApplyNode.SetExpression> subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        io.trino.sql.tree.NullLiteral originSubquery = new io.trino.sql.tree.NullLiteral(); // does not matter for tests
+        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);
     }
 
@@ -525,7 +526,7 @@ public class PlanBuilder
 
     public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, JoinType type, Expression filter, PlanNode subquery)
     {
-        io.trino.sql.tree.NullLiteral originSubquery = new io.trino.sql.tree.NullLiteral(); // does not matter for tests
+        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new CorrelatedJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
     }
 
@@ -691,7 +692,7 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 target,
-                rowCountSymbol,
+                ImmutableList.of(rowCountSymbol),
                 Optional.empty(),
                 Optional.empty());
     }
@@ -918,8 +919,8 @@ public class PlanBuilder
                     ImmutableList.copyOf(outputSymbols),
                     false,
                     Optional.empty(),
-                    Optional.empty(),
-                    Optional.of(partitionCount)));
+                    OptionalInt.empty(),
+                    OptionalInt.of(partitionCount)));
         }
 
         public ExchangeBuilder fixedArbitraryDistributionPartitioningScheme(List<Symbol> outputSymbols, int partitionCount)
@@ -930,8 +931,8 @@ public class PlanBuilder
                     ImmutableList.copyOf(outputSymbols),
                     false,
                     Optional.empty(),
-                    Optional.empty(),
-                    Optional.of(partitionCount)));
+                    OptionalInt.empty(),
+                    OptionalInt.of(partitionCount)));
         }
 
         public ExchangeBuilder partitioningScheme(PartitioningScheme partitioningScheme)
@@ -1226,6 +1227,7 @@ public class PlanBuilder
                         new TableExecuteHandle(
                                 TEST_CATALOG_HANDLE,
                                 TestingTransactionHandle.create(),
+                                new TestingTableHandle(),
                                 new TestingTableExecuteHandle()),
                         Optional.empty(),
                         new SchemaTableName("schemaName", "tableName"),
@@ -1243,7 +1245,6 @@ public class PlanBuilder
             List<PlanNode> sources,
             List<TableArgumentProperties> tableArgumentProperties,
             List<List<String>> copartitioningLists)
-
     {
         return new TableFunctionNode(
                 idAllocator.getNextId(),
@@ -1279,7 +1280,7 @@ public class PlanBuilder
 
     public Aggregation aggregation(AggregationFunction aggregation, List<Type> inputTypes)
     {
-        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
+        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeDescriptorProvider.fromTypes(inputTypes), new AllowAllAccessControl());
         return new Aggregation(
                 resolvedFunction,
                 aggregation.arguments(),

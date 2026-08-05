@@ -35,7 +35,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TokenFetchingMetastoreClientFactory
         implements IdentityAwareMetastoreClientFactory
@@ -60,7 +59,7 @@ public class TokenFetchingMetastoreClientFactory
 
         this.delegationTokenCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toMillis(), MILLISECONDS)
+                        .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toJavaTime())
                         .maximumSize(thriftConfig.getDelegationTokenCacheMaximumSize()),
                 CacheLoader.from(this::loadDelegationToken));
         this.refreshPeriod = Duration.ofMinutes(1).toNanos();

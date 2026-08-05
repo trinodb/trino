@@ -35,10 +35,38 @@ public final class LongDecode
 
     enum FixedBitSizes
     {
-        ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, ELEVEN, TWELVE,
-        THIRTEEN, FOURTEEN, FIFTEEN, SIXTEEN, SEVENTEEN, EIGHTEEN, NINETEEN,
-        TWENTY, TWENTY_ONE, TWENTY_TWO, TWENTY_THREE, TWENTY_FOUR, TWENTY_SIX,
-        TWENTY_EIGHT, THIRTY, THIRTY_TWO, FORTY, FORTY_EIGHT, FIFTY_SIX, SIXTY_FOUR
+        ONE,
+        TWO,
+        THREE,
+        FOUR,
+        FIVE,
+        SIX,
+        SEVEN,
+        EIGHT,
+        NINE,
+        TEN,
+        ELEVEN,
+        TWELVE,
+        THIRTEEN,
+        FOURTEEN,
+        FIFTEEN,
+        SIXTEEN,
+        SEVENTEEN,
+        EIGHTEEN,
+        NINETEEN,
+        TWENTY,
+        TWENTY_ONE,
+        TWENTY_TWO,
+        TWENTY_THREE,
+        TWENTY_FOUR,
+        TWENTY_SIX,
+        TWENTY_EIGHT,
+        THIRTY,
+        THIRTY_TWO,
+        FORTY,
+        FORTY_EIGHT,
+        FIFTY_SIX,
+        SIXTY_FOUR,
     }
 
     /**
@@ -164,7 +192,7 @@ public final class LongDecode
                 output.write((byte) value);
                 return;
             }
-            output.write((byte) (0x80 | (value & 0x7f)));
+            output.write((byte) (0x80 | (value & 0x7F)));
             value >>>= 7;
         }
     }

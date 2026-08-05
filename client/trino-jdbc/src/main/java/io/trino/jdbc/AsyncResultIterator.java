@@ -67,15 +67,15 @@ public class AsyncResultIterator
         this.cancelled = false;
         this.finished = false;
         this.future = executorService.submit(() -> {
+            int rowsProcessed = 0;
             try {
-                int rowsProcessed = 0;
                 do {
                     QueryStatusInfo results = client.currentStatusInfo();
                     progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
                     warningsManager.addWarnings(results.getWarnings());
                     for (List<Object> row : client.currentRows()) {
                         rowQueue.put(row);
-                        if (rowsProcessed++ % BATCH_SIZE == 0) {
+                        if (++rowsProcessed == BATCH_SIZE) {
                             semaphore.release(rowsProcessed);
                             rowsProcessed = 0;
                         }
@@ -84,6 +84,7 @@ public class AsyncResultIterator
                 while (!cancelled && client.advance());
                 if (rowsProcessed > 0) {
                     semaphore.release(rowsProcessed);
+                    rowsProcessed = 0;
                 }
 
                 verify(client.isFinished());
@@ -99,6 +100,9 @@ public class AsyncResultIterator
                 throw new RuntimeException(new SQLException("ResultSet thread was interrupted", e));
             }
             finally {
+                if (rowsProcessed > 0) {
+                    semaphore.release(rowsProcessed);
+                }
                 finished = true;
                 semaphore.release();
             }

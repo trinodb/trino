@@ -87,7 +87,7 @@ public class LongInputStreamV2
             throws IOException
     {
         // extract the number of fixed bits
-        int fixedBits = (firstByte >>> 1) & 0x1f;
+        int fixedBits = (firstByte >>> 1) & 0x1F;
         if (fixedBits != 0) {
             fixedBits = LongDecode.decodeBitWidth(fixedBits);
         }

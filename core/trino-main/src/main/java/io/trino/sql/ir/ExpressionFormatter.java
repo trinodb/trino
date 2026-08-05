@@ -16,6 +16,8 @@ package io.trino.sql.ir;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.RowType;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -23,6 +25,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -67,9 +70,19 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return node.items().stream()
-                    .map(child -> process(child, context))
-                    .collect(joining(", ", "ROW (", ")"));
+            List<RowType.Field> fieldTypes = ((RowType) node.type()).getFields();
+
+            StringBuilder builder = new StringBuilder();
+            builder.append("ROW (");
+            for (int i = 0; i < fieldTypes.size(); i++) {
+                if (i > 0) {
+                    builder.append(", ");
+                }
+                builder.append(node.items().get(i).accept(this, context));
+                fieldTypes.get(i).getName().ifPresent(name -> builder.append(" AS ").append(name));
+            }
+            builder.append(")");
+            return builder.toString();
         }
 
         @Override
@@ -102,8 +115,14 @@ public final class ExpressionFormatter
         @Override
         protected String visitCall(Call node, Void context)
         {
+            // Render comparisons with their infix operator (e.g. (a = b)) rather than as a raw
+            // operator-function call, keeping plan and EXPLAIN output readable.
+            if (matchComparison(node) instanceof Comparison comparison) {
+                return "(" + process(comparison.left(), context) + " " + comparison.operator().getValue() + " " + process(comparison.right(), context) + ")";
+            }
+
             String name = isBuiltinFunctionName(node.function().name()) ?
-                    node.function().name().getFunctionName() :
+                    node.function().name().functionName() :
                     node.function().name().toString();
 
             return name + '(' + joinExpressions(node.arguments()) + ')';
@@ -149,6 +168,15 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitLet(Let node, Void context)
+        {
+            return "LET(%s = %s, %s)".formatted(
+                    node.name(),
+                    process(node.value(), context),
+                    process(node.body(), context));
+        }
+
+        @Override
         protected String visitLogical(Logical node, Void context)
         {
             return "(" +
@@ -159,21 +187,9 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitComparison(Comparison node, Void context)
-        {
-            return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());
-        }
-
-        @Override
         protected String visitIsNull(IsNull node, Void context)
         {
             return "(" + process(node.value(), context) + " IS NULL)";
-        }
-
-        @Override
-        protected String visitNullIf(NullIf node, Void context)
-        {
-            return "NULLIF(" + process(node.first(), context) + ", " + process(node.second(), context) + ')';
         }
 
         @Override
@@ -204,15 +220,15 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSwitch(Switch node, Void context)
+        protected String visitMatch(Match node, Void context)
         {
             ImmutableList.Builder<String> parts = ImmutableList.builder();
 
             parts.add("CASE")
                     .add(process(node.operand(), context));
 
-            for (WhenClause whenClause : node.whenClauses()) {
-                parts.add(format(whenClause, context));
+            for (MatchClause clause : node.clauses()) {
+                parts.add(format(clause, context));
             }
 
             parts.add("ELSE").add(process(node.defaultValue(), context));
@@ -226,22 +242,17 @@ public final class ExpressionFormatter
             return "WHEN " + process(node.getOperand(), context) + " THEN " + process(node.getResult(), context);
         }
 
-        @Override
-        protected String visitBetween(Between node, Void context)
+        protected String format(MatchClause node, Void context)
         {
-            return "(" + process(node.value(), context) + " BETWEEN " +
-                    process(node.min(), context) + " AND " + process(node.max(), context) + ")";
+            // The clause predicate is a Lambda (or Bind around one) over the match operand; render
+            // its body as the WHEN predicate rather than the lambda wrapper itself.
+            return "WHEN " + process(node.lambda().body(), context) + " THEN " + process(node.result(), context);
         }
 
         @Override
         protected String visitIn(In node, Void context)
         {
             return "(" + process(node.value(), context) + " IN (" + joinExpressions(node.valueList()) + "))";
-        }
-
-        private String formatBinaryExpression(String operator, Expression left, Expression right)
-        {
-            return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
         }
 
         private String joinExpressions(List<Expression> expressions)

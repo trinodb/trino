@@ -155,7 +155,7 @@ public class TestHiveMetadataListing
                 .setCreateTpchSchemas(false)
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.hive-views.enabled", "true")
-                .setMetastore(runner -> new TestingHiveMetastore())
+                .setMetastore(_ -> new TestingHiveMetastore())
                 .build();
     }
 

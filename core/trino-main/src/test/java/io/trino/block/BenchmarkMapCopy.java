@@ -55,10 +55,9 @@ public class BenchmarkMapCopy
     {
         Block block = data.getDataBlock();
         BlockBuilder blockBuilder = data.getBlockBuilder();
-        MapType mapType = mapType(VARCHAR, BIGINT);
 
         for (int i = 0; i < POSITIONS; i++) {
-            mapType.appendTo(block, i, blockBuilder);
+            blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
         }
 
         return blockBuilder;
@@ -102,7 +101,7 @@ public class BenchmarkMapCopy
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         // assure the benchmarks are valid before running

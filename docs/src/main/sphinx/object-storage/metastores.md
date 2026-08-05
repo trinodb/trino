@@ -203,7 +203,7 @@ properties:
   - The term "Hive metastore catalog name" refers to the abstraction concept
     within Hive, enabling various systems to connect to distinct, independent
     catalogs stored in the metastore. By default, the catalog name in Hive
-    metastore is set to "hive." When this configuration property is left empty,
+    metastore is set to "hive". When this configuration property is left empty,
     the default catalog of the Hive metastore will be accessed.
   -
 :::
@@ -488,10 +488,16 @@ following properties:
     `s3://my_bucket/warehouse_location`
 * - `iceberg.rest-catalog.security`
   - The type of security to use (default: `NONE`). Possible values are `NONE`, 
-    `SIGV4` or `OAUTH2`. `OAUTH2` requires either a `token` or `credential`.
+    `SIGV4`, `GOOGLE` or `OAUTH2`. `OAUTH2` requires either a `token` or a `credential`.
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
+* - `iceberg.rest-catalog.connection-timeout`
+  - Maximum time [Duration](prop-type-duration) allowed for socket connection
+    requests to complete before timing out.
+* - `iceberg.rest-catalog.socket-timeout`
+  - Maximum time [Duration](prop-type-duration) allowed socket read/write operations
+    before timing out.
 * - `iceberg.rest-catalog.session-timeout`
   - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`
@@ -509,6 +515,9 @@ following properties:
 * - `iceberg.rest-catalog.oauth2.token-refresh-enabled`
   - Controls whether a token should be refreshed if information about its expiration time is available.
     Defaults to `true`
+* - `iceberg.rest-catalog.oauth2.token-exchange-enabled`
+  - Controls whether to use the token exchange flow to acquire new tokens.
+    Defaults to `true` 
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.
@@ -517,13 +526,24 @@ following properties:
     Defaults to `false`.
 * - `iceberg.rest-catalog.view-endpoints-enabled`
   - Enable view endpoints. Defaults to `true`.
+* - `iceberg.rest-catalog.server-assigned-table-location-enabled`
+  - Let the REST catalog server assign locations for created tables instead of
+    computing a default location from the namespace location. Must be enabled
+    for BigLake metastore, which assigns table locations with a random suffix
+    and rejects client-chosen locations. Defaults to `false`.
 * - `iceberg.rest-catalog.signing-name`
   - AWS SigV4 signing service name. Defaults to `execute-api`.
+* - `iceberg.rest-catalog.google-project-id`
+  - Google Cloud project name. This property must be set when `iceberg.rest-catalog.security` 
+    config property is set to `GOOGLE`. Example: `development-123456`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`
   - Match namespace, table, and view names case insensitively. Defaults to `false`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
   - [Duration](prop-type-duration) for which case-insensitive namespace, table, 
     and view names are cached. Defaults to `1m`.
+* - `iceberg.rest-catalog.http-headers`
+  - Additional *non-sensitive* HTTP headers to include with requests to the REST catalog.
+    Example: `Header-1: value 1, Header-2: value 2`.
   :::
 
 The following example shows a minimal catalog configuration using an Iceberg
@@ -546,6 +566,28 @@ iceberg.security=read_only
 iceberg.rest-catalog.security=OAUTH2
 iceberg.rest-catalog.oauth2.token=***
 ```
+
+`iceberg.rest-catalog.security` must be `GOOGLE` when connecting to BigLake metastore
+using an Iceberg REST catalog.
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.unique-table-location=false
+iceberg.rest-catalog.warehouse=gs://example-bucket
+iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
+iceberg.rest-catalog.security=GOOGLE
+iceberg.rest-catalog.google-project-id=example-project-id
+iceberg.rest-catalog.view-endpoints-enabled=false
+iceberg.rest-catalog.server-assigned-table-location-enabled=true
+fs.gcs.enabled=true
+gcs.json-key-file-path=/path/to/gcs_keyfile.json
+```
+
+`gcs.json-key-file-path` is optional. When omitted, [Application Default
+Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
+(ADC) are used, which supports GKE Workload Identity and other
+environment-based credential sources.
 
 The REST catalog supports [view management](sql-view-management) 
 using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).

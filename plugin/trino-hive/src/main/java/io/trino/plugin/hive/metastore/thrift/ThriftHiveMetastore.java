@@ -324,7 +324,8 @@ public final class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getTableColumnStatistics", stats.getGetTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return groupStatisticsByColumn(client.getTableColumnStatistics(databaseName, tableName, ImmutableList.copyOf(columnNames)));
+                            List<ColumnStatisticsObj> tableColumnStatistics = client.getTableColumnStatistics(databaseName, tableName, ImmutableList.copyOf(columnNames));
+                            return groupStatisticsByColumn(databaseName, tableName, tableColumnStatistics);
                         }
                     }));
         }
@@ -346,7 +347,7 @@ public final class ThriftHiveMetastore
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> groupStatisticsByColumn(entry.getValue())));
+                        entry -> groupStatisticsByColumn(databaseName, tableName, entry.getValue())));
     }
 
     @Override
@@ -402,11 +403,11 @@ public final class ThriftHiveMetastore
         }
     }
 
-    private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics)
+    private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
     {
         Map<String, HiveColumnStatistics> statisticsByColumn = new HashMap<>();
         for (ColumnStatisticsObj stats : statistics) {
-            HiveColumnStatistics newColumnStatistics = ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(stats);
+            HiveColumnStatistics newColumnStatistics = ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(databaseName, tableName, stats);
             if (statisticsByColumn.containsKey(stats.getColName())) {
                 HiveColumnStatistics existingColumnStatistics = statisticsByColumn.get(stats.getColName());
                 if (!newColumnStatistics.equals(existingColumnStatistics)) {
@@ -432,7 +433,7 @@ public final class ThriftHiveMetastore
         Table modifiedTable = originalTable.deepCopy();
         modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.basicStatistics()));
         if (acidWriteId.isPresent()) {
-            modifiedTable.setWriteId(acidWriteId.getAsLong());
+            modifiedTable.setWriteId(acidWriteId.orElseThrow());
         }
         alterTable(databaseName, tableName, modifiedTable, ImmutableMap.of());
 
@@ -694,8 +695,10 @@ public final class ThriftHiveMetastore
             for (String role : roles) {
                 grantRole(
                         role,
-                        grantee.getName(), fromTrinoPrincipalType(grantee.getType()),
-                        grantor.getName(), fromTrinoPrincipalType(grantor.getType()),
+                        grantee.getName(),
+                        fromTrinoPrincipalType(grantee.getType()),
+                        grantor.getName(),
+                        fromTrinoPrincipalType(grantor.getType()),
                         adminOption);
             }
         }
@@ -729,7 +732,8 @@ public final class ThriftHiveMetastore
             for (String role : roles) {
                 revokeRole(
                         role,
-                        grantee.getName(), fromTrinoPrincipalType(grantee.getType()),
+                        grantee.getName(),
+                        fromTrinoPrincipalType(grantee.getType()),
                         adminOption);
             }
         }
@@ -992,6 +996,13 @@ public final class ThriftHiveMetastore
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
+        catch (InvalidOperationException e) {
+            // Use text matching because InvalidOperationException doesn't provide an error code
+            if (e.isSetMessage() && e.getMessage().contains("table not found")) {
+                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            }
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
@@ -1113,7 +1124,8 @@ public final class ThriftHiveMetastore
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
                             int partitionsAdded = client.addPartitions(partitions);
                             if (partitionsAdded != partitions.size()) {
-                                throw new TrinoException(HIVE_METASTORE_ERROR,
+                                throw new TrinoException(
+                                        HIVE_METASTORE_ERROR,
                                         format("Hive metastore only added %s of %s partitions", partitionsAdded, partitions.size()));
                             }
                             return null;

@@ -13,12 +13,11 @@
  */
 package io.trino.cost;
 
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
-
-import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 
 /**
  * Provides runtime information from FTE execution. This is used to re-optimize the plan based

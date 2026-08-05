@@ -36,11 +36,11 @@ public class TestTsvPrinter
         OutputPrinter printer = new TsvPrinter(fieldNames, writer, true);
 
         printer.printRows(rows(
-                row("hello", "world", 123),
-                row("a", null, 4.5),
-                row("some long\ntext\tdone", "more\ntext", 4567),
-                row("bye", "done", -15),
-                row("oops\0a\nb\rc\bd\fe\tf\\g\1done", "escape", 9)),
+                        row("hello", "world", 123),
+                        row("a", null, 4.5),
+                        row("some long\ntext\tdone", "more\ntext", 4567),
+                        row("bye", "done", -15),
+                        row("oops\0a\nb\rc\bd\fe\tf\\g\1done", "escape", 9)),
                 true);
         printer.finish();
 
@@ -77,8 +77,8 @@ public class TestTsvPrinter
         OutputPrinter printer = new TsvPrinter(fieldNames, writer, false);
 
         printer.printRows(rows(
-                row("hello", "world", 123),
-                row("a", null, 4.5)),
+                        row("hello", "world", 123),
+                        row("a", null, 4.5)),
                 true);
         printer.finish();
 

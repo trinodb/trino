@@ -14,16 +14,14 @@
 package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
-import com.google.common.io.CharStreams;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -51,8 +49,9 @@ import io.trino.plugin.hive.util.ResumableTasks;
 import io.trino.plugin.hive.util.ValidWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 
@@ -69,6 +68,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,7 +76,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -85,7 +84,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.hive.formats.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
@@ -98,7 +96,8 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
 import static io.trino.plugin.hive.HiveSessionProperties.isValidateBucketing;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
@@ -108,6 +107,7 @@ import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.IGN
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
+import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.isParquetSerde;
 import static io.trino.plugin.hive.util.AcidTables.getAcidState;
 import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
@@ -128,7 +128,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.max;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
@@ -148,8 +147,7 @@ public class BackgroundHiveSplitLoader
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
-    private final DynamicFilter dynamicFilter;
-    private final long dynamicFilteringWaitTimeoutMillis;
+    private final Constraint constraint;
     private final TypeManager typeManager;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final DirectoryLister directoryLister;
@@ -159,6 +157,7 @@ public class BackgroundHiveSplitLoader
     private final boolean ignoreAbsentPartitions;
     private final Executor executor;
     private final ConnectorSession session;
+    private final ConnectorExpressionEvaluator evaluator;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final Optional<ValidWriteIdList> validWriteIds;
@@ -183,17 +182,17 @@ public class BackgroundHiveSplitLoader
     private final ReadWriteLock taskExecutionLock = new ReentrantReadWriteLock();
 
     private HiveSplitSource hiveSplitSource;
-    private Stopwatch stopwatch;
     private volatile boolean stopped;
     private final AtomicInteger activeLoaderCount = new AtomicInteger();
     private final AtomicInteger partitionCount = new AtomicInteger();
+    private final Set<ColumnHandle> dynamicFilterColumns;
+    private final DynamicFilterState dynamicFilterState;
 
     public BackgroundHiveSplitLoader(
             Table table,
             Iterator<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
-            DynamicFilter dynamicFilter,
-            Duration dynamicFilteringWaitTimeout,
+            Constraint constraint,
             TypeManager typeManager,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
@@ -205,12 +204,14 @@ public class BackgroundHiveSplitLoader
             boolean ignoreAbsentPartitions,
             Optional<ValidWriteIdList> validWriteIds,
             Optional<Long> maxSplitFileSize,
-            int maxPartitions)
+            int maxPartitions,
+            Set<ColumnHandle> dynamicFilterColumns,
+            DynamicFilterState dynamicFilterState,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
-        this.dynamicFilter = dynamicFilter;
-        this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
+        this.constraint = constraint;
         this.typeManager = typeManager;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
@@ -228,13 +229,15 @@ public class BackgroundHiveSplitLoader
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         this.maxPartitions = maxPartitions;
+        this.dynamicFilterColumns = ImmutableSet.copyOf(dynamicFilterColumns);
+        this.dynamicFilterState = requireNonNull(dynamicFilterState, "dynamicFilterState is null");
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
     public void start(HiveSplitSource splitSource)
     {
         this.hiveSplitSource = splitSource;
-        this.stopwatch = Stopwatch.createStarted();
         addLoaderIfNecessary();
     }
 
@@ -256,6 +259,7 @@ public class BackgroundHiveSplitLoader
     public void stop()
     {
         stopped = true;
+        dynamicFilterState.cancel();
     }
 
     private class HiveSplitLoaderTask
@@ -269,17 +273,6 @@ public class BackgroundHiveSplitLoader
                     return TaskStatus.finished();
                 }
                 ListenableFuture<Void> future;
-                // Block until one of below conditions is met:
-                // 1. Completion of DynamicFilter
-                // 2. Timeout after waiting for the configured time
-                long timeLeft = dynamicFilteringWaitTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
-                if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
-                    future = asVoid(toListenableFuture(dynamicFilter.isBlocked()
-                            // As isBlocked() returns unmodifiableFuture, we need to create new future for correct propagation of the timeout
-                            .thenApply(Function.identity())
-                            .orTimeout(timeLeft, MILLISECONDS)));
-                    return TaskStatus.continueOn(future);
-                }
                 taskExecutionLock.readLock().lock();
                 try {
                     future = loadSplits();
@@ -300,8 +293,13 @@ public class BackgroundHiveSplitLoader
                 finally {
                     taskExecutionLock.readLock().unlock();
                 }
-                invokeNoMoreSplitsIfNecessary();
-                if (!future.isDone()) {
+                // invokeNoMoreSplitsIfNecessary must only run after the future is done,
+                // because it triggers the partition transform which reads dynamicFilterState.
+                // Running it before the DF gate clears would produce TupleDomain.all() and skip partition pruning.
+                if (future.isDone()) {
+                    invokeNoMoreSplitsIfNecessary();
+                }
+                else {
                     return TaskStatus.continueOn(future);
                 }
             }
@@ -344,14 +342,12 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
-    }
-
     private ListenableFuture<Void> loadSplits()
             throws IOException
     {
+        if (!dynamicFilterState.isReady()) {
+            return toListenableFuture(dynamicFilterState.isBlocked());
+        }
         Iterator<InternalHiveSplit> splits = fileIterators.poll();
         if (splits == null) {
             HivePartitionMetadata partition = partitions.poll();
@@ -399,7 +395,7 @@ public class BackgroundHiveSplitLoader
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
         TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transformKeys(HiveColumnHandle.class::cast);
 
-        BooleanSupplier partitionMatchSupplier = createPartitionMatchSupplier(dynamicFilter, hivePartition, getPartitionKeyColumnHandles(table, typeManager));
+        BooleanSupplier partitionMatchSupplier = createPartitionMatchSupplier(dynamicFilterColumns, dynamicFilterState, hivePartition, getPartitionKeyColumnHandles(table, typeManager));
         if (!partitionMatchSupplier.getAsBoolean()) {
             // Avoid listing files and creating splits from a partition if it has been pruned due to dynamic filters
             return COMPLETED_FUTURE;
@@ -417,19 +413,26 @@ public class BackgroundHiveSplitLoader
             HiveStorageFormat targetStorageFormat = getSymlinkStorageFormat(getSerializationLibraryName(schema));
             ListMultimap<Location, Location> targets = getTargetLocationsByParentFromSymlink(location);
 
+            DataSize maxSplitSize = getMaxSplitSize(session);
+            if (isParquetSerde(getSerializationLibraryName(schema))) {
+                maxSplitSize = getParquetMaxSplitSize(session);
+            }
             InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                     partitionName,
                     targetStorageFormat,
                     schema,
                     partitionKeys,
                     effectivePredicate,
+                    constraint,
                     partitionMatchSupplier,
                     partition.getHiveColumnCoercions(),
                     Optional.empty(),
                     Optional.empty(),
-                    getMaxInitialSplitSize(session),
+                    maxSplitSize,
                     isForceLocalScheduling(session),
-                    maxSplitFileSize);
+                    maxSplitFileSize,
+                    session,
+                    evaluator);
 
             for (Entry<Location, List<Location>> entry : Multimaps.asMap(targets).entrySet()) {
                 fileIterators.addLast(buildManifestFileIterator(splitFactory, entry.getKey(), entry.getValue(), splittable));
@@ -469,19 +472,26 @@ public class BackgroundHiveSplitLoader
             bucketValidation = Optional.of(new BucketValidation(info.getBucketingVersion(), info.getTableBucketCount(), info.getBucketColumns()));
         }
 
+        DataSize maxSplitSize = getMaxSplitSize(session);
+        if (isParquetSerde(getSerializationLibraryName(schema))) {
+            maxSplitSize = getParquetMaxSplitSize(session);
+        }
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 partitionName,
                 storageFormat,
                 schema,
                 partitionKeys,
                 effectivePredicate,
+                constraint,
                 partitionMatchSupplier,
                 partition.getHiveColumnCoercions(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
                 bucketValidation,
-                getMaxInitialSplitSize(session),
+                maxSplitSize,
                 isForceLocalScheduling(session),
-                maxSplitFileSize);
+                maxSplitFileSize,
+                session,
+                evaluator);
 
         if (isTransactionalTable(table.getParameters())) {
             return getTransactionalSplits(location, splittable, bucketConversion, splitFactory);
@@ -608,7 +618,7 @@ public class BackgroundHiveSplitLoader
 
         for (FileEntry entry : acidState.originalFiles()) {
             // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern, to match them with delete deltas.
-            acidInfoBuilder.addOriginalFile(entry.location(), entry.length(), getRequiredBucketNumber(entry.location()));
+            getBucketNumber(entry.location()).ifPresent(bucketId -> acidInfoBuilder.addOriginalFile(entry.location(), entry.length(), bucketId));
         }
 
         if (tableBucketInfo.isPresent()) {
@@ -656,7 +666,7 @@ public class BackgroundHiveSplitLoader
 
     private static Optional<AcidInfo> acidInfoForOriginalFiles(boolean fullAcid, AcidInfo.Builder builder, Location location)
     {
-        return fullAcid ? Optional.of(builder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(location))) : Optional.empty();
+        return fullAcid ? getBucketNumber(location).map(builder::buildWithRequiredOriginalFiles) : Optional.empty();
     }
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(TrinoFileSystem fileSystem, Location location, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
@@ -712,9 +722,9 @@ public class BackgroundHiveSplitLoader
         ListMultimap<Integer, TrinoFileStatus> bucketFiles = ArrayListMultimap.create();
         for (TrinoFileStatus file : files) {
             String fileName = Location.of(file.getPath()).fileName();
-            OptionalInt bucket = getBucketNumber(fileName);
+            Optional<Integer> bucket = getBucketNumber(fileName);
             if (bucket.isPresent()) {
-                bucketFiles.put(bucket.getAsInt(), file);
+                bucketFiles.put(bucket.get(), file);
                 continue;
             }
 
@@ -808,22 +818,21 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private static int getRequiredBucketNumber(Location location)
+    private static Optional<Integer> getBucketNumber(Location location)
     {
-        return getBucketNumber(location.fileName())
-                .orElseThrow(() -> new IllegalStateException("Cannot get bucket number from location: " + location));
+        return getBucketNumber(location.fileName());
     }
 
     @VisibleForTesting
-    static OptionalInt getBucketNumber(String name)
+    static Optional<Integer> getBucketNumber(String name)
     {
         for (Pattern pattern : BUCKET_PATTERNS) {
             Matcher matcher = pattern.matcher(name);
             if (matcher.matches()) {
-                return OptionalInt.of(parseInt(matcher.group(1)));
+                return Optional.of(parseInt(matcher.group(1)));
             }
         }
-        return OptionalInt.empty();
+        return Optional.empty();
     }
 
     public static boolean hasAttemptId(String bucketFilename)
@@ -858,7 +867,7 @@ public class BackgroundHiveSplitLoader
                 }
 
                 try (Reader reader = new InputStreamReader(fileSystem.newInputFile(location).newStream(), UTF_8)) {
-                    CharStreams.readLines(reader).stream()
+                    reader.readAllLines().stream()
                             .map(Location::of)
                             .forEach(target -> targets.put(target.parentDirectory(), target));
                 }
@@ -917,7 +926,7 @@ public class BackgroundHiveSplitLoader
             List<HiveColumnHandle> bucketColumns = tablePartitioning.get().columns();
             IntPredicate predicate = bucketFilter
                     .<IntPredicate>map(filter -> filter.bucketsToKeep()::contains)
-                    .orElse(bucket -> true);
+                    .orElse(_ -> true);
             return Optional.of(new BucketSplitInfo(bucketingVersion, bucketColumns, tableBucketCount, readBucketCount, predicate));
         }
 

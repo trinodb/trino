@@ -47,8 +47,7 @@ public class TestPruneUnionColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(),
-                                union(
-                                        values("b"),
+                                union(values("b"),
                                         values("c"))
                                         .withExactOutputs()));
     }

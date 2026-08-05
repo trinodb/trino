@@ -16,11 +16,15 @@ package io.trino.plugin.iceberg;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.parquet.cache.MemoryParquetFooterCache;
+import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProviderFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
@@ -34,7 +38,8 @@ import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.cache.IcebergCacheKeyProvider;
-import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
+import io.trino.plugin.iceberg.delete.DefaultDeletionVectorWriter;
+import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProviderFactory;
@@ -80,6 +85,7 @@ public class IcebergModule
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergSchemaProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergViewProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMaterializedViewProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergAnalyzeProperties.class).in(Scopes.SINGLETON);
 
@@ -100,7 +106,9 @@ public class IcebergModule
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
         binder.bind(ForwardingFileIoFactory.class).in(Scopes.SINGLETON);
+        binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsWriter.class).in(Scopes.SINGLETON);
+        binder.bind(DeletionVectorWriter.class).to(DefaultDeletionVectorWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class));
 
@@ -144,5 +152,15 @@ public class IcebergModule
         binder.bind(IcebergConnector.class).in(Scopes.SINGLETON);
 
         binder.install(new IcebergExecutorModule());
+    }
+
+    @Provides
+    @Singleton
+    public static ParquetFooterCache createParquetFooterCache(IcebergConfig config)
+    {
+        return switch (config.getParquetFooterCacheType()) {
+            case NONE -> ParquetFooterCache.noop();
+            case MEMORY -> new MemoryParquetFooterCache(config.getParquetFooterCacheMemoryMaxSize());
+        };
     }
 }

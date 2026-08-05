@@ -28,6 +28,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.Authenticator;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.server.security.SecurityConfig;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.Identity;
 import jakarta.servlet.http.HttpServletRequest;
@@ -70,10 +71,10 @@ import static com.google.common.io.Resources.getResource;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.trino.client.uri.TrinoUri.setRedirectHandler;
 import static io.trino.jdbc.TestJdbcExternalAuthentication.RedirectHandlerFixture.withHandler;
 import static io.trino.jdbc.TestJdbcExternalAuthentication.TokenPollingErrorFixture.withPollingError;
 import static io.trino.jdbc.TestJdbcExternalAuthentication.WwwAuthenticateHeaderFixture.withWwwAuthenticate;
-import static io.trino.jdbc.TrinoDriverUri.setRedirectHandler;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ServerSecurityModule.authenticatorModule;
 import static jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION;
@@ -276,7 +277,7 @@ public class TestJdbcExternalAuthentication
         @Override
         protected void setup(Binder ignored)
         {
-            install(authenticatorModule("dummy-external", DummyAuthenticator.class, binder -> {
+            install(authenticatorModule(buildConfigObject(SecurityConfig.class), "dummy-external", DummyAuthenticator.class, binder -> {
                 binder.bind(Authentications.class).in(SINGLETON);
                 binder.bind(IntSupplier.class).toInstance(port);
                 jaxrsBinder(binder).bind(DummyExternalAuthResources.class);
@@ -370,7 +371,10 @@ public class TestJdbcExternalAuthentication
                             "Authentication required",
                             format("Bearer x_redirect_server=\"http://localhost:%s/v1/authentications/dummy/logins/%s\", " +
                                             "x_token_server=\"http://localhost:%s/v1/authentications/dummy/%s\"",
-                                    port.getAsInt(), sessionId, port.getAsInt(), sessionId)));
+                                    port.getAsInt(),
+                                    sessionId,
+                                    port.getAsInt(),
+                                    sessionId)));
         }
     }
 

@@ -64,6 +64,7 @@ final class TestRangerSystemAccessControl
     private static final CatalogSchemaRoutineName FUNC_ALICE_SCH1_FUNC1 = new CatalogSchemaRoutineName(CATALOG_ALICE, "sch1", "func1");
     private static final CatalogSchemaName SCHEMA_USER_BOB = new CatalogSchemaName(CATALOG_USER_HOME, "bob_schema");
     private static final CatalogSchemaTableName TABLE_USER_BOB_TBL1 = new CatalogSchemaTableName(CATALOG_USER_HOME, SCHEMA_USER_BOB.getSchemaName(), "tbl1");
+    private static final CatalogSchemaTableName TABLE_USER_SCH1_TBL1 = new CatalogSchemaTableName(CATALOG_USER_HOME, "sch1", "tbl1");
 
     @BeforeAll
     public static void setUpBeforeClass()
@@ -170,8 +171,8 @@ final class TestRangerSystemAccessControl
         accessControlManager.checkCanSetTableAuthorization(context(ALICE), TABLE_ALICE_SCH1_TBL1, new TrinoPrincipal(USER, "principal"));
         accessControlManager.checkCanShowTables(context(ALICE), SCHEMA_ALICE_SCH1);
         accessControlManager.checkCanShowCreateTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
-        accessControlManager.checkCanInsertIntoTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
-        accessControlManager.checkCanDeleteFromTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
+        accessControlManager.checkCanInsertIntoTable(context(ALICE), TABLE_ALICE_SCH1_TBL1, Optional.empty());
+        accessControlManager.checkCanDeleteFromTable(context(ALICE), TABLE_ALICE_SCH1_TBL1, Optional.empty());
         accessControlManager.checkCanTruncateTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanCreateTable(context(BOB), TABLE_USER_BOB_TBL1, ImmutableMap.of());
         accessControlManager.checkCanDropTable(context(BOB), TABLE_USER_BOB_TBL1);
@@ -188,8 +189,8 @@ final class TestRangerSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanSetTableAuthorization(context(BOB), TABLE_ALICE_SCH1_TBL1, new TrinoPrincipal(USER, "principal"))).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowTables(context(BOB), SCHEMA_ALICE_SCH1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowCreateTable(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanDeleteFromTable(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanDeleteFromTable(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanTruncateTable(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -202,10 +203,10 @@ final class TestRangerSystemAccessControl
         accessControlManager.checkCanRenameColumn(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanSetColumnComment(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanShowColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1);
-        accessControlManager.checkCanSelectFromColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableSet.of());
-        accessControlManager.checkCanUpdateTableColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableSet.of());
+        accessControlManager.checkCanSelectFromColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of());
+        accessControlManager.checkCanUpdateTableColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of());
         accessControlManager.checkCanAddColumn(context(BOB), TABLE_USER_BOB_TBL1);
-        accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_USER_BOB_TBL1, ImmutableSet.of());
+        accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_USER_BOB_TBL1, Optional.empty(), ImmutableSet.of());
         accessControlManager.checkCanDropColumn(context(BOB), TABLE_USER_BOB_TBL1);
 
         Set<String> columns = ImmutableSet.of("column-1");
@@ -222,8 +223,11 @@ final class TestRangerSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanRenameColumn(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetColumnComment(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowColumns(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, ImmutableSet.of())).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanUpdateTableColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Collections.emptySet())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of())).isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Cannot select from table tbl1");
+        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_USER_SCH1_TBL1, ImmutableSet.of("id", "name", "time"))).isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Cannot select from columns [id, name] in table or view tbl1");
+        assertThatThrownBy(() -> accessControlManager.checkCanUpdateTableColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), Collections.emptySet())).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

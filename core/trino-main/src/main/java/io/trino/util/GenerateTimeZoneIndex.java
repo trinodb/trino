@@ -32,7 +32,7 @@ public final class GenerateTimeZoneIndex
 {
     private GenerateTimeZoneIndex() {}
 
-    public static void main(String[] args)
+    static void main()
             throws InterruptedException
     {
         //

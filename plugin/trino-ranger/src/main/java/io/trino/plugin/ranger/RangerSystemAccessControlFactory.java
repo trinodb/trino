@@ -40,14 +40,14 @@ public class RangerSystemAccessControlFactory
     {
         requireNonNull(config, "config is null");
 
-        Bootstrap app = new Bootstrap(binder ->
-        {
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.access." + getName(), binder -> {
             configBinder(binder).bindConfig(RangerConfig.class);
             binder.bind(RangerSystemAccessControl.class).in(Scopes.SINGLETON);
         });
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

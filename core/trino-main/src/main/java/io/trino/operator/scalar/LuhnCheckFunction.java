@@ -60,7 +60,7 @@ public final class LuhnCheckFunction
             // update second number check
             secondNumber = !secondNumber;
         }
-        //check returns true if mod 10 is zero
+        // check returns true if mod 10 is zero
         return (sum % 10 == 0);
     }
 }

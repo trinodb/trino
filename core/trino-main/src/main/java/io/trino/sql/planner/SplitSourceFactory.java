@@ -16,20 +16,22 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.metadata.TableHandle;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SampledSplitSource;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -78,11 +80,13 @@ import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.filterConjuncts;
 import static java.util.Objects.requireNonNull;
 
@@ -91,15 +95,15 @@ public class SplitSourceFactory
     private static final Logger log = Logger.get(SplitSourceFactory.class);
 
     private final SplitManager splitManager;
-    private final PlannerContext plannerContext;
     private final DynamicFilterService dynamicFilterService;
+    private final JsonCodec<Expression> serializer;
 
     @Inject
-    public SplitSourceFactory(SplitManager splitManager, PlannerContext plannerContext, DynamicFilterService dynamicFilterService)
+    public SplitSourceFactory(SplitManager splitManager, DynamicFilterService dynamicFilterService, JsonCodec<Expression> serializer)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
-        this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.serializer = requireNonNull(serializer, "serializer is null");
     }
 
     public Map<PlanNodeId, SplitSource> createSplitSources(Session session, Span stageSpan, PlanFragment fragment)
@@ -173,11 +177,17 @@ public class SplitSourceFactory
                 dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, assignments);
             }
 
-            Constraint constraint = filterPredicate
-                    .map(predicate -> filterConjuncts(predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
-                    .map(predicate -> new LayoutConstraintEvaluator(plannerContext, session, assignments, predicate))
-                    .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here, so we set the summary to ALL.
-                    .orElse(alwaysTrue());
+            Expression nonDynamicFilter = filterConjuncts(filterPredicate.orElse(TRUE), expression -> !DynamicFilters.isDynamicFilter(expression));
+            Map<String, ColumnHandle> columnHandlesByName = assignments.entrySet().stream()
+                    .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
+            ConnectorExpression expression = ConnectorExpressions.and(
+                    ConnectorExpressionTranslator.translateConjuncts(session, nonDynamicFilter, columnHandlesByName.keySet()).connectorExpression(),
+                    EngineExpressions.buildEngineExpression(nonDynamicFilter, serializer));
+            // we are interested only in functional predicate here, so we set the summary to ALL.
+            Constraint constraint = new Constraint(
+                    TupleDomain.all(),
+                    expression,
+                    columnHandlesByName);
 
             // get dataSource for table
             return splitManager.getSplits(

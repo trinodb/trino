@@ -28,7 +28,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestValueSet
+class TestValueSet
 {
     @Test
     public void testRejectNullOnCreate()
@@ -57,7 +57,7 @@ public class TestValueSet
                 .hasMessage("cannot use NaN as range bound");
 
         // a different NaN
-        assertThatThrownBy(() -> ValueSet.of(DOUBLE, longBitsToDouble(0x7ff8123412341234L)))
+        assertThatThrownBy(() -> ValueSet.of(DOUBLE, longBitsToDouble(0x7FF8123412341234L)))
                 .hasMessage("cannot use NaN as range bound");
 
         // ValueSet.of with others and NaN
@@ -85,7 +85,7 @@ public class TestValueSet
                 .hasMessage("cannot use NaN as range bound");
 
         // a different NaN
-        assertThatThrownBy(() -> ValueSet.of(REAL, (long) 0x7fc01234))
+        assertThatThrownBy(() -> ValueSet.of(REAL, (long) 0x7FC01234))
                 .hasMessage("cannot use NaN as range bound");
 
         // ValueSet.of with others and NaN

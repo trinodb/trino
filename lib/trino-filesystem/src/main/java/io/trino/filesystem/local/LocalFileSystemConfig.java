@@ -18,13 +18,12 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
 
 public class LocalFileSystemConfig
 {
-    private Path location = Paths.get(System.getProperty(JAVA_IO_TMPDIR.key()));
+    private Path location = Path.of(System.getProperty(JAVA_IO_TMPDIR.key()));
 
     public @FileExists Path getLocation()
     {

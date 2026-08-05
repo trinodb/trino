@@ -17,24 +17,28 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.Location;
-import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.file.Path;
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 final class TestHudiSharedMetastore
         extends AbstractTestQueryFramework
 {
@@ -54,7 +58,7 @@ final class TestHudiSharedMetastore
         QueryRunner queryRunner = DistributedQueryRunner.builder(hudiSession).build();
 
         Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data");
-        dataDirectory.toFile().deleteOnExit();
+        verify(dataDirectory.toFile().mkdirs());
 
         queryRunner.installPlugin(new HudiPlugin());
         queryRunner.createCatalog(
@@ -62,11 +66,19 @@ final class TestHudiSharedMetastore
                 "hudi",
                 ImmutableMap.of(
                         "hive.metastore", "file",
+                        // Intentionally sharing the file metastore directory with Hive
                         "hive.metastore.catalog.dir", dataDirectory.toString(),
                         "fs.hadoop.enabled", "true"));
 
-        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
-        queryRunner.createCatalog("hive", "hive");
+        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.createCatalog(
+                "hive",
+                "hive",
+                ImmutableMap.of(
+                        "hive.metastore", "file",
+                        // Intentionally sharing the file metastore directory with Hudi
+                        "hive.metastore.catalog.dir", dataDirectory.toString(),
+                        "fs.hadoop.enabled", "true"));
 
         queryRunner.execute("CREATE SCHEMA hive.default");
 

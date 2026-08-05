@@ -42,7 +42,6 @@ public class StatefulSleepingSum
     {
         super(FunctionMetadata.scalarBuilder("stateful_sleeping_sum")
                 .signature(Signature.builder()
-                        .typeVariable("bigint")
                         .returnType(BIGINT)
                         .argumentType(DOUBLE)
                         .argumentType(BIGINT)

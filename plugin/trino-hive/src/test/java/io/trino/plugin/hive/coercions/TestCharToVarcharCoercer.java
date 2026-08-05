@@ -23,9 +23,9 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.spi.predicate.Utils.blockToNativeValue;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +48,7 @@ public class TestCharToVarcharCoercer
     private static void assertCharToVarcharCoercion(String actualValue, Type fromType, String expectedValue, Type toType)
     {
         Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, PARQUET)).orElseThrow()
-                .apply(nativeValueToBlock(fromType, utf8Slice(actualValue)));
+                .apply(writeNativeValue(fromType, utf8Slice(actualValue)));
         assertThat(blockToNativeValue(toType, coercedBlock))
                 .isEqualTo(utf8Slice(expectedValue));
     }

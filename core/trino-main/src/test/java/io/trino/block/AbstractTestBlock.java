@@ -17,15 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
@@ -38,11 +36,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,8 +47,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestBlock
 {
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);
-
     protected <T> void assertBlock(Block block, T[] expectedValues)
     {
         assertBlockSize(block);
@@ -79,17 +74,105 @@ public abstract class AbstractTestBlock
 
         if (block instanceof ValueBlock valueBlock) {
             assertBlockClassImplementation(valueBlock.getClass());
-            Optional<ByteArrayBlock> isNull = valueBlock.getNulls();
-            if (valueBlock.mayHaveNull() && IntStream.range(0, valueBlock.getPositionCount()).anyMatch(valueBlock::isNull)) {
-                assertThat(isNull).isPresent();
-                for (int i = 0; i < valueBlock.getPositionCount(); i++) {
-                    assertThat(isNull.get().getByte(i) == 1).isEqualTo(valueBlock.isNull(i));
-                }
-            }
-            else {
-                assertThat(isNull).isEmpty();
+            assertValidityBitmap(valueBlock);
+            assertValidityBitmapRegions(valueBlock);
+        }
+    }
+
+    private static void assertValidityBitmapRegions(ValueBlock valueBlock)
+    {
+        int positionCount = valueBlock.getPositionCount();
+        assertValidityBitmap(valueBlock.getRegion(0, positionCount));
+        assertValidityBitmap(valueBlock.copyRegion(0, positionCount));
+        if (positionCount == 0) {
+            return;
+        }
+
+        assertValidityBitmap(valueBlock.getRegion(0, 1));
+        assertValidityBitmap(valueBlock.copyRegion(0, 1));
+        assertValidityBitmap(valueBlock.getRegion(positionCount - 1, 1));
+        assertValidityBitmap(valueBlock.copyRegion(positionCount - 1, 1));
+        if (positionCount > 1) {
+            assertValidityBitmap(valueBlock.getRegion(1, positionCount - 1));
+            assertValidityBitmap(valueBlock.copyRegion(1, positionCount - 1));
+        }
+        if (positionCount > 2) {
+            assertValidityBitmap(valueBlock.getRegion(1, positionCount - 2));
+            assertValidityBitmap(valueBlock.copyRegion(1, positionCount - 2));
+        }
+        assertSlicedValidityBitmapPreservesRawOffset(valueBlock);
+    }
+
+    private static void assertValidityBitmap(ValueBlock valueBlock)
+    {
+        Optional<Bitmap> validity = valueBlock.getValidityBitmap();
+        validity.ifPresent(bitmap -> assertThat(bitmap.getBitCount()).isEqualTo(valueBlock.getPositionCount()));
+
+        boolean hasNull = false;
+        if (valueBlock.mayHaveNull()) {
+            for (int position = 0; position < valueBlock.getPositionCount(); position++) {
+                hasNull |= valueBlock.isNull(position);
             }
         }
+
+        if (hasNull) {
+            assertThat(validity).isPresent();
+            for (int position = 0; position < valueBlock.getPositionCount(); position++) {
+                assertThat(validity.get().isSet(position)).isEqualTo(!valueBlock.isNull(position));
+            }
+        }
+        else {
+            validity.ifPresent(bitmap -> {
+                for (int position = 0; position < valueBlock.getPositionCount(); position++) {
+                    assertThat(bitmap.isSet(position)).isTrue();
+                }
+            });
+        }
+    }
+
+    private static void assertSlicedValidityBitmapPreservesRawOffset(ValueBlock valueBlock)
+    {
+        Optional<Bitmap> validity = valueBlock.getValidityBitmap();
+        int positionCount = valueBlock.getPositionCount();
+        if (validity.isEmpty() || positionCount < 2) {
+            return;
+        }
+
+        for (int offset = 1; offset < positionCount; offset++) {
+            for (int length = 1; length <= positionCount - offset; length++) {
+                if (!hasNull(valueBlock, offset, length)) {
+                    continue;
+                }
+
+                ValueBlock region = valueBlock.getRegion(offset, length);
+                Bitmap regionValidity = region.getValidityBitmap().orElseThrow();
+                assertThat(regionValidity.getRawWords()).isSameAs(validity.get().getRawWords());
+                assertThat(regionValidity.getRawBitOffset()).isEqualTo(validity.get().getRawBitOffset() + offset);
+                assertThat(regionValidity.getBitCount()).isEqualTo(length);
+                assertValidityBitmap(region);
+
+                ValueBlock copiedRegion = region.copyRegion(0, length);
+                Bitmap copiedValidity = copiedRegion.getValidityBitmap().orElseThrow();
+                assertThat(copiedValidity.getRawWords()).isNotSameAs(validity.get().getRawWords());
+                assertThat(copiedValidity.getRawBitOffset()).isZero();
+                assertThat(copiedValidity.getBitCount()).isEqualTo(length);
+                assertValidityBitmap(copiedRegion);
+                return;
+            }
+        }
+    }
+
+    private static boolean hasNull(ValueBlock valueBlock, int offset, int length)
+    {
+        if (!valueBlock.mayHaveNull()) {
+            return false;
+        }
+        for (int position = offset; position < offset + length; position++) {
+            if (valueBlock.isNull(position)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void assertRetainedSize(Block block)
@@ -281,8 +364,8 @@ public abstract class AbstractTestBlock
     private static Block copyBlockViaBlockSerde(Block block)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
-        return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
+        TESTING_BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
+        return TESTING_BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
     }
 
     protected static Slice[] createExpectedValues(int positionCount)

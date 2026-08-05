@@ -27,13 +27,11 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
-import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -79,6 +77,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -92,9 +91,9 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
+import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.ignoreDynamicFilter;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.trino.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -189,7 +188,7 @@ public final class PlanMatchPattern
             TupleDomain<Predicate<ColumnHandle>> enforcedConstraints,
             Map<String, Predicate<ColumnHandle>> expectedColumns)
     {
-        return tableScan(expectedTable, enforcedConstraints, expectedColumns, statistics -> true);
+        return tableScan(expectedTable, enforcedConstraints, expectedColumns, _ -> true);
     }
 
     public static PlanMatchPattern tableScan(
@@ -477,22 +476,41 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), Optional.empty(), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, ignoreDynamicFilter(), Optional.empty(), source, filtering);
     }
 
-    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, PlanMatchPattern source, PlanMatchPattern filtering)
+    public static PlanMatchPattern semiJoin(
+            String sourceSymbolAlias,
+            String filteringSymbolAlias,
+            String outputAlias,
+            Optional<SemiJoinNode.DistributionType> distributionType,
+            PlanMatchPattern source,
+            PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, Optional.empty(), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, ignoreDynamicFilter(), distributionType, source, filtering);
     }
 
-    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, boolean hasDynamicFilter, PlanMatchPattern source, PlanMatchPattern filtering)
+    public static PlanMatchPattern semiJoin(
+            String sourceSymbolAlias,
+            String filteringSymbolAlias,
+            String outputAlias,
+            SemiJoinDynamicFilterProducer dynamicFilter,
+            PlanMatchPattern source,
+            PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), Optional.of(hasDynamicFilter), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, dynamicFilter, Optional.empty(), source, filtering);
     }
 
-    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, Optional<Boolean> hasDynamicFilter, PlanMatchPattern source, PlanMatchPattern filtering)
+    public static PlanMatchPattern semiJoin(
+            String sourceSymbolAlias,
+            String filteringSymbolAlias,
+            String outputAlias,
+            SemiJoinDynamicFilterProducer dynamicFilter,
+            Optional<SemiJoinNode.DistributionType> distributionType,
+            PlanMatchPattern source,
+            PlanMatchPattern filtering)
     {
-        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
+        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, dynamicFilter));
     }
 
     public static PlanMatchPattern spatialJoin(Expression expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
@@ -605,22 +623,22 @@ public final class PlanMatchPattern
         return exchange(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, ImmutableList.of(), Optional.empty(), sources);
     }
 
-    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, OptionalInt partitionCount, PlanMatchPattern... sources)
     {
         return exchange(scope, Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
     }
 
-    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, OptionalInt partitionCount, PlanMatchPattern... sources)
     {
         return exchange(scope, Optional.of(type), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
     }
 
-    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PartitioningHandle partitioningHandle, OptionalInt partitionCount, PlanMatchPattern... sources)
     {
         return exchange(scope, Optional.empty(), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
     }
 
-    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PartitioningHandle partitioningHandle, OptionalInt partitionCount, PlanMatchPattern... sources)
     {
         return exchange(scope, Optional.of(type), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
     }
@@ -633,7 +651,7 @@ public final class PlanMatchPattern
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,
             List<String> outputSymbolAliases,
-            Optional<Optional<Integer>> partitionCount,
+            Optional<OptionalInt> partitionCount,
             PlanMatchPattern... sources)
     {
         PlanMatchPattern result = node(ExchangeNode.class, sources)
@@ -642,7 +660,7 @@ public final class PlanMatchPattern
         for (int i = 0; i < outputSymbolAliases.size(); i++) {
             String outputSymbol = outputSymbolAliases.get(i);
             int index = i;
-            result.withAlias(outputSymbol, (node, session, metadata, symbolAliases) -> {
+            result.withAlias(outputSymbol, (node, _, _, _) -> {
                 ExchangeNode exchangeNode = (ExchangeNode) node;
                 List<Symbol> outputSymbols = exchangeNode.getPartitioningScheme().getOutputLayout();
                 checkState(index < outputSymbols.size(), "outputSymbolAliases size is more than exchange output symbols");
@@ -697,12 +715,14 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
     {
-        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.empty()));
+        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
     }
 
-    public static PlanMatchPattern filter(Expression expectedPredicate, Expression dynamicFilter, PlanMatchPattern source)
+    public static PlanMatchPattern filter(Expression expectedPredicate, Consumer<DynamicFilterConsumerMatcher.Builder> handler, PlanMatchPattern source)
     {
-        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.of(dynamicFilter)));
+        DynamicFilterConsumerMatcher.Builder builder = new DynamicFilterConsumerMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build().with(new FilterMatcher(expectedPredicate));
     }
 
     public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, SetExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
@@ -790,6 +810,14 @@ public final class PlanMatchPattern
     public static PlanMatchPattern values(int rowCount)
     {
         return values(ImmutableList.of(), nCopies(rowCount, ImmutableList.of()));
+    }
+
+    public static PlanMatchPattern valuesOf(List<String> aliases, List<Expression> expectedRows)
+    {
+        return values(
+                aliasToIndex(aliases),
+                Optional.of(aliases.size()),
+                Optional.of(expectedRows));
     }
 
     public static PlanMatchPattern values(List<String> aliases, List<List<Expression>> expectedRows)
@@ -909,19 +937,21 @@ public final class PlanMatchPattern
         return matchers.stream().allMatch(it -> it.shapeMatches(node));
     }
 
-    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases, MatchingDynamicFilters matchedDynamicFilters)
     {
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
+        MatchingDynamicFilters.Builder allSourceDynamicFilters = MatchingDynamicFilters.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
+            MatchResult matchResult = matcher.detailMatches(node, new MatchContext(stats, session, metadata, symbolAliases, matchedDynamicFilters));
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
             newAliases.putAll(matchResult.getAliases());
+            allSourceDynamicFilters.addAll(matchResult.getDynamicFilters());
         }
 
-        return match(newAliases.build());
+        return match(newAliases.build(), allSourceDynamicFilters.build());
     }
 
     public <T extends PlanNode> PlanMatchPattern with(Class<T> clazz, Predicate<T> predicate)
@@ -935,7 +965,7 @@ public final class PlanMatchPattern
             }
 
             @Override
-            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            public MatchResult detailMatches(PlanNode node, MatchContext context)
             {
                 if (predicate.test(clazz.cast(node))) {
                     return match();
@@ -1207,57 +1237,6 @@ public final class PlanMatchPattern
         }
 
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
-    }
-
-    public static class DynamicFilterPattern
-    {
-        private final Expression probe;
-        private final Comparison.Operator operator;
-        private final SymbolAlias build;
-        private final boolean nullAllowed;
-
-        public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias, boolean nullAllowed)
-        {
-            this.probe = requireNonNull(probe, "probe is null");
-            this.operator = requireNonNull(operator, "operator is null");
-            this.build = new SymbolAlias(requireNonNull(buildAlias, "buildAlias is null"));
-            this.nullAllowed = nullAllowed;
-        }
-
-        public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias)
-        {
-            this(probe, operator, buildAlias, false);
-        }
-
-        Expression getExpression(SymbolAliases aliases)
-        {
-            Expression probeMapped = symbolMapper(aliases).map(probe);
-            if (nullAllowed) {
-                return new Comparison(
-                        IDENTICAL,
-                        probeMapped,
-                        build.toSymbol(aliases).toSymbolReference());
-            }
-            return new Comparison(
-                    operator,
-                    probeMapped,
-                    build.toSymbol(aliases).toSymbolReference());
-        }
-
-        private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
-        {
-            return new SymbolMapper(symbol -> Symbol.from(symbolAliases.get(symbol.name())));
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("probe", probe)
-                    .add("operator", operator)
-                    .add("build", build)
-                    .toString();
-        }
     }
 
     public static class GroupingSetDescriptor

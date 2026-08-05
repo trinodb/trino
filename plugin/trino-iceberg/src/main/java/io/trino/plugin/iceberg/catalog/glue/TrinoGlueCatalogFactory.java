@@ -16,16 +16,17 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.plugin.iceberg.ForIcebergMetadata;
+import io.trino.plugin.iceberg.ForIcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -51,12 +52,13 @@ public class TrinoGlueCatalogFactory
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final Optional<String> defaultSchemaLocation;
-    private final GlueClient glueClient;
+    private final StatsRecordingGlueClient glueClient;
     private final boolean isUniqueTableLocation;
     private final boolean hideMaterializedViewStorageTable;
     private final GlueMetastoreStats stats;
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
 
     @Inject
     public TrinoGlueCatalogFactory(
@@ -72,7 +74,8 @@ public class TrinoGlueCatalogFactory
             @UsingSystemSecurity boolean usingSystemSecurity,
             GlueMetastoreStats stats,
             GlueClient glueClient,
-            @ForIcebergMetadata ExecutorService metadataExecutorService)
+            @ForIcebergMetadata ExecutorService metadataExecutorService,
+            @ForIcebergSplitManager ExecutorService icebergScanExecutor)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -82,7 +85,7 @@ public class TrinoGlueCatalogFactory
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = nodeVersion.toString();
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
-        this.glueClient = requireNonNull(glueClient, "glueClient is null");
+        this.glueClient = new StatsRecordingGlueClient(glueClient, stats);
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
@@ -93,6 +96,7 @@ public class TrinoGlueCatalogFactory
         else {
             this.metadataFetchingExecutor = new BoundedExecutor(metadataExecutorService, icebergConfig.getMetadataParallelism());
         }
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
     }
 
     @Managed
@@ -114,11 +118,11 @@ public class TrinoGlueCatalogFactory
                 tableOperationsProvider,
                 trinoVersion,
                 glueClient,
-                stats,
                 isUsingSystemSecurity,
                 defaultSchemaLocation,
                 isUniqueTableLocation,
                 hideMaterializedViewStorageTable,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                icebergScanExecutor);
     }
 }

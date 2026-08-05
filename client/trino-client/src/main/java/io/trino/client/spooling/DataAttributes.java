@@ -22,10 +22,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNullElse;
 
 public final class DataAttributes
 {
@@ -33,7 +33,7 @@ public final class DataAttributes
 
     DataAttributes(Map<String, Object> attributes)
     {
-        this.attributes = ImmutableMap.copyOf(firstNonNull(attributes, ImmutableMap.of()));
+        this.attributes = ImmutableMap.copyOf(requireNonNullElse(attributes, ImmutableMap.of()));
     }
 
     public static DataAttributes empty()

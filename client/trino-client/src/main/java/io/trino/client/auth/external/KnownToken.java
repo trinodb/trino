@@ -13,8 +13,12 @@
  */
 package io.trino.client.auth.external;
 
+import com.google.common.base.CharMatcher;
+
 import java.util.Optional;
 import java.util.function.Supplier;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public interface KnownToken
 {
@@ -30,5 +34,19 @@ public interface KnownToken
     static KnownToken memoryCached()
     {
         return MemoryCachedKnownToken.INSTANCE;
+    }
+
+    static KnownToken systemCached()
+    {
+        return SystemCachedKnownToken.INSTANCE;
+    }
+
+    static KnownToken withInitialToken(String tokenValue)
+    {
+        checkArgument(CharMatcher.inRange((char) 33, (char) 126).matchesAllOf(tokenValue),
+                "accessToken contains invalid characters");
+        KnownToken token = local();
+        token.setupToken(() -> Optional.of(new Token(tokenValue)));
+        return token;
     }
 }

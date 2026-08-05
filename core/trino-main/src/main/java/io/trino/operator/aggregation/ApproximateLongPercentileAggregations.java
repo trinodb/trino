@@ -21,6 +21,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -52,6 +53,7 @@ public final class ApproximateLongPercentileAggregations
         ApproximateDoublePercentileAggregations.combine(state, otherState);
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.BIGINT)
     public static void output(@AggregationState TDigestAndPercentileState state, BlockBuilder out)
     {
@@ -70,7 +72,7 @@ public final class ApproximateLongPercentileAggregations
     public static double toDoubleExact(long value)
     {
         double doubleValue = (double) value;
-        checkCondition((long) doubleValue == value, INVALID_FUNCTION_ARGUMENT, () -> String.format("no exact double representation for long: %s", value));
+        checkCondition((long) doubleValue == value, INVALID_FUNCTION_ARGUMENT, "no exact double representation for long: %s", value);
         return doubleValue;
     }
 }

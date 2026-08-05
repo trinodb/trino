@@ -25,7 +25,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public final class ColumnarTestUtils
+final class ColumnarTestUtils
 {
     private ColumnarTestUtils() {}
 
@@ -67,7 +67,7 @@ public final class ColumnarTestUtils
             Slice[] expectedValues = (Slice[]) expectedValue;
             for (int fieldIndex = 0; fieldIndex < fieldBlocks.size(); fieldIndex++) {
                 Block fieldBlock = fieldBlocks.get(fieldIndex);
-                Type fieldType = rowType.getTypeParameters().get(fieldIndex);
+                Type fieldType = rowType.getFields().get(fieldIndex).getType();
                 assertBlockPosition(fieldType, fieldBlock, rawIndex, expectedValues[fieldIndex]);
             }
         }

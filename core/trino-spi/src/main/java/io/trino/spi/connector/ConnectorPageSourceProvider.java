@@ -14,18 +14,70 @@
 package io.trino.spi.connector;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ConnectorPageSourceProvider
 {
     /**
+     * Creates a {@link ConnectorPageSource} for reading data from the specified split.
+     *
+     * @param transaction the transaction handle for this operation
+     * @param session the session in which the read is being performed
+     * @param split the split to read data from
+     * @param table the table handle identifying the table being read
+     * @param tableCredentials credentials for accessing the table data
      * @param columns columns that should show up in the output page, in this order
      * @param dynamicFilter optionally remove rows that don't satisfy this predicate
+     * @deprecated Use overload that accepts {@link MemoryContext}
      */
-    ConnectorPageSource createPageSource(
+    @Deprecated
+    default ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter);
+            DynamicFilter dynamicFilter)
+    {
+        throw new UnsupportedOperationException("This page source provider does not implement createPageSource overload without MemoryContext: " + getClass());
+    }
+
+    /**
+     * Creates a {@link ConnectorPageSource} for reading data from the specified split.
+     *
+     * @param transaction the transaction handle for this operation
+     * @param session the session in which the read is being performed
+     * @param split the split to read data from
+     * @param table the table handle identifying the table being read
+     * @param tableCredentials credentials for accessing the table data
+     * @param columns columns that should show up in the output page, in this order
+     * @param dynamicFilter optionally remove rows that don't satisfy this predicate
+     * @param memoryContext a facade for reporting memory usage
+     */
+    default ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
+    {
+        ConnectorPageSource delegate = createPageSource(transaction, session, split, table, tableCredentials, columns, dynamicFilter);
+        return new MemoryUsageReportingPageSource(delegate, memoryContext);
+    }
+
+    /**
+     * Get the total memory that needs to be reserved in the memory pool.
+     * This should include any memory used in the page source provider that is shared across all page sources created by this provider.
+     *
+     * @return the memory used so far in table read
+     */
+    // TODO (https://github.com/trinodb/trino/issues/29955) replace with MemoryContext
+    default long getMemoryUsage()
+    {
+        return 0;
+    }
 }

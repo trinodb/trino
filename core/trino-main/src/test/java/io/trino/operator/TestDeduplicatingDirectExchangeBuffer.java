@@ -26,7 +26,9 @@ import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
@@ -38,9 +40,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -68,7 +73,7 @@ public class TestDeduplicatingDirectExchangeBuffer
     @BeforeAll
     public void beforeClass()
     {
-        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()));
+        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig());
         exchangeManagerRegistry.addExchangeManagerFactory(new FileSystemExchangeManagerFactory());
         exchangeManagerRegistry.loadExchangeManager("filesystem", ImmutableMap.of(
                 "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
@@ -378,13 +383,13 @@ public class TestDeduplicatingDirectExchangeBuffer
     {
         Set<TaskId> addedTasks = new HashSet<>();
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(bufferCapacity, retryPolicy)) {
-            for (Map.Entry<TaskId, Slice> page : pages.entries()) {
+            for (Entry<TaskId, Slice> page : pages.entries()) {
                 if (addedTasks.add(page.getKey())) {
                     buffer.addTask(page.getKey());
                 }
                 buffer.addPages(page.getKey(), ImmutableList.of(page.getValue()));
             }
-            for (Map.Entry<TaskId, RuntimeException> failure : failures.entrySet()) {
+            for (Entry<TaskId, RuntimeException> failure : failures.entrySet()) {
                 if (addedTasks.add(failure.getKey())) {
                     buffer.addTask(failure.getKey());
                 }
@@ -449,7 +454,8 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                Optional.of(new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId())) {
@@ -473,7 +479,8 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                Optional.of(new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId())) {
@@ -695,6 +702,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 bufferCapacity,
                 retryPolicy,
                 exchangeManagerRegistry,
+                Optional.of(new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId());

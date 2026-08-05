@@ -40,7 +40,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestStatsUtil
+class TestStatsUtil
 {
     @Test
     public void testToStatsRepresentation()

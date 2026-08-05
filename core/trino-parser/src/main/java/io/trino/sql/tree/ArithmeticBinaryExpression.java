@@ -28,7 +28,8 @@ public class ArithmeticBinaryExpression
         SUBTRACT("-"),
         MULTIPLY("*"),
         DIVIDE("/"),
-        MODULUS("%");
+        MODULO("%");
+
         private final String value;
 
         Operator(String value)

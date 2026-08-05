@@ -26,7 +26,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
@@ -75,7 +74,7 @@ public class PrometheusSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         PrometheusTableHandle tableHandle = (PrometheusTableHandle) connectorTableHandle;
@@ -128,7 +127,10 @@ public class PrometheusSplitManager
      *
      * @return list of end times as decimal epoch seconds, like ["1568053244.143", "1568926595.321"]
      */
-    protected static List<String> generateTimesForSplits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Duration queryChunkSizeDurationRequested,
+    protected static List<String> generateTimesForSplits(
+            Instant defaultUpperBound,
+            Duration maxQueryRangeDurationRequested,
+            Duration queryChunkSizeDurationRequested,
             PrometheusTableHandle tableHandle)
     {
         Optional<PrometheusPredicateTimeInfo> predicateRange = tableHandle.predicate()

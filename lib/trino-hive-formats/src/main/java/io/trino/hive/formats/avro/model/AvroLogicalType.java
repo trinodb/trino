@@ -19,15 +19,14 @@ import org.apache.avro.Schema;
 
 // Avro logical types supported in Trino natively cross product with supported Avro schema encoding
 public sealed interface AvroLogicalType
-        permits
-        AvroLogicalType.DateLogicalType,
-        AvroLogicalType.BytesDecimalLogicalType,
-        AvroLogicalType.FixedDecimalLogicalType,
-        AvroLogicalType.TimeMillisLogicalType,
-        AvroLogicalType.TimeMicrosLogicalType,
-        AvroLogicalType.TimestampMillisLogicalType,
-        AvroLogicalType.TimestampMicrosLogicalType,
-        AvroLogicalType.StringUUIDLogicalType
+        permits AvroLogicalType.BytesDecimalLogicalType,
+                AvroLogicalType.DateLogicalType,
+                AvroLogicalType.FixedDecimalLogicalType,
+                AvroLogicalType.StringUUIDLogicalType,
+                AvroLogicalType.TimeMicrosLogicalType,
+                AvroLogicalType.TimeMillisLogicalType,
+                AvroLogicalType.TimestampMicrosLogicalType,
+                AvroLogicalType.TimestampMillisLogicalType
 {
     // Copied from org.apache.avro.LogicalTypes
     String DATE = "date";

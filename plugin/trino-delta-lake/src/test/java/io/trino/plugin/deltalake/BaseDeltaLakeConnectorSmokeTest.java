@@ -22,6 +22,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.blob.cache.alluxio.AlluxioBlobCachePlugin;
 import io.trino.execution.QueryManager;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
@@ -31,6 +32,7 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorSmokeTest;
@@ -50,6 +52,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
@@ -225,22 +228,41 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private QueryRunner createDeltaLakeQueryRunner()
             throws Exception
     {
-        return DeltaLakeQueryRunner.builder(SCHEMA)
+        DeltaLakeQueryRunner.Builder builder = DeltaLakeQueryRunner.builder(SCHEMA)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
-                        .put("delta.metadata.live-files.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(deltaStorageConfiguration())
                         .buildOrThrow())
-                .setSchemaLocation(getLocationForTable(bucketName, SCHEMA))
-                .build();
+                .addDeltaProperty("fs.hadoop.enabled", "true")
+                .setSchemaLocation(getLocationForTable(bucketName, SCHEMA));
+        getBlobCacheProperties().ifPresent(properties -> {
+            builder.withPlugin(getBlobCachePlugin());
+            builder.withBlobCache(getBlobCacheType(), properties);
+        });
+        return builder.build();
+    }
+
+    protected String getBlobCacheType()
+    {
+        return "alluxio";
+    }
+
+    protected Plugin getBlobCachePlugin()
+    {
+        return new AlluxioBlobCachePlugin();
+    }
+
+    protected Optional<Map<String, String>> getBlobCacheProperties()
+    {
+        return Optional.empty();
     }
 
     @AfterAll
-    public void cleanUp()
+    final void cleanUp()
     {
         hiveHadoop = null; // closed by closeAfterClass
     }
@@ -351,11 +373,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testCreateTablePartitionValidation()
     {
         String tableName = "test_create_table_partition_validation_" + randomNameSuffix();
-        assertQueryFails("CREATE TABLE " + tableName + " (a int, b VARCHAR, c TIMESTAMP WITH TIME ZONE) " +
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " (a int, b VARCHAR, c TIMESTAMP WITH TIME ZONE) " +
                         "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['a', 'd', 'e'])",
                 "Table property 'partitioned_by' contained column names which do not exist: \\[d, e]");
 
-        assertQueryFails("CREATE TABLE " + tableName + " (a, b, c) " +
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " (a, b, c) " +
                         "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['a', 'd', 'e']) " +
                         "AS VALUES (1, 'one', TIMESTAMP '2020-02-03 01:02:03.123 UTC')",
                 "Table property 'partitioned_by' contained column names which do not exist: \\[d, e]");
@@ -599,7 +623,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 "   location = '%s',\n" +
                                 "   partitioned_by = ARRAY['regionkey']\n" +
                                 ")",
-                        DELTA_CATALOG, SCHEMA, tableName, getLocationForTable(bucketName, tableName)));
+                        DELTA_CATALOG,
+                        SCHEMA,
+                        tableName,
+                        getLocationForTable(bucketName, tableName)));
         assertQuery("SELECT * FROM " + tableName, "SELECT name, regionkey, comment FROM nation");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -626,7 +653,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "test_create_table_partitioned_by_date_" + randomNameSuffix();
         assertUpdate(
                 format("CREATE TABLE %s (i, d) WITH (location = '%s', partitioned_by = ARRAY['d']) AS VALUES (1, DATE '2020-01-01'), (2, DATE '1700-01-01')",
-                        tableName, getLocationForTable(bucketName, tableName)),
+                        tableName,
+                        getLocationForTable(bucketName, tableName)),
                 2);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, DATE '2020-01-01'), (2, DATE '1700-01-01')");
     }
@@ -1177,7 +1205,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "(3, NULL, NULL, 'DaTaBrIcKs')," +
                         "(4, NULL, NULL, NULL)");
 
-        assertUpdate("INSERT INTO insert_nested_nonlowercase_columns VALUES " +
+        assertUpdate(
+                "INSERT INTO insert_nested_nonlowercase_columns VALUES " +
                         "(10, ROW('trino', 'TRINO', 'TrInO'))," +
                         "(20, ROW('trino', 'TRINO', NULL))," +
                         "(30, ROW(NULL, NULL, 'TrInO'))," +
@@ -1385,7 +1414,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         testCheckpointWriteStatsAsStruct("smallint", "3", "32767", "0.0", "3", "32767");
         testCheckpointWriteStatsAsStruct("bigint", "1000", "9223372036854775807", "0.0", "1000", "9223372036854775807");
         testCheckpointWriteStatsAsStruct("real", "0.1", "999999.999", "0.0", "0.1", "1000000.0");
-        testCheckpointWriteStatsAsStruct("double", "1.0", "9999999999999.999", "0.0", "1.0", "'1.0E13'");
+        testCheckpointWriteStatsAsStruct("double", "1.0", "9999999999999.999", "0.0", "1.0", "'9.999999999999998E12'");
         testCheckpointWriteStatsAsStruct("decimal(3,2)", "3.14", "9.99", "0.0", "3.14", "9.99");
         testCheckpointWriteStatsAsStruct("decimal(30,1)", "12345", "99999999999999999999999999999.9", "0.0", "12345.0", "'1.0E29'");
         testCheckpointWriteStatsAsStruct("varchar", "'test'", "'ŻŻŻŻŻŻŻŻŻŻ'", "0.0", "null", "null");
@@ -1409,7 +1438,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         getLocationForTable(bucketName, tableName)));
         assertUpdate(
                 disableStatisticsCollectionOnWrite(getSession()),
-                "INSERT INTO " + tableName + " SELECT " + sampleValue + " UNION ALL SELECT " + highValue, 2);
+                "INSERT INTO " + tableName + " SELECT " + sampleValue + " UNION ALL SELECT " + highValue,
+                2);
 
         // TODO: Open checkpoint parquet file and verify 'stats_parsed' field directly
         assertThat(getTableFiles(tableName))
@@ -1447,7 +1477,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
-    public void testCreateOrReplaceCheckpointing()
+    public void testCreateOrReplaceWithSameSchemaWritesCheckpoint()
     {
         String tableName = "test_create_or_replace_checkpointing_" + randomNameSuffix();
         assertUpdate(
@@ -1464,27 +1494,64 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(listCheckpointFiles(transactionLogDirectory)).isEmpty();
         assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'),  (2,'kota'), (3, 'psa')");
 
-        // replace table
+        // replace table with same schema, expect a checkpoint because the checkpoint interval threshold has been reached
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_number integer) " +
+                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string varchar) " +
                                 " WITH (checkpoint_interval = 2)",
                         tableName));
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
 
-        assertUpdate(format("INSERT INTO " + tableName + " VALUES 1", tableName), 1);
+        assertUpdate(format("INSERT INTO " + tableName + " VALUES (1, 'bobra')", tableName), 1);
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'bobra')");
 
         // replace table with selection
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_string) " +
+                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
                                 " WITH (checkpoint_interval = 2) " +
-                                " AS VALUES 'bobra', 'kreta'",
+                                " AS VALUES (1, 'bobra'), (2, 'kreta')",
                         tableName),
                 2);
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(2);
-        assertQuery("SELECT * FROM " + tableName, "VALUES 'bobra', 'kreta'");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'bobra'), (2, 'kreta')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateOrReplaceWithDifferentSchemaWritesCheckpoint()
+    {
+        String tableName = "test_create_or_replace_checkpointing_" + randomNameSuffix();
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
+                                " WITH (location = '%s', " +
+                                "       partitioned_by = ARRAY['a_number']) " +
+                                " AS VALUES (1, 'ala')",
+                        tableName,
+                        getLocationForTable(bucketName, tableName)),
+                1);
+        String transactionLogDirectory = format("%s/_delta_log", tableName);
+
+        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')", tableName), 2);
+        assertThat(listCheckpointFiles(transactionLogDirectory)).isEmpty();
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'),  (2,'kota'), (3, 'psa')");
+
+        // replace table with same schema and a large checkpoint_interval, expect no new checkpoint
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string varchar) " +
+                                " WITH (checkpoint_interval = 100)",
+                        tableName));
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(0);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+
+        // replace table with a different schema and a large checkpoint_interval, expect a new checkpoint because columns have changed
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string integer) " +
+                                " WITH (checkpoint_interval = 100)",
+                        tableName));
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1612,7 +1679,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         + " WITH ("
                         + "location = '" + getLocationForTable(bucketName, tableName) + "'"
                         + ")"
-                        + " AS SELECT * FROM tpch.sf1.nation", 25);
+                        + " AS SELECT * FROM tpch.sf1.nation",
+                25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -2330,7 +2398,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         assertUpdate("CREATE TABLE " + tableName +
                 " (id BIGINT, nested1 ROW(child1 BIGINT, child2 VARCHAR, child3 INT), nested2 ROW(child1 DOUBLE, child2 BOOLEAN, child3 DATE))");
-        assertUpdate("INSERT INTO " + tableName + " VALUES" +
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES" +
                         " (100, ROW(10, 'a', 100), ROW(10.10, true, DATE '2023-04-19'))," +
                         " (3, ROW(30, 'to_be_deleted', 300), ROW(30.30, false, DATE '2000-04-16'))," +
                         " (2, ROW(20, 'b', 200), ROW(20.20, false, DATE '1990-04-20'))," +
@@ -2447,7 +2516,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             // One thread submits some CREATE OR REPLACE statements
             futures.add(executor.submit(() -> {
                 barrier.await(30, SECONDS);
-                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
+                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(_ -> {
                     try {
                         getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
                     }
@@ -2468,9 +2537,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             }));
             // Other 4 threads continue try to read the same table, none of the reads should fail.
             IntStream.range(0, threads)
-                    .forEach(threadNumber -> futures.add(executor.submit(() -> {
+                    .forEach(_ -> futures.add(executor.submit(() -> {
                         barrier.await(30, SECONDS);
-                        IntStream.range(0, numOfReads).forEach(readIndex -> {
+                        IntStream.range(0, numOfReads).forEach(_ -> {
                             try {
                                 MaterializedResult result = computeActual("SELECT * FROM " + tableName);
                                 if (result.getRowCount() == 1) {
@@ -2600,7 +2669,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             // T2: (2, 10)
             // T3: (3, 10)
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             getQueryRunner().execute("INSERT INTO " + tableName + " SELECT COUNT(*), 10 AS part FROM " + tableName);

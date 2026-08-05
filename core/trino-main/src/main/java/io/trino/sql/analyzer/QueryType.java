@@ -18,5 +18,4 @@ public enum QueryType
     DESCRIBE,
     EXPLAIN,
     OTHERS,
-    /**/;
 }

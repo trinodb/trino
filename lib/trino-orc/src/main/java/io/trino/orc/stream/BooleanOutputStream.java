@@ -27,6 +27,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.spi.block.Bitmap.getBits;
+import static io.trino.spi.block.Bitmap.isSet;
 
 public class BooleanOutputStream
         implements ValueOutputStream<BooleanStreamCheckpoint>
@@ -114,6 +116,62 @@ public class BooleanOutputStream
             }
             bitsInData = count;
         }
+    }
+
+    public void writeBits(long[] rawWords, int rawBitOffset, int bitCount)
+    {
+        checkState(!closed);
+
+        int position = 0;
+        while (bitsInData != 0 && position < bitCount) {
+            writeBoolean(isSet(rawWords, rawBitOffset, position));
+            position++;
+        }
+
+        while (position + Long.SIZE <= bitCount) {
+            long bits = reverseBitsInBytes(getBits(rawWords, rawBitOffset, position, Long.SIZE));
+            for (int shift = 0; shift < Long.SIZE; shift += Byte.SIZE) {
+                byteOutputStream.writeByte((byte) (bits >>> shift));
+            }
+            position += Long.SIZE;
+        }
+        while (position + Byte.SIZE <= bitCount) {
+            int bits = Integer.reverse((int) getBits(rawWords, rawBitOffset, position, Byte.SIZE)) >>> (Integer.SIZE - Byte.SIZE);
+            byteOutputStream.writeByte((byte) bits);
+            position += Byte.SIZE;
+        }
+        while (position < bitCount) {
+            writeBoolean(isSet(rawWords, rawBitOffset, position));
+            position++;
+        }
+    }
+
+    public void writeBits(long bits, int bitCount)
+    {
+        checkArgument(bitCount >= 0 && bitCount <= Long.SIZE, "bitCount must be between 0 and 64");
+        checkState(!closed);
+
+        while (bitsInData != 0 && bitCount > 0) {
+            writeBoolean((bits & 1) != 0);
+            bits >>>= 1;
+            bitCount--;
+        }
+        while (bitCount >= Byte.SIZE) {
+            int output = Integer.reverse((int) bits & 0xFF) >>> (Integer.SIZE - Byte.SIZE);
+            byteOutputStream.writeByte((byte) output);
+            bits >>>= Byte.SIZE;
+            bitCount -= Byte.SIZE;
+        }
+        while (bitCount > 0) {
+            writeBoolean((bits & 1) != 0);
+            bits >>>= 1;
+            bitCount--;
+        }
+    }
+
+    private static long reverseBitsInBytes(long bits)
+    {
+        return Long.reverseBytes(Long.reverse(bits));
     }
 
     private void flushData()

@@ -34,7 +34,8 @@ public class OutputNode
     private final List<Symbol> outputs; // column name = symbol
 
     @JsonCreator
-    public OutputNode(@JsonProperty("id") PlanNodeId id,
+    public OutputNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("columns") List<String> columnNames,
             @JsonProperty("outputs") List<Symbol> outputs)

@@ -42,7 +42,8 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesWrite
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.apache.parquet.schema.Types.PrimitiveBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.util.List;
@@ -52,7 +53,6 @@ import java.util.OptionalLong;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.BIT_PACKED;
-import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
@@ -70,7 +70,8 @@ public abstract class AbstractColumnReaderTest
 {
     protected abstract ColumnReader createColumnReader(PrimitiveField field);
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testSingleValueDictionary(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -93,7 +94,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values, actual);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testSingleValueDictionaryNullable(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -116,7 +118,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values, actual);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testSingleValueDictionaryNullableWithNoNulls(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -139,7 +142,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values, actual);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testSingleValueDictionaryNullableWithNoNullsUsingColumnStats(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -162,7 +166,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values, actual);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testSingleValueDictionaryNullableWithOnlyNulls(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -185,7 +190,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values, actual);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testDictionariesSharedBetweenPages(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -223,7 +229,8 @@ public abstract class AbstractColumnReaderTest
 //        testReadNoNull(DataPageVersion.V2,
 //                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestamp(3)));
 //    }
-    @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#readersWithPageVersions")
     public <T> void testReadNoNull(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -231,13 +238,13 @@ public abstract class AbstractColumnReaderTest
         PrimitiveField field = createField(format, true);
         ColumnReader reader = createColumnReader(field);
         // Write data
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         T[] values1 = format.write(writer, new Integer[] {1});
-        DataPage page1 = createDataPage(version, PLAIN, writer, 1);
+        DataPage page1 = createDataPage(version, writer, 1);
         T[] values2 = format.resetAndWrite(writer, new Integer[] {2, 3});
-        DataPage page2 = createDataPage(version, PLAIN, writer, 2);
+        DataPage page2 = createDataPage(version, writer, 2);
         T[] values3 = format.resetAndWrite(writer, new Integer[] {4});
-        DataPage page3 = createDataPage(version, PLAIN, writer, 1);
+        DataPage page3 = createDataPage(version, writer, 1);
         // Read and assert
         reader.setPageReader(getPageReaderMock(List.of(page1, page2, page3), null), Optional.empty());
         Block actual1 = readBlock(reader, 1); // Parquet/Trino page size the same
@@ -253,7 +260,8 @@ public abstract class AbstractColumnReaderTest
         assertThat(actual3.mayHaveNull()).isFalse();
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testSingleValueDictionaryAndNonDictionaryInASingleChunk(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -262,11 +270,11 @@ public abstract class AbstractColumnReaderTest
         ColumnReader reader = createColumnReader(field);
         // Write data
         DictionaryValuesWriter dictionaryWriter = format.getDictionaryWriter();
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         T[] values1 = format.write(dictionaryWriter, new Integer[] {1, 1});
         DataPage page1 = createDataPage(version, RLE_DICTIONARY, dictionaryWriter, 2);
         T[] values2 = format.write(writer, new Integer[] {2});
-        DataPage page2 = createDataPage(version, PLAIN, writer, 1);
+        DataPage page2 = createDataPage(version, writer, 1);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
         reader.setPageReader(getPageReaderMock(List.of(page1, page2), dictionaryPage), Optional.empty());
@@ -278,7 +286,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values2, actual, 0, 2, 1);
     }
 
-    @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#readersWithPageVersions")
     public <T> void testReadOnlyNulls(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -286,11 +295,11 @@ public abstract class AbstractColumnReaderTest
         PrimitiveField field = createField(format, false);
         ColumnReader reader = createColumnReader(field);
         // Write data
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         T[] values1 = format.write(writer, new Integer[] {null});
-        DataPage page1 = createNullableDataPage(version, PLAIN, writer, field, true);
+        DataPage page1 = createNullableDataPage(version, writer, field, true);
         T[] values2 = format.write(writer, new Integer[] {null, null});
-        DataPage page2 = createNullableDataPage(version, PLAIN, writer, field, true, true);
+        DataPage page2 = createNullableDataPage(version, writer, field, true, true);
         // Read and assert
         reader.setPageReader(getPageReaderMock(List.of(page1, page2), null), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
@@ -305,7 +314,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values2, actual2, 1, 0, 1);
     }
 
-    @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#readersWithPageVersions")
     public <T> void testReadNullable(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -313,13 +323,13 @@ public abstract class AbstractColumnReaderTest
         PrimitiveField field = createField(format, false);
         ColumnReader reader = createColumnReader(field);
         // Write data
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         T[] values1 = format.write(writer, new Integer[] {null, 1});
-        DataPage page1 = createNullableDataPage(version, PLAIN, writer, field, true, false);
+        DataPage page1 = createNullableDataPage(version, writer, field, true, false);
         T[] values2 = format.resetAndWrite(writer, new Integer[] {null, 2, null});
-        DataPage page2 = createNullableDataPage(version, PLAIN, writer, field, true, false, true);
+        DataPage page2 = createNullableDataPage(version, writer, field, true, false, true);
         T[] values3 = format.resetAndWrite(writer, new Integer[] {3, null, 4});
-        DataPage page3 = createNullableDataPage(version, PLAIN, writer, field, false, true, false);
+        DataPage page3 = createNullableDataPage(version, writer, field, false, true, false);
         // Read and assert
         reader.setPageReader(getPageReaderMock(List.of(page1, page2, page3), null), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
@@ -337,7 +347,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values3, actual3, 0, 1, 3);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testReadNullableDictionary(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -380,7 +391,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values3, actual3, 0, 1, 3);
     }
 
-    @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#readersWithPageVersions")
     public <T> void testReadNullableWithNoNulls(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -388,9 +400,9 @@ public abstract class AbstractColumnReaderTest
         PrimitiveField field = createField(format, false);
         ColumnReader reader = createColumnReader(field);
         // Write data
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         T[] values1 = format.write(writer, new Integer[] {1, 2});
-        DataPage page1 = createNullableDataPage(version, PLAIN, writer, field, false, false);
+        DataPage page1 = createNullableDataPage(version, writer, field, false, false);
         // Read and assert
         reader.setPageReader(getPageReaderMock(List.of(page1), null), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
@@ -400,7 +412,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values1, actual1);
     }
 
-    @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#readersWithPageVersions")
     public <T> void testReadNullableWithNoNullsUsingColumnStats(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -408,9 +421,9 @@ public abstract class AbstractColumnReaderTest
         PrimitiveField field = createField(format, false);
         ColumnReader reader = createColumnReader(field);
         // Write data
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         T[] values1 = format.write(writer, new Integer[] {1, 2});
-        DataPage page1 = createNullableDataPage(version, PLAIN, writer, field, false, false);
+        DataPage page1 = createNullableDataPage(version, writer, field, false, false);
         // Read and assert
         reader.setPageReader(getPageReaderMock(List.of(page1), null, true), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
@@ -419,7 +432,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values1, actual1);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testMixedDictionaryAndOrdinary(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -430,9 +444,9 @@ public abstract class AbstractColumnReaderTest
         DictionaryValuesWriter dictionaryWriter = format.getDictionaryWriter();
         T[] values1 = format.write(dictionaryWriter, new Integer[] {1, 2, 3});
         DataPage page1 = createDataPage(version, RLE_DICTIONARY, dictionaryWriter, 3);
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         T[] values2 = format.resetAndWrite(writer, new Integer[] {4, 5, 6});
-        DataPage page2 = createDataPage(version, PLAIN, writer, 3);
+        DataPage page2 = createDataPage(version, writer, 3);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
         // Read and assert
         reader.setPageReader(getPageReaderMock(List.of(page1, page2), dictionaryPage), Optional.empty());
@@ -452,7 +466,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values2, actual3, 1, 0, 2);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testLargeDictionaryWithSmallValuesCount(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -480,7 +495,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values2, actual);
     }
 
-    @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#readersWithPageVersions")
     public <T> void testOnlyNullParquetPage(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -488,13 +504,13 @@ public abstract class AbstractColumnReaderTest
         PrimitiveField field = createField(format, false);
         ColumnReader reader = createColumnReader(field);
         // Write data
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         T[] values1 = format.write(writer, new Integer[] {1});
-        DataPage page1 = createNullableDataPage(version, PLAIN, writer, field, false);
+        DataPage page1 = createNullableDataPage(version, writer, field, false);
         T[] values2 = format.resetAndWrite(writer, new Integer[] {null});
-        DataPage page2 = createNullableDataPage(version, PLAIN, writer, field, true);
+        DataPage page2 = createNullableDataPage(version, writer, field, true);
         T[] values3 = format.resetAndWrite(writer, new Integer[] {2});
-        DataPage page3 = createNullableDataPage(version, PLAIN, writer, field, false);
+        DataPage page3 = createNullableDataPage(version, writer, field, false);
         // Read and assert
         reader.setPageReader(getPageReaderMock(List.of(page1, page2, page3), null), Optional.empty());
         // Deliberate mismatch between Trino/Parquet page sizes
@@ -506,7 +522,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values3, actual, 0, 2, 1);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testSkip(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -514,10 +531,10 @@ public abstract class AbstractColumnReaderTest
         PrimitiveField field = createField(format, true);
         ColumnReader reader = createColumnReader(field);
         // Write data
-        ValuesWriter writer = format.getPlainWriter();
+        ValuesWriter writer = format.getValuesWriter(version);
         DictionaryValuesWriter dictionaryWriter = format.getDictionaryWriter();
         T[] values1 = format.write(writer, new Integer[] {1, 2, 3});
-        DataPage page1 = createDataPage(version, PLAIN, writer, 3);
+        DataPage page1 = createDataPage(version, writer, 3);
         T[] values2 = format.resetAndWrite(dictionaryWriter, new Integer[] {4, 5, 6});
         DataPage page2 = createDataPage(version, RLE_DICTIONARY, dictionaryWriter, 3);
         DictionaryPage dictionaryPage = getDictionaryPage(dictionaryWriter);
@@ -532,7 +549,8 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values2, actual2, 1, 0, 2);
     }
 
-    @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
+    @ParameterizedTest
+    @MethodSource("io.trino.parquet.reader.TestingColumnReader#dictionaryReadersWithPageVersions")
     public <T> void testMemoryUsage(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
     {
@@ -608,6 +626,12 @@ public abstract class AbstractColumnReaderTest
                 0);
     }
 
+    protected DataPage createNullableDataPage(DataPageVersion version, ValuesWriter writer, PrimitiveField field, boolean... isNull)
+            throws IOException
+    {
+        return createNullableDataPage(version, getParquetEncoding(writer.getEncoding()), writer, field, isNull);
+    }
+
     protected DataPage createNullableDataPage(DataPageVersion version, ParquetEncoding encoding, ValuesWriter writer, PrimitiveField field, boolean... isNull)
             throws IOException
     {
@@ -618,6 +642,17 @@ public abstract class AbstractColumnReaderTest
             }
         }
         return createDataPage(version, encoding, writer, field, new int[0], definitionLevels);
+    }
+
+    protected static DataPage createDataPage(
+            DataPageVersion version,
+            ValuesWriter writer,
+            PrimitiveField field,
+            int[] repetition,
+            int[] definition)
+            throws IOException
+    {
+        return createDataPage(version, getParquetEncoding(writer.getEncoding()), writer, field, repetition, definition);
     }
 
     protected static DataPage createDataPage(
@@ -650,6 +685,7 @@ public abstract class AbstractColumnReaderTest
         byte[] repetitionBytes = repetitionWriter.getBytes().toByteArray();
         byte[] definitionBytes = definitionWriter.getBytes().toByteArray();
         byte[] valueBytes = writer.getBytes().toByteArray();
+        writer.reset();
 
         if (version == V1) {
             Slice slice = Slices.wrappedBuffer(Bytes.concat(repetitionBytes, definitionBytes, valueBytes));
@@ -660,7 +696,8 @@ public abstract class AbstractColumnReaderTest
                     OptionalLong.empty(),
                     getParquetEncoding(repetitionWriter.getEncoding()),
                     getParquetEncoding(definitionWriter.getEncoding()),
-                    encoding);
+                    encoding,
+                    0);
         }
         return new DataPageV2(
                 valueCount,
@@ -673,7 +710,8 @@ public abstract class AbstractColumnReaderTest
                 definitionBytes.length + repetitionBytes.length + valueBytes.length,
                 OptionalLong.empty(),
                 null,
-                false);
+                false,
+                0);
     }
 
     protected static PageReader getPageReaderMock(List<DataPage> dataPages, @Nullable DictionaryPage dictionaryPage)
@@ -699,7 +737,16 @@ public abstract class AbstractColumnReaderTest
                             return ((DataPageV2) page).getDataEncoding();
                         })
                         .allMatch(encoding -> encoding == PLAIN_DICTIONARY || encoding == RLE_DICTIONARY),
-                hasNoNulls);
+                hasNoNulls,
+                Optional.empty(),
+                -1,
+                -1);
+    }
+
+    private DataPage createDataPage(DataPageVersion version, ValuesWriter writer, int valueCount)
+            throws IOException
+    {
+        return createDataPage(version, getParquetEncoding(writer.getEncoding()), writer, valueCount, OptionalLong.empty());
     }
 
     private DataPage createDataPage(DataPageVersion version, ParquetEncoding encoding, ValuesWriter writer, int valueCount)
@@ -711,9 +758,11 @@ public abstract class AbstractColumnReaderTest
     private DataPage createDataPage(DataPageVersion version, ParquetEncoding encoding, ValuesWriter writer, int valueCount, OptionalLong firstRowIndex)
             throws IOException
     {
-        Slice slice = Slices.wrappedBuffer(writer.getBytes().toByteArray());
+        byte[] valueBytes = writer.getBytes().toByteArray();
+        writer.reset();
+        Slice slice = Slices.wrappedBuffer(valueBytes);
         if (version == V1) {
-            return new DataPageV1(slice, valueCount, slice.length(), firstRowIndex, RLE, BIT_PACKED, encoding);
+            return new DataPageV1(slice, valueCount, slice.length(), firstRowIndex, RLE, BIT_PACKED, encoding, 0);
         }
         return new DataPageV2(
                 valueCount,
@@ -726,7 +775,8 @@ public abstract class AbstractColumnReaderTest
                 slice.length(),
                 firstRowIndex,
                 null,
-                false);
+                false,
+                0);
     }
 
     private static ValuesWriter getLevelsWriter(int maxLevel, int valueCount)

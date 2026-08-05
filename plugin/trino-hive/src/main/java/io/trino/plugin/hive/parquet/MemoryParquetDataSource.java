@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.min;
@@ -113,20 +114,20 @@ public class MemoryParquetDataSource
         }
 
         ImmutableMap.Builder<K, ChunkedInputStream> builder = ImmutableMap.builder();
-        for (Map.Entry<K, Collection<DiskRange>> entry : diskRanges.asMap().entrySet()) {
+        for (Entry<K, Collection<DiskRange>> entry : diskRanges.asMap().entrySet()) {
             List<ChunkReader> chunkReaders = entry.getValue().stream()
                     .map(diskRange -> new ChunkReader()
                     {
                         @Override
                         public long getDiskOffset()
                         {
-                            return diskRange.getOffset();
+                            return diskRange.offset();
                         }
 
                         @Override
                         public Slice read()
                         {
-                            return data.slice(toIntExact(diskRange.getOffset()), toIntExact(diskRange.getLength()));
+                            return data.slice(toIntExact(diskRange.offset()), toIntExact(diskRange.length()));
                         }
 
                         @Override

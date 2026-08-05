@@ -52,6 +52,7 @@ import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.plugin.hive.util.HiveTypeTranslator;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -60,6 +61,7 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.ArrayType;
@@ -104,14 +106,19 @@ import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -121,6 +128,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -128,6 +136,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -169,6 +178,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -183,7 +193,6 @@ import static io.trino.testing.StructuralTestUtil.decimalSqlMapOf;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
 import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
@@ -215,11 +224,12 @@ import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Offset.offset;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 // Failing on multiple threads because of org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper
 // uses a single record writer across all threads.
 // For example org.apache.parquet.column.values.factory.DefaultValuesWriterFactory#DEFAULT_V1_WRITER_FACTORY is shared mutable state.
-@Test(singleThreaded = true)
+@Execution(ExecutionMode.SAME_THREAD)
 public final class TestHiveFileFormats
 {
     private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
@@ -229,20 +239,18 @@ public final class TestHiveFileFormats
     private static final ConnectorSession PARQUET_SESSION = getHiveSession(createParquetHiveConfig(false));
     private static final ConnectorSession PARQUET_SESSION_USE_NAME = getHiveSession(createParquetHiveConfig(true));
 
-    @DataProvider(name = "rowCount")
-    public static Object[][] rowCountProvider()
+    static Stream<Integer> rowCount()
     {
-        return new Object[][] {{0}, {1000}};
+        return Stream.of(0, 1000);
     }
 
-    @DataProvider(name = "validRowAndFileSizePadding")
-    public static Object[][] validFileSizePaddingProvider()
+    static Stream<Arguments> validRowAndFileSizePadding()
     {
-        return new Object[][] {{0, 0L}, {0, 16L}, {10, 1L}, {1000, 64L}};
+        return Stream.of(arguments(0, 0L), arguments(0, 16L), arguments(10, 1L), arguments(1000, 64L));
     }
 
-    @BeforeClass(alwaysRun = true)
-    public void setUp()
+    @BeforeAll
+    public static void setUp()
     {
         // ensure the expected timezone is configured for this VM
         assertThat(TimeZone.getDefault().getID())
@@ -250,7 +258,8 @@ public final class TestHiveFileFormats
                 .isEqualTo("America/Bahia_Banderas");
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testTextFile(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -267,8 +276,9 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new SimpleTextFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
-    public void testSequenceFile(int rowCount, long fileSizePadding)
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
+    public void testTextSequenceFile(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -284,7 +294,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new SimpleSequenceFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testCsvFile(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -316,7 +327,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new CsvPageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testJson(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -346,7 +358,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new JsonPageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testOpenXJson(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -365,7 +378,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new OpenXJsonPageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testRcTextPageSource(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -376,7 +390,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new RcFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testRcTextOptimizedWriter(int rowCount)
             throws Exception
     {
@@ -392,7 +407,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new RcFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testRcBinaryPageSource(int rowCount)
             throws Exception
     {
@@ -409,7 +425,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new RcFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testRcBinaryOptimizedWriter(int rowCount)
             throws Exception
     {
@@ -435,7 +452,8 @@ public final class TestHiveFileFormats
                 .withColumns(testColumnsNoTimestamps);
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testOrc(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -446,7 +464,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC));
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testOrcOptimizedWriter(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -475,7 +494,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testOrcUseColumnNames(int rowCount)
             throws Exception
     {
@@ -494,7 +514,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testOrcUseColumnNameLowerCaseConversion(int rowCount)
             throws Exception
     {
@@ -511,7 +532,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC));
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testAvro(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -523,8 +545,9 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(AvroPageSourceFactory::new);
     }
 
-    @Test(dataProvider = "rowCount")
-    public static void testAvroFileInSymlinkTable(int rowCount)
+    @ParameterizedTest
+    @MethodSource("rowCount")
+    void testAvroFileInSymlinkTable(int rowCount)
             throws Exception
     {
         TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
@@ -544,7 +567,8 @@ public final class TestHiveFileFormats
                 .collect(toList());
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testParquetPageSource(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -554,10 +578,11 @@ public final class TestHiveFileFormats
                 .withSession(PARQUET_SESSION)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
     }
 
-    @Test(dataProvider = "validRowAndFileSizePadding")
+    @ParameterizedTest
+    @MethodSource("validRowAndFileSizePadding")
     public void testParquetPageSourceGzip(int rowCount, long fileSizePadding)
             throws Exception
     {
@@ -568,10 +593,11 @@ public final class TestHiveFileFormats
                 .withCompressionCodec(HiveCompressionCodec.GZIP)
                 .withFileSizePadding(fileSizePadding)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testParquetWriter(int rowCount)
             throws Exception
     {
@@ -582,11 +608,12 @@ public final class TestHiveFileFormats
                 .withSession(session)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withFileWriterFactory(fileSystemFactory -> new ParquetFileWriterFactory(fileSystemFactory, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), STATS))
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .withFileWriterFactory(fileSystemFactory -> new ParquetFileWriterFactory(fileSystemFactory, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), new ParquetWriterConfig(), STATS))
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testParquetPageSourceSchemaEvolution(int rowCount)
             throws Exception
     {
@@ -601,7 +628,7 @@ public final class TestHiveFileFormats
                 .withReadColumns(readColumns)
                 .withSession(PARQUET_SESSION)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
 
         // test the name-based access
         readColumns = writeColumns.reversed();
@@ -609,10 +636,11 @@ public final class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withSession(PARQUET_SESSION_USE_NAME)
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testParquetCaseSensitivity(int rowCount)
             throws Exception
     {
@@ -626,8 +654,8 @@ public final class TestHiveFileFormats
                 // Since this is not a valid scenario for Trino parquet writer, we disable parquet writer validation to avoid test failures
                 .withSession(getHiveSession(createParquetHiveConfig(true), new ParquetWriterConfig().setValidationPercentage(0)))
                 .withRowsCount(rowCount)
-                .withFileWriterFactory(fileSystemFactory -> new ParquetFileWriterFactory(fileSystemFactory, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), STATS))
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .withFileWriterFactory(fileSystemFactory -> new ParquetFileWriterFactory(fileSystemFactory, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), new ParquetWriterConfig(), STATS))
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
     }
 
     private static List<TestColumn> getTestColumnsSupportedByParquet()
@@ -670,7 +698,7 @@ public final class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withSession(PARQUET_SESSION)
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
 
         assertThatFileFormat(AVRO)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -691,7 +719,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new SimpleTextFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testAvroProjectedColumns(int rowCount)
             throws Exception
     {
@@ -715,7 +744,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(AvroPageSourceFactory::new);
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testParquetProjectedColumns(int rowCount)
             throws Exception
     {
@@ -736,17 +766,18 @@ public final class TestHiveFileFormats
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
                 .withSession(PARQUET_SESSION)
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
 
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
                 .withSession(PARQUET_SESSION_USE_NAME)
-                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testORCProjectedColumns(int rowCount)
             throws Exception
     {
@@ -777,7 +808,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testSequenceFileProjectedColumns(int rowCount)
             throws Exception
     {
@@ -804,7 +836,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new SimpleSequenceFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testTextFileProjectedColumns(int rowCount)
             throws Exception
     {
@@ -832,7 +865,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new SimpleTextFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testRCTextProjectedColumnsPageSource(int rowCount)
             throws Exception
     {
@@ -855,7 +889,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new RcFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testRCBinaryProjectedColumns(int rowCount)
             throws Exception
     {
@@ -888,7 +923,8 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new RcFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
+    @ParameterizedTest
+    @MethodSource("rowCount")
     public void testRCBinaryProjectedColumnsPageSource(int rowCount)
             throws Exception
     {
@@ -944,7 +980,7 @@ public final class TestHiveFileFormats
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)
                 .withSession(PARQUET_SESSION)
-                .isFailingForPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()), expectedErrorCode, expectedMessage);
     }
 
     private static void testPageSourceFactory(
@@ -999,25 +1035,25 @@ public final class TestHiveFileFormats
                 Instant.now().toEpochMilli());
 
         ConnectorPageSource pageSource = HivePageSourceProvider.createHivePageSource(
-                ImmutableSet.of(sourceFactory),
-                session,
-                location,
-                OptionalInt.empty(),
-                0,
-                fileSize,
-                paddedFileSize,
-                12345,
-                new Schema(storageFormat.getSerde(), false, splitProperties),
-                TupleDomain.all(),
-                TESTING_TYPE_MANAGER,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                false,
-                NO_ACID_TRANSACTION,
-                columnMappings)
+                        ImmutableSet.of(sourceFactory),
+                        session,
+                        location,
+                        OptionalInt.empty(),
+                        0,
+                        fileSize,
+                        paddedFileSize,
+                        12345,
+                        new Schema(storageFormat.getSerde(), false, splitProperties),
+                        TupleDomain.all(),
+                        TESTING_TYPE_MANAGER,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        NO_ACID_TRANSACTION,
+                        columnMappings,
+                        MemoryContext.NO_LIMIT)
                 .orElseThrow();
-
         checkPageSource(pageSource, testReadColumns, rowCount);
     }
 
@@ -1122,7 +1158,17 @@ public final class TestHiveFileFormats
 
     private static boolean hasType(Type actualType, Type testType)
     {
-        return actualType.equals(testType) || actualType.getTypeParameters().stream().anyMatch(type -> hasType(type, testType));
+        if (actualType.equals(testType)) {
+            return true;
+        }
+
+        return switch (actualType) {
+            case ArrayType arrayType -> hasType(arrayType.getElementType(), testType);
+            case MapType mapType -> hasType(mapType.getKeyType(), testType) || hasType(mapType.getValueType(), testType);
+            case RowType rowType -> rowType.getFields().stream()
+                    .anyMatch(field -> hasType(field.getType(), testType));
+            default -> false;
+        };
     }
 
     private static boolean withoutNullMapKeyTests(TestColumn testColumn)
@@ -1467,7 +1513,7 @@ public final class TestHiveFileFormats
             Type valueType = mapType.getValueType();
             Map<?, ?> map = (Map<?, ?>) object;
             ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                for (Entry<?, ?> entry : map.entrySet()) {
                     // Hive skips map entries with null keys
                     if (entry.getKey() != null) {
                         writeValue(keyType, keyBuilder, entry.getKey());
@@ -1477,7 +1523,7 @@ public final class TestHiveFileFormats
             });
         }
         else if (type instanceof RowType rowType) {
-            List<Type> typeParameters = rowType.getTypeParameters();
+            List<Type> typeParameters = rowType.getFieldTypes();
             List<?> foo = (List<?>) object;
             ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
                 for (int i = 0; i < typeParameters.size(); i++) {
@@ -1515,7 +1561,7 @@ public final class TestHiveFileFormats
         JobConf jobConf = new JobConf(false);
         configureCompression(jobConf, compressionCodec);
 
-        File file = File.createTempFile("trino_test", "data");
+        File file = Files.createTempFile("trino_test", "data").toFile();
         verify(file.delete());
         try {
             FileSinkOperator.RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
@@ -1783,77 +1829,98 @@ public final class TestHiveFileFormats
             .add(new TestColumn("t_decimal_18", DECIMAL_TYPE_18, WRITE_DECIMAL_18, EXPECTED_DECIMAL_18))
             .add(new TestColumn("t_decimal_38", DECIMAL_TYPE_38, WRITE_DECIMAL_38, EXPECTED_DECIMAL_38))
             .add(new TestColumn("t_binary", VARBINARY, utf8Slice("test2").getBytes(), utf8Slice("test2")))
-            .add(new TestColumn("t_map_string",
+            .add(new TestColumn(
+                    "t_map_string",
                     new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS),
                     ImmutableMap.of("test", "test"),
                     sqlMapOf(createUnboundedVarcharType(), createUnboundedVarcharType(), "test", "test")))
-            .add(new TestColumn("t_map_tinyint",
+            .add(new TestColumn(
+                    "t_map_tinyint",
                     new MapType(TINYINT, TINYINT, TYPE_OPERATORS),
                     ImmutableMap.of((byte) 1, (byte) 1),
                     sqlMapOf(TINYINT, TINYINT, (byte) 1, (byte) 1)))
-            .add(new TestColumn("t_map_varchar",
+            .add(new TestColumn(
+                    "t_map_varchar",
                     new MapType(VARCHAR_HIVE_MAX, VARCHAR_HIVE_MAX, TYPE_OPERATORS),
                     ImmutableMap.of(new HiveVarchar("test", MAX_VARCHAR_LENGTH), new HiveVarchar("test", MAX_VARCHAR_LENGTH)),
                     sqlMapOf(createVarcharType(MAX_VARCHAR_LENGTH), createVarcharType(MAX_VARCHAR_LENGTH), "test", "test")))
-            .add(new TestColumn("t_map_char",
+            .add(new TestColumn(
+                    "t_map_char",
                     new MapType(CHAR_10, CHAR_10, TYPE_OPERATORS),
                     ImmutableMap.of(new HiveChar("test", 10), new HiveChar("test", 10)),
                     sqlMapOf(createCharType(10), createCharType(10), "test", "test")))
-            .add(new TestColumn("t_map_smallint",
+            .add(new TestColumn(
+                    "t_map_smallint",
                     new MapType(SMALLINT, SMALLINT, TYPE_OPERATORS),
                     ImmutableMap.of((short) 2, (short) 2),
                     sqlMapOf(SMALLINT, SMALLINT, (short) 2, (short) 2)))
-            .add(new TestColumn("t_map_null_key",
+            .add(new TestColumn(
+                    "t_map_null_key",
                     new MapType(BIGINT, BIGINT, TYPE_OPERATORS),
                     asMap(new Long[] {null, 2L}, new Long[] {0L, 3L}),
                     sqlMapOf(BIGINT, BIGINT, 2, 3)))
-            .add(new TestColumn("t_map_int",
+            .add(new TestColumn(
+                    "t_map_int",
                     new MapType(INTEGER, INTEGER, TYPE_OPERATORS),
                     ImmutableMap.of(3, 3),
                     sqlMapOf(INTEGER, INTEGER, 3, 3)))
-            .add(new TestColumn("t_map_bigint",
+            .add(new TestColumn(
+                    "t_map_bigint",
                     new MapType(BIGINT, BIGINT, TYPE_OPERATORS),
                     ImmutableMap.of(4L, 4L),
                     sqlMapOf(BIGINT, BIGINT, 4L, 4L)))
-            .add(new TestColumn("t_map_float",
+            .add(new TestColumn(
+                    "t_map_float",
                     new MapType(REAL, REAL, TYPE_OPERATORS),
-                    ImmutableMap.of(5.0f, 5.0f), sqlMapOf(REAL, REAL, 5.0f, 5.0f)))
-            .add(new TestColumn("t_map_double",
+                    ImmutableMap.of(5.0f, 5.0f),
+                    sqlMapOf(REAL, REAL, 5.0f, 5.0f)))
+            .add(new TestColumn(
+                    "t_map_double",
                     new MapType(DOUBLE, DOUBLE, TYPE_OPERATORS),
-                    ImmutableMap.of(6.0, 6.0), sqlMapOf(DOUBLE, DOUBLE, 6.0, 6.0)))
-            .add(new TestColumn("t_map_boolean",
+                    ImmutableMap.of(6.0, 6.0),
+                    sqlMapOf(DOUBLE, DOUBLE, 6.0, 6.0)))
+            .add(new TestColumn(
+                    "t_map_boolean",
                     new MapType(BOOLEAN, BOOLEAN, TYPE_OPERATORS),
                     ImmutableMap.of(true, true),
                     sqlMapOf(BOOLEAN, BOOLEAN, true, true)))
-            .add(new TestColumn("t_map_date",
+            .add(new TestColumn(
+                    "t_map_date",
                     new MapType(DATE, DATE, TYPE_OPERATORS),
                     ImmutableMap.of(HIVE_DATE, HIVE_DATE),
                     sqlMapOf(DATE, DATE, DATE_DAYS, DATE_DAYS)))
-            .add(new TestColumn("t_map_timestamp",
+            .add(new TestColumn(
+                    "t_map_timestamp",
                     new MapType(TIMESTAMP_MILLIS, TIMESTAMP_MILLIS, TYPE_OPERATORS),
                     ImmutableMap.of(HIVE_TIMESTAMP, HIVE_TIMESTAMP),
                     sqlMapOf(TIMESTAMP_MILLIS, TIMESTAMP_MILLIS, TIMESTAMP_MICROS_VALUE, TIMESTAMP_MICROS_VALUE)))
-            .add(new TestColumn("t_map_decimal_2",
+            .add(new TestColumn(
+                    "t_map_decimal_2",
                     new MapType(DECIMAL_TYPE_2, DECIMAL_TYPE_2, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_2, WRITE_DECIMAL_2),
                     decimalSqlMapOf(DECIMAL_TYPE_2, EXPECTED_DECIMAL_2)))
-            .add(new TestColumn("t_map_decimal_4",
+            .add(new TestColumn(
+                    "t_map_decimal_4",
                     new MapType(DECIMAL_TYPE_4, DECIMAL_TYPE_4, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_4, WRITE_DECIMAL_4),
                     decimalSqlMapOf(DECIMAL_TYPE_4, EXPECTED_DECIMAL_4)))
-            .add(new TestColumn("t_map_decimal_8",
+            .add(new TestColumn(
+                    "t_map_decimal_8",
                     new MapType(DECIMAL_TYPE_8, DECIMAL_TYPE_8, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_8, WRITE_DECIMAL_8),
                     decimalSqlMapOf(DECIMAL_TYPE_8, EXPECTED_DECIMAL_8)))
-            .add(new TestColumn("t_map_decimal_17",
+            .add(new TestColumn(
+                    "t_map_decimal_17",
                     new MapType(DECIMAL_TYPE_17, DECIMAL_TYPE_17, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_17, WRITE_DECIMAL_17),
                     decimalSqlMapOf(DECIMAL_TYPE_17, EXPECTED_DECIMAL_17)))
-            .add(new TestColumn("t_map_decimal_18",
+            .add(new TestColumn(
+                    "t_map_decimal_18",
                     new MapType(DECIMAL_TYPE_18, DECIMAL_TYPE_18, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_18, WRITE_DECIMAL_18),
                     decimalSqlMapOf(DECIMAL_TYPE_18, EXPECTED_DECIMAL_18)))
-            .add(new TestColumn("t_map_decimal_38",
+            .add(new TestColumn(
+                    "t_map_decimal_38",
                     new MapType(DECIMAL_TYPE_38, DECIMAL_TYPE_38, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_38, WRITE_DECIMAL_38),
                     decimalSqlMapOf(DECIMAL_TYPE_38, EXPECTED_DECIMAL_38)))
@@ -1876,77 +1943,95 @@ public final class TestHiveFileFormats
                     new ArrayType(CHAR_10),
                     ImmutableList.of(new HiveChar("test", 10)),
                     arrayBlockOf(createCharType(10), "test")))
-            .add(new TestColumn("t_array_date",
+            .add(new TestColumn(
+                    "t_array_date",
                     new ArrayType(DATE),
                     ImmutableList.of(HIVE_DATE),
                     arrayBlockOf(DATE, DATE_DAYS)))
-            .add(new TestColumn("t_array_timestamp",
+            .add(new TestColumn(
+                    "t_array_timestamp",
                     new ArrayType(TIMESTAMP_MILLIS),
                     ImmutableList.of(HIVE_TIMESTAMP),
                     arrayBlockOf(TIMESTAMP_MILLIS, TIMESTAMP_MICROS_VALUE)))
-            .add(new TestColumn("t_array_decimal_2",
+            .add(new TestColumn(
+                    "t_array_decimal_2",
                     new ArrayType(DECIMAL_TYPE_2),
                     ImmutableList.of(WRITE_DECIMAL_2),
                     decimalArrayBlockOf(DECIMAL_TYPE_2, EXPECTED_DECIMAL_2)))
-            .add(new TestColumn("t_array_decimal_4",
+            .add(new TestColumn(
+                    "t_array_decimal_4",
                     new ArrayType(DECIMAL_TYPE_4),
                     ImmutableList.of(WRITE_DECIMAL_4),
                     decimalArrayBlockOf(DECIMAL_TYPE_4, EXPECTED_DECIMAL_4)))
-            .add(new TestColumn("t_array_decimal_8",
+            .add(new TestColumn(
+                    "t_array_decimal_8",
                     new ArrayType(DECIMAL_TYPE_8),
                     ImmutableList.of(WRITE_DECIMAL_8),
                     decimalArrayBlockOf(DECIMAL_TYPE_8, EXPECTED_DECIMAL_8)))
-            .add(new TestColumn("t_array_decimal_17",
+            .add(new TestColumn(
+                    "t_array_decimal_17",
                     new ArrayType(DECIMAL_TYPE_17),
                     ImmutableList.of(WRITE_DECIMAL_17),
                     decimalArrayBlockOf(DECIMAL_TYPE_17, EXPECTED_DECIMAL_17)))
-            .add(new TestColumn("t_array_decimal_18",
+            .add(new TestColumn(
+                    "t_array_decimal_18",
                     new ArrayType(DECIMAL_TYPE_18),
                     ImmutableList.of(WRITE_DECIMAL_18),
                     decimalArrayBlockOf(DECIMAL_TYPE_18, EXPECTED_DECIMAL_18)))
-            .add(new TestColumn("t_array_decimal_38",
+            .add(new TestColumn(
+                    "t_array_decimal_38",
                     new ArrayType(DECIMAL_TYPE_38),
                     ImmutableList.of(WRITE_DECIMAL_38),
                     decimalArrayBlockOf(DECIMAL_TYPE_38, EXPECTED_DECIMAL_38)))
-            .add(new TestColumn("t_struct_bigint",
+            .add(new TestColumn(
+                    "t_struct_bigint",
                     rowType(field("s_bigint", BIGINT)),
                     ImmutableList.of(1L),
                     rowBlockOf(ImmutableList.of(BIGINT), 1)))
-            .add(new TestColumn("t_complex",
+            .add(new TestColumn(
+                    "t_complex",
                     new MapType(
                             VARCHAR,
                             new ArrayType(rowType(field("s_int", INTEGER))),
                             TYPE_OPERATORS),
                     ImmutableMap.of("test", ImmutableList.<Object>of(ImmutableList.of(1))),
-                    sqlMapOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
-                            "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L)))))
-            .add(new TestColumn("t_map_null_key_complex_value",
+                    sqlMapOf(createUnboundedVarcharType(),
+                            new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
+                            "test",
+                            arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L)))))
+            .add(new TestColumn(
+                    "t_map_null_key_complex_value",
                     new MapType(
                             VARCHAR,
                             new MapType(BIGINT, BOOLEAN, TYPE_OPERATORS),
                             TYPE_OPERATORS),
                     asMap(new String[] {null, "k"}, new ImmutableMap[] {ImmutableMap.of(15L, true), ImmutableMap.of(16L, false)}),
                     sqlMapOf(createUnboundedVarcharType(), mapType(BIGINT, BOOLEAN), "k", sqlMapOf(BIGINT, BOOLEAN, 16L, false))))
-            .add(new TestColumn("t_map_null_key_complex_key_value",
+            .add(new TestColumn(
+                    "t_map_null_key_complex_key_value",
                     new MapType(
                             new ArrayType(VARCHAR),
                             new MapType(BIGINT, BOOLEAN, TYPE_OPERATORS),
                             TYPE_OPERATORS),
                     asMap(new ImmutableList[] {null, ImmutableList.of("k", "ka")}, new ImmutableMap[] {ImmutableMap.of(15L, true), ImmutableMap.of(16L, false)}),
                     sqlMapOf(new ArrayType(createUnboundedVarcharType()), mapType(BIGINT, BOOLEAN), arrayBlockOf(createUnboundedVarcharType(), "k", "ka"), sqlMapOf(BIGINT, BOOLEAN, 16L, false))))
-            .add(new TestColumn("t_struct_nested",
+            .add(new TestColumn(
+                    "t_struct_nested",
                     rowType(field("struct_field", new ArrayType(VARCHAR))),
                     ImmutableList.of(ImmutableList.of("1", "2", "3")),
                     rowBlockOf(ImmutableList.of(new ArrayType(createUnboundedVarcharType())), arrayBlockOf(createUnboundedVarcharType(), "1", "2", "3"))))
-            .add(new TestColumn("t_struct_null",
+            .add(new TestColumn(
+                    "t_struct_null",
                     rowType(field("struct_field_null", VARCHAR), field("struct_field_null2", VARCHAR)),
                     Arrays.asList(null, null),
                     rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), null, null)))
-            .add(new TestColumn("t_struct_non_nulls_after_nulls",
+            .add(new TestColumn(
+                    "t_struct_non_nulls_after_nulls",
                     rowType(field("struct_non_nulls_after_nulls1", INTEGER), field("struct_non_nulls_after_nulls2", VARCHAR)),
                     Arrays.asList(null, "some string"),
                     rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "some string")))
-            .add(new TestColumn("t_nested_struct_non_nulls_after_nulls",
+            .add(new TestColumn(
+                    "t_nested_struct_non_nulls_after_nulls",
                     rowType(
                             field("struct_field1", INTEGER),
                             field("struct_field2", VARCHAR),
@@ -1957,8 +2042,11 @@ public final class TestHiveFileFormats
                                     INTEGER,
                                     createUnboundedVarcharType(),
                                     RowType.anonymous(ImmutableList.of(INTEGER, createUnboundedVarcharType()))),
-                            null, "some string", rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "nested_string2"))))
-            .add(new TestColumn("t_map_null_value",
+                            null,
+                            "some string",
+                            rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "nested_string2"))))
+            .add(new TestColumn(
+                    "t_map_null_value",
                     new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS),
                     asMap(new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"}),
                     sqlMapOf(createUnboundedVarcharType(), createUnboundedVarcharType(), new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"})))

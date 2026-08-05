@@ -25,8 +25,8 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.pinot.common.utils.DataSchema;
@@ -52,7 +52,7 @@ public class PinotTypeConverter
     public PinotTypeConverter(TypeManager typeManager)
     {
         requireNonNull(typeManager, "typeManager is null");
-        this.jsonTypeSupplier = Suppliers.memoize(() -> typeManager.getType(new TypeSignature(StandardTypes.JSON)));
+        this.jsonTypeSupplier = Suppliers.memoize(() -> typeManager.getType(new TypeDescriptor(StandardTypes.JSON)));
     }
 
     public Type toTrinoType(FieldSpec field)

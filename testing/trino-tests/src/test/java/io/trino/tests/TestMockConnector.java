@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.metrics.Metrics;
@@ -44,6 +45,7 @@ import java.util.Optional;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -65,22 +67,21 @@ public class TestMockConnector
         queryRunner.installPlugin(
                 new MockConnectorPlugin(
                         MockConnectorFactory.builder()
-                                .withListSchemaNames(connectionSession -> ImmutableList.of("default"))
+                                .withListSchemaNames(_ -> ImmutableList.of("default"))
                                 .withGetColumns(schemaTableName -> {
                                     if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {
                                         return TPCH_NATION_SCHEMA;
                                     }
                                     return ImmutableList.of(new ColumnMetadata("nationkey", BIGINT));
                                 })
-                                .withGetTableHandle((session, tableName) -> {
+                                .withGetTableHandle((_, tableName) -> {
                                     if (tableName.equals(new SchemaTableName("default", "new_table"))) {
                                         return null;
                                     }
                                     return new MockConnectorTableHandle(tableName);
                                 })
-                                .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of(
-                                        new SchemaTableName("default", "test_view"),
-                                        new ConnectorViewDefinition(
+                                .withGetViews((_, _) -> ImmutableMap.of(
+                                        new SchemaTableName("default", "test_view"), new ConnectorViewDefinition(
                                                 "SELECT nationkey FROM mock.default.test_table",
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
@@ -95,9 +96,8 @@ public class TestMockConnector
                                                 "Time interval after which materialized view will be refreshed",
                                                 null,
                                                 false)))
-                                .withGetMaterializedViews((session, schemaTablePrefix) -> ImmutableMap.of(
-                                        new SchemaTableName("default", "test_materialized_view"),
-                                        new ConnectorMaterializedViewDefinition(
+                                .withGetMaterializedViews((_, _) -> ImmutableMap.of(
+                                        new SchemaTableName("default", "test_materialized_view"), new ConnectorMaterializedViewDefinition(
                                                 "SELECT nationkey FROM mock.default.test_table",
                                                 Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),
@@ -105,15 +105,22 @@ public class TestMockConnector
                                                 ImmutableList.of(new Column("nationkey", BIGINT.getTypeId(), Optional.empty())),
                                                 Optional.of(Duration.ZERO),
                                                 Optional.empty(),
+                                                Optional.empty(),
                                                 Optional.of("alice"),
                                                 ImmutableList.of())))
+                                .withGetMaterializedViewsFreshness((_, materializedViewName) -> {
+                                    if (materializedViewName.equals(new SchemaTableName("default", "test_materialized_view"))) {
+                                        return new MaterializedViewFreshness(FRESH, Optional.empty());
+                                    }
+                                    throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
+                                })
                                 .withData(schemaTableName -> {
                                     if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {
                                         return TPCH_NATION_DATA;
                                     }
                                     throw new UnsupportedOperationException();
                                 })
-                                .withMetrics(schemaTableName -> new Metrics(ImmutableMap.of("test_metric", new LongCount(1))))
+                                .withMetrics(_ -> new Metrics(ImmutableMap.of("test_metric", new LongCount(1))))
                                 .withProcedures(ImmutableSet.of(new TestProcedure().get()))
                                 .withTableProcedures(ImmutableSet.of(new TableProcedureMetadata("TESTING_TABLE_PROCEDURE", coordinatorOnly(), ImmutableList.of())))
                                 .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))

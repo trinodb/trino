@@ -13,13 +13,13 @@
  */
 package io.trino.sql.routine.ir;
 
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record IrRepeat(Optional<IrLabel> label, RowExpression condition, IrBlock block)
+public record IrRepeat(Optional<IrLabel> label, Expression condition, IrBlock block)
         implements IrStatement
 {
     public IrRepeat

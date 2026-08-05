@@ -3,7 +3,8 @@
 ## Synopsis
 
 ```text
-UPDATE table_name SET [ ( column = expression [, ... ] ) ] [ WHERE condition ]
+UPDATE table_name [ @ branch_name ]
+SET [ ( column = expression [, ... ] ) ] [ WHERE condition ]
 ```
 
 ## Description
@@ -53,6 +54,18 @@ SET
     WHERE
       e.employee_id = new_hires.manager_id
   );
+```
+
+Update the status of all purchases that haven't been assigned a ship date
+in the `audit` branch:
+
+```sql
+UPDATE
+  purchases @ audit
+SET
+  status = 'OVERDUE'
+WHERE
+  ship_date IS NULL;
 ```
 
 ## Limitations

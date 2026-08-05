@@ -25,11 +25,9 @@ public interface QueryDataProducer
 {
     QueryData produce(ExternalUriInfo uriInfo, QueryResultRows rows, Consumer<TrinoException> throwableConsumer);
 
-    default void close()
-    {
-    }
+    default void close() {}
 
-    QueryDataProducer THROWING = (uriInfo, rows, throwableConsumer) -> {
+    QueryDataProducer THROWING = (_, rows, throwableConsumer) -> {
         if (!rows.isEmpty()) {
             throwableConsumer.accept(new TrinoException(SERIALIZATION_ERROR, "Protocol violation: query data producer is not initialized"));
         }

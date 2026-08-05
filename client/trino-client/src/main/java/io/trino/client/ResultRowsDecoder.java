@@ -13,6 +13,7 @@
  */
 package io.trino.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.SegmentLoader;
@@ -38,16 +39,19 @@ public class ResultRowsDecoder
         implements AutoCloseable
 {
     private final SegmentLoader loader;
+    private final boolean supportsVariantBinary;
     private QueryDataDecoder decoder;
 
+    @VisibleForTesting
     public ResultRowsDecoder()
     {
-        this(new OkHttpSegmentLoader());
+        this(new OkHttpSegmentLoader(), false);
     }
 
-    public ResultRowsDecoder(SegmentLoader loader)
+    ResultRowsDecoder(SegmentLoader loader, boolean supportsVariantBinary)
     {
         this.loader = requireNonNull(loader, "loader is null");
+        this.supportsVariantBinary = supportsVariantBinary;
     }
 
     private void setEncoding(List<Column> columns, String encoding)
@@ -59,7 +63,7 @@ public class ResultRowsDecoder
             checkState(!columns.isEmpty(), "Columns must be set when decoding data");
             this.decoder = QueryDataDecoders.get(encoding)
                     // we don't use query-level attributes for now
-                    .create(columns, DataAttributes.empty());
+                    .create(columns, DataAttributes.empty(), supportsVariantBinary);
         }
     }
 
@@ -88,7 +92,7 @@ public class ResultRowsDecoder
         if (data instanceof JsonQueryData) {
             JsonQueryData jsonData = (JsonQueryData) data;
             try {
-                return wrapIterator(JsonIterators.forJsonParser(jsonData.getJsonParser(), columns), jsonData.getRowsCount());
+                return wrapIterator(JsonIterators.forJsonParser(jsonData.getJsonParser(), columns, supportsVariantBinary), jsonData.getRowsCount());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

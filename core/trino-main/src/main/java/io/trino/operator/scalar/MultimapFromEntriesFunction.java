@@ -69,11 +69,13 @@ public final class MultimapFromEntriesFunction
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical keysIdenticalOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            BlockPositionIsIdentical keysIdenticalOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode keyHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode keyHashCode,
             @SqlType("array(row(K,V))") Block mapEntries)
     {
         Type keyType = mapType.getKeyType();
@@ -84,7 +86,7 @@ public final class MultimapFromEntriesFunction
         if (entryCount > entryIndicesList.length) {
             initializeEntryIndicesList(entryCount);
         }
-        BlockSet keySet = new BlockSet(keyType, keysIdenticalOperator, keyHashCode, entryCount);
+        BlockSet keySet = new BlockSet(keysIdenticalOperator, keyHashCode, entryCount);
 
         for (int i = 0; i < entryCount; i++) {
             if (mapEntries.isNull(i)) {
@@ -113,11 +115,13 @@ public final class MultimapFromEntriesFunction
                 IntList indexList = entryIndicesList[i];
 
                 SqlRow keyEntry = mapEntryType.getObject(mapEntries, indexList.getInt(0));
-                keyType.appendTo(keyEntry.getRawFieldBlock(0), keyEntry.getRawIndex(), keyBuilder);
+                Block rawKeyBlock = keyEntry.getRawFieldBlock(0);
+                keyBuilder.append(rawKeyBlock.getUnderlyingValueBlock(), rawKeyBlock.getUnderlyingValuePosition(keyEntry.getRawIndex()));
                 ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
                     for (int entryIndex : indexList) {
                         SqlRow valueEntry = mapEntryType.getObject(mapEntries, entryIndex);
-                        valueType.appendTo(valueEntry.getRawFieldBlock(1), valueEntry.getRawIndex(), elementBuilder);
+                        Block rawValueBlock = valueEntry.getRawFieldBlock(1);
+                        elementBuilder.append(rawValueBlock.getUnderlyingValueBlock(), rawValueBlock.getUnderlyingValuePosition(valueEntry.getRawIndex()));
                     }
                 });
             }

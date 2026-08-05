@@ -105,7 +105,7 @@ public class DoubleStatisticsBuilder
         Optional<DoubleStatistics> doubleStatistics = buildDoubleStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
-                doubleStatistics.map(s -> DOUBLE_VALUE_BYTES).orElse(0L),
+                doubleStatistics.map(_ -> DOUBLE_VALUE_BYTES).orElse(0L),
                 null,
                 null,
                 doubleStatistics.orElse(null),

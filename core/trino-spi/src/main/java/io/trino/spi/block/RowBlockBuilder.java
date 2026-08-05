@@ -17,11 +17,17 @@ package io.trino.spi.block;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.clearBits;
+import static io.trino.spi.block.Bitmap.copyBits;
+import static io.trino.spi.block.Bitmap.hasSetBit;
+import static io.trino.spi.block.Bitmap.hasUnsetBit;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.setBits;
 import static io.trino.spi.block.RowBlock.createRowBlockInternal;
 import static java.lang.String.format;
 import static java.util.Objects.checkIndex;
@@ -36,7 +42,9 @@ public class RowBlockBuilder
     private final BlockBuilderStatus blockBuilderStatus;
 
     private int positionCount;
-    private boolean[] rowIsNull;
+    private int positionCapacity;
+    @Nullable
+    private long[] valueIsValid;
     private final BlockBuilder[] fieldBlockBuilders;
     private final List<BlockBuilder> fieldBlockBuildersList;
 
@@ -46,17 +54,18 @@ public class RowBlockBuilder
 
     public RowBlockBuilder(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        this(
-                blockBuilderStatus,
+        this(blockBuilderStatus,
                 createFieldBlockBuilders(fieldTypes, blockBuilderStatus, expectedEntries),
-                new boolean[expectedEntries]);
+                expectedEntries,
+                null);
     }
 
-    private RowBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder[] fieldBlockBuilders, boolean[] rowIsNull)
+    private RowBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder[] fieldBlockBuilders, int positionCapacity, @Nullable long[] valueIsValid)
     {
         this.blockBuilderStatus = blockBuilderStatus;
         this.positionCount = 0;
-        this.rowIsNull = requireNonNull(rowIsNull, "rowIsNull is null");
+        this.positionCapacity = positionCapacity;
+        this.valueIsValid = valueIsValid;
         this.fieldBlockBuilders = requireNonNull(fieldBlockBuilders, "fieldBlockBuilders is null");
         this.fieldBlockBuildersList = List.of(fieldBlockBuilders);
     }
@@ -90,7 +99,7 @@ public class RowBlockBuilder
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + sizeOf(rowIsNull);
+        long size = INSTANCE_SIZE + sizeOf(valueIsValid);
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             size += fieldBlockBuilder.getRetainedSizeInBytes();
         }
@@ -113,6 +122,45 @@ public class RowBlockBuilder
         currentEntryOpened = false;
     }
 
+    public RowEntryBuilder buildEntry()
+    {
+        return new RowEntryBuilderImplementation();
+    }
+
+    private class RowEntryBuilderImplementation
+            implements RowEntryBuilder
+    {
+        private boolean entryBuilt;
+
+        public RowEntryBuilderImplementation()
+        {
+            if (currentEntryOpened) {
+                throw new IllegalStateException("Expected current entry to be closed but was opened");
+            }
+            currentEntryOpened = true;
+        }
+
+        @Override
+        public BlockBuilder getFieldBuilder(int fieldId)
+        {
+            if (entryBuilt || !currentEntryOpened) {
+                throw new IllegalStateException("Entry has already been built");
+            }
+            return fieldBlockBuilders[fieldId];
+        }
+
+        @Override
+        public void build()
+        {
+            if (entryBuilt || !currentEntryOpened) {
+                throw new IllegalStateException("Entry has already been built");
+            }
+            entryBuilt = true;
+            entryAdded(false);
+            currentEntryOpened = false;
+        }
+    }
+
     @Override
     public void append(ValueBlock block, int position)
     {
@@ -126,9 +174,11 @@ public class RowBlockBuilder
             return;
         }
 
-        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        int startOffset = rowBlock.getOffsetBase();
+
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendToField(fieldBlocks.get(fieldId), position, fieldBlockBuilders[fieldId]);
+            appendToField(rawFieldBlocks[fieldId], startOffset + position, fieldBlockBuilders[fieldId]);
         }
         entryAdded(false);
     }
@@ -162,25 +212,25 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + length);
 
-        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        int startOffset = rowBlock.getOffsetBase();
+
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendRangeToField(fieldBlocks.get(fieldId), offset, length, fieldBlockBuilders[fieldId]);
+            appendRangeToField(rawFieldBlocks[fieldId], startOffset + offset, length, fieldBlockBuilders[fieldId]);
         }
 
-        boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
-        if (rawRowIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[offset + i]) {
-                    rowIsNull[positionCount + i] = true;
-                    hasNullRow = true;
-                }
-                else {
-                    hasNonNullRow = true;
-                }
+        long[] rawValueIsValid = rowBlock.getRawValueIsValid();
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, startOffset + offset, length)) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, length);
             }
+            hasNonNullRow = true;
         }
         else {
-            hasNonNullRow = true;
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, startOffset + offset, valueIsValid, positionCount, length);
+            hasNullRow = true;
+            hasNonNullRow |= hasSetBit(rawValueIsValid, startOffset + offset, length);
         }
         positionCount += length;
     }
@@ -216,16 +266,22 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + count);
 
-        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        int startOffset = rowBlock.getOffsetBase();
+
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendRepeatedToField(fieldBlocks.get(fieldId), position, count, fieldBlockBuilders[fieldId]);
+            appendRepeatedToField(rawFieldBlocks[fieldId], startOffset + position, count, fieldBlockBuilders[fieldId]);
         }
 
         if (rowBlock.isNull(position)) {
-            Arrays.fill(rowIsNull, positionCount, positionCount + count, true);
+            initializeValidityForFirstNull();
+            clearBits(valueIsValid, 0, positionCount, count);
             hasNullRow = true;
         }
         else {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, count);
+            }
             hasNonNullRow = true;
         }
 
@@ -265,25 +321,37 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + length);
 
-        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
-        for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendPositionsToField(fieldBlocks.get(fieldId), positions, offset, length, fieldBlockBuilders[fieldId]);
-        }
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        int startOffset = rowBlock.getOffsetBase();
 
-        boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
-        if (rawRowIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[positions[offset + i]]) {
-                    rowIsNull[positionCount + i] = true;
-                    hasNullRow = true;
-                }
-                else {
-                    hasNonNullRow = true;
-                }
+        if (startOffset == 0) {
+            for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
+                appendPositionsToField(rawFieldBlocks[fieldId], positions, offset, length, fieldBlockBuilders[fieldId]);
             }
         }
         else {
+            int[] adjustedPositions = new int[length];
+            for (int i = offset; i < offset + length; i++) {
+                adjustedPositions[i - offset] = startOffset + positions[i];
+            }
+
+            for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
+                appendPositionsToField(rawFieldBlocks[fieldId], adjustedPositions, 0, length, fieldBlockBuilders[fieldId]);
+            }
+        }
+
+        long[] rawValueIsValid = rowBlock.getRawValueIsValid();
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, startOffset, positions, offset, length)) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, length);
+            }
             hasNonNullRow = true;
+        }
+        else {
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, startOffset, positions, offset, valueIsValid, positionCount, length);
+            hasNullRow = true;
+            hasNonNullRow |= hasSetBit(rawValueIsValid, startOffset, positions, offset, length);
         }
         positionCount += length;
     }
@@ -338,7 +406,13 @@ public class RowBlockBuilder
     {
         ensureCapacity(positionCount + 1);
 
-        rowIsNull[positionCount] = isNull;
+        if (isNull) {
+            initializeValidityForFirstNull();
+            clear(valueIsValid, 0, positionCount);
+        }
+        else if (valueIsValid != null) {
+            set(valueIsValid, 0, positionCount);
+        }
         hasNullRow |= isNull;
         hasNonNullRow |= !isNull;
         positionCount++;
@@ -377,17 +451,30 @@ public class RowBlockBuilder
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return createRowBlockInternal(positionCount, hasNullRow ? rowIsNull : null, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, hasNullRow ? valueIsValid : null, fieldBlocks);
     }
 
     private void ensureCapacity(int capacity)
     {
-        if (rowIsNull.length >= capacity) {
+        if (positionCapacity >= capacity) {
             return;
         }
 
-        int newSize = BlockUtil.calculateNewArraySize(rowIsNull.length, capacity);
-        rowIsNull = Arrays.copyOf(rowIsNull, newSize);
+        int newSize = BlockUtil.calculateNewArraySize(positionCapacity, capacity);
+        positionCapacity = newSize;
+        if (valueIsValid != null) {
+            valueIsValid = Bitmap.ensureCapacity(valueIsValid, newSize);
+        }
+    }
+
+    private boolean initializeValidityForFirstNull()
+    {
+        if (valueIsValid != null) {
+            return false;
+        }
+        valueIsValid = Bitmap.allocateWords(positionCapacity, false);
+        setBits(valueIsValid, 0, 0, positionCount);
+        return true;
     }
 
     @Override
@@ -403,7 +490,7 @@ public class RowBlockBuilder
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
         }
-        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new boolean[expectedEntries]);
+        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, expectedEntries, null);
     }
 
     private Block nullRle(int length)
@@ -413,7 +500,7 @@ public class RowBlockBuilder
             fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).appendNull().build();
         }
 
-        RowBlock nullRowBlock = createRowBlockInternal(1, new boolean[] {true}, fieldBlocks);
+        RowBlock nullRowBlock = createRowBlockInternal(0, 1, new long[] {0}, fieldBlocks);
         return RunLengthEncodedBlock.create(nullRowBlock, length);
     }
 }

@@ -41,7 +41,8 @@ public class PageBufferClientStatus
     private final String httpRequestState;
 
     @JsonCreator
-    public PageBufferClientStatus(@JsonProperty("uri") URI uri,
+    public PageBufferClientStatus(
+            @JsonProperty("uri") URI uri,
             @JsonProperty("state") String state,
             @JsonProperty("lastUpdate") Instant lastUpdate,
             @JsonProperty("rowsReceived") long rowsReceived,

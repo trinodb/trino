@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-MERGE INTO target_table [ [ AS ]  target_alias ]
+MERGE INTO target_table [ @ branch_name ] [ [ AS ]  target_alias ]
 USING { source_table | query } [ [ AS ] source_alias ]
 ON search_condition
 when_clause [...]
@@ -96,6 +96,15 @@ MERGE INTO accounts t USING monthly_accounts_update s
     WHEN NOT MATCHED
         THEN INSERT (customer, purchases, address)
               VALUES(s.customer, s.purchases, s.address)
+```
+
+Delete all customers mentioned in `audit` branch of the source table:
+
+```sql
+MERGE INTO accounts @ audit t USING monthly_accounts_update s
+    ON t.customer = s.customer
+    WHEN MATCHED
+        THEN DELETE
 ```
 
 ## Limitations

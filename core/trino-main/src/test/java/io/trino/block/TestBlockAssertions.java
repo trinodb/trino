@@ -28,7 +28,7 @@ public final class TestBlockAssertions
     @Test
     public void generatesListWithNulls()
     {
-        Iterable<Integer> list = generateListWithNulls(10, 0.2F, () -> 1);
+        Iterable<Integer> list = generateListWithNulls(10, 0.2f, () -> 1);
 
         assertThat(stream(list).filter(Objects::isNull).count()).isEqualTo(2);
     }
@@ -36,6 +36,6 @@ public final class TestBlockAssertions
     @Test
     public void failsIfPositionCountToLow()
     {
-        assertThatThrownBy(() -> generateListWithNulls(4, 0.2F, () -> 1)).isInstanceOf(VerifyException.class);
+        assertThatThrownBy(() -> generateListWithNulls(4, 0.2f, () -> 1)).isInstanceOf(VerifyException.class);
     }
 }

@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.TableVersion;
@@ -34,30 +34,31 @@ final class TestGlueHiveMetastoreSkipArchive
         extends AbstractTestQueryFramework
 {
     private final String testSchema = "test_schema_" + randomNameSuffix();
-    private final GlueClient glueClient = GlueClient.create();
+    private GlueClient glueClient;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-glue-hive-skip-archive-" + randomNameSuffix();
+        floci.createBucket(bucketName);
+        glueClient = closeAfterClass(floci.createGlueClient());
+
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
                         .setCatalog("hive")
                         .setSchema(testSchema)
                         .build())
                 .addHiveProperty("hive.metastore", "glue")
-                .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
+                .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.metastore.glue.skip-archive", "true")
+                .addHiveProperty("fs.s3.enabled", "true")
+                .addHiveProperties(floci.s3AndGlueProperties())
                 .setCreateTpchSchemas(false)
                 .build();
-        queryRunner.execute("CREATE SCHEMA " + testSchema);
+        queryRunner.execute("CREATE SCHEMA " + testSchema + " WITH (location = 's3://%s/%s')".formatted(bucketName, testSchema));
         return queryRunner;
-    }
-
-    @AfterAll
-    void cleanUpSchema()
-    {
-        getQueryRunner().execute("DROP SCHEMA " + testSchema + " CASCADE");
     }
 
     @Test

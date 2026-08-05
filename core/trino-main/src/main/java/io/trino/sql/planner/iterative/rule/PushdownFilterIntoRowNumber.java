@@ -82,11 +82,11 @@ public class PushdownFilterIntoRowNumber
             return Result.empty();
         }
 
-        if (upperBound.getAsInt() <= 0) {
+        if (upperBound.orElseThrow() <= 0) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
-        RowNumberNode merged = mergeLimit(source, upperBound.getAsInt());
+        RowNumberNode merged = mergeLimit(source, upperBound.orElseThrow());
         boolean needRewriteSource = !merged.getMaxRowCountPerPartition().equals(source.getMaxRowCountPerPartition());
         if (needRewriteSource) {
             source = merged;
@@ -99,7 +99,7 @@ public class PushdownFilterIntoRowNumber
             return Result.empty();
         }
 
-        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
+        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
                 domainTranslator.toPredicate(newTupleDomain));

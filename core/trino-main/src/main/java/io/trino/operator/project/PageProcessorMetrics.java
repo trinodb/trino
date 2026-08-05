@@ -60,8 +60,8 @@ public class PageProcessorMetrics
     {
         ImmutableMap.Builder<String, Metric<?>> builder = ImmutableMap.builderWithExpectedSize(
                 (hasFilter ? 1 : 0) +
-                (hasDynamicFilter ? 2 : 0) +
-                (hasProjection ? 1 : 0));
+                        (hasDynamicFilter ? 2 : 0) +
+                        (hasProjection ? 1 : 0));
         if (hasFilter) {
             builder.put(FILTER_TIME, new DurationTiming(new Duration(filterTimeNanos, NANOSECONDS)));
         }

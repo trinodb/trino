@@ -51,6 +51,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -63,6 +64,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
@@ -75,7 +77,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.hive.formats.HiveClassNames.ORC_SERDE_CLASS;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.NameBasedProjectedLayout.createProjectedLayout;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
@@ -107,9 +109,9 @@ import static io.trino.plugin.hive.orc.OrcTypeTranslator.createCoercer;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -121,7 +123,7 @@ import static java.util.stream.Collectors.toList;
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
-    private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = nativeValueToBlock(BIGINT, 0L);
+    private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = writeNativeValue(BIGINT, 0L);
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final OrcReaderOptions orcReaderOptions;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -136,8 +138,7 @@ public class OrcPageSourceFactory
             FileFormatDataSourceStats stats,
             HiveConfig hiveConfig)
     {
-        this(
-                config.toOrcReaderOptions(),
+        this(config.toOrcReaderOptions(),
                 fileSystemFactory,
                 stats,
                 hiveConfig.getOrcLegacyDateTimeZone(),
@@ -186,7 +187,8 @@ public class OrcPageSourceFactory
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            MemoryContext memoryContext)
     {
         if (!ORC_SERDE_CLASS.equals(schema.serializationLibraryName())) {
             return Optional.empty();
@@ -217,7 +219,8 @@ public class OrcPageSourceFactory
                 bucketNumber,
                 originalFile,
                 transaction,
-                stats));
+                stats,
+                memoryContext));
     }
 
     private ConnectorPageSource createOrcPageSource(
@@ -237,7 +240,8 @@ public class OrcPageSourceFactory
             OptionalInt bucketNumber,
             boolean originalFile,
             AcidTransaction transaction,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            MemoryContext memoryContext)
     {
         for (HiveColumnHandle column : columns) {
             checkArgument(column.getColumnType() == REGULAR, "column type must be regular: %s", column);
@@ -260,7 +264,7 @@ public class OrcPageSourceFactory
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
+        AggregatedMemoryContext memoryUsage = newAggregatedMemoryContext(memoryContext);
         try {
             Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(orcDataSource, options);
             if (optionalOrcReader.isEmpty()) {
@@ -275,6 +279,7 @@ public class OrcPageSourceFactory
             List<OrcColumn> fileReadColumns = new ArrayList<>();
             List<Type> fileReadTypes = new ArrayList<>();
             List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>();
+            TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
             boolean originalFilesPresent = acidInfo.isPresent() && hasOriginalFiles(acidInfo.get());
             if (isFullAcid && !originalFilesPresent) {
                 verifyAcidSchema(reader, path);
@@ -295,6 +300,10 @@ public class OrcPageSourceFactory
                 fileReadColumns.add(requireNonNull(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH))));
                 fileReadTypes.add(BIGINT);
                 fileReadLayouts.add(fullyProjectedLayout());
+
+                // Ensure transformations are applied so output page does not contain artificial ACID related fields
+                // Without this code, transforms.build(pageSource) could short circuit to original page if no real columns are read
+                transforms.forceTransforms();
             }
 
             Map<String, OrcColumn> fileColumnsByName = ImmutableMap.of();
@@ -317,7 +326,6 @@ public class OrcPageSourceFactory
                     .setDomainCompactionThreshold(domainCompactionThreshold);
             Map<HiveColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
-            TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
             Map<Object, Integer> baseColumnKeyToOrdinal = new HashMap<>();
             for (HiveColumnHandle column : columns) {
                 HiveColumnHandle baseColumn = column.getBaseColumn();
@@ -333,7 +341,7 @@ public class OrcPageSourceFactory
                             projectedLayout = createProjectedLayout(orcBaseColumn, projectionsByBaseColumnKey.get(columnName));
                             columnDomains = effectivePredicateDomains.entrySet().stream()
                                     .filter(columnDomain -> columnDomain.getKey().getBaseColumnName().toLowerCase(ENGLISH).equals(columnName))
-                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
+                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Entry::getValue));
                         }
                     }
                     else if (baseColumn.getBaseHiveColumnIndex() < fileColumns.size()) {
@@ -342,7 +350,7 @@ public class OrcPageSourceFactory
                             projectedLayout = createProjectedLayout(orcBaseColumn, projectionsByBaseColumnKey.get(baseColumn.getBaseHiveColumnIndex()));
                             columnDomains = effectivePredicateDomains.entrySet().stream()
                                     .filter(columnDomain -> columnDomain.getKey().getBaseHiveColumnIndex() == baseColumn.getBaseHiveColumnIndex())
-                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
+                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Entry::getValue));
                         }
                     }
 
@@ -361,7 +369,7 @@ public class OrcPageSourceFactory
                             .orElse(baseColumn.getType()));
 
                     // Add predicates on top-level and nested columns
-                    for (Map.Entry<Optional<HiveColumnProjectionInfo>, Domain> columnDomain : columnDomains.entrySet()) {
+                    for (Entry<Optional<HiveColumnProjectionInfo>, Domain> columnDomain : columnDomains.entrySet()) {
                         OrcColumn nestedColumn = getNestedColumn(orcBaseColumn, columnDomain.getKey());
                         if (nestedColumn != null) {
                             predicateBuilder.addColumn(nestedColumn.getColumnId(), columnDomain.getValue());
@@ -528,7 +536,7 @@ public class OrcPageSourceFactory
      * @param fileColumns All OrcColumns nested in the root column of the table.
      * @param columns Columns from the Hive metastore that are being used
      * @return Return the fileColumns list with any OrcColumn corresponding to a desiredColumn renamed if
-     * the names differ from those specified in the desiredColumns.
+     *         the names differ from those specified in the desiredColumns.
      */
     private static List<OrcColumn> ensureColumnNameConsistency(List<OrcColumn> fileColumns, List<HiveColumnHandle> columns)
     {
@@ -578,7 +586,7 @@ public class OrcPageSourceFactory
                     new Block[] {
                             page.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
                             page.getBlock(BUCKET_CHANNEL),
-                            page.getBlock(ROW_ID_CHANNEL)
+                            page.getBlock(ROW_ID_CHANNEL),
                     });
         }
     }
@@ -597,7 +605,7 @@ public class OrcPageSourceFactory
         public MergedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId)
         {
             this.startingRowId = startingRowId;
-            this.bucketBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketId, 0));
+            this.bucketBlock = writeNativeValue(INTEGER, (long) computeBucketValue(bucketId, 0));
         }
 
         @Override
@@ -619,7 +627,7 @@ public class OrcPageSourceFactory
                     new Block[] {
                             RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
                             RunLengthEncodedBlock.create(bucketBlock, positionCount),
-                            rowNumberBlock
+                            rowNumberBlock,
                     });
         }
     }

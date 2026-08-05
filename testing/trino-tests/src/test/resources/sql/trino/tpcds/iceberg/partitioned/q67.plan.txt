@@ -4,16 +4,16 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [i_category_gid])
-                        final aggregation over (d_moy_gid, d_qoy_gid, d_year_gid, groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid, s_store_id_gid)
-                            local exchange (REPARTITION, HASH, [d_moy_gid, d_qoy_gid, d_year_gid, groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid, s_store_id_gid])
-                                remote exchange (REPARTITION, HASH, [d_moy_gid, d_qoy_gid, d_year_gid, groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid, s_store_id_gid])
-                                    partial aggregation over (d_moy_gid, d_qoy_gid, d_year_gid, groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid, s_store_id_gid)
+                        final aggregation over (i_category_gid, i_class_gid, i_brand_gid, i_product_name_gid, d_year_gid, d_qoy_gid, d_moy_gid, s_store_id_gid, groupid)
+                            local exchange (REPARTITION, HASH, [i_category_gid, i_class_gid, i_brand_gid, i_product_name_gid, d_year_gid, d_qoy_gid, d_moy_gid, s_store_id_gid, groupid])
+                                remote exchange (REPARTITION, HASH, [i_category_gid, i_class_gid, i_brand_gid, i_product_name_gid, d_year_gid, d_qoy_gid, d_moy_gid, s_store_id_gid, groupid])
+                                    partial aggregation over (i_category_gid, i_class_gid, i_brand_gid, i_product_name_gid, d_year_gid, d_qoy_gid, d_moy_gid, s_store_id_gid, groupid)
                                         local exchange (REPARTITION, HASH, [i_product_name])
                                             remote exchange (REPARTITION, HASH, [i_product_name])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                            dynamic filter (ss_item_sk::EQUAL, ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL)
                                                                 scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

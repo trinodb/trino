@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -30,13 +31,15 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.iceberg.types.EdgeAlgorithm;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.GeographyType;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -47,14 +50,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.getGeometryType;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.getSphericalGeographyType;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeometryType;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isSphericalGeographyType;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.types.EdgeAlgorithm.SPHERICAL;
 
 public final class TypeConverter
 {
@@ -62,58 +73,69 @@ public final class TypeConverter
 
     public static Type toTrinoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
     {
-        switch (type.typeId()) {
-            case BOOLEAN:
-                return BooleanType.BOOLEAN;
-            case BINARY:
-            case FIXED:
-                return VarbinaryType.VARBINARY;
-            case DATE:
-                return DateType.DATE;
-            case DECIMAL:
+        return switch (type.typeId()) {
+            case BOOLEAN -> BooleanType.BOOLEAN;
+            case BINARY, FIXED -> VarbinaryType.VARBINARY;
+            case DATE -> DateType.DATE;
+            case DECIMAL -> {
                 Types.DecimalType decimalType = (Types.DecimalType) type;
-                return DecimalType.createDecimalType(decimalType.precision(), decimalType.scale());
-            case DOUBLE:
-                return DoubleType.DOUBLE;
-            case LONG:
-                return BigintType.BIGINT;
-            case FLOAT:
-                return RealType.REAL;
-            case INTEGER:
-                return IntegerType.INTEGER;
-            case TIME:
-                return TIME_MICROS;
-            case TIMESTAMP:
-                return ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
-            case TIMESTAMP_NANO:
-                // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
-                break;
-            case STRING:
-                return VarcharType.createUnboundedVarcharType();
-            case UUID:
-                return UuidType.UUID;
-            case LIST:
+                yield DecimalType.createDecimalType(decimalType.precision(), decimalType.scale());
+            }
+            case DOUBLE -> DoubleType.DOUBLE;
+            case LONG -> BigintType.BIGINT;
+            case FLOAT -> RealType.REAL;
+            case INTEGER -> IntegerType.INTEGER;
+            case TIME -> TIME_MICROS;
+            case TIMESTAMP -> ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
+            case TIMESTAMP_NANO -> ((Types.TimestampNanoType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_NANOS : TIMESTAMP_NANOS;
+            case STRING -> VarcharType.createUnboundedVarcharType();
+            case UUID -> UuidType.UUID;
+            case LIST -> {
                 Types.ListType listType = (Types.ListType) type;
-                return new ArrayType(toTrinoType(listType.elementType(), typeManager));
-            case MAP:
+                yield new ArrayType(toTrinoType(listType.elementType(), typeManager));
+            }
+            case MAP -> {
                 Types.MapType mapType = (Types.MapType) type;
-                TypeSignature keyType = toTrinoType(mapType.keyType(), typeManager).getTypeSignature();
-                TypeSignature valueType = toTrinoType(mapType.valueType(), typeManager).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
-            case STRUCT:
+                TypeDescriptor keyType = toTrinoType(mapType.keyType(), typeManager).getTypeDescriptor();
+                TypeDescriptor valueType = toTrinoType(mapType.valueType(), typeManager).getTypeDescriptor();
+                yield typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType)));
+            }
+            case STRUCT -> {
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
-                return RowType.from(fields.stream()
+                yield RowType.from(fields.stream()
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
-            case VARIANT:
-                // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
-                break;
-            case GEOMETRY:
-            case GEOGRAPHY:
-            case UNKNOWN:
-                break;
-        }
-        throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
+            }
+            case VARIANT -> VARIANT;
+            case GEOMETRY -> {
+                Types.GeometryType geometryType = (Types.GeometryType) type;
+                String geometryCrs = geometryType.crs();
+                if (geometryCrs != null) {
+                    try {
+                        JtsGeometrySerde.crsToSrid(geometryCrs);
+                    }
+                    catch (IllegalArgumentException e) {
+                        throw new TrinoException(NOT_SUPPORTED, "Unsupported geometry CRS '%s'. Supported values are OGC:CRS84/CRS84 and positive EPSG codes.".formatted(geometryCrs), e);
+                    }
+                }
+                yield getGeometryType(typeManager);
+            }
+            case GEOGRAPHY -> {
+                GeographyType geographyType = (GeographyType) type;
+                // Validate WGS84 (OGC:CRS84) with spherical algorithm
+                String crs = geographyType.crs();
+                // CRS null is treated as WGS84
+                if (crs != null && !crs.equalsIgnoreCase("OGC:CRS84") && !crs.equalsIgnoreCase("EPSG:4326")) {
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported geography CRS '%s'. Only WGS84 (OGC:CRS84 or EPSG:4326) is supported.".formatted(crs));
+                }
+                EdgeAlgorithm algorithm = geographyType.algorithm();
+                if (algorithm != null && algorithm != SPHERICAL) {
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported geography algorithm '%s'. Only 'SPHERICAL' is supported.".formatted(algorithm));
+                }
+                yield getSphericalGeographyType(typeManager);
+            }
+            case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
+        };
     }
 
     public static org.apache.iceberg.types.Type toIcebergTypeForNewColumn(Type type, AtomicInteger nextFieldId)
@@ -164,8 +186,17 @@ public final class TypeConverter
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
             return Types.TimestampType.withZone();
         }
+        if (type.equals(TIMESTAMP_NANOS)) {
+            return Types.TimestampNanoType.withoutZone();
+        }
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            return Types.TimestampNanoType.withZone();
+        }
         if (type.equals(UUID)) {
             return Types.UUIDType.get();
+        }
+        if (type.equals(VARIANT)) {
+            return Types.VariantType.get();
         }
         if (type instanceof RowType rowType) {
             return fromRow(rowType, columnIdentity, nextFieldId);
@@ -176,14 +207,22 @@ public final class TypeConverter
         if (type instanceof MapType mapType) {
             return fromMap(mapType, columnIdentity, nextFieldId);
         }
+        if (isGeometryType(type)) {
+            // Default to OGC:CRS84 (WGS84)
+            return Types.GeometryType.of("OGC:CRS84");
+        }
+        if (isSphericalGeographyType(type)) {
+            // Always WGS84 with spherical algorithm
+            return GeographyType.of("OGC:CRS84", SPHERICAL);
+        }
         if (type instanceof TimeType timeType) {
             throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", timeType.getPrecision()));
         }
         if (type instanceof TimestampType timestampType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", timestampType.getPrecision()));
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" or \"timestamp(9)\" instead.", timestampType.getPrecision()));
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", timestampWithTimeZoneType.getPrecision()));
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" or \"timestamp(9) with time zone\" instead.", timestampWithTimeZoneType.getPrecision()));
         }
         throw new TrinoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }

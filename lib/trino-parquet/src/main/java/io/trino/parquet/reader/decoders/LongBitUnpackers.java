@@ -83,7 +83,8 @@ public final class LongBitUnpackers
             new Unpacker61(),
             new Unpacker62(),
             new Unpacker63(),
-            new Unpacker64()};
+            new Unpacker64(),
+    };
 
     public static LongBitUnpacker getLongBitUnpacker(int bitWidth)
     {

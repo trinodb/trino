@@ -72,7 +72,7 @@ public class FjsMatcher
                         bmsShifts.add(computeBmsShifts(bytes));
                         kmpShifts.add(computeKmpShifts(bytes));
                     }
-                    case Pattern.Any any -> throw new IllegalArgumentException("'any' pattern not supported");
+                    case Pattern.Any _ -> throw new IllegalArgumentException("'any' pattern not supported");
                     case null, default -> {}
                 }
             }

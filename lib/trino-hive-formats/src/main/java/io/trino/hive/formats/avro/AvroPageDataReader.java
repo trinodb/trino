@@ -46,8 +46,11 @@ public class AvroPageDataReader
         verifyNoCircularReferences(readerSchema);
         try {
             Type readerSchemaType = typeManager.typeFor(readerSchema);
-            verify(readerSchemaType instanceof RowType, "Root Avro type must be a row");
-            pageBuilder = new PageBuilder(readerSchemaType.getTypeParameters());
+            if (!(readerSchemaType instanceof RowType rowType)) {
+                throw new AvroTypeException("Root Avro type must be a row");
+            }
+
+            pageBuilder = new PageBuilder(rowType.getFieldTypes());
             initialize();
         }
         catch (org.apache.avro.AvroTypeException e) {

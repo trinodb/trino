@@ -54,11 +54,12 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.MARK_DISTINCT;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.SINGLE_STEP;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.SPLIT_TO_SUBQUERIES;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.rule.DistinctAggregationStrategyChooser.createDistinctAggregationStrategyChooser;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -97,7 +98,7 @@ public class TestDistinctAggregationStrategyChooser
     public void testSingleStepPreferredForHighCardinalitySingleGroupByKey()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol groupingKey = symbolAllocator.newSymbol("groupingKey", BIGINT);
 
         PlanNode source = tableScan();
@@ -114,7 +115,7 @@ public class TestDistinctAggregationStrategyChooser
     public void testSingleStepPreferredForHighCardinalityMultipleGroupByKeys()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
 
         Symbol lowCardinalityGroupingKey = symbolAllocator.newSymbol("lowCardinalityGroupingKey", BIGINT);
         Symbol highCardinalityGroupingKey = symbolAllocator.newSymbol("highCardinalityGroupingKey", BIGINT);
@@ -134,7 +135,7 @@ public class TestDistinctAggregationStrategyChooser
     public void testPreAggregatePreferredForLowCardinality2GroupByKeys()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
 
         List<Symbol> groupingKeys = ImmutableList.of(
                 symbolAllocator.newSymbol("key1", BIGINT),
@@ -148,7 +149,7 @@ public class TestDistinctAggregationStrategyChooser
                         groupingKeys.stream().collect(toImmutableMap(
                                 Function.identity(),
                                 _ -> SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())))),
-                new SymbolAllocator());
+                emptySymbolAllocator());
 
         assertThat(aggregationStrategyChooser.shouldUsePreAggregate(aggregationNode, context.getSession(), context.getStatsProvider(), context.getLookup())).isTrue();
         assertThat(aggregationStrategyChooser.shouldAddMarkDistinct(aggregationNode, context.getSession(), context.getStatsProvider(), context.getLookup())).isFalse();
@@ -158,14 +159,14 @@ public class TestDistinctAggregationStrategyChooser
     public void testPreAggregatePreferredForUnknownStatisticsAnd2GroupByKeys()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
 
         List<Symbol> groupingKeys = ImmutableList.of(
                 symbolAllocator.newSymbol("key1", BIGINT),
                 symbolAllocator.newSymbol("key2", BIGINT));
         PlanNode source = tableScan();
         AggregationNode aggregationNode = aggregationWithTwoDistinctAggregations(groupingKeys, source, symbolAllocator);
-        Context context = context(ImmutableMap.of(), new SymbolAllocator());
+        Context context = context(ImmutableMap.of(), emptySymbolAllocator());
         assertThat(aggregationStrategyChooser.shouldUsePreAggregate(aggregationNode, context.getSession(), context.getStatsProvider(), context.getLookup())).isTrue();
         assertThat(aggregationStrategyChooser.shouldAddMarkDistinct(aggregationNode, context.getSession(), context.getStatsProvider(), context.getLookup())).isFalse();
     }
@@ -174,7 +175,7 @@ public class TestDistinctAggregationStrategyChooser
     public void testPreAggregatePreferredForMediumCardinalitySingleGroupByKey()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol groupingKey = symbolAllocator.newSymbol("groupingKey", BIGINT);
 
         PlanNode source = tableScan();
@@ -191,7 +192,7 @@ public class TestDistinctAggregationStrategyChooser
     public void testSingleStepPreferredForMediumCardinality3GroupByKeys()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         List<Symbol> groupingKeys = ImmutableList.of(
                 symbolAllocator.newSymbol("key1", BIGINT),
                 symbolAllocator.newSymbol("key2", BIGINT),
@@ -213,7 +214,7 @@ public class TestDistinctAggregationStrategyChooser
     public void testSplitToSubqueriesPreferredForGlobalAggregation()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
 
         PlanNode source = tableScan();
         AggregationNode aggregationNode = aggregationWithTwoDistinctAggregations(ImmutableList.of(), source, symbolAllocator);
@@ -231,7 +232,7 @@ public class TestDistinctAggregationStrategyChooser
     public void testMarkDistinctPreferredForLowCardinality3GroupByKeys()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
 
         List<Symbol> groupingKeys = ImmutableList.of(
                 symbolAllocator.newSymbol("key1", BIGINT),
@@ -246,7 +247,7 @@ public class TestDistinctAggregationStrategyChooser
                         groupingKeys.stream().collect(toImmutableMap(
                                 Function.identity(),
                                 _ -> SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())))),
-                new SymbolAllocator());
+                emptySymbolAllocator());
         assertThat(aggregationStrategyChooser.shouldAddMarkDistinct(aggregationNode, context.getSession(), context.getStatsProvider(), context.getLookup())).isTrue();
     }
 
@@ -254,7 +255,7 @@ public class TestDistinctAggregationStrategyChooser
     public void testMarkDistinctPreferredForUnknownStatisticsAnd3GroupByKeys()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
 
         List<Symbol> groupingKeys = ImmutableList.of(
                 symbolAllocator.newSymbol("key1", BIGINT),
@@ -274,7 +275,7 @@ public class TestDistinctAggregationStrategyChooser
     {
         int clusterThreadCount = NODE_COUNT * getTaskConcurrency(TEST_SESSION);
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR, metadata);
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol groupingKey = symbolAllocator.newSymbol("groupingKey", BIGINT);
 
         TableScanNode source = new TableScanNode(
@@ -322,7 +323,7 @@ public class TestDistinctAggregationStrategyChooser
                 symbolAllocator);
         assertShouldUseSingleStep(aggregationStrategyChooser, aggregationNode, smallNdvContext.getSession(), smallNdvContext.getStatsProvider(), smallNdvContext.getLookup());
 
-                // big NDV, distinct_aggregations_strategy = split_to_subqueries
+        // big NDV, distinct_aggregations_strategy = split_to_subqueries
         assertThat((boolean) inTransaction(
                 testSessionBuilder().setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, SPLIT_TO_SUBQUERIES.name()).build(),
                 session -> {
@@ -363,7 +364,8 @@ public class TestDistinctAggregationStrategyChooser
 
     private static Map<Symbol, Aggregation> twoDistinctAggregations(SymbolAllocator symbolAllocator)
     {
-        return ImmutableMap.of(symbolAllocator.newSymbol("output1", BIGINT), new Aggregation(
+        return ImmutableMap.of(
+                symbolAllocator.newSymbol("output1", BIGINT), new Aggregation(
                         functionResolution.resolveFunction("sum", fromTypes(BIGINT)),
                         ImmutableList.of(symbolAllocator.newSymbol("input1", BIGINT).toSymbolReference()),
                         true,

@@ -377,7 +377,7 @@ public class BenchmarkBigIntOperators
         return -x;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkBigIntOperators.class).run();

@@ -37,7 +37,8 @@ final class TestOpenLineageHttpTransportConfig
                 .setTimeout(Duration.valueOf("5s"))
                 .setApiKey(null)
                 .setHeaders(ImmutableList.of())
-                .setUrlParams(ImmutableList.of()));
+                .setUrlParams(ImmutableList.of())
+                .setCompression(OpenLineageHttpTransportConfig.Compression.NONE));
     }
 
     @Test
@@ -51,7 +52,7 @@ final class TestOpenLineageHttpTransportConfig
                 .put("openlineage-event-listener.transport.timeout", "30s")
                 .put("openlineage-event-listener.transport.headers", "header1:value1,header2:value2")
                 .put("openlineage-event-listener.transport.url-params", "urlParam1:urlVal1,urlParam2:urlVal2")
-
+                .put("openlineage-event-listener.transport.compression", "gzip")
                 .buildOrThrow();
 
         OpenLineageHttpTransportConfig expected = new OpenLineageHttpTransportConfig()
@@ -60,7 +61,8 @@ final class TestOpenLineageHttpTransportConfig
                 .setApiKey("dummy")
                 .setTimeout(Duration.valueOf("30s"))
                 .setHeaders(ImmutableList.of("header1:value1", "header2:value2"))
-                .setUrlParams(ImmutableList.of("urlParam1:urlVal1", "urlParam2:urlVal2"));
+                .setUrlParams(ImmutableList.of("urlParam1:urlVal1", "urlParam2:urlVal2"))
+                .setCompression(OpenLineageHttpTransportConfig.Compression.GZIP);
 
         assertFullMapping(properties, expected);
     }

@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -34,27 +35,28 @@ import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.InputReferenceCompiler.InputReferenceNode;
-import io.trino.type.FunctionType;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.OpCode.NOP;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
@@ -62,11 +64,20 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public final class BytecodeUtils
 {
+    private static final CharMatcher DISALLOWED_IDENTIFIER_CHARS = CharMatcher.inRange('a', 'z')
+            .or(CharMatcher.inRange('A', 'Z'))
+            .or(CharMatcher.inRange('0', '9'))
+            .or(CharMatcher.is('_'))
+            .or(CharMatcher.is('$'))
+            .negate()
+            .precomputed();
+
     private BytecodeUtils() {}
 
     public static BytecodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
@@ -119,7 +130,7 @@ public final class BytecodeUtils
             popComment = format("pop(%s)", Joiner.on(", ").join(stackArgsToPop));
         }
 
-        return new IfStatement("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()))
+        return new IfStatement("if wasNull then %s", Stream.of(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()).filter(Objects::nonNull).collect(joining(", ")))
                 .condition(nullCheck)
                 .ifTrue(isNull);
     }
@@ -141,17 +152,26 @@ public final class BytecodeUtils
 
     public static BytecodeExpression loadConstant(CallSiteBinder callSiteBinder, Object constant, Class<?> type)
     {
-        Binding binding = callSiteBinder.bind(MethodHandles.constant(type, constant));
+        Binding binding = callSiteBinder.bind(constant, type);
         return loadConstant(binding);
+    }
+
+    /**
+     * Loads the method handle of a class data binding so a caller that pushes arguments onto
+     * the operand stack can place the handle below them and then invoke it exactly.
+     */
+    public static BytecodeExpression loadBindingHandle(Binding binding)
+    {
+        checkArgument(binding.getKind() == Binding.Kind.HANDLE, "binding %s is not a class data handle", binding);
+        return constantClassDataAt(toIntExact(binding.getBindingId()), MethodHandle.class);
     }
 
     public static BytecodeExpression loadConstant(Binding binding)
     {
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(binding.getBindingId()),
-                "constant_" + binding.getBindingId(),
-                binding.getType().returnType());
+        if (binding.getKind() == Binding.Kind.CONSTANT) {
+            return constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
+        }
+        return invoke(binding, "constant_" + binding.getBindingId());
     }
 
     public static BytecodeNode generateInvocation(
@@ -163,7 +183,7 @@ public final class BytecodeUtils
     {
         return generateInvocation(
                 scope,
-                resolvedFunction.signature().getName().getFunctionName(),
+                resolvedFunction.signature().getName().functionName(),
                 resolvedFunction.functionNullability(),
                 invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 arguments,
@@ -184,7 +204,7 @@ public final class BytecodeUtils
                 functionNullability,
                 Collections.nCopies(arguments.size(), false),
                 functionImplementationProvider,
-                instanceFactory -> {
+                _ -> {
                     throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
                 },
                 arguments.stream()
@@ -211,7 +231,7 @@ public final class BytecodeUtils
     {
         return generateFullInvocation(
                 scope,
-                resolvedFunction.signature().getName().getFunctionName(),
+                resolvedFunction.signature().getName().functionName(),
                 resolvedFunction.functionNullability(),
                 resolvedFunction.signature().getArgumentTypes().stream()
                         .map(FunctionType.class::isInstance)
@@ -276,13 +296,20 @@ public final class BytecodeUtils
         Class<?> returnType = methodType.returnType();
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
+        boolean classDataBinding = binding.getKind() == Binding.Kind.HANDLE;
         List<Class<?>> stackTypes = new ArrayList<>();
+        if (classDataBinding) {
+            // the handle sits below the arguments and is tracked as a stack type,
+            // so null shortcuts pop it together with the arguments
+            block.append(loadBindingHandle(binding));
+            stackTypes.add(MethodHandle.class);
+        }
         boolean instanceIsBound = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
             stackTypes.add(type);
             if (instance.isPresent() && !instanceIsBound) {
-                checkState(type.equals(implementation.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
+                checkState(type.equals(binder.getAccessibleType(implementation.getInstanceFactory().get().type().returnType())), "Mismatched type for instance parameter");
                 block.append(instance.get());
                 instanceIsBound = true;
             }
@@ -291,24 +318,24 @@ public final class BytecodeUtils
             }
             else {
                 switch (invocationConvention.getArgumentConvention(realParameterIndex)) {
-                    case NEVER_NULL:
+                    case NEVER_NULL -> {
                         block.append(arguments.get(realParameterIndex));
                         checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
                         block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
-                        break;
-                    case NULL_FLAG:
+                    }
+                    case NULL_FLAG -> {
                         block.append(arguments.get(realParameterIndex));
                         block.append(scope.getVariable("wasNull"));
                         block.append(scope.getVariable("wasNull").set(constantFalse()));
                         stackTypes.add(boolean.class);
                         currentParameterIndex++;
-                        break;
-                    case BOXED_NULLABLE:
+                    }
+                    case BOXED_NULLABLE -> {
                         block.append(arguments.get(realParameterIndex));
                         block.append(boxPrimitiveIfNecessary(scope, type));
                         block.append(scope.getVariable("wasNull").set(constantFalse()));
-                        break;
-                    case BLOCK_POSITION:
+                    }
+                    case BLOCK_POSITION -> {
                         InputReferenceNode inputReferenceNode = (InputReferenceNode) arguments.get(realParameterIndex);
                         block.append(inputReferenceNode.produceBlockAndPosition());
                         stackTypes.add(int.class);
@@ -317,8 +344,8 @@ public final class BytecodeUtils
                             block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
                         }
                         currentParameterIndex++;
-                        break;
-                    case IN_OUT:
+                    }
+                    case IN_OUT -> {
                         block.append(arguments.get(realParameterIndex));
                         if (!functionNullability.isArgumentNullable(realParameterIndex)) {
                             block.append(arguments.get(realParameterIndex));
@@ -327,20 +354,24 @@ public final class BytecodeUtils
                             block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
                         }
                         currentParameterIndex++;
-                        break;
-                    case FUNCTION:
+                    }
+                    case FUNCTION -> {
                         Class<?> lambdaInterface = implementation.getLambdaInterfaces().get(lambdaArgumentIndex);
                         block.append(argumentCompilers.get(realParameterIndex).apply(Optional.of(lambdaInterface)));
                         lambdaArgumentIndex++;
-                        break;
-                    default:
-                        throw new UnsupportedOperationException(format("Unsupported argument convention type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
+                    }
+                    default -> throw new UnsupportedOperationException(format("Unsupported argument convention type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
                 }
                 realParameterIndex++;
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, functionName));
+        if (classDataBinding) {
+            block.invokeVirtual(MethodHandle.class, "invokeExact", methodType.returnType(), methodType.parameterArray());
+        }
+        else {
+            block.append(invoke(binding, functionName));
+        }
 
         if (functionNullability.isReturnNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
@@ -438,13 +469,31 @@ public final class BytecodeUtils
 
     public static BytecodeExpression invoke(Binding binding, String name, List<BytecodeExpression> parameters)
     {
-        // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
+        return switch (binding.getKind()) {
+            case CONSTANT -> {
+                checkArgument(parameters.isEmpty(), "constant binding %s invoked with arguments", binding);
+                yield constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
+            }
+            case HANDLE -> {
+                // sites that push arguments onto the operand stack must load the handle below
+                // them with loadBindingHandle and invoke it directly, since a method handle
+                // receiver cannot be inserted under already pushed arguments
+                checkArgument(parameters.size() == binding.getType().parameterCount(), "arguments of class data binding %s must be passed explicitly", binding);
+                // the handle is a dynamic constant, so the JIT inlines through the exact
+                // invocation just like a constant call site produced by a bootstrap
+                yield loadBindingHandle(binding)
+                        .invoke(
+                                "invokeExact",
+                                binding.getType().returnType(),
+                                binding.getType().parameterList(),
+                                parameters.toArray(new BytecodeExpression[0]));
+            }
+        };
     }
 
     public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
     {
-        return invoke(binding, signature.getName().getFunctionName());
+        return invoke(binding, signature.getName().functionName());
     }
 
     /**
@@ -452,7 +501,7 @@ public final class BytecodeUtils
      */
     public static String sanitizeName(String name)
     {
-        return name.replaceAll("[^A-Za-z0-9_$]", "_");
+        return DISALLOWED_IDENTIFIER_CHARS.replaceFrom(name, '_');
     }
 
     public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)
@@ -482,7 +531,7 @@ public final class BytecodeUtils
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
                         .ifFalse(new BytecodeBlock()
-                                .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, valueJavaType.getSimpleName())
+                                .comment("%s.%s(output, %s)", type.getTypeDescriptor(), methodName, valueJavaType.getSimpleName())
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)
                                 .append(loadConstant(callSiteBinder.bind(type, Type.class)))

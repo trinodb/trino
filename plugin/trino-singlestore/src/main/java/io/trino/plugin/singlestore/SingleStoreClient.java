@@ -53,8 +53,8 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
 import java.sql.Connection;
@@ -79,7 +79,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -99,6 +98,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
@@ -170,8 +170,7 @@ public class SingleStoreClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        this(
-                config,
+        this(config,
                 connectionFactory,
                 queryBuilder,
                 typeManager,
@@ -191,7 +190,7 @@ public class SingleStoreClient
     {
         super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, supportsRetries);
         requireNonNull(typeManager, "typeManager is null");
-        this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+        this.jsonType = typeManager.getType(new TypeDescriptor(StandardTypes.JSON));
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -225,7 +224,7 @@ public class SingleStoreClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("SCHEMA_NAME");
                 // skip internal schemas
-                if (filterSchema(schemaName)) {
+                if (filterRemoteSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -237,12 +236,12 @@ public class SingleStoreClient
     }
 
     @Override
-    protected boolean filterSchema(String schemaName)
+    protected boolean filterRemoteSchema(String schemaName)
     {
         if (schemaName.equalsIgnoreCase("memsql")) {
             return false;
         }
-        return super.filterSchema(schemaName);
+        return super.filterRemoteSchema(schemaName);
     }
 
     @Override
@@ -287,33 +286,31 @@ public class SingleStoreClient
             return Optional.of(jsonColumnMapping());
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.BIT:
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-            case Types.REAL:
-                // Disable pushdown because floating-point values are approximate and not stored as exact values,
-                // attempts to treat them as exact in comparisons may lead to problems
-                return Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        realWriteFunction(),
-                        DISABLE_PUSHDOWN));
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-            case Types.CHAR:
-            case Types.NCHAR: // TODO it it is dummy copied from StandardColumnMappings, verify if it is proper mapping
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
-            case Types.VARCHAR:
-            case Types.LONGVARCHAR:
+        Optional<ColumnMapping> unsupportedTypeMapping = getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
+        return switch (typeHandle.jdbcType()) {
+            case Types.BIT -> {
+                if (typeHandle.requiredColumnSize() == 1) {
+                    yield Optional.of(booleanColumnMapping());
+                }
+                yield unsupportedTypeMapping;
+            }
+
+            case Types.BOOLEAN -> Optional.of(booleanColumnMapping());
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            // Disable pushdown because floating-point values are approximate and not stored as exact values,
+            // attempts to treat them as exact in comparisons may lead to problems
+            case Types.REAL -> Optional.of(ColumnMapping.longMapping(
+                    REAL,
+                    (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                    realWriteFunction(),
+                    DISABLE_PUSHDOWN));
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.CHAR, Types.NCHAR -> // TODO it it is dummy copied from StandardColumnMappings, verify if it is proper mapping
+                    Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.VARCHAR, Types.LONGVARCHAR -> {
                 int columnSize = switch (jdbcTypeName) {
                     case "TINYTEXT" -> 255;
                     case "TEXT" -> 65535;
@@ -322,49 +319,50 @@ public class SingleStoreClient
                     case "VARCHAR" -> typeHandle.requiredColumnSize();
                     default -> throw new IllegalStateException("Unexpected type: " + jdbcTypeName);
                 };
-                return Optional.of(checkNullUsingBytes(defaultVarcharColumnMapping(columnSize, false)));
-            case Types.DECIMAL:
+                yield Optional.of(checkNullUsingBytes(defaultVarcharColumnMapping(columnSize, false)));
+            }
+            case Types.DECIMAL -> {
                 int precision = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.requiredDecimalDigits();
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
-                    int scale = min(decimalDigits, getDecimalDefaultScale(session));
-                    return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                if (precision <= Decimals.MAX_PRECISION) {
+                    yield Optional.of(decimalColumnMapping(createDecimalType(precision, decimalDigits)));
                 }
-                if (precision > Decimals.MAX_PRECISION) {
-                    break;
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(checkNullUsingBytes(varbinaryColumnMapping()));
-            case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        dateWriteFunction()));
-            case Types.TIME:
+                // precision > MAX_PRECISION
+                yield switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> Optional.of(numberColumnMapping());
+                    case STRICT -> unsupportedTypeMapping;
+                    case ALLOW_OVERFLOW -> {
+                        int scale = min(max(decimalDigits, 0), getDecimalDefaultScale(session));
+                        yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                    }
+                };
+            }
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(checkNullUsingBytes(varbinaryColumnMapping()));
+            case Types.DATE -> Optional.of(ColumnMapping.longMapping(
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    dateWriteFunction()));
+            case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
-                return Optional.of(ColumnMapping.longMapping(
+                yield Optional.of(ColumnMapping.longMapping(
                         timeType,
                         singleStoreTimeReadFunction(timeType),
                         timeWriteFunction(timeType.getPrecision())));
-            case Types.TIMESTAMP:
+            }
+            case Types.TIMESTAMP -> {
                 // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
-                return Optional.of(timestampColumnMapping(timestampType));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
+                yield Optional.of(timestampColumnMapping(timestampType));
+            }
+            default -> unsupportedTypeMapping;
+        };
     }
 
     private static ColumnMapping checkNullUsingBytes(ColumnMapping mapping)
     {
         if (mapping.getReadFunction() instanceof SliceReadFunction sliceReadFunction) {
-            SliceReadFunction wrapper = new SliceReadFunction() {
+            SliceReadFunction wrapper = new SliceReadFunction()
+            {
                 @Override
                 public Slice readSlice(ResultSet resultSet, int columnIndex)
                         throws SQLException
@@ -479,7 +477,7 @@ public class SingleStoreClient
     }
 
     @Override
-    protected String getTableSchemaName(ResultSet resultSet)
+    protected String getTableRemoteSchemaName(ResultSet resultSet)
             throws SQLException
     {
         // SingleStore uses catalogs instead of schemas
@@ -683,22 +681,14 @@ public class SingleStoreClient
 
         String typeName = typeHandle.jdbcTypeName().get();
         if (UNSIGNED_TYPE_REGEX.matcher(typeName).matches()) {
-            switch (typeHandle.jdbcType()) {
-                case Types.BIT:
-                    return Optional.of(booleanColumnMapping());
-
-                case Types.TINYINT:
-                    return Optional.of(smallintColumnMapping());
-
-                case Types.SMALLINT:
-                    return Optional.of(integerColumnMapping());
-
-                case Types.INTEGER:
-                    return Optional.of(bigintColumnMapping());
-
-                case Types.BIGINT:
-                    return Optional.of(decimalColumnMapping(createDecimalType(20)));
-            }
+            return switch (typeHandle.jdbcType()) {
+                case Types.BIT -> Optional.of(booleanColumnMapping());
+                case Types.TINYINT -> Optional.of(smallintColumnMapping());
+                case Types.SMALLINT -> Optional.of(integerColumnMapping());
+                case Types.INTEGER -> Optional.of(bigintColumnMapping());
+                case Types.BIGINT -> Optional.of(decimalColumnMapping(createDecimalType(20)));
+                default -> Optional.empty();
+            };
         }
 
         return Optional.empty();
@@ -708,21 +698,35 @@ public class SingleStoreClient
     {
         requireNonNull(timeType, "timeType is null");
         checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
-        return (resultSet, columnIndex) -> {
-            // SingleStore JDBC driver wraps time to be within LocalTime range, which results in values which differ from what is stored, so we verify them
-            String timeString = resultSet.getString(columnIndex);
-            try {
-                long nanosOfDay = LocalTime.from(ISO_LOCAL_TIME.parse(timeString)).toNanoOfDay();
-                verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
-                long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
-                long rounded = round(picosOfDay, 12 - timeType.getPrecision());
-                if (rounded == PICOSECONDS_PER_DAY) {
-                    rounded = 0;
-                }
-                return rounded;
+        return new LongReadFunction()
+        {
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                // Singlestore driver 1.2.9 will throw an exception if incorrect time are read using getObject()
+                resultSet.getString(columnIndex);
+                return resultSet.wasNull();
             }
-            catch (DateTimeParseException e) {
-                throw new IllegalStateException(format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s", timeString), e);
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                String timeString = resultSet.getString(columnIndex);
+                try {
+                    long nanosOfDay = LocalTime.from(ISO_LOCAL_TIME.parse(timeString)).toNanoOfDay();
+                    verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
+                    long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
+                    long rounded = round(picosOfDay, 12 - timeType.getPrecision());
+                    if (rounded == PICOSECONDS_PER_DAY) {
+                        rounded = 0;
+                    }
+                    return rounded;
+                }
+                catch (DateTimeParseException e) {
+                    throw new IllegalStateException(format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s", timeString), e);
+                }
             }
         };
     }

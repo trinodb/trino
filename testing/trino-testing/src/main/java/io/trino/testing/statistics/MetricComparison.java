@@ -38,8 +38,11 @@ public class MetricComparison
     @Override
     public String toString()
     {
-        return format("Metric [%s] - estimated: [%s], real: [%s]",
-                metric, print(estimatedValue), print(actualValue));
+        return format(
+                "Metric [%s] - estimated: [%s], real: [%s]",
+                metric,
+                print(estimatedValue),
+                print(actualValue));
     }
 
     public Result result(MetricComparisonStrategy metricComparisonStrategy)
@@ -53,7 +56,7 @@ public class MetricComparison
             return NO_ESTIMATE;
         }
         checkState(actualValue.isPresent(), "actual value is not present");
-        return metricComparisonStrategy.matches(actualValue.getAsDouble(), estimatedValue.getAsDouble()) ? MATCH : DIFFER;
+        return metricComparisonStrategy.matches(actualValue.orElseThrow(), estimatedValue.orElseThrow()) ? MATCH : DIFFER;
     }
 
     private String print(OptionalDouble value)
@@ -61,13 +64,13 @@ public class MetricComparison
         if (value.isEmpty()) {
             return "UNKNOWN";
         }
-        return String.valueOf(value.getAsDouble());
+        return String.valueOf(value.orElseThrow());
     }
 
     public enum Result
     {
         NO_ESTIMATE,
         DIFFER,
-        MATCH
+        MATCH,
     }
 }

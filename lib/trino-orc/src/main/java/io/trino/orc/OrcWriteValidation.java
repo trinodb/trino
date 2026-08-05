@@ -15,7 +15,6 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
@@ -480,7 +479,7 @@ public class OrcWriteValidation
                     .collect(toImmutableList());
 
             ImmutableList.Builder<XxHash64> columnHashes = ImmutableList.builder();
-            for (Type ignored : types) {
+            for (var _ : types) {
                 columnHashes.add(new XxHash64());
             }
             this.columnHashes = columnHashes.build();
@@ -670,25 +669,25 @@ public class OrcWriteValidation
                 fieldExtractor = _ -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (type instanceof ArrayType) {
+            else if (type instanceof ArrayType arrayType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> ImmutableList.of(toColumnarArray(block).getElementsBlock());
-                fieldBuilders = ImmutableList.of(new ColumnStatisticsValidation(Iterables.getOnlyElement(type.getTypeParameters())));
+                fieldBuilders = ImmutableList.of(new ColumnStatisticsValidation(arrayType.getElementType()));
             }
-            else if (type instanceof MapType) {
+            else if (type instanceof MapType mapType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> {
                     ColumnarMap columnarMap = toColumnarMap(block);
                     return ImmutableList.of(columnarMap.getKeysBlock(), columnarMap.getValuesBlock());
                 };
-                fieldBuilders = type.getTypeParameters().stream()
-                        .map(ColumnStatisticsValidation::new)
-                        .collect(toImmutableList());
+                fieldBuilders = ImmutableList.of(
+                        new ColumnStatisticsValidation(mapType.getKeyType()),
+                        new ColumnStatisticsValidation(mapType.getValueType()));
             }
-            else if (type instanceof RowType) {
+            else if (type instanceof RowType rowType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = RowBlock::getRowFieldsFromBlock;
-                fieldBuilders = type.getTypeParameters().stream()
+                fieldBuilders = rowType.getFieldTypes().stream()
                         .map(ColumnStatisticsValidation::new)
                         .collect(toImmutableList());
             }
@@ -770,20 +769,19 @@ public class OrcWriteValidation
 
             requireNonNull(columnStatistics, "columnStatistics is null");
             switch (validationMode) {
-                case HASHED:
+                case HASHED -> {
                     this.columnStatistics = ImmutableSortedMap.of();
                     hash = hashColumnStatistics(ImmutableSortedMap.copyOf(columnStatistics));
-                    break;
-                case DETAILED:
+                }
+                case DETAILED -> {
                     this.columnStatistics = ImmutableSortedMap.copyOf(columnStatistics);
                     hash = 0;
-                    break;
-                case BOTH:
+                }
+                case BOTH -> {
                     this.columnStatistics = ImmutableSortedMap.copyOf(columnStatistics);
                     hash = hashColumnStatistics(this.columnStatistics);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported validation mode");
+                }
+                default -> throw new IllegalArgumentException("Unsupported validation mode");
             }
         }
 

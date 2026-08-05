@@ -90,20 +90,14 @@ public final class BingTile
         for (int i = zoomLevel; i > 0; i--) {
             int mask = 1 << (i - 1);
             switch (quadKey.charAt(zoomLevel - i)) {
-                case '0':
-                    break;
-                case '1':
-                    tileX |= mask;
-                    break;
-                case '2':
-                    tileY |= mask;
-                    break;
-                case '3':
+                case '0' -> {}
+                case '1' -> tileX |= mask;
+                case '2' -> tileY |= mask;
+                case '3' -> {
                     tileX |= mask;
                     tileY |= mask;
-                    break;
-                default:
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid QuadKey digit sequence: " + quadKey);
+                }
+                default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid QuadKey digit sequence: " + quadKey);
             }
         }
 

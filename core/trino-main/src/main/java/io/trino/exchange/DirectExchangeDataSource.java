@@ -33,6 +33,12 @@ public class DirectExchangeDataSource
     }
 
     @Override
+    public boolean usesExternalStorage()
+    {
+        return false;
+    }
+
+    @Override
     public Slice pollPage()
     {
         return directExchangeClient.pollPage();

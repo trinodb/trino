@@ -71,14 +71,15 @@ WITH (format = 'ORC')
 ```
 
 Create the table `orders` if it does not already exist, adding a table comment
-and a column comment:
+and a column comment and a column with default value:
 
 ```
 CREATE TABLE IF NOT EXISTS orders (
   orderkey bigint,
   orderstatus varchar,
   totalprice double COMMENT 'Price in cents.',
-  orderdate date
+  orderdate date,
+  status varchar DEFAULT 'created'
 )
 COMMENT 'A table to keep track of orders.'
 ```

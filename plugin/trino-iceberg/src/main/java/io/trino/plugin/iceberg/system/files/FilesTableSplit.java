@@ -29,7 +29,8 @@ public record FilesTableSplit(
         String metadataTableJson,
         Map<Integer, String> partitionSpecsByIdJson,
         Optional<Type> partitionColumnType,
-        Map<String, String> fileIoProperties)
+        Optional<Type> boundsColumnType,
+        Optional<String> encryptionKeyId)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(FilesTableSplit.class);
@@ -37,12 +38,11 @@ public record FilesTableSplit(
     @Override
     public long getRetainedSizeInBytes()
     {
-        // partitionColumnType is not accounted for as Type instances are cached (by TypeRegistry) and shared
+        // partitionColumnType/boundsColumnType is not accounted for as Type instances are cached (by TypeRegistry) and shared
         return INSTANCE_SIZE
                 + manifestFile.getRetainedSizeInBytes()
                 + estimatedSizeOf(schemaJson)
                 + estimatedSizeOf(metadataTableJson)
-                + estimatedSizeOf(partitionSpecsByIdJson, SizeOf::sizeOf, SizeOf::estimatedSizeOf)
-                + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
+                + estimatedSizeOf(partitionSpecsByIdJson, SizeOf::sizeOf, SizeOf::estimatedSizeOf);
     }
 }

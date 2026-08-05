@@ -15,7 +15,7 @@ package io.trino.plugin.resourcegroups.db;
 
 import org.jdbi.v3.core.Handle;
 import org.testcontainers.containers.JdbcDatabaseContainer;
-import org.testcontainers.containers.OracleContainer;
+import org.testcontainers.oracle.OracleContainer;
 
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -28,7 +28,7 @@ public class TestDbResourceGroupsOracleFlywayMigration
     @Override
     protected final JdbcDatabaseContainer<?> startContainer()
     {
-        JdbcDatabaseContainer<?> container = new OracleContainer("gvenzl/oracle-xe:18.4.0-slim")
+        JdbcDatabaseContainer<?> container = new OracleContainer("gvenzl/oracle-free:23.9-slim")
                 .withPassword("trino")
                 .withEnv("ORACLE_PASSWORD", "trino");
         container.start();

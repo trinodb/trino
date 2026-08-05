@@ -32,7 +32,6 @@ import java.time.Duration;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.JsonResponse.execute;
@@ -42,13 +41,14 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class HttpTokenPoller
         implements TokenPoller
 {
     private static final TrinoJsonCodec<TokenPollRepresentation> TOKEN_POLL_CODEC = jsonCodec(TokenPollRepresentation.class);
     private static final String USER_AGENT_VALUE = "TrinoTokenPoller/" +
-            firstNonNull(HttpTokenPoller.class.getPackage().getImplementationVersion(), "unknown");
+            requireNonNullElse(HttpTokenPoller.class.getPackage().getImplementationVersion(), "unknown");
 
     private final Supplier<OkHttpClient> client;
 
@@ -75,11 +75,11 @@ public class HttpTokenPoller
     {
         try {
             return Failsafe.with(RetryPolicy.builder()
-                    .withMaxAttempts(-1)
-                    .withMaxDuration(timeout)
-                    .withBackoff(100, 500, MILLIS)
-                    .handle(IOException.class)
-                    .build())
+                            .withMaxAttempts(-1)
+                            .withMaxDuration(timeout)
+                            .withBackoff(100, 500, MILLIS)
+                            .handle(IOException.class)
+                            .build())
                     .get(() -> executePoll(prepareRequestBuilder(tokenUri).build()));
         }
         catch (FailsafeException e) {
@@ -95,11 +95,11 @@ public class HttpTokenPoller
     {
         try {
             Failsafe.with(RetryPolicy.<Integer>builder()
-                    .withMaxAttempts(-1)
-                    .withMaxDuration(Duration.ofSeconds(4))
-                    .withBackoff(100, 500, MILLIS)
-                    .handleResultIf(code -> code >= HTTP_INTERNAL_ERROR)
-                    .build())
+                            .withMaxAttempts(-1)
+                            .withMaxDuration(Duration.ofSeconds(4))
+                            .withBackoff(100, 500, MILLIS)
+                            .handleResultIf(code -> code >= HTTP_INTERNAL_ERROR)
+                            .build())
                     .get(() -> {
                         Request request = prepareRequestBuilder(tokenUri)
                                 .delete()

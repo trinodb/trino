@@ -41,6 +41,6 @@ public final class PredicateUtils
 
     private static TupleDomain<ColumnHandle> filterColumns(TupleDomain<ColumnHandle> predicate, Predicate<TpchColumnHandle> filterPredicate)
     {
-        return predicate.filter((columnHandle, domain) -> filterPredicate.test((TpchColumnHandle) columnHandle));
+        return predicate.filter((columnHandle, _) -> filterPredicate.test((TpchColumnHandle) columnHandle));
     }
 }

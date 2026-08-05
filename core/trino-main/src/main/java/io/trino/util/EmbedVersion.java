@@ -19,7 +19,7 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
-import io.trino.client.NodeVersion;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.VersionEmbedder;
 
 import java.lang.invoke.MethodHandle;
@@ -47,7 +47,7 @@ public class EmbedVersion
     @Inject
     public EmbedVersion(NodeVersion version)
     {
-        this(version.getVersion());
+        this(version.version());
     }
 
     public EmbedVersion(String version)

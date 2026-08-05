@@ -89,7 +89,7 @@ public class MergeProcessorOperator
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
             return new MergeProcessorOperator(sourcePages, rowChangeProcessor, pagePreprocessor);

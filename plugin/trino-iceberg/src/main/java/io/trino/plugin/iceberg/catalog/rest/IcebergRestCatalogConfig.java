@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -22,8 +23,12 @@ import jakarta.validation.constraints.NotNull;
 import org.apache.iceberg.CatalogProperties;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -38,12 +43,13 @@ public class IcebergRestCatalogConfig
         NONE,
         OAUTH2,
         SIGV4,
+        GOOGLE,
     }
 
     public enum SessionType
     {
         NONE,
-        USER
+        USER,
     }
 
     private URI restUri;
@@ -52,10 +58,14 @@ public class IcebergRestCatalogConfig
     private boolean nestedNamespaceEnabled;
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
+    private Duration connectionTimeout;
+    private Duration socketTimeout;
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
+    private boolean serverAssignedTableLocationEnabled;
     private boolean caseInsensitiveNameMatching;
+    private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
     @NotNull
@@ -141,6 +151,32 @@ public class IcebergRestCatalogConfig
         return this;
     }
 
+    public Optional<@MinDuration("0s") Duration> getConnectionTimeout()
+    {
+        return Optional.ofNullable(connectionTimeout);
+    }
+
+    @Config("iceberg.rest-catalog.connection-timeout")
+    @ConfigDescription("Maximum time allowed for socket connect to complete before timing out")
+    public IcebergRestCatalogConfig setConnectionTimeout(Duration connectionTimeout)
+    {
+        this.connectionTimeout = connectionTimeout;
+        return this;
+    }
+
+    public Optional<@MinDuration("0s") Duration> getSocketTimeout()
+    {
+        return Optional.ofNullable(socketTimeout);
+    }
+
+    @Config("iceberg.rest-catalog.socket-timeout")
+    @ConfigDescription("Maximum time allowed for socket reads/writes before timing out")
+    public IcebergRestCatalogConfig setSocketTimeout(Duration socketTimeout)
+    {
+        this.socketTimeout = socketTimeout;
+        return this;
+    }
+
     @NotNull
     @MinDuration("0ms")
     public Duration getSessionTimeout()
@@ -182,6 +218,19 @@ public class IcebergRestCatalogConfig
         return this;
     }
 
+    public boolean isServerAssignedTableLocationEnabled()
+    {
+        return serverAssignedTableLocationEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.server-assigned-table-location-enabled")
+    @ConfigDescription("Let the REST catalog server assign locations for created tables instead of computing a default location from the namespace location")
+    public IcebergRestCatalogConfig setServerAssignedTableLocationEnabled(boolean serverAssignedTableLocationEnabled)
+    {
+        this.serverAssignedTableLocationEnabled = serverAssignedTableLocationEnabled;
+        return this;
+    }
+
     public boolean isCaseInsensitiveNameMatching()
     {
         return caseInsensitiveNameMatching;
@@ -192,6 +241,27 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    public Map<String, String> getHttpHeaders()
+    {
+        return httpHeaders;
+    }
+
+    @Config("iceberg.rest-catalog.http-headers")
+    @ConfigDescription("Additional HTTP headers to attach to REST catalog requests")
+    public IcebergRestCatalogConfig setHttpHeaders(List<String> httpHeaders)
+    {
+        try {
+            this.httpHeaders = httpHeaders.stream()
+                    .collect(toImmutableMap(kvs -> kvs.split(":", 2)[0], kvs -> kvs.split(":", 2)[1]));
+        }
+        catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(format(
+                    "Cannot parse http headers from property iceberg.rest-catalog.http-headers; value provided was %s, expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"",
+                    String.join(", ", httpHeaders)), e);
+        }
         return this;
     }
 

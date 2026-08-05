@@ -16,7 +16,6 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -34,9 +33,10 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.OPTIMIZE_TOP_N_RANKING;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -150,7 +150,8 @@ public class TestWindowFilterPushDown
                 true,
                 anyTree(
                         anyNot(FilterNode.class,
-                                topNRanking(pattern -> pattern
+                                topNRanking(
+                                        pattern -> pattern
                                                 .rankingType(rankingType)
                                                 .maxRankingPerPartition(9),
                                         anyTree(
@@ -235,7 +236,7 @@ public class TestWindowFilterPushDown
                 output(
                         ImmutableList.of("name", "ranking"),
                         filter(
-                                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "ranking"), new Constant(BIGINT, 1L)), new Comparison(LESS_THAN, new Reference(BIGINT, "ranking"), new Constant(BIGINT, 3L)))),
+                                new Logical(AND, ImmutableList.of(comparison(GREATER_THAN, new Reference(BIGINT, "ranking"), new Constant(BIGINT, 1L)), comparison(LESS_THAN, new Reference(BIGINT, "ranking"), new Constant(BIGINT, 3L)))),
                                 topNRanking(
                                         pattern -> pattern
                                                 .rankingType(rankingType)
@@ -298,7 +299,7 @@ public class TestWindowFilterPushDown
                 output(
                         ImmutableList.of("name", "row_number"),
                         filter(
-                                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 1L)), new Comparison(LESS_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 3L)))),
+                                new Logical(AND, ImmutableList.of(comparison(GREATER_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 1L)), comparison(LESS_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 3L)))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(2)),

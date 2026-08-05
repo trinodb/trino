@@ -132,7 +132,7 @@ public class DisjointSet<T>
         for (Map.Entry<T, Entry<T>> entry : map.entrySet()) {
             T node = entry.getKey();
             T root = findInternal(node);
-            rootToTreeElements.computeIfAbsent(root, unused -> new LinkedHashSet<>());
+            rootToTreeElements.computeIfAbsent(root, _ -> new LinkedHashSet<>());
             rootToTreeElements.get(root).add(node);
         }
         return rootToTreeElements.values();

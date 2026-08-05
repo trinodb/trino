@@ -75,7 +75,7 @@ public class ReadOnlySystemAccessControl
     public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName) {}
 
     @Override
-    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns) {}
 
     @Override
     public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
@@ -87,7 +87,7 @@ public class ReadOnlySystemAccessControl
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName) {}
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns) {}
 
     @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)

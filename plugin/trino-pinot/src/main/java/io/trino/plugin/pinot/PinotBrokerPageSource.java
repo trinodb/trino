@@ -140,11 +140,5 @@ public class PinotBrokerPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0;
-    }
-
-    @Override
     public void close() {}
 }

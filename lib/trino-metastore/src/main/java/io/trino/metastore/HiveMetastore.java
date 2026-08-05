@@ -17,6 +17,7 @@ import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 
@@ -236,4 +237,9 @@ public interface HiveMetastore
     void replaceFunction(String databaseName, String functionName, LanguageFunction function);
 
     void dropFunction(String databaseName, String functionName, String signatureToken);
+
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
+    }
 }

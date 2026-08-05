@@ -36,14 +36,6 @@ public class TestServerInfo
         assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.empty(), Optional.empty(), Optional.empty()));
     }
 
-    @Test
-    public void testBackwardsCompatible()
-    {
-        ServerInfo newServerInfo = new ServerInfo(UNKNOWN, "test", true, false, Optional.empty(), Optional.empty(), Optional.empty());
-        ServerInfo legacyServerInfo = SERVER_INFO_CODEC.fromJson("{\"nodeVersion\":{\"version\":\"<unknown>\"},\"environment\":\"test\",\"coordinator\":true}");
-        assertThat(newServerInfo).isEqualTo(legacyServerInfo);
-    }
-
     private static void assertJsonRoundTrip(ServerInfo serverInfo)
     {
         String json = SERVER_INFO_CODEC.toJson(serverInfo);

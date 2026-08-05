@@ -137,7 +137,7 @@ public class TextColumnEncodingFactory
                     valueEncoding);
         }
         if (type instanceof RowType rowType) {
-            List<TextColumnEncoding> fieldEncodings = rowType.getTypeParameters().stream()
+            List<TextColumnEncoding> fieldEncodings = rowType.getFieldTypes().stream()
                     .map(fieldType -> getEncoding(fieldType, depth + 1))
                     .collect(toImmutableList());
             return new StructEncoding(

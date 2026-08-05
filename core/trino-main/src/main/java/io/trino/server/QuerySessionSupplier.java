@@ -17,6 +17,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.Session.SessionBuilder;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
@@ -28,13 +29,12 @@ import io.trino.sql.SqlPath;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.Session.SessionBuilder;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.server.HttpRequestSessionContextFactory.addEnabledRoles;
-import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.Assignments;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -46,7 +47,8 @@ public final class SymbolAliases
 
     public Expression rewrite(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>() {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+        {
             @Override
             public Expression rewriteReference(Reference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
@@ -64,7 +66,7 @@ public final class SymbolAliases
     {
         Builder builder = new Builder(this);
 
-        for (Map.Entry<String, Reference> alias : sourceAliases.map.entrySet()) {
+        for (Entry<String, Reference> alias : sourceAliases.map.entrySet()) {
             builder.put(alias.getKey(), alias.getValue());
         }
 
@@ -101,8 +103,8 @@ public final class SymbolAliases
     private Map<String, Reference> getUpdatedAssignments(Assignments assignments)
     {
         ImmutableMap.Builder<String, Reference> mapUpdate = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
-            for (Map.Entry<String, Reference> existingAlias : map.entrySet()) {
+        for (Entry<Symbol, Expression> assignment : assignments.assignments().entrySet()) {
+            for (Entry<String, Reference> existingAlias : map.entrySet()) {
                 if (assignment.getValue().equals(existingAlias.getValue())) {
                     // Simple symbol rename
                     mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());

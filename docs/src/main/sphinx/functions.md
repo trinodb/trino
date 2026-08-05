@@ -40,6 +40,7 @@ Color               <functions/color>
 Comparison          <functions/comparison>
 Conditional         <functions/conditional>
 Conversion          <functions/conversion>
+DataSketches        <functions/datasketches>
 Date and time       <functions/datetime>
 Decimal             <functions/decimal>
 Geospatial          <functions/geospatial>
@@ -52,6 +53,7 @@ Machine learning    <functions/ml>
 Map                 <functions/map>
 Math                <functions/math>
 Quantile digest     <functions/qdigest>
+Row                 <functions/row>
 Regular expression  <functions/regexp>
 Session             <functions/session>
 Set Digest          <functions/setdigest>
@@ -62,5 +64,6 @@ Teradata            <functions/teradata>
 T-Digest            <functions/tdigest>
 URL                 <functions/url>
 UUID                <functions/uuid>
+Variant             <functions/variant>
 Window              <functions/window>
 ```

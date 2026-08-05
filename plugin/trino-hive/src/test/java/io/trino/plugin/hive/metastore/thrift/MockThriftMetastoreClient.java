@@ -114,7 +114,7 @@ public class MockThriftMetastoreClient
 
     public void mockPartitionColumnStats(String database, String table, String partitionName, Map<String, ColumnStatisticsData> columnStatistics)
     {
-        Map<String, Map<String, ColumnStatisticsObj>> tablePartitionColumnStatistics = databaseTablePartitionColumnStatistics.computeIfAbsent(new SchemaTableName(database, table), key -> new HashMap<>());
+        Map<String, Map<String, ColumnStatisticsObj>> tablePartitionColumnStatistics = databaseTablePartitionColumnStatistics.computeIfAbsent(new SchemaTableName(database, table), _ -> new HashMap<>());
         tablePartitionColumnStatistics.put(
                 partitionName,
                 Maps.transformEntries(columnStatistics, (columnName, stats) -> {

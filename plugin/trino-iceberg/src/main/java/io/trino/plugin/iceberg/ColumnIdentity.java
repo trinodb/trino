@@ -155,7 +155,7 @@ public class ColumnIdentity
         PRIMITIVE,
         STRUCT,
         ARRAY,
-        MAP
+        MAP,
     }
 
     public static ColumnIdentity primitiveColumnIdentity(int id, String name)

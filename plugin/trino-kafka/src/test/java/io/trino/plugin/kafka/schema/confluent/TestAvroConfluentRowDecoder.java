@@ -42,6 +42,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -129,7 +130,7 @@ public class TestAvroConfluentRowDecoder
         byte[] serializedRecord = serializeRecord(value, schema, schemaId);
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord);
         checkState(decodedRow.isPresent(), "decodedRow is not present");
-        Map.Entry<DecoderColumnHandle, FieldValueProvider> entry = getOnlyElement(decodedRow.get().entrySet());
+        Entry<DecoderColumnHandle, FieldValueProvider> entry = getOnlyElement(decodedRow.get().entrySet());
         assertValuesAreEqual(entry.getValue(), value, schema);
     }
 
@@ -166,7 +167,7 @@ public class TestAvroConfluentRowDecoder
     private static void assertRowsAreEqual(Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow, GenericRecord expected)
     {
         checkState(decodedRow.isPresent(), "decoded row is not present");
-        for (Map.Entry<DecoderColumnHandle, FieldValueProvider> entry : decodedRow.get().entrySet()) {
+        for (Entry<DecoderColumnHandle, FieldValueProvider> entry : decodedRow.get().entrySet()) {
             String columnName = entry.getKey().getName();
             if (getValue(expected, columnName) == null) {
                 // The record uses the old schema and does not contain the new field.
@@ -199,17 +200,16 @@ public class TestAvroConfluentRowDecoder
         }
         else {
             switch (schema.getType()) {
-                case INT:
-                case LONG:
+                case INT, LONG -> {
                     assertThat(actual.getLong()).isEqualTo(((Number) expected).longValue());
-                    break;
-                case STRING:
+                }
+                case STRING -> {
                     assertThat(actual.getSlice().toStringUtf8()).isEqualTo(expected);
-                    break;
-                case BYTES:
+                }
+                case BYTES -> {
                     assertThat(actual.getSlice().getBytes()).isEqualTo(((ByteBuffer) expected).array());
-                    break;
-                case UNION:
+                }
+                case UNION -> {
                     Optional<Schema> nonNullSchema = schema.getTypes().stream()
                             .filter(type -> type.getType() != Schema.Type.NULL)
                             .findFirst();
@@ -219,9 +219,10 @@ public class TestAvroConfluentRowDecoder
                         expected = getOnlyElement(schema.getFields()).defaultVal();
                     }
                     assertValuesAreEqual(actual, expected, nonNullSchema.get());
-                    break;
-                default:
+                }
+                default -> {
                     throw new IllegalStateException("Unexpected type");
+                }
             }
         }
     }

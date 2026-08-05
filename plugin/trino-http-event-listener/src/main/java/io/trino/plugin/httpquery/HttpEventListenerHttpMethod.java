@@ -16,5 +16,5 @@ package io.trino.plugin.httpquery;
 public enum HttpEventListenerHttpMethod
 {
     POST,
-    PUT
+    PUT,
 }

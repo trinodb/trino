@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 class ValidationHash
 {
     // This value is a large arbitrary prime
-    private static final long NULL_HASH_CODE = 0x6e3efbd56c16a0cbL;
+    private static final long NULL_HASH_CODE = 0x6E3EFBD56C16A0CBL;
 
     private static final MethodHandle MAP_HASH;
     private static final MethodHandle ARRAY_HASH;
@@ -79,7 +79,7 @@ class ValidationHash
         }
 
         if (type instanceof RowType rowType) {
-            ValidationHash[] fieldHashes = rowType.getTypeParameters().stream()
+            ValidationHash[] fieldHashes = rowType.getFieldTypes().stream()
                     .map(ValidationHash::createValidationHash)
                     .toArray(ValidationHash[]::new);
             return new ValidationHash(ROW_HASH.bindTo(rowType).bindTo(fieldHashes));

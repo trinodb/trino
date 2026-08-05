@@ -37,8 +37,8 @@ public class PruneSortColumns
     protected Optional<PlanNode> pushDownProjectOff(Context context, SortNode sortNode, Set<Symbol> referencedOutputs)
     {
         Set<Symbol> referencedInputs = Streams.concat(
-                referencedOutputs.stream(),
-                sortNode.getOrderingScheme().orderBy().stream())
+                        referencedOutputs.stream(),
+                        sortNode.getOrderingScheme().orderBy().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), sortNode, referencedInputs);

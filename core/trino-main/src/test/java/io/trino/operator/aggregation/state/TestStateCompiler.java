@@ -248,8 +248,8 @@ public class TestStateCompiler
 
         long expectedGroupedSize =
                 instanceSize(groupedState.getClass()) +
-                new LongBigArray().sizeOf() + // values, 1024 longs
-                new BooleanBigArray().sizeOf(); // isNull, 1024 booleans
+                        new LongBigArray().sizeOf() + // values, 1024 longs
+                        new BooleanBigArray().sizeOf(); // isNull, 1024 booleans
 
         assertThat(groupedState.getEstimatedSize())
                 .isEqualTo(expectedGroupedSize)

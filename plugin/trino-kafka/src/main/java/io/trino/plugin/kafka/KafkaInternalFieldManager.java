@@ -15,8 +15,10 @@ package io.trino.plugin.kafka;
 
 import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
@@ -38,8 +40,6 @@ import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.OF
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_ID_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_OFFSET_FIELD;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -161,7 +161,7 @@ public class KafkaInternalFieldManager
     @Inject
     public KafkaInternalFieldManager(TypeManager typeManager, KafkaConfig kafkaConfig)
     {
-        Type varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), arrayType(VARBINARY.getTypeSignature())));
+        Type varcharMapType = new MapType(VARCHAR, new ArrayType(VARBINARY), typeManager.getTypeOperators());
         String prefix = kafkaConfig.getInternalFieldPrefix();
         List<InternalField> fields = Stream.of(
                         new InternalField(

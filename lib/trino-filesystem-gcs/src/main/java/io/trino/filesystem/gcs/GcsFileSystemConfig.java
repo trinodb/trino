@@ -15,8 +15,7 @@ package io.trino.filesystem.gcs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.configuration.validation.FileExists;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -29,11 +28,18 @@ import jakarta.validation.constraints.Size;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
+@DefunctConfig("gcs.use-access-token")
 public class GcsFileSystemConfig
 {
+    public enum AuthType
+    {
+        ACCESS_TOKEN,
+        SERVICE_ACCOUNT,
+        APPLICATION_DEFAULT,
+    }
+
     private DataSize readBlockSize = DataSize.of(2, MEGABYTE);
     private DataSize writeBlockSize = DataSize.of(16, MEGABYTE);
     private int pageSize = 100;
@@ -42,9 +48,7 @@ public class GcsFileSystemConfig
     private String projectId;
     private Optional<String> endpoint = Optional.empty();
 
-    private boolean useGcsAccessToken;
-    private String jsonKey;
-    private String jsonKeyFilePath;
+    private AuthType authType = AuthType.SERVICE_ACCOUNT;
     private int maxRetries = 20;
     private double backoffScaleFactor = 3.0;
     private Duration maxRetryTime = new Duration(25, TimeUnit.SECONDS);
@@ -135,44 +139,16 @@ public class GcsFileSystemConfig
         return this;
     }
 
-    public boolean isUseGcsAccessToken()
+    @NotNull
+    public AuthType getAuthType()
     {
-        return useGcsAccessToken;
+        return authType;
     }
 
-    @Config("gcs.use-access-token")
-    public GcsFileSystemConfig setUseGcsAccessToken(boolean useGcsAccessToken)
+    @Config("gcs.auth-type")
+    public GcsFileSystemConfig setAuthType(AuthType authType)
     {
-        this.useGcsAccessToken = useGcsAccessToken;
-        return this;
-    }
-
-    @Nullable
-    public String getJsonKey()
-    {
-        return jsonKey;
-    }
-
-    @Config("gcs.json-key")
-    @ConfigSecuritySensitive
-    public GcsFileSystemConfig setJsonKey(String jsonKey)
-    {
-        this.jsonKey = jsonKey;
-        return this;
-    }
-
-    @Nullable
-    @FileExists
-    public String getJsonKeyFilePath()
-    {
-        return jsonKeyFilePath;
-    }
-
-    @Config("gcs.json-key-file-path")
-    @ConfigDescription("JSON key file used to access Google Cloud Storage")
-    public GcsFileSystemConfig setJsonKeyFilePath(String jsonKeyFilePath)
-    {
-        this.jsonKeyFilePath = jsonKeyFilePath;
+        this.authType = authType;
         return this;
     }
 
@@ -267,16 +243,5 @@ public class GcsFileSystemConfig
     public boolean isRetryDelayValid()
     {
         return minBackoffDelay.compareTo(maxBackoffDelay) <= 0;
-    }
-
-    public void validate()
-    {
-        // This cannot be normal validation, as it would make it impossible to write TestGcsFileSystemConfig.testExplicitPropertyMappings
-
-        if (useGcsAccessToken) {
-            checkState(jsonKey == null, "Cannot specify 'gcs.json-key' when 'gcs.use-access-token' is set");
-            checkState(jsonKeyFilePath == null, "Cannot specify 'gcs.json-key-file-path' when 'gcs.use-access-token' is set");
-        }
-        checkState(jsonKey == null || jsonKeyFilePath == null, "'gcs.json-key' and 'gcs.json-key-file-path' cannot be both set");
     }
 }

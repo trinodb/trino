@@ -33,6 +33,7 @@ public class TestDeltaLakePartitioning
             throws Exception
     {
         return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
     }
@@ -73,8 +74,8 @@ public class TestDeltaLakePartitioning
                         "('t_double', 'double', '', ''), " +
                         "('t_date', 'date', '', ''), " +
                         "('t_timestamp', 'timestamp(3) with time zone', '', ''), " +
-                        "('t_phones', 'array(row(number varchar, label varchar))', '', ''), " +
-                        "('t_address', 'row(street varchar, city varchar, state varchar, zip varchar)', '', '')");
+                        "('t_phones', 'array(row(\"number\" varchar, \"label\" varchar))', '', ''), " +
+                        "('t_address', 'row(\"street\" varchar, \"city\" varchar, \"state\" varchar, \"zip\" varchar)', '', '')");
     }
 
     @Test
@@ -192,7 +193,8 @@ public class TestDeltaLakePartitioning
                         "(6, 'with=equal')," +
                         "(7, 'with?question')," +
                         "(8, 'with!exclamation')," +
-                        "(9, 'with%%percent')", 9);
+                        "(9, 'with%%percent')",
+                9);
 
         assertQuery("SELECT * FROM special_chars", "VALUES " +
                 "(1, 'with-hyphen'), " +

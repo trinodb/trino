@@ -40,8 +40,8 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -81,7 +81,7 @@ public class ProtobufValueProvider
         this.value = value;
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
-        this.jsonType = typeManager.getType(new TypeSignature(JSON));
+        this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
     }
 
     @Override
@@ -163,8 +163,8 @@ public class ProtobufValueProvider
     @Nullable
     private Object serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
     {
-        if (type instanceof ArrayType) {
-            return serializeList(builder, value, type, columnName);
+        if (type instanceof ArrayType arrayType) {
+            return serializeList(builder, value, arrayType, columnName);
         }
         if (type instanceof MapType mapType) {
             return serializeMap(builder, value, mapType, columnName);
@@ -182,7 +182,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Block serializeList(BlockBuilder parentBlockBuilder, @Nullable Object value, Type type, String columnName)
+    private Block serializeList(BlockBuilder parentBlockBuilder, @Nullable Object value, ArrayType type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -190,8 +190,7 @@ public class ProtobufValueProvider
             return null;
         }
         List<?> list = (List<?>) value;
-        List<Type> typeParameters = type.getTypeParameters();
-        Type elementType = typeParameters.get(0);
+        Type elementType = type.getElementType();
 
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, list.size());
         for (Object element : list) {
@@ -292,7 +291,7 @@ public class ProtobufValueProvider
         if (blockBuilder == null) {
             return buildRowValue(rowType, fieldBuilders -> buildRow(rowType, columnName, (DynamicMessage) value, fieldBuilders));
         }
-        ((RowBlockBuilder) blockBuilder).buildEntry((fieldBuilders) -> buildRow(rowType, columnName, (DynamicMessage) value, fieldBuilders));
+        ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> buildRow(rowType, columnName, (DynamicMessage) value, fieldBuilders));
         return null;
     }
 

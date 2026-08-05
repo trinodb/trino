@@ -47,7 +47,7 @@ public class DataTypeTest
 
     /**
      * @deprecated Use {@link SqlDataTypeTest#create()} instead. You can find
-     * {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
+     *         {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
      */
     @Deprecated
     public static DataTypeTest create()
@@ -57,7 +57,7 @@ public class DataTypeTest
 
     /**
      * @deprecated Use {@link SqlDataTypeTest#create()} instead. You can find
-     * {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
+     *         {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
      */
     @Deprecated
     public static DataTypeTest create(boolean runSelectWithWhere)

@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
@@ -33,30 +33,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.Preconditions.checkState;
 
 public class FileSystemTransactionLogWriter
         implements TransactionLogWriter
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private Optional<DeltaLakeTransactionLogEntry> commitInfoEntry = Optional.empty();
     private final List<DeltaLakeTransactionLogEntry> entries = new ArrayList<>();
     private final TransactionLogSynchronizer logSynchronizer;
     private final ConnectorSession session;
     private final String tableLocation;
-    private final VendedCredentialsHandle credentialsHandle;
+    private final Optional<DeltaLakeTableCredentials> tableCredentials;
 
-    public FileSystemTransactionLogWriter(ConnectorSession session, TransactionLogSynchronizer logSynchronizer, String tableLocation, VendedCredentialsHandle credentialsHandle)
+    public FileSystemTransactionLogWriter(ConnectorSession session, TransactionLogSynchronizer logSynchronizer, String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         this.logSynchronizer = requireNonNull(logSynchronizer, "logSynchronizer is null");
         this.session = requireNonNull(session, "session is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-        this.credentialsHandle = requireNonNull(credentialsHandle, "credentialsHandle is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
     }
 
     @Override
@@ -110,6 +110,12 @@ public class FileSystemTransactionLogWriter
 
         String transactionLogLocation = getTransactionLogDir(tableLocation);
         CommitInfoEntry commitInfo = requireNonNull(commitInfoEntry.get().getCommitInfo(), "commitInfoEntry.get().getCommitInfo() is null");
+        // This is necessary to ensure separate queries don't have the same commit info.
+        // This way we guarantee that transaction log contents are unique per writing query.
+        // This information may be used by a TransactionLogSynchronizer.
+        checkState(
+                commitInfo.operationParameters() != null && commitInfo.operationParameters().containsKey("queryId"),
+                "commitInfo lacks writing query identity");
         Location logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.version());
         writeLog(logEntry);
     }
@@ -124,14 +130,14 @@ public class FileSystemTransactionLogWriter
             }
 
             String clusterId = commitInfoEntry.get().getCommitInfo().clusterId();
-            logSynchronizer.write(session, credentialsHandle, clusterId, logEntry, bos.toByteArray());
+            logSynchronizer.write(session, tableCredentials, clusterId, logEntry, bos.toByteArray());
         }
     }
 
     private static void writeEntry(OutputStream outputStream, DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry)
             throws IOException
     {
-        outputStream.write(OBJECT_MAPPER.writeValueAsString(deltaLakeTransactionLogEntry).getBytes(UTF_8));
+        outputStream.write(JSON_MAPPER.writeValueAsString(deltaLakeTransactionLogEntry).getBytes(UTF_8));
         outputStream.write("\n".getBytes(UTF_8));
     }
 }

@@ -14,32 +14,26 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.iceberg.util.PageListBuilder;
-import io.trino.spi.Page;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimeZoneKey;
-import org.apache.iceberg.DataTask;
-import org.apache.iceberg.FileScanTask;
+import io.trino.spi.type.Type;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
-import org.apache.iceberg.io.CloseableIterable;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
@@ -75,41 +69,27 @@ public abstract class BaseSystemTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages(tableMetadata, session, icebergTable, metadataTableType));
-    }
-
-    private List<Page> buildPages(ConnectorTableMetadata tableMetadata, ConnectorSession session, Table icebergTable, MetadataTableType metadataTableType)
-    {
-        PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-
         TableScan tableScan = createMetadataTableInstance(icebergTable, metadataTableType).newScan().planWith(executor);
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
 
-        Map<String, Integer> columnNameToPosition = mapWithIndex(tableScan.schema().columns().stream(),
-                (column, position) -> immutableEntry(column.name(), Long.valueOf(position).intValue()))
+        Map<String, Integer> columnNameToPosition = mapWithIndex(
+                tableScan.schema().columns().stream(),
+                (column, position) -> Map.entry(column.name(), Long.valueOf(position).intValue()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            fileScanTasks.forEach(fileScanTask -> addRows((DataTask) fileScanTask, pagesBuilder, timeZoneKey, columnNameToPosition));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        List<Type> types = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
 
-        return pagesBuilder.build();
+        return new IcebergSystemTablePageSource(
+                types,
+                timeZoneKey,
+                this::addRow,
+                columnNameToPosition,
+                tableScan);
     }
 
-    private void addRows(DataTask dataTask, PageListBuilder pagesBuilder, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
-    {
-        try (CloseableIterable<StructLike> dataRows = dataTask.rows()) {
-            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, new Row(dataTaskRow, columnNameToPositionInSchema), timeZoneKey));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    protected abstract void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey);
+    protected abstract void addRow(IcebergSystemTablePageSource pageSource, Row row, TimeZoneKey timeZoneKey);
 
     public record Row(StructLike structLike, Map<String, Integer> columnNameToPositionInSchema)
     {

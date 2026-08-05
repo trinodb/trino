@@ -15,12 +15,17 @@ package io.trino.plugin.lakehouse;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.parquet.cache.MemoryParquetFooterCache;
+import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.DefaultIcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergExecutorModule;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
@@ -34,11 +39,14 @@ import io.trino.plugin.iceberg.IcebergSessionProperties;
 import io.trino.plugin.iceberg.IcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergTableProperties;
 import io.trino.plugin.iceberg.IcebergTransactionManager;
+import io.trino.plugin.iceberg.TableStatisticsReader;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
-import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
+import io.trino.plugin.iceberg.delete.DefaultDeletionVectorWriter;
+import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionModule;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -52,6 +60,7 @@ public class LakehouseIcebergModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(IcebergConfig.class);
+        install(new IcebergEncryptionModule());
 
         binder.bind(IcebergNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
@@ -62,8 +71,10 @@ public class LakehouseIcebergModule
         binder.bind(IcebergMaterializedViewProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(DeletionVectorWriter.class).to(DefaultDeletionVectorWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
+        binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergFileSystemFactory.class).to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);
 
@@ -80,5 +91,15 @@ public class LakehouseIcebergModule
         });
 
         binder.install(new IcebergExecutorModule());
+    }
+
+    @Provides
+    @Singleton
+    public static ParquetFooterCache createParquetFooterCache(IcebergConfig config)
+    {
+        return switch (config.getParquetFooterCacheType()) {
+            case NONE -> ParquetFooterCache.noop();
+            case MEMORY -> new MemoryParquetFooterCache(config.getParquetFooterCacheMemoryMaxSize());
+        };
     }
 }

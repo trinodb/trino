@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -47,14 +46,12 @@ public class CreateCatalogTask
 {
     private final PlannerContext plannerContext;
     private final AccessControl accessControl;
-    private final CatalogManager catalogManager;
 
     @Inject
-    public CreateCatalogTask(PlannerContext plannerContext, AccessControl accessControl, CatalogManager catalogManager)
+    public CreateCatalogTask(PlannerContext plannerContext, AccessControl accessControl)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
     }
 
     @Override
@@ -99,7 +96,7 @@ public class CreateCatalogTask
         }
 
         ConnectorName connectorName = new ConnectorName(statement.getConnectorName().toString());
-        catalogManager.createCatalog(catalog, connectorName, properties, statement.isNotExists());
+        plannerContext.getMetadata().createCatalog(session, catalog, connectorName, properties, statement.isNotExists());
         return immediateVoidFuture();
     }
 }

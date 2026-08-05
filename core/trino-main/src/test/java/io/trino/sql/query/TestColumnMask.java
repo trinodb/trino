@@ -23,6 +23,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
@@ -44,8 +45,11 @@ import java.util.Optional;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.branchPrivilege;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -111,9 +115,11 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(
-                        new ConnectorViewDefinition.ViewColumn("nested", RowType.from(ImmutableList.of(
-                                RowType.field(INTEGER),
-                                RowType.field(INTEGER))).getTypeId(),
+                        new ConnectorViewDefinition.ViewColumn(
+                                "nested",
+                                RowType.from(ImmutableList.of(
+                                        RowType.field(INTEGER),
+                                        RowType.field(INTEGER))).getTypeId(),
                                 Optional.empty()),
                         new ConnectorViewDefinition.ViewColumn("id", INTEGER.getTypeId(), Optional.empty())),
                 Optional.empty(),
@@ -133,6 +139,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
 
@@ -147,6 +154,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
@@ -163,6 +171,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
 
@@ -173,20 +182,33 @@ public class TestColumnMask
                     }
                     throw new UnsupportedOperationException();
                 })
+                .withBranches(ImmutableList.of("dev"))
                 .withData(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_WITH_HIDDEN_COLUMN_DATA;
                     }
                     throw new UnsupportedOperationException();
                 })
-                .withGetViews((s, prefix) -> ImmutableMap.of(
+                .withGetViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_view"), view,
                         new SchemaTableName("default", "nation_view_uppercase"), viewUpperCase,
                         new SchemaTableName("default", "view_with_nested"), viewWithNested))
-                .withGetMaterializedViews((s, prefix) -> ImmutableMap.of(
+                .withGetMaterializedViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
                         new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView,
                         new SchemaTableName("default", "materialized_view_with_casts"), materializedViewWithCasts))
+                .withGetMaterializedViewsFreshness((_, materializedViewName) -> {
+                    if (materializedViewName.equals(new SchemaTableName("default", "nation_materialized_view"))) {
+                        return new MaterializedViewFreshness(STALE, Optional.empty());
+                    }
+                    if (materializedViewName.equals(new SchemaTableName("default", "nation_fresh_materialized_view"))) {
+                        return new MaterializedViewFreshness(FRESH, Optional.empty());
+                    }
+                    if (materializedViewName.equals(new SchemaTableName("default", "materialized_view_with_casts"))) {
+                        return new MaterializedViewFreshness(FRESH, Optional.empty());
+                    }
+                    throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
+                })
                 .build()));
         runner.createCatalog(MOCK_CATALOG, "mock", ImmutableMap.of());
 
@@ -224,6 +246,32 @@ public class TestColumnMask
                         .expression("NULL")
                         .build());
         assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1")).matches("VALUES CAST(NULL AS BIGINT)");
+    }
+
+    @Test
+    public void testSimpleMaskOnBranch()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "nationkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("-nationkey")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column FOR VERSION AS OF 'dev' WHERE name = 'ARGENTINA'")).matches("VALUES BIGINT '-1'");
+
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "nationkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("NULL")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column FOR VERSION AS OF 'dev' WHERE name = 'ARGENTINA'")).matches("VALUES CAST(NULL AS BIGINT)");
     }
 
     @Test
@@ -913,6 +961,49 @@ public class TestColumnMask
                         .expression("(SELECT orderstatus FROM local.tiny.orders)")
                         .build());
         assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testNotReferencedAndDeniedColumnMaskingOnBranch()
+    {
+        // querying table, privilege on branch
+        accessControl.reset();
+        accessControl.deny(branchPrivilege("nation_with_hidden_column.name", "dev", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "name",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("name")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column WHERE nationkey = 1")).matches("VALUES BIGINT '1'");
+
+        // querying table branch, privilege on table
+        accessControl.reset();
+        accessControl.deny(privilege("nation_with_hidden_column.name", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "name",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("name")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column FOR VERSION AS OF 'dev' WHERE nationkey = 1")).matches("VALUES BIGINT '1'");
+
+        // querying table branch, privilege on branch
+        accessControl.reset();
+        accessControl.deny(branchPrivilege("nation_with_hidden_column.name", "dev", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "name",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("name")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column FOR VERSION AS OF 'dev' WHERE nationkey = 1")).matches("VALUES BIGINT '1'");
     }
 
     @Test

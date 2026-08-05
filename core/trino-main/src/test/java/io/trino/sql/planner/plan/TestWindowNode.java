@@ -13,23 +13,22 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolKeyDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -38,38 +37,37 @@ import java.util.Set;
 import java.util.UUID;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWindowNode
 {
     private final TestingFunctionResolution functionResolution;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     public TestWindowNode()
     {
         functionResolution = new TestingFunctionResolution();
 
         // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.of(
-                Symbol.class, new SymbolKeyDeserializer(new TestingTypeManager()),
-                TypeSignature.class, new TypeSignatureKeyDeserializer()));
-
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(new TestingTypeManager()::getType)));
-
-        objectMapper = provider.get();
+        jsonMapper = new JsonMapperProvider()
+                .withKeyDeserializers(ImmutableMap.of(
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
+                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
     }
 
     @Test
     public void testSerializationRoundtrip()
             throws Exception
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol columnA = symbolAllocator.newSymbol("a", BIGINT);
         Symbol columnB = symbolAllocator.newSymbol("b", BIGINT);
         Symbol columnC = symbolAllocator.newSymbol("c", BIGINT);
@@ -103,9 +101,9 @@ public class TestWindowNode
                 prePartitionedInputs,
                 0);
 
-        String json = objectMapper.writeValueAsString(windowNode);
+        String json = jsonMapper.writeValueAsString(windowNode);
 
-        WindowNode actualNode = objectMapper.readValue(json, WindowNode.class);
+        WindowNode actualNode = jsonMapper.readValue(json, WindowNode.class);
 
         assertThat(actualNode.getId()).isEqualTo(windowNode.getId());
         assertThat(actualNode.getSpecification()).isEqualTo(windowNode.getSpecification());

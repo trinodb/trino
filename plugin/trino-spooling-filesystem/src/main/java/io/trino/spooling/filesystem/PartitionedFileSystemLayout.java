@@ -17,6 +17,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
+import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public class PartitionedFileSystemLayout
 {
     private final int partitions;
 
+    @Inject
     public PartitionedFileSystemLayout(PartitionedLayoutConfig layoutConfig)
     {
         this.partitions = requireNonNull(layoutConfig, "layoutConfig is null").getPartitions();

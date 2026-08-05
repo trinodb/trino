@@ -13,10 +13,9 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -30,7 +29,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.type.JsonPathType;
 import io.trino.util.JsonCastException;
 
@@ -42,8 +40,9 @@ import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonParser;
@@ -58,26 +57,21 @@ public final class JsonStringArrayExtractScalar
     public static final String JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME = "$internal$json_string_array_extract_scalar";
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonStringArrayExtractScalar.class, "extract", Slice.class, JsonPath.class);
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
     private static final ArrayType ARRAY_TYPE = new ArrayType(VARCHAR);
-
-    static {
-        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
-        new ObjectMapper(JSON_FACTORY);
-    }
 
     private JsonStringArrayExtractScalar()
     {
         super(FunctionMetadata.scalarBuilder(JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME)
                 .signature(Signature.builder()
-                        .argumentType(new TypeSignature("varchar", typeVariable("N")))
-                        .longVariable("N")
-                        .argumentType(new TypeSignature(JsonPathType.NAME))
-                        .returnType(arrayType(VARCHAR.getTypeSignature()))
+                        .argumentType(type("varchar", numericVariable("N")))
+                        .numericVariable("N")
+                        .argumentType(type(JsonPathType.NAME))
+                        .returnType(arrayType(VARCHAR.getTypeDescriptor()))
                         .build())
                 .nullable()
                 .hidden()
-                .noDescription()
+                .description("")
                 .build());
     }
 
@@ -94,7 +88,7 @@ public final class JsonStringArrayExtractScalar
     @UsedByGeneratedCode
     public static Block extract(Slice json, JsonPath jsonPath)
     {
-        try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 return null;

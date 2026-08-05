@@ -32,7 +32,8 @@ public class DirectoryListingFilter
     private final RemoteIterator<TrinoFileStatus> delegateIterator;
     private final boolean failOnUnexpectedFiles;
 
-    @Nullable private TrinoFileStatus nextElement;
+    @Nullable
+    private TrinoFileStatus nextElement;
 
     public DirectoryListingFilter(Location prefix, RemoteIterator<TrinoFileStatus> delegateIterator, boolean failOnUnexpectedFiles)
             throws IOException

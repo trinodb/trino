@@ -27,8 +27,8 @@ import org.projectnessie.client.api.NessieApiV1;
 import org.projectnessie.client.api.NessieApiV2;
 import org.projectnessie.client.auth.BearerAuthenticationProvider;
 
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.lang.Math.toIntExact;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -66,7 +66,8 @@ public class IcebergNessieCatalogModule
             case V2 -> builder.build(NessieApiV2.class);
         };
 
-        return new NessieIcebergClient(api,
+        return new NessieIcebergClient(
+                api,
                 icebergNessieCatalogConfig.getDefaultReferenceName(),
                 null,
                 ImmutableMap.of());

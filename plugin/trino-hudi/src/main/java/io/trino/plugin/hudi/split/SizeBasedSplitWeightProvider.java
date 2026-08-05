@@ -30,7 +30,8 @@ public class SizeBasedSplitWeightProvider
     {
         checkArgument(
                 Double.isFinite(minimumWeight) && minimumWeight > 0 && minimumWeight <= 1,
-                "minimumWeight must be > 0 and <= 1, found: %s", minimumWeight);
+                "minimumWeight must be > 0 and <= 1, found: %s",
+                minimumWeight);
         this.minimumWeight = minimumWeight;
         long standardSplitSizeInBytesLong = requireNonNull(standardSplitSize, "standardSplitSize is null").toBytes();
         checkArgument(standardSplitSizeInBytesLong > 0, "standardSplitSize must be > 0, found: %s", standardSplitSize);

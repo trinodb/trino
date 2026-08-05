@@ -67,14 +67,18 @@ public class TestSnowflakeConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_ARRAY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -386,6 +390,11 @@ public class TestSnowflakeConnectorTest
     {
         // TODO https://github.com/trinodb/trino/issues/21157 Enable this test after fixing the timeout issue
     }
+
+    @Test
+    @Disabled // Type mapping is tested by TestSnowflakeTypeMapping. Disable this test to avoid the timeout issue.
+    @Override
+    public void testDataMappingSmokeTest() {}
 
     @Test
     @Override // Override because for approx_set(nationkey) a ProjectNode is present above the TableScanNode. It's used to project decimals to doubles.

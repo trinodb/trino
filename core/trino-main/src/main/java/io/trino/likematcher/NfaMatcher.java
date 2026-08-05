@@ -55,7 +55,7 @@ final class NfaMatcher
                         match[state++] = ANY;
                     }
                 }
-                case Pattern.ZeroOrMore zeroOrMore -> {
+                case Pattern.ZeroOrMore _ -> {
                     loopback[state] = true;
                 }
             }

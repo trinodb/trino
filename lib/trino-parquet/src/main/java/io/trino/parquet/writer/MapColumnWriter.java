@@ -77,9 +77,17 @@ public class MapColumnWriter
     }
 
     @Override
-    public long getBufferedBytes()
+    public long getEstimatedBufferedBytes(CompressionStats compressionStats)
     {
-        return keyWriter.getBufferedBytes() + valueWriter.getBufferedBytes();
+        return keyWriter.getEstimatedBufferedBytes(compressionStats) + valueWriter.getEstimatedBufferedBytes(compressionStats);
+    }
+
+    @Override
+    public CompressionStats getCompressionStats()
+    {
+        CompressionStats keyStats = keyWriter.getCompressionStats();
+        CompressionStats valueStats = valueWriter.getCompressionStats();
+        return keyStats.add(valueStats);
     }
 
     @Override

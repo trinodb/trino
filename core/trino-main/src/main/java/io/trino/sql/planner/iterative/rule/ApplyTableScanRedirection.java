@@ -41,6 +41,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -49,6 +50,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -105,7 +107,7 @@ public class ApplyTableScanRedirection
         Map<String, ColumnHandle> destinationColumnHandles = plannerContext.getMetadata().getColumnHandles(context.getSession(), destinationTableHandle);
         ImmutableMap.Builder<Symbol, Cast> casts = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> newAssignmentsBuilder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, ColumnHandle> assignment : scanNode.getAssignments().entrySet()) {
+        for (Entry<Symbol, ColumnHandle> assignment : scanNode.getAssignments().entrySet()) {
             String destinationColumn = columnMapping.get(assignment.getValue());
             if (destinationColumn == null) {
                 throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find mapping for source column %s in table scan redirection", assignment.getValue()));
@@ -268,6 +270,6 @@ public class ApplyTableScanRedirection
                     sourceType));
         }
 
-        return new Cast(destinationSymbol.toSymbolReference(), sourceType);
+        return cast(plannerContext.getTypeManager(), destinationSymbol.toSymbolReference(), sourceType);
     }
 }

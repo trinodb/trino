@@ -43,7 +43,7 @@ class TestAnthropicConfig
 
         AnthropicConfig expected = new AnthropicConfig()
                 .setEndpoint(URI.create("https://api.example.com"))
-                        .setApiKey("test-key");
+                .setApiKey("test-key");
 
         assertFullMapping(properties, expected);
     }

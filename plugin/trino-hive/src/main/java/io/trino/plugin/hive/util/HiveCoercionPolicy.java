@@ -40,7 +40,7 @@ import static io.trino.metastore.HiveType.HIVE_SHORT;
 import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -61,8 +61,8 @@ public final class HiveCoercionPolicy
 
     private boolean canCoerce(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
     {
-        Type fromType = typeManager.getType(getTypeSignature(fromHiveType, hiveTimestampPrecision));
-        Type toType = typeManager.getType(getTypeSignature(toHiveType, hiveTimestampPrecision));
+        Type fromType = typeManager.getType(getTypeDescriptor(fromHiveType, hiveTimestampPrecision));
+        Type toType = typeManager.getType(getTypeDescriptor(toHiveType, hiveTimestampPrecision));
         if (fromType instanceof VarcharType) {
             return toType instanceof VarcharType ||
                     toType instanceof CharType ||
@@ -186,7 +186,7 @@ public final class HiveCoercionPolicy
 
     private static HiveType convertUnionToStruct(HiveType unionType, TypeManager typeManager, HiveTimestampPrecision hiveTimestampPrecision)
     {
-        checkArgument(unionType.getCategory() == Category.UNION, "Can only convert union type to struct type, given type: %s", getTypeSignature(unionType, hiveTimestampPrecision));
+        checkArgument(unionType.getCategory() == Category.UNION, "Can only convert union type to struct type, given type: %s", getTypeDescriptor(unionType, hiveTimestampPrecision));
         return toHiveType(getType(unionType, typeManager, hiveTimestampPrecision));
     }
 }

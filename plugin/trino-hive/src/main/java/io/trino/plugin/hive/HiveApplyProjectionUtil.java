@@ -14,13 +14,13 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.spi.connector.ColumnHandle;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
-
-import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 
 public final class HiveApplyProjectionUtil
 {
@@ -52,7 +52,7 @@ public final class HiveApplyProjectionUtil
                 .addAll(projectedColumn.getDereferenceIndices())
                 .build();
 
-        for (Map.Entry<String, ColumnHandle> entry : assignments.entrySet()) {
+        for (Entry<String, ColumnHandle> entry : assignments.entrySet()) {
             HiveColumnHandle column = (HiveColumnHandle) entry.getValue();
             if (column.getBaseColumnName().equals(baseColumnName) &&
                     column.getHiveColumnProjectionInfo()

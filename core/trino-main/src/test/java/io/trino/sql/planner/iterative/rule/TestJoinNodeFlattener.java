@@ -19,7 +19,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Plan;
@@ -52,11 +51,13 @@ import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
@@ -111,7 +112,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1),
                 ImmutableList.of(b1),
                 Optional.empty());
-        assertThatThrownBy(() -> toMultiJoinNode(outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build()))
+        assertThatThrownBy(() -> toMultiJoinNode(outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), PLANNER_CONTEXT.getMetadata()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageMatching("join type must be.*");
     }
@@ -146,7 +147,7 @@ public class TestJoinNodeFlattener
                 .setSources(leftJoin, valuesC).setFilter(createEqualsExpression(a1, c1))
                 .setOutputSymbols(a1, b1, c1)
                 .build();
-        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build())).isEqualTo(expected);
+        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), PLANNER_CONTEXT.getMetadata())).isEqualTo(expected);
     }
 
     @Test
@@ -172,7 +173,7 @@ public class TestJoinNodeFlattener
                                 equiJoinClause(a, b))),
                 valuesC,
                 equiJoinClause(d, c));
-        MultiJoinNode actual = toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build());
+        MultiJoinNode actual = toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), PLANNER_CONTEXT.getMetadata());
         assertThat(actual.getOutputSymbols()).isEqualTo(ImmutableList.of(d, c));
         assertThat(actual.getFilter()).isEqualTo(and(createEqualsExpression(a, b), createEqualsExpression(d, c)));
         assertThat(actual.isPushedProjectionThroughJoin()).isTrue();
@@ -180,14 +181,12 @@ public class TestJoinNodeFlattener
         List<PlanNode> actualSources = ImmutableList.copyOf(actual.getSources());
         assertPlan(
                 actualSources.get(0),
-                node(
-                        ProjectNode.class,
+                node(ProjectNode.class,
                         values("a"))
                         .withNumberOfOutputColumns(2));
         assertPlan(
                 actualSources.get(1),
-                node(
-                        ProjectNode.class,
+                node(ProjectNode.class,
                         values("b"))
                         .withNumberOfOutputColumns(1));
         assertPlan(actualSources.get(2), values("c"));
@@ -216,7 +215,7 @@ public class TestJoinNodeFlattener
                                 equiJoinClause(a, b))),
                 valuesC,
                 equiJoinClause(d, c));
-        MultiJoinNode actual = toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build());
+        MultiJoinNode actual = toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), PLANNER_CONTEXT.getMetadata());
         assertThat(actual.getOutputSymbols()).isEqualTo(ImmutableList.of(d, c));
         assertThat(actual.getFilter()).isEqualTo(createEqualsExpression(d, c));
         assertThat(actual.isPushedProjectionThroughJoin()).isFalse();
@@ -224,8 +223,7 @@ public class TestJoinNodeFlattener
         List<PlanNode> actualSources = ImmutableList.copyOf(actual.getSources());
         assertPlan(
                 actualSources.get(0),
-                node(
-                        ProjectNode.class,
+                node(ProjectNode.class,
                         node(JoinNode.class,
                                 values("a"),
                                 values("b")))
@@ -266,7 +264,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1)))
                 .setOutputSymbols(a1, b1)
                 .build();
-        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build())).isEqualTo(expected);
+        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), PLANNER_CONTEXT.getMetadata())).isEqualTo(expected);
     }
 
     @Test
@@ -283,10 +281,10 @@ public class TestJoinNodeFlattener
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
         Expression bcFilter = and(
-                new Comparison(GREATER_THAN, c2.toSymbolReference(), new Constant(BIGINT, 0L)),
-                new Comparison(NOT_EQUAL, c2.toSymbolReference(), new Constant(BIGINT, 7L)),
-                new Comparison(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
-        Comparison abcFilter = new Comparison(
+                comparison(GREATER_THAN, c2.toSymbolReference(), new Constant(BIGINT, 0L)),
+                comparison(NOT_EQUAL, c2.toSymbolReference(), new Constant(BIGINT, 7L)),
+                comparison(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
+        Expression abcFilter = comparison(
                 LESS_THAN,
                 new Call(ADD_BIGINT, ImmutableList.of(a1.toSymbolReference(), c1.toSymbolReference())),
                 b1.toSymbolReference());
@@ -307,10 +305,10 @@ public class TestJoinNodeFlattener
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
-                and(new Comparison(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new Comparison(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
+                and(comparison(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), comparison(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 false);
-        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build())).isEqualTo(expected);
+        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), PLANNER_CONTEXT.getMetadata())).isEqualTo(expected);
     }
 
     @Test
@@ -366,7 +364,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, b1), createEqualsExpression(a1, c1), createEqualsExpression(d1, e1), createEqualsExpression(d2, e2), createEqualsExpression(b1, e1)))
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build())).isEqualTo(expected);
+        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build(), PLANNER_CONTEXT.getMetadata())).isEqualTo(expected);
     }
 
     @Test
@@ -424,12 +422,12 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, c1), createEqualsExpression(b1, e1)))
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build())).isEqualTo(expected);
+        assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build(), PLANNER_CONTEXT.getMetadata())).isEqualTo(expected);
     }
 
-    private Comparison createEqualsExpression(Symbol left, Symbol right)
+    private Expression createEqualsExpression(Symbol left, Symbol right)
     {
-        return new Comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
+        return comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
     }
 
     private EquiJoinClause equiJoinClause(Symbol symbol1, Symbol symbol2)
@@ -448,8 +446,9 @@ public class TestJoinNodeFlattener
                 testSessionBuilder().build(),
                 dummyMetadata(),
                 queryRunner.getPlannerContext().getFunctionManager(),
-                node -> unknown(),
-                new Plan(actual, empty()), noLookup(),
+                _ -> unknown(),
+                new Plan(actual, empty()),
+                noLookup(),
                 pattern);
     }
 }

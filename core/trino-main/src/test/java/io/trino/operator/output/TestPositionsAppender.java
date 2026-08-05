@@ -19,9 +19,7 @@ import io.trino.block.BlockAssertions;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
@@ -43,6 +41,7 @@ import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -63,6 +62,8 @@ import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createSmallintsBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTinyintsBlock;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
@@ -92,13 +93,13 @@ public class TestPositionsAppender
                     input(rleBlock(type, 2), 0, 1), // rle all positions
                     input(nullRleBlock(type, 4), 1, 2),
                     input(dictionaryBlock(type, 4, 2, 0), 0, 3), // dict not null
-                    input(dictionaryBlock(type, 8, 4, 0.5F), 1, 3, 5), // dict mixed
+                    input(dictionaryBlock(type, 8, 4, 0.5f), 1, 3, 5), // dict mixed
                     input(dictionaryBlock(type, 8, 4, 1), 1, 3, 5), // dict null
                     input(rleBlock(dictionaryBlock(type, 1, 2, 0), 3), 2), // rle -> dict
                     input(rleBlock(dictionaryBlock(notNullBlock(type, 2), new int[] {1}), 3), 2), // rle -> dict with position 0 mapped to > 0
                     input(rleBlock(dictionaryBlock(rleBlock(type, 4), 1), 3), 1), // rle -> dict -> rle
-                    input(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5F), 3), 2), // dict -> dict
-                    input(dictionaryBlock(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5F), 3), 3), 2), // dict -> dict -> dict
+                    input(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5f), 3), 2), // dict -> dict
+                    input(dictionaryBlock(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5f), 3), 3), 2), // dict -> dict -> dict
                     input(dictionaryBlock(rleBlock(type, 4), 3), 0, 2), // dict -> rle
                     input(notNullBlock(type, 4).getRegion(2, 2), 0, 1), // not null block with offset
                     input(partiallyNullBlock(type, 4).getRegion(2, 2), 0, 1), // nullable block with offset
@@ -367,8 +368,8 @@ public class TestPositionsAppender
         RowType type = anonymousRow(BIGINT, BIGINT, VARCHAR);
         Block rowBLock = RowBlock.fromFieldBlocks(2, new Block[] {
                 notNullBlock(TestType.BIGINT, 2),
-                dictionaryBlock(TestType.BIGINT, 2, 2, 0.5F),
-                rleBlock(TestType.VARCHAR, 2)
+                dictionaryBlock(TestType.BIGINT, 2, 2, 0.5f),
+                rleBlock(TestType.VARCHAR, 2),
         });
 
         UnnestingPositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
@@ -377,6 +378,33 @@ public class TestPositionsAppender
         Block actual = positionsAppender.build();
 
         assertBlockEquals(type, actual, rowBLock);
+    }
+
+    @Test
+    public void testRowPositionListAppendBackfillsValidity()
+    {
+        RowType type = anonymousRow(BIGINT, VARCHAR);
+
+        long[] rowIsValid = new long[wordsForBits(2)];
+        set(rowIsValid, 0, 0);
+
+        BlockBuilder bigintBuilder = BIGINT.createBlockBuilder(null, 2);
+        BIGINT.writeLong(bigintBuilder, 11);
+        bigintBuilder.appendNull();
+
+        BlockBuilder varcharBuilder = VARCHAR.createBlockBuilder(null, 2);
+        VARCHAR.writeString(varcharBuilder, "value");
+        varcharBuilder.appendNull();
+
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
+                2,
+                Optional.of(rowIsValid),
+                new Block[] {bigintBuilder.build(), varcharBuilder.build()});
+
+        UnnestingPositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        positionsAppender.append(allPositions(2), rowBlock);
+
+        assertBlockEquals(type, positionsAppender.build(), rowBlock);
     }
 
     private static ValueBlock singleValueBlock(String value)
@@ -439,7 +467,7 @@ public class TestPositionsAppender
 
     private static Block partiallyNullBlock(TestType type, int positionCount)
     {
-        return createRandomBlockForType(type, positionCount, 0.5F);
+        return createRandomBlockForType(type, positionCount, 0.5f);
     }
 
     private static Block notNullBlock(TestType type, int positionCount)
@@ -498,6 +526,7 @@ public class TestPositionsAppender
     {
         testAppendBatch(type, inputs);
         testAppendSingle(type, inputs);
+        testAppendRange(type, inputs);
     }
 
     private static void testAppendBatch(TestType type, List<BlockView> inputs)
@@ -506,6 +535,19 @@ public class TestPositionsAppender
         long initialRetainedSize = positionsAppender.getRetainedSizeInBytes();
 
         inputs.forEach(input -> positionsAppender.append(input.positions(), input.block()));
+        assertBuildResult(type, inputs, positionsAppender, initialRetainedSize);
+    }
+
+    private static void testAppendRange(TestType type, List<BlockView> inputs)
+    {
+        UnnestingPositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        long initialRetainedSize = positionsAppender.getRetainedSizeInBytes();
+
+        inputs.forEach(input -> {
+            for (PositionRange range : computeRanges(input.positions())) {
+                positionsAppender.appendRange(input.block(), range.offset(), range.length());
+            }
+        });
         assertBuildResult(type, inputs, positionsAppender, initialRetainedSize);
     }
 
@@ -543,22 +585,21 @@ public class TestPositionsAppender
 
     private static void assertBlockIsValid(Block actual, long sizeInBytes, Type type, List<BlockView> inputs)
     {
-        PageBuilderStatus pageBuilderStatus = new PageBuilderStatus();
-        BlockBuilderStatus blockBuilderStatus = pageBuilderStatus.createBlockBuilderStatus();
-        Block expected = buildBlock(type, inputs, blockBuilderStatus);
+        Block expected = buildBlock(type, inputs, sizeInBytes);
 
         assertBlockEquals(type, actual, expected);
-        assertThat(sizeInBytes).isEqualTo(pageBuilderStatus.getSizeInBytes());
     }
 
-    private static Block buildBlock(Type type, List<BlockView> inputs, BlockBuilderStatus blockBuilderStatus)
+    private static Block buildBlock(Type type, List<BlockView> inputs, long sizeInBytes)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(blockBuilderStatus, 10);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 10);
         for (BlockView input : inputs) {
+            ValueBlock valueBlock = input.block().getUnderlyingValueBlock();
             for (int position : input.positions()) {
-                type.appendTo(input.block(), position, blockBuilder);
+                blockBuilder.append(valueBlock, input.block().getUnderlyingValuePosition(position));
             }
         }
+        assertThat(sizeInBytes).isEqualTo(blockBuilder.getSizeInBytes());
         return blockBuilder.build();
     }
 
@@ -614,6 +655,47 @@ public class TestPositionsAppender
         }
     }
 
+    private record PositionRange(int offset, int length)
+    {
+        private PositionRange
+        {
+            checkArgument(offset >= 0, "offset must be >= 0, found: %s", offset);
+            checkArgument(length > 0, "length must be positive, found: %s", length);
+        }
+    }
+
+    private static List<PositionRange> computeRanges(IntArrayList positions)
+    {
+        List<PositionRange> ranges = new ArrayList<>();
+        int start = 0;
+        while (start < positions.size()) {
+            int position = positions.getInt(start);
+            int length = 1;
+            while (start + length < positions.size() && position + length == positions.getInt(start + length)) {
+                length++;
+            }
+            ranges.add(new PositionRange(position, length));
+            start += length;
+        }
+        return List.copyOf(ranges);
+    }
+
+    @Test
+    public void testComputeRanges()
+    {
+        assertThat(computeRanges(allPositions(10))).isEqualTo(List.of(new PositionRange(0, 10)));
+        assertThat(computeRanges(IntArrayList.of(0, 2, 4, 6)))
+                .isEqualTo(List.of(
+                        new PositionRange(0, 1),
+                        new PositionRange(2, 1),
+                        new PositionRange(4, 1),
+                        new PositionRange(6, 1)));
+        assertThat(computeRanges(IntArrayList.of(1, 2, 4, 5)))
+                .isEqualTo(List.of(
+                        new PositionRange(1, 2),
+                        new PositionRange(4, 2)));
+    }
+
     private static Function<Block, Block> adaptation()
     {
         return TestPositionsAppender::adapt;
@@ -623,24 +705,24 @@ public class TestPositionsAppender
     {
         if (block instanceof RunLengthEncodedBlock) {
             checkArgument(block.getPositionCount() == 0 || block.isNull(0));
-            return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new boolean[] {true})), block.getPositionCount());
+            return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new long[] {0})), block.getPositionCount());
         }
 
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
         int[] offsets = new int[variableWidthBlock.getPositionCount() + 1];
-        boolean[] valueIsNull = new boolean[variableWidthBlock.getPositionCount()];
+        long[] valueIsValid = new long[wordsForBits(variableWidthBlock.getPositionCount())];
         boolean hasNullValue = false;
         for (int i = 0; i < variableWidthBlock.getPositionCount(); i++) {
             if (variableWidthBlock.isNull(i)) {
-                valueIsNull[i] = true;
                 hasNullValue = true;
                 offsets[i + 1] = offsets[i];
             }
             else {
+                set(valueIsValid, 0, i);
                 offsets[i + 1] = offsets[i] + variableWidthBlock.getSliceLength(i);
             }
         }
 
-        return new VariableWidthBlock(variableWidthBlock.getPositionCount(), variableWidthBlock.getRawSlice(), offsets, hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
+        return new VariableWidthBlock(variableWidthBlock.getPositionCount(), variableWidthBlock.getRawSlice(), offsets, hasNullValue ? Optional.of(valueIsValid) : Optional.empty());
     }
 }

@@ -252,7 +252,7 @@ public class PhasedExecutionSchedule
 
         if (schedulingStages.add(stage) && fragmentDependency.outDegree(stage.getFragment().getId()) > 0) {
             // if there are any dependent stages then reschedule when stage is completed
-            stage.addStateChangeListener(state -> {
+            stage.addStateChangeListener(_ -> {
                 if (isStageScheduled(stage)) {
                     notifyReschedule(stage);
                 }
@@ -285,7 +285,7 @@ public class PhasedExecutionSchedule
         }
 
         QueryId queryId = stages.stream()
-                .map(stage -> stage.getStageId().getQueryId())
+                .map(stage -> stage.getStageId().queryId())
                 .distinct()
                 .collect(onlyElement());
         List<PlanFragment> fragments = stages.stream()
@@ -327,7 +327,7 @@ public class PhasedExecutionSchedule
 
         public void processAllFragments()
         {
-            fragments.forEach((fragmentId, fragment) -> {
+            fragments.forEach((fragmentId, _) -> {
                 fragmentDependency.addNode(fragmentId);
                 fragmentTopology.addNode(fragmentId);
             });

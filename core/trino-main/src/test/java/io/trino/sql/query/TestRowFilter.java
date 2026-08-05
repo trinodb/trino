@@ -92,7 +92,7 @@ public class TestRowFilter
                 ImmutableList.of());
 
         runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withGetViews((s, prefix) -> ImmutableMap.of(new SchemaTableName("default", "nation_view"), view))
+                .withGetViews((_, _) -> ImmutableMap.of(new SchemaTableName("default", "nation_view"), view))
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_SCHEMA;
@@ -105,6 +105,7 @@ public class TestRowFilter
                     }
                     throw new UnsupportedOperationException();
                 })
+                .withBranches(ImmutableList.of("dev"))
                 .withData(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_DATA;
@@ -122,7 +123,7 @@ public class TestRowFilter
 
         runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withName("mockmissingcolumns")
-                .withGetViews((s, prefix) -> ImmutableMap.of(
+                .withGetViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_view"), view))
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
@@ -167,6 +168,24 @@ public class TestRowFilter
                 USER,
                 ViewExpression.builder().expression("NULL").build());
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSimpleFilterOnBranch()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_optional_column"),
+                USER,
+                ViewExpression.builder().expression("nationkey < 5").build());
+        assertThat(assertions.query("SELECT count(*) FROM mock.tiny.nation_with_optional_column FOR VERSION AS OF 'dev'")).matches("VALUES BIGINT '5'");
+
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_optional_column"),
+                USER,
+                ViewExpression.builder().expression("NULL").build());
+        assertThat(assertions.query("SELECT count(*) FROM mock.tiny.nation_with_optional_column FOR VERSION AS OF 'dev'")).matches("VALUES BIGINT '0'");
     }
 
     @Test

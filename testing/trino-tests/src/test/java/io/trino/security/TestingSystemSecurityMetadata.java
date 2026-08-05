@@ -20,6 +20,7 @@ import io.trino.metadata.QualifiedObjectPrefix;
 import io.trino.metadata.QualifiedSchemaPrefix;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
@@ -273,6 +274,12 @@ class TestingSystemSecurityMetadata
     }
 
     @Override
+    public void catalogCreated(Session session, CatalogName catalog) {}
+
+    @Override
+    public void catalogDropped(Session session, CatalogName catalog) {}
+
+    @Override
     public void functionCreated(Session session, CatalogSchemaFunctionName function)
     {
         functionOwners.put(function, session.getIdentity());
@@ -388,12 +395,12 @@ class TestingSystemSecurityMetadata
         return functionOwners.keySet().stream()
                 .filter(catalogSchemaFunctionName -> prefix.matches(
                         new QualifiedObjectName(
-                                catalogSchemaFunctionName.getCatalogName(),
-                                catalogSchemaFunctionName.getSchemaName(),
-                                catalogSchemaFunctionName.getFunctionName())))
+                                catalogSchemaFunctionName.catalogName(),
+                                catalogSchemaFunctionName.schemaName(),
+                                catalogSchemaFunctionName.functionName())))
                 .map(functionName -> {
                     Identity owner = functionOwners.get(functionName);
-                    return new FunctionAuthorization(functionName.getSchemaFunctionName(), new TrinoPrincipal(USER, owner.getUser()));
+                    return new FunctionAuthorization(functionName.schemaFunctionName(), new TrinoPrincipal(USER, owner.getUser()));
                 })
                 .collect(toImmutableSet());
     }

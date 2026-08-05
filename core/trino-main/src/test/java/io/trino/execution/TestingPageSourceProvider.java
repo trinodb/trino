@@ -16,13 +16,14 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -54,13 +55,14 @@ public class TestingPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
         requireNonNull(columns, "columns is null");
 
         List<Block> blocks = columns.stream()
-                .map(column -> new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]))
+                .map(_ -> new LongArrayBlock(1, Optional.of(new long[] {0}), new long[1]))
                 .collect(toImmutableList());
 
         return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))));

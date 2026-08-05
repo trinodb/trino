@@ -18,8 +18,8 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.TestMetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
@@ -59,7 +59,7 @@ public class TestScalarStatsCalculator
     private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction DIVIDE_BIGINT = FUNCTIONS.resolveOperator(OperatorType.DIVIDE, ImmutableList.of(BIGINT, BIGINT));
-    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULO_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(BIGINT, BIGINT));
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final ScalarStatsCalculator calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext());
@@ -192,7 +192,7 @@ public class TestScalarStatsCalculator
                 .highValue(17.0)
                 .distinctValuesCount(10)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -215,7 +215,7 @@ public class TestScalarStatsCalculator
                 .highValue(3.0)
                 .distinctValuesCount(2)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -237,7 +237,7 @@ public class TestScalarStatsCalculator
                 .highValue(3.0)
                 .distinctValuesCountUnknown()
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -260,7 +260,7 @@ public class TestScalarStatsCalculator
                 .highValue(10.0)
                 .distinctValuesCount(4)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -284,7 +284,7 @@ public class TestScalarStatsCalculator
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
@@ -365,9 +365,9 @@ public class TestScalarStatsCalculator
                 .isEqualTo(allNullStats);
         assertCalculate(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "all_null"), new Reference(BIGINT, "x"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "all_null"))), relationStats)
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "all_null"))), relationStats)
                 .isEqualTo(allNullStats);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "all_null"), new Reference(BIGINT, "x"))), relationStats)
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "all_null"), new Reference(BIGINT, "x"))), relationStats)
                 .isEqualTo(allNullStats);
         assertCalculate(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "all_null"))), relationStats)
                 .isEqualTo(allNullStats);
@@ -400,52 +400,52 @@ public class TestScalarStatsCalculator
     }
 
     @Test
-    public void testModulusArithmeticBinaryExpression()
+    public void testModuloArithmeticBinaryExpression()
     {
         // negative
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 0, -6, -4)).lowValue(-1).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 0, -6, -4)).lowValue(-5).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, -4)).lowValue(-6).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, -4)).lowValue(-6).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, 4)).lowValue(-6).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, 6)).lowValue(-6).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, 4, 6)).lowValue(-6).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 0, 4, 6)).lowValue(-1).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 0, 4, 6)).lowValue(-5).highValue(0);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, 4, 6)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 0, -6, -4)).lowValue(-1).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 0, -6, -4)).lowValue(-5).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, -4)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, -4)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, 4)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, -6, 6)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, 4, 6)).lowValue(-6).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 0, 4, 6)).lowValue(-1).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 0, 4, 6)).lowValue(-5).highValue(0);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 0, 4, 6)).lowValue(-6).highValue(0);
 
         // positive
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, -6, -4)).lowValue(0).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, -6, -4)).lowValue(0).highValue(6);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 1, -6, 4)).lowValue(0).highValue(1);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, -6, 4)).lowValue(0).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, -6, 4)).lowValue(0).highValue(6);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 1, 4, 6)).lowValue(0).highValue(1);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, 4, 6)).lowValue(0).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, 4, 6)).lowValue(0).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, -6, -4)).lowValue(0).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, -6, -4)).lowValue(0).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 1, -6, 4)).lowValue(0).highValue(1);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, -6, 4)).lowValue(0).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, -6, 4)).lowValue(0).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 1, 4, 6)).lowValue(0).highValue(1);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 5, 4, 6)).lowValue(0).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(0, 8, 4, 6)).lowValue(0).highValue(6);
 
         // mix
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, -6, -4)).lowValue(-1).highValue(1);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, -6, -4)).lowValue(-1).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, -6, -4)).lowValue(-5).highValue(1);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, -6, -4)).lowValue(-5).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, -6, -4)).lowValue(-5).highValue(6);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, -6, -4)).lowValue(-6).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, -6, -4)).lowValue(-6).highValue(6);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, -6, 4)).lowValue(-1).highValue(1);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, -6, 4)).lowValue(-1).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, -6, 4)).lowValue(-5).highValue(1);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, -6, 4)).lowValue(-5).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, -6, 4)).lowValue(-5).highValue(6);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, -6, 4)).lowValue(-6).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, -6, 4)).lowValue(-6).highValue(6);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, 4, 6)).lowValue(-1).highValue(1);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, 4, 6)).lowValue(-1).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, 4, 6)).lowValue(-5).highValue(1);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, 4, 6)).lowValue(-5).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, 4, 6)).lowValue(-5).highValue(6);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, 4, 6)).lowValue(-6).highValue(5);
-        assertCalculate(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, 4, 6)).lowValue(-6).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, -6, -4)).lowValue(-1).highValue(1);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, -6, -4)).lowValue(-1).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, -6, -4)).lowValue(-5).highValue(1);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, -6, -4)).lowValue(-5).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, -6, -4)).lowValue(-5).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, -6, -4)).lowValue(-6).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, -6, -4)).lowValue(-6).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, -6, 4)).lowValue(-1).highValue(1);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, -6, 4)).lowValue(-1).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, -6, 4)).lowValue(-5).highValue(1);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, -6, 4)).lowValue(-5).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, -6, 4)).lowValue(-5).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, -6, 4)).lowValue(-6).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, -6, 4)).lowValue(-6).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 1, 4, 6)).lowValue(-1).highValue(1);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-1, 5, 4, 6)).lowValue(-1).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 1, 4, 6)).lowValue(-5).highValue(1);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 5, 4, 6)).lowValue(-5).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-5, 8, 4, 6)).lowValue(-5).highValue(6);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 5, 4, 6)).lowValue(-6).highValue(5);
+        assertCalculate(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))), xyStats(-8, 8, 4, 6)).lowValue(-6).highValue(6);
     }
 
     private PlanNodeStatsEstimate xyStats(double lowX, double highX, double lowY, double highY)

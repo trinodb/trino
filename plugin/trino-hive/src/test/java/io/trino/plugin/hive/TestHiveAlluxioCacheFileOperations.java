@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import io.trino.blob.cache.alluxio.AlluxioBlobCachePlugin;
+import io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -33,7 +35,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getCacheOperationSpans;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getFileLocation;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -55,8 +56,6 @@ public class TestHiveAlluxioCacheFileOperations
 
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
-                .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                .put("fs.cache.max-sizes", "100MB")
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
                 .buildOrThrow();
@@ -64,6 +63,12 @@ public class TestHiveAlluxioCacheFileOperations
         return HiveQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setHiveProperties(hiveProperties)
+                .addHiveProperty("fs.hadoop.enabled", "true")
+                .withPlugin(new AlluxioBlobCachePlugin())
+                .withBlobCache("alluxio", ImmutableMap.<String, String>builder()
+                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                        .put("fs.cache.max-sizes", "100MB")
+                        .buildOrThrow())
                 .setWorkerCount(1)
                 .build();
     }

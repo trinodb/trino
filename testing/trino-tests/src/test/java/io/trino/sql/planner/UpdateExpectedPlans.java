@@ -13,44 +13,23 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.collect.ImmutableList;
-
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
-
-import static io.airlift.concurrent.MoreFutures.getDone;
+import java.lang.reflect.InvocationTargetException;
 
 public final class UpdateExpectedPlans
 {
     private UpdateExpectedPlans() {}
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
-        String[] noArgs = new String[0];
-
-        List<Future<Void>> futures = ForkJoinPool.commonPool().invokeAll(
-                ImmutableList.<Callable<Void>>builder()
-                        // in alphabetical order
-                        .add(runMain(TestPartitionedTpcdsCostBasedPlan.class, noArgs))
-                        .add(runMain(TestTpchCostBasedPlan.class, noArgs))
-                        .build());
-
-        for (Future<Void> future : futures) {
-            getDone(future);
-        }
+        // in alphabetical order
+        runMain(TestPartitionedTpcdsCostBasedPlan.class);
+        runMain(TestTpchCostBasedPlan.class);
     }
 
-    private static Callable<Void> runMain(Class<?> clazz, String[] args)
-            throws NoSuchMethodException
+    private static void runMain(Class<?> clazz)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException
     {
-        Method main = clazz.getMethod("main", String[].class);
-        return () -> {
-            main.invoke(null, new Object[] {args});
-            return null;
-        };
+        clazz.getDeclaredMethod("main", (Class<?>[]) null).invoke(null);
     }
 }

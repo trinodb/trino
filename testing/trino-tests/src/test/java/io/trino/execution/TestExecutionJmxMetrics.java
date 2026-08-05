@@ -51,8 +51,7 @@ public class TestExecutionJmxMetrics
             resourceGroupManager.setConfigurationManager(
                     "file",
                     ImmutableMap.of(
-                            "resource-groups.config-file",
-                            getClass().getClassLoader().getResource("resource_groups_single_query.json").getPath()));
+                            "resource-groups.config-file", getClass().getClassLoader().getResource("resource_groups_single_query.json").getPath()));
             MBeanServer mbeanServer = queryRunner.getCoordinator().getMbeanServer();
 
             QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_RUNNING_QUERY);

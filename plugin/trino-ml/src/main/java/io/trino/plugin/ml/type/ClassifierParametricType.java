@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.ml.type;
 
-import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
 
@@ -38,10 +38,10 @@ public class ClassifierParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "Expected only one type, got %s", parameters);
-        checkArgument(
-                parameters.get(0).getKind() == ParameterKind.TYPE,
-                "Expected type as a parameter, got %s",
-                parameters);
-        return new ClassifierType(parameters.get(0).getType());
+
+        if (parameters.get(0) instanceof TypeParameter.Type(_, TypeDescriptor type)) {
+            return new ClassifierType(typeManager.getType(type));
+        }
+        throw new IllegalArgumentException("Expected type as a parameter, got " + parameters);
     }
 }

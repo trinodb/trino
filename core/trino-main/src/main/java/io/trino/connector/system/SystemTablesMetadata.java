@@ -13,37 +13,42 @@
  */
 package io.trino.connector.system;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import io.trino.connector.system.jdbc.JdbcTable;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.expression.Constant;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.util.Collections.singletonMap;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTablesMetadata
@@ -126,26 +131,16 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
-
-        if (prefix.getTable().isPresent()) {
-            // if table is concrete we just use tables.getSystemTable to support tables which are not listable
-            SchemaTableName tableName = prefix.toSchemaTableName();
-            return tables.getSystemTable(session, tableName)
-                    .map(systemTable -> singletonMap(tableName, systemTable.getTableMetadata().getColumns()))
-                    .orElseGet(ImmutableMap::of);
-        }
-
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
-        for (SystemTable table : tables.listSystemTables(session)) {
-            ConnectorTableMetadata tableMetadata = table.getTableMetadata();
-            if (prefix.matches(tableMetadata.getTable())) {
-                builder.put(tableMetadata.getTable(), tableMetadata.getColumns());
-            }
-        }
-        return builder.buildOrThrow();
+        Set<SchemaTableName> tableNames = tables.listSystemTables(session).stream()
+                .map(table -> table.getTableMetadata().getTable())
+                .filter(name -> schemaName.isEmpty() || name.getSchemaName().equals(schemaName.get()))
+                .collect(toImmutableSet());
+        return relationFilter.apply(tableNames).stream()
+                .flatMap(name -> tables.getSystemTable(session, name).stream())
+                .map(table -> RelationColumnsMetadata.forTable(table.getTableMetadata().getTable(), table.getTableMetadata().getColumns()))
+                .iterator();
     }
 
     @Override
@@ -155,13 +150,13 @@ public class SystemTablesMetadata
 
         TupleDomain<ColumnHandle> oldDomain = table.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
-        if (oldDomain.equals(newDomain) && constraint.predicate().isEmpty()) {
+        if (oldDomain.equals(newDomain) && Constant.TRUE.equals(constraint.getExpression())) {
             return Optional.empty();
         }
 
         SystemTable systemTable = checkAndGetTable(session, table);
         if (systemTable instanceof JdbcTable jdbcTable) {
-            TupleDomain<ColumnHandle> filtered = jdbcTable.applyFilter(session, effectiveConstraint(oldDomain, constraint, newDomain));
+            TupleDomain<ColumnHandle> filtered = jdbcTable.applyFilter(session, effectiveConstraint(constraint, newDomain));
             newDomain = newDomain.intersect(filtered);
         }
 
@@ -176,16 +171,27 @@ public class SystemTablesMetadata
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
     }
 
-    private Constraint effectiveConstraint(TupleDomain<ColumnHandle> oldDomain, Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (effectiveDomain.isNone() || newConstraint.predicate().isEmpty()) {
-            return new Constraint(effectiveDomain);
-        }
-        return new Constraint(
-                effectiveDomain,
-                oldDomain.asPredicate().and(newConstraint.predicate().get()),
-                Sets.union(
-                        oldDomain.getDomains().orElseThrow().keySet(),
-                        newConstraint.getPredicateColumns().orElseThrow()));
+        SystemTable systemTable = checkAndGetTable(session, tableHandle);
+        return systemTable.getTableCredentials(session);
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table credentials");
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table credentials");
+    }
+
+    private Constraint effectiveConstraint(Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
+    {
+        return new Constraint(effectiveDomain, newConstraint.getExpression(), newConstraint.getAssignments());
     }
 }

@@ -14,11 +14,16 @@
 package io.trino.spi.connector;
 
 public sealed interface ColumnPosition
-        permits ColumnPosition.First, ColumnPosition.After, ColumnPosition.Last
+        permits ColumnPosition.After,
+                ColumnPosition.First,
+                ColumnPosition.Last
 {
-    record First() implements ColumnPosition {}
+    record First()
+            implements ColumnPosition {}
 
-    record After(String columnName) implements ColumnPosition {}
+    record After(String columnName)
+            implements ColumnPosition {}
 
-    record Last() implements ColumnPosition {}
+    record Last()
+            implements ColumnPosition {}
 }

@@ -25,11 +25,6 @@ public class PageBuilderStatus
 
     private long currentSize;
 
-    public PageBuilderStatus()
-    {
-        this(DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-    }
-
     public PageBuilderStatus(int maxPageSizeInBytes)
     {
         this.maxPageSizeInBytes = maxPageSizeInBytes;

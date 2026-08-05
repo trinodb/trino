@@ -58,10 +58,10 @@
       "dataSize" : null
     },
     "sr_reason_sk" : {
-      "distinctValuesCount" : 35,
+      "distinctValuesCount" : 75,
       "nullsCount" : 9984,
       "min" : 1,
-      "max" : 35,
+      "max" : 75,
       "dataSize" : null
     },
     "sr_ticket_number" : {

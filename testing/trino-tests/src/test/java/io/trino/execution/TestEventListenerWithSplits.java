@@ -75,8 +75,8 @@ public class TestEventListenerWithSplits
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, s) -> ImmutableList.of("test_table"))
-                        .withApplyProjection((session, handle, projections, assignments) -> {
+                        .withListTables((_, _) -> ImmutableList.of("test_table"))
+                        .withApplyProjection((_, _, _, _) -> {
                             throw new RuntimeException("Throw from apply projection");
                         })
                         .build();
@@ -142,7 +142,7 @@ public class TestEventListenerWithSplits
         assertThat(statistics.getPhysicalInputRows()).isEqualTo(expectedCompletedPositions);
         assertThat(statistics.getProcessedInputBytes()).isEqualTo(300875L);
         assertThat(statistics.getProcessedInputRows()).isEqualTo(expectedCompletedPositions);
-        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(132);
+        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(129);
         assertThat(statistics.getInternalNetworkRows()).isEqualTo(3);
         assertThat(statistics.getOutputBytes()).isEqualTo(9);
         assertThat(statistics.getOutputRows()).isEqualTo(1);

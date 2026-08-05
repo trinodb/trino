@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.s3;
 
-import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.testing.containers.MotoContainer;
 import org.junit.jupiter.api.Test;
@@ -56,14 +55,16 @@ public class TestS3FileSystemMoto
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
-                .setEndpoint(MOTO.getEndpoint().toString())
-                .setRegion(MOTO_REGION)
-                .setPathStyleAccess(true)
-                .setAwsAccessKey(MOTO_ACCESS_KEY)
-                .setAwsSecretKey(MOTO_SECRET_KEY)
-                .setSupportsExclusiveCreate(true)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
+        return new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setEndpoint(MOTO.getEndpoint().toString())
+                        .setRegion(MOTO_REGION)
+                        .setPathStyleAccess(true)
+                        .setAwsAccessKey(MOTO_ACCESS_KEY)
+                        .setAwsSecretKey(MOTO_SECRET_KEY)
+                        .setStreamingPartSize(STREAMING_PART_SIZE),
+                new S3FileSystemStats());
     }
 
     @Test

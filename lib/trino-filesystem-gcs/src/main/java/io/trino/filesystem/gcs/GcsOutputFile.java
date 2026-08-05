@@ -34,6 +34,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.util.Objects.requireNonNull;
 
@@ -83,13 +84,22 @@ public class GcsOutputFile
     public OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
+        Optional<WriteChannel> writeChannel = Optional.empty();
         try {
-            WriteChannel writeChannel = storage.writer(blobInfo(), blobWriteOptions(true));
-            return new GcsOutputStream(location, writeChannel, memoryContext, writeBlockSizeBytes);
+            writeChannel = Optional.of(storage.writer(blobInfo(), blobWriteOptions(true)));
+            return new GcsOutputStream(location, writeChannel.get(), memoryContext, writeBlockSizeBytes);
         }
         catch (RuntimeException e) {
-            throwIfAlreadyExists(e);
-            throw handleGcsException(e, "writing file", location);
+            try {
+                throwIfAlreadyExists(e);
+                throw handleGcsException(e, "writing file", location);
+            }
+            catch (Exception finalException) {
+                // close writeChannel only in failure flow. Closing in success flow in is handled by returned
+                // OutputStream.
+                writeChannel.ifPresent(channel -> closeAllSuppress(finalException, channel));
+                throw finalException;
+            }
         }
     }
 

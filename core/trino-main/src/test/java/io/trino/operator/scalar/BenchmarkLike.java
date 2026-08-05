@@ -253,7 +253,7 @@ public class BenchmarkLike
         checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         Options options = new OptionsBuilder()

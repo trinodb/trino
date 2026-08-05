@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,20 +31,21 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStateMachine;
-import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +69,7 @@ public class TaskContext
 {
     private final QueryContext queryContext;
     private final TaskStateMachine taskStateMachine;
+    private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
     private final GcMonitor gcMonitor;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -86,7 +90,6 @@ public class TaskContext
     private final AtomicReference<Instant> executionStartTime = new AtomicReference<>();
     private final AtomicReference<Instant> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<Instant> terminatingStartTime = new AtomicReference<>();
-    private final AtomicReference<Instant> executionEndTime = new AtomicReference<>();
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
@@ -115,6 +118,7 @@ public class TaskContext
     public static TaskContext createTaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -128,6 +132,7 @@ public class TaskContext
         TaskContext taskContext = new TaskContext(
                 queryContext,
                 taskStateMachine,
+                tableCredentials,
                 gcMonitor,
                 notificationExecutor,
                 yieldExecutor,
@@ -144,6 +149,7 @@ public class TaskContext
     private TaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -155,6 +161,7 @@ public class TaskContext
             boolean cpuTimerEnabled)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
+        this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -162,9 +169,6 @@ public class TaskContext
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-
-        // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
-        this.taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -182,6 +186,11 @@ public class TaskContext
     public TaskId getTaskId()
     {
         return taskStateMachine.getTaskId();
+    }
+
+    public Optional<ConnectorTableCredentials> getTableCredentials(PlanNodeId planNodeId)
+    {
+        return Optional.ofNullable(tableCredentials.get(planNodeId));
     }
 
     public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
@@ -238,9 +247,6 @@ public class TaskContext
             // Only update last start time, if the nothing was started
             lastExecutionStartTime.compareAndSet(null, now);
 
-            // use compare and set from initial value to avoid overwriting if there
-            // were a duplicate notification, which shouldn't happen
-            executionEndTime.compareAndSet(null, now);
             endNanos.compareAndSet(0, nanoTimeNow);
             endFullGcCount.compareAndSet(-1, majorGcCount);
             endFullGcTimeNanos.compareAndSet(-1, majorGcTime);
@@ -270,8 +276,11 @@ public class TaskContext
     public DataSize getPeakMemoryReservation()
     {
         long userMemory = taskMemoryContext.getUserMemory();
-        currentPeakUserMemoryReservation.updateAndGet(oldValue -> max(oldValue, userMemory));
-        return DataSize.ofBytes(currentPeakUserMemoryReservation.get());
+        long currentPeakUserMemoryReservation = this.currentPeakUserMemoryReservation.get();
+        if (userMemory > currentPeakUserMemoryReservation) {
+            currentPeakUserMemoryReservation = this.currentPeakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
+        }
+        return DataSize.ofBytes(currentPeakUserMemoryReservation);
     }
 
     public DataSize getRevocableMemoryReservation()
@@ -296,14 +305,14 @@ public class TaskContext
         queryContext.freeSpill(bytes);
     }
 
-    public LocalMemoryContext localMemoryContext()
+    public AggregatedMemoryContext aggregateUserMemoryContext()
     {
-        return taskMemoryContext.localUserMemoryContext();
+        return taskMemoryContext.aggregateUserMemoryContext();
     }
 
     public AggregatedMemoryContext newAggregateMemoryContext()
     {
-        return taskMemoryContext.newAggregateUserMemoryContext();
+        return aggregateUserMemoryContext().newAggregatedMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()
@@ -388,17 +397,17 @@ public class TaskContext
         checkArgument(oldMaxWriterCount == -1 || oldMaxWriterCount == maxWriterCount, "maxWriterCount already set to %s", oldMaxWriterCount);
     }
 
-    public Optional<Integer> getMaxWriterCount()
+    public OptionalInt getMaxWriterCount()
     {
         int value = maxWriterCount.get();
-        return value == -1 ? Optional.empty() : Optional.of(value);
+        return value == -1 ? OptionalInt.empty() : OptionalInt.of(value);
     }
 
     public Duration getFullGcTime()
     {
         long startFullGcTimeNanos = this.startFullGcTimeNanos.get();
         if (startFullGcTimeNanos < 0) {
-            return new Duration(0, MILLISECONDS);
+            return succinctDuration(0, MILLISECONDS);
         }
 
         long endFullGcTimeNanos = this.endFullGcTimeNanos.get();
@@ -582,7 +591,7 @@ public class TaskContext
                 lastExecutionStartTime.get(),
                 terminatingStartTime.get(),
                 lastExecutionEndTime == 0 ? null : Instant.ofEpochMilli(lastExecutionEndTime),
-                executionEndTime.get(),
+                taskStateMachine.getEndTime(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 totalDrivers,

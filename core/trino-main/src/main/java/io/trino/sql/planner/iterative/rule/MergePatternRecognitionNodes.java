@@ -34,6 +34,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static io.trino.matching.Capture.newCapture;
@@ -137,7 +138,7 @@ public final class MergePatternRecognitionNodes
                 // put prerequisite assignments in the source of merged node,
                 // and the remaining assignments on top of merged node
                 Assignments remainingAssignments = project.getAssignments()
-                        .filter(symbol -> !prerequisites.getSymbols().contains(symbol));
+                        .filter(symbol -> !prerequisites.outputs().contains(symbol));
 
                 merged = (PatternRecognitionNode) merged.replaceChildren(ImmutableList.of(new ProjectNode(
                         context.getIdAllocator().getNextId(),
@@ -178,7 +179,7 @@ public final class MergePatternRecognitionNodes
             return false;
         }
 
-        for (Map.Entry<IrLabel, ExpressionAndValuePointers> parentDefinition : parentVariableDefinitions.entrySet()) {
+        for (Entry<IrLabel, ExpressionAndValuePointers> parentDefinition : parentVariableDefinitions.entrySet()) {
             IrLabel label = parentDefinition.getKey();
             ExpressionAndValuePointers parentExpression = parentDefinition.getValue();
             ExpressionAndValuePointers childExpression = childVariableDefinitions.get(label);
@@ -203,13 +204,13 @@ public final class MergePatternRecognitionNodes
         Set<Symbol> sourceCreatedOutputs = child.getCreatedSymbols();
 
         return Streams.concat(
-                parent.getWindowFunctions().values().stream()
-                        .map(SymbolsExtractor::extractAll)
-                        .flatMap(Collection::stream),
-                parent.getMeasures().values().stream()
-                        .map(Measure::getExpressionAndValuePointers)
-                        .map(ExpressionAndValuePointers::getInputSymbols)
-                        .flatMap(Collection::stream))
+                        parent.getWindowFunctions().values().stream()
+                                .map(SymbolsExtractor::extractAll)
+                                .flatMap(Collection::stream),
+                        parent.getMeasures().values().stream()
+                                .map(Measure::getExpressionAndValuePointers)
+                                .map(ExpressionAndValuePointers::getInputSymbols)
+                                .flatMap(Collection::stream))
                 .anyMatch(sourceCreatedOutputs::contains);
     }
 

@@ -21,6 +21,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.VarcharType;
@@ -54,6 +55,13 @@ public class PartitionFilterBuilder
     public PartitionFilterBuilder addBigintValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(BigintType.BIGINT, Arrays.asList(values));
+        domains.merge(columnName, domain, Domain::union);
+        return this;
+    }
+
+    public PartitionFilterBuilder addDateValues(String columnName, Long... values)
+    {
+        Domain domain = Domain.multipleValues(DateType.DATE, Arrays.asList(values));
         domains.merge(columnName, domain, Domain::union);
         return this;
     }

@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -157,26 +158,26 @@ public final class TestingProcedures
                 .add(procedure(schema, "test_session_last", "sessionLast", ImmutableList.of(
                         new Argument("X", VARCHAR))))
                 .add(procedure(schema, "test_optionals", "optionals", ImmutableList.of(
-                        new Argument("X", VARCHAR, false, "hello"))))
+                        new Argument("X", VARCHAR, false, utf8Slice("hello")))))
                 .add(procedure(schema, "test_optionals2", "optionals2", ImmutableList.of(
                         new Argument("X", VARCHAR),
-                        new Argument("Y", VARCHAR, false, "world"))))
+                        new Argument("Y", VARCHAR, false, utf8Slice("world")))))
                 .add(procedure(schema, "test_optionals3", "optionals3", ImmutableList.of(
-                        new Argument("X", VARCHAR, false, "this"),
-                        new Argument("Y", VARCHAR, false, "is"),
-                        new Argument("Z", VARCHAR, false, "default"))))
+                        new Argument("X", VARCHAR, false, utf8Slice("this")),
+                        new Argument("Y", VARCHAR, false, utf8Slice("is")),
+                        new Argument("Z", VARCHAR, false, utf8Slice("default")))))
                 .add(procedure(schema, "test_optionals4", "optionals4", ImmutableList.of(
                         new Argument("X", VARCHAR),
                         new Argument("Y", VARCHAR),
-                        new Argument("Z", VARCHAR, false, "z default"),
-                        new Argument("V", VARCHAR, false, "v default"))))
+                        new Argument("Z", VARCHAR, false, utf8Slice("z default")),
+                        new Argument("V", VARCHAR, false, utf8Slice("v default")))))
                 .add(procedure(schema, "test_exception", "exception", ImmutableList.of()))
                 .add(procedure(schema, "test_error", "error", ImmutableList.of()))
                 .add(procedure(schema, "test_argument_names", "names", ImmutableList.of(
-                        new Argument("lower", true, VARCHAR, false, "a"),
-                        new Argument("UPPER", true, VARCHAR, false, "b"),
-                        new Argument("MixeD", true, VARCHAR, false, "c"),
-                        new Argument("with space", true, VARCHAR, false, "d"))))
+                        new Argument("lower", true, VARCHAR, false, utf8Slice("a")),
+                        new Argument("UPPER", true, VARCHAR, false, utf8Slice("b")),
+                        new Argument("MixeD", true, VARCHAR, false, utf8Slice("c")),
+                        new Argument("with space", true, VARCHAR, false, utf8Slice("d")))))
                 .build();
     }
 

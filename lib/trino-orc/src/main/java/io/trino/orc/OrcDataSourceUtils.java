@@ -37,7 +37,7 @@ public final class OrcDataSourceUtils
     {
         // sort ranges by start offset
         List<DiskRange> ranges = new ArrayList<>(diskRanges);
-        ranges.sort(comparingLong(DiskRange::getOffset));
+        ranges.sort(comparingLong(DiskRange::offset));
 
         // merge overlapping ranges
         long maxReadSizeBytes = maxReadSize.toBytes();
@@ -54,7 +54,7 @@ public final class OrcDataSourceUtils
             catch (ArithmeticException e) {
                 blockTooLong = true;
             }
-            if (!blockTooLong && merged.getLength() <= maxReadSizeBytes && last.getEnd() + maxMergeDistanceBytes >= current.getOffset()) {
+            if (!blockTooLong && merged.length() <= maxReadSizeBytes && last.end() + maxMergeDistanceBytes >= current.offset()) {
                 last = merged;
             }
             else {
@@ -78,8 +78,8 @@ public final class OrcDataSourceUtils
             DiskRange bufferRange = bufferEntry.getKey();
             Slice buffer = bufferEntry.getValue();
             if (bufferRange.contains(diskRange)) {
-                int offset = toIntExact(diskRange.getOffset() - bufferRange.getOffset());
-                return buffer.slice(offset, diskRange.getLength());
+                int offset = toIntExact(diskRange.offset() - bufferRange.offset());
+                return buffer.slice(offset, diskRange.length());
             }
         }
         throw new IllegalStateException("No matching buffer for disk range");

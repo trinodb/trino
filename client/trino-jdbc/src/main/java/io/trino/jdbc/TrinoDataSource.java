@@ -211,9 +211,6 @@ public class TrinoDataSource
 
     private synchronized String get(PropertyName key)
     {
-        if (connectionProperties == null) {
-            return null;
-        }
         return connectionProperties.getProperty(key.toString());
     }
 

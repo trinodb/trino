@@ -1,0 +1,132 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.testing;
+
+import org.junit.jupiter.api.Test;
+
+import java.io.Serializable;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class TestInterfaceTestUtils
+{
+    @Test
+    public void testReportUnimplementedInterfaceMethod()
+    {
+        assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(Interface.class, Implementation.class))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("io.trino.testing.TestInterfaceTestUtils$Implementation does not override " +
+                        "[public default void io.trino.testing.TestInterfaceTestUtils$Interface.foo(java.lang.String)]");
+    }
+
+    @Test
+    public void testRejectSameType()
+    {
+        assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(Interface.class, Interface.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("The tested type is the same as the base interface: interface io.trino.testing.TestInterfaceTestUtils$Interface");
+    }
+
+    private interface Interface
+    {
+        default void foo(String unused) {}
+    }
+
+    private static class Implementation
+            implements Interface {}
+
+    @Test
+    public void testAcceptStaticMethod()
+    {
+        InterfaceTestUtils.assertAllMethodsOverridden(InterfaceWithStaticMethod.class, ImplementationOfInterfaceWithStaticMethod.class);
+    }
+
+    private interface InterfaceWithStaticMethod
+    {
+        default void foo(String unused) {}
+
+        static void staticMethod(String unused) {}
+    }
+
+    private static class ImplementationOfInterfaceWithStaticMethod
+            implements InterfaceWithStaticMethod
+    {
+        @Override
+        public void foo(String unused) {}
+    }
+
+    @Test
+    public void testAcceptMultipleImplementedInterfaces()
+    {
+        InterfaceTestUtils.assertAllMethodsOverridden(Interface.class, ImplementationWithMultipleInterfaces.class);
+    }
+
+    private static class ImplementationWithMultipleInterfaces
+            implements Cloneable,
+                       Interface,
+                       Serializable
+    {
+        @Override
+        public void foo(String unused) {}
+    }
+
+    @Test
+    public void testAcceptAbstractClass()
+    {
+        InterfaceTestUtils.assertAllMethodsOverridden(AbstractClass.class, ImplementationOfAbstractClass.class);
+    }
+
+    @Test
+    public void testReportNotOverriddenAbstractClassMethods()
+    {
+        // public methods
+        assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(AbstractClass.class, ImplementationOfAbstractClassNotOverridingAPublicMethod.class))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("io.trino.testing.TestInterfaceTestUtils$ImplementationOfAbstractClassNotOverridingAPublicMethod does not override [public void io.trino.testing.TestInterfaceTestUtils$AbstractClass.foo(java.lang.String)]");
+
+        // protected methods such as in a visitor
+        assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(AbstractClassWithProtectedMethod.class, ImplementationOfAbstractClassNotOverridingAProtectedMethod.class))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("io.trino.testing.TestInterfaceTestUtils$ImplementationOfAbstractClassNotOverridingAProtectedMethod does not override [protected void io.trino.testing.TestInterfaceTestUtils$AbstractClassWithProtectedMethod.foo(java.lang.String)]");
+    }
+
+    private abstract static class AbstractClass
+    {
+        public void foo(String unused) {}
+    }
+
+    private static class ImplementationOfAbstractClass
+            extends AbstractClass
+    {
+        @Override
+        public void foo(String unused) {}
+    }
+
+    private static class ImplementationOfAbstractClassNotOverridingAPublicMethod
+            extends AbstractClass {}
+
+    private abstract static class AbstractClassWithProtectedMethod
+    {
+        protected void foo(String unused) {}
+    }
+
+    private static class ImplementationOfAbstractClassNotOverridingAProtectedMethod
+            extends AbstractClassWithProtectedMethod {}
+
+    @Test
+    public void testAssertProperForwardingMethodsAreCalledWithPrivateMethods()
+    {
+        InterfaceTestUtils.assertProperForwardingMethodsAreCalled(InterfaceWithPrivateMethod.class, ForwardingInterfaceWithPrivateMethod::new);
+    }
+}

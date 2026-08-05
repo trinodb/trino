@@ -62,6 +62,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
 import static io.trino.metastore.AcidOperation.CREATE_TABLE;
@@ -98,7 +99,6 @@ import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 public class HiveWriterFactory
 {
@@ -237,7 +237,7 @@ public class HiveWriterFactory
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         if (bucketCount.isPresent()) {
-            checkArgument(bucketCount.getAsInt() < MAX_BUCKET_COUNT, "bucketCount must be smaller than %s", MAX_BUCKET_COUNT);
+            checkArgument(bucketCount.orElseThrow() < MAX_BUCKET_COUNT, "bucketCount must be smaller than %s", MAX_BUCKET_COUNT);
         }
 
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
@@ -249,7 +249,7 @@ public class HiveWriterFactory
     {
         if (bucketCount.isPresent()) {
             checkArgument(bucketNumber.isPresent(), "Bucket not provided for bucketed table");
-            checkArgument(bucketNumber.getAsInt() < bucketCount.getAsInt(), "Bucket number %s must be less than bucket count %s", bucketNumber, bucketCount);
+            checkArgument(bucketNumber.orElseThrow() < bucketCount.orElseThrow(), "Bucket number %s must be less than bucket count %s", bucketNumber, bucketCount);
         }
         else {
             checkArgument(bucketNumber.isEmpty(), "Bucket number provided by for table that is not bucketed");
@@ -358,7 +358,7 @@ public class HiveWriterFactory
         else {
             switch (insertExistingPartitionsBehavior) {
                 // Write to: an existing partition in an existing partitioned table
-                case APPEND:
+                case APPEND -> {
                     // Append to an existing partition
                     updateMode = UpdateMode.APPEND;
                     // Check the column types in partition schema match the column types in table schema
@@ -368,7 +368,8 @@ public class HiveWriterFactory
                         HiveType tableType = tableColumns.get(i).getType();
                         HiveType partitionType = existingPartitionColumns.get(i).getType();
                         if (!tableType.equals(partitionType)) {
-                            throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                            throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                    "" +
                                             "You are trying to write into an existing partition in a table. " +
                                             "The table schema has changed since the creation of the partition. " +
                                             "Inserting rows into such partition is not supported. " +
@@ -390,8 +391,8 @@ public class HiveWriterFactory
                     schema.putAll(getHiveSchema(partition.get(), table));
 
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
-                    break;
-                case OVERWRITE:
+                }
+                case OVERWRITE -> {
                     // Overwrite an existing partition
                     //
                     // The behavior of overwrite considered as if first dropping the partition and inserting a new partition, thus:
@@ -404,11 +405,13 @@ public class HiveWriterFactory
                     schema.putAll(getHiveSchema(table));
 
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
-                    break;
-                case ERROR:
+                }
+                case ERROR -> {
                     throw new TrinoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
-                default:
+                }
+                default -> {
                     throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
+                }
             }
         }
 
@@ -416,7 +419,7 @@ public class HiveWriterFactory
 
         validateSchema(partitionName, schema);
 
-        int bucketToUse = bucketNumber.isEmpty() ? 0 : bucketNumber.getAsInt();
+        int bucketToUse = bucketNumber.isEmpty() ? 0 : bucketNumber.orElseThrow();
 
         Location path = writeInfo.writePath();
         if (transaction.isAcidTransactionRunning() && transaction.getOperation() != CREATE_TABLE) {
@@ -518,8 +521,7 @@ public class HiveWriterFactory
                     sortFields,
                     sortOrders,
                     pageSorter,
-                    typeManager.getTypeOperators(),
-                    OrcFileWriterFactory::createOrcDataSink);
+                    typeManager.getTypeOperators());
         }
 
         return new HiveWriter(
@@ -558,8 +560,7 @@ public class HiveWriterFactory
                 sortFields,
                 sortOrders,
                 pageSorter,
-                typeManager.getTypeOperators(),
-                OrcFileWriterFactory::createOrcDataSink);
+                typeManager.getTypeOperators());
     }
 
     private void validateSchema(Optional<String> partitionName, Map<String, String> schema)
@@ -570,7 +571,7 @@ public class HiveWriterFactory
 
         // verify we can write all input columns to the file
         Map<String, DataColumn> inputColumnMap = dataColumns.stream()
-                .collect(toMap(DataColumn::name, identity()));
+                .collect(toImmutableMap(DataColumn::name, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
             throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
@@ -627,15 +628,16 @@ public class HiveWriterFactory
 
         if (bucketNumber.isPresent()) {
             if (isCreateTransactionalTable) {
-                return computeTransactionalBucketedFilename(bucketNumber.getAsInt());
+                return computeTransactionalBucketedFilename(bucketNumber.orElseThrow());
             }
-            return computeNonTransactionalBucketedFilename(queryId, bucketNumber.getAsInt());
+            return computeNonTransactionalBucketedFilename(queryId, bucketNumber.orElseThrow());
         }
 
         if (isCreateTransactionalTable) {
             String paddedBucket = Strings.padStart("0", BUCKET_NUMBER_PADDING, '0');
             UUID uuid = randomUUID();
-            return format("0%s_%s%s",
+            return format(
+                    "0%s_%s%s",
                     paddedBucket,
                     Long.toUnsignedString(uuid.getLeastSignificantBits()),
                     Long.toUnsignedString(uuid.getMostSignificantBits()));

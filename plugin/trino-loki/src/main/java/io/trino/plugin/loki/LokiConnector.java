@@ -15,6 +15,7 @@ package io.trino.plugin.loki;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
@@ -31,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class LokiConnector
         implements Connector
 {
+    private final LifeCycleManager lifeCycleManager;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
@@ -38,11 +40,13 @@ public class LokiConnector
 
     @Inject
     public LokiConnector(
+            LifeCycleManager lifeCycleManager,
             ConnectorMetadata metadata,
             ConnectorSplitManager splitManager,
             ConnectorRecordSetProvider recordSetProvider,
             Set<ConnectorTableFunction> connectorTableFunctions)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
@@ -83,5 +87,11 @@ public class LokiConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }

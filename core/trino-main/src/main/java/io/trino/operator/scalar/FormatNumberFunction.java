@@ -40,7 +40,7 @@ public final class FormatNumberFunction
         format1Number.setRoundingMode(RoundingMode.HALF_UP);
     }
 
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @Description("Formats large number using a unit symbol")
     @SqlType(StandardTypes.VARCHAR)
     public Slice formatNumber(@SqlType(StandardTypes.BIGINT) long value)
@@ -48,7 +48,7 @@ public final class FormatNumberFunction
         return utf8Slice(format(value));
     }
 
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @Description("Formats large number using a unit symbol")
     @SqlType(StandardTypes.VARCHAR)
     public Slice formatNumber(@SqlType(StandardTypes.DOUBLE) double value)

@@ -28,6 +28,54 @@ SELECT a,
        END
 ```
 
+In addition to bare values, the simple form's `WHEN` clauses can carry a
+predicate fragment. The fragment's left-hand side is the surrounding
+`CASE expression`, so `WHEN > 100` reads as "when expression > 100":
+
+```text
+CASE expression
+    WHEN > 100              THEN result
+    WHEN BETWEEN 1 AND 10   THEN result
+    WHEN IN (a, b, c)       THEN result
+    WHEN IS NULL            THEN result
+    WHEN LIKE 'a%'          THEN result
+    WHEN IS DISTINCT FROM x THEN result
+    [ WHEN value THEN result ]
+    [ ELSE result ]
+END
+```
+
+The supported predicate fragments are:
+
+| Fragment                          | Reads as                              |
+| --------------------------------- | ------------------------------------- |
+| `op value`                        | `expression op value` for comparison `op` |
+| `op {ANY \| ALL \| SOME} (query)` | `expression op {ANY \| ALL \| SOME} (query)` |
+| `[NOT] BETWEEN low AND high`      | `expression [NOT] BETWEEN low AND high` |
+| `[NOT] IN (value, ...)`           | `expression [NOT] IN (value, ...)` |
+| `[NOT] IN (subquery)`             | `expression [NOT] IN (subquery)` |
+| `[NOT] LIKE pattern [ESCAPE c]`   | `expression [NOT] LIKE pattern [ESCAPE c]` |
+| `IS [NOT] NULL`                   | `expression IS [NOT] NULL` |
+| `IS [NOT] DISTINCT FROM value`    | `expression IS [NOT] DISTINCT FROM value` |
+
+Bare-value and predicate-fragment `WHEN` clauses may be mixed in the same
+`CASE`. The clauses are tried left to right and the first match wins,
+just like the bare-value form. Example:
+
+```
+SELECT a,
+       CASE a
+           WHEN 0                THEN 'zero'
+           WHEN > 100            THEN 'big'
+           WHEN BETWEEN 1 AND 10 THEN 'small'
+           WHEN IS NULL          THEN 'unknown'
+           ELSE 'other'
+       END
+```
+
+The `CASE` operand is evaluated exactly once per row, regardless of how
+many `WHEN` clauses reference it.
+
 The "searched" form evaluates each boolean `condition` from left
 to right until one is true and returns the matching `result`:
 
@@ -132,6 +180,10 @@ The following errors are handled by `TRY`:
 - Division by zero
 - Invalid cast or function argument
 - Numeric value out of range
+- Invalid JSON literal
+- JSON input or output conversion errors
+- JSON path evaluation errors
+- JSON value function result errors
 
 ### Examples
 

@@ -300,7 +300,7 @@ public final class ColorFunctions
     {
         checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
-        return (int) ((color >>> 16) & 0xff);
+        return (int) ((color >>> 16) & 0xFF);
     }
 
     @VisibleForTesting
@@ -308,7 +308,7 @@ public final class ColorFunctions
     {
         checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
-        return (int) ((color >>> 8) & 0xff);
+        return (int) ((color >>> 8) & 0xFF);
     }
 
     @VisibleForTesting
@@ -316,6 +316,6 @@ public final class ColorFunctions
     {
         checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
-        return (int) (color & 0xff);
+        return (int) (color & 0xFF);
     }
 }

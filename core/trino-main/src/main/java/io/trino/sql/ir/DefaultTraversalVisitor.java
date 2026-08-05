@@ -17,6 +17,12 @@ public abstract class DefaultTraversalVisitor<C>
         extends IrVisitor<Void, C>
 {
     @Override
+    protected Void visitExpression(Expression node, C context)
+    {
+        throw new UnsupportedOperationException("Should not be called");
+    }
+
+    @Override
     protected Void visitArray(Array node, C context)
     {
         for (Expression element : node.elements()) {
@@ -34,12 +40,9 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitBetween(Between node, C context)
+    protected Void visitReference(Reference node, C context)
     {
-        process(node.value(), context);
-        process(node.min(), context);
-        process(node.max(), context);
-
+        // No sub-expressions
         return null;
     }
 
@@ -62,11 +65,9 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitComparison(Comparison node, C context)
+    protected Void visitConstant(Constant node, C context)
     {
-        process(node.left(), context);
-        process(node.right(), context);
-
+        // No sub-expressions
         return null;
     }
 
@@ -92,24 +93,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitSwitch(Switch node, C context)
+    protected Void visitMatch(Match node, C context)
     {
         process(node.operand(), context);
-        for (WhenClause clause : node.whenClauses()) {
-            process(clause.getOperand(), context);
-            process(clause.getResult(), context);
+        for (MatchClause clause : node.clauses()) {
+            process(clause.predicate(), context);
+            process(clause.result(), context);
         }
 
         process(node.defaultValue(), context);
-
-        return null;
-    }
-
-    @Override
-    protected Void visitNullIf(NullIf node, C context)
-    {
-        process(node.first(), context);
-        process(node.second(), context);
 
         return null;
     }
@@ -121,6 +113,15 @@ public abstract class DefaultTraversalVisitor<C>
             process(value, context);
         }
         process(node.function(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitLet(Let node, C context)
+    {
+        process(node.value(), context);
+        process(node.body(), context);
 
         return null;
     }

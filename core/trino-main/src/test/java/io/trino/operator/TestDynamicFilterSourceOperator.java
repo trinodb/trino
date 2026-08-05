@@ -136,7 +136,8 @@ public class TestDynamicFilterSourceOperator
         return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                 0,
                 new PlanNodeId("PLAN_NODE_ID"),
-                new DynamicFilterSourceConsumer() {
+                new DynamicFilterSourceConsumer()
+                {
                     @Override
                     public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
                     {
@@ -170,6 +171,7 @@ public class TestDynamicFilterSourceOperator
     }
 
     private void assertDynamicFilters(int maxFilterDistinctValues, List<Type> types, List<Page> pages, List<TupleDomain<DynamicFilterId>> expectedTupleDomains)
+            throws Exception
     {
         assertDynamicFilters(maxFilterDistinctValues, DataSize.of(10, KILOBYTE), 1_000_000, types, pages, expectedTupleDomains);
     }
@@ -181,55 +183,66 @@ public class TestDynamicFilterSourceOperator
             List<Type> types,
             List<Page> pages,
             List<TupleDomain<DynamicFilterId>> expectedTupleDomains)
+            throws Exception
     {
         List<DynamicFilterSourceOperator.Channel> buildChannels = IntStream.range(0, types.size())
                 .mapToObj(i -> channel(i, types.get(i)))
                 .collect(toImmutableList());
         OperatorFactory operatorFactory = createOperatorFactory(maxFilterDistinctValues, maxFilterSize, minMaxCollectionLimit, buildChannels);
-        Operator operator = createOperator(operatorFactory);
-        verifyPassthrough(operator, types, pages);
-        operatorFactory.noMoreOperators();
-        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
-        assertThat(partitions.build()).isEqualTo(expectedTupleDomains);
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(operator, types, pages);
+            operatorFactory.noMoreOperators();
+            assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
+            assertThat(partitions.build()).isEqualTo(expectedTupleDomains);
+        }
     }
 
     @Test
     public void testCollectMultipleOperators()
+            throws Exception
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT));
 
-        Operator op1 = createOperator(operatorFactory); // will finish before noMoreOperators()
-        verifyPassthrough(op1,
-                ImmutableList.of(BIGINT),
-                new Page(createLongsBlock(1, 2)),
-                new Page(createLongsBlock(3, 5)));
+        try (Operator op1 = createOperator(operatorFactory)) { // will finish before noMoreOperators()
+            verifyPassthrough(
+                    op1,
+                    ImmutableList.of(BIGINT),
+                    new Page(createLongsBlock(1, 2)),
+                    new Page(createLongsBlock(3, 5)));
+        }
 
-        Operator op2 = createOperator(operatorFactory); // will finish after noMoreOperators()
-        operatorFactory.noMoreOperators();
-        assertThat(partitions.build()).isEqualTo(ImmutableList.of(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L))))));
+        try (Operator op2 = createOperator(operatorFactory)) { // will finish after noMoreOperators()
+            operatorFactory.noMoreOperators();
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L))))));
 
-        verifyPassthrough(op2,
-                ImmutableList.of(BIGINT),
-                new Page(createLongsBlock(2, 3)),
-                new Page(createLongsBlock(1, 4)));
+            verifyPassthrough(
+                    op2,
+                    ImmutableList.of(BIGINT),
+                    new Page(createLongsBlock(2, 3)),
+                    new Page(createLongsBlock(1, 4)));
 
-        assertThat(partitions.build()).isEqualTo(ImmutableList.of(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L)))),
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 4L))))));
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L)))),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 4L))))));
+        }
     }
 
     @Test
     public void testCollectMultipleColumns()
+            throws Exception
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BOOLEAN), channel(1, DOUBLE));
-        verifyPassthrough(createOperator(operatorFactory),
-                ImmutableList.of(BOOLEAN, DOUBLE),
-                new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
-                new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(
+                    operator,
+                    ImmutableList.of(BOOLEAN, DOUBLE),
+                    new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
+                    new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+        }
         operatorFactory.noMoreOperators();
 
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(
@@ -240,12 +253,16 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectOnlyFirstColumn()
+            throws Exception
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BOOLEAN));
-        verifyPassthrough(createOperator(operatorFactory),
-                ImmutableList.of(BOOLEAN, DOUBLE),
-                new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
-                new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(
+                    operator,
+                    ImmutableList.of(BOOLEAN, DOUBLE),
+                    new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
+                    new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+        }
         operatorFactory.noMoreOperators();
 
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(
@@ -255,12 +272,16 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectOnlyLastColumn()
+            throws Exception
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(1, DOUBLE));
-        verifyPassthrough(createOperator(operatorFactory),
-                ImmutableList.of(BOOLEAN, DOUBLE),
-                new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
-                new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(
+                    operator,
+                    ImmutableList.of(BOOLEAN, DOUBLE),
+                    new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
+                    new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+        }
         operatorFactory.noMoreOperators();
 
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(
@@ -270,6 +291,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectWithNulls()
+            throws Exception
     {
         BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(3);
         INTEGER.writeInt(blockBuilder, 3);
@@ -278,11 +300,14 @@ public class TestDynamicFilterSourceOperator
         Block blockWithNulls = blockBuilder.build();
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, INTEGER));
-        verifyPassthrough(createOperator(operatorFactory),
-                ImmutableList.of(INTEGER),
-                new Page(createIntsBlock(1, 2, 3)),
-                new Page(blockWithNulls),
-                new Page(createIntsBlock(4, 5)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(
+                    operator,
+                    ImmutableList.of(INTEGER),
+                    new Page(createIntsBlock(1, 2, 3)),
+                    new Page(blockWithNulls),
+                    new Page(createIntsBlock(4, 5)));
+        }
         operatorFactory.noMoreOperators();
 
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(
@@ -292,15 +317,19 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectWithDoubleNaN()
+            throws Exception
     {
         BlockBuilder input = DOUBLE.createFixedSizeBlockBuilder(10);
         DOUBLE.writeDouble(input, 42.0);
         DOUBLE.writeDouble(input, Double.NaN);
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, DOUBLE));
-        verifyPassthrough(createOperator(operatorFactory),
-                ImmutableList.of(DOUBLE),
-                new Page(input.build()));
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(
+                    operator,
+                    ImmutableList.of(DOUBLE),
+                    new Page(input.build()));
+        }
         operatorFactory.noMoreOperators();
 
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(
@@ -310,15 +339,19 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectWithRealNaN()
+            throws Exception
     {
         BlockBuilder input = REAL.createFixedSizeBlockBuilder(10);
         REAL.writeLong(input, floatToRawIntBits(42.0f));
         REAL.writeLong(input, floatToRawIntBits(Float.NaN));
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, REAL));
-        verifyPassthrough(createOperator(operatorFactory),
-                ImmutableList.of(REAL),
-                new Page(input.build()));
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(
+                    operator,
+                    ImmutableList.of(REAL),
+                    new Page(input.build()));
+        }
         operatorFactory.noMoreOperators();
 
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(
@@ -328,6 +361,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectTooMuchRowsDouble()
+            throws Exception
     {
         int maxDistinctValues = 100;
         assertDynamicFilters(
@@ -341,6 +375,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectTooMuchRowsReal()
+            throws Exception
     {
         int maxDistinctValues = 100;
         assertDynamicFilters(
@@ -354,6 +389,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectTooMuchRowsNonOrderable()
+            throws Exception
     {
         int maxDistinctValues = 100;
         assertDynamicFilters(
@@ -365,6 +401,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectRowsNonOrderable()
+            throws Exception
     {
         int maxDistinctValues = 100;
         Block block = createColorSequenceBlock(0, maxDistinctValues / 2);
@@ -378,33 +415,41 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(COLOR),
                 ImmutableList.of(new Page(block)),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(ValueSet.copyOf(COLOR, values.build()), false)))));
+                        new DynamicFilterId("0"), Domain.create(ValueSet.copyOf(COLOR, values.build()), false)))));
     }
 
     @Test
     public void testCollectNoFilters()
+            throws Exception
     {
         OperatorFactory operatorFactory = createOperatorFactory();
-        verifyPassthrough(createOperator(operatorFactory),
-                ImmutableList.of(BIGINT),
-                new Page(createLongsBlock(1, 2, 3)));
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(
+                    operator,
+                    ImmutableList.of(BIGINT),
+                    new Page(createLongsBlock(1, 2, 3)));
+        }
         operatorFactory.noMoreOperators();
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.all()));
     }
 
     @Test
     public void testCollectEmptyBuildSide()
+            throws Exception
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT));
-        verifyPassthrough(createOperator(operatorFactory),
-                ImmutableList.of(BIGINT));
+        try (Operator operator = createOperator(operatorFactory)) {
+            verifyPassthrough(
+                    operator,
+                    ImmutableList.of(BIGINT));
+        }
         operatorFactory.noMoreOperators();
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(TupleDomain.none()));
     }
 
     @Test
     public void testSingleColumnCollectMinMaxRangeWhenTooManyPositions()
+            throws Exception
     {
         int maxDistinctValues = 100;
         Page largePage = new Page(createLongSequenceBlock(0, maxDistinctValues + 1));
@@ -414,14 +459,14 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(largePage),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(
+                        new DynamicFilterId("0"), Domain.create(
                                 ValueSet.ofRanges(range(BIGINT, 0L, true, (long) maxDistinctValues, true)),
                                 false)))));
     }
 
     @Test
     public void testMultipleColumnsCollectBelowDistinctValuesLimit()
+            throws Exception
     {
         int maxDistinctValues = 101;
         Page largePage = new Page(
@@ -445,6 +490,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testMultipleColumnsBothSetAndRangeWhenTooManyDistinctValues()
+            throws Exception
     {
         int maxDistinctValues = 100;
         Page largePage = new Page(
@@ -464,6 +510,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testMultipleColumnsSingleSetWithNoRangeWhenTooManyDistinctValues()
+            throws Exception
     {
         int maxDistinctValues = 100;
         Page largePage = new Page(
@@ -480,6 +527,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testMultipleColumnsCollectMinMaxWithNulls()
+            throws Exception
     {
         int maxDistinctValues = 100;
         Page largePage = new Page(
@@ -495,6 +543,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testSingleColumnCollectMinMaxRangeWhenTooManyBytes()
+            throws Exception
     {
         DataSize maxSize = DataSize.of(10, KILOBYTE);
         long maxByteSize = maxSize.toBytes();
@@ -508,14 +557,14 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(VARCHAR),
                 ImmutableList.of(largePage),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(
+                        new DynamicFilterId("0"), Domain.create(
                                 ValueSet.ofRanges(range(VARCHAR, utf8Slice(largeText), true, utf8Slice(largeText), true)),
                                 false)))));
     }
 
     @Test
     public void testMultipleColumnsCollectMinMaxRangeWhenTooManyBytes()
+            throws Exception
     {
         DataSize maxSize = DataSize.of(10, KILOBYTE);
         long maxByteSize = maxSize.toBytes();
@@ -540,6 +589,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectMultipleLargePages()
+            throws Exception
     {
         int maxDistinctValues = 100;
         Page page1 = new Page(createLongSequenceBlock(50, 151));
@@ -551,14 +601,14 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(page1, page2, page3),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(
+                        new DynamicFilterId("0"), Domain.create(
                                 ValueSet.ofRanges(range(BIGINT, 0L, true, 200L, true)),
                                 false)))));
     }
 
     @Test
     public void testCollectDeduplication()
+            throws Exception
     {
         int maxDistinctValues = 100;
         Page largePage = new Page(createLongRepeatBlock(7, maxDistinctValues * 10)); // lots of zeros
@@ -569,12 +619,12 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(largePage, nullsPage),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(ValueSet.of(BIGINT, 7L), false)))));
+                        new DynamicFilterId("0"), Domain.create(ValueSet.of(BIGINT, 7L), false)))));
     }
 
     @Test
     public void testCollectMinMaxLimitSinglePage()
+            throws Exception
     {
         int maxDistinctValues = 100;
         assertDynamicFilters(
@@ -588,6 +638,7 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testCollectMinMaxLimitMultiplePages()
+            throws Exception
     {
         int maxDistinctValues = 100;
         assertDynamicFilters(
@@ -603,54 +654,54 @@ public class TestDynamicFilterSourceOperator
 
     @Test
     public void testMemoryUsage()
+            throws Exception
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT), channel(1, BIGINT));
-        Operator operator = createOperator(operatorFactory);
-        final long initialMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
+        try (Operator operator = createOperator(operatorFactory)) {
+            final long initialMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
 
-        List<Page> inputPages = ImmutableList.of(new Page(
-                createLongSequenceBlock(51, 151),
-                createLongRepeatBlock(200, 100)));
-        toPagesPartial(operator, inputPages.iterator());
-        long baseMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
-        // Hashtable for the first channel has grown
-        assertThat(baseMemoryUsage)
-                .isGreaterThan(initialMemoryUsage);
+            List<Page> inputPages = ImmutableList.of(new Page(
+                    createLongSequenceBlock(51, 151),
+                    createLongRepeatBlock(200, 100)));
+            toPagesPartial(operator, inputPages.iterator());
+            long baseMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
+            // Hashtable for the first channel has grown
+            assertThat(baseMemoryUsage)
+                    .isGreaterThan(initialMemoryUsage);
 
-        inputPages = ImmutableList.of(new Page(
-                createLongSequenceBlock(0, 51),
-                createLongSequenceBlock(51, 101)));
-        toPagesPartial(operator, inputPages.iterator());
-        long firstChannelStoppedMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
-        // First channel stops collecting distinct values, so memory will decrease below the initial value since hashtable is freed
-        assertThat(firstChannelStoppedMemoryUsage)
-                .isGreaterThan(0)
-                .isLessThan(initialMemoryUsage);
+            inputPages = ImmutableList.of(new Page(
+                    createLongSequenceBlock(0, 51),
+                    createLongSequenceBlock(51, 101)));
+            toPagesPartial(operator, inputPages.iterator());
+            long firstChannelStoppedMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
+            // First channel stops collecting distinct values, so memory will decrease below the initial value since hashtable is freed
+            assertThat(firstChannelStoppedMemoryUsage)
+                    .isGreaterThan(0)
+                    .isLessThan(initialMemoryUsage);
 
-        toPagesPartial(operator, inputPages.iterator());
-        // No change in distinct values
-        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(firstChannelStoppedMemoryUsage);
+            toPagesPartial(operator, inputPages.iterator());
+            // No change in distinct values
+            assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(firstChannelStoppedMemoryUsage);
 
-        inputPages = ImmutableList.of(new Page(
-                createLongSequenceBlock(0, 51),
-                createLongSequenceBlock(0, 51)));
-        toPagesPartial(operator, inputPages.iterator());
-        // Second channel stops collecting distinct values, so memory will decrease further
-        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory())
-                .isGreaterThan(0)
-                .isLessThan(firstChannelStoppedMemoryUsage);
+            inputPages = ImmutableList.of(new Page(
+                    createLongSequenceBlock(0, 51),
+                    createLongSequenceBlock(0, 51)));
+            toPagesPartial(operator, inputPages.iterator());
+            // Second channel stops collecting distinct values, so memory will decrease further
+            assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory())
+                    .isGreaterThan(0)
+                    .isLessThan(firstChannelStoppedMemoryUsage);
 
-        finishOperator(operator);
-        operatorFactory.noMoreOperators();
-        assertThat(partitions.build()).isEqualTo(ImmutableList.of(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(
-                                ValueSet.ofRanges(range(BIGINT, 0L, true, 150L, true)),
-                                false),
-                        new DynamicFilterId("1"),
-                        Domain.create(
-                                ValueSet.ofRanges(range(BIGINT, 0L, true, 200L, true)),
-                                false)))));
+            finishOperator(operator);
+            operatorFactory.noMoreOperators();
+            assertThat(partitions.build()).isEqualTo(ImmutableList.of(
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            new DynamicFilterId("0"), Domain.create(
+                                    ValueSet.ofRanges(range(BIGINT, 0L, true, 150L, true)),
+                                    false),
+                            new DynamicFilterId("1"), Domain.create(
+                                    ValueSet.ofRanges(range(BIGINT, 0L, true, 200L, true)),
+                                    false)))));
+        }
     }
 }

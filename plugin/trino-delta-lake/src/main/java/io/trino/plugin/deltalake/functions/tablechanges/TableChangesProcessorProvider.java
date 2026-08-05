@@ -19,13 +19,17 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionSplitProcess
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import org.joda.time.DateTimeZone;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -53,7 +57,11 @@ public class TableChangesProcessorProvider
     }
 
     @Override
-    public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+    public TableFunctionSplitProcessor getSplitProcessor(
+            ConnectorSession session,
+            ConnectorTableFunctionHandle handle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorSplit split)
     {
         return new ClassLoaderSafeTableFunctionSplitProcessor(new TableChangesFunctionProcessor(
                 session,
@@ -63,6 +71,7 @@ public class TableChangesProcessorProvider
                 fileFormatDataSourceStats,
                 parquetReaderOptions,
                 (TableChangesTableFunctionHandle) handle,
+                tableCredentials.map(DeltaLakeTableCredentials.class::cast),
                 (TableChangesSplit) split),
                 getClass().getClassLoader());
     }

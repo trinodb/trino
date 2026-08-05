@@ -15,7 +15,6 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.airlift.json.JsonCodec;
 import io.jsonwebtoken.impl.DefaultClaims;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -24,6 +23,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -74,7 +74,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
         Request request = new Request.Builder().url("https://localhost:" + hydraIdP.getAuthPort() + "/userinfo").addHeader(AUTHORIZATION, "Bearer " + cookieValue).build();
         try (Response response = httpClient.newCall(request).execute()) {
             assertThat(response.body()).isNotNull();
-            DefaultClaims claims = new DefaultClaims(JsonCodec.mapJsonCodec(String.class, Object.class).fromJson(response.body().byteStream()));
+            DefaultClaims claims = new DefaultClaims(mapJsonCodec(String.class, Object.class).fromJson(response.body().byteStream()));
             assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
             assertThat(claims.get("aud")).isEqualTo(Set.of(TRINO_CLIENT_ID));
         }

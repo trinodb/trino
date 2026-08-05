@@ -104,7 +104,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testRowFieldAccessorInWindowFunction()
     {
-        assertQuery("SELECT a.col0, " +
+        assertQuery(
+                "SELECT a.col0, " +
                         "SUM(a.col1[1].col1) OVER(PARTITION BY a.col2.col0), " +
                         "SUM(a.col2.col1) OVER(PARTITION BY a.col2.col0) FROM " +
                         "(VALUES " +
@@ -115,7 +116,8 @@ public abstract class AbstractTestWindowQueries
                         "ROW(CAST(ROW(3.1, ARRAY[row(41, 13.1E0), row(32, 4.2E0)], row(6, 6.0E0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a) ",
                 "SELECT * FROM VALUES (1.0, 14.5, 4.0), (2.2, 39.3, 18.0), (2.2, 39.3, 18.0), (2.2, 17.1, 16.0), (3.1, 39.3, 18.0)");
 
-        assertQuery("SELECT a.col1[1].col0, " +
+        assertQuery(
+                "SELECT a.col1[1].col0, " +
                         "SUM(a.col0) OVER(PARTITION BY a.col1[1].col0), " +
                         "SUM(a.col1[1].col1) OVER(PARTITION BY a.col1[1].col0), " +
                         "SUM(a.col2.col1) OVER(PARTITION BY a.col1[1].col0) FROM " +
@@ -448,7 +450,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testPartialPrePartitionedWindowFunction()
     {
-        assertQueryOrdered("" +
+        assertQueryOrdered(
+                "" +
                         "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey, custkey) " +
                         "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
                         "ORDER BY orderkey LIMIT 5",
@@ -674,7 +677,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testPreSortedInput()
     {
-        assertQueryOrdered("" +
+        assertQueryOrdered(
+                "" +
                         "WITH students_results(student_id, course_id, grade) AS (VALUES " +
                         "    (1000, 100, 17), " +
                         "    (2000, 200, 16), " +

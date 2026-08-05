@@ -84,38 +84,38 @@ public class TestIntervalYearMonth
 
         // Invalid qualifiers (YEAR TO xxx)
         assertThatThrownBy(assertions.expression("INTERVAL '32767' YEAR TO YEAR")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: YEAR TO YEAR");
+                .hasMessage("line 1:37: mismatched input 'YEAR'. Expecting: ')', ',', 'MONTH'");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR TO DAY")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: YEAR TO DAY");
+                .hasMessage("line 1:38: mismatched input 'DAY'. Expecting: ')', ',', 'MONTH'");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR TO HOUR")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: YEAR TO HOUR");
+                .hasMessage("line 1:38: mismatched input 'HOUR'. Expecting: ')', ',', 'MONTH'");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR TO MINUTE")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: YEAR TO MINUTE");
+                .hasMessage("line 1:38: mismatched input 'MINUTE'. Expecting: ')', ',', 'MONTH'");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR TO SECOND")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: YEAR TO SECOND");
+                .hasMessage("line 1:38: mismatched input 'SECOND'. Expecting: ')', ',', 'MONTH'");
 
         // Invalid qualifiers (MONTH TO xxx)
         assertThatThrownBy(assertions.expression("INTERVAL '30' MONTH TO MONTH")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: MONTH TO MONTH");
+                .hasMessage("line 1:35: mismatched input 'MONTH'. Expecting: ')', ','");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO YEAR")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: MONTH TO YEAR");
+                .hasMessage("line 1:39: mismatched input 'YEAR'. Expecting: ')', ','");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO DAY")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: MONTH TO DAY");
+                .hasMessage("line 1:39: mismatched input 'DAY'. Expecting: ')', ','");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO HOUR")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: MONTH TO HOUR");
+                .hasMessage("line 1:39: mismatched input 'HOUR'. Expecting: ')', ','");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO MINUTE")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: MONTH TO MINUTE");
+                .hasMessage("line 1:39: mismatched input 'MINUTE'. Expecting: ')', ','");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO SECOND")::evaluate)
-                .hasMessage("line 1:12: Invalid interval qualifier: MONTH TO SECOND");
+                .hasMessage("line 1:39: mismatched input 'SECOND'. Expecting: ')', ','");
     }
 
     private static SqlIntervalYearMonth interval(int year, int month)

@@ -32,7 +32,7 @@ Timeout value for establishing the connection to the external service.
 
 ### `max-content-length`
 
-- **Type:** [](prop-type-duration)
+- **Type:** [](prop-type-data-size)
 - **Default value:** `16MB`
 
 Maximum content size for each HTTP request and response.

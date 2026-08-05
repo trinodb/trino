@@ -3,15 +3,15 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 join (INNER, PARTITIONED):
-                    final aggregation over (s_city, ss_addr_sk, ss_customer_sk, ss_ticket_number)
+                    final aggregation over (ss_ticket_number, ss_customer_sk, ss_addr_sk, s_city)
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [ss_customer_sk])
-                                intermediate aggregation over (s_city, ss_addr_sk, ss_customer_sk, ss_ticket_number)
+                                intermediate aggregation over (ss_ticket_number, ss_customer_sk, ss_addr_sk, s_city)
                                     join (INNER, REPLICATED):
-                                        partial aggregation over (ss_addr_sk, ss_customer_sk, ss_store_sk, ss_ticket_number)
+                                        partial aggregation over (ss_ticket_number, ss_customer_sk, ss_addr_sk, ss_store_sk)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ss_customer_sk::EQUAL, ss_hdemo_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                    dynamic filter (ss_customer_sk::EQUAL, ss_store_sk::EQUAL, ss_hdemo_sk::EQUAL, ss_sold_date_sk::EQUAL)
                                                         scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

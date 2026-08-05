@@ -1,6 +1,6 @@
 <runtime>
     <!-- Target -->
-    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
+    <archive name="${project.artifactId}-${project.version}.tar.gz" streaming="true" gzipCompressionLevel="6" hardLinkIncludes="**/*.jar" />
 
    <!-- Expand on top of trino-server-core -->
     <artifactSet to="">
@@ -36,6 +36,12 @@
 
     <artifactSet to="plugin/clickhouse">
         <artifact id="${project.groupId}:trino-clickhouse:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/datasketches">
+        <artifact id="${project.groupId}:trino-datasketches:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -304,12 +310,6 @@
 
     <artifactSet to="plugin/tpch">
         <artifact id="${project.groupId}:trino-tpch:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/vertica">
-        <artifact id="${project.groupId}:trino-vertica:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

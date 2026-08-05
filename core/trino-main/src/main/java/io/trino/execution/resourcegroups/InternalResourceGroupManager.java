@@ -107,14 +107,6 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public Optional<List<ResourceGroupInfo>> tryGetPathToRoot(ResourceGroupId id)
-    {
-        InternalResourceGroup resourceGroup = groups.get(id);
-        return Optional.ofNullable(resourceGroup)
-                .map(InternalResourceGroup::getPathToRoot);
-    }
-
-    @Override
     public void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
@@ -229,36 +221,44 @@ public final class InternalResourceGroupManager<C>
         }
     }
 
-    private synchronized void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
+    private void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
     {
         ResourceGroupId id = context.getResourceGroupId();
         InternalResourceGroup currentGroup = groups.get(id);
-        if (currentGroup == null) {
-            InternalResourceGroup group;
-            if (id.getParent().isPresent()) {
-                createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
-                InternalResourceGroup parent = groups.get(id.getParent().get());
-                requireNonNull(parent, "parent is null");
-                group = parent.getOrCreateSubGroup(id.getLastSegment());
-            }
-            else {
-                InternalResourceGroup root = new InternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
-                group = root;
-                rootGroups.add(root);
-            }
-            configurationManager.get().configure(group, context);
-            checkState(groups.put(id, group) == null, "Unexpected existing resource group");
+
+        if (currentGroup != null && !currentGroup.isDisabled()) {
+            return;
         }
-        else if (currentGroup.isDisabled()) {
-            if (id.getParent().isPresent()) {
-                createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
-                InternalResourceGroup parent = groups.get(id.getParent().get());
-                requireNonNull(parent, "parent is null");
-                InternalResourceGroup group = parent.getOrCreateSubGroup(id.getLastSegment());
-                checkState(group == currentGroup, "Unexpected resource group instance");
+
+        synchronized (this) {
+            currentGroup = groups.get(id);
+            if (currentGroup == null) {
+                InternalResourceGroup group;
+                if (id.getParent().isPresent()) {
+                    createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
+                    InternalResourceGroup parent = groups.get(id.getParent().get());
+                    requireNonNull(parent, "parent is null");
+                    group = parent.getOrCreateSubGroup(id.getLastSegment());
+                }
+                else {
+                    InternalResourceGroup root = new InternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
+                    group = root;
+                    rootGroups.add(root);
+                }
+                configurationManager.get().configure(group, context);
+                checkState(groups.put(id, group) == null, "Unexpected existing resource group");
             }
-            configurationManager.get().configure(currentGroup, context);
-            currentGroup.setDisabled(false);
+            else if (currentGroup.isDisabled()) {
+                if (id.getParent().isPresent()) {
+                    createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
+                    InternalResourceGroup parent = groups.get(id.getParent().get());
+                    requireNonNull(parent, "parent is null");
+                    InternalResourceGroup group = parent.getOrCreateSubGroup(id.getLastSegment());
+                    checkState(group == currentGroup, "Unexpected resource group instance");
+                }
+                configurationManager.get().configure(currentGroup, context);
+                currentGroup.setDisabled(false);
+            }
         }
     }
 

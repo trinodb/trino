@@ -27,6 +27,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class CdcEntry
 {
@@ -36,7 +37,6 @@ public class CdcEntry
     private final Map<String, String> partitionValues;
     private final Map<String, Optional<String>> canonicalPartitionValues;
     private final long size;
-    private final boolean dataChange;
 
     @JsonCreator
     public CdcEntry(
@@ -44,11 +44,11 @@ public class CdcEntry
             @JsonProperty("partitionValues") Map<String, String> partitionValues,
             @JsonProperty("size") long size)
     {
-        this.path = path;
-        this.partitionValues = partitionValues;
+        this.path = requireNonNull(path, "path is null");
+        // Avoid ImmutableMap.copyOf because the value may have nulls
+        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
         this.size = size;
-        this.dataChange = false;
     }
 
     @JsonProperty
@@ -78,14 +78,13 @@ public class CdcEntry
     @JsonProperty("dataChange")
     public boolean isDataChange()
     {
-        return dataChange;
+        return false;
     }
 
     @Override
     public String toString()
     {
-        return format("CdcEntry{path=%s, partitionValues=%s, size=%d, dataChange=%b}",
-                path, partitionValues, size, dataChange);
+        return format("CdcEntry{path=%s, partitionValues=%s, size=%d, dataChange=false}", path, partitionValues, size);
     }
 
     public long getRetainedSizeInBytes()

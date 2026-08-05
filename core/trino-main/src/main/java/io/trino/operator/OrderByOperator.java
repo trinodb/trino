@@ -137,7 +137,7 @@ public class OrderByOperator
     {
         NEEDS_INPUT,
         HAS_OUTPUT,
-        FINISHED
+        FINISHED,
     }
 
     private final OperatorContext operatorContext;

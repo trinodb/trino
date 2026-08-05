@@ -15,7 +15,6 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.PageBuilderStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -28,7 +27,7 @@ public class TestLikePatternType
     @Test
     public void testGetObject()
     {
-        BlockBuilder blockBuilder = LIKE_PATTERN.createBlockBuilder(new PageBuilderStatus().createBlockBuilderStatus(), 10);
+        BlockBuilder blockBuilder = LIKE_PATTERN.createBlockBuilder(null, 10);
         LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("helloX_world", Optional.of('X')));
         LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("foo%_bar", Optional.empty()));
         Block block = blockBuilder.build();

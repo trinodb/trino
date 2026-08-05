@@ -19,6 +19,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 
 import java.util.Map;
@@ -80,6 +81,21 @@ public final class ExpressionSymbolInliner
                 verify(excludedNames.remove(argument.name()));
             }
             return result;
+        }
+
+        @Override
+        public Expression rewriteLet(Let node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            // The value is evaluated in the outer scope; the bound symbol is local to the body
+            // and must not be inlined as a plan symbol there.
+            Expression value = treeRewriter.rewrite(node.value(), context);
+            excludedNames.add(node.name().name());
+            Expression body = treeRewriter.rewrite(node.body(), context);
+            verify(excludedNames.remove(node.name().name()));
+            if (value != node.value() || body != node.body()) {
+                return new Let(node.name(), value, body);
+            }
+            return node;
         }
     }
 }

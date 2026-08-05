@@ -14,7 +14,6 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -27,9 +26,10 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
@@ -83,21 +83,22 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test
     public void testFilterPositiveSemiJoin()
     {
-        tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", DOUBLE);
-            Symbol b = pb.symbol("b", DOUBLE);
-            Symbol c = pb.symbol("c", DOUBLE);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
-            return pb.filter(
-                    semiJoinOutput.toSymbolReference(),
-                    pb.semiJoin(
-                            pb.values(LEFT_SOURCE_ID, a, b),
-                            pb.values(RIGHT_SOURCE_ID, c),
-                            a,
-                            c,
-                            semiJoinOutput,
-                            Optional.empty()));
-        })
+        tester()
+                .assertStatsFor(pb -> {
+                    Symbol a = pb.symbol("a", DOUBLE);
+                    Symbol b = pb.symbol("b", DOUBLE);
+                    Symbol c = pb.symbol("c", DOUBLE);
+                    Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
+                    return pb.filter(
+                            semiJoinOutput.toSymbolReference(),
+                            pb.semiJoin(
+                                    pb.values(LEFT_SOURCE_ID, a, b),
+                                    pb.values(RIGHT_SOURCE_ID, c),
+                                    a,
+                                    c,
+                                    semiJoinOutput,
+                                    Optional.empty()));
+                })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addSymbolStatistics(new Symbol(DOUBLE, "a"), aStats)
@@ -119,22 +120,23 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test
     public void testFilterPositiveNarrowingProjectSemiJoin()
     {
-        tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", DOUBLE);
-            Symbol b = pb.symbol("b", DOUBLE);
-            Symbol c = pb.symbol("c", DOUBLE);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
-            return pb.filter(
-                    new Reference(BOOLEAN, "sjo"),
-                    pb.project(Assignments.identity(semiJoinOutput, a),
-                            pb.semiJoin(
-                                    pb.values(LEFT_SOURCE_ID, a, b),
-                                    pb.values(RIGHT_SOURCE_ID, c),
-                                    a,
-                                    c,
-                                    semiJoinOutput,
-                                    Optional.empty())));
-        })
+        tester()
+                .assertStatsFor(pb -> {
+                    Symbol a = pb.symbol("a", DOUBLE);
+                    Symbol b = pb.symbol("b", DOUBLE);
+                    Symbol c = pb.symbol("c", DOUBLE);
+                    Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
+                    return pb.filter(
+                            new Reference(BOOLEAN, "sjo"),
+                            pb.project(Assignments.identity(semiJoinOutput, a),
+                                    pb.semiJoin(
+                                            pb.values(LEFT_SOURCE_ID, a, b),
+                                            pb.values(RIGHT_SOURCE_ID, c),
+                                            a,
+                                            c,
+                                            semiJoinOutput,
+                                            Optional.empty())));
+                })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addSymbolStatistics(new Symbol(DOUBLE, "a"), aStats)
@@ -156,21 +158,22 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test
     public void testFilterPositivePlusExtraConjunctSemiJoin()
     {
-        tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", DOUBLE);
-            Symbol b = pb.symbol("b", DOUBLE);
-            Symbol c = pb.symbol("c", DOUBLE);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
-            return pb.filter(
-                    new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "sjo"), new Comparison(LESS_THAN, new Reference(DOUBLE, "a"), new Constant(DOUBLE, 8.0)))),
-                    pb.semiJoin(
-                            pb.values(LEFT_SOURCE_ID, a, b),
-                            pb.values(RIGHT_SOURCE_ID, c),
-                            a,
-                            c,
-                            semiJoinOutput,
-                            Optional.empty()));
-        })
+        tester()
+                .assertStatsFor(pb -> {
+                    Symbol a = pb.symbol("a", DOUBLE);
+                    Symbol b = pb.symbol("b", DOUBLE);
+                    Symbol c = pb.symbol("c", DOUBLE);
+                    Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
+                    return pb.filter(
+                            new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "sjo"), comparison(LESS_THAN, new Reference(DOUBLE, "a"), new Constant(DOUBLE, 8.0)))),
+                            pb.semiJoin(
+                                    pb.values(LEFT_SOURCE_ID, a, b),
+                                    pb.values(RIGHT_SOURCE_ID, c),
+                                    a,
+                                    c,
+                                    semiJoinOutput,
+                                    Optional.empty()));
+                })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addSymbolStatistics(new Symbol(DOUBLE, "a"), aStats)
@@ -192,21 +195,22 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test
     public void testFilterNegativeSemiJoin()
     {
-        tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", DOUBLE);
-            Symbol b = pb.symbol("b", DOUBLE);
-            Symbol c = pb.symbol("c", DOUBLE);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
-            return pb.filter(
-                    not(PLANNER_CONTEXT.getMetadata(), new Reference(BOOLEAN, "sjo")),
-                    pb.semiJoin(
-                            pb.values(LEFT_SOURCE_ID, a, b),
-                            pb.values(RIGHT_SOURCE_ID, c),
-                            a,
-                            c,
-                            semiJoinOutput,
-                            Optional.empty()));
-        })
+        tester()
+                .assertStatsFor(pb -> {
+                    Symbol a = pb.symbol("a", DOUBLE);
+                    Symbol b = pb.symbol("b", DOUBLE);
+                    Symbol c = pb.symbol("c", DOUBLE);
+                    Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
+                    return pb.filter(
+                            not(PLANNER_CONTEXT.getMetadata(), new Reference(BOOLEAN, "sjo")),
+                            pb.semiJoin(
+                                    pb.values(LEFT_SOURCE_ID, a, b),
+                                    pb.values(RIGHT_SOURCE_ID, c),
+                                    a,
+                                    c,
+                                    semiJoinOutput,
+                                    Optional.empty()));
+                })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addSymbolStatistics(new Symbol(DOUBLE, "a"), aStats)

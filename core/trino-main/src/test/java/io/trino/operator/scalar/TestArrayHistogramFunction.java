@@ -114,7 +114,7 @@ public class TestArrayHistogramFunction
                 .matches("MAP(ARRAY[IPADDRESS '::ffff:a00:1'], CAST(ARRAY[2] AS ARRAY(BIGINT)))");
 
         assertThat(assertions.expression("transform_keys(array_histogram(a), (k, v) -> k AT TIME ZONE 'UTC')")
-                             .binding("a", "ARRAY[TIMESTAMP '2001-01-01 01:00:00.000 UTC', TIMESTAMP '2001-01-01 02:00:00.000 +01:00']"))
+                .binding("a", "ARRAY[TIMESTAMP '2001-01-01 01:00:00.000 UTC', TIMESTAMP '2001-01-01 02:00:00.000 +01:00']"))
                 .matches("MAP(ARRAY[TIMESTAMP '2001-01-01 01:00:00.000 UTC'], CAST(ARRAY[2] AS ARRAY(BIGINT)))");
     }
 

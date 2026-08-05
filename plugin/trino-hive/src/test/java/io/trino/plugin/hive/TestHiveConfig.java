@@ -20,6 +20,8 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +43,7 @@ public class TestHiveConfig
         assertRecordedDefaults(recordDefaults(HiveConfig.class)
                 .setSingleStatementWritesOnly(false)
                 .setMaxSplitSize(DataSize.of(64, Unit.MEGABYTE))
+                .setParquetMaxSplitSize(DataSize.of(120, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(1_000_000)
                 .setMaxPartitionsForEagerLoad(100_000)
                 .setMaxOutstandingSplits(3_000)
@@ -49,8 +52,6 @@ public class TestHiveConfig
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setMinPartitionBatchSize(10)
                 .setMaxPartitionBatchSize(100)
-                .setMaxInitialSplits(200)
-                .setMaxInitialSplitSize(DataSize.of(32, Unit.MEGABYTE))
                 .setSplitLoaderConcurrency(64)
                 .setMaxSplitsPerSecond(null)
                 .setDomainCompactionThreshold(1000)
@@ -73,7 +74,6 @@ public class TestHiveConfig
                 .setSortedWritingEnabled(true)
                 .setPropagateTableScanSortingProperties(false)
                 .setMaxPartitionsPerWriter(100)
-                .setWriteValidationThreads(16)
                 .setValidateBucketing(true)
                 .setParallelPartitionedBucketedWrites(true)
                 .setTextMaxLineLength(DataSize.of(100, Unit.MEGABYTE))
@@ -119,15 +119,21 @@ public class TestHiveConfig
                 .setAutoPurge(false)
                 .setPartitionProjectionEnabled(true)
                 .setS3GlacierFilter(S3GlacierFilter.READ_ALL)
-                .setMetadataParallelism(8));
+                .setMetadataParallelism(8)
+                .setMetadataVirtualThreadsEnabled(true)
+                .setProtobufDescriptorsLocation(null)
+                .setProtobufDescriptorsCacheRefreshInterval(new Duration(1, TimeUnit.DAYS))
+                .setProtobufDescriptorsCacheMaxSize(64));
     }
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.single-statement-writes", "true")
                 .put("hive.max-split-size", "256MB")
+                .put("hive.parquet.max-split-size", "200MB")
                 .put("hive.max-partitions-per-scan", "123")
                 .put("hive.max-partitions-for-eager-load", "122")
                 .put("hive.max-outstanding-splits", "10")
@@ -136,8 +142,6 @@ public class TestHiveConfig
                 .put("hive.per-transaction-metastore-cache-maximum-size", "500")
                 .put("hive.metastore.partition-batch-size.min", "1")
                 .put("hive.metastore.partition-batch-size.max", "1000")
-                .put("hive.max-initial-splits", "10")
-                .put("hive.max-initial-split-size", "16MB")
                 .put("hive.split-loader-concurrency", "1")
                 .put("hive.max-splits-per-second", "1")
                 .put("hive.domain-compaction-threshold", "42")
@@ -153,7 +157,6 @@ public class TestHiveConfig
                 .put("hive.create-empty-bucket-files", "true")
                 .put("hive.delete-schema-locations-fallback", "true")
                 .put("hive.max-partitions-per-writers", "222")
-                .put("hive.write-validation-threads", "11")
                 .put("hive.validate-bucketing", "false")
                 .put("hive.parallel-partitioned-bucketed-writes", "false")
                 .put("hive.force-local-scheduling", "true")
@@ -207,11 +210,16 @@ public class TestHiveConfig
                 .put("hive.partition-projection-enabled", "false")
                 .put("hive.s3-glacier-filter", "READ_NON_GLACIER_AND_RESTORED")
                 .put("hive.metadata.parallelism", "10")
+                .put("hive.metadata.virtual-threads-enabled", "false")
+                .put("hive.protobuf.descriptors.location", "/tmp")
+                .put("hive.protobuf.descriptors.cache.max-size", "8")
+                .put("hive.protobuf.descriptors.cache.refresh-interval", "10s")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
                 .setSingleStatementWritesOnly(true)
                 .setMaxSplitSize(DataSize.of(256, Unit.MEGABYTE))
+                .setParquetMaxSplitSize(DataSize.of(200, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
                 .setMaxPartitionsForEagerLoad(122)
                 .setMaxOutstandingSplits(10)
@@ -220,8 +228,6 @@ public class TestHiveConfig
                 .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setMinPartitionBatchSize(1)
                 .setMaxPartitionBatchSize(1000)
-                .setMaxInitialSplits(10)
-                .setMaxInitialSplitSize(DataSize.of(16, Unit.MEGABYTE))
                 .setSplitLoaderConcurrency(1)
                 .setMaxSplitsPerSecond(1)
                 .setDomainCompactionThreshold(42)
@@ -242,7 +248,6 @@ public class TestHiveConfig
                 .setCreateEmptyBucketFiles(true)
                 .setDeleteSchemaLocationsFallback(true)
                 .setMaxPartitionsPerWriter(222)
-                .setWriteValidationThreads(11)
                 .setValidateBucketing(false)
                 .setParallelPartitionedBucketedWrites(false)
                 .setTextMaxLineLength(DataSize.of(13, Unit.MEGABYTE))
@@ -290,7 +295,11 @@ public class TestHiveConfig
                 .setAutoPurge(true)
                 .setPartitionProjectionEnabled(false)
                 .setS3GlacierFilter(S3GlacierFilter.READ_NON_GLACIER_AND_RESTORED)
-                .setMetadataParallelism(10);
+                .setMetadataParallelism(10)
+                .setMetadataVirtualThreadsEnabled(false)
+                .setProtobufDescriptorsLocation(Path.of("/tmp"))
+                .setProtobufDescriptorsCacheMaxSize(8)
+                .setProtobufDescriptorsCacheRefreshInterval(new Duration(10, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }

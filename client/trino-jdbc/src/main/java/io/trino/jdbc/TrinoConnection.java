@@ -20,7 +20,6 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
@@ -62,6 +61,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -118,7 +118,7 @@ public class TrinoConnection
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<List<String>> path = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<String> authorizationUser = new AtomicReference<>();
-    private final Set<ClientSelectedRole> originalRoles = Sets.newConcurrentHashSet();
+    private final Set<ClientSelectedRole> originalRoles = ConcurrentHashMap.newKeySet();
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
@@ -703,7 +703,7 @@ public class TrinoConnection
     public void setClientInfo(Properties properties)
             throws SQLClientInfoException
     {
-        for (Map.Entry<String, String> entry : fromProperties(properties).entrySet()) {
+        for (Entry<String, String> entry : fromProperties(properties).entrySet()) {
             setClientInfo(entry.getKey(), entry.getValue());
         }
     }
@@ -723,7 +723,7 @@ public class TrinoConnection
             throws SQLException
     {
         Properties properties = new Properties();
-        for (Map.Entry<ClientInfoProperty, String> entry : clientInfo.entrySet()) {
+        for (Entry<ClientInfoProperty, String> entry : clientInfo.entrySet()) {
             properties.setProperty(entry.getKey().getPropertyName(), entry.getValue());
         }
         return properties;

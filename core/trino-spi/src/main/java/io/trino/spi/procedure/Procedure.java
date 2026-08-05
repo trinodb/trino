@@ -138,6 +138,9 @@ public class Procedure
             }
             this.type = requireNonNull(type, "type is null");
             this.required = required;
+            if (defaultValue != null && !Primitives.wrap(type.getJavaType()).isInstance(defaultValue)) {
+                throw new IllegalArgumentException(format("Unexpected value class for type %s, expected %s, got %s", type, type.getJavaType(), defaultValue.getClass()));
+            }
             this.defaultValue = defaultValue;
         }
 

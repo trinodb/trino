@@ -24,8 +24,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -383,14 +383,14 @@ public final class Range
     public String toString()
     {
         Object lowObject = lowValue
-                .map(value -> type.getObjectValue(nativeValueToBlock(type, value), 0))
+                .map(value -> type.getObjectValue(writeNativeValue(type, value), 0))
                 .orElse("<min>");
 
         if (isSingleValue()) {
             return format("[%s]", lowObject);
         }
         Object highObject = highValue
-                .map(value -> type.getObjectValue(nativeValueToBlock(type, value), 0))
+                .map(value -> type.getObjectValue(writeNativeValue(type, value), 0))
                 .orElse("<max>");
         return format(
                 "%s%s, %s%s",

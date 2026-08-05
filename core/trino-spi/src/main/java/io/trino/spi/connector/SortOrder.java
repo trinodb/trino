@@ -44,7 +44,8 @@ public enum SortOrder
     @Override
     public String toString()
     {
-        return format("%s %s",
+        return format(
+                "%s %s",
                 ascending ? "ASC" : "DESC",
                 nullsFirst ? "NULLS FIRST" : "NULLS LAST");
     }

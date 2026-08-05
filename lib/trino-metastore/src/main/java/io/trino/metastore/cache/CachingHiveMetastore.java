@@ -47,6 +47,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import org.weakref.jmx.Managed;
@@ -103,7 +104,7 @@ public final class CachingHiveMetastore
     public enum StatsRecording
     {
         ENABLED,
-        DISABLED
+        DISABLED,
     }
 
     public enum ObjectType
@@ -919,7 +920,7 @@ public final class CachingHiveMetastore
 
     private void invalidatePartitionCache(String databaseName, String tableName)
     {
-        invalidatePartitionCache(databaseName, tableName, partitionName -> true);
+        invalidatePartitionCache(databaseName, tableName, _ -> true);
     }
 
     private void invalidatePartitionCache(String databaseName, String tableName, Predicate<Optional<String>> partitionPredicate)
@@ -1120,6 +1121,12 @@ public final class CachingHiveMetastore
         delegate.dropFunction(databaseName, functionName, signatureToken);
     }
 
+    @Override
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
+    }
+
     private static <K, V> LoadingCache<K, V> buildCache(
             OptionalLong expiresAfterWriteMillis,
             OptionalLong refreshMillis,
@@ -1130,11 +1137,11 @@ public final class CachingHiveMetastore
     {
         EvictableCacheBuilder<Object, Object> cacheBuilder = EvictableCacheBuilder.newBuilder();
         if (expiresAfterWriteMillis.isPresent()) {
-            cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
+            cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.orElseThrow(), MILLISECONDS);
         }
         checkArgument(refreshMillis.isEmpty() || refreshExecutor.isPresent(), "refreshMillis is provided but refreshExecutor is not");
-        if (refreshMillis.isPresent() && (expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
-            cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
+        if (refreshMillis.isPresent() && (expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.orElseThrow() > refreshMillis.orElseThrow())) {
+            cacheBuilder.refreshAfterWrite(refreshMillis.orElseThrow(), MILLISECONDS);
             cacheLoader = asyncReloading(cacheLoader, refreshExecutor.orElseThrow(() -> new IllegalArgumentException("Executor not provided")));
         }
         cacheBuilder.maximumSize(maximumSize);
@@ -1153,7 +1160,7 @@ public final class CachingHiveMetastore
     {
         EvictableCacheBuilder<Object, Object> cacheBuilder = EvictableCacheBuilder.newBuilder();
         if (expiresAfterWriteMillis.isPresent()) {
-            cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
+            cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.orElseThrow(), MILLISECONDS);
         }
         // cannot use refreshAfterWrite since it can't use the bulk loading and causes too many requests
 
@@ -1372,9 +1379,9 @@ public final class CachingHiveMetastore
         private CacheFactory
         {
             requireNonNull(expiresAfterWriteMillis, "expiresAfterWriteMillis is null");
-            checkArgument(expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.getAsLong() > 0, "expiresAfterWriteMillis must be empty or at least 1 millisecond");
+            checkArgument(expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.orElseThrow() > 0, "expiresAfterWriteMillis must be empty or at least 1 millisecond");
             requireNonNull(refreshMillis, "refreshMillis is null");
-            checkArgument(refreshMillis.isEmpty() || refreshMillis.getAsLong() > 0, "refreshMillis must be empty or at least 1 millisecond");
+            checkArgument(refreshMillis.isEmpty() || refreshMillis.orElseThrow() > 0, "refreshMillis must be empty or at least 1 millisecond");
             requireNonNull(refreshExecutor, "refreshExecutor is null");
             requireNonNull(statsRecording, "statsRecording is null");
         }

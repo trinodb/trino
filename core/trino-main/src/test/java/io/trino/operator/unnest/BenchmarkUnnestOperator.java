@@ -86,7 +86,7 @@ public class BenchmarkUnnestOperator
                 "map(varchar,varchar)",
                 "array(row(varchar,varchar,varchar))",
                 "array(array(varchar))",
-                "array(varchar)|array(varchar)"
+                "array(varchar)|array(varchar)",
         })
         private String nestedType = "array(varchar)";
 
@@ -260,7 +260,7 @@ public class BenchmarkUnnestOperator
         assertThat(block.getPositionCount()).isEqualTo(100);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkUnnestOperator.class)

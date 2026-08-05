@@ -135,7 +135,9 @@ public class OAuth2Service
                     .ifPresent(value ->
                             tokenHandler.setTokenExchangeError(value,
                                     format("Authentication response could not be verified: error=%s, errorDescription=%s, errorUri=%s",
-                                            error, errorDescription, errorDescription)));
+                                            error,
+                                            errorDescription,
+                                            errorDescription)));
         }
         catch (ChallengeFailedException | RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified invalid state: state=%s", state);

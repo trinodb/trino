@@ -32,45 +32,46 @@ public class TestParquetWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
-                .setBlockSize(DataSize.of(128, MEGABYTE))
+                .setRowGroupSize(DataSize.of(128, MEGABYTE))
+                .setRowGroupMaxRowCount(ParquetWriterOptions.DEFAULT_MAX_ROW_GROUP_ROW_COUNT)
                 .setPageSize(DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE))
                 .setPageValueCount(ParquetWriterOptions.DEFAULT_MAX_PAGE_VALUE_COUNT)
                 .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE)
-                .setValidationPercentage(5));
-    }
-
-    @Test
-    public void testLegacyProperties()
-    {
-        assertDeprecatedEquivalence(
-                ParquetWriterConfig.class,
-                Map.of(
-                        "parquet.writer.validation-percentage", "42",
-                        "parquet.writer.block-size", "33MB",
-                        "parquet.writer.page-size", "7MB"),
-                Map.of(
-                        "parquet.optimized-writer.validation-percentage", "42",
-                        "hive.parquet.writer.block-size", "33MB",
-                        "hive.parquet.writer.page-size", "7MB"));
+                .setValidationPercentage(5)
+                .setDeltaLengthByteArrayEncodingEnabled(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = Map.of(
-                "parquet.writer.block-size", "234MB",
+                "parquet.writer.row-group-size", "234MB",
+                "parquet.writer.row-group-max-row-count", "50000",
                 "parquet.writer.page-size", "6MB",
                 "parquet.writer.page-value-count", "10000",
                 "parquet.writer.batch-size", "100",
-                "parquet.writer.validation-percentage", "10");
+                "parquet.writer.validation-percentage", "10",
+                "parquet.writer.delta-length-byte-array-encoding-enabled", "false");
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
-                .setBlockSize(DataSize.of(234, MEGABYTE))
+                .setRowGroupSize(DataSize.of(234, MEGABYTE))
+                .setRowGroupMaxRowCount(50_000)
                 .setPageSize(DataSize.of(6, MEGABYTE))
                 .setPageValueCount(10_000)
                 .setBatchSize(100)
-                .setValidationPercentage(10);
+                .setValidationPercentage(10)
+                .setDeltaLengthByteArrayEncodingEnabled(false);
 
         assertFullMapping(properties, expected);
+
+        Map<String, String> oldProperties = Map.of(
+                "parquet.writer.block-size", "234MB",
+                "parquet.writer.row-group-max-row-count", "50000",
+                "parquet.writer.page-size", "6MB",
+                "parquet.writer.page-value-count", "10000",
+                "parquet.writer.batch-size", "100",
+                "parquet.writer.validation-percentage", "10",
+                "parquet.writer.delta-length-byte-array-encoding-enabled", "false");
+        assertDeprecatedEquivalence(ParquetWriterConfig.class, properties, oldProperties);
     }
 }

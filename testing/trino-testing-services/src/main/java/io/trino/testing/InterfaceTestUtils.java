@@ -1,0 +1,114 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.testing;
+
+import com.google.common.collect.ImmutableSet;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.api.Fail;
+
+import java.lang.reflect.Method;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Function;
+
+import static com.google.common.base.Defaults.defaultValue;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Sets.difference;
+import static com.google.common.reflect.Reflection.newProxy;
+import static java.lang.String.format;
+import static java.lang.reflect.Modifier.isProtected;
+import static java.lang.reflect.Modifier.isPublic;
+import static java.lang.reflect.Modifier.isStatic;
+
+public final class InterfaceTestUtils
+{
+    private InterfaceTestUtils() {}
+
+    public static <I, C extends I> void assertAllMethodsOverridden(Class<I> superType, Class<C> clazz)
+    {
+        assertAllMethodsOverridden(superType, clazz, ImmutableSet.of());
+    }
+
+    public static <I, C extends I> void assertAllMethodsOverridden(Class<I> superType, Class<C> clazz, Set<Method> exclusions)
+    {
+        checkArgument(superType.isAssignableFrom(clazz), "%s is not supertype of %s", superType, clazz);
+        checkArgument(clazz != superType, "The tested type is the same as the base interface: %s", clazz);
+        exclusions = new HashSet<>(exclusions);
+        for (Class<?> parent = superType; parent != null; parent = parent.getSuperclass()) {
+            for (Method method : parent.getDeclaredMethods()) {
+                if (isStatic(method.getModifiers())) {
+                    continue;
+                }
+                if (!(isPublic(method.getModifiers()) || isProtected(method.getModifiers()))) {
+                    continue;
+                }
+                if (method.getDeclaringClass() == Object.class) {
+                    continue;
+                }
+                try {
+                    Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
+                    if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
+                        Fail.fail(format("%s is not assignable from %s for method %s", method.getReturnType(), override.getReturnType(), method));
+                    }
+                }
+                catch (NoSuchMethodException e) {
+                    if (exclusions.remove(method)) {
+                        // ignored
+                    }
+                    else {
+                        Fail.fail(format("%s does not override [%s]", clazz.getName(), method));
+                    }
+                }
+            }
+        }
+
+        if (!exclusions.isEmpty()) {
+            Fail.fail("Following exclusions are redundant: " + exclusions);
+        }
+    }
+
+    public static <I, C extends I> void assertProperForwardingMethodsAreCalled(Class<I> iface, Function<I, C> forwardingInstanceFactory)
+    {
+        assertProperForwardingMethodsAreCalled(iface, forwardingInstanceFactory, ImmutableSet.of());
+    }
+
+    public static <I, C extends I> void assertProperForwardingMethodsAreCalled(Class<I> iface, Function<I, C> forwardingInstanceFactory, Set<Method> exclusions)
+    {
+        for (Method actualMethod : difference(ImmutableSet.copyOf(iface.getMethods()), exclusions)) {
+            Object[] actualArguments = new Object[actualMethod.getParameterCount()];
+            for (int i = 0; i < actualArguments.length; i++) {
+                if (actualMethod.getParameterTypes()[i].isPrimitive()) {
+                    actualArguments[i] = defaultValue(actualMethod.getParameterTypes()[i]);
+                }
+            }
+            C forwardingInstance = forwardingInstanceFactory.apply(
+                    newProxy(iface, (_, expectedMethod, _) -> {
+                        Assertions.assertThat(actualMethod.getName()).isEqualTo(expectedMethod.getName());
+                        // TODO assert arguments
+
+                        if (actualMethod.getReturnType().isPrimitive()) {
+                            return defaultValue(actualMethod.getReturnType());
+                        }
+                        return null;
+                    }));
+
+            try {
+                actualMethod.invoke(forwardingInstance, actualArguments);
+            }
+            catch (Exception e) {
+                throw new RuntimeException(format("Invocation of %s has failed", actualMethod), e);
+            }
+        }
+    }
+}

@@ -21,6 +21,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.spi.NodeVersion;
 import jakarta.annotation.Generated;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -35,6 +36,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.airlift.http.client.HeaderNames.USER_AGENT;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.trino.server.security.jwt.JwkDecoder.decodeKeys;
@@ -44,26 +46,29 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public final class JwkService
 {
     private static final Logger log = Logger.get(JwkService.class);
+    private static final Duration DEFAULT_REFRESH_DELAY = new Duration(15, TimeUnit.MINUTES);
 
     private final URI address;
     private final HttpClient httpClient;
     private final Duration refreshDelay;
+    private final String userAgent;
     private final AtomicReference<Map<String, PublicKey>> keys;
 
     @Generated("this")
     private Closer closer;
 
-    public JwkService(URI address, HttpClient httpClient)
+    public JwkService(URI address, HttpClient httpClient, NodeVersion nodeVersion)
     {
-        this(address, httpClient, new Duration(15, TimeUnit.MINUTES));
+        this(address, httpClient, DEFAULT_REFRESH_DELAY, nodeVersion);
     }
 
     @VisibleForTesting
-    public JwkService(URI address, HttpClient httpClient, Duration refreshDelay)
+    public JwkService(URI address, HttpClient httpClient, Duration refreshDelay, NodeVersion nodeVersion)
     {
         this.address = requireNonNull(address, "address is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.refreshDelay = requireNonNull(refreshDelay, "refreshDelay is null");
+        this.userAgent = "Trino/" + requireNonNull(nodeVersion, "nodeVersion is null").version();
 
         this.keys = new AtomicReference<>(fetchKeys());
     }
@@ -130,7 +135,10 @@ public final class JwkService
     private Map<String, PublicKey> fetchKeys()
             throws RuntimeException
     {
-        Request request = prepareGet().setUri(address).build();
+        Request request = prepareGet()
+                .setUri(address)
+                .setHeader(USER_AGENT, userAgent)
+                .build();
         StringResponse response;
         try {
             response = httpClient.execute(request, createStringResponseHandler());

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.deltalake.transactionlog.statistics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.parquet.ParquetReaderOptions;
@@ -72,14 +72,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeFileStatistics
 {
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final JsonMapper jsonMapper = new JsonMapperProvider().get();
 
     @Test
     public void testParseJsonStatistics()
             throws Exception
     {
         File statsFile = new File(getClass().getResource("all_type_statistics.json").toURI());
-        DeltaLakeFileStatistics fileStatistics = objectMapper.readValue(statsFile, DeltaLakeJsonFileStatistics.class);
+        DeltaLakeFileStatistics fileStatistics = jsonMapper.readValue(statsFile, DeltaLakeJsonFileStatistics.class);
         testStatisticsValues(fileStatistics);
     }
 

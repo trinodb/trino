@@ -18,11 +18,11 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.operator.BucketPartitionFunction;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
 
@@ -31,20 +31,20 @@ import static java.util.Objects.requireNonNull;
 
 public class PartitionFunctionProvider
 {
-    private final TypeOperators typeOperators;
+    private final NullSafeHashCompiler hashCompiler;
     private final CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider;
 
     @Inject
-    public PartitionFunctionProvider(TypeOperators typeOperators, CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider)
+    public PartitionFunctionProvider(NullSafeHashCompiler hashCompiler, CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider)
     {
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.hashCompiler = requireNonNull(hashCompiler, "hashCompiler is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
     }
 
     public PartitionFunction getPartitionFunction(Session session, PartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int[] bucketToPartition)
     {
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle handle) {
-            return handle.getPartitionFunction(partitionChannelTypes, bucketToPartition, typeOperators);
+            return handle.getPartitionFunction(partitionChannelTypes, bucketToPartition, hashCompiler);
         }
 
         if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle handle) {

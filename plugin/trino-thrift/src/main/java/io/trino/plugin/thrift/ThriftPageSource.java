@@ -114,12 +114,6 @@ public class ThriftPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0;
-    }
-
-    @Override
     public boolean isFinished()
     {
         return !firstCall && !canGetMoreData(nextToken);

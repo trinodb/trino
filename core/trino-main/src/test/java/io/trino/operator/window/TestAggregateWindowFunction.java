@@ -17,6 +17,8 @@ import io.trino.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -27,6 +29,12 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 public class TestAggregateWindowFunction
         extends AbstractTestWindowFunction
 {
+    @Override
+    protected Optional<WindowFunctionUnderTest> windowFunctionUnderTest()
+    {
+        return Optional.of(new WindowFunctionUnderTest("count", "count(orderkey)"));
+    }
+
     @Test
     public void testCountRowsOrdered()
     {
@@ -276,7 +284,8 @@ public class TestAggregateWindowFunction
     @Test
     public void testSumRolling()
     {
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS 2 PRECEDING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", 3L)
@@ -291,7 +300,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", 73L)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 4 PRECEDING AND 2 PRECEDING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", null)
@@ -306,7 +316,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", 13L)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 3 FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", 47L)
@@ -321,7 +332,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", 73L)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", 14L)
@@ -336,7 +348,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", 34L)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 FOLLOWING AND 4 FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", 39L)
@@ -351,7 +364,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", null)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", 47L)
@@ -370,7 +384,8 @@ public class TestAggregateWindowFunction
     @Test
     public void testSumRollingUnboundedPrecedingNPreceding()
     {
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN UNBOUNDED PRECEDING AND 0 PRECEDING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", 3L)
@@ -385,7 +400,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", 80L)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", null)
@@ -400,7 +416,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", 14L)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN UNBOUNDED PRECEDING AND 4 PRECEDING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", null)
@@ -415,7 +432,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", 3L)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN UNBOUNDED PRECEDING AND 171 PRECEDING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", null)
@@ -434,7 +452,8 @@ public class TestAggregateWindowFunction
     @Test
     public void testSumRollingNFollowingUnboundedFollowing()
     {
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 0 FOLLOWING AND UNBOUNDED FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", 47L)
@@ -449,7 +468,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", 34L)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 3 FOLLOWING AND UNBOUNDED FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", 33L)
@@ -464,7 +484,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", null)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 4 FOLLOWING AND UNBOUNDED FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", null)
@@ -479,7 +500,8 @@ public class TestAggregateWindowFunction
                         .row(34, "O", null)
                         .build());
 
-        assertWindowQuery("sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "sum(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2179 FOLLOWING AND UNBOUNDED FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", null)

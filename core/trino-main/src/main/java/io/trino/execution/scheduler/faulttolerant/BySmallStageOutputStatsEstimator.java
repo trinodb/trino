@@ -97,7 +97,7 @@ public class BySmallStageOutputStatsEstimator
             return Optional.empty();
         }
 
-        PlanFragment planFragment = stageExecution.getStageInfo().getPlan();
+        PlanFragment planFragment = stageExecution.getStageInfo().plan();
         boolean hasPartitionedSources = planFragment.getPartitionedSources().size() > 0;
         List<RemoteSourceNode> remoteSourceNodes = planFragment.getRemoteSourceNodes();
 

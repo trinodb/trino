@@ -82,8 +82,8 @@ public class OpaContainer
         HttpResponse<String> policyResponse =
                 httpClient.send(
                         HttpRequest.newBuilder(getOpaServerUri().resolve(OPA_POLICY_PUSH_BASE_PATH))
-                                   .PUT(HttpRequest.BodyPublishers.ofString(policyString))
-                                   .header("Content-Type", "text/plain").build(),
+                                .PUT(HttpRequest.BodyPublishers.ofString(policyString))
+                                .header("Content-Type", "text/plain").build(),
                         HttpResponse.BodyHandlers.ofString());
         assertThat(policyResponse.statusCode()).withFailMessage("Failed to submit policy: %s", policyResponse.body()).isEqualTo(200);
     }

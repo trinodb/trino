@@ -26,7 +26,7 @@ public class ArithmeticUnaryExpression
     public enum Sign
     {
         PLUS,
-        MINUS
+        MINUS,
     }
 
     private final Expression value;

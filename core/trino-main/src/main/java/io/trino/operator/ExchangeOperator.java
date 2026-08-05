@@ -13,30 +13,36 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeDataSource;
+import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.exchange.ExchangeId;
+import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
+import java.util.List;
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +61,7 @@ public class ExchangeOperator
         private final PagesSerdeFactory serdeFactory;
         private final RetryPolicy retryPolicy;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private final List<Type> types;
         private ExchangeDataSource exchangeDataSource;
         private boolean closed;
 
@@ -67,7 +74,8 @@ public class ExchangeOperator
                 DirectExchangeClientSupplier directExchangeClientSupplier,
                 PagesSerdeFactory serdeFactory,
                 RetryPolicy retryPolicy,
-                ExchangeManagerRegistry exchangeManagerRegistry)
+                ExchangeManagerRegistry exchangeManagerRegistry,
+                List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -75,6 +83,7 @@ public class ExchangeOperator
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
@@ -89,18 +98,17 @@ public class ExchangeOperator
             checkState(!closed, "Factory is already closed");
             TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
-            LocalMemoryContext memoryContext = driverContext.getPipelineContext().localMemoryContext();
             if (exchangeDataSource == null) {
                 // The decision of what exchange to use (streaming vs external) is currently made at the scheduling phase. It is more convenient to deliver it as part of a RemoteSplit.
                 // Postponing this decision until scheduling allows to dynamically change the exchange type as part of an adaptive query re-planning.
                 // LazyExchangeDataSource allows to choose an exchange source implementation based on the information received from a split.
                 TaskId taskId = taskContext.getTaskId();
                 exchangeDataSource = new LazyExchangeDataSource(
-                        taskId.getQueryId(),
-                        new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
+                        taskId.queryId(),
+                        new ExchangeId(format("direct-exchange-%s-%s", taskId.stageId().id(), sourceId)),
                         taskContext.getSession().getQuerySpan(),
                         directExchangeClientSupplier,
-                        memoryContext,
+                        operatorContext.localUserMemoryContext(),
                         taskContext::sourceTaskFailed,
                         retryPolicy,
                         exchangeManagerRegistry);
@@ -111,10 +119,17 @@ public class ExchangeOperator
                     operatorContext,
                     sourceId,
                     exchangeDataSource,
-                    serdeFactory.createDeserializer(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
+                    serdeFactory,
                     noMoreSplitsTracker,
                     operatorInstanceId);
             noMoreSplitsTracker.operatorAdded(operatorInstanceId);
+
+            if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
+                return new OutputValidatingSourceOperator(
+                        exchangeOperator,
+                        types,
+                        () -> "ExchangeOperator(%s); taskId=%s; operatorId=%s".formatted(sourceId, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
+            }
             return exchangeOperator;
         }
 
@@ -134,30 +149,27 @@ public class ExchangeOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeDataSource exchangeDataSource;
-    private final PageDeserializer deserializer;
+    private final PagesSerdeFactory serdeFactory;
     private final NoMoreSplitsTracker noMoreSplitsTracker;
     private final int operatorInstanceId;
 
+    private PageDeserializer deserializer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             ExchangeDataSource exchangeDataSource,
-            PageDeserializer deserializer,
+            PagesSerdeFactory serdeFactory,
             NoMoreSplitsTracker noMoreSplitsTracker,
             int operatorInstanceId)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeDataSource = requireNonNull(exchangeDataSource, "exchangeDataSource is null");
-        this.deserializer = requireNonNull(deserializer, "serializer is null");
+        this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
         this.noMoreSplitsTracker = requireNonNull(noMoreSplitsTracker, "noMoreSplitsTracker is null");
         this.operatorInstanceId = operatorInstanceId;
-
-        LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
-        // memory footprint of deserializer does not change over time
-        memoryContext.setBytes(deserializer.getRetainedSizeInBytes());
 
         operatorContext.setInfoSupplier(exchangeDataSource::getInfo);
     }
@@ -236,6 +248,16 @@ public class ExchangeOperator
         Slice page = exchangeDataSource.pollPage();
         if (page == null) {
             return null;
+        }
+
+        // Lazy initialization is required because the encryption key depends on whether
+        // the exchange uses external storage (spooling) or direct exchange. This is determined
+        // by LazyExchangeDataSource, which resolves the concrete exchange type only after
+        // the first split is delivered — which happens after the operator is created.
+        if (deserializer == null) {
+            Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), exchangeDataSource);
+            deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
+            operatorContext.localUserMemoryContext().setBytes(deserializer.getRetainedSizeInBytes());
         }
 
         Page deserializedPage = deserializer.deserialize(page);

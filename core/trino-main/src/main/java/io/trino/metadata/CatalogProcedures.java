@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
@@ -31,7 +32,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
-import static io.trino.spi.procedure.Procedure.Argument;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -99,13 +99,13 @@ public class CatalogProcedures
         if (type.equals(VARCHAR)) {
             return String.class;
         }
-        if (type instanceof ArrayType) {
-            getObjectType(type.getTypeParameters().get(0));
+        if (type instanceof ArrayType arrayType) {
+            getObjectType(arrayType.getElementType());
             return List.class;
         }
-        if (type instanceof MapType) {
-            getObjectType(type.getTypeParameters().get(0));
-            getObjectType(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            getObjectType(mapType.getKeyType());
+            getObjectType(mapType.getValueType());
             return Map.class;
         }
         throw new IllegalArgumentException("Unsupported argument type: " + type.getDisplayName());

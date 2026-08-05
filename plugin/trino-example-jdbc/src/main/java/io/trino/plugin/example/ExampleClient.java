@@ -81,34 +81,21 @@ public class ExampleClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        switch (typeHandle.jdbcType()) {
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
-
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-
-            case Types.CHAR:
-                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize()));
-
-            case Types.VARCHAR:
-                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize()));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-
-        return Optional.empty();
+        return switch (typeHandle.jdbcType()) {
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            case Types.REAL -> Optional.of(realColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.CHAR -> Optional.of(charColumnMapping(typeHandle.requiredColumnSize()));
+            case Types.VARCHAR -> Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize()));
+            default -> {
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    yield mapToUnboundedVarchar(typeHandle);
+                }
+                yield Optional.empty();
+            }
+        };
     }
 
     @Override

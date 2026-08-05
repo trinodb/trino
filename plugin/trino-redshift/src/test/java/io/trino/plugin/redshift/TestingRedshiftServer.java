@@ -19,8 +19,12 @@ import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.time.Duration;
 
+import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public final class TestingRedshiftServer
@@ -36,14 +40,22 @@ public final class TestingRedshiftServer
 
     public static final String JDBC_URL = "jdbc:redshift://" + JDBC_ENDPOINT + TEST_DATABASE + "?connectTimeout=0";
 
-    public static void executeInRedshiftWithRetry(String sql)
+    public static void executeInRedshiftWithRetry(String sql, Object... parameters)
     {
-        Failsafe.with(RetryPolicy.builder()
-                        .handleIf(e -> e.getMessage().matches(".* concurrent transaction .*"))
-                        .withDelay(Duration.ofSeconds(10))
-                        .withMaxRetries(3)
-                        .build())
-                .run(() -> executeInRedshift(sql));
+        executeInRedshiftWithRetry(handle -> handle.execute(sql, parameters));
+    }
+
+    public static <E extends Exception> void executeInRedshiftWithRetry(HandleConsumer<E> consumer)
+            throws E
+    {
+        executeWithRedshiftWithRetry(consumer.asCallback());
+    }
+
+    public static <T, E extends Exception> T executeWithRedshiftWithRetry(HandleCallback<T, E> callback)
+            throws E
+    {
+        return Failsafe.with(retryPolicy())
+                .get(() -> executeWithRedshift(callback));
     }
 
     public static void executeInRedshift(String sql, Object... parameters)
@@ -61,5 +73,30 @@ public final class TestingRedshiftServer
             throws E
     {
         return Jdbi.create(JDBC_URL, JDBC_USER, JDBC_PASSWORD).withHandle(callback);
+    }
+
+    public static boolean isExceptionRecoverable(Throwable exception)
+    {
+        if (exception == null) {
+            return false;
+        }
+
+        String message = nullToEmpty(exception.getMessage());
+        return message.matches(".* concurrent transaction.*")
+                || message.matches(".*deadlock detected.*")
+                || message.matches(".*could not open relation with OID.*")
+                || message.matches(".*The connection attempt failed.*")
+                || message.matches(".*Connection to .* refused.*")
+                || getCausalChain(exception).stream()
+                .anyMatch(e -> e instanceof ConnectException || e instanceof SocketTimeoutException);
+    }
+
+    private static RetryPolicy<Object> retryPolicy()
+    {
+        return RetryPolicy.builder()
+                .handleIf(TestingRedshiftServer::isExceptionRecoverable)
+                .withDelay(Duration.ofSeconds(10))
+                .withMaxRetries(3)
+                .build();
     }
 }

@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Supplier;
@@ -85,7 +86,7 @@ public class ScanQueryPageSource
         // representations in JSON, but a single normalized representation as doc_field.
         List<String> documentFields = flattenFields(columns).entrySet().stream()
                 .filter(entry -> entry.getValue().equals(TIMESTAMP_MILLIS))
-                .map(Map.Entry::getKey)
+                .map(Entry::getKey)
                 .collect(toImmutableList());
 
         columnBuilders = columns.stream()
@@ -136,12 +137,6 @@ public class ScanQueryPageSource
     public boolean isFinished()
     {
         return !iterator.hasNext();
-    }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        return 0;
     }
 
     @Override
@@ -213,7 +208,7 @@ public class ScanQueryPageSource
         if (value == null) {
             Map<String, Object> result = new HashMap<>();
             String prefix = field + ".";
-            for (Map.Entry<String, Object> entry : document.entrySet()) {
+            for (Entry<String, Object> entry : document.entrySet()) {
                 String key = entry.getKey();
                 if (key.startsWith(prefix)) {
                     result.put(key.substring(prefix.length()), entry.getValue());
@@ -298,7 +293,7 @@ public class ScanQueryPageSource
         @Override
         protected SearchHit computeNext()
         {
-            if (limit.isPresent() && totalRecordCount == limit.getAsLong()) {
+            if (limit.isPresent() && totalRecordCount == limit.orElseThrow()) {
                 // No more record is necessary.
                 return endOfData();
             }

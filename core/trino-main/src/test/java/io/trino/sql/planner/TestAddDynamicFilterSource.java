@@ -17,28 +17,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.DynamicFilters;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.planner.assertions.MatchResult;
-import io.trino.sql.planner.assertions.Matcher;
-import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import org.junit.jupiter.api.Test;
 
@@ -54,13 +44,14 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.between;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -70,6 +61,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -81,7 +73,7 @@ public class TestAddDynamicFilterSource
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MODULO_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(INTEGER, INTEGER));
 
     public TestAddDynamicFilterSource()
     {
@@ -100,12 +92,12 @@ public class TestAddDynamicFilterSource
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_SK", "SUPPLIER_SK")
-                                .dynamicFilter(BIGINT, "LINEITEM_SK", "SUPPLIER_SK")
+                                .addDynamicFilter("DF", "SUPPLIER_SK")
                                 .left(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey")))
-                                                .with(numberOfDynamicFilters(1)))
+                                        filter(
+                                                TRUE,
+                                                dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINEITEM_SK")),
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey"))))
                                 .right(
                                         exchange(
                                                 LOCAL,
@@ -126,15 +118,15 @@ public class TestAddDynamicFilterSource
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_SK", "SUPPLIER_SK")
-                                .dynamicFilter(BIGINT, "LINEITEM_SK", "SUPPLIER_SK")
+                                .addDynamicFilter("DF", "SUPPLIER_SK")
                                 .left(
                                         exchange(
                                                 REMOTE,
                                                 REPARTITION,
-                                                node(
-                                                        FilterNode.class,
-                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey")))
-                                                        .with(numberOfDynamicFilters(1))))
+                                                filter(
+                                                        TRUE,
+                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINEITEM_SK")),
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey")))))
                                 .right(
                                         exchange(
                                                 LOCAL,
@@ -159,11 +151,15 @@ public class TestAddDynamicFilterSource
                     anyTree(
                             filter(
                                     new Reference(BOOLEAN, "S"),
-                                    semiJoin("X", "Y", "S", Optional.of(semiJoinDistributionType), Optional.of(true),
-                                            node(
-                                                    FilterNode.class,
-                                                    tableScan("orders", ImmutableMap.of("X", "orderkey")))
-                                                    .with(numberOfDynamicFilters(1)),
+                                    semiJoin("X",
+                                            "Y",
+                                            "S",
+                                            dynamicFilter("DF"),
+                                            Optional.of(semiJoinDistributionType),
+                                            filter(
+                                                    TRUE,
+                                                    dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "X")),
+                                                    tableScan("orders", ImmutableMap.of("X", "orderkey"))),
                                             exchange(
                                                     LOCAL,
                                                     exchange(
@@ -173,7 +169,7 @@ public class TestAddDynamicFilterSource
                                                                     DynamicFilterSourceNode.class,
                                                                     project(
                                                                             filter(
-                                                                                    new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "Z"), new Constant(INTEGER, 4L))), new Constant(INTEGER, 0L)),
+                                                                                    comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "Z"), new Constant(INTEGER, 4L))), new Constant(INTEGER, 0L)),
                                                                                     tableScan("lineitem", ImmutableMap.of("Y", "orderkey", "Z", "linenumber")))))))))));
         }
     }
@@ -187,9 +183,11 @@ public class TestAddDynamicFilterSource
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_SK", "SUPPLIER_SK")
-                                .dynamicFilter(BIGINT, "LINEITEM_SK", "SUPPLIER_SK")
+                                .addDynamicFilter("DF", "SUPPLIER_SK")
                                 .left(
-                                        anyTree(
+                                        filter(
+                                                TRUE,
+                                                dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINEITEM_SK")),
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey"))))
                                 .right(
                                         exchange(
@@ -242,14 +240,15 @@ public class TestAddDynamicFilterSource
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey",
                 anyTree(
                         filter(
-                                new Between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Reference(BIGINT, "L_PARTKEY")),
+                                between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Reference(BIGINT, "L_PARTKEY")),
                                 join(INNER, builder -> builder
-                                        .dynamicFilter(ImmutableList.of(
-                                                new DynamicFilterPattern(new Reference(BIGINT, "L_ORDERKEY"), LESS_THAN_OR_EQUAL, "O_ORDERKEY"),
-                                                new DynamicFilterPattern(new Reference(BIGINT, "L_PARTKEY"), GREATER_THAN_OR_EQUAL, "O_ORDERKEY")))
+                                        .addDynamicFilter("DF", "O_ORDERKEY")
                                         .left(
                                                 filter(
                                                         TRUE,
+                                                        dynamicFilters -> dynamicFilters
+                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY").operator(LESS_THAN_OR_EQUAL))
+                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_PARTKEY").operator(GREATER_THAN_OR_EQUAL)),
                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))
                                         .right(
                                                 exchange(
@@ -265,10 +264,9 @@ public class TestAddDynamicFilterSource
                 withJoinDistributionType(PARTITIONED),
                 anyTree(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")), new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "expr")))),
+                                new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")), comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "expr")))),
                                 join(INNER, builder -> builder
-                                        .left(
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
+                                        .left(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
                                         .right(
                                                 exchange(
                                                         LOCAL,
@@ -297,25 +295,6 @@ public class TestAddDynamicFilterSource
                                 .right(
                                         anyTree(
                                                 tableScan("supplier", ImmutableMap.of("SUPPLIER_SK", "suppkey")))))));
-    }
-
-    private Matcher numberOfDynamicFilters(int numberOfDynamicFilters)
-    {
-        return new Matcher()
-        {
-            @Override
-            public boolean shapeMatches(PlanNode node)
-            {
-                return node instanceof FilterNode;
-            }
-
-            @Override
-            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
-            {
-                FilterNode filterNode = (FilterNode) node;
-                return new MatchResult(DynamicFilters.extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().size() == numberOfDynamicFilters);
-            }
-        };
     }
 
     private Session noSemiJoinRewrite(JoinDistributionType distributionType)

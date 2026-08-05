@@ -34,8 +34,10 @@ class TestWebUiResources
         assertThatThrownBy(() -> webUiResource("/webapp/index.html/../index.html").getStatus())
                 .isInstanceOf(NotFoundException.class); // not canonical
 
-        assertThat(webUiResource("/webapp/index.html").getStatus()).isEqualTo(200);
-        assertThat(webUiResource("/webapp-preview/dist/index.html").getStatus()).isEqualTo(200);
+        assertThat(webUiResource("/webapp-legacy/index.html").getStatus()).isEqualTo(200);
+        assertThat(webUiResource("/webapp/dist/index.html").getStatus()).isEqualTo(200);
+        assertThat(webUiResource("/webapp/dist/static/disabled.html").getStatus()).isEqualTo(200);
+        assertThat(webUiResource("/webapp/dist/static/trino.ico").getStatus()).isEqualTo(200);
     }
 
     @Test

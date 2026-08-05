@@ -38,13 +38,13 @@ public class TestAutoTablePrinter
                 .add(column("quantity", BIGINT))
                 .build();
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AutoTablePrinter(columns, writer, 100);
+        OutputPrinter printer = new AutoTablePrinter(columns, writer, 100, Theme.NONE);
 
         printer.printRows(rows(
-                row("hello", "world", 123),
-                row("a", null, 4.5),
-                row("b", null, null),
-                row("bye", "done", -15)),
+                        row("hello", "world", 123),
+                        row("a", null, 4.5),
+                        row("b", null, null),
+                        row("bye", "done", -15)),
                 true);
         printer.finish();
 
@@ -70,7 +70,7 @@ public class TestAutoTablePrinter
                 .add(column("last", VARCHAR))
                 .add(column("quantity", BIGINT))
                 .build();
-        OutputPrinter printer = new AutoTablePrinter(columns, writer, 10);
+        OutputPrinter printer = new AutoTablePrinter(columns, writer, 10, Theme.NONE);
 
         printer.printRows(rows(
                         row("hello", "world", 123),

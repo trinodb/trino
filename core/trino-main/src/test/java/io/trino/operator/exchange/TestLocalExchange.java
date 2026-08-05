@@ -20,7 +20,7 @@ import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.block.BlockAssertions;
 import io.trino.connector.CatalogHandle;
-import io.trino.operator.PageAssertions;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -42,6 +42,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -55,6 +56,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
+import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -79,11 +81,11 @@ public class TestLocalExchange
     private static final DataSize RETAINED_PAGE_SIZE = DataSize.ofBytes(createPage(42).getRetainedSizeInBytes());
     private static final DataSize PAGE_SIZE = DataSize.ofBytes(createPage(42).getSizeInBytes());
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, MEGABYTE);
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
     private static final DataSize WRITER_SCALING_MIN_DATA_PROCESSED = DataSize.of(32, MEGABYTE);
     private static final Supplier<Long> TOTAL_MEMORY_USED = () -> 0L;
-    private static final Optional<Integer> BUCKET_COUNT = Optional.of(8);
+    private static final OptionalInt BUCKET_COUNT = OptionalInt.of(8);
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private PartitionFunctionProvider functionProvider;
@@ -93,7 +95,7 @@ public class TestLocalExchange
     public void setUp()
     {
         functionProvider = new PartitionFunctionProvider(
-                new TypeOperators(),
+                new NullSafeHashCompiler(new TypeOperators()),
                 catalogHandle -> {
                     ConnectorNodePartitioningProvider result = partitionManagers.get(catalogHandle);
                     checkArgument(result != null, "No partition manager for catalog handle: %s", catalogHandle);
@@ -113,7 +115,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 DataSize.ofBytes(retainedSizeOfPages(99)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -187,7 +189,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -237,7 +239,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.ofBytes(sizeOfPages(2)),
                 TOTAL_MEMORY_USED);
 
@@ -297,7 +299,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.ofBytes(sizeOfPages(10)),
                 TOTAL_MEMORY_USED);
 
@@ -320,7 +322,7 @@ public class TestLocalExchange
             LocalExchangeSource sourceC = exchange.getNextSource();
             assertSource(sourceC, 0);
 
-            range(0, 6).forEach(i -> sink.addPage(createPage(0)));
+            range(0, 6).forEach(_ -> sink.addPage(createPage(0)));
             assertThat(sourceA.getBufferInfo().getBufferedPages()).isEqualTo(6);
             assertThat(sourceB.getBufferInfo().getBufferedPages()).isEqualTo(0);
             assertThat(sourceC.getBufferInfo().getBufferedPages()).isEqualTo(0);
@@ -348,7 +350,7 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 TYPES,
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 TOTAL_MEMORY_USED);
 
@@ -457,7 +459,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.ofBytes(sizeOfPages(2)),
                 totalMemoryUsed::get);
 
@@ -482,7 +484,7 @@ public class TestLocalExchange
 
             totalMemoryUsed.set(DataSize.of(11, MEGABYTE).toBytes());
 
-            range(0, 6).forEach(i -> sink.addPage(createPage(0)));
+            range(0, 6).forEach(_ -> sink.addPage(createPage(0)));
             assertThat(sourceA.getBufferInfo().getBufferedPages()).isEqualTo(6);
             assertThat(sourceB.getBufferInfo().getBufferedPages()).isEqualTo(0);
             assertThat(sourceC.getBufferInfo().getBufferedPages()).isEqualTo(0);
@@ -501,7 +503,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 DataSize.ofBytes(retainedSizeOfPages(20)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.ofBytes(sizeOfPages(2)),
                 TOTAL_MEMORY_USED);
 
@@ -525,7 +527,7 @@ public class TestLocalExchange
             LocalExchangeSource sourceC = exchange.getNextSource();
             assertSource(sourceC, 0);
 
-            range(0, 8).forEach(i -> sink.addPage(createPage(0)));
+            range(0, 8).forEach(_ -> sink.addPage(createPage(0)));
             physicalWrittenBytesA.set(retainedSizeOfPages(8));
             sink.addPage(createPage(0));
             assertThat(sourceA.getBufferInfo().getBufferedPages()).isEqualTo(9);
@@ -554,7 +556,7 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 TYPES,
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 TOTAL_MEMORY_USED);
 
@@ -650,7 +652,7 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 TYPES,
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(50, MEGABYTE),
                 TOTAL_MEMORY_USED);
 
@@ -720,7 +722,7 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 TYPES,
                 DataSize.of(50, MEGABYTE),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 TOTAL_MEMORY_USED);
 
@@ -792,7 +794,7 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 TYPES,
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 totalMemoryUsed::get);
 
@@ -879,7 +881,7 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 TYPES,
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 totalMemoryUsed::get);
 
@@ -972,7 +974,7 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 TYPES,
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(50, KILOBYTE),
                 TOTAL_MEMORY_USED);
 
@@ -1020,7 +1022,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 DataSize.ofBytes(retainedSizeOfPages(1)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1088,7 +1090,7 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 TYPES,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1185,7 +1187,7 @@ public class TestLocalExchange
                 ImmutableList.of(1),
                 ImmutableList.of(BIGINT),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1237,7 +1239,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1285,7 +1287,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 ImmutableList.of(),
                 DataSize.ofBytes(2),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1426,10 +1428,7 @@ public class TestLocalExchange
     {
         assertThat(source.waitForReading().isDone()).isTrue();
         Page actualPage = source.removePage();
-        assertThat(actualPage).isNotNull();
-
-        assertThat(actualPage.getChannelCount()).isEqualTo(expectedPage.getChannelCount());
-        PageAssertions.assertPageEquals(types, actualPage, expectedPage);
+        assertPageEquals(types, actualPage, expectedPage);
     }
 
     private static void assertPartitionedRemovePage(LocalExchangeSource source, int partition, int partitionCount)
@@ -1438,7 +1437,7 @@ public class TestLocalExchange
         Page page = source.removePage();
         assertThat(page).isNotNull();
 
-        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[] {0}, TYPE_OPERATORS), partitionCount);
+        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[] {0}, HASH_COMPILER), partitionCount);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertThat(partitionGenerator.getPartition(page, position)).isEqualTo(partition);
         }
@@ -1485,7 +1484,7 @@ public class TestLocalExchange
 
     private static Page createSingleValuePage(int value, int length)
     {
-        List<Long> values = range(0, length).mapToObj(i -> (long) value).collect(toImmutableList());
+        List<Long> values = range(0, length).mapToObj(_ -> (long) value).collect(toImmutableList());
         Block block = BlockAssertions.createLongsBlock(values);
         return new Page(block);
     }

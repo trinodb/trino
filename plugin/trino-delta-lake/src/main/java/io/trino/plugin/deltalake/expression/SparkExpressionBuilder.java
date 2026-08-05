@@ -62,7 +62,7 @@ public class SparkExpressionBuilder
             case SparkExpressionBaseParser.MINUS -> ArithmeticBinaryExpression.Operator.SUBTRACT;
             case SparkExpressionBaseParser.ASTERISK -> ArithmeticBinaryExpression.Operator.MULTIPLY;
             case SparkExpressionBaseParser.SLASH -> ArithmeticBinaryExpression.Operator.DIVIDE;
-            case SparkExpressionBaseParser.PERCENT -> ArithmeticBinaryExpression.Operator.MODULUS;
+            case SparkExpressionBaseParser.PERCENT -> ArithmeticBinaryExpression.Operator.MODULO;
             case SparkExpressionBaseParser.AMPERSAND -> ArithmeticBinaryExpression.Operator.BITWISE_AND;
             case SparkExpressionBaseParser.CIRCUMFLEX -> ArithmeticBinaryExpression.Operator.BITWISE_XOR;
             default -> throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
@@ -81,7 +81,7 @@ public class SparkExpressionBuilder
     @Override
     public SparkExpression visitAnd(SparkExpressionBaseParser.AndContext context)
     {
-        verify(context.booleanExpression().size() == 2, "AND operator expects two expressions: " + context.booleanExpression());
+        verify(context.booleanExpression().size() == 2, "AND operator expects two expressions: %s", context.booleanExpression());
         return new LogicalExpression(
                 LogicalExpression.Operator.AND,
                 visit(context.left, SparkExpression.class),
@@ -91,7 +91,7 @@ public class SparkExpressionBuilder
     @Override
     public Object visitOr(SparkExpressionBaseParser.OrContext context)
     {
-        verify(context.booleanExpression().size() == 2, "AND operator expects two expressions: " + context.booleanExpression());
+        verify(context.booleanExpression().size() == 2, "AND operator expects two expressions: %s", context.booleanExpression());
         return new LogicalExpression(
                 LogicalExpression.Operator.OR,
                 visit(context.left, SparkExpression.class),
@@ -239,7 +239,7 @@ public class SparkExpressionBuilder
     {
         BASE,
         ESCAPED,
-        UNICODE_SEQUENCE
+        UNICODE_SEQUENCE,
     }
 
     @Override

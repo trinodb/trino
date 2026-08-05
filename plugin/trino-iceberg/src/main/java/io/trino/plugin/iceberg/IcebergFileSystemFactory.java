@@ -20,5 +20,17 @@ import java.util.Map;
 
 public interface IcebergFileSystemFactory
 {
+    /**
+     * Creates a file system using raw FileIO properties, as delivered directly by the Iceberg catalog.
+     */
     TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties);
+
+    /**
+     * Creates a file system from typed table credentials, which carry both the global FileIO properties
+     * and any prefixed storage credentials vended by the catalog.
+     */
+    default TrinoFileSystem create(ConnectorIdentity identity, IcebergTableCredentials tableCredentials)
+    {
+        return create(identity, tableCredentials.fileIoProperties());
+    }
 }

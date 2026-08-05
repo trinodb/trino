@@ -21,5 +21,4 @@ import io.trino.spi.function.AccumulatorStateMetadata;
         typeParameters = "T",
         serializedType = "ROW(BIGINT, ARRAY(T))")
 public interface MinNState
-        extends MinMaxNState
-{}
+        extends MinMaxNState {}

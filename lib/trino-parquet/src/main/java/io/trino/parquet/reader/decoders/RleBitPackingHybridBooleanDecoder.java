@@ -14,9 +14,12 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.flat.BitBuffer;
 import io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder;
 
 import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
+import static io.trino.spi.block.Bitmap.clearBits;
+import static io.trino.spi.block.Bitmap.setBits;
 
 /**
  * Decoder for RLE encoded values of BOOLEAN primitive type
@@ -25,7 +28,7 @@ import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
  * </a>
  */
 public final class RleBitPackingHybridBooleanDecoder
-        implements ValueDecoder<byte[]>
+        implements ValueDecoder<BitBuffer>
 {
     private final FlatDefinitionLevelDecoder decoder;
 
@@ -43,13 +46,12 @@ public final class RleBitPackingHybridBooleanDecoder
     }
 
     @Override
-    public void read(byte[] values, int offset, int length)
+    public void read(BitBuffer values, int offset, int length)
     {
-        boolean[] buffer = new boolean[length];
-        decoder.readNext(buffer, 0, length);
-        for (int i = 0; i < length; i++) {
-            // NullsDecoder returns false for 1 (non-null) and true for 0 (null)
-            values[offset + i] = buffer[i] ? (byte) 0 : (byte) 1;
+        clearBits(values.getValues(), 0, offset, length);
+        int trueCount = decoder.readNext(values.getValues(), offset, length);
+        if (trueCount == length) {
+            setBits(values.getValues(), 0, offset, length);
         }
     }
 

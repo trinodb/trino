@@ -199,19 +199,19 @@ public class ManageTestResources
                                     ManageTestResources.class,
                                     """
 
-                                            \tTest instance field has value that looks like a resource
-                                            \t    Test class: %s
-                                            \t    Instance: %s
-                                            \t    Field: %s
-                                            \t    Value: %s
-                                            \t    Test execution stage: %s
-                                            \t    Matching rule: %s
+                                    \tTest instance field has value that looks like a resource
+                                    \t    Test class: %s
+                                    \t    Instance: %s
+                                    \t    Field: %s
+                                    \t    Value: %s
+                                    \t    Test execution stage: %s
+                                    \t    Matching rule: %s
 
-                                            \tResources must not be allocated in a field initializer or a test constructor,
-                                            \tand must be freed when test class is completed.
-                                            \tDepending which rule has been violated, if the reported class holds on
-                                            \tto resources only conditionally, you can add @ResourcePresence to declare that.
-                                            """,
+                                    \tResources must not be allocated in a field initializer or a test constructor,
+                                    \tand must be freed when test class is completed.
+                                    \tDepending which rule has been violated, if the reported class holds on
+                                    \tto resources only conditionally, you can add @ResourcePresence to declare that.
+                                    """,
                                     testClass.getRealClass(),
                                     instance,
                                     field,
@@ -242,7 +242,7 @@ public class ManageTestResources
         Pattern pattern = Pattern.compile(classNamePattern);
         return named(
                 "declaredClassPattern(%s)".formatted(classNamePattern),
-                (field, value, stage) -> pattern.matcher(field.getType().getName()).matches());
+                (field, _, _) -> pattern.matcher(field.getType().getName()).matches());
     }
 
     /**
@@ -250,7 +250,7 @@ public class ManageTestResources
      */
     private static Rule isAutoCloseable()
     {
-        return named("isAutoCloseable", (field, value, stage) -> {
+        return named("isAutoCloseable", (_, value, stage) -> {
             if (!(value instanceof AutoCloseable)) {
                 return false;
             }
@@ -289,9 +289,8 @@ public class ManageTestResources
     private static Optional<Rule> isInstanceTransactionManagerField()
     {
         return tryLoadClass("io.trino.transaction.TransactionManager").map(transactionManagerClass ->
-                named(
-                        "is-instance-TransactionManager-field",
-                        (field, value, stage) -> {
+                named("is-instance-TransactionManager-field",
+                        (field, value, _) -> {
                             // Exclude static fields to allow usages of the form: `static final TransactionManager TRANSACTION_MANAGER = createTestTransactionManager()`
                             if (isStatic(field.getModifiers())) {
                                 return false;
@@ -323,7 +322,7 @@ public class ManageTestResources
      */
     private static Rule isLeftoverExecutorService()
     {
-        return named("isLeftoverExecutorService", (field, value, stage) -> {
+        return named("isLeftoverExecutorService", (_, value, stage) -> {
             if (!(value instanceof ExecutorService executorService)) {
                 return false;
             }

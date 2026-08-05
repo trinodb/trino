@@ -7,9 +7,9 @@ final aggregation over ()
                         remote exchange (REPARTITION, HASH, [cs_order_number_25, group])
                             partial aggregation over (cs_order_number_25, group)
                                 join (LEFT, PARTITIONED):
-                                    final aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_25, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
+                                    final aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_25, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique)
                                         local exchange (GATHER, SINGLE, [])
-                                            partial aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_25, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
+                                            partial aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_25, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique)
                                                 join (INNER, PARTITIONED, can skip output duplicates):
                                                     remote exchange (REPARTITION, HASH, [cs_order_number_25])
                                                         dynamic filter (cs_order_number_25::EQUAL)
@@ -19,7 +19,7 @@ final aggregation over ()
                                                             join (INNER, REPLICATED):
                                                                 join (INNER, REPLICATED):
                                                                     join (INNER, REPLICATED):
-                                                                        dynamic filter (cs_call_center_sk::EQUAL, cs_ship_addr_sk::EQUAL, cs_ship_date_sk::EQUAL)
+                                                                        dynamic filter (cs_ship_addr_sk::EQUAL, cs_call_center_sk::EQUAL, cs_ship_date_sk::EQUAL)
                                                                             scan catalog_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])

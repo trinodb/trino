@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -26,16 +25,17 @@ import io.airlift.compress.v3.snappy.SnappyNativeCompressor;
 import io.airlift.compress.v3.zstd.ZstdNativeCompressor;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
-import io.airlift.jmx.JmxHttpModule;
 import io.airlift.jmx.JmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
+import io.airlift.log.TerminalColors;
 import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracing.TracingModule;
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
+import io.trino.cache.CacheManagerModule;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.CatalogStoreManager;
 import io.trino.connector.ConnectorServicesProvider;
@@ -63,11 +63,14 @@ import org.weakref.jmx.guice.MBeanModule;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static com.google.common.base.StandardSystemProperty.JAVA_VERSION;
+import static io.airlift.log.TerminalColors.Color.CYAN;
+import static io.airlift.log.TerminalColors.Color.PURPLE;
+import static io.airlift.log.TerminalColors.Color.YELLOW;
 import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -81,57 +84,54 @@ public class Server
 
     private void doStart(String trinoVersion)
     {
+        long startTime = System.nanoTime();
+
         // Trino server behavior does not depend on locale settings.
         // Use en_US as this is what Trino is tested with.
         Locale.setDefault(Locale.US);
-
-        long startTime = System.nanoTime();
         verifySystemRequirements();
 
         Logger log = Logger.get(Server.class);
-        log.info("Java version: %s", StandardSystemProperty.JAVA_VERSION.value());
+        displayBanner(log, trinoVersion);
 
-        ImmutableList.Builder<Module> modules = ImmutableList.builder();
-        modules.add(
-                new NodeModule(),
-                new HttpServerModule(),
-                new JsonModule(),
-                new JaxrsModule(),
-                new MBeanModule(),
-                new PrefixObjectNameGeneratorModule("io.trino"),
-                new JmxModule(),
-                new JmxHttpModule(),
-                new JmxOpenMetricsModule(),
-                new LogJmxModule(),
-                new TracingModule("trino", trinoVersion),
-                new ServerSecurityModule(),
-                new AccessControlModule(),
-                new EventListenerModule(),
-                new ExchangeManagerModule(),
-                new CatalogManagerModule(),
-                new TransactionManagerModule(),
-                new NodeManagerModule(trinoVersion),
-                new ServerMainModule(trinoVersion),
-                new NodeStateManagerModule(),
-                new WarningCollectorModule());
+        List<Module> modules = ImmutableList.<Module>builder()
+                .add(new AccessControlModule())
+                .add(new CacheManagerModule())
+                .add(new CatalogManagerModule())
+                .add(new EventListenerModule())
+                .add(new ExchangeManagerModule())
+                .add(new HttpServerModule())
+                .add(new JaxrsModule())
+                .add(new JmxModule())
+                .add(new JmxOpenMetricsModule())
+                .add(new JsonModule())
+                .add(new LogJmxModule())
+                .add(new MBeanModule())
+                .add(new NodeManagerModule(trinoVersion))
+                .add(new NodeModule())
+                .add(new NodeStateManagerModule())
+                .add(new PrefixObjectNameGeneratorModule("io.trino"))
+                .add(new ServerMainModule(trinoVersion))
+                .add(new ServerSecurityModule())
+                .add(new TracingModule("trino", trinoVersion))
+                .add(new TransactionManagerModule())
+                .add(new WarningCollectorModule())
+                .addAll(getAdditionalModules())
+                .build();
 
-        modules.addAll(getAdditionalModules());
-
-        Bootstrap app = new Bootstrap(modules.build())
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.engine", modules)
                 .loadSecretsPlugins();
 
         try {
             Injector injector = app.initialize();
 
-            log.info("Trino version: %s", injector.getInstance(NodeVersion.class).getVersion());
             log.info("Zstandard native compression: %s", formatEnabled(ZstdNativeCompressor.isEnabled()));
             log.info("Lz4 native compression: %s", formatEnabled(Lz4NativeCompressor.isEnabled()));
             log.info("Snappy native compression: %s", formatEnabled(SnappyNativeCompressor.isEnabled()));
 
-            logLocation(log, "Working directory", Paths.get("."));
-            logLocation(log, "Etc directory", Paths.get("etc"));
-
             injector.getInstance(PluginInstaller.class).loadPlugins();
+            // Caches can be requested for initial catalogs so we need to wire these first
+            injector.getInstance(CacheManagerRegistry.class).loadCacheManagers();
 
             var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
             catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);
@@ -197,24 +197,32 @@ public class Server
         return ImmutableList.of();
     }
 
-    private static void logLocation(Logger log, String name, Path path)
+    private static String resolveLocation(Path path)
     {
         if (!Files.exists(path, NOFOLLOW_LINKS)) {
-            log.info("%s: [does not exist]", name);
-            return;
+            return "[does not exist]";
         }
         try {
-            path = path.toAbsolutePath().toRealPath();
+            return path.toAbsolutePath().toRealPath().toString();
         }
         catch (IOException e) {
-            log.info("%s: [not accessible]", name);
-            return;
+            return "[not accessible]";
         }
-        log.info("%s: %s", name, path);
     }
 
     private static String formatEnabled(boolean flag)
     {
         return flag ? "enabled" : "disabled";
+    }
+
+    private static void displayBanner(Logger log, String trinoVersion)
+    {
+        TerminalColors colors = new TerminalColors(true);
+        String banner = "\n"
+                + "             " + colors.colored("Trino version:     ", CYAN) + colors.colored(trinoVersion, YELLOW) + "\n"
+                + colors.colored("   (\\(\\", PURPLE) + "      " + colors.colored("Java version:      ", CYAN) + colors.colored(JAVA_VERSION.value(), YELLOW) + "\n"
+                + colors.colored("   ( -.-)", PURPLE) + "    " + colors.colored("Working directory: ", CYAN) + colors.colored(resolveLocation(Path.of(".")), YELLOW) + "\n"
+                + colors.colored("  o_(\")(\")", PURPLE) + "   " + colors.colored("Etc directory:     ", CYAN) + colors.colored(resolveLocation(Path.of("etc")), YELLOW) + "\n";
+        log.info("%s", banner);
     }
 }

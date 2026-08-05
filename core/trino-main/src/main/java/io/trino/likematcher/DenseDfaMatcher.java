@@ -161,7 +161,7 @@ class DenseDfaMatcher
                             state = next;
                         }
                     }
-                    case Pattern.ZeroOrMore zeroOrMore -> matchSingleUtf8(builder, state, state);
+                    case Pattern.ZeroOrMore _ -> matchSingleUtf8(builder, state, state);
                     default -> throw new UnsupportedOperationException("Not supported: " + item.getClass().getName());
                 }
             }

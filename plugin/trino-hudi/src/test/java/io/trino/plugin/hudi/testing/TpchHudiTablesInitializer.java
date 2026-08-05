@@ -44,6 +44,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
+import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.bootstrap.index.NoOpBootstrapIndex;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
@@ -80,6 +81,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
 import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
@@ -88,7 +90,6 @@ import static io.trino.metastore.HiveType.HIVE_DOUBLE;
 import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.metastore.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
@@ -129,8 +130,8 @@ public class TpchHudiTablesInitializer
                 .getInstance(TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
         HiveMetastore metastore = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
-                        .getInstance(HiveMetastoreFactory.class)
-                        .createMetastore(Optional.empty());
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
 
         Location dataLocation = externalLocation.appendPath("tpch");
 
@@ -166,9 +167,9 @@ public class TpchHudiTablesInitializer
                     .map(MaterializedRow::getFields)
                     .map(recordConverter::toRecord)
                     .collect(Collectors.toList());
-            String timestamp = "0";
-            writeClient.startCommitWithTime(timestamp);
-            writeClient.insert(records, timestamp);
+            String newCommitTime = writeClient.startCommit();
+            List<WriteStatus> statuses = writeClient.insert(records, newCommitTime);
+            writeClient.commit(newCommitTime, statuses);
         }
     }
 

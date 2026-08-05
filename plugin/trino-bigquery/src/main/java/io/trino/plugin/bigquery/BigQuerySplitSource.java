@@ -29,6 +29,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.predicate.TupleDomain;
 import jakarta.annotation.Nullable;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -77,7 +78,8 @@ public class BigQuerySplitSource
     private List<BigQuerySplit> splits;
     private int offset;
 
-    public BigQuerySplitSource(ConnectorSession session,
+    public BigQuerySplitSource(
+            ConnectorSession session,
             BigQueryTableHandle table,
             BigQueryClientFactory bigQueryClientFactory,
             BigQueryReadClientFactory bigQueryReadClientFactory,
@@ -99,13 +101,13 @@ public class BigQuerySplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         if (splits == null) {
             splits = getSplits(session, table);
         }
 
-        return completedFuture(new ConnectorSplitBatch(prepareNextBatch(maxSize), isFinished()));
+        return completedFuture(prepareNextBatch(maxSize));
     }
 
     private List<ConnectorSplit> prepareNextBatch(int maxSize)
@@ -155,7 +157,9 @@ public class BigQuerySplitSource
             String query = buildNativeQuery(bigQueryQueryRelationHandle.getQuery(), filter, limit);
 
             TableId destinationTable = bigQueryQueryRelationHandle.getDestinationTableName().toTableId();
-            TableInfo tableInfo = new ViewMaterializationCache.DestinationTableBuilder(bigQueryClientFactory.create(session), viewExpiration, query, destinationTable).get();
+            BigQueryClient bigQueryClient = bigQueryClientFactory.create(session);
+            Optional<TableInfo> bigQueryTable = bigQueryClient.getTable(destinationTable);
+            TableInfo tableInfo = bigQueryTable.orElseGet(() -> new ViewMaterializationCache.DestinationTableBuilder(bigQueryClient, viewExpiration, query, destinationTable).get());
 
             log.debug("Using Storage API for running query: %s", query);
             remoteTableId = tableInfo.getTableId();

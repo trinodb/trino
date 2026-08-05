@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit;
 
 public class TestDirectExchangeClientConfig
 {
@@ -36,7 +36,7 @@ public class TestDirectExchangeClientConfig
                 .setMaxBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setConcurrentRequestMultiplier(3)
                 .setMaxErrorDuration(new Duration(1, TimeUnit.MINUTES))
-                .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
+                .setMaxResponseSize(new HttpClientConfig().getMaxResponseContentLength())
                 .setPageBufferClientMaxCallbackThreads("25")
                 .setClientThreads("25")
                 .setAcknowledgePages(true)

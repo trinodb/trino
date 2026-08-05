@@ -59,6 +59,7 @@ public class TestPinotConnectorTest
                  SUPPORTS_CREATE_VIEW,
                  SUPPORTS_DELETE,
                  SUPPORTS_INSERT,
+                 SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_MERGE,
                  SUPPORTS_RENAME_COLUMN,
@@ -147,6 +148,8 @@ public class TestPinotConnectorTest
     {
         assertExplain(
                 "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "columnName=nationkey", "dataType=bigint", "\\s\\{\\[42\\]\\}");
+                "columnName=nationkey",
+                "dataType=bigint",
+                "\\s\\{\\[42\\]\\}");
     }
 }

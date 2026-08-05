@@ -18,7 +18,7 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.IntegerType.INTEGER;

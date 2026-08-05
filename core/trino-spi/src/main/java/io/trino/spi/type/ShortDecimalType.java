@@ -46,7 +46,9 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 final class ShortDecimalType
@@ -123,18 +125,11 @@ final class ShortDecimalType
         if (block.isNull(position)) {
             return null;
         }
-        return new SqlDecimal(BigInteger.valueOf(getLong(block, position)), getPrecision(), getScale());
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
+        long value = getLong(block, position);
+        if (overflows(value, getPrecision())) {
+            throw new IllegalArgumentException(format("Value out of range for DECIMAL(%s, %s): %s", getPrecision(), getScale(), value));
         }
-        else {
-            writeLong(blockBuilder, getLong(block, position));
-        }
+        return new SqlDecimal(BigInteger.valueOf(value), getPrecision(), getScale());
     }
 
     @Override
@@ -206,12 +201,24 @@ final class ShortDecimalType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             long value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition LongArrayBlock rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return equalOperator((long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset), rightBlock.getLong(rightPosition));
     }
 
     @ScalarOperator(EQUAL)

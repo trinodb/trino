@@ -170,7 +170,7 @@ public class MaterializedViewSystemTable
 
             if (needFreshness) {
                 try {
-                    freshness = Optional.of(metadata.getMaterializedViewFreshness(session, name));
+                    freshness = Optional.of(metadata.getMaterializedViewFreshness(session, name, false));
                 }
                 catch (MaterializedViewNotFoundException e) {
                     // Ignore materialized view that was dropped during query execution (race condition)
@@ -196,7 +196,7 @@ public class MaterializedViewSystemTable
                             .map(Enum::name)
                             .orElse(null),
                     // last_fresh_time
-                    freshness.flatMap(MaterializedViewFreshness::getLastFreshTime)
+                    freshness.flatMap(MaterializedViewFreshness::getLastKnownFreshTime)
                             .map(instant -> LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
                                     instant.getEpochSecond(),
                                     (long) instant.getNano() * PICOSECONDS_PER_NANOSECOND,

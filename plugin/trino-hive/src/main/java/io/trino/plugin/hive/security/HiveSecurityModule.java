@@ -33,7 +33,6 @@ public class HiveSecurityModule
         FILE,
         SQL_STANDARD,
         SYSTEM,
-        /**/
     }
 
     @Override

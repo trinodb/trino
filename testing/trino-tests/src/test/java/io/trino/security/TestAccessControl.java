@@ -38,6 +38,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.function.BoundSignature;
@@ -82,6 +83,7 @@ import java.util.function.BiFunction;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
@@ -171,20 +173,20 @@ public class TestAccessControl
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withGetTableHandle((session1, schemaTableName) -> {
+                .withGetTableHandle((_, schemaTableName) -> {
                     if (schemaTableName.getTableName().startsWith("new")) {
                         return null;
                     }
                     return new MockConnectorTableHandle(schemaTableName);
                 })
-                .withListSchemaNames(connectorSession -> ImmutableList.of(DEFAULT_SCHEMA))
-                .withListTables((connectorSession, schemaName) -> {
+                .withListSchemaNames(_ -> ImmutableList.of(DEFAULT_SCHEMA))
+                .withListTables((_, schemaName) -> {
                     if (schemaName.equals(DEFAULT_SCHEMA)) {
                         return ImmutableList.of(REDIRECTED_SOURCE);
                     }
                     return ImmutableList.of();
                 })
-                .withGetViews((connectorSession, prefix) -> {
+                .withGetViews((_, _) -> {
                     ConnectorViewDefinition definitionRunAsDefiner = new ConnectorViewDefinition(
                             "SELECT 1 AS test",
                             Optional.of("mock"),
@@ -219,6 +221,7 @@ public class TestAccessControl
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId(), Optional.empty())),
                                 Optional.of(Duration.ZERO),
+                                Optional.empty(),
                                 Optional.of("comment"),
                                 Optional.of("owner"),
                                 ImmutableList.of());
@@ -226,7 +229,13 @@ public class TestAccessControl
                                 new SchemaTableName("default", "test_materialized_view"), materializedViewDefinition);
                     }
                 })
-                .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
+                .withGetMaterializedViewsFreshness((_, materializedViewName) -> {
+                    if (materializedViewName.equals(new SchemaTableName("default", "test_materialized_view"))) {
+                        return new MaterializedViewFreshness(STALE, Optional.empty());
+                    }
+                    throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
+                })
+                .withListRoleGrants((_, _, _, _) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
                 .withAnalyzeProperties(() -> ImmutableList.of(
                         integerProperty("another_property", "description", 0, false),
                         integerProperty("integer_analyze_property", "description", 0, false)))
@@ -242,7 +251,7 @@ public class TestAccessControl
                 .withColumnProperties(() -> ImmutableList.of(
                         integerProperty("another_property", "description", 0, false),
                         stringProperty("string_column_property", "description", "", false)))
-                .withRedirectTable((connectorSession, schemaTableName) -> {
+                .withRedirectTable((_, schemaTableName) -> {
                     if (schemaTableName.equals(SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_SOURCE))) {
                         return Optional.of(
                                 new CatalogSchemaTableName("mock", SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_TARGET)));
@@ -258,11 +267,11 @@ public class TestAccessControl
                 .withFunctions(ImmutableList.<FunctionMetadata>builder()
                         .add(FunctionMetadata.scalarBuilder("my_function")
                                 .signature(Signature.builder().argumentType(BIGINT).returnType(BIGINT).build())
-                                .noDescription()
+                                .description("")
                                 .build())
                         .add(FunctionMetadata.scalarBuilder("other_function")
                                 .signature(Signature.builder().argumentType(BIGINT).returnType(BIGINT).build())
-                                .noDescription()
+                                .description("")
                                 .build())
                         .build())
                 .withFunctionProvider(Optional.of(new FunctionProvider()
@@ -503,7 +512,8 @@ public class TestAccessControl
                 .denyIdentityTable((identity, table) -> !(identity.getEnabledRoles().contains("view_owner_role_without_access") && "orders".equals(table)));
 
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
-        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession,
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                viewOwnerSession,
                 "SELECT * FROM " + viewName))
                 .hasMessageMatching("Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders");
 
@@ -797,7 +807,7 @@ public class TestAccessControl
                 new TestingPrivilege(Optional.empty(), "mock.function.my_function", EXECUTE_FUNCTION));
 
         // inline and builtin functions are always allowed, and there are no security checks
-        TestingPrivilege denyAllFunctionCalls = new TestingPrivilege(Optional.empty(), name -> true, EXECUTE_FUNCTION);
+        TestingPrivilege denyAllFunctionCalls = new TestingPrivilege(Optional.empty(), _ -> true, EXECUTE_FUNCTION);
         assertAccessAllowed("SELECT abs(42)", denyAllFunctionCalls);
         assertAccessAllowed("WITH FUNCTION foo() RETURNS int RETURN 42 SELECT foo()", denyAllFunctionCalls);
         assertAccessDenied("SELECT my_function(42)", "Cannot execute function my_function", denyAllFunctionCalls);
@@ -1736,7 +1746,7 @@ public class TestAccessControl
         public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
         {
             return functionNames.stream()
-                    .filter(functionName -> !functionName.getFunctionName().startsWith("deny_"))
+                    .filter(functionName -> !functionName.functionName().startsWith("deny_"))
                     .collect(toImmutableSet());
         }
     }

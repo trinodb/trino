@@ -40,7 +40,6 @@ public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
     private static final int INSTANCE_SIZE = instanceSize(SimplePagesHashStrategy.class);
-    private final Type[] types;
     @Nullable
     private final BlockPositionComparison comparisonOperator; // null when sort channel is absent
     private final int[] outputChannels;
@@ -60,15 +59,14 @@ public class SimplePagesHashStrategy
             Optional<Integer> sortChannel,
             BlockTypeOperators blockTypeOperators)
     {
-        this.types = toTypesArray(requireNonNull(types, "types is null"));
         this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
         this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));
 
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = Ints.toArray(requireNonNull(hashChannels, "hashChannels is null"));
         this.sortChannel = requireNonNull(sortChannel, "sortChannel is null").isEmpty() ? OptionalInt.empty() : OptionalInt.of(sortChannel.get());
-        if (this.sortChannel.isPresent() && this.types[this.sortChannel.getAsInt()].isOrderable()) {
-            this.comparisonOperator = blockTypeOperators.getComparisonUnorderedLastOperator(this.types[this.sortChannel.getAsInt()]);
+        if (this.sortChannel.isPresent() && types.get(this.sortChannel.orElseThrow()).isOrderable()) {
+            this.comparisonOperator = blockTypeOperators.getComparisonUnorderedLastOperator(types.get(this.sortChannel.orElseThrow()));
         }
         else {
             this.comparisonOperator = null;
@@ -78,7 +76,7 @@ public class SimplePagesHashStrategy
         this.hashCodeOperators = new BlockPositionHashCode[this.hashChannels.length];
         this.identicalOperators = new BlockPositionIsIdentical[this.hashChannels.length];
         for (int i = 0; i < this.hashChannels.length; i++) {
-            Type type = this.types[this.hashChannels[i]];
+            Type type = types.get(this.hashChannels[i]);
             equalOperators[i] = blockTypeOperators.getEqualOperator(type);
             hashCodeOperators[i] = blockTypeOperators.getHashCodeOperator(type);
             identicalOperators[i] = blockTypeOperators.getIdenticalOperator(type);
@@ -111,10 +109,9 @@ public class SimplePagesHashStrategy
     public void appendTo(int blockIndex, int position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         for (int outputIndex : outputChannels) {
-            Type type = types[outputIndex];
             List<Block> channel = channels.get(outputIndex);
             Block block = channel.get(blockIndex);
-            type.appendTo(block, position, pageBuilder.getBlockBuilder(outputChannelOffset));
+            pageBuilder.getBlockBuilder(outputChannelOffset).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             outputChannelOffset++;
         }
     }
@@ -142,38 +139,12 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean rowEqualsRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
-    {
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block leftBlock = leftPage.getBlock(i);
-            Block rightBlock = rightPage.getBlock(i);
-            if (!equalOperators[i].equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
     public boolean rowIdenticalToRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.length; i++) {
             Block leftBlock = leftPage.getBlock(i);
             Block rightBlock = rightPage.getBlock(i);
             if (!identicalOperators[i].isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
-    {
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block leftBlock = channels.get(hashChannels[i]).get(leftBlockIndex);
-            Block rightBlock = rightPage.getBlock(i);
-            if (!equalOperators[i].equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -216,20 +187,6 @@ public class SimplePagesHashStrategy
             Block rightBlock = page.getBlock(rightChannels[i]);
             BlockPositionIsIdentical identical = identicalOperators[i];
             if (!identical.isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition)
-    {
-        for (int i = 0; i < hashChannels.length; i++) {
-            List<Block> channel = channels.get(hashChannels[i]);
-            Block leftBlock = channel.get(leftBlockIndex);
-            Block rightBlock = channel.get(rightBlockIndex);
-            if (!equalOperators[i].equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -303,17 +260,6 @@ public class SimplePagesHashStrategy
 
     private int getSortChannel()
     {
-        return sortChannel.getAsInt();
-    }
-
-    private static Type[] toTypesArray(List<Type> types)
-    {
-        Type[] array = types.toArray(Type[]::new);
-        for (Type type : array) {
-            if (type == null) {
-                throw new IllegalArgumentException("types contains null element");
-            }
-        }
-        return array;
+        return sortChannel.orElseThrow();
     }
 }

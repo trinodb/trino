@@ -15,6 +15,7 @@ package io.trino.event;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -22,7 +23,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit;
 
 public class TestQueryMonitorConfig
 {

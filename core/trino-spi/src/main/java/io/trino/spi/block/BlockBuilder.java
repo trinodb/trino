@@ -56,6 +56,19 @@ public interface BlockBuilder
     void appendPositions(ValueBlock block, int[] positions, int offset, int length);
 
     /**
+     * Append the values in the specified range of a Block, this should be used only when
+     * the Block type can be potentially something other than ValueBlock.
+     */
+    default void appendBlockRange(Block rawBlock, int offset, int length)
+    {
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> appendRepeated(rleBlock.getValue(), 0, length);
+            case DictionaryBlock dictionaryBlock -> appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), dictionaryBlock.getRawIdsOffset() + offset, length);
+            case ValueBlock valueBlock -> appendRange(valueBlock, offset, length);
+        }
+    }
+
+    /**
      * Appends a null value to the block.
      */
     BlockBuilder appendNull();

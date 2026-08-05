@@ -18,7 +18,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -30,9 +29,10 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.anonymousRow;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 class TestPushFilterIntoValues
@@ -71,7 +71,7 @@ class TestPushFilterIntoValues
                     Symbol a = p.symbol("a", DOUBLE);
                     Symbol b = p.symbol("b", DOUBLE);
                     return p.filter(
-                            new Comparison(GREATER_THAN, new Reference(DOUBLE, "a"), new Call(random, ImmutableList.of())),
+                            comparison(GREATER_THAN, new Reference(DOUBLE, "a"), new Call(random, ImmutableList.of())),
                             p.values(5, a, b));
                 }).doesNotFire();
     }
@@ -84,7 +84,7 @@ class TestPushFilterIntoValues
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);
                     return p.filter(
-                            new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L)),
+                            comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L)),
                             p.values(a, b));
                 }).matches(
                         values(ImmutableList.of("a", "b")));
@@ -130,7 +130,7 @@ class TestPushFilterIntoValues
                     Symbol a = p.symbol("a", DOUBLE);
                     Symbol b = p.symbol("b", DOUBLE);
                     return p.filter(
-                            new Comparison(GREATER_THAN, new Reference(DOUBLE, "c"), new Constant(DOUBLE, 0.0)),
+                            comparison(GREATER_THAN, new Reference(DOUBLE, "c"), new Constant(DOUBLE, 0.0)),
                             p.values(5, a, b));
                 }).doesNotFire();
     }
@@ -143,7 +143,7 @@ class TestPushFilterIntoValues
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);
                     return p.filter(
-                            new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                            comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
                             p.values(
                                     ImmutableList.of(a, b),
                                     ImmutableList.of(
@@ -161,7 +161,7 @@ class TestPushFilterIntoValues
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);
                     return p.filter(
-                            new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                            comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
                             p.values(
                                     ImmutableList.of(a, b),
                                     ImmutableList.of(
@@ -181,7 +181,7 @@ class TestPushFilterIntoValues
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);
                     return p.filter(
-                            new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                            comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
                             p.values(
                                     ImmutableList.of(a, b),
                                     ImmutableList.of(

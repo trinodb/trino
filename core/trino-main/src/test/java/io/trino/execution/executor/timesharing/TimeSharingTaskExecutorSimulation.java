@@ -60,7 +60,7 @@ import static java.util.function.Function.identity;
 public class TimeSharingTaskExecutorSimulation
         implements Closeable
 {
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         try (TimeSharingTaskExecutorSimulation simulator = new TimeSharingTaskExecutorSimulation()) {

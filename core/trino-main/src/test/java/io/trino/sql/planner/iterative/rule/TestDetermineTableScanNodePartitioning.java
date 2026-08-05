@@ -16,15 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.cost.StatsProvider;
 import io.trino.cost.TaskCountEstimator;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.MatchContext;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
-import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -174,7 +172,7 @@ public class TestDetermineTableScanNodePartitioning
             }
 
             @Override
-            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            public MatchResult detailMatches(PlanNode node, MatchContext context)
             {
                 TableScanNode tableScanNode = (TableScanNode) node;
                 if (tableScanNode.getUseConnectorNodePartitioning().isEmpty()) {

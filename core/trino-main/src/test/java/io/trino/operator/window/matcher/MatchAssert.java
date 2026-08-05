@@ -14,6 +14,7 @@
 package io.trino.operator.window.matcher;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.window.pattern.LabelEvaluator;
@@ -25,7 +26,6 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AssertProvider;
-import org.assertj.core.util.CanIgnoreReturnValue;
 
 import java.util.List;
 import java.util.Map;

@@ -27,6 +27,7 @@ import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
@@ -116,6 +117,7 @@ public final class DecimalSumAggregation
         }
     }
 
+    @SqlNullable
     @OutputFunction("decimal(38,s)")
     public static void outputDecimal(@AggregationState LongDecimalWithOverflowState state, BlockBuilder out)
     {

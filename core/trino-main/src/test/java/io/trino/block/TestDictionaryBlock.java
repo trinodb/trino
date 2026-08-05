@@ -103,14 +103,15 @@ public class TestDictionaryBlock
         Slice firstExpectedValue = expectedValues[0];
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
 
-        int[] positionsToCopy = new int[] {0, 10, 20, 30, 40};
+        int[] positionsToCopy = {0, 10, 20, 30, 40};
         DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
         assertThat(copiedBlock.getDictionary().getPositionCount()).isEqualTo(1);
         assertThat(copiedBlock.getPositionCount()).isEqualTo(positionsToCopy.length);
         assertBlock(copiedBlock.getDictionary(), new Slice[] {firstExpectedValue});
         assertBlock(copiedBlock, new Slice[] {
-                firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue});
+                firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue,
+        });
     }
 
     @Test
@@ -118,7 +119,7 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        int[] positionsToCopy = new int[] {50, 55, 40, 45, 60};
+        int[] positionsToCopy = {50, 55, 40, 45, 60};
 
         DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
@@ -134,7 +135,7 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        int[] positionsToCopy = new int[] {52, 52, 52};
+        int[] positionsToCopy = {52, 52, 52};
 
         DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
@@ -151,7 +152,7 @@ public class TestDictionaryBlock
         Slice[] expectedValues = createExpectedValues(1);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
 
-        int[] positionsToCopy = new int[] {0, 2, 4, 5};
+        int[] positionsToCopy = {0, 2, 4, 5};
         DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
         assertThat(copiedBlock.getPositionCount()).isEqualTo(positionsToCopy.length);
@@ -200,7 +201,8 @@ public class TestDictionaryBlock
         Slice[] expectedValues = createExpectedValues(10);
         Block dictionaryBlock = DictionaryBlock.create(6, createSlicesBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
         assertBlock(dictionaryBlock, new Slice[] {
-                expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5]});
+                expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5],
+        });
         DictionaryId dictionaryId = ((DictionaryBlock) dictionaryBlock).getDictionarySourceId();
 
         // first getPositions
@@ -226,7 +228,8 @@ public class TestDictionaryBlock
         // duplicated getPositions
         dictionaryBlock = dictionaryBlock.getPositions(new int[] {1, 1, 1, 1, 1}, 0, 5);
         assertBlock(dictionaryBlock, new Slice[] {
-                expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5]});
+                expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5],
+        });
         assertThat(((DictionaryBlock) dictionaryBlock).getDictionarySourceId()).isEqualTo(dictionaryId);
 
         // out of range

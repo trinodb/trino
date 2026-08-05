@@ -14,11 +14,11 @@
 package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -46,10 +46,10 @@ public class TestRuleTester
     {
         try (RuleTester tester = defaultRuleTester()) {
             RuleAssert ruleAssert = tester.assertThat(
-                    rule(
-                            "testReportWrongMatch rule",
-                            Pattern.typeOf(PlanNode.class),
-                            (node, captures, context) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
+                            rule(
+                                    "testReportWrongMatch rule",
+                                    Pattern.typeOf(PlanNode.class),
+                                    (node, _, _) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
                     .on(p ->
                             p.project(
                                     Assignments.of(p.symbol("y", INTEGER), new Reference(INTEGER, "x")),
@@ -69,10 +69,10 @@ public class TestRuleTester
     {
         try (RuleTester tester = defaultRuleTester()) {
             RuleAssert ruleAssert = tester.assertThat(
-                    rule(
-                            "testReportNoFire rule",
-                            Pattern.typeOf(PlanNode.class),
-                            (node, captures, context) -> Result.empty()))
+                            rule(
+                                    "testReportNoFire rule",
+                                    Pattern.typeOf(PlanNode.class),
+                                    (_, _, _) -> Result.empty()))
                     .on(p ->
                             p.values(
                                     List.of(p.symbol("x")),
@@ -90,10 +90,10 @@ public class TestRuleTester
     {
         try (RuleTester tester = defaultRuleTester()) {
             RuleAssert ruleAssert = tester.assertThat(
-                    rule(
-                            "testReportNoFireWithTableScan rule",
-                            Pattern.typeOf(PlanNode.class),
-                            (node, captures, context) -> Result.empty()))
+                            rule(
+                                    "testReportNoFireWithTableScan rule",
+                                    Pattern.typeOf(PlanNode.class),
+                                    (_, _, _) -> Result.empty()))
                     .on(p ->
                             p.tableScan(
                                     new TableHandle(tester.getCurrentCatalogHandle(), new TpchTableHandle("sf1", "nation", 1.0), TestingTransactionHandle.create()),

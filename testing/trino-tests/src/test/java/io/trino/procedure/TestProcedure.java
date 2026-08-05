@@ -32,6 +32,5 @@ public class TestProcedure
         return new Procedure("default", "test_procedure", emptyList(), TEST_METADATA.bindTo(this));
     }
 
-    public void testProcedure()
-    {}
+    public void testProcedure() {}
 }

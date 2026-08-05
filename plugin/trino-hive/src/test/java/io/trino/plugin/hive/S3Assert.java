@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.assertj.core.api.AssertProvider;
-import org.assertj.core.util.CanIgnoreReturnValue;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 

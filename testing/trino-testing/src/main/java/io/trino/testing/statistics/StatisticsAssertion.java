@@ -115,7 +115,7 @@ public class StatisticsAssertion
 
         public Checks noEstimate(Metric metric)
         {
-            checks.add(new MetricsCheck(metric, (actual, estimate) -> true, NO_ESTIMATE));
+            checks.add(new MetricsCheck(metric, (_, _) -> true, NO_ESTIMATE));
             return this;
         }
 

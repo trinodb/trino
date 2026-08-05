@@ -154,7 +154,8 @@ public class TestNthValueFunction
     @Test
     public void testNthValueBounded()
     {
-        assertWindowQuery("nth_value(orderkey, 4) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQuery(
+                "nth_value(orderkey, 4) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", null)
@@ -168,7 +169,8 @@ public class TestNthValueFunction
                         .row(32, "O", 34)
                         .row(34, "O", null)
                         .build());
-        assertWindowQueryWithNulls("nth_value(orderkey, 4) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQueryWithNulls(
+                "nth_value(orderkey, 4) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", null)
@@ -202,7 +204,8 @@ public class TestNthValueFunction
     @Test
     public void testNthValueBoundedIgnoreNulls()
     {
-        assertWindowQueryWithNulls("nth_value(orderkey, 3) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQueryWithNulls(
+                "nth_value(orderkey, 3) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 6L)
@@ -221,7 +224,8 @@ public class TestNthValueFunction
     @Test
     public void testNthValueBoundedRespectNulls()
     {
-        assertWindowQueryWithNulls("nth_value(orderkey, 4) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+        assertWindowQueryWithNulls(
+                "nth_value(orderkey, 4) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", null)

@@ -27,18 +27,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 
 public class OpenLineageHttpTransportConfig
 {
+    public enum Compression
+    {
+        NONE, GZIP
+    }
+
     private URI url;
     private String endpoint;
     private Optional<String> apiKey = Optional.empty();
     private Duration timeout = new Duration(5000, TimeUnit.MILLISECONDS);
     private Map<String, String> headers = new HashMap<>();
     private Map<String, String> urlParams = new HashMap<>();
+    // Most of OpenLineage HTTP servers support GZIP compression,
+    // but users may use custom servers that don't. Use NONE for compatibility
+    private Compression compression = Compression.NONE;
 
     @NotNull
     public URI getUrl()
@@ -108,7 +116,7 @@ public class OpenLineageHttpTransportConfig
         try {
             this.headers = headers
                     .stream()
-                    .collect(Collectors.toMap(keyValue -> keyValue.split(":", 2)[0], keyValue -> keyValue.split(":", 2)[1]));
+                    .collect(toImmutableMap(keyValue -> keyValue.split(":", 2)[0], keyValue -> keyValue.split(":", 2)[1]));
         }
         catch (IndexOutOfBoundsException e) {
             throw new IllegalArgumentException(format("Cannot parse http headers from property openlineage-event-listener.transport.headers; value provided was %s, " +
@@ -129,12 +137,26 @@ public class OpenLineageHttpTransportConfig
         try {
             this.urlParams = urlParas
                     .stream()
-                    .collect(Collectors.toMap(kvs -> kvs.split(":", 2)[0], kvs -> kvs.split(":", 2)[1]));
+                    .collect(toImmutableMap(kvs -> kvs.split(":", 2)[0], kvs -> kvs.split(":", 2)[1]));
         }
         catch (IndexOutOfBoundsException e) {
             throw new IllegalArgumentException(format("Cannot parse url params from property openlineage-event-listener.transport.url-params; value provided was %s, " +
                     "expected format is \"url-param-1: url param value 1, ...\"", String.join(", ", urlParas)), e);
         }
+        return this;
+    }
+
+    @NotNull
+    public Compression getCompression()
+    {
+        return compression;
+    }
+
+    @Config("openlineage-event-listener.transport.compression")
+    @ConfigDescription("Compression codec using for HTTP body")
+    public OpenLineageHttpTransportConfig setCompression(Compression compression)
+    {
+        this.compression = compression;
         return this;
     }
 }

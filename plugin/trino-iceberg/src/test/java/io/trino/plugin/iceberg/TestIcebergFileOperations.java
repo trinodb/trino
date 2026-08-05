@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.util.FileOperationUtils.FileOperation;
 import io.trino.plugin.iceberg.util.FileOperationUtils.Scope;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.FilterNode;
@@ -46,8 +47,8 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
-import static io.trino.plugin.iceberg.util.FileOperationUtils.FileOperation;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DELETE;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
@@ -240,6 +241,14 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
                         .build());
+
+        assertFileSystemAccesses("SELECT * FROM test_select WHERE col_name = 1",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .build());
     }
 
     @ParameterizedTest
@@ -375,16 +384,14 @@ public class TestIcebergFileOperations
         String catalog = getSession().getCatalog().orElseThrow();
 
         assertUpdate("DROP TABLE IF EXISTS test_read_whole_splittable_file");
-        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'])");
+        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'], parquet_writer_row_group_size = '1kB')");
 
         assertUpdate(
-                Session.builder(getSession())
+                withSmallRowGroups(Session.builder(getSession())
                         .setSystemProperty(SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED, "1PB")
-                        .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "1kB")
-                        .setCatalogSessionProperty(catalog, "orc_writer_max_stripe_size", "1kB")
-                        .setCatalogSessionProperty(catalog, "orc_writer_max_stripe_rows", "1000")
-                        .build(),
-                "INSERT INTO test_read_whole_splittable_file SELECT 'single partition', comment FROM tpch.tiny.orders", 15000);
+                        .build()),
+                "INSERT INTO test_read_whole_splittable_file SELECT 'single partition', comment FROM tpch.tiny.orders",
+                15000);
 
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, IcebergSessionProperties.SPLIT_SIZE, "1kB")
@@ -643,13 +650,35 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
                         .build());
+
+        Session withoutStatistics = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "statistics_enabled", "false")
+                .build();
+        assertFileSystemAccesses(withoutStatistics, "EXPLAIN SELECT * FROM test_explain",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .build());
+        assertFileSystemAccesses(withoutStatistics, "EXPLAIN SELECT * FROM test_explain WHERE age = 2",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .build());
     }
 
     @Test
     public void testShowStatsForTable()
     {
-        assertUpdate("CREATE TABLE test_show_stats AS SELECT 2 AS age", 1);
+        assertUpdate("CREATE TABLE test_show_stats (age INTEGER)");
+        assertUpdate("INSERT INTO test_show_stats VALUES 10, 20", 2);
 
+        assertFileSystemAccesses("SHOW STATS FOR test_show_stats",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .build());
+
+        assertUpdate("DELETE FROM test_show_stats WHERE age = 10", 1);
         assertFileSystemAccesses("SHOW STATS FOR test_show_stats",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
@@ -753,7 +782,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 4)
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 4)
-                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 5)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 3)
                         .build());
 
         assertUpdate("DROP TABLE " + tableName);
@@ -923,7 +952,8 @@ public class TestIcebergFileOperations
         Table icebergTable = IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "iceberg", "test_schema");
 
         // Delete only 1 row in the file so the data file is not pruned completely
-        writeEqualityDeleteForTable(icebergTable,
+        writeEqualityDeleteForTable(
+                icebergTable,
                 fileSystemFactory,
                 Optional.of(icebergTable.spec()),
                 Optional.empty(),

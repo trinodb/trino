@@ -58,27 +58,29 @@ public class TestParquetPageSourceFactory
     {
         RowType rowType = rowType(
                 RowType.field(
-                    "optional_level2",
-                    rowType(RowType.field(
-                        "required_level3",
-                        IntegerType.INTEGER))));
+                        "optional_level2",
+                        rowType(RowType.field(
+                                "required_level3",
+                                IntegerType.INTEGER))));
         HiveColumnHandle columnHandle = new HiveColumnHandle(
                 "optional_level1",
                 0,
                 HiveType.valueOf("struct<optional_level2:struct<required_level3:int>>"),
                 rowType,
                 Optional.of(
-                    new HiveColumnProjectionInfo(
-                        ImmutableList.of(1, 1),
-                        ImmutableList.of("optional_level2", "required_level3"),
-                        toHiveType(IntegerType.INTEGER),
-                        IntegerType.INTEGER)),
+                        new HiveColumnProjectionInfo(
+                                ImmutableList.of(1, 1),
+                                ImmutableList.of("optional_level2", "required_level3"),
+                                toHiveType(IntegerType.INTEGER),
+                                IntegerType.INTEGER)),
                 REGULAR,
                 Optional.empty());
         MessageType fileSchema = new MessageType(
                 "hive_schema",
                 new GroupType(OPTIONAL, "optional_level1",
-                        new GroupType(OPTIONAL, "optional_level2",
+                        new GroupType(
+                                OPTIONAL,
+                                "optional_level2",
                                 new PrimitiveType(REQUIRED, INT32, "required_level3"))));
         assertThat(ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, useColumnNames).get()).isEqualTo(fileSchema.getType("optional_level1"));
     }

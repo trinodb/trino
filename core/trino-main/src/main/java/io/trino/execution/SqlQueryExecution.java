@@ -29,6 +29,7 @@ import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
@@ -52,6 +53,7 @@ import io.trino.operator.ForScheduler;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.server.ResultQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
@@ -93,18 +95,18 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.STACK_OVERFLOW;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class SqlQueryExecution
@@ -143,6 +145,7 @@ public class SqlQueryExecution
     private final TableExecuteContextManager tableExecuteContextManager;
     private final SqlTaskManager coordinatorTaskManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final ExchangeMetricsCollector exchangeMetricsCollector;
     private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
     private final TaskDescriptorStorage taskDescriptorStorage;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
@@ -181,6 +184,7 @@ public class SqlQueryExecution
             TableExecuteContextManager tableExecuteContextManager,
             SqlTaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
+            ExchangeMetricsCollector exchangeMetricsCollector,
             EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
             TaskDescriptorStorage taskDescriptorStorage)
     {
@@ -233,6 +237,7 @@ public class SqlQueryExecution
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "taskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
             this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
@@ -289,6 +294,7 @@ public class SqlQueryExecution
         stateMachine.setUpdateType(analysis.getUpdateType());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
         stateMachine.setRoutines(analysis.getRoutines());
+        stateMachine.setSelectColumnsLineageInfo(analysis.getSelectColumnsLineageInfo());
 
         stateMachine.endAnalysis();
 
@@ -374,7 +380,7 @@ public class SqlQueryExecution
             return finalQueryInfo.get().getQueryStats().getTotalCpuTime();
         }
         if (scheduler == null) {
-            return new Duration(0, SECONDS);
+            return succinctDuration(0, MILLISECONDS);
         }
         return scheduler.getTotalCpuTime();
     }
@@ -484,7 +490,8 @@ public class SqlQueryExecution
     {
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(),
+        LogicalPlanner logicalPlanner = new LogicalPlanner(
+                stateMachine.getSession(),
                 planOptimizers,
                 idAllocator,
                 plannerContext,
@@ -564,6 +571,7 @@ public class SqlQueryExecution
                     outputStatsEstimatorFactory,
                     nodePartitioningManager,
                     exchangeManagerRegistry.getExchangeManager(),
+                    exchangeMetricsCollector,
                     nodeAllocatorService,
                     nodeManager,
                     dynamicFilterService,
@@ -799,6 +807,7 @@ public class SqlQueryExecution
         private final TableExecuteContextManager tableExecuteContextManager;
         private final SqlTaskManager coordinatorTaskManager;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private final ExchangeMetricsCollector exchangeMetricsCollector;
         private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
         private final TaskDescriptorStorage taskDescriptorStorage;
 
@@ -831,6 +840,7 @@ public class SqlQueryExecution
                 TableExecuteContextManager tableExecuteContextManager,
                 SqlTaskManager coordinatorTaskManager,
                 ExchangeManagerRegistry exchangeManagerRegistry,
+                ExchangeMetricsCollector exchangeMetricsCollector,
                 EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
                 TaskDescriptorStorage taskDescriptorStorage)
         {
@@ -863,6 +873,7 @@ public class SqlQueryExecution
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "eventDrivenTaskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         }
@@ -913,6 +924,7 @@ public class SqlQueryExecution
                     tableExecuteContextManager,
                     coordinatorTaskManager,
                     exchangeManagerRegistry,
+                    exchangeMetricsCollector,
                     eventDrivenTaskSourceFactory,
                     taskDescriptorStorage);
         }

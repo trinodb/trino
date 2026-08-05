@@ -38,7 +38,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.invoke.MethodHandles.exactInvoker;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TestTypeOperators
+final class TestTypeOperators
 {
     @Test
     void testIdenticalGenerator()

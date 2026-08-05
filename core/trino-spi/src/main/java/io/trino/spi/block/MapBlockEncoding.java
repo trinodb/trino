@@ -20,6 +20,8 @@ import io.trino.spi.type.MapType;
 
 import java.util.Optional;
 
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
@@ -50,7 +52,7 @@ public class MapBlockEncoding
         int positionCount = mapBlock.getPositionCount();
 
         int offsetBase = mapBlock.getOffsetBase();
-        int[] offsets = mapBlock.getOffsets();
+        int[] offsets = mapBlock.getRawOffsets();
         Optional<int[]> hashTable = mapBlock.getHashTables().tryGet();
 
         int entriesStartOffset = offsets[offsetBase];
@@ -75,7 +77,8 @@ public class MapBlockEncoding
         for (int position = 0; position < positionCount + 1; position++) {
             sliceOutput.writeInt(offsets[offsetBase + position] - entriesStartOffset);
         }
-        EncoderUtil.encodeNullsAsBits(sliceOutput, mapBlock.getRawMapIsNull(), offsetBase, positionCount);
+
+        encodeValidityAsLongs(sliceOutput, mapBlock.getRawValueIsValid(), offsetBase, positionCount);
     }
 
     @Override
@@ -110,8 +113,8 @@ public class MapBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readInts(offsets);
-        Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
         MapHashTables hashTables = new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, positionCount, Optional.ofNullable(hashTable));
-        return createMapBlockInternal(mapType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables);
+        return createMapBlockInternal(mapType, 0, positionCount, Optional.ofNullable(valueIsValid), offsets, keyBlock, valueBlock, hashTables);
     }
 }

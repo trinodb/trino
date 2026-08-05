@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem;
 
-import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
 import io.trino.filesystem.encryption.EncryptionKey;
 
@@ -23,6 +22,10 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.getCausalChain;
+import static java.util.Objects.requireNonNull;
 
 /**
  * TrinoFileSystem is the main abstraction for Trino to interact with data in cloud-like storage
@@ -218,7 +221,7 @@ public interface TrinoFileSystem
      * exact name of the prefix, it is not included in the results.
      * <p>
      * The returned FileEntry locations will start with the specified location exactly
-     * and are lexicographically sorted (except for local HDFS which has the system-dependant
+     * and are lexicographically sorted (except for local HDFS which has the system-dependent
      * ordering).
      *
      * @param location the directory to list
@@ -226,6 +229,56 @@ public interface TrinoFileSystem
      */
     FileIterator listFiles(Location location)
             throws IOException;
+
+    /**
+     * Lists files within the specified directory recursively, including only files where the
+     * remainder of the path after the location is lexicographically greater than or equal to
+     * {@code startingFrom}. The location can be empty, listing all files in the file system where
+     * the path is greater than or equal to {@code startingFrom}. The location is always interpreted
+     * as a directory, whether or not it ends with a slash; {@code startingFrom} is compared against
+     * the portion of the path that follows the directory's (implicit or explicit) trailing slash.
+     * If the location does not exist, an empty iterator is returned. {@code startingFrom} must
+     * contain only ASCII characters (code points 0-127) and may be empty, in which case the
+     * behavior is identical to {@link #listFiles(Location)}.
+     * <p>
+     * For hierarchical file systems, if the path is not a directory, an exception is
+     * raised. For blob file systems, all blobs that start with the location are listed, subject
+     * to the {@code startingFrom} constraint.
+     * <p>
+     * The returned FileEntry locations start with the specified location exactly and are
+     * lexicographically sorted (except for local HDFS which has the system-dependent ordering).
+     * When non-ASCII filenames are present, the exact sort order may differ between
+     * implementations: object stores commonly sort by UTF-8 byte order, while in-memory and
+     * local implementations sort by Java {@link String#compareTo char-by-char order}. Because
+     * every non-ASCII code point is strictly greater than every ASCII character under all of
+     * these orderings, an ASCII {@code startingFrom} never excludes a non-ASCII filename.
+     * Callers that rely on a specific sort order should restrict usage to directories whose
+     * filenames are entirely ASCII.
+     *
+     * @param location the directory to list
+     * @param startingFrom the inclusive lower bound for the path remainder after {@code location};
+     *         must contain only ASCII characters
+     * @throws IllegalArgumentException if location is not valid for this file system, or if
+     *         {@code startingFrom} contains non-ASCII characters
+     */
+    default FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        checkStartingFrom(startingFrom);
+        if (startingFrom.isEmpty()) {
+            return listFiles(location);
+        }
+
+        return new EmulatedListFilesStartingFromIterator(listFiles(location), location, startingFrom);
+    }
+
+    static void checkStartingFrom(String startingFrom)
+    {
+        requireNonNull(startingFrom, "startingFrom is null");
+        for (int i = 0; i < startingFrom.length(); i++) {
+            checkArgument(startingFrom.charAt(i) <= 0x7F, "startingFrom must contain only ASCII characters");
+        }
+    }
 
     /**
      * Checks if a directory exists at the specified location. For all file system types,
@@ -298,7 +351,7 @@ public interface TrinoFileSystem
 
     /**
      * Returns the direct pre-signed URI location for the given storage location.
-     * <p></p>
+     * <p>
      * Pre-signed URIs allow for retrieval of the files directly from the storage location.
      * This is useful for large files where the server would be a bottleneck.
      *
@@ -329,18 +382,26 @@ public interface TrinoFileSystem
     }
 
     /**
-     * Checks whether given exception is unrecoverable, so that further retries won't help
+     * Checks whether the given exception is unrecoverable, so that further retries won't help.
      * <p>
      * By default, all third party (AWS, Azure, GCP) SDKs will retry appropriate exceptions
      * (either client side IO errors, or 500/503), so there is no need to retry those additionally.
      * <p>
-     * If any custom retry behavior is needed, it is advised to change SDK's retry handlers,
-     * rather than introducing outer retry loop, which combined with SDKs default retries,
-     * could lead to prolonged, unnecessary retries
+     * If any custom retry behavior is needed, it is advised to change the SDK's retry handlers,
+     * rather than introducing an outer retry loop, which combined with the SDKs default retries,
+     * could lead to prolonged, unnecessary retries.
+     * <p>
+     * Recoverability is decided when the exception is thrown: implementations wrap fatal backend
+     * errors (for example a {@code 403 Forbidden}) in a {@link TrinoFileSystemException}, while
+     * transient errors (for example a {@code 503 Service Unavailable}) surface as a plain
+     * {@link IOException}. This classification therefore relies only on the exception type, so it is
+     * a {@code static} check that works regardless of which file system (including delegating ones
+     * such as tracing, caching, or switching) produced the exception. Callers running their own retry
+     * loop can use this to abort early on errors that retrying cannot fix.
      */
     static boolean isUnrecoverableException(Throwable throwable)
     {
-        return Throwables.getCausalChain(throwable).stream()
+        return getCausalChain(throwable).stream()
                 .anyMatch(t -> t instanceof TrinoFileSystemException || t instanceof FileNotFoundException || t instanceof UnsupportedOperationException);
     }
 }

@@ -29,6 +29,7 @@ public class OAuth2SecurityConfig
     private String token;
     private URI serverUri;
     private boolean tokenRefreshEnabled = OAuth2Properties.TOKEN_REFRESH_ENABLED_DEFAULT;
+    private boolean tokenExchangeEnabled = OAuth2Properties.TOKEN_EXCHANGE_ENABLED_DEFAULT;
 
     public Optional<String> getCredential()
     {
@@ -94,6 +95,19 @@ public class OAuth2SecurityConfig
     public OAuth2SecurityConfig setTokenRefreshEnabled(boolean tokenRefreshEnabled)
     {
         this.tokenRefreshEnabled = tokenRefreshEnabled;
+        return this;
+    }
+
+    public boolean isTokenExchangeEnabled()
+    {
+        return tokenExchangeEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.oauth2.token-exchange-enabled")
+    @ConfigDescription("Controls whether to use the token exchange flow to acquire new tokens")
+    public OAuth2SecurityConfig setTokenExchangeEnabled(boolean tokenExchangeEnabled)
+    {
+        this.tokenExchangeEnabled = tokenExchangeEnabled;
         return this;
     }
 

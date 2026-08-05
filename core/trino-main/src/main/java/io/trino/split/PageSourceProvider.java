@@ -18,9 +18,12 @@ import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PageSourceProvider
 {
@@ -28,6 +31,14 @@ public interface PageSourceProvider
             Session session,
             Split split,
             TableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter);
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext);
+
+    // TODO (https://github.com/trinodb/trino/issues/29955) replace with MemoryContext
+    default long getMemoryUsage()
+    {
+        return 0;
+    }
 }

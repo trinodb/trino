@@ -17,11 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 
 import java.util.HashSet;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -32,25 +32,22 @@ public class TypeVariableConstraint
     private final String name;
     private final boolean comparableRequired;
     private final boolean orderableRequired;
-    private final Optional<String> variadicBound;
-    private final Set<TypeSignature> castableTo;
-    private final Set<TypeSignature> castableFrom;
+    private final boolean rowType;
+    private final Set<TypeTemplate> castableTo;
+    private final Set<TypeTemplate> castableFrom;
 
     private TypeVariableConstraint(
             String name,
             boolean comparableRequired,
             boolean orderableRequired,
-            Optional<String> variadicBound,
-            Set<TypeSignature> castableTo,
-            Set<TypeSignature> castableFrom)
+            boolean rowType,
+            Set<TypeTemplate> castableTo,
+            Set<TypeTemplate> castableFrom)
     {
         this.name = requireNonNull(name, "name is null");
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
-        this.variadicBound = requireNonNull(variadicBound, "variadicBound is null");
-        if (variadicBound.map(bound -> !bound.equalsIgnoreCase("row")).orElse(false)) {
-            throw new IllegalArgumentException("variadicBound must be row but is " + variadicBound.get());
-        }
+        this.rowType = rowType;
         this.castableTo = Set.copyOf(requireNonNull(castableTo, "castableTo is null"));
         this.castableFrom = Set.copyOf(requireNonNull(castableFrom, "castableFrom is null"));
     }
@@ -74,19 +71,19 @@ public class TypeVariableConstraint
     }
 
     @JsonProperty
-    public Optional<String> getVariadicBound()
+    public boolean isRowType()
     {
-        return variadicBound;
+        return rowType;
     }
 
     @JsonProperty
-    public Set<TypeSignature> getCastableTo()
+    public Set<TypeTemplate> getCastableTo()
     {
         return castableTo;
     }
 
     @JsonProperty
-    public Set<TypeSignature> getCastableFrom()
+    public Set<TypeTemplate> getCastableFrom()
     {
         return castableFrom;
     }
@@ -101,14 +98,14 @@ public class TypeVariableConstraint
         if (orderableRequired) {
             value += ":orderable";
         }
-        if (variadicBound.isPresent()) {
-            value += ":" + variadicBound + "<*>";
+        if (rowType) {
+            value += ":row(*)";
         }
         if (!castableTo.isEmpty()) {
-            value += castableTo.stream().map(Object::toString).collect(joining(", ", ":castableTo(", ")"));
+            value += castableTo.stream().map(TypeTemplate::render).collect(joining(", ", ":castableTo(", ")"));
         }
         if (!castableFrom.isEmpty()) {
-            value += castableFrom.stream().map(Object::toString).collect(joining(", ", ":castableFrom(", ")"));
+            value += castableFrom.stream().map(TypeTemplate::render).collect(joining(", ", ":castableFrom(", ")"));
         }
         return value;
     }
@@ -126,7 +123,7 @@ public class TypeVariableConstraint
         return comparableRequired == that.comparableRequired &&
                 orderableRequired == that.orderableRequired &&
                 Objects.equals(name, that.name) &&
-                Objects.equals(variadicBound, that.variadicBound) &&
+                rowType == that.rowType &&
                 Objects.equals(castableTo, that.castableTo) &&
                 Objects.equals(castableFrom, that.castableFrom);
     }
@@ -134,7 +131,7 @@ public class TypeVariableConstraint
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, comparableRequired, orderableRequired, variadicBound, castableTo, castableFrom);
+        return Objects.hash(name, comparableRequired, orderableRequired, rowType, castableTo, castableFrom);
     }
 
     public static TypeVariableConstraint typeVariable(String name)
@@ -152,9 +149,9 @@ public class TypeVariableConstraint
         private final String name;
         private boolean comparableRequired;
         private boolean orderableRequired;
-        private String variadicBound;
-        private final Set<TypeSignature> castableTo = new HashSet<>();
-        private final Set<TypeSignature> castableFrom = new HashSet<>();
+        private boolean rowType;
+        private final Set<TypeTemplate> castableTo = new HashSet<>();
+        private final Set<TypeTemplate> castableFrom = new HashSet<>();
 
         private TypeVariableConstraintBuilder(String name)
         {
@@ -173,18 +170,18 @@ public class TypeVariableConstraint
             return this;
         }
 
-        public TypeVariableConstraintBuilder variadicBound(String variadicBound)
+        public TypeVariableConstraintBuilder rowType()
         {
-            this.variadicBound = variadicBound;
+            this.rowType = true;
             return this;
         }
 
         public TypeVariableConstraintBuilder castableTo(Type type)
         {
-            return castableTo(type.getTypeSignature());
+            return castableTo(TypeTemplates.fromTypeDescriptor(type.getTypeDescriptor()));
         }
 
-        public TypeVariableConstraintBuilder castableTo(TypeSignature type)
+        public TypeVariableConstraintBuilder castableTo(TypeTemplate type)
         {
             this.castableTo.add(type);
             return this;
@@ -192,10 +189,10 @@ public class TypeVariableConstraint
 
         public TypeVariableConstraintBuilder castableFrom(Type type)
         {
-            return castableFrom(type.getTypeSignature());
+            return castableFrom(TypeTemplates.fromTypeDescriptor(type.getTypeDescriptor()));
         }
 
-        public TypeVariableConstraintBuilder castableFrom(TypeSignature type)
+        public TypeVariableConstraintBuilder castableFrom(TypeTemplate type)
         {
             this.castableFrom.add(type);
             return this;
@@ -203,7 +200,7 @@ public class TypeVariableConstraint
 
         public TypeVariableConstraint build()
         {
-            return new TypeVariableConstraint(name, comparableRequired, orderableRequired, Optional.ofNullable(variadicBound), castableTo, castableFrom);
+            return new TypeVariableConstraint(name, comparableRequired, orderableRequired, rowType, castableTo, castableFrom);
         }
     }
 
@@ -214,10 +211,10 @@ public class TypeVariableConstraint
             @JsonProperty("name") String name,
             @JsonProperty("comparableRequired") boolean comparableRequired,
             @JsonProperty("orderableRequired") boolean orderableRequired,
-            @JsonProperty("variadicBound") Optional<String> variadicBound,
-            @JsonProperty("castableTo") Set<TypeSignature> castableTo,
-            @JsonProperty("castableFrom") Set<TypeSignature> castableFrom)
+            @JsonProperty("rowType") boolean rowType,
+            @JsonProperty("castableTo") Set<TypeTemplate> castableTo,
+            @JsonProperty("castableFrom") Set<TypeTemplate> castableFrom)
     {
-        return new TypeVariableConstraint(name, comparableRequired, orderableRequired, variadicBound, castableTo, castableFrom);
+        return new TypeVariableConstraint(name, comparableRequired, orderableRequired, rowType, castableTo, castableFrom);
     }
 }

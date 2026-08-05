@@ -42,7 +42,7 @@ public class TestNodeSchedulerConfig
                 .setIncludeCoordinator(true)
                 .setSplitsBalancingPolicy(NodeSchedulerConfig.SplitsBalancingPolicy.STAGE)
                 .setOptimizedLocalScheduling(true)
-                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES))
+                .setAllowedNoMatchingNodePeriod(new Duration(10, MINUTES))
                 .setExhaustedNodeWaitPeriod(new Duration(2, MINUTES)));
     }
 

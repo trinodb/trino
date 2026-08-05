@@ -53,7 +53,7 @@ public class TotalReservationOnBlockedNodesQueryLowMemoryKiller
                     // for given node.
                     return;
                 }
-                memoryReservationOnBlockedNodes.compute(queryId, (id, oldValue) -> oldValue == null ? memoryReservation : oldValue + memoryReservation);
+                memoryReservationOnBlockedNodes.compute(queryId, (_, oldValue) -> oldValue == null ? memoryReservation : oldValue + memoryReservation);
             });
         }
 

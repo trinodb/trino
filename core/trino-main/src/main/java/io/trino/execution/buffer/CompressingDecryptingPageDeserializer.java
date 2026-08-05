@@ -344,6 +344,10 @@ public class CompressingDecryptingPageDeserializer
             }
 
             ReadBuffer source = buffers[buffers.length - 1];
+            if (source.available() == 0) {
+                return;
+            }
+
             ReadBuffer sink = buffers[buffers.length - 2];
             int bytesPreserved = sink.rollOver();
 
@@ -398,6 +402,10 @@ public class CompressingDecryptingPageDeserializer
             Decompressor decompressor = this.decompressor.get();
 
             ReadBuffer source = buffers[1];
+            if (source.available() == 0) {
+                return;
+            }
+
             ReadBuffer sink = buffers[0];
             int bytesPreserved = sink.rollOver();
 
@@ -416,12 +424,7 @@ public class CompressingDecryptingPageDeserializer
                         sink.getSlice().length() - bytesPreserved);
             }
             else {
-                System.arraycopy(
-                        source.getSlice().byteArray(),
-                        source.getSlice().byteArrayOffset() + source.getPosition(),
-                        sink.getSlice().byteArray(),
-                        sink.getSlice().byteArrayOffset() + bytesPreserved,
-                        blockSize);
+                source.getSlice().getBytes(source.getPosition(), sink.getSlice(), bytesPreserved, blockSize);
                 decompressedSize = blockSize;
             }
             source.setPosition(source.getPosition() + blockSize);
@@ -503,9 +506,9 @@ public class CompressingDecryptingPageDeserializer
         public long getRetainedSize()
         {
             long size = INSTANCE_SIZE;
-            size += sizeOf(decompressor, compressor -> decompressorRetainedSize);
-            size += sizeOf(encryptionKey, encryptionKey -> ENCRYPTION_KEY_RETAINED_SIZE);
-            size += sizeOf(cipher, cipher -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
+            size += sizeOf(decompressor, _ -> decompressorRetainedSize);
+            size += sizeOf(encryptionKey, _ -> ENCRYPTION_KEY_RETAINED_SIZE);
+            size += sizeOf(cipher, _ -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
             for (ReadBuffer input : buffers) {
                 if (input != null) {
                     size += input.getRetainedSizeInBytes();

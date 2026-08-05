@@ -35,6 +35,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -752,6 +753,56 @@ public class TestPythonFunctions
     }
 
     @Test
+    public void testTypeNumber()
+    {
+        String query =
+                """
+                WITH FUNCTION multiply(x number, y number)
+                RETURNS number
+                LANGUAGE PYTHON
+                WITH (handler = 'multiply')
+                AS $$
+                from decimal import Decimal
+                def multiply(x, y):
+                    return x * y
+                $$
+                """;
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '1.12345000000000123456789', NUMBER '2.5432100000000000000000000000000000000000001')"))
+                .matches("VALUES NUMBER '2.857169274500003139765403527'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER 'NaN', NUMBER '3.14')"))
+                .matches("VALUES NUMBER 'NaN'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '-Infinity', NUMBER '3.14')"))
+                .matches("VALUES NUMBER '-Infinity'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '+Infinity', NUMBER '3.14')"))
+                .matches("VALUES NUMBER '+Infinity'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '+Infinity', NUMBER '-Infinity')"))
+                .matches("VALUES NUMBER '-Infinity'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '-Infinity', NUMBER '-Infinity')"))
+                .matches("VALUES NUMBER '+Infinity'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '-Infinity', NUMBER 'NaN')"))
+                .matches("VALUES NUMBER 'NaN'");
+
+        assertThatThrownBy(() -> assertThat(assertions.query(
+                query + "SELECT multiply(NULL, NUMBER '2.54321')"))
+                .matches("VALUES NUMBER 'NaN'"))
+                .hasMessageContaining("TypeError: unsupported operand type(s) for *: 'NoneType' and 'decimal.Decimal'");
+    }
+
+    @Test
     public void testTypeInteger()
     {
         String query =
@@ -898,6 +949,37 @@ public class TestPythonFunctions
                 SELECT test_decimal_long(12345678901234567890.1234)
                 """))
                 .matches("VALUES cast(1524148134430814813443.07447 AS decimal(38, 5))");
+
+        String realToDecimalInPython =
+                """
+                WITH FUNCTION test_cast_real_to_decimal(x real)
+                RETURNS decimal(38, 5)
+                LANGUAGE PYTHON
+                WITH (handler = 'test')
+                AS $$
+                from decimal import Decimal
+                def test(x):
+                    return Decimal.from_float(x)
+                $$
+                """;
+
+        // underflow
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '1e-17')"))
+                .matches("VALUES CAST('0' AS decimal(38, 5))");
+
+        // overflow
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '1e+34')"))
+                .failure().hasMessage("Function result cannot be converted to decimal(38,5): Decimal overflow");
+
+        // NaN
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL 'NaN')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: NaN");
+
+        // Infinity
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '-Infinity')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: -Infinity");
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '+Infinity')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: Infinity");
     }
 
     @Test
@@ -1501,9 +1583,10 @@ public class TestPythonFunctions
                 $$
                 SELECT update_json(json '{"foo": 123, "bar": 456}')
                 """))
-                .matches("""
-                         VALUES json '{"abc": "xyz", "bar": 456, "foo": 123}'
-                         """);
+                .matches(
+                        """
+                        VALUES json '{"abc": "xyz", "bar": 456, "foo": 123}'
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1556,10 +1639,11 @@ public class TestPythonFunctions
                        uuid_to_str(uuid 'dfa7eaf8-6a26-5749-8d36-336025df74e8')
                 """))
                 .skippingTypesCheck()
-                .matches("""
-                         VALUES ('6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
-                                 'dfa7eaf8-6a26-5749-8d36-336025df74e8')
-                         """);
+                .matches(
+                        """
+                        VALUES ('6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
+                                'dfa7eaf8-6a26-5749-8d36-336025df74e8')
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1575,10 +1659,11 @@ public class TestPythonFunctions
                 SELECT str_to_uuid('6b5f5b65-67e4-43b0-8ee3-586cd49f58a1'),
                        str_to_uuid('dfa7eaf8-6a26-5749-8d36-336025df74e8')
                 """))
-                .matches("""
-                         VALUES (uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
-                                 uuid 'dfa7eaf8-6a26-5749-8d36-336025df74e8')
-                         """);
+                .matches(
+                        """
+                        VALUES (uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
+                                uuid 'dfa7eaf8-6a26-5749-8d36-336025df74e8')
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1618,13 +1703,14 @@ public class TestPythonFunctions
                        ip_to_str(ipaddress '::ffff:1.2.3.4')
                 """))
                 .skippingTypesCheck()
-                .matches("""
-                         VALUES ('IPv4Address:192.168.1.5',
-                                 'IPv4Address:12.34.56.78',
-                                 'IPv6Address:2001:db8::ff00:42:8329',
-                                 'IPv6Address:2001:db8::1:0:0:1',
-                                 'IPv4Address:1.2.3.4')
-                         """);
+                .matches(
+                        """
+                        VALUES ('IPv4Address:192.168.1.5',
+                                'IPv4Address:12.34.56.78',
+                                'IPv6Address:2001:db8::ff00:42:8329',
+                                'IPv6Address:2001:db8::1:0:0:1',
+                                'IPv4Address:1.2.3.4')
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1643,13 +1729,14 @@ public class TestPythonFunctions
                        str_to_ip('2001:db8:0:0:1::1'),
                        str_to_ip('::ffff:1.2.3.4')
                 """))
-                .matches("""
-                         VALUES (ipaddress '192.168.1.5',
-                                 ipaddress '12.34.56.78',
-                                 ipaddress '2001:db8::ff00:42:8329',
-                                 ipaddress '2001:db8::1:0:0:1',
-                                 ipaddress '1.2.3.4')
-                         """);
+                .matches(
+                        """
+                        VALUES (ipaddress '192.168.1.5',
+                                ipaddress '12.34.56.78',
+                                ipaddress '2001:db8::ff00:42:8329',
+                                ipaddress '2001:db8::1:0:0:1',
+                                ipaddress '1.2.3.4')
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1949,33 +2036,34 @@ public class TestPythonFunctions
                     uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
                     ipaddress '12.34.56.78'))
                 """))
-                .matches("""
-                         SELECT row(
-                             cast(null AS boolean),
-                             true,
-                             1234567890123456789,
-                             1234567890,
-                             smallint '12345',
-                             tinyint '123',
-                             double '8381.0205',
-                             real '123.5',
-                             cast(123.456 AS decimal(18, 5)),
-                             cast(12345678901234567890.1234 AS decimal(25, 5)),
-                             varchar 'hello',
-                             varbinary 'world',
-                             date '2024-06-27',
-                             time '03:23:56.12346',
-                             time '03:23:56.12346+02:35',
-                             time '03:23:56.123457+02:35',
-                             timestamp '2024-05-06 11:42:54.123',
-                             timestamp '2024-05-06 11:42:54.12346',
-                             timestamp '2024-05-06 11:42:54.123-07:00',
-                             timestamp '2024-05-06 11:42:54.12346-07:00',
-                             interval '5-7' year to month,
-                             interval '5 09:23:56.123' day to second,
-                             json '{"bar": 456, "foo": 123}',
-                             uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
-                             ipaddress '12.34.56.78')
-                         """);
+                .matches(
+                        """
+                        SELECT row(
+                            cast(null AS boolean),
+                            true,
+                            1234567890123456789,
+                            1234567890,
+                            smallint '12345',
+                            tinyint '123',
+                            double '8381.0205',
+                            real '123.5',
+                            cast(123.456 AS decimal(18, 5)),
+                            cast(12345678901234567890.1234 AS decimal(25, 5)),
+                            varchar 'hello',
+                            varbinary 'world',
+                            date '2024-06-27',
+                            time '03:23:56.12346',
+                            time '03:23:56.12346+02:35',
+                            time '03:23:56.123457+02:35',
+                            timestamp '2024-05-06 11:42:54.123',
+                            timestamp '2024-05-06 11:42:54.12346',
+                            timestamp '2024-05-06 11:42:54.123-07:00',
+                            timestamp '2024-05-06 11:42:54.12346-07:00',
+                            interval '5-7' year to month,
+                            interval '5 09:23:56.123' day to second,
+                            json '{"bar": 456, "foo": 123}',
+                            uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
+                            ipaddress '12.34.56.78')
+                        """);
     }
 }

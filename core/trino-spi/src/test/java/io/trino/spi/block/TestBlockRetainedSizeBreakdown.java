@@ -31,7 +31,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestBlockRetainedSizeBreakdown
+final class TestBlockRetainedSizeBreakdown
 {
     private static final int EXPECTED_ENTRIES = 100;
 
@@ -44,6 +44,16 @@ public class TestBlockRetainedSizeBreakdown
             arrayBlockBuilder.buildEntry(elementBuilder -> writeNativeValue(BIGINT, elementBuilder, castIntegerToObject(value, BIGINT)));
         }
         checkRetainedSize(arrayBlockBuilder.build(), false);
+    }
+
+    @Test
+    public void testBitArrayBlock()
+    {
+        BitArrayBlockBuilder blockBuilder = new BitArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        for (int i = 0; i < EXPECTED_ENTRIES; i++) {
+            blockBuilder.writeBoolean((i & 1) == 0);
+        }
+        checkRetainedSize(blockBuilder.build(), false);
     }
 
     @Test

@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -76,7 +77,6 @@ import static io.trino.plugin.jdbc.JoinOperator.LEFT_JOIN;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -134,7 +134,7 @@ public abstract class BaseJdbcConnectorTest
 {
     private static final Logger log = Logger.get(BaseJdbcConnectorTest.class);
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName() + "-%s"));
 
     protected abstract SqlExecutor onRemoteDatabase();
 
@@ -148,18 +148,14 @@ public abstract class BaseJdbcConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_UPDATE -> true;
-            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_DEFAULT_COLUMN_VALUE,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
+            // not supported by DefaultJdbcMetadata
+            case SUPPORTS_CREATE_VIEW, SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_DEFAULT_COLUMN_VALUE -> false;
+
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
             // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
             case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN -> super.hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN);
+
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -372,13 +368,15 @@ public abstract class BaseJdbcConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES 'A', 'B', 'a', 'b'");
             // case-sensitive grouping sets prevent pushdown
-            assertConditionallyPushedDown(getSession(),
+            assertConditionallyPushedDown(
+                    getSession(),
                     "SELECT a_string, count(*) FROM " + table.getName() + " GROUP BY a_string",
                     supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1'), ('B', BIGINT '1')");
-            assertConditionallyPushedDown(getSession(),
+            assertConditionallyPushedDown(
+                    getSession(),
                     "SELECT a_char, count(*) FROM " + table.getName() + " GROUP BY a_char",
                     supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
@@ -390,13 +388,15 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT count(a_string), count(a_char) FROM " + table.getName() + " GROUP BY a_bigint")).isFullyPushedDown();
 
             // DISTINCT over case-sensitive columns prevents pushdown
-            assertConditionallyPushedDown(getSession(),
+            assertConditionallyPushedDown(
+                    getSession(),
                     "SELECT count(DISTINCT a_string) FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES BIGINT '4'");
-            assertConditionallyPushedDown(getSession(),
+            assertConditionallyPushedDown(
+                    getSession(),
                     "SELECT count(DISTINCT a_char) FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
@@ -444,28 +444,32 @@ public abstract class BaseJdbcConnectorTest
             boolean supportsSumDistinctPushdown,
             TestTable table)
     {
-        assertConditionallyPushedDown(session,
+        assertConditionallyPushedDown(
+                session,
                 "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName(),
                 supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
                 otherwiseExpected)
                 .skippingTypesCheck()
                 .matches("VALUES (BIGINT '4', BIGINT '3')");
 
-        assertConditionallyPushedDown(session,
+        assertConditionallyPushedDown(
+                session,
                 "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
                 supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
                 otherwiseExpected)
                 .skippingTypesCheck()
                 .matches("VALUES (BIGINT '4', BIGINT '3')");
 
-        assertConditionallyPushedDown(session,
+        assertConditionallyPushedDown(
+                session,
                 "SELECT count(DISTINCT a_string), sum(DISTINCT a_bigint) FROM " + table.getName(),
                 supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
                 otherwiseExpected)
                 .skippingTypesCheck()
                 .matches(sumDistinctAggregationPushdownExpectedResult());
 
-        assertConditionallyPushedDown(session,
+        assertConditionallyPushedDown(
+                session,
                 "SELECT count(DISTINCT a_char), sum(DISTINCT a_bigint) FROM " + table.getName(),
                 supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
                 otherwiseExpected)
@@ -624,7 +628,8 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_num_agg_pd",
+        try (TestTable testTable = createAggregationTestTable(
+                schemaName + ".test_num_agg_pd",
                 ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -768,7 +773,8 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_stddev_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(
+                schemaName + ".test_stddev_pushdown",
                 ImmutableList.of("1, 1, 1, 1", "2, 2, 2, 2", "4, 4, 4, 4", "5, 5, 5, 5"))) {
             // Test non-whole number results
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -812,7 +818,8 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(
+                schemaName + ".test_var_pushdown",
                 ImmutableList.of("1, 1, 1, 1", "2, 2, 2, 2", "4, 4, 4, 4", "5, 5, 5, 5"))) {
             // Test non-whole number results
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -844,14 +851,16 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(
+                schemaName + ".test_covar_pushdown",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // non-whole number results
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(
+                schemaName + ".test_covar_pushdown",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
@@ -879,13 +888,15 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_corr_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(
+                schemaName + ".test_corr_pushdown",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT corr(t_double, u_double), corr(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // non-whole number results
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_corr_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(
+                schemaName + ".test_corr_pushdown",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT corr(t_double, u_double), corr(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
@@ -914,14 +925,16 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_regr_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(
+                schemaName + ".test_regr_pushdown",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT regr_intercept(t_double, u_double), regr_intercept(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT regr_slope(t_double, u_double), regr_slope(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // non-whole number results
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_regr_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(
+                schemaName + ".test_regr_pushdown",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT regr_intercept(t_double, u_double), regr_intercept(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT regr_slope(t_double, u_double), regr_slope(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
@@ -937,74 +950,17 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
+    public void testLimitPushdownWithDistinctAndJoin()
     {
-        if (!hasBehavior(SUPPORTS_LIMIT_PUSHDOWN)) {
-            assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
-            return;
-        }
-
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-        assertThat(query("SELECT name FROM nation LIMIT 3")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        PlanMatchPattern filterOverTableScan = node(FilterNode.class, node(TableScanNode.class));
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT name FROM nation WHERE name < 'EEE' LIMIT 5",
-                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
-                filterOverTableScan);
-
-        // with aggregation
-        PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, anyTree(node(TableScanNode.class)));
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT max(regionkey) FROM nation LIMIT 5", // global aggregation, LIMIT removed
-                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                aggregationOverTableScan);
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey LIMIT 5",
-                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                aggregationOverTableScan);
+        // covered by testLimitPushdown
+        skipTestUnless(hasBehavior(SUPPORTS_LIMIT_PUSHDOWN));
 
         // distinct limit can be pushed down even without aggregation pushdown
         assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
 
-        // with aggregation and filter over numeric column
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3",
-                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                aggregationOverTableScan);
-        // with aggregation and filter over varchar column
-        if (hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
-            assertConditionallyPushedDown(
-                    getSession(),
-                    "SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3",
-                    hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                    aggregationOverTableScan);
-        }
-
-        // with TopN over numeric column
-        PlanMatchPattern topnOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5",
-                hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
-                topnOverTableScan);
-        // with TopN over varchar column
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5",
-                hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR),
-                topnOverTableScan);
-
         // with join
-        PlanMatchPattern joinOverTableScans = node(JoinNode.class,
+        PlanMatchPattern joinOverTableScans = node(
+                JoinNode.class,
                 anyTree(node(TableScanNode.class)),
                 anyTree(node(TableScanNode.class)));
         assertConditionallyPushedDown(
@@ -1029,69 +985,10 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
-    public void testTopNPushdown()
+    public void testTopNPushdownWithJoin()
     {
-        if (!hasBehavior(SUPPORTS_TOPN_PUSHDOWN)) {
-            assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
-                    .ordered()
-                    .isNotFullyPushedDown(TopNNode.class);
-            return;
-        }
-
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
-                .ordered()
-                .isFullyPushedDown();
-
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // multiple sort columns with different orders
-        assertThat(query("SELECT * FROM orders ORDER BY shippriority DESC, totalprice ASC LIMIT 10"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // TopN over aggregation column
-        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
-                    .ordered()
-                    .isFullyPushedDown();
-        }
-
-        // TopN over TopN
-        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
-                .ordered()
-                .isFullyPushedDown();
-
-        assertThat(query("" +
-                "SELECT orderkey, totalprice " +
-                "FROM (SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) " +
-                "ORDER BY 2, 1 LIMIT 5) ORDER BY 1, 2 LIMIT 3"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // TopN over limit - use high limit for deterministic result
-        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 15000) ORDER BY totalprice ASC LIMIT 5"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // TopN over limit with filter
-        assertThat(query("" +
-                "SELECT orderkey, totalprice " +
-                "FROM (SELECT orderkey, totalprice FROM orders WHERE orderdate = DATE '1995-09-16' LIMIT 20) " +
-                "ORDER BY totalprice ASC LIMIT 5"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // TopN over aggregation with filter
-        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("" +
-                    "SELECT * " +
-                    "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
-                    "ORDER BY sum DESC LIMIT 10"))
-                    .ordered()
-                    .isFullyPushedDown();
-        }
+        // covered by testTopNPushdown
+        skipTestUnless(hasBehavior(SUPPORTS_TOPN_PUSHDOWN));
 
         // TopN over LEFT join (enforces SINGLE TopN cannot be pushed below OUTER side of join)
         // We expect PARTIAL TopN on the LEFT side of join to be pushed down.
@@ -1155,7 +1052,7 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
-        // some databases calculate remainder instead of modulus when one of the values is negative
+        // some databases calculate remainder instead of modulo when one of the values is negative
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
@@ -1163,7 +1060,7 @@ public abstract class BaseJdbcConnectorTest
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
                 .failure().hasMessageContaining("by zero");
 
-        // Expression that evaluates to 0 for some rows on RHS of modulus
+        // Expression that evaluates to 0 for some rows on RHS of modulo
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
                 .failure().hasMessageContaining("by zero");
 
@@ -1307,7 +1204,9 @@ public abstract class BaseJdbcConnectorTest
                 assertThat(query(session, format("SELECT n.name FROM nation n %s orders o ON DATE '2025-03-19' = o.orderdate", joinOperator))).joinIsNotFullyPushedDown();
 
                 // no projection on the probe side, only filter
-                assertJoinConditionallyPushedDown(session, format("SELECT n.name FROM nation n %s orders o ON n.regionkey = 1", joinOperator),
+                assertJoinConditionallyPushedDown(
+                        session,
+                        format("SELECT n.name FROM nation n %s orders o ON n.regionkey = 1", joinOperator),
                         expectJoinPushdownOnEmptyProjection(joinOperator));
 
                 // pushdown when using USING
@@ -1437,19 +1336,6 @@ public abstract class BaseJdbcConnectorTest
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
                 "Physical input time: .*s");
-    }
-
-    protected QueryAssert assertConditionallyPushedDown(
-            Session session,
-            @Language("SQL") String query,
-            boolean condition,
-            PlanMatchPattern otherwiseExpected)
-    {
-        QueryAssert queryAssert = assertThat(query(session, query));
-        if (condition) {
-            return queryAssert.isFullyPushedDown();
-        }
-        return queryAssert.isNotFullyPushedDown(otherwiseExpected);
     }
 
     protected QueryAssert assertJoinConditionallyPushedDown(
@@ -1693,7 +1579,7 @@ public abstract class BaseJdbcConnectorTest
 
             String query = "SELECT * FROM " + sleepingView.getName();
             Future<?> future = executor.submit(() -> assertQueryFails(query, "Query killed. Message: Killed by test"));
-            QueryId queryId = getQueryId(query);
+            QueryId queryId = getQueryId(getQueryRunner(), query);
             assertEventually(() -> assertThat(runningTracingEvent.hasHappened()).isTrue());
             stopTracingDatabaseEvent(runningTracingEvent);
 
@@ -1716,13 +1602,13 @@ public abstract class BaseJdbcConnectorTest
         throw new UnsupportedOperationException();
     }
 
-    private QueryId getQueryId(String query)
+    public static QueryId getQueryId(QueryRunner queryRunner, String query)
             throws Exception
     {
         for (int i = 0; i < 100; i++) {
-            MaterializedResult queriesResult = getQueryRunner().execute(format(
+            MaterializedResult queriesResult = queryRunner.execute(format(
                     "SELECT query_id FROM system.runtime.queries WHERE query = '%s' AND query NOT LIKE '%%system.runtime.queries%%'",
-                    query));
+                    query.replaceAll("'", "''")));
             int rowCount = queriesResult.getRowCount();
             if (rowCount == 0) {
                 Thread.sleep(100);
@@ -1912,8 +1798,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithBigintEqualityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = newTrinoTable("test_delete_bigint", "AS SELECT * FROM region")) {
+        try (TestTable table = newTrinoTable("test_delete_with_bigint_equality_predicate", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
             assertQuery(
                     "SELECT regionkey, name FROM " + table.getName(),
@@ -1929,8 +1814,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharEqualityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = createTestTableForWrites("test_delete_varchar", "(col varchar(1), pk INT)", ImmutableList.of("'a', 1", "'A', 2", "null, 3"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_equality_predicate", "(col varchar(1), pk INT)", ImmutableList.of("'a', 1", "'A', 2", "null, 3"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
@@ -1945,8 +1829,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharInequalityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = createTestTableForWrites("test_delete_varchar", "(col varchar(1), pk int)", ImmutableList.of("'a', 0", "'A', 1", "null, 2"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_inequality_predicate", "(col varchar(1), pk int)", ImmutableList.of("'a', 0", "'A', 1", "null, 2"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_MERGE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
@@ -1961,8 +1844,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharGreaterAndLowerPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = createTestTableForWrites("test_delete_varchar", "(col varchar(1), pk int)", ImmutableList.of("'0', 0", "'a', 1", "'A', 2", "'b', 3", "null, 4"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_greater_and_lower_predicate", "(col varchar(1), pk int)", ImmutableList.of("'0', 0", "'a', 1", "'A', 2", "'b', 3", "null, 4"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_MERGE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", MODIFYING_ROWS_MESSAGE);
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col > 'A'", MODIFYING_ROWS_MESSAGE);
@@ -2226,6 +2108,11 @@ public abstract class BaseJdbcConnectorTest
     public void testNativeQuerySelectUnsupportedType()
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        testNativeQuerySelectUnsupportedType(false);
+    }
+
+    protected void testNativeQuerySelectUnsupportedType(boolean expectSuccess)
+    {
         try (TestTable testTable = createTableWithUnsupportedColumn()) {
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
@@ -2233,9 +2120,17 @@ public abstract class BaseJdbcConnectorTest
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + unqualifiedTableName + "'",
                     "VALUES 'one', 'three'");
             assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
-                    // TODO should be TrinoException
-                    .nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
+            QueryAssert queryAssert = assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())));
+            if (expectSuccess) {
+                // For some connectors, the type introspection for regular tables (usually done via JDBC DatabaseMetaData)
+                // is not the same as the type introspection for queries (usually done via JDBC ResultSetMetaData).
+                // Sometimes there is no type that is unsupported on the table level and still not supported when introspecting a query.
+                queryAssert.skippingTypesCheck().matches("VALUES (BIGINT '123', null, 'test')");
+            }
+            else {
+                // TODO should be TrinoException
+                queryAssert.nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
+            }
         }
     }
 
@@ -2453,7 +2348,7 @@ public abstract class BaseJdbcConnectorTest
             assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
             assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
 
-            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+            assertUpdate("EXECUTE IMMEDIATE 'CALL system.execute(?)' USING 'DROP TABLE " + schemaTableName + "'");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         }
         finally {

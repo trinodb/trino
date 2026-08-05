@@ -21,7 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -39,32 +39,32 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 
 public class TestApproximatePercentileAggregation
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE = fromTypes(DOUBLE, DOUBLE);
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(DOUBLE, BIGINT, DOUBLE);
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(DOUBLE, BIGINT, DOUBLE, DOUBLE);
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE = fromTypes(DOUBLE, DOUBLE);
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(DOUBLE, BIGINT, DOUBLE);
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(DOUBLE, BIGINT, DOUBLE, DOUBLE);
 
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE = fromTypes(BIGINT, DOUBLE);
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(BIGINT, BIGINT, DOUBLE);
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(BIGINT, BIGINT, DOUBLE, DOUBLE);
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE = fromTypes(BIGINT, DOUBLE);
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(BIGINT, BIGINT, DOUBLE);
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(BIGINT, BIGINT, DOUBLE, DOUBLE);
 
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(DOUBLE, new ArrayType(DOUBLE));
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(DOUBLE, BIGINT, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(DOUBLE, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(DOUBLE, BIGINT, new ArrayType(DOUBLE));
 
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(BIGINT, new ArrayType(DOUBLE));
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(BIGINT, BIGINT, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(BIGINT, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(BIGINT, BIGINT, new ArrayType(DOUBLE));
 
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE = fromTypes(REAL, DOUBLE);
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(REAL, BIGINT, DOUBLE);
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(REAL, BIGINT, DOUBLE, DOUBLE);
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE = fromTypes(REAL, DOUBLE);
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(REAL, BIGINT, DOUBLE);
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(REAL, BIGINT, DOUBLE, DOUBLE);
 
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(REAL, new ArrayType(DOUBLE));
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(REAL, BIGINT, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(REAL, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(REAL, BIGINT, new ArrayType(DOUBLE));
 
     @Test
     public void testLongPartialStep()
@@ -448,7 +448,8 @@ public class TestApproximatePercentileAggregation
 
         // invalid inputs
         for (Float invalidValue : List.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY)) {
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     FLOAT_APPROXIMATE_PERCENTILE,
                     createBlockOfReals(invalidValue),
@@ -456,7 +457,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
                     createBlockOfReals(invalidValue),
@@ -464,7 +466,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
                     createBlockOfReals(1.0f),
@@ -473,7 +476,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
                     createBlockOfReals(invalidValue),
@@ -482,7 +486,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
                     createBlockOfReals(invalidValue),
@@ -491,7 +496,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
                     createBlockOfReals(1.0f),
@@ -692,7 +698,8 @@ public class TestApproximatePercentileAggregation
 
         // invalid inputs
         for (Double invalidValue : List.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)) {
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     DOUBLE_APPROXIMATE_PERCENTILE,
                     createDoublesBlock(invalidValue),
@@ -700,7 +707,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
                     createDoublesBlock(invalidValue),
@@ -708,7 +716,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
                     createDoublesBlock(invalidValue),
@@ -717,7 +726,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
                     createDoublesBlock(1.0),
@@ -726,7 +736,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
                     createDoublesBlock(1.0),
@@ -735,7 +746,8 @@ public class TestApproximatePercentileAggregation
                     .isInstanceOf(TrinoException.class)
                     .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-            assertAggregationFails(FUNCTION_RESOLUTION,
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
                     "approx_percentile",
                     DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
                     createDoublesBlock(invalidValue),

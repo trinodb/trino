@@ -1,0 +1,7 @@
+-- delimiter: |; types: VARCHAR|DOUBLE|DECIMAL|DECIMAL
+Did not get it on ti|27.50000000000|520.41|21.62|
+No service location |76.00000000000|464.36|8.62|
+Not working any more|7.00000000000|129.42|38.65|
+Parts missing       |9.00000000000|15.30|52.18|
+reason 55           |1.00000000000|82.58|54.11|
+reason 64           |70.00000000000|876.67|46.67|

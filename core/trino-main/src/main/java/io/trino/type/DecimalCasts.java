@@ -13,9 +13,9 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -26,21 +26,32 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TrinoNumber;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.variant.Variant;
 import io.trino.util.JsonCastException;
+import io.trino.util.variant.VariantUtil;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.function.Predicate;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.NumberParser.NOT_SHORT_DECIMAL;
+import static io.trino.plugin.base.util.NumberParser.longPowerOfTen;
+import static io.trino.plugin.base.util.NumberParser.parseShortDecimal;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -54,11 +65,15 @@ import static io.trino.spi.type.Int128Math.multiply;
 import static io.trino.spi.type.Int128Math.powerOfTen;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
+import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonFactory;
@@ -70,40 +85,69 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class DecimalCasts
 {
-    public static final SqlScalarFunction DECIMAL_TO_BOOLEAN_CAST = castFunctionFromDecimalTo(BOOLEAN.getTypeSignature(), "shortDecimalToBoolean", "longDecimalToBoolean");
-    public static final SqlScalarFunction BOOLEAN_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BOOLEAN.getTypeSignature(), "booleanToShortDecimal", "booleanToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_BIGINT_CAST = castFunctionFromDecimalTo(BIGINT.getTypeSignature(), "shortDecimalToBigint", "longDecimalToBigint");
-    public static final SqlScalarFunction BIGINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BIGINT.getTypeSignature(), "bigintToShortDecimal", "bigintToLongDecimal");
-    public static final SqlScalarFunction INTEGER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(INTEGER.getTypeSignature(), "integerToShortDecimal", "integerToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_INTEGER_CAST = castFunctionFromDecimalTo(INTEGER.getTypeSignature(), "shortDecimalToInteger", "longDecimalToInteger");
-    public static final SqlScalarFunction SMALLINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(SMALLINT.getTypeSignature(), "smallintToShortDecimal", "smallintToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_SMALLINT_CAST = castFunctionFromDecimalTo(SMALLINT.getTypeSignature(), "shortDecimalToSmallint", "longDecimalToSmallint");
-    public static final SqlScalarFunction TINYINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(TINYINT.getTypeSignature(), "tinyintToShortDecimal", "tinyintToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_TINYINT_CAST = castFunctionFromDecimalTo(TINYINT.getTypeSignature(), "shortDecimalToTinyint", "longDecimalToTinyint");
-    public static final SqlScalarFunction DECIMAL_TO_DOUBLE_CAST = castFunctionFromDecimalTo(DOUBLE.getTypeSignature(), "shortDecimalToDouble", "longDecimalToDouble");
-    public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE.getTypeSignature(), "doubleToShortDecimal", "doubleToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_REAL_CAST = castFunctionFromDecimalTo(REAL.getTypeSignature(), "shortDecimalToReal", "longDecimalToReal");
-    public static final SqlScalarFunction REAL_TO_DECIMAL_CAST = castFunctionToDecimalFrom(REAL.getTypeSignature(), "realToShortDecimal", "realToLongDecimal");
-    public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(new TypeSignature("varchar", typeVariable("x")), "varcharToShortDecimal", "varcharToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), "shortDecimalToJson", "longDecimalToJson");
-    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), true, "jsonToShortDecimal", "jsonToLongDecimal");
+    private static final Predicate<BoundSignature> NEVER_FAILS = _ -> true;
+    private static final Predicate<BoundSignature> MAY_FAIL = _ -> false;
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static Predicate<BoundSignature> whenTargetCoversIntegerDigits(int requiredIntegerDigits)
+    {
+        return boundSignature -> {
+            DecimalType target = (DecimalType) boundSignature.getReturnType();
+            return target.getPrecision() - target.getScale() >= requiredIntegerDigits;
+        };
+    }
 
-    private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, String... methodNames)
+    private static Predicate<BoundSignature> whenSourceIntegerDigitsAtMost(int maxIntegerDigits)
+    {
+        return boundSignature -> {
+            DecimalType source = (DecimalType) getOnlyElement(boundSignature.getArgumentTypes());
+            return source.getPrecision() - source.getScale() <= maxIntegerDigits;
+        };
+    }
+
+    public static final SqlScalarFunction DECIMAL_TO_BOOLEAN_CAST = castFunctionFromDecimalTo(BOOLEAN.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToBoolean", "longDecimalToBoolean");
+    public static final SqlScalarFunction BOOLEAN_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BOOLEAN.getTypeDescriptor(), whenTargetCoversIntegerDigits(1), "booleanToShortDecimal", "booleanToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_BIGINT_CAST = castFunctionFromDecimalTo(BIGINT.getTypeDescriptor(), whenSourceIntegerDigitsAtMost(18), "shortDecimalToBigint", "longDecimalToBigint");
+    public static final SqlScalarFunction BIGINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BIGINT.getTypeDescriptor(), whenTargetCoversIntegerDigits(19), "bigintToShortDecimal", "bigintToLongDecimal");
+    public static final SqlScalarFunction INTEGER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(INTEGER.getTypeDescriptor(), whenTargetCoversIntegerDigits(10), "integerToShortDecimal", "integerToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_INTEGER_CAST = castFunctionFromDecimalTo(INTEGER.getTypeDescriptor(), whenSourceIntegerDigitsAtMost(9), "shortDecimalToInteger", "longDecimalToInteger");
+    public static final SqlScalarFunction SMALLINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(SMALLINT.getTypeDescriptor(), whenTargetCoversIntegerDigits(5), "smallintToShortDecimal", "smallintToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_SMALLINT_CAST = castFunctionFromDecimalTo(SMALLINT.getTypeDescriptor(), whenSourceIntegerDigitsAtMost(4), "shortDecimalToSmallint", "longDecimalToSmallint");
+    public static final SqlScalarFunction TINYINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(TINYINT.getTypeDescriptor(), whenTargetCoversIntegerDigits(3), "tinyintToShortDecimal", "tinyintToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_TINYINT_CAST = castFunctionFromDecimalTo(TINYINT.getTypeDescriptor(), whenSourceIntegerDigitsAtMost(2), "shortDecimalToTinyint", "longDecimalToTinyint");
+    public static final SqlScalarFunction DECIMAL_TO_DOUBLE_CAST = castFunctionFromDecimalTo(DOUBLE.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToDouble", "longDecimalToDouble");
+    public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE.getTypeDescriptor(), MAY_FAIL, "doubleToShortDecimal", "doubleToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_REAL_CAST = castFunctionFromDecimalTo(REAL.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToReal", "longDecimalToReal");
+    public static final SqlScalarFunction REAL_TO_DECIMAL_CAST = castFunctionToDecimalFrom(REAL.getTypeDescriptor(), MAY_FAIL, "realToShortDecimal", "realToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_NUMBER_CAST = castFunctionFromDecimalTo(NUMBER.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToNumber", "longDecimalToNumber");
+    public static final SqlScalarFunction NUMBER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(NUMBER.getTypeDescriptor(), MAY_FAIL, "numberToShortDecimal", "numberToLongDecimal");
+    public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(type("varchar", numericVariable("x")), MAY_FAIL, "varcharToShortDecimal", "varcharToLongDecimal");
+    // Despite decimalToJson having a catch inside that suggests that function can fail, IOException comes from the Jackson writing to an OutputStream
+    // that never happens for SliceOutput.
+    public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToJson", "longDecimalToJson");
+    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeDescriptor(JSON.getTypeDescriptor()), true, MAY_FAIL, "jsonToShortDecimal", "jsonToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_VARIANT_CAST = castFunctionFromDecimalTo(VARIANT.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToVariant", "longDecimalToVariant");
+    public static final SqlScalarFunction VARIANT_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeDescriptor(VARIANT.getTypeDescriptor()), true, MAY_FAIL, "variantToShortDecimal", "variantToLongDecimal");
+
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+
+    private static SqlScalarFunction castFunctionFromDecimalTo(TypeDescriptor to, Predicate<BoundSignature> neverFails, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
+                .argumentType(type("decimal", numericVariable("precision"), numericVariable("scale")))
                 .returnType(to)
                 .build();
         return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
                 .signature(signature)
                 .deterministic(true)
+                .neverFails(neverFails)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(methodNames)
@@ -122,21 +166,27 @@ public final class DecimalCasts
                 .build();
     }
 
-    private static SqlScalarFunction castFunctionToDecimalFrom(TypeSignature from, String... methodNames)
+    private static SqlScalarFunction castFunctionToDecimalFrom(TypeDescriptor from, Predicate<BoundSignature> neverFails, String... methodNames)
     {
-        return castFunctionToDecimalFromBuilder(from, false, methodNames);
+        return castFunctionToDecimalFromBuilder(fromTypeDescriptor(from), false, neverFails, methodNames);
     }
 
-    private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeSignature from, boolean nullableResult, String... methodNames)
+    private static SqlScalarFunction castFunctionToDecimalFrom(TypeTemplate from, Predicate<BoundSignature> neverFails, String... methodNames)
+    {
+        return castFunctionToDecimalFromBuilder(from, false, neverFails, methodNames);
+    }
+
+    private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeTemplate from, boolean nullableResult, Predicate<BoundSignature> neverFails, String... methodNames)
     {
         Signature signature = Signature.builder()
                 .argumentType(from)
-                .returnType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
+                .returnType(type("decimal", numericVariable("precision"), numericVariable("scale")))
                 .build();
         return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
                 .signature(signature)
                 .nullableResult(nullableResult)
                 .deterministic(true)
+                .neverFails(neverFails)
                 .choice(choice -> choice
                         .returnConvention(nullableResult ? NULLABLE_RETURN : FAIL_ON_NULL)
                         .implementation(methodsGroup -> methodsGroup
@@ -156,8 +206,8 @@ public final class DecimalCasts
 
     public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
             .signature(Signature.builder()
-                    .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
-                    .returnType(new TypeSignature("varchar", typeVariable("x")))
+                    .argumentType(type("decimal", numericVariable("precision"), numericVariable("scale")))
+                    .returnType(type("varchar", numericVariable("x")))
                     .build())
             .deterministic(true)
             .choice(choice -> choice
@@ -194,12 +244,18 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long booleanToShortDecimal(boolean value, long precision, long scale, long tenToScale)
     {
+        if (value && precision == scale) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BOOLEAN '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
         return value ? tenToScale : 0;
     }
 
     @UsedByGeneratedCode
     public static Int128 booleanToLongDecimal(boolean value, long precision, long scale, Int128 tenToScale)
     {
+        if (value && precision == scale) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BOOLEAN '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
         return value ? tenToScale : ZERO;
     }
 
@@ -220,7 +276,7 @@ public final class DecimalCasts
             return rescale(decimal, DecimalConversions.intScale(-scale)).toLongExact();
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to BIGINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -230,12 +286,12 @@ public final class DecimalCasts
         try {
             long decimal = multiplyExact(value, tenToScale);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -244,13 +300,13 @@ public final class DecimalCasts
     {
         try {
             Int128 result = multiply(tenToScale, value);
-            if (Decimals.overflows(result, (int) precision)) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            if (overflows(result, (int) precision)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -263,12 +319,10 @@ public final class DecimalCasts
             longResult = -((-decimal + tenToScale / 2) / tenToScale);
         }
 
-        try {
-            return toIntExact(longResult);
+        if (!isLongToIntExact(longResult)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to INTEGER", longResult));
         }
-        catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", longResult));
-        }
+        return (int) longResult;
     }
 
     @UsedByGeneratedCode
@@ -278,7 +332,7 @@ public final class DecimalCasts
             return toIntExact(rescale(decimal, DecimalConversions.intScale(-scale)).toLongExact());
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to INTEGER", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -288,12 +342,12 @@ public final class DecimalCasts
         try {
             long decimal = multiplyExact(value, tenToScale);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -302,13 +356,13 @@ public final class DecimalCasts
     {
         try {
             Int128 result = multiply(tenToScale, value);
-            if (Decimals.overflows(result, (int) precision)) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            if (overflows(result, (int) precision)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -321,12 +375,10 @@ public final class DecimalCasts
             longResult = -((-decimal + tenToScale / 2) / tenToScale);
         }
 
-        try {
-            return Shorts.checkedCast(longResult);
+        if (!isLongToShortExact(longResult)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to SMALLINT", longResult));
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", longResult));
-        }
+        return (short) longResult;
     }
 
     @UsedByGeneratedCode
@@ -337,7 +389,7 @@ public final class DecimalCasts
             return Shorts.checkedCast(decimal1.toLongExact());
         }
         catch (ArithmeticException | IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to SMALLINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -347,12 +399,12 @@ public final class DecimalCasts
         try {
             long decimal = multiplyExact(value, tenToScale);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -361,13 +413,13 @@ public final class DecimalCasts
     {
         try {
             Int128 result = multiply(tenToScale, value);
-            if (Decimals.overflows(result, (int) precision)) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            if (overflows(result, (int) precision)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -380,12 +432,10 @@ public final class DecimalCasts
             longResult = -((-decimal + tenToScale / 2) / tenToScale);
         }
 
-        try {
-            return SignedBytes.checkedCast(longResult);
+        if (!isLongToByteExact(longResult)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to TINYINT", longResult));
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", longResult));
-        }
+        return (byte) longResult;
     }
 
     @UsedByGeneratedCode
@@ -395,7 +445,7 @@ public final class DecimalCasts
             return SignedBytes.checkedCast(rescale(decimal, DecimalConversions.intScale(-scale)).toLongExact());
         }
         catch (ArithmeticException | IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to TINYINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -405,12 +455,12 @@ public final class DecimalCasts
         try {
             long decimal = multiplyExact(value, tenToScale);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -419,20 +469,20 @@ public final class DecimalCasts
     {
         try {
             Int128 result = multiply(tenToScale, value);
-            if (Decimals.overflows(result, (int) precision)) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            if (overflows(result, (int) precision)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
     @UsedByGeneratedCode
     public static double shortDecimalToDouble(long decimal, long precision, long scale, long tenToScale)
     {
-        return ((double) decimal) / tenToScale;
+        return DecimalConversions.shortDecimalToDouble(decimal, tenToScale);
     }
 
     @UsedByGeneratedCode
@@ -480,6 +530,64 @@ public final class DecimalCasts
     }
 
     @UsedByGeneratedCode
+    public static TrinoNumber shortDecimalToNumber(long decimal, long precision, long scale, long tenToScale)
+    {
+        return TrinoNumber.from(BigDecimal.valueOf(decimal, DecimalConversions.intScale(scale)));
+    }
+
+    @UsedByGeneratedCode
+    public static TrinoNumber longDecimalToNumber(Int128 decimal, long precision, long scale, Int128 tenToScale)
+    {
+        return TrinoNumber.from(new BigDecimal(decimal.toBigInteger(), DecimalConversions.intScale(scale)));
+    }
+
+    @UsedByGeneratedCode
+    public static long numberToShortDecimal(TrinoNumber value, long precision, long scale, long tenToScale)
+    {
+        BigDecimal bigDecimal = switch (value.toBigDecimal()) {
+            case TrinoNumber.NotANumber _ -> throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            case TrinoNumber.Infinity _ -> throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            case TrinoNumber.BigDecimalValue(BigDecimal v) -> v;
+        };
+        BigDecimal result;
+        try {
+            result = bigDecimal.setScale(DecimalConversions.intScale(scale), HALF_UP);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
+        }
+
+        if (overflows(result, precision)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
+        }
+
+        return result.unscaledValue().longValue();
+    }
+
+    @UsedByGeneratedCode
+    public static Int128 numberToLongDecimal(TrinoNumber value, long precision, long scale, Int128 tenToScale)
+    {
+        BigDecimal bigDecimal = switch (value.toBigDecimal()) {
+            case TrinoNumber.NotANumber _ -> throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            case TrinoNumber.Infinity _ -> throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            case TrinoNumber.BigDecimalValue(BigDecimal v) -> v;
+        };
+        BigDecimal result;
+        try {
+            result = bigDecimal.setScale(DecimalConversions.intScale(scale), HALF_UP);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
+        }
+
+        if (overflows(result, precision)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
+        }
+
+        return Int128.valueOf(result.unscaledValue());
+    }
+
+    @UsedByGeneratedCode
     public static Slice shortDecimalToVarchar(long decimal, long scale, long varcharLength)
     {
         String stringValue = Decimals.toString(decimal, DecimalConversions.intScale(scale));
@@ -506,10 +614,22 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long varcharToShortDecimal(Slice value, long precision, long scale, long tenToScale)
     {
+        int intScale = DecimalConversions.intScale(scale);
+
+        long unscaled = parseShortDecimal(value, 0, value.length(), intScale);
+        if (unscaled != NOT_SHORT_DECIMAL) {
+            // a short decimal has a precision of at most 18, so the bound always fits in a long
+            long bound = longPowerOfTen((int) precision);
+            if (unscaled <= -bound || unscaled >= bound) {
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value too large.", value.toStringUtf8(), precision, scale));
+            }
+            return unscaled;
+        }
+
         BigDecimal result;
         String stringValue = value.toString(UTF_8);
         try {
-            result = new BigDecimal(stringValue).setScale(DecimalConversions.intScale(scale), HALF_UP);
+            result = new BigDecimal(stringValue).setScale(intScale, HALF_UP);
         }
         catch (NumberFormatException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value is not a number.", stringValue, precision, scale));
@@ -557,7 +677,7 @@ public final class DecimalCasts
     {
         try {
             SliceOutput dynamicSliceOutput = new DynamicSliceOutput(32);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, dynamicSliceOutput)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, dynamicSliceOutput)) {
                 jsonGenerator.writeNumber(bigDecimal);
             }
             return dynamicSliceOutput.slice();
@@ -570,10 +690,10 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Int128 jsonToLongDecimal(Slice json, long precision, long scale, Int128 tenToScale)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Int128 result = currentTokenAsLongDecimal(parser, intPrecision(precision), DecimalConversions.intScale(scale));
-            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, () -> String.format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale)); // check no trailing token
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
             return result;
         }
         catch (IOException | NumberFormatException | JsonCastException e) {
@@ -584,15 +704,39 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Long jsonToShortDecimal(Slice json, long precision, long scale, long tenToScale)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Long result = currentTokenAsShortDecimal(parser, intPrecision(precision), DecimalConversions.intScale(scale));
-            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, () -> String.format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale)); // check no trailing token
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
             return result;
         }
         catch (IOException | NumberFormatException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
         }
+    }
+
+    @UsedByGeneratedCode
+    public static Variant shortDecimalToVariant(long decimal, long precision, long scale, long tenToScale)
+    {
+        return Variant.ofDecimal(BigDecimal.valueOf(decimal, DecimalConversions.intScale(scale)));
+    }
+
+    @UsedByGeneratedCode
+    public static Variant longDecimalToVariant(Int128 decimal, long precision, long scale, Int128 tenToScale)
+    {
+        return Variant.ofDecimal(new BigDecimal(decimal.toBigInteger(), DecimalConversions.intScale(scale)));
+    }
+
+    @UsedByGeneratedCode
+    public static Int128 variantToLongDecimal(Variant variant, long precision, long scale, Int128 tenToScale)
+    {
+        return VariantUtil.asLongDecimal(variant, intPrecision(precision), DecimalConversions.intScale(scale));
+    }
+
+    @UsedByGeneratedCode
+    public static Long variantToShortDecimal(Variant variant, long precision, long scale, long tenToScale)
+    {
+        return VariantUtil.asShortDecimal(variant, intPrecision(precision), DecimalConversions.intScale(scale));
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")

@@ -1,0 +1,17 @@
+---
+name: Feature request
+description: New features with Trino
+type: Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        * Verify that the issue is not already reported, looking at the [currently open issues](https://github.com/trinodb/trino/issues), use the `Filter` field to narrow down your search.
+        * Do **NOT** share any sensitive information like passwords, security tokens, private URLs etc.
+
+  - type: textarea
+    attributes:
+      label: Feature Request / Improvement
+      description: Describe the requested feature and explain the use case.
+    validations:
+      required: true

@@ -43,7 +43,7 @@ public class ArraySortAfterArrayDistinct
 
     public ArraySortAfterArrayDistinct(PlannerContext plannerContext)
     {
-        super((expression, context) -> rewrite(expression, plannerContext.getMetadata()));
+        super((expression, _) -> rewrite(expression, plannerContext.getMetadata()));
     }
 
     @Override

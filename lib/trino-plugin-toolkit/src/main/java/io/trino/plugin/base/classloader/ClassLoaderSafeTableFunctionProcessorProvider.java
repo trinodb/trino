@@ -16,10 +16,13 @@ package io.trino.plugin.base.classloader;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionDataProcessor;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,10 +47,14 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
     }
 
     @Override
-    public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+    public TableFunctionSplitProcessor getSplitProcessor(
+            ConnectorSession session,
+            ConnectorTableFunctionHandle handle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorSplit split)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplitProcessor(session, handle, split);
+            return delegate.getSplitProcessor(session, handle, tableCredentials, split);
         }
     }
 }

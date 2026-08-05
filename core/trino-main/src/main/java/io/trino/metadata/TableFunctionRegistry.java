@@ -22,7 +22,7 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.function.table.ScalarArgumentSpecification;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.type.UnknownType;
 
 import java.util.List;
@@ -74,19 +74,19 @@ public class TableFunctionRegistry
                         .argumentTypes(toArgumentTypes(tableFunction))
                         .returnType(UnknownType.UNKNOWN)
                         .build())
-                .noDescription()
+                .description(tableFunction.getDescription())
                 .nondeterministic()
                 .build();
     }
 
-    private static List<TypeSignature> toArgumentTypes(ConnectorTableFunction tableFunction)
+    private static List<TypeDescriptor> toArgumentTypes(ConnectorTableFunction tableFunction)
     {
         return tableFunction.getArguments().stream()
                 .map(function -> {
                     if (function instanceof ScalarArgumentSpecification scalarArgument) {
-                        return scalarArgument.getType().getTypeSignature();
+                        return scalarArgument.getType().getTypeDescriptor();
                     }
-                    return UnknownType.UNKNOWN.getTypeSignature();
+                    return UnknownType.UNKNOWN.getTypeDescriptor();
                 })
                 .collect(toImmutableList());
     }

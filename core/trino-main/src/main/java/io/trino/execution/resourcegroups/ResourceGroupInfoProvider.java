@@ -16,12 +16,9 @@ package io.trino.execution.resourcegroups;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface ResourceGroupInfoProvider
 {
     Optional<ResourceGroupInfo> tryGetResourceGroupInfo(ResourceGroupId id);
-
-    Optional<List<ResourceGroupInfo>> tryGetPathToRoot(ResourceGroupId id);
 }

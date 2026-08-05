@@ -14,10 +14,12 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
+import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Map;
 import java.util.Optional;
@@ -26,12 +28,12 @@ public class EvaluateReference
         implements IrOptimizerRule
 {
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Reference reference)) {
+        if (!(expression instanceof Reference(Type type, String name))) {
             return Optional.empty();
         }
 
-        return Optional.ofNullable(bindings.get(new Symbol(reference.type(), reference.name())));
+        return Optional.ofNullable(bindings.get(new Symbol(type, name)));
     }
 }

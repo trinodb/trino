@@ -25,7 +25,7 @@ public final class HyperLogLogOperators
 {
     private HyperLogLogOperators() {}
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinary(@SqlType(StandardTypes.HYPER_LOG_LOG) Slice slice)
     {

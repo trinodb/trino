@@ -165,6 +165,7 @@ public class TaskResource
                 taskId,
                 taskUpdateRequest.stageSpan(),
                 taskUpdateRequest.fragment(),
+                taskUpdateRequest.tableCredentials(),
                 taskUpdateRequest.splitAssignments(),
                 taskUpdateRequest.outputIds(),
                 taskUpdateRequest.dynamicFilterDomains(),
@@ -219,8 +220,7 @@ public class TaskResource
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
         }
 
-        ListenableFuture<Response> response = Futures.transform(futureTaskInfo, taskInfo ->
-                Response.ok(taskInfo).build(), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(futureTaskInfo, taskInfo -> Response.ok(taskInfo).build(), directExecutor());
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
@@ -363,8 +363,10 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse,
-                withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), timeoutExecutor), responseExecutor);
+        bindAsyncResponse(
+                asyncResponse,
+                withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), timeoutExecutor),
+                responseExecutor);
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
     }
 
@@ -433,9 +435,9 @@ public class TaskResource
 
         Optional<InjectedFailure> injectedFailure = failureInjector.getInjectedFailure(
                 traceToken.get(),
-                taskId.getStageId().getId(),
-                taskId.getPartitionId(),
-                taskId.getAttemptId());
+                taskId.stageId().id(),
+                taskId.partitionId(),
+                taskId.attemptId());
 
         if (injectedFailure.isEmpty()) {
             return false;
@@ -444,40 +446,39 @@ public class TaskResource
         InjectedFailure failure = injectedFailure.get();
         Duration timeout = failureInjector.getRequestTimeout();
         switch (failure.getInjectedFailureType()) {
-            case TASK_MANAGEMENT_REQUEST_FAILURE:
+            case TASK_MANAGEMENT_REQUEST_FAILURE -> {
                 if (requestType.isTaskManagement()) {
                     log.info("Failing %s request for task %s", requestType, taskId);
                     asyncResponse.resume(new InternalServerErrorException("Task %s failed".formatted(taskId)));
                     return true;
                 }
-                break;
-            case TASK_MANAGEMENT_REQUEST_TIMEOUT:
+            }
+            case TASK_MANAGEMENT_REQUEST_TIMEOUT -> {
                 if (requestType.isTaskManagement()) {
                     log.info("Timing out %s request for task %s", requestType, taskId);
                     asyncResponse.setTimeout(timeout.toMillis(), MILLISECONDS);
                     return true;
                 }
-                break;
-            case TASK_GET_RESULTS_REQUEST_FAILURE:
+            }
+            case TASK_GET_RESULTS_REQUEST_FAILURE -> {
                 if (!requestType.isTaskManagement()) {
                     log.info("Failing %s request for task %s", requestType, taskId);
                     asyncResponse.resume(new InternalServerErrorException("Task %s failed".formatted(taskId)));
                     return true;
                 }
-                break;
-            case TASK_GET_RESULTS_REQUEST_TIMEOUT:
+            }
+            case TASK_GET_RESULTS_REQUEST_TIMEOUT -> {
                 if (!requestType.isTaskManagement()) {
                     log.info("Timing out %s request for task %s", requestType, taskId);
                     asyncResponse.setTimeout(timeout.toMillis(), MILLISECONDS);
                     return true;
                 }
-                break;
-            case TASK_FAILURE:
+            }
+            case TASK_FAILURE -> {
                 log.info("Injecting failure for task %s at %s", taskId, requestType);
                 taskManager.failTask(taskId, injectedFailure.get().getTaskFailureException());
-                break;
-            default:
-                throw new IllegalArgumentException("unexpected failure type: " + failure.getInjectedFailureType());
+            }
+            default -> throw new IllegalArgumentException("unexpected failure type: " + failure.getInjectedFailureType());
         }
 
         return false;
@@ -536,13 +537,13 @@ public class TaskResource
         // This response may have been created as the result of a timeout, so refresh the task heartbeat
         taskWithResults.recordHeartbeat();
 
-        List<Slice> serializedPages = result.getSerializedPages();
+        List<Slice> serializedPages = result.serializedPages();
 
         Response.ResponseBuilder response = Response.status(serializedPages.isEmpty() ? Status.NO_CONTENT : Status.OK)
-                .header(TRINO_TASK_INSTANCE_ID, result.getTaskInstanceId())
-                .header(TRINO_PAGE_TOKEN, result.getToken())
-                .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
-                .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
+                .header(TRINO_TASK_INSTANCE_ID, result.taskInstanceId())
+                .header(TRINO_PAGE_TOKEN, result.token())
+                .header(TRINO_PAGE_NEXT_TOKEN, result.nextToken())
+                .header(TRINO_BUFFER_COMPLETE, result.bufferComplete())
                 // check for task failure after getting the result to ensure it's consistent with isBufferComplete()
                 .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing());
 

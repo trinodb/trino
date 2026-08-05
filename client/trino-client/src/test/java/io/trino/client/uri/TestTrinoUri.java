@@ -104,7 +104,7 @@ public class TestTrinoUri
         assertInvalid("trino://localhost:8080?SSL=2", "Connection property SSL value is invalid: 2");
         assertInvalid("trino://localhost:8080?SSL=abc", "Connection property SSL value is invalid: abc");
 
-        //invalid ssl verification mode
+        // invalid ssl verification mode
         assertInvalid("trino://localhost:8080?SSL=true&SSLVerification=0", "Connection property SSLVerification value is invalid: 0");
         assertInvalid("trino://localhost:8080?SSL=true&SSLVerification=abc", "Connection property SSLVerification value is invalid: abc");
 
@@ -223,9 +223,9 @@ public class TestTrinoUri
     {
         assertThatThrownBy(() -> TrinoUri.create("trino://localhost:8080?user=&SSLVerification=true", new Properties()))
                 .hasMessageContaining(
-                    "Provided connection properties are invalid:\n" +
-                    "Connection property SSLVerification requires TLS/SSL to be enabled\n" +
-                    "Connection property user value is empty");
+                        "Provided connection properties are invalid:\n" +
+                                "Connection property SSLVerification requires TLS/SSL to be enabled\n" +
+                                "Connection property user value is empty");
     }
 
     @Test

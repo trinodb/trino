@@ -14,6 +14,8 @@
 package io.trino.hive.formats.line.text;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
@@ -25,6 +27,7 @@ import io.trino.hive.formats.line.LineReaderFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 
@@ -99,6 +102,12 @@ public class TextLineReaderFactory
                 throw throwable;
             }
         }
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(TrinoFileSystem trinoFileSystem, Location path, long estimatedFileSize, long fileModifiedTime)
+    {
+        return trinoFileSystem.newInputFile(path, estimatedFileSize, Instant.ofEpochMilli(fileModifiedTime));
     }
 
     private void skipHeader(LineReader lineReader, int headerCount)

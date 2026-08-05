@@ -14,7 +14,6 @@
 package io.trino.execution.buffer;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -22,12 +21,12 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.TDigest;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import jakarta.annotation.Nullable;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -39,7 +38,7 @@ import static java.util.Objects.requireNonNull;
  * - the memory pool is exhausted
  */
 @ThreadSafe
-class OutputBufferMemoryManager
+final class OutputBufferMemoryManager
 {
     private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
@@ -55,27 +54,35 @@ class OutputBufferMemoryManager
     // guarded by "this" for updates
     private volatile ListenableFuture<Void> blockedOnMemory = NOT_BLOCKED;
 
-    private final Ticker ticker = Ticker.systemTicker();
+    private final Ticker ticker;
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
-    private final Supplier<LocalMemoryContext> memoryContextSupplier;
+    private final Lazy<LocalMemoryContext> memoryContextSupplier;
     private final Executor notificationExecutor;
 
     @GuardedBy("this")
     private final TDigest bufferUtilization = new TDigest();
     @GuardedBy("this")
-    private long lastBufferUtilizationRecordTime = -1;
+    private long lastBufferUtilizationRecordTime;
     @GuardedBy("this")
     private double lastBufferUtilization;
 
-    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
+    public OutputBufferMemoryManager(long maxBufferedBytes, Lazy<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
+    {
+        this(maxBufferedBytes, memoryContextSupplier, notificationExecutor, Ticker.systemTicker());
+    }
+
+    @VisibleForTesting
+    OutputBufferMemoryManager(long maxBufferedBytes, Lazy<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor, Ticker ticker)
     {
         requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
-        this.memoryContextSupplier = Suppliers.memoize(memoryContextSupplier::get);
+        this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
+        this.lastBufferUtilizationRecordTime = ticker.read();
         this.lastBufferUtilization = 0;
     }
 
@@ -90,7 +97,7 @@ class OutputBufferMemoryManager
 
         ListenableFuture<Void> waitForMemory = null;
         SettableFuture<Void> notifyUnblocked = null;
-        long currentBufferedBytes;
+        final long currentBufferedBytes;
         synchronized (this) {
             // If closed is true, that means the task is completed. In that state,
             // the output buffers already ignore the newly added pages, and therefore
@@ -99,9 +106,9 @@ class OutputBufferMemoryManager
                 return;
             }
 
-            currentBufferedBytes = bufferedBytes.updateAndGet(bytes -> {
-                long result = bytes + bytesAdded;
-                checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bytes, bytesAdded);
+            currentBufferedBytes = bufferedBytes.accumulateAndGet(bytesAdded, (bufferedBytes, delta) -> {
+                long result = bufferedBytes + delta;
+                checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bufferedBytes, delta);
                 return result;
             });
             ListenableFuture<Void> blockedOnMemory = memoryContext.setBytes(currentBufferedBytes);
@@ -121,9 +128,12 @@ class OutputBufferMemoryManager
                     this.bufferBlockedFuture = null;
                 }
             }
-            recordBufferUtilization();
+            recordBufferUtilization(currentBufferedBytes);
         }
-        peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
+        // Reduce contention by reading first and only updating if the new value might become the maximum (uncommon)
+        if (currentBufferedBytes > peakMemoryUsage.get()) {
+            peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
+        }
         // Notify listeners outside of the critical section
         notifyListener(notifyUnblocked);
         if (waitForMemory != null) {
@@ -131,18 +141,16 @@ class OutputBufferMemoryManager
         }
     }
 
-    private synchronized void recordBufferUtilization()
+    private synchronized void recordBufferUtilization(long currentBufferedBytes)
     {
         long recordTime = ticker.read();
-        if (lastBufferUtilizationRecordTime != -1) {
-            bufferUtilization.add(lastBufferUtilization, (double) recordTime - this.lastBufferUtilizationRecordTime);
-        }
-        double utilization = getUtilization();
-        // skip recording of buffer utilization until data is put into buffer
-        if (lastBufferUtilizationRecordTime != -1 || utilization != 0.0) {
+        long elapsed = recordTime - lastBufferUtilizationRecordTime;
+        // TDigest rejects non-positive weights
+        if (elapsed > 0) {
+            bufferUtilization.add(lastBufferUtilization, elapsed);
             lastBufferUtilizationRecordTime = recordTime;
-            lastBufferUtilization = utilization;
         }
+        lastBufferUtilization = getUtilization(currentBufferedBytes);
     }
 
     public ListenableFuture<Void> getBufferBlockedFuture()
@@ -187,13 +195,18 @@ class OutputBufferMemoryManager
 
     public double getUtilization()
     {
-        return bufferedBytes.get() / (double) maxBufferedBytes;
+        return getUtilization(bufferedBytes.get());
+    }
+
+    private double getUtilization(long currentBufferedBytes)
+    {
+        return currentBufferedBytes / (double) maxBufferedBytes;
     }
 
     public synchronized TDigest getUtilizationHistogram()
     {
         // always get most up to date histogram
-        recordBufferUtilization();
+        recordBufferUtilization(bufferedBytes.get());
         return TDigest.copyOf(bufferUtilization);
     }
 

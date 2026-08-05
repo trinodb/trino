@@ -2,17 +2,17 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (i_item_desc, i_item_id, s_store_id, s_store_name)
+                final aggregation over (i_item_id, i_item_desc, s_store_id, s_store_name)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [i_item_desc, i_item_id, s_store_id, s_store_name])
-                            partial aggregation over (i_item_desc, i_item_id, s_store_id, s_store_name)
+                        remote exchange (REPARTITION, HASH, [i_item_id, i_item_desc, s_store_id, s_store_name])
+                            partial aggregation over (i_item_id, i_item_desc, s_store_id, s_store_name)
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk])
+                                    remote exchange (REPARTITION, HASH, [ss_item_sk, ss_customer_sk])
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk, ss_ticket_number])
+                                            remote exchange (REPARTITION, HASH, [ss_item_sk, ss_customer_sk, ss_ticket_number])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (ss_customer_sk::EQUAL, ss_customer_sk::EQUAL, ss_item_sk::EQUAL, ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL, ss_ticket_number::EQUAL)
+                                                        dynamic filter (ss_item_sk::EQUAL, ss_customer_sk::EQUAL, ss_item_sk::EQUAL, ss_customer_sk::EQUAL, ss_ticket_number::EQUAL, ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL)
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -21,10 +21,10 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan store
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_item_sk, sr_ticket_number])
+                                                remote exchange (REPARTITION, HASH, [sr_item_sk, sr_customer_sk, sr_ticket_number])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (sr_customer_sk::EQUAL, sr_item_sk::EQUAL, sr_item_sk::EQUAL, sr_returned_date_sk::EQUAL)
+                                                            dynamic filter (sr_item_sk::EQUAL, sr_customer_sk::EQUAL, sr_item_sk::EQUAL, sr_returned_date_sk::EQUAL)
                                                                 scan store_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -34,7 +34,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 dynamic filter (i_item_sk::EQUAL)
                                                                     scan item
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [cs_bill_customer_sk, cs_item_sk])
+                                        remote exchange (REPARTITION, HASH, [cs_item_sk, cs_bill_customer_sk])
                                             join (INNER, REPLICATED):
                                                 dynamic filter (cs_sold_date_sk::EQUAL)
                                                     scan catalog_sales

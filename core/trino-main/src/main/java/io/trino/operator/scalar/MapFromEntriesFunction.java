@@ -61,11 +61,13 @@ public final class MapFromEntriesFunction
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical keysIdenticalOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            BlockPositionIsIdentical keysIdenticalOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode keyHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode keyHashCode,
             @TypeParameter("map(K,V)") MapType mapType,
             ConnectorSession session,
             @SqlType("array(row(K,V))") Block mapEntries)
@@ -89,9 +91,10 @@ public final class MapFromEntriesFunction
                     if (keyBlock.isNull(rawIndex)) {
                         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
                     }
-                    keyType.appendTo(keyBlock, rawIndex, keyBuilder);
+                    keyBuilder.append(keyBlock.getUnderlyingValueBlock(), keyBlock.getUnderlyingValuePosition(rawIndex));
 
-                    valueType.appendTo(entry.getRawFieldBlock(1), rawIndex, valueBuilder);
+                    Block rawValueBlock = entry.getRawFieldBlock(1);
+                    valueBuilder.append(rawValueBlock.getUnderlyingValueBlock(), rawValueBlock.getUnderlyingValuePosition(rawIndex));
                 }
             });
         }

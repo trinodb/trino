@@ -45,7 +45,7 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1,
-                               join(LEFT, builder -> builder
+                                join(LEFT, builder -> builder
                                         .equiCriteria("leftKey", "rightKey")
                                         .left(limit(1, ImmutableList.of(), true, values("leftKey")))
                                         .right(values("rightKey")))));
@@ -161,7 +161,7 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1, ImmutableList.of(), false, ImmutableList.of("leftKey"),
-                               join(LEFT, builder -> builder
+                                join(LEFT, builder -> builder
                                         .equiCriteria("leftKey", "rightKey")
                                         .left(limit(1, ImmutableList.of(), true, ImmutableList.of("leftKey"), values("leftKey")))
                                         .right(values("rightKey")))));

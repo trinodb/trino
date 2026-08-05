@@ -21,7 +21,7 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 
 @Description("Returns the cardinality (length) of the array")
-@ScalarFunction("cardinality")
+@ScalarFunction(value = "cardinality", neverFails = true)
 public final class ArrayCardinalityFunction
 {
     private ArrayCardinalityFunction() {}

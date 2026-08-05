@@ -15,8 +15,8 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
@@ -50,7 +50,7 @@ public class TestTableScanStatsRule
                             ImmutableList.of(a, b, c, d, e, unknown),
                             ImmutableMap.of(a, columnA, b, columnB, c, columnC, d, columnD, e, columnE, unknown, unknownColumn));
                 })
-                .withTableStatisticsProvider(tableHandle -> TableStatistics.builder()
+                .withTableStatisticsProvider(_ -> TableStatistics.builder()
                         .setRowCount(Estimate.of(33))
                         .setColumnStatistics(
                                 columnA,
@@ -107,7 +107,7 @@ public class TestTableScanStatsRule
                             ImmutableList.of(column),
                             ImmutableMap.of(column, columnHandle));
                 })
-                .withTableStatisticsProvider(tableHandle -> TableStatistics.builder()
+                .withTableStatisticsProvider(_ -> TableStatistics.builder()
                         .setRowCount(Estimate.zero())
                         .setColumnStatistics(
                                 columnHandle,

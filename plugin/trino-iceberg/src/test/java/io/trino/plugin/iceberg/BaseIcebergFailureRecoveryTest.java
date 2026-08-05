@@ -289,14 +289,14 @@ public abstract class BaseIcebergFailureRecoveryTest
         testTableModification(
                 Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['bucket(orderkey, 10)']) AS SELECT * FROM orders"),
                 """
-                        MERGE INTO <table> t
-                        USING (SELECT orderkey, 'X' clerk FROM <table>) s
-                        ON t.orderkey = s.orderkey
-                        WHEN MATCHED AND s.orderkey > 1000
-                            THEN UPDATE SET clerk = t.clerk || s.clerk
-                        WHEN MATCHED AND s.orderkey <= 1000
-                            THEN DELETE
-                        """,
+                MERGE INTO <table> t
+                USING (SELECT orderkey, 'X' clerk FROM <table>) s
+                ON t.orderkey = s.orderkey
+                WHEN MATCHED AND s.orderkey > 1000
+                    THEN UPDATE SET clerk = t.clerk || s.clerk
+                WHEN MATCHED AND s.orderkey <= 1000
+                    THEN DELETE
+                """,
                 Optional.of("DROP TABLE <table>"));
     }
 }

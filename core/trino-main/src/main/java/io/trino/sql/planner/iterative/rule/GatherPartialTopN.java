@@ -68,16 +68,16 @@ public class GatherPartialTopN
     private static boolean isGatherLocalExchange(PlanNode source)
     {
         return source instanceof ExchangeNode exchange
-               && exchange.getScope().equals(LOCAL)
-               && exchange.getType().equals(GATHER);
+                && exchange.getScope().equals(LOCAL)
+                && exchange.getType().equals(GATHER);
     }
 
     private static boolean isGatherRemoteExchange(ExchangeNode exchangeNode)
     {
         return exchangeNode.getScope().equals(REMOTE)
-               && exchangeNode.getType().equals(GATHER)
-               // non-empty orderingScheme means it's a merging exchange
-               && exchangeNode.getOrderingScheme().isEmpty();
+                && exchangeNode.getType().equals(GATHER)
+                // non-empty orderingScheme means it's a merging exchange
+                && exchangeNode.getOrderingScheme().isEmpty();
     }
 
     @Override

@@ -149,7 +149,7 @@ class HdfsInputFile
             throw withCause(new FileNotFoundException(toString()), e);
         }
         catch (IOException e) {
-            throw new IOException("Get status for file %s failed: %s" .formatted(location, e.getMessage()), e);
+            throw new IOException("Get status for file %s failed: %s".formatted(location, e.getMessage()), e);
         }
     }
 }

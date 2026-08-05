@@ -77,8 +77,7 @@ public class DefaultThriftMetastoreClientFactory
             HiveMetastoreAuthentication metastoreAuthentication,
             Node currentNode)
     {
-        this(
-                buildSslContext(
+        this(buildSslContext(
                         config.isTlsEnabled(),
                         Optional.ofNullable(config.getKeystorePath()),
                         Optional.ofNullable(config.getKeystorePassword()),

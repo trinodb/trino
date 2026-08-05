@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.json.JsonCodec;
@@ -60,10 +61,9 @@ public class MockPinotClient
 
     public MockPinotClient(PinotConfig pinotConfig, Map<String, Schema> metadata, String response)
     {
-        super(
-                pinotConfig,
+        super(pinotConfig,
                 new IdentityPinotHostMapper(),
-                new TestingHttpClient(request -> null),
+                new TestingHttpClient(_ -> null),
                 newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,
@@ -86,7 +86,7 @@ public class MockPinotClient
             Request.Builder requestBuilder,
             Optional<String> requestBody,
             JsonCodec<T> codec,
-            Multimap<String, String> additionalHeaders)
+            Multimap<HeaderName, String> additionalHeaders)
     {
         return codec.fromJson(response);
     }

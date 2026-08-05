@@ -58,7 +58,7 @@ public abstract class AbstractVariableWidthType
     protected static final TypeOperatorDeclaration DEFAULT_COMPARABLE_OPERATORS = extractOperatorDeclaration(DefaultComparableOperators.class, lookup(), Slice.class);
     protected static final TypeOperatorDeclaration DEFAULT_ORDERING_OPERATORS = extractOperatorDeclaration(DefaultOrderingOperators.class, lookup(), Slice.class);
 
-    protected AbstractVariableWidthType(TypeSignature signature, Class<?> javaType)
+    protected AbstractVariableWidthType(TypeDescriptor signature, Class<?> javaType)
     {
         super(signature, javaType, VariableWidthBlock.class);
     }
@@ -86,22 +86,6 @@ public abstract class AbstractVariableWidthType
     public VariableWidthBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, EXPECTED_BYTES_PER_ENTRY);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-            position = block.getUnderlyingValuePosition(position);
-            Slice slice = variableWidthBlock.getRawSlice();
-            int offset = variableWidthBlock.getRawSliceOffset(position);
-            int length = variableWidthBlock.getSliceLength(position);
-            ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice, offset, length);
-        }
     }
 
     @Override
@@ -217,10 +201,10 @@ public abstract class AbstractVariableWidthType
         @ScalarOperator(READ_VALUE)
         private static void writeFlatFromStack(
                 Slice value,
-                byte[] fixedSizeSlice,
-                int fixedSizeOffset,
-                byte[] variableSizeSlice,
-                int variableSizeOffset)
+                @FlatFixed byte[] fixedSizeSlice,
+                @FlatFixedOffset int fixedSizeOffset,
+                @FlatVariableWidth byte[] variableSizeSlice,
+                @FlatVariableOffset int variableSizeOffset)
         {
             int length = value.length();
             writeFlatVariableLength(length, fixedSizeSlice, fixedSizeOffset);
@@ -241,10 +225,10 @@ public abstract class AbstractVariableWidthType
         private static void writeFlatFromBlock(
                 @BlockPosition VariableWidthBlock block,
                 @BlockIndex int position,
-                byte[] fixedSizeSlice,
-                int fixedSizeOffset,
-                byte[] variableSizeSlice,
-                int variableSizeOffset)
+                @FlatFixed byte[] fixedSizeSlice,
+                @FlatFixedOffset int fixedSizeOffset,
+                @FlatVariableWidth byte[] variableSizeSlice,
+                @FlatVariableOffset int variableSizeOffset)
         {
             Slice rawSlice = block.getRawSlice();
             int rawSliceOffset = block.getRawSliceOffset(position);
@@ -379,7 +363,7 @@ public abstract class AbstractVariableWidthType
                 leftBytes = leftVariableSizeSlice;
                 leftOffset = leftVariableSizeOffset;
             }
-            return rightRawSlice.equals(rightRawSliceOffset, rightLength, wrappedBuffer(leftBytes, leftOffset, leftLength), 0, leftLength);
+            return rightRawSlice.equals(rightRawSliceOffset, rightLength, leftBytes, leftOffset, leftLength);
         }
 
         @ScalarOperator(XX_HASH_64)
@@ -412,7 +396,7 @@ public abstract class AbstractVariableWidthType
                 bytes = variableSizeSlice;
                 offset = variableSizeOffset;
             }
-            return XxHash64.hash(wrappedBuffer(bytes, offset, length));
+            return XxHash64.hash(bytes, offset, length);
         }
     }
 

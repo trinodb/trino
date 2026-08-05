@@ -281,7 +281,12 @@ public final class FormatTestUtils
 
     private static List<Object> decodeRecordReaderList(Type type, List<?> list, Optional<DateTimeZone> hiveStorageTimeZone)
     {
-        Type elementType = type.getTypeParameters().get(0);
+        Type elementType = switch (type) {
+            case RowType rowType -> rowType.getFields().getFirst().getType();
+            case ArrayType arrayType -> arrayType.getElementType();
+            default -> throw new IllegalArgumentException("Unexpected type: " + type);
+        };
+
         return list.stream()
                 .map(element -> decodeRecordReaderValue(elementType, element, hiveStorageTimeZone))
                 .toList();
@@ -289,8 +294,8 @@ public final class FormatTestUtils
 
     private static Object decodeRecordReaderMap(Type type, Map<?, ?> map, Optional<DateTimeZone> hiveStorageTimeZone)
     {
-        Type keyType = type.getTypeParameters().get(0);
-        Type valueType = type.getTypeParameters().get(1);
+        Type keyType = ((MapType) type).getKeyType();
+        Type valueType = ((MapType) type).getValueType();
         Map<Object, Object> newMap = new HashMap<>();
         map.forEach((entryKey, entryValue) -> newMap.put(
                 decodeRecordReaderValue(keyType, entryKey, hiveStorageTimeZone),
@@ -302,7 +307,7 @@ public final class FormatTestUtils
 
     private static List<Object> decodeRecordReaderStruct(Type type, List<?> fields, Optional<DateTimeZone> hiveStorageTimeZone)
     {
-        List<Type> fieldTypes = type.getTypeParameters();
+        List<Type> fieldTypes = ((RowType) type).getFieldTypes();
         List<Object> newFields = new ArrayList<>(fields.size());
         for (int i = 0; i < fields.size(); i++) {
             Type fieldType = fieldTypes.get(i);
@@ -401,25 +406,21 @@ public final class FormatTestUtils
             assertThat(actual).isEqualTo(expected);
             return;
         }
-        if (type instanceof ArrayType) {
+        if (type instanceof ArrayType arrayType) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
             assertThat(actualArray).hasSize(expectedArray.size());
 
-            Type elementType = type.getTypeParameters().get(0);
             for (int i = 0; i < actualArray.size(); i++) {
                 Object actualElement = actualArray.get(i);
                 Object expectedElement = expectedArray.get(i);
-                assertColumnValueEquals(elementType, actualElement, expectedElement);
+                assertColumnValueEquals(arrayType.getElementType(), actualElement, expectedElement);
             }
         }
-        else if (type instanceof MapType) {
+        else if (type instanceof MapType mapType) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
             assertThat(actualMap).hasSize(expectedMap.size());
-
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
 
             List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
             actualMap.forEach((key, value) -> {
@@ -427,8 +428,8 @@ public final class FormatTestUtils
                 while (iterator.hasNext()) {
                     Entry<?, ?> expectedEntry = iterator.next();
                     try {
-                        assertColumnValueEquals(keyType, key, expectedEntry.getKey());
-                        assertColumnValueEquals(valueType, value, expectedEntry.getValue());
+                        assertColumnValueEquals(mapType.getKeyType(), key, expectedEntry.getKey());
+                        assertColumnValueEquals(mapType.getValueType(), value, expectedEntry.getValue());
                         iterator.remove();
                     }
                     catch (AssertionError _) {
@@ -437,16 +438,14 @@ public final class FormatTestUtils
             });
             assertThat(expectedEntries).isEmpty();
         }
-        else if (type instanceof RowType) {
-            List<Type> fieldTypes = type.getTypeParameters();
-
+        else if (type instanceof RowType rowType) {
             List<?> actualRow = (List<?>) actual;
             List<?> expectedRow = (List<?>) expected;
-            assertThat(actualRow).hasSize(fieldTypes.size());
+            assertThat(actualRow).hasSize(rowType.getFields().size());
             assertThat(actualRow).hasSize(expectedRow.size());
 
             for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
-                Type fieldType = fieldTypes.get(fieldId);
+                Type fieldType = rowType.getFields().get(fieldId).getType();
                 Object actualElement = actualRow.get(fieldId);
                 Object expectedElement = expectedRow.get(fieldId);
                 assertColumnValueEquals(fieldType, actualElement, expectedElement);
@@ -539,30 +538,26 @@ public final class FormatTestUtils
                 type.writeObject(blockBuilder, new LongTimestamp(sqlTimestamp.getEpochMicros(), sqlTimestamp.getPicosOfMicros()));
             }
         }
-        else if (type instanceof ArrayType) {
+        else if (type instanceof ArrayType arrayType) {
             List<?> array = (List<?>) value;
-            Type elementType = type.getTypeParameters().get(0);
             ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
                 for (Object elementValue : array) {
-                    writeTrinoValue(elementType, elementBuilder, elementValue);
+                    writeTrinoValue(arrayType.getElementType(), elementBuilder, elementValue);
                 }
             });
         }
-        else if (type instanceof MapType) {
+        else if (type instanceof MapType mapType) {
             Map<?, ?> map = (Map<?, ?>) value;
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
             ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> map.forEach((entryKey, entryValue) -> {
-                writeTrinoValue(keyType, keyBuilder, entryKey);
-                writeTrinoValue(valueType, valueBuilder, entryValue);
+                writeTrinoValue(mapType.getKeyType(), keyBuilder, entryKey);
+                writeTrinoValue(mapType.getValueType(), valueBuilder, entryValue);
             }));
         }
-        else if (type instanceof RowType) {
+        else if (type instanceof RowType rowType) {
             List<?> array = (List<?>) value;
-            List<Type> fieldTypes = type.getTypeParameters();
             ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
-                for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
-                    Type fieldType = fieldTypes.get(fieldId);
+                for (int fieldId = 0; fieldId < rowType.getFields().size(); fieldId++) {
+                    Type fieldType = rowType.getFields().get(fieldId).getType();
                     writeTrinoValue(fieldType, fieldBuilders.get(fieldId), array.get(fieldId));
                 }
             });
@@ -624,28 +619,24 @@ public final class FormatTestUtils
         if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
         }
-        if (type instanceof ArrayType) {
-            Type elementType = type.getTypeParameters().get(0);
+        if (type instanceof ArrayType arrayType) {
             return ((List<?>) value).stream()
-                    .map(element -> toHiveWriteValue(elementType, element, storageTimeZone))
+                    .map(element -> toHiveWriteValue(arrayType.getElementType(), element, storageTimeZone))
                     .collect(toList());
         }
-        if (type instanceof MapType) {
+        if (type instanceof MapType mapType) {
             Map<?, ?> map = (Map<?, ?>) value;
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
             Map<Object, Object> newMap = new HashMap<>();
             map.forEach((entryKey, entryValue) -> newMap.put(
-                    toHiveWriteValue(keyType, entryKey, storageTimeZone),
-                    toHiveWriteValue(valueType, entryValue, storageTimeZone)));
+                    toHiveWriteValue(mapType.getKeyType(), entryKey, storageTimeZone),
+                    toHiveWriteValue(mapType.getValueType(), entryValue, storageTimeZone)));
             return newMap;
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             List<?> fieldValues = (List<?>) value;
-            List<Type> fieldTypes = type.getTypeParameters();
             List<Object> newStruct = new ArrayList<>();
             for (int fieldId = 0; fieldId < fieldValues.size(); fieldId++) {
-                newStruct.add(toHiveWriteValue(fieldTypes.get(fieldId), fieldValues.get(fieldId), storageTimeZone));
+                newStruct.add(toHiveWriteValue(rowType.getFields().get(fieldId).getType(), fieldValues.get(fieldId), storageTimeZone));
             }
             return newStruct;
         }

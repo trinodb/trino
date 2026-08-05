@@ -24,6 +24,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static java.util.Objects.requireNonNull;
@@ -33,8 +34,8 @@ public class PlanFragmentMatcher
     private final PlanFragmentId fragmentId;
     private final Optional<PlanMatchPattern> planPattern;
     private final Optional<PartitioningHandle> partitioning;
-    private final Optional<Integer> inputPartitionCount;
-    private final Optional<Integer> outputPartitionCount;
+    private final OptionalInt inputPartitionCount;
+    private final OptionalInt outputPartitionCount;
 
     public static Builder builder()
     {
@@ -45,8 +46,8 @@ public class PlanFragmentMatcher
             PlanFragmentId fragmentId,
             Optional<PlanMatchPattern> planPattern,
             Optional<PartitioningHandle> partitioning,
-            Optional<Integer> inputPartitionCount,
-            Optional<Integer> outputPartitionCount)
+            OptionalInt inputPartitionCount,
+            OptionalInt outputPartitionCount)
     {
         this.fragmentId = requireNonNull(fragmentId, "fragmentId is null");
         this.planPattern = requireNonNull(planPattern, "planPattern is null");
@@ -93,8 +94,8 @@ public class PlanFragmentMatcher
         private PlanFragmentId fragmentId;
         private Optional<PlanMatchPattern> planPattern = Optional.empty();
         private Optional<PartitioningHandle> partitioning = Optional.empty();
-        private Optional<Integer> inputPartitionCount = Optional.empty();
-        private Optional<Integer> outputPartitionCount = Optional.empty();
+        private OptionalInt inputPartitionCount = OptionalInt.empty();
+        private OptionalInt outputPartitionCount = OptionalInt.empty();
 
         public Builder fragmentId(int fragmentId)
         {
@@ -116,13 +117,13 @@ public class PlanFragmentMatcher
 
         public Builder inputPartitionCount(int inputPartitionCount)
         {
-            this.inputPartitionCount = Optional.of(inputPartitionCount);
+            this.inputPartitionCount = OptionalInt.of(inputPartitionCount);
             return this;
         }
 
         public Builder outputPartitionCount(int outputPartitionCount)
         {
-            this.outputPartitionCount = Optional.of(outputPartitionCount);
+            this.outputPartitionCount = OptionalInt.of(outputPartitionCount);
             return this;
         }
 

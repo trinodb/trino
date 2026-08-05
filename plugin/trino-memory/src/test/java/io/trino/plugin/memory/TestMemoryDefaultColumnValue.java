@@ -216,5 +216,19 @@ public class TestMemoryDefaultColumnValue
                     .skippingTypesCheck()
                     .matches("VALUES " + expected);
         }
+
+        try (TestTable table = newTrinoTable("test_default_value", "(id int, data " + columnType + ")")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN data SET DEFAULT " + literal);
+            assertUpdate("INSERT INTO " + table.getName() + " (id) VALUES (1)", 1);
+            assertThat(query("SELECT data FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES " + expected);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN data DROP DEFAULT");
+            assertUpdate("INSERT INTO " + table.getName() + " (id) VALUES (2)", 1);
+            assertThat(query("SELECT data FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES " + expected + ", NULL");
+        }
     }
 }

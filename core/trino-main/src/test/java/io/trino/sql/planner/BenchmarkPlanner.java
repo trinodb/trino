@@ -106,7 +106,7 @@ public class BenchmarkPlanner
                     .buildOrThrow());
 
             planTester.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                    .withGetTableHandle((session1, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
+                    .withGetTableHandle((_, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
                     .withGetColumns(name -> {
                         if (!name.equals(TABLE)) {
                             throw new IllegalArgumentException();
@@ -150,7 +150,7 @@ public class BenchmarkPlanner
         }
     }
 
-    public static enum Queries
+    public enum Queries
     {
         TPCH(() -> IntStream.rangeClosed(1, 22)
                 .boxed()
@@ -205,7 +205,7 @@ public class BenchmarkPlanner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         // assure the benchmarks are valid before running

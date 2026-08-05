@@ -42,7 +42,8 @@ record QueryResultsResponse(
         QueryResults queryResults,
         Optional<String> queryDataEncoding)
 {
-    QueryResultsResponse {
+    QueryResultsResponse
+    {
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setPath, "setPath is null");

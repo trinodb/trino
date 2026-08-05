@@ -23,9 +23,13 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.util.Set;
 
+import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
+import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
+
 public abstract class ColumnChunkMetadata
 {
-    protected int rowGroupOrdinal = -1;
+    private int rowGroupOrdinal = -1;
+    private int columnOrdinal = -1;
 
     public static ColumnChunkMetadata get(
             ColumnPath path,
@@ -46,8 +50,11 @@ public abstract class ColumnChunkMetadata
                 && positiveLongFitsInAnInt(totalSize)
                 && positiveLongFitsInAnInt(totalUncompressedSize)) {
             return new IntColumnChunkMetadata(
-                    path, type, codec,
-                    encodingStats, encodings,
+                    path,
+                    type,
+                    codec,
+                    encodingStats,
+                    encodings,
                     statistics,
                     firstDataPage,
                     dictionaryPageOffset,
@@ -56,8 +63,11 @@ public abstract class ColumnChunkMetadata
                     totalUncompressedSize);
         }
         return new LongColumnChunkMetadata(
-                path, type, codec,
-                encodingStats, encodings,
+                path,
+                type,
+                codec,
+                encodingStats,
+                encodings,
                 statistics,
                 firstDataPage,
                 dictionaryPageOffset,
@@ -74,6 +84,16 @@ public abstract class ColumnChunkMetadata
     public int getRowGroupOrdinal()
     {
         return rowGroupOrdinal;
+    }
+
+    public void setColumnOrdinal(int columnOrdinal)
+    {
+        this.columnOrdinal = columnOrdinal;
+    }
+
+    public int getColumnOrdinal()
+    {
+        return columnOrdinal;
     }
 
     public long getStartingPos()
@@ -192,6 +212,18 @@ public abstract class ColumnChunkMetadata
     {
         decryptIfNeeded();
         return encodingStats;
+    }
+
+    public boolean hasDictionaryPage()
+    {
+        decryptIfNeeded();
+        if (encodingStats != null) {
+            // ensure there is a dictionary page and that it is used to encode data pages
+            return encodingStats.hasDictionaryPages() && encodingStats.hasDictionaryEncodedPages();
+        }
+
+        Set<Encoding> encodings = properties.encodings();
+        return (encodings.contains(PLAIN_DICTIONARY) || encodings.contains(RLE_DICTIONARY));
     }
 
     @Override

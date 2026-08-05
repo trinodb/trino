@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
-import io.trino.execution.HeapSizeParser;
+import io.trino.plugin.base.configuration.HeapSizeParser;
 import jakarta.validation.constraints.NotNull;
 
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
@@ -26,7 +26,7 @@ import jakarta.validation.constraints.NotNull;
         "experimental.reserved-pool-disabled",
         "experimental.reserved-pool-enabled",
         "query.max-total-memory-per-node",
-        "query.max-memory-per-task"
+        "query.max-memory-per-task",
 })
 public class NodeMemoryConfig
 {

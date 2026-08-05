@@ -19,13 +19,29 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class Binding
 {
+    public enum Kind
+    {
+        /**
+         * A method handle stored in the class data of a hidden class, loaded as a dynamic
+         * constant and invoked exactly.
+         */
+        HANDLE,
+        /**
+         * A constant value stored in the class data of a hidden class, loaded directly
+         * as a dynamic constant.
+         */
+        CONSTANT,
+    }
+
     private final long bindingId;
     private final MethodType type;
+    private final Kind kind;
 
-    public Binding(long bindingId, MethodType type)
+    public Binding(long bindingId, MethodType type, Kind kind)
     {
         this.bindingId = bindingId;
         this.type = type;
+        this.kind = kind;
     }
 
     public long getBindingId()
@@ -38,12 +54,18 @@ public final class Binding
         return type;
     }
 
+    public Kind getKind()
+    {
+        return kind;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("bindingId", bindingId)
                 .add("type", type)
+                .add("kind", kind)
                 .toString();
     }
 }

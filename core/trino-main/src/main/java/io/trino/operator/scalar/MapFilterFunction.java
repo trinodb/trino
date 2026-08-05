@@ -32,12 +32,12 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.MapValueBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
@@ -62,12 +62,14 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.TypeSignature.functionType;
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -83,9 +85,9 @@ public final class MapFilterFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V"), BOOLEAN.getTypeSignature()))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(functionType(typeVariable("K"), typeVariable("V"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                         .build())
                 .description("return map containing entries that match the given predicate")
                 .build());
@@ -139,7 +141,7 @@ public final class MapFilterFunction
         BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, filterKeyValue, ImmutableList.of(map, function));
         body.append(mapValueBuilder.invoke("build", SqlMap.class, map.invoke("getSize", int.class), mapEntryBuilder).ret());
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
+        Class<?> generatedClass = defineHiddenClass(definition, Object.class, binder.getClassData());
         return methodHandle(generatedClass, "filter", Object.class, SqlMap.class, BinaryFunctionInterface.class);
     }
 
@@ -160,8 +162,8 @@ public final class MapFilterFunction
 
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
-        Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
+        Class<?> keyJavaType = binder.getAccessibleType(Primitives.wrap(keyType.getJavaType()));
+        Class<?> valueJavaType = binder.getAccessibleType(Primitives.wrap(valueType.getJavaType()));
 
         Variable size = scope.declareVariable("size", body, map.invoke("getSize", int.class));
         Variable rawOffset = scope.declareVariable("rawOffset", body, map.invoke("getRawOffset", int.class));
@@ -206,8 +208,16 @@ public final class MapFilterFunction
                         .append(new IfStatement("if (keep != null && keep) ...")
                                 .condition(and(notEqual(keep, constantNull(Boolean.class)), keep.cast(boolean.class)))
                                 .ifTrue(new BytecodeBlock()
-                                        .append(keySqlType.invoke("appendTo", void.class, rawKeyBlock, add(index, rawOffset), keyBuilder))
-                                        .append(valueSqlType.invoke("appendTo", void.class, rawValueBlock, add(index, rawOffset), valueBuilder))))));
+                                        .append(keyBuilder.invoke(
+                                                "append",
+                                                void.class,
+                                                rawKeyBlock.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                                                rawKeyBlock.invoke("getUnderlyingValuePosition", int.class, add(index, rawOffset))))
+                                        .append(valueBuilder.invoke(
+                                                "append",
+                                                void.class,
+                                                rawValueBlock.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                                                rawValueBlock.invoke("getUnderlyingValuePosition", int.class, add(index, rawOffset))))))));
         body.ret();
 
         return method;

@@ -43,6 +43,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -83,7 +84,7 @@ public class TypeOperators
             if (operator != null) {
                 return operator;
             }
-            return cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+            return cache.computeIfAbsent(operatorConvention, _ -> supplier.get());
         };
     }
 
@@ -214,8 +215,7 @@ public class TypeOperators
         private MethodHandle adaptOperator(OperatorConvention operatorConvention)
         {
             OperatorMethodHandle operatorMethodHandle = selectOperatorMethodHandleToAdapt(operatorConvention);
-            MethodHandle methodHandle = adaptOperator(operatorConvention, operatorMethodHandle);
-            return methodHandle;
+            return adaptOperator(operatorConvention, operatorMethodHandle);
         }
 
         private static MethodHandle adaptOperator(OperatorConvention operatorConvention, OperatorMethodHandle operatorMethodHandle)
@@ -231,7 +231,7 @@ public class TypeOperators
         private OperatorMethodHandle selectOperatorMethodHandleToAdapt(OperatorConvention operatorConvention)
         {
             List<OperatorMethodHandle> operatorMethodHandles = getOperatorMethodHandles(operatorConvention).stream()
-                    .sorted(Comparator.comparing(TypeOperators::getScore).reversed())
+                    .sorted(Comparator.comparingInt(TypeOperators::getScore).reversed())
                     .toList();
 
             // if a method handle exists for the exact convention, use it
@@ -496,7 +496,12 @@ public class TypeOperators
             SortOrder sortOrder = operatorConvention.sortOrder().orElseThrow(() -> new IllegalArgumentException("Operator convention does not contain a sort order"));
             OperatorType comparisonType = operatorConvention.operatorType();
             if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
-                OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.type(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+                OperatorConvention comparisonOperator = new OperatorConvention(
+                        operatorConvention.type(),
+                        comparisonType,
+                        Optional.empty(),
+                        // null positions are handled separately in adaptBlockPositionComparisonToOrdering and not used in the comparison
+                        simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
                 MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
                 return adaptBlockPositionComparisonToOrdering(sortOrder, comparisonInvoker);
             }
@@ -520,8 +525,9 @@ public class TypeOperators
         private static List<Type> getOperatorArgumentTypes(OperatorConvention operatorConvention)
         {
             return switch (operatorConvention.operatorType()) {
-                case EQUAL, IDENTICAL, COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL ->
-                        List.of(operatorConvention.type(), operatorConvention.type());
+                case LESS_THAN, LESS_THAN_OR_EQUAL,
+                     COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST,
+                     EQUAL, IDENTICAL -> List.of(operatorConvention.type(), operatorConvention.type());
                 case READ_VALUE, HASH_CODE, XX_HASH_64, INDETERMINATE -> List.of(operatorConvention.type());
                 default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
             };
@@ -538,7 +544,7 @@ public class TypeOperators
             if (argument == NULL_FLAG || argument == FLAT) {
                 score += 100;
             }
-            else if (argument == BLOCK_POSITION) {
+            else if (argument == BLOCK_POSITION || argument == VALUE_BLOCK_POSITION_NOT_NULL) {
                 score += 1;
             }
         }
@@ -610,7 +616,9 @@ public class TypeOperators
         return permuteArguments(
                 lookup.findVirtual(Type.class, methodName, MethodType.methodType(void.class, BlockBuilder.class, javaType)),
                 MethodType.methodType(void.class, Type.class, javaType, BlockBuilder.class),
-                0, 2, 1);
+                0,
+                2,
+                1);
     }
 
     private static boolean booleanEqual(boolean left, boolean right)
@@ -624,10 +632,6 @@ public class TypeOperators
 
     private static OperatorMethodHandle defaultIndeterminateOperator(Class<?> javaType)
     {
-        // boolean distinctFrom(T value, boolean valueIsNull)
-        // {
-        //     return valueIsNull;
-        // }
         MethodHandle methodHandle = identity(boolean.class);
         methodHandle = dropArguments(methodHandle, 0, javaType);
         return new OperatorMethodHandle(simpleConvention(FAIL_ON_NULL, NULL_FLAG), methodHandle);

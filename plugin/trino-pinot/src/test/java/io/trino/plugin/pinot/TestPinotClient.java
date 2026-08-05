@@ -38,7 +38,7 @@ public class TestPinotClient
     @Test
     public void testBrokersParsed()
     {
-        HttpClient httpClient = new TestingHttpClient(request -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, "{\n" +
+        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, "{\n" +
                 "  \"tableName\": \"dummy\",\n" +
                 "  \"brokers\": [\n" +
                 "    {\n" +

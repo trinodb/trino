@@ -38,6 +38,7 @@ import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.optimizations.ActualProperties.Global;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -90,6 +91,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -98,8 +100,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
@@ -112,7 +114,6 @@ import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toMap;
 
 public final class PropertyDerivations
 {
@@ -121,21 +122,23 @@ public final class PropertyDerivations
     public static ActualProperties derivePropertiesRecursively(
             PlanNode node,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, plannerContext, session))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session, symbolAllocator))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, plannerContext, session);
+        return deriveProperties(node, inputProperties, plannerContext, session, symbolAllocator);
     }
 
     public static ActualProperties deriveProperties(
             PlanNode node,
             List<ActualProperties> inputProperties,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
-        ActualProperties output = node.accept(new Visitor(plannerContext, session), inputProperties);
+        ActualProperties output = node.accept(new Visitor(plannerContext, session, symbolAllocator), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
                 verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
@@ -154,9 +157,10 @@ public final class PropertyDerivations
             PlanNode node,
             List<ActualProperties> inputProperties,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
-        return node.accept(new Visitor(plannerContext, session), inputProperties);
+        return node.accept(new Visitor(plannerContext, session, symbolAllocator), inputProperties);
     }
 
     private static class Visitor
@@ -165,12 +169,14 @@ public final class PropertyDerivations
         private final PlannerContext plannerContext;
         private final IrExpressionOptimizer optimizer;
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
 
-        public Visitor(PlannerContext plannerContext, Session session)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.plannerContext = plannerContext;
-            this.optimizer = newOptimizer(plannerContext);
+            this.optimizer = plannerContext.getExpressionOptimizer();
             this.session = session;
+            this.symbolAllocator = symbolAllocator;
         }
 
         @Override
@@ -382,7 +388,7 @@ public final class PropertyDerivations
         public ActualProperties visitGroupId(GroupIdNode node, List<ActualProperties> inputProperties)
         {
             Map<Symbol, Symbol> inputToOutputMappings = new HashMap<>();
-            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
+            for (Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
                 if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
                     // TODO: Add support for translating a property on a single column to multiple columns
                     // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
@@ -532,7 +538,7 @@ public final class PropertyDerivations
         @Override
         public ActualProperties visitMergeProcessor(MergeProcessorNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+            return Iterables.getOnlyElement(inputProperties).translate(_ -> Optional.empty());
         }
 
         @Override
@@ -574,12 +580,11 @@ public final class PropertyDerivations
                         .local(ImmutableList.of())
                         .unordered(true)
                         .build();
-                case FULL ->
-                        // We can't say anything about the partitioning scheme because any partition of
-                        // a hash-partitioned join can produce nulls in case of a lack of matches
-                        ActualProperties.builder()
-                                .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
-                                .build();
+                // We can't say anything about the partitioning scheme because any partition of
+                // a hash-partitioned join can produce nulls in case of a lack of matches
+                case FULL -> ActualProperties.builder()
+                        .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
+                        .build();
             };
         }
 
@@ -662,7 +667,7 @@ public final class PropertyDerivations
         {
             checkArgument(node.getScope() != REMOTE || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated), "Null-and-any replicated inputs should not be remotely exchanged");
 
-            Set<Map.Entry<Symbol, NullableValue>> entries = null;
+            Set<Entry<Symbol, NullableValue>> entries = null;
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
                 Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, sourceIndex);
                 ActualProperties translated = inputProperties.get(sourceIndex).translate(symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
@@ -672,7 +677,7 @@ public final class PropertyDerivations
             checkState(entries != null);
 
             Map<Symbol, NullableValue> constants = entries.stream()
-                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
             node.getOrderingScheme().ifPresent(orderingScheme -> localProperties.addAll(orderingScheme.toLocalProperties()));
@@ -729,12 +734,11 @@ public final class PropertyDerivations
                                 .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
                         .constants(constants)
                         .build();
-                case REPLICATE ->
-                        // TODO: this should have the same global properties as the stream taking the replicated data
-                        ActualProperties.builder()
-                                .global(arbitraryPartition())
-                                .constants(constants)
-                                .build();
+                // TODO: this should have the same global properties as the stream taking the replicated data
+                case REPLICATE -> ActualProperties.builder()
+                        .global(arbitraryPartition())
+                        .constants(constants)
+                        .build();
             };
         }
 
@@ -761,13 +765,13 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().assignments());
 
-            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)), expression -> rewriteExpression(node.getAssignments().getMap(), expression));
+            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)), expression -> rewriteExpression(node.getAssignments().assignments(), expression));
 
             // Extract additional constants
             Map<Symbol, NullableValue> constants = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
+            for (Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
 
                 Type type = expression.type();
@@ -775,8 +779,7 @@ public final class PropertyDerivations
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
-                // ("ROW comparison not supported for fields with null elements", etc)
-                Expression value = optimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
+                Expression value = optimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
 
                 if (value instanceof Reference) {
                     Symbol symbol = Symbol.from(value);
@@ -877,7 +880,7 @@ public final class PropertyDerivations
 
             Map<Symbol, NullableValue> symbolConstants = globalConstants.entrySet().stream()
                     .filter(entry -> assignments.containsKey(entry.getKey()))
-                    .collect(toMap(entry -> assignments.get(entry.getKey()), Map.Entry::getValue));
+                    .collect(toImmutableMap(entry -> assignments.get(entry.getKey()), Entry::getValue));
             properties.constants(symbolConstants);
 
             // Partitioning properties
@@ -911,7 +914,7 @@ public final class PropertyDerivations
         private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+            for (Entry<Symbol, Expression> assignment : assignments.entrySet()) {
                 if (assignment.getValue() instanceof Reference) {
                     inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
                 }
@@ -981,7 +984,7 @@ public final class PropertyDerivations
         // We are using the property that the result of coalesce from full outer join keys would not be null despite of the order
         // of the arguments. Thus we extract and compare the symbols of the CoalesceExpression as a set rather than compare the
         // CoalesceExpression directly.
-        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
             if (entry.getValue() instanceof Coalesce value) {
                 Set<Expression> candidateArguments = ImmutableSet.copyOf(value.operands());
                 if (!candidateArguments.stream().allMatch(Reference.class::isInstance)) {

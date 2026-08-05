@@ -39,6 +39,8 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.HiveClassNames.ESRI_GEO_JSON_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ESRI_GEO_JSON_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.ESRI_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.ESRI_SERDE_CLASS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -73,8 +75,16 @@ public class EsriPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!ESRI_SERDE_CLASS.equals(schema.serializationLibraryName())
-                || !ESRI_INPUT_FORMAT_CLASS.equals(schema.serdeProperties().get(FILE_INPUT_FORMAT))) {
+        EsriDeserializer.Format format;
+        if (ESRI_SERDE_CLASS.equals(schema.serializationLibraryName())
+                && ESRI_INPUT_FORMAT_CLASS.equals(schema.serdeProperties().get(FILE_INPUT_FORMAT))) {
+            format = EsriDeserializer.Format.ESRI;
+        }
+        else if (ESRI_GEO_JSON_SERDE_CLASS.equals(schema.serializationLibraryName())
+                && ESRI_GEO_JSON_INPUT_FORMAT_CLASS.equals(schema.serdeProperties().get(FILE_INPUT_FORMAT))) {
+            format = EsriDeserializer.Format.GEO_JSON;
+        }
+        else {
             return Optional.empty();
         }
 
@@ -100,7 +110,7 @@ public class EsriPageSourceFactory
                     .map(hc -> new Column(hc.getName(), hc.getType(), hc.getBaseHiveColumnIndex()))
                     .collect(toImmutableList());
 
-            EsriDeserializer esriDeserializer = new EsriDeserializer(decoderColumns);
+            EsriDeserializer esriDeserializer = new EsriDeserializer(decoderColumns, format);
             EsriReader esriReader = new EsriReader(inputStream, esriDeserializer);
             EsriPageSource pageSource = new EsriPageSource(esriReader, columns, path);
 

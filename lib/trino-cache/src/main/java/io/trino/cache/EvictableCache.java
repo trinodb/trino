@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -196,7 +197,7 @@ class EvictableCache<K, V>
             }
 
             Map<Token<K>, V> values = dataCache.getAll(newTokens);
-            for (Map.Entry<Token<K>, V> entry : values.entrySet()) {
+            for (Entry<Token<K>, V> entry : values.entrySet()) {
                 Token<K> newToken = entry.getKey();
                 result.put(newToken.getKey(), entry.getValue());
             }
@@ -408,7 +409,7 @@ class EvictableCache<K, V>
             }
 
             @Override
-            public Set<Map.Entry<K, V>> entrySet()
+            public Set<Entry<K, V>> entrySet()
             {
                 throw new UnsupportedOperationException();
             }

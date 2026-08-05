@@ -127,7 +127,7 @@ public class RcFileWriteValidation
                     .collect(toImmutableList());
 
             ImmutableList.Builder<XxHash64> columnHashes = ImmutableList.builder();
-            for (Type ignored : types) {
+            for (var _ : types) {
                 columnHashes.add(new XxHash64());
             }
             this.columnHashes = columnHashes.build();
@@ -139,7 +139,7 @@ public class RcFileWriteValidation
             checkArgument(!readColumns.isEmpty(), "readColumns is empty");
             int columnCount = readColumns.keySet().stream()
                     .mapToInt(Integer::intValue)
-                    .max().getAsInt() + 1;
+                    .max().orElseThrow() + 1;
             checkArgument(readColumns.size() == columnCount, "checksum requires all columns to be read");
 
             ImmutableList.Builder<Type> types = ImmutableList.builder();

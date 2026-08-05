@@ -15,6 +15,7 @@ package io.trino.plugin.exasol;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slices;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -24,11 +25,17 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -39,33 +46,53 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromLongTrinoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toLongTrinoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.joining;
 
 public class ExasolClient
         extends BaseJdbcClient
@@ -74,6 +101,8 @@ public class ExasolClient
             .add("EXA_STATISTICS")
             .add("SYS")
             .build();
+
+    private static final int MAX_EXASOL_TIMESTAMP_PRECISION = 9;
 
     @Inject
     public ExasolClient(
@@ -87,12 +116,12 @@ public class ExasolClient
     }
 
     @Override
-    protected boolean filterSchema(String schemaName)
+    protected boolean filterRemoteSchema(String schemaName)
     {
         if (INTERNAL_SCHEMAS.contains(schemaName.toUpperCase(ENGLISH))) {
             return false;
         }
-        return super.filterSchema(schemaName);
+        return super.filterRemoteSchema(schemaName);
     }
 
     @Override
@@ -150,7 +179,13 @@ public class ExasolClient
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
+    }
+
+    @Override
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
@@ -206,35 +241,44 @@ public class ExasolClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        switch (typeHandle.jdbcType()) {
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-            case Types.DECIMAL:
+        if (isHashType(typeHandle)) {
+            return Optional.of(hashTypeColumnMapping());
+        }
+        return switch (typeHandle.jdbcType()) {
+            case Types.BOOLEAN -> Optional.of(booleanColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int columnSize = typeHandle.requiredColumnSize();
-                return Optional.of(decimalColumnMapping(createDecimalType(columnSize, decimalDigits)));
-            case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
-            case Types.VARCHAR:
+                yield Optional.of(decimalColumnMapping(createDecimalType(columnSize, decimalDigits)));
+            }
+            case Types.CHAR -> Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
+            case Types.VARCHAR -> {
                 // String data is sorted by its binary representation.
                 // https://docs.exasol.com/db/latest/sql/select.htm#UsageNotes
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
-            case Types.DATE:
-                return Optional.of(dateColumnMapping());
-        }
+                yield Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
+            }
+            // DATE and TIMESTAMP types are described here in more details:
+            // https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm
+            case Types.DATE -> Optional.of(dateColumnMapping());
+            case Types.TIMESTAMP -> Optional.of(timestampColumnMapping(typeHandle));
+            default -> {
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    yield mapToUnboundedVarchar(typeHandle);
+                }
+                yield Optional.empty();
+            }
+        };
+    }
 
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
+    private boolean isHashType(JdbcTypeHandle typeHandle)
+    {
+        return typeHandle.jdbcType() == Types.CHAR
+                && typeHandle.jdbcTypeName().isPresent()
+                && typeHandle.jdbcTypeName().get().equalsIgnoreCase("HASHTYPE");
     }
 
     private static ColumnMapping dateColumnMapping()
@@ -262,6 +306,168 @@ public class ExasolClient
         });
     }
 
+    private static ColumnMapping hashTypeColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                VARBINARY,
+                hashTypeReadFunction(),
+                hashTypeWriteFunction());
+    }
+
+    private static SliceReadFunction hashTypeReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String hex = resultSet.getString(columnIndex);
+            byte[] bytes = HexFormat.of().parseHex(hex);
+            return Slices.wrappedBuffer(bytes);
+        };
+    }
+
+    private static SliceWriteFunction hashTypeWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.CHAR, (statement, index, slice) -> {
+            byte[] bytes = slice.getBytes();
+            String hex = HexFormat.of().formatHex(bytes);
+            statement.setString(index, hex);
+        });
+    }
+
+    private static ColumnMapping timestampColumnMapping(JdbcTypeHandle typeHandle)
+    {
+        int timestampPrecision = typeHandle.requiredDecimalDigits();
+        TimestampType timestampType = createTimestampType(timestampPrecision);
+        if (timestampType.isShort()) {
+            return ColumnMapping.longMapping(
+                    timestampType,
+                    longTimestampReadFunction(timestampType),
+                    longTimestampWriteFunction(timestampType),
+                    FULL_PUSHDOWN);
+        }
+        return ColumnMapping.objectMapping(
+                timestampType,
+                objectTimestampReadFunction(timestampType),
+                objectTimestampWriteFunction(timestampType),
+                FULL_PUSHDOWN);
+    }
+
+    private static LongReadFunction longTimestampReadFunction(TimestampType timestampType)
+    {
+        verifyLongTimestampPrecision(timestampType);
+        return (resultSet, columnIndex) -> {
+            // The Exasol JDBC driver does not support reading TIMESTAMP directly as LocalDateTime.
+            Timestamp timestamp = resultSet.getTimestamp(columnIndex);
+            return toTrinoTimestamp(timestampType, timestamp.toLocalDateTime());
+        };
+    }
+
+    private static LongWriteFunction longTimestampWriteFunction(TimestampType timestampType)
+    {
+        verifyLongTimestampPrecision(timestampType);
+        return new LongWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return timestampBindExpression(timestampType.getPrecision());
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, long epochMicros)
+                    throws SQLException
+            {
+                LocalDateTime localDateTime = fromTrinoTimestamp(epochMicros);
+                Timestamp timestampValue = Timestamp.valueOf(localDateTime);
+                statement.setTimestamp(index, timestampValue);
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, Types.TIMESTAMP);
+            }
+        };
+    }
+
+    private static ObjectReadFunction objectTimestampReadFunction(TimestampType timestampType)
+    {
+        verifyObjectTimestampPrecision(timestampType);
+        return ObjectReadFunction.of(
+                LongTimestamp.class,
+                (resultSet, columnIndex) -> {
+                    // The Exasol JDBC driver does not support reading TIMESTAMP directly as LocalDateTime.
+                    Timestamp timestamp = resultSet.getTimestamp(columnIndex);
+                    return toLongTrinoTimestamp(timestampType, timestamp.toLocalDateTime());
+                });
+    }
+
+    private static ObjectWriteFunction objectTimestampWriteFunction(TimestampType timestampType)
+    {
+        int precision = timestampType.getPrecision();
+        verifyObjectTimestampPrecision(timestampType);
+
+        return new ObjectWriteFunction()
+        {
+            @Override
+            public Class<?> getJavaType()
+            {
+                return LongTimestamp.class;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Object value)
+                    throws SQLException
+            {
+                LocalDateTime localDateTime = fromLongTrinoTimestamp((LongTimestamp) value, precision);
+                Timestamp timestamp = Timestamp.valueOf(localDateTime);
+                statement.setTimestamp(index, timestamp);
+            }
+
+            @Override
+            public String getBindExpression()
+            {
+                return timestampBindExpression(timestampType.getPrecision());
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, Types.TIMESTAMP);
+            }
+        };
+    }
+
+    private static void verifyObjectTimestampPrecision(TimestampType timestampType)
+    {
+        int precision = timestampType.getPrecision();
+        checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_EXASOL_TIMESTAMP_PRECISION,
+                "Precision is out of range: %s",
+                precision);
+    }
+
+    private static void verifyLongTimestampPrecision(TimestampType timestampType)
+    {
+        int precision = timestampType.getPrecision();
+        checkArgument(precision >= 0 && precision <= MAX_SHORT_PRECISION,
+                "Precision is out of range: %s",
+                precision);
+    }
+
+    /**
+     * Returns a {@code TO_TIMESTAMP} bind expression using the appropriate format model
+     * based on the given fractional seconds precision.
+     * See for more details: <a href="https://docs.exasol.com/db/latest/sql_references/formatmodels.htm">Date/time format models</a>
+     */
+    private static String timestampBindExpression(int precision)
+    {
+        checkArgument(precision >= 0, "Precision is negative: %s", precision);
+        if (precision == 0) {
+            return "TO_TIMESTAMP(?, 'YYYY-MM-DD HH24:MI:SS')";
+        }
+        return format("TO_TIMESTAMP(?, 'YYYY-MM-DD HH24:MI:SS.FF%d')", precision);
+    }
+
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
@@ -269,7 +475,7 @@ public class ExasolClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
@@ -278,5 +484,44 @@ public class ExasolClient
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return format("%s %s %s", quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return true;
     }
 }

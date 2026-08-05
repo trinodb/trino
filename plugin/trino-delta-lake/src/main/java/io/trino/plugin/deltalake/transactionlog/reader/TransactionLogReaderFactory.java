@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.deltalake.transactionlog.reader;
 
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 
+import java.util.Optional;
+
 public interface TransactionLogReaderFactory
 {
-    TransactionLogReader createReader(DeltaLakeTableHandle tableHandle);
+    TransactionLogReader createReader(DeltaLakeTableHandle tableHandle, Optional<DeltaLakeTableCredentials> tableCredentials);
 
-    TransactionLogReader createReader(DeltaMetastoreTable table);
+    TransactionLogReader createReader(DeltaMetastoreTable table, Optional<DeltaLakeTableCredentials> tableCredentials);
 }

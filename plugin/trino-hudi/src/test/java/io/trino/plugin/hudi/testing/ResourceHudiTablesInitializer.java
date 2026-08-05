@@ -112,8 +112,8 @@ public class ResourceHudiTablesInitializer
                         .setLocation(tablePath.toString()))
                 .build();
         HiveMetastore metastore = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
-                        .getInstance(HiveMetastoreFactory.class)
-                        .createMetastore(Optional.empty());
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
         metastore.createTable(table, PrincipalPrivileges.NO_PRIVILEGES);
 
         List<PartitionWithStatistics> partitionsToAdd = new ArrayList<>();

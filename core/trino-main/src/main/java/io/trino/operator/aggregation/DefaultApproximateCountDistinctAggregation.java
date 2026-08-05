@@ -58,7 +58,7 @@ public final class DefaultApproximateCountDistinctAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") long value)
     {
@@ -72,7 +72,7 @@ public final class DefaultApproximateCountDistinctAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") double value)
     {
@@ -86,7 +86,7 @@ public final class DefaultApproximateCountDistinctAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") Object value)
     {

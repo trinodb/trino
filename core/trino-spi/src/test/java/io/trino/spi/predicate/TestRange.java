@@ -23,7 +23,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestRange
+class TestRange
 {
     @Test
     public void testInvertedBounds()

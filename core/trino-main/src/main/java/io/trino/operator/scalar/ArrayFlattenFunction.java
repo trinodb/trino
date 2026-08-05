@@ -22,13 +22,13 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
 
@@ -44,8 +44,8 @@ public class ArrayFlattenFunction
         super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(arrayType(new TypeSignature("E")))
-                        .argumentType(arrayType(arrayType(new TypeSignature("E"))))
+                        .returnType(arrayType(typeVariable("E")))
+                        .argumentType(arrayType(arrayType(typeVariable("E"))))
                         .build())
                 .description("Flattens the given array")
                 .build());
@@ -75,9 +75,7 @@ public class ArrayFlattenFunction
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!array.isNull(i)) {
                 Block subArray = (Block) arrayType.getObject(array, i);
-                for (int j = 0; j < subArray.getPositionCount(); j++) {
-                    type.appendTo(subArray, j, builder);
-                }
+                builder.appendBlockRange(subArray, 0, subArray.getPositionCount());
             }
         }
         return builder.build();

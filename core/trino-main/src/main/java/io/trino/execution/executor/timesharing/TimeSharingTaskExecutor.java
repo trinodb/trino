@@ -69,7 +69,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.computeLevel;
@@ -126,7 +125,7 @@ public class TimeSharingTaskExecutor
     /**
      * Splits running on a thread.
      */
-    private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
+    private final Set<PrioritizedSplitRunner> runningSplits = ConcurrentHashMap.newKeySet();
 
     /**
      * Splits blocked by the driver.
@@ -169,8 +168,7 @@ public class TimeSharingTaskExecutor
     @Inject
     public TimeSharingTaskExecutor(TaskManagerConfig config, VersionEmbedder versionEmbedder, Tracer tracer, MultilevelSplitQueue splitQueue)
     {
-        this(
-                config.getMaxWorkerThreads(),
+        this(config.getMaxWorkerThreads(),
                 config.getMinDrivers(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
@@ -278,7 +276,7 @@ public class TimeSharingTaskExecutor
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
-        checkArgument(maxDriversPerTask.isEmpty() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
+        checkArgument(maxDriversPerTask.isEmpty() || maxDriversPerTask.orElseThrow() <= maximumNumberOfDriversPerTask,
                 "maxDriversPerTask cannot be greater than the configured value");
 
         log.debug("Task scheduled %s", taskId);
@@ -358,10 +356,10 @@ public class TimeSharingTaskExecutor
 
                 Span splitSpan = tracer.spanBuilder(intermediate ? "split (intermediate)" : "split (leaf)")
                         .setParent(Context.current().with(taskSplit.getPipelineSpan()))
-                        .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                        .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                        .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                        .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                         .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
-                        .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.getStageId() + "-" + taskSplit.getPipelineId())
+                        .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.stageId() + "-" + taskSplit.getPipelineId())
                         .setAttribute(TrinoAttributes.SPLIT_ID, taskId + "-" + splitId)
                         .startSpan();
 

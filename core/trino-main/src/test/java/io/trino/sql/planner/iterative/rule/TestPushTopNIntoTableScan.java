@@ -89,7 +89,7 @@ public class TestPushTopNIntoTableScan
         MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
         // make the mock connector return a new connectorHandle
         MockConnectorFactory.ApplyTopN applyTopN =
-                (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
+                (_, _, _, _, _) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
@@ -118,7 +118,7 @@ public class TestPushTopNIntoTableScan
         MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
         // make the mock connector return a new connectorHandle
         MockConnectorFactory.ApplyTopN applyTopN =
-                (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
+                (_, _, _, _, _) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
@@ -134,7 +134,8 @@ public class TestPushTopNIntoTableScan
                                                 metric, metricColumn)));
                     })
                     .matches(
-                            topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
+                            topN(1,
+                                    ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
                                     TopNNode.Step.SINGLE,
                                     tableScan(
                                             connectorHandle::equals,
@@ -151,7 +152,7 @@ public class TestPushTopNIntoTableScan
         MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
         // make the mock connector return a new connectorHandle
         MockConnectorFactory.ApplyTopN applyTopN =
-                (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
+                (_, _, _, _, _) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
@@ -180,7 +181,7 @@ public class TestPushTopNIntoTableScan
         MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
         // make the mock connector return a new connectorHandle
         MockConnectorFactory.ApplyTopN applyTopN =
-                (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
+                (_, _, _, _, _) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
@@ -196,7 +197,8 @@ public class TestPushTopNIntoTableScan
                                                 metric, metricColumn)));
                     })
                     .matches(
-                            topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
+                            topN(1,
+                                    ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
                                     TopNNode.Step.PARTIAL,
                                     tableScan(
                                             connectorHandle::equals,
@@ -231,7 +233,7 @@ public class TestPushTopNIntoTableScan
         MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
         // make the mock connector return a new connectorHandle
         MockConnectorFactory.ApplyTopN applyTopN =
-                (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
+                (_, _, _, _, _) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
@@ -261,9 +263,9 @@ public class TestPushTopNIntoTableScan
                 .collect(toImmutableList());
 
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
-                .withListSchemaNames(connectorSession -> ImmutableList.of(TEST_SCHEMA))
-                .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_TABLE) : ImmutableList.of())
-                .withGetColumns(schemaTableName -> metadata);
+                .withListSchemaNames(_ -> ImmutableList.of(TEST_SCHEMA))
+                .withListTables((_, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_TABLE) : ImmutableList.of())
+                .withGetColumns(_ -> metadata);
 
         if (applyTopN.isPresent()) {
             builder = builder.withApplyTopN(applyTopN.get());

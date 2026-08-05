@@ -56,6 +56,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.orc.metadata.CalendarKind.JULIAN_GREGORIAN;
+import static io.trino.orc.metadata.CalendarKind.PROLEPTIC_GREGORIAN;
+import static io.trino.orc.metadata.CalendarKind.UNKNOWN_CALENDAR;
 import static io.trino.orc.metadata.CompressionKind.LZ4;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.metadata.CompressionKind.SNAPPY;
@@ -150,7 +153,8 @@ public class OrcMetadataReader
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
                 toUserMetadata(footer.getMetadataList()),
-                Optional.of(footer.getWriter()));
+                Optional.of(footer.getWriter()),
+                toTrinoOrcCalendarKind(footer.getCalendar()));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
@@ -409,6 +413,16 @@ public class OrcMetadataReader
         return new BinaryStatistics(binaryStatistics.getSum());
     }
 
+    private static CalendarKind toTrinoOrcCalendarKind(OrcProto.CalendarKind calendarKind)
+    {
+        return switch (calendarKind) {
+            case null -> UNKNOWN_CALENDAR;
+            case OrcProto.CalendarKind.UNKNOWN_CALENDAR -> UNKNOWN_CALENDAR;
+            case OrcProto.CalendarKind.JULIAN_GREGORIAN -> JULIAN_GREGORIAN;
+            case OrcProto.CalendarKind.PROLEPTIC_GREGORIAN -> PROLEPTIC_GREGORIAN;
+        };
+    }
+
     private static Slice byteStringToSlice(ByteString value)
     {
         return Slices.wrappedBuffer(value.toByteArray());
@@ -596,33 +610,18 @@ public class OrcMetadataReader
 
     private static StreamKind toStreamKind(OrcProto.Stream.Kind streamKind)
     {
-        switch (streamKind) {
-            case PRESENT:
-                return StreamKind.PRESENT;
-            case DATA:
-                return StreamKind.DATA;
-            case LENGTH:
-                return StreamKind.LENGTH;
-            case DICTIONARY_DATA:
-                return StreamKind.DICTIONARY_DATA;
-            case DICTIONARY_COUNT:
-                return StreamKind.DICTIONARY_COUNT;
-            case SECONDARY:
-                return StreamKind.SECONDARY;
-            case ROW_INDEX:
-                return StreamKind.ROW_INDEX;
-            case BLOOM_FILTER:
-                return StreamKind.BLOOM_FILTER;
-            case BLOOM_FILTER_UTF8:
-                return StreamKind.BLOOM_FILTER_UTF8;
-            case ENCRYPTED_INDEX:
-            case ENCRYPTED_DATA:
-            case STRIPE_STATISTICS:
-            case FILE_STATISTICS:
-                // unsupported
-                break;
-        }
-        throw new IllegalStateException(streamKind + " stream type not implemented yet");
+        return switch (streamKind) {
+            case PRESENT -> StreamKind.PRESENT;
+            case DATA -> StreamKind.DATA;
+            case LENGTH -> StreamKind.LENGTH;
+            case DICTIONARY_DATA -> StreamKind.DICTIONARY_DATA;
+            case DICTIONARY_COUNT -> StreamKind.DICTIONARY_COUNT;
+            case SECONDARY -> StreamKind.SECONDARY;
+            case ROW_INDEX -> StreamKind.ROW_INDEX;
+            case BLOOM_FILTER -> StreamKind.BLOOM_FILTER;
+            case BLOOM_FILTER_UTF8 -> StreamKind.BLOOM_FILTER_UTF8;
+            case ENCRYPTED_INDEX, ENCRYPTED_DATA, STRIPE_STATISTICS, FILE_STATISTICS -> throw new IllegalStateException(streamKind + " stream type not implemented yet");
+        };
     }
 
     private static ColumnEncodingKind toColumnEncodingKind(OrcProto.ColumnEncoding.Kind columnEncodingKind)
@@ -637,22 +636,16 @@ public class OrcMetadataReader
 
     private static CompressionKind toCompression(OrcProto.CompressionKind compression)
     {
-        switch (compression) {
-            case NONE:
-                return NONE;
-            case ZLIB:
-                return ZLIB;
-            case SNAPPY:
-                return SNAPPY;
-            case BROTLI:
-            case LZO:
+        return switch (compression) {
+            case NONE -> NONE;
+            case ZLIB -> ZLIB;
+            case SNAPPY -> SNAPPY;
+            case LZ4 -> LZ4;
+            case ZSTD -> ZSTD;
+            case BROTLI, LZO -> {
                 // TODO unsupported
-                break;
-            case LZ4:
-                return LZ4;
-            case ZSTD:
-                return ZSTD;
-        }
-        throw new IllegalStateException(compression + " compression not implemented yet");
+                throw new IllegalStateException(compression + " compression not implemented yet");
+            }
+        };
     }
 }

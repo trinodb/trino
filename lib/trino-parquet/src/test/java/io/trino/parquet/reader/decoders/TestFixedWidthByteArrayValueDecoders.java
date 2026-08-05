@@ -27,6 +27,7 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -59,7 +60,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.concat;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -96,7 +96,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                     return new Object[] {
                             createShortDecimalTestType(typeLength, precision),
                             encoding,
-                            createShortDecimalInputDataProvider(typeLength, precision)};
+                            createShortDecimalInputDataProvider(typeLength, precision),
+                    };
                 })
                 .toArray(Object[][]::new);
     }
@@ -107,7 +108,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .mapToObj(typeLength -> new Object[] {
                         createLongDecimalTestType(typeLength),
                         encoding,
-                        createLongDecimalInputDataProvider(typeLength)})
+                        createLongDecimalInputDataProvider(typeLength),
+                })
                 .toArray(Object[][]::new);
     }
 
@@ -117,7 +119,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .map(encoding -> new Object[] {
                         createUuidTestType(),
                         encoding,
-                        new UuidInputProvider()})
+                        new UuidInputProvider(),
+                })
                 .toArray(Object[][]::new);
     }
 
@@ -128,7 +131,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .map(encoding -> new Object[] {
                         createVarbinaryTestType(typeLength),
                         encoding,
-                        createRandomBinaryInputProvider(typeLength)})
+                        createRandomBinaryInputProvider(typeLength),
+                })
                 .toArray(Object[][]::new);
     }
 
@@ -139,7 +143,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .map(encoding -> new Object[] {
                         createVarcharTestType(typeLength),
                         encoding,
-                        createRandomUtf8BinaryInputProvider(typeLength)})
+                        createRandomUtf8BinaryInputProvider(typeLength),
+                })
                 .toArray(Object[][]::new);
     }
 
@@ -208,7 +213,8 @@ public final class TestFixedWidthByteArrayValueDecoders
 
     private static InputDataProvider createShortDecimalInputDataProvider(int typeLength, int precision)
     {
-        return new InputDataProvider() {
+        return new InputDataProvider()
+        {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
@@ -230,7 +236,8 @@ public final class TestFixedWidthByteArrayValueDecoders
 
     private static InputDataProvider createLongDecimalInputDataProvider(int typeLength)
     {
-        return new InputDataProvider() {
+        return new InputDataProvider()
+        {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {

@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -28,23 +28,24 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.util.JsonUtil.JsonGeneratorWriter;
+import io.trino.util.JsonUtil.ObjectKeyProvider;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
-import static io.trino.util.JsonUtil.JsonGeneratorWriter;
-import static io.trino.util.JsonUtil.ObjectKeyProvider;
 import static io.trino.util.JsonUtil.canCastToJson;
 import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonGenerator;
@@ -56,16 +57,16 @@ public class MapToJsonCast
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, SqlMap.class);
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private MapToJsonCast()
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableToTypeParameter("K", VARCHAR.getTypeSignature())
-                        .castableToTypeParameter("V", JSON.getTypeSignature())
+                        .castableToTypeParameter("K", VARCHAR.getTypeDescriptor())
+                        .castableToTypeParameter("V", JSON.getTypeDescriptor())
                         .returnType(JSON)
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
                         .build())
                 .build());
     }
@@ -104,9 +105,9 @@ public class MapToJsonCast
             }
 
             SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeStartObject();
-                for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
                     writer.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }

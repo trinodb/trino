@@ -33,7 +33,8 @@ public class FilterNode
     private final Expression predicate;
 
     @JsonCreator
-    public FilterNode(@JsonProperty("id") PlanNodeId id,
+    public FilterNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("predicate") Expression predicate)
     {

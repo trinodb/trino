@@ -14,12 +14,21 @@
 package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.ValueBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
-public interface PositionsAppender
+public sealed interface PositionsAppender
+        permits RowPositionsAppender, TypedPositionsAppender
 {
+    /**
+     * Appends the positions from the list, in the specified order. Implementations are not permitted to modify
+     * the contents of the {@link IntArrayList} argument as it may be passed directly from {@link DictionaryBlock#getRawIds()}
+     * without a defensive copy.
+     */
     void append(IntArrayList positions, ValueBlock source);
+
+    void appendRange(ValueBlock block, int offset, int length);
 
     /**
      * Appends the specified value positionCount times.

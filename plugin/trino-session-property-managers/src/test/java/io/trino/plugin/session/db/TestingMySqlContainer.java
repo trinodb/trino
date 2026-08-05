@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.session.db;
 
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
 public class TestingMySqlContainer
-        extends MySQLContainer<TestingMySqlContainer>
+        extends MySQLContainer
 {
     public TestingMySqlContainer()
     {

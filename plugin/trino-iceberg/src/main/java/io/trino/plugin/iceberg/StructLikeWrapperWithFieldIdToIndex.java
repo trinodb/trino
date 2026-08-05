@@ -15,7 +15,8 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.StructLikeWrapper;
 
@@ -29,10 +30,10 @@ public class StructLikeWrapperWithFieldIdToIndex
     private final StructLikeWrapper structLikeWrapper;
     private final Map<Integer, Integer> fieldIdToIndex;
 
-    public static StructLikeWrapperWithFieldIdToIndex createStructLikeWrapper(FileScanTask fileScanTask)
+    public static StructLikeWrapperWithFieldIdToIndex createStructLikeWrapper(PartitionSpec partitionSpec, StructLike partition)
     {
-        Types.StructType structType = fileScanTask.spec().partitionType();
-        StructLikeWrapper partitionWrapper = StructLikeWrapper.forType(structType).set(fileScanTask.file().partition());
+        Types.StructType structType = partitionSpec.partitionType();
+        StructLikeWrapper partitionWrapper = StructLikeWrapper.forType(structType).set(partition);
         return new StructLikeWrapperWithFieldIdToIndex(partitionWrapper, structType);
     }
 

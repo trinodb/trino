@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
@@ -20,21 +21,26 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionProcessorState.Blocked;
 import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
+import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static java.util.Objects.requireNonNull;
@@ -50,6 +56,8 @@ public class LeafTableFunctionOperator
         private final CatalogHandle functionCatalog;
         private final TableFunctionProcessorProvider tableFunctionProvider;
         private final ConnectorTableFunctionHandle functionHandle;
+        private final Optional<ConnectorTableCredentials> tableCredentials;
+        private final List<Type> types;
         private boolean closed;
 
         public LeafTableFunctionOperatorFactory(
@@ -57,13 +65,17 @@ public class LeafTableFunctionOperator
                 PlanNodeId sourceId,
                 CatalogHandle functionCatalog,
                 TableFunctionProcessorProvider tableFunctionProvider,
-                ConnectorTableFunctionHandle functionHandle)
+                ConnectorTableFunctionHandle functionHandle,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.functionCatalog = requireNonNull(functionCatalog, "functionCatalog is null");
             this.tableFunctionProvider = requireNonNull(tableFunctionProvider, "tableFunctionProvider is null");
             this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+            this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
@@ -77,7 +89,15 @@ public class LeafTableFunctionOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, LeafTableFunctionOperator.class.getSimpleName());
-            return new LeafTableFunctionOperator(operatorContext, sourceId, functionCatalog, tableFunctionProvider, functionHandle);
+            LeafTableFunctionOperator operator = new LeafTableFunctionOperator(operatorContext, sourceId, functionCatalog, tableFunctionProvider, functionHandle, tableCredentials);
+
+            if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
+                return new OutputValidatingSourceOperator(
+                        operator,
+                        types,
+                        () -> "LeafTableFunctionOperator(%s); taskId=%s; operatorId=%s".formatted(functionHandle, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
+            }
+            return operator;
         }
 
         @Override
@@ -91,6 +111,7 @@ public class LeafTableFunctionOperator
     private final PlanNodeId sourceId;
     private final TableFunctionProcessorProvider tableFunctionProvider;
     private final ConnectorTableFunctionHandle functionHandle;
+    private final Optional<ConnectorTableCredentials> tableCredentials;
     private final ConnectorSession session;
 
     private final Deque<ConnectorSplit> pendingSplits = new ArrayDeque<>();
@@ -105,12 +126,14 @@ public class LeafTableFunctionOperator
             PlanNodeId sourceId,
             CatalogHandle functionCatalog,
             TableFunctionProcessorProvider tableFunctionProvider,
-            ConnectorTableFunctionHandle functionHandle)
+            ConnectorTableFunctionHandle functionHandle,
+            Optional<ConnectorTableCredentials> tableCredentials)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.tableFunctionProvider = requireNonNull(tableFunctionProvider, "tableFunctionProvider is null");
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.session = operatorContext.getSession().toConnectorSession(functionCatalog);
     }
 
@@ -124,7 +147,7 @@ public class LeafTableFunctionOperator
                 // ignore close exceptions, as this is a best-effort cleanup
             }
         }
-        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle, nextSplit);
+        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle, tableCredentials, nextSplit);
         this.processorFinishedSplit = false;
         this.processorBlocked = NOT_BLOCKED;
     }

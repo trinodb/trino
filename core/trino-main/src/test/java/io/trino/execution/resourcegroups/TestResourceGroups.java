@@ -57,7 +57,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testQueueFull()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(1);
         root.setHardConcurrencyLimit(1);
@@ -77,7 +77,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testFairEligibility()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -129,7 +129,7 @@ public class TestResourceGroups
     @Test
     public void testSetSchedulingPolicy()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -154,12 +154,12 @@ public class TestResourceGroups
         group2.run(query2a);
         assertThat(query2a.getState()).isEqualTo(QUEUED);
 
-        assertThat(root.getInfo().numEligibleSubGroups()).isEqualTo(2);
+        assertThat(root.getFullInfo().numEligibleSubGroups()).isEqualTo(2);
         assertThat(root.getOrCreateSubGroup("1").getQueuedQueries()).isEqualTo(2);
         assertThat(root.getOrCreateSubGroup("2").getQueuedQueries()).isEqualTo(1);
         assertThat(root.getSchedulingPolicy()).isEqualTo(FAIR);
         root.setSchedulingPolicy(QUERY_PRIORITY);
-        assertThat(root.getInfo().numEligibleSubGroups()).isEqualTo(2);
+        assertThat(root.getFullInfo().numEligibleSubGroups()).isEqualTo(2);
         assertThat(root.getOrCreateSubGroup("1").getQueuedQueries()).isEqualTo(2);
         assertThat(root.getOrCreateSubGroup("2").getQueuedQueries()).isEqualTo(1);
 
@@ -172,7 +172,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testFairQueuing()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -213,7 +213,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testMemoryLimit()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(1);
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
@@ -237,7 +237,7 @@ public class TestResourceGroups
     @Test
     public void testSubgroupMemoryLimit()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(10);
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
@@ -267,7 +267,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testSoftCpuLimit()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(1);
         root.setSoftCpuLimit(Duration.ofSeconds(1));
         root.setHardCpuLimit(Duration.ofSeconds(2));
@@ -306,7 +306,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testHardCpuLimit()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(1);
         root.setHardCpuLimit(Duration.ofSeconds(1));
         root.setCpuQuotaGenerationMillisPerSecond(2000);
@@ -338,7 +338,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testPhysicalDataScanLimit()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
         root.setHardPhysicalDataScanLimitBytes(1);
@@ -372,7 +372,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testCpuUsageUpdateForRunningQuery()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         InternalResourceGroup child = root.getOrCreateSubGroup("child");
 
         Stream.of(root, child).forEach(group -> {
@@ -415,7 +415,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testCpuUsageUpdateAtQueryCompletion()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         InternalResourceGroup child = root.getOrCreateSubGroup("child");
 
         Stream.of(root, child).forEach(group -> {
@@ -595,7 +595,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testMemoryUsageUpdateForRunningQuery()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         InternalResourceGroup child = root.getOrCreateSubGroup("child");
 
         Stream.of(root, child).forEach(group -> {
@@ -636,7 +636,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testMemoryUsageUpdateAtQueryCompletion()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         InternalResourceGroup child = root.getOrCreateSubGroup("child");
 
         Stream.of(root, child).forEach(group -> {
@@ -668,7 +668,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testPhysicalInputDataUsageUpdateForRunningQuery()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         InternalResourceGroup child = root.getOrCreateSubGroup("child");
 
         Stream.of(root, child).forEach(group -> {
@@ -711,7 +711,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testPhysicalInputDataUsageUpdateAtQueryCompletion()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         InternalResourceGroup child = root.getOrCreateSubGroup("child");
 
         Stream.of(root, child).forEach(group -> {
@@ -829,7 +829,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testRecursiveCpuUsageUpdate()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         InternalResourceGroup rootChild1 = root.getOrCreateSubGroup("rootChild1");
         InternalResourceGroup rootChild2 = root.getOrCreateSubGroup("rootChild2");
         InternalResourceGroup rootChild1Child1 = rootChild1.getOrCreateSubGroup("rootChild1Child1");
@@ -943,7 +943,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testMemoryUpdateRecursively()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor())
         {
             @Override
             public void triggerProcessQueuedQueries()
@@ -1039,7 +1039,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testPhysicalInputDataUsageUpdateRecursively()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         InternalResourceGroup rootChild1 = root.getOrCreateSubGroup("rootChild1");
         InternalResourceGroup rootChild2 = root.getOrCreateSubGroup("rootChild2");
         InternalResourceGroup rootChild1Child1 = rootChild1.getOrCreateSubGroup("rootChild1Child1");
@@ -1147,7 +1147,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testPriorityScheduling()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(100);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -1202,7 +1202,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testWeightedScheduling()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor())
         {
             @Override
             public void triggerProcessQueuedQueries()
@@ -1259,7 +1259,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testWeightedFairScheduling()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor())
         {
             @Override
             public void triggerProcessQueuedQueries()
@@ -1310,7 +1310,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testWeightedFairSchedulingEqualWeights()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor())
         {
             @Override
             public void triggerProcessQueuedQueries()
@@ -1377,7 +1377,7 @@ public class TestResourceGroups
     @Timeout(10)
     public void testWeightedFairSchedulingNoStarvation()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor())
         {
             @Override
             public void triggerProcessQueuedQueries()
@@ -1425,7 +1425,7 @@ public class TestResourceGroups
     @Test
     public void testGetInfo()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor())
         {
             @Override
             public void triggerProcessQueuedQueries()
@@ -1477,14 +1477,14 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootBX, ImmutableSet.of(), 10, true));
         queries.addAll(fillGroupTo(rootBY, ImmutableSet.of(), 10, true));
 
-        ResourceGroupInfo info = root.getInfo();
+        ResourceGroupInfo info = root.getFullInfo();
         assertThat(info.numRunningQueries()).isEqualTo(0);
         assertThat(info.numQueuedQueries()).isEqualTo(40);
 
         // root.maxRunningQueries = 4, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 2. Will have 4 queries running and 36 left queued.
         root.setHardConcurrencyLimit(4);
         root.updateGroupsAndProcessQueuedQueries();
-        info = root.getInfo();
+        info = root.getFullInfo();
         assertThat(info.numRunningQueries()).isEqualTo(4);
         assertThat(info.numQueuedQueries()).isEqualTo(36);
 
@@ -1500,21 +1500,21 @@ public class TestResourceGroups
 
         // 4 more queries start running, 32 left queued.
         root.updateGroupsAndProcessQueuedQueries();
-        info = root.getInfo();
+        info = root.getFullInfo();
         assertThat(info.numRunningQueries()).isEqualTo(4);
         assertThat(info.numQueuedQueries()).isEqualTo(32);
 
         // root.maxRunningQueries = 10, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 2. Still only have 4 running queries and 32 left queued.
         root.setHardConcurrencyLimit(10);
         root.updateGroupsAndProcessQueuedQueries();
-        info = root.getInfo();
+        info = root.getFullInfo();
         assertThat(info.numRunningQueries()).isEqualTo(4);
         assertThat(info.numQueuedQueries()).isEqualTo(32);
 
         // root.maxRunningQueries = 10, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 10. Will have 10 running queries and 26 left queued.
         rootB.setHardConcurrencyLimit(10);
         root.updateGroupsAndProcessQueuedQueries();
-        info = root.getInfo();
+        info = root.getFullInfo();
         assertThat(info.numRunningQueries()).isEqualTo(10);
         assertThat(info.numQueuedQueries()).isEqualTo(26);
     }
@@ -1522,7 +1522,7 @@ public class TestResourceGroups
     @Test
     public void testGetResourceGroupStateInfo()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(10);
@@ -1563,7 +1563,7 @@ public class TestResourceGroups
         assertThat(rootInfo.physicalInputDataUsage()).isEqualTo(DataSize.ofBytes(0));
         List<ResourceGroupInfo> subGroups = rootInfo.subGroups().get();
         assertThat(subGroups).hasSize(2);
-        assertGroupInfoEquals(subGroups.get(0), rootA.getInfo());
+        assertGroupInfoEquals(subGroups.get(0), rootA.getFullInfo());
         assertThat(subGroups.get(0).id()).isEqualTo(rootA.getId());
         assertThat(subGroups.get(0).state()).isEqualTo(CAN_QUEUE);
         assertThat(subGroups.get(0).softMemoryLimit().toBytes()).isEqualTo(rootA.getSoftMemoryLimitBytes());
@@ -1573,7 +1573,7 @@ public class TestResourceGroups
         assertThat(subGroups.get(0).numEligibleSubGroups()).isEqualTo(2);
         assertThat(subGroups.get(0).numRunningQueries()).isEqualTo(0);
         assertThat(subGroups.get(0).numQueuedQueries()).isEqualTo(10);
-        assertGroupInfoEquals(subGroups.get(1), rootB.getInfo());
+        assertGroupInfoEquals(subGroups.get(1), rootB.getFullInfo());
         assertThat(subGroups.get(1).id()).isEqualTo(rootB.getId());
         assertThat(subGroups.get(1).state()).isEqualTo(CAN_QUEUE);
         assertThat(subGroups.get(1).softMemoryLimit().toBytes()).isEqualTo(rootB.getSoftMemoryLimitBytes());
@@ -1641,7 +1641,7 @@ public class TestResourceGroups
     @Test
     public void testGetWaitingQueuedQueries()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(40);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -1919,7 +1919,7 @@ public class TestResourceGroups
 
     private static void assertExceedsCpuLimit(InternalResourceGroup group, long expectedMillis)
     {
-        long actualMillis = group.getResourceUsageSnapshot().getCpuUsageMillis();
+        long actualMillis = group.getResourceUsageSnapshot().cpuUsageMillis();
         assertThat(actualMillis).isEqualTo(expectedMillis);
         assertThat(actualMillis >= group.getHardCpuLimit().toMillis()).isTrue();
         assertThat(group.getCpuUsageMillis()).isEqualTo(expectedMillis);
@@ -1927,7 +1927,7 @@ public class TestResourceGroups
 
     private static void assertWithinCpuLimit(InternalResourceGroup group, long expectedMillis)
     {
-        long actualMillis = group.getResourceUsageSnapshot().getCpuUsageMillis();
+        long actualMillis = group.getResourceUsageSnapshot().cpuUsageMillis();
         assertThat(actualMillis).isEqualTo(expectedMillis);
         assertThat(actualMillis < group.getHardCpuLimit().toMillis()).isTrue();
         assertThat(group.getCpuUsageMillis()).isEqualTo(expectedMillis);
@@ -1935,7 +1935,7 @@ public class TestResourceGroups
 
     private static void assertExceedsMemoryLimit(InternalResourceGroup group, long expectedBytes)
     {
-        long actualBytes = group.getResourceUsageSnapshot().getMemoryUsageBytes();
+        long actualBytes = group.getResourceUsageSnapshot().memoryUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isGreaterThan(group.getSoftMemoryLimitBytes());
         assertThat(group.getMemoryUsageBytes()).isEqualTo(expectedBytes);
@@ -1943,7 +1943,7 @@ public class TestResourceGroups
 
     private static void assertWithinMemoryLimit(InternalResourceGroup group, long expectedBytes)
     {
-        long actualBytes = group.getResourceUsageSnapshot().getMemoryUsageBytes();
+        long actualBytes = group.getResourceUsageSnapshot().memoryUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isLessThanOrEqualTo(group.getSoftMemoryLimitBytes());
         assertThat(group.getMemoryUsageBytes()).isEqualTo(expectedBytes);
@@ -1951,7 +1951,7 @@ public class TestResourceGroups
 
     private static void assertExceedsPhysicalDataScanLimit(InternalResourceGroup group, long expectedBytes)
     {
-        long actualBytes = group.getResourceUsageSnapshot().getPhysicalInputDataUsageBytes();
+        long actualBytes = group.getResourceUsageSnapshot().physicalInputDataUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isGreaterThan(group.getHardPhysicalDataScanLimitBytes());
         assertThat(group.getPhysicalInputDataUsageBytes()).isEqualTo(expectedBytes);
@@ -1959,7 +1959,7 @@ public class TestResourceGroups
 
     private static void assertWithinPhysicalDataScanLimit(InternalResourceGroup group, long expectedBytes)
     {
-        long actualBytes = group.getResourceUsageSnapshot().getPhysicalInputDataUsageBytes();
+        long actualBytes = group.getResourceUsageSnapshot().physicalInputDataUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isLessThanOrEqualTo(group.getHardPhysicalDataScanLimitBytes());
         assertThat(group.getPhysicalInputDataUsageBytes()).isEqualTo(expectedBytes);

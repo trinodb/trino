@@ -17,14 +17,15 @@ import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
@@ -52,7 +53,6 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
@@ -239,7 +239,6 @@ public final class StandardColumnMappings
             }
 
             @Override
-            @SuppressWarnings("unchecked")
             public void set(PreparedStatement statement, int index, Object value)
                     throws SQLException
             {
@@ -253,6 +252,67 @@ public final class StandardColumnMappings
                     throws SQLException
             {
                 statement.setNull(index, Types.DECIMAL);
+            }
+        };
+    }
+
+    public static ColumnMapping numberColumnMapping()
+    {
+        return ColumnMapping.objectMapping(
+                NumberType.NUMBER,
+                numberReadFunction(),
+                numberWriteFunction());
+    }
+
+    public static ObjectReadFunction numberReadFunction()
+    {
+        return ObjectReadFunction.of(TrinoNumber.class, (resultSet, columnIndex) -> {
+            Object value = resultSet.getObject(columnIndex);
+            if (value == null || resultSet.wasNull()) {
+                return null;
+            }
+            if (value instanceof Double doubleValue) {
+                if (Double.isNaN(doubleValue)) {
+                    return TrinoNumber.from(new TrinoNumber.NotANumber());
+                }
+                if (Double.isInfinite(doubleValue)) {
+                    return TrinoNumber.from(new TrinoNumber.Infinity(doubleValue < 0.0));
+                }
+                return TrinoNumber.from(new TrinoNumber.BigDecimalValue(new BigDecimal(doubleValue)));
+            }
+            if (value instanceof BigDecimal bigDecimal) {
+                return TrinoNumber.from(new TrinoNumber.BigDecimalValue(bigDecimal));
+            }
+            throw new UnsupportedOperationException("Unsupported type for conversion to NUMBER: " + value.getClass());
+        });
+    }
+
+    public static ObjectWriteFunction numberWriteFunction()
+    {
+        return new ObjectWriteFunction()
+        {
+            @Override
+            public Class<?> getJavaType()
+            {
+                return TrinoNumber.class;
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, Types.DECIMAL);
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Object value)
+                    throws SQLException
+            {
+                switch (((TrinoNumber) value).toBigDecimal()) {
+                    case TrinoNumber.NotANumber() -> statement.setDouble(index, Double.NaN);
+                    case TrinoNumber.Infinity(boolean negative) -> statement.setDouble(index, negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY);
+                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> statement.setBigDecimal(index, bigDecimal);
+                }
             }
         };
     }
@@ -357,7 +417,7 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method leads to incorrect result when the date value is before 1582 Oct 14.
-     * If driver supports {@link LocalDate}, use {@link #dateColumnMappingUsingLocalDate} instead.
+     *         If driver supports {@link LocalDate}, use {@link #dateColumnMappingUsingLocalDate} instead.
      */
     @Deprecated
     public static ColumnMapping dateColumnMappingUsingSqlDate()
@@ -414,7 +474,8 @@ public final class StandardColumnMappings
 
     public static LongReadFunction dateReadFunctionUsingLocalDate()
     {
-        return new LongReadFunction() {
+        return new LongReadFunction()
+        {
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
@@ -429,13 +490,7 @@ public final class StandardColumnMappings
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                LocalDate value = resultSet.getObject(columnIndex, LocalDate.class);
-                // Some drivers (e.g. MemSQL's) return null LocalDate even though the value isn't null
-                if (value == null) {
-                    throw new TrinoException(JDBC_ERROR, "Driver returned null LocalDate for a non-null value");
-                }
-
-                return value.toEpochDay();
+                return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay();
             }
         };
     }
@@ -447,8 +502,8 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method uses {@link java.sql.Time} and the class cannot represent time value when JVM zone had
-     * forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
-     * {@link #timeColumnMapping} instead.
+     *         forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
+     *         {@link #timeColumnMapping} instead.
      */
     @Deprecated
     public static ColumnMapping timeColumnMappingUsingSqlTime()
@@ -471,8 +526,8 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method uses {@link java.sql.Time} and the class cannot represent time value when JVM zone had
-     * forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
-     * {@link #timeWriteFunction} instead.
+     *         forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
+     *         {@link #timeWriteFunction} instead.
      */
     @Deprecated
     public static LongWriteFunction timeWriteFunctionUsingSqlTime()
@@ -526,10 +581,10 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
-     * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
-     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). This mapping also disables pushdown by default
-     * to ensure correctness because rounding happens within Trino and won't apply to remote system.
-     * If driver supports {@link LocalDateTime}, use {@link #timestampColumnMapping} instead.
+     *         forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
+     *         (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). This mapping also disables pushdown by default
+     *         to ensure correctness because rounding happens within Trino and won't apply to remote system.
+     *         If driver supports {@link LocalDateTime}, use {@link #timestampColumnMapping} instead.
      */
     @Deprecated
     public static ColumnMapping timestampColumnMappingUsingSqlTimestampWithRounding(TimestampType timestampType)
@@ -577,7 +632,8 @@ public final class StandardColumnMappings
     public static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION && timestampType.getPrecision() <= MAX_LOCAL_DATE_TIME_PRECISION,
-                "Precision is out of range: %s", timestampType.getPrecision());
+                "Precision is out of range: %s",
+                timestampType.getPrecision());
         return ObjectReadFunction.of(
                 LongTimestamp.class,
                 (resultSet, columnIndex) -> toLongTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class)));
@@ -585,9 +641,9 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
-     * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
-     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If driver only supports {@link LocalDateTime}, use
-     * {@link #timestampWriteFunction} instead.
+     *         forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
+     *         (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If driver only supports {@link LocalDateTime}, use
+     *         {@link #timestampWriteFunction} instead.
      */
     @Deprecated
     public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)
@@ -622,8 +678,7 @@ public final class StandardColumnMappings
         checkArgument(precision <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
         long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
-        verify(
-                epochMicros == round(epochMicros, TimestampType.MAX_SHORT_PRECISION - timestampType.getPrecision()),
+        verify(epochMicros == round(epochMicros, TimestampType.MAX_SHORT_PRECISION - timestampType.getPrecision()),
                 "Invalid value of epochMicros for precision %s: %s",
                 precision,
                 epochMicros);
@@ -637,8 +692,7 @@ public final class StandardColumnMappings
         long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
         int picosOfMicro = (localDateTime.getNano() % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
-        verify(
-                picosOfMicro == round(picosOfMicro, TimestampType.MAX_PRECISION - timestampType.getPrecision()),
+        verify(picosOfMicro == round(picosOfMicro, TimestampType.MAX_PRECISION - timestampType.getPrecision()),
                 "Invalid value of picosOfMicro for precision %s: %s",
                 precision,
                 picosOfMicro);

@@ -43,9 +43,6 @@ Use the following properties to configure general aspects of HDFS support:
     tables. Value must either be `skip` or an octal number, with a leading 0. If
     set to `skip`, permissions of newly created directories are not set by
     Trino. Defaults to `0777`.
-* - `hive.fs.new-file-inherit-ownership`
-  - Flag to determine if new files inherit the ownership information from the
-    directory. Defaults to `false`.
 * - `hive.dfs.verify-checksum`
   - Flag to determine if file checksums must be verified. Defaults to `false`.
 * - `hive.dfs.ipc-ping-interval`
@@ -122,8 +119,8 @@ executed as the OS user who runs the Trino process, regardless of which user
 submits the query.
 
 Before running any `CREATE TABLE` or `CREATE TABLE AS` statements for Hive
-tables in Trino, you must check that the user Trino is using to access HDFS has
-access to the Hive warehouse directory. The Hive warehouse directory is
+tables in Trino, you must check that the user that Trino uses to access HDFS
+has access to the Hive warehouse directory. The Hive warehouse directory is
 specified by the configuration variable `hive.metastore.warehouse.dir` in
 `hive-site.xml`, and the default value is `/user/hive/warehouse`.
 

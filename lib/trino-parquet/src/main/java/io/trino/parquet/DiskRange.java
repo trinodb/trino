@@ -13,45 +13,26 @@
  */
 package io.trino.parquet;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 // same as io.trino.orc.DiskRange
-public final class DiskRange
+public record DiskRange(long offset, long length)
 {
-    private final long offset;
-    private final long length;
-
-    public DiskRange(long offset, long length)
+    public DiskRange
     {
         checkArgument(offset >= 0, "offset is negative");
         checkArgument(length > 0, "length must be at least 1");
-
-        this.offset = offset;
-        this.length = length;
     }
 
-    public long getOffset()
-    {
-        return offset;
-    }
-
-    public long getLength()
-    {
-        return length;
-    }
-
-    public long getEnd()
+    public long end()
     {
         return offset + length;
     }
 
     public boolean contains(DiskRange diskRange)
     {
-        return offset <= diskRange.getOffset() && diskRange.getEnd() <= getEnd();
+        return offset <= diskRange.offset() && diskRange.end() <= end();
     }
 
     /**
@@ -62,37 +43,8 @@ public final class DiskRange
     public DiskRange span(DiskRange otherDiskRange)
     {
         requireNonNull(otherDiskRange, "otherDiskRange is null");
-        long start = Math.min(this.offset, otherDiskRange.getOffset());
-        long end = Math.max(getEnd(), otherDiskRange.getEnd());
+        long start = Math.min(this.offset, otherDiskRange.offset());
+        long end = Math.max(end(), otherDiskRange.end());
         return new DiskRange(start, end - start);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(offset, length);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        DiskRange other = (DiskRange) obj;
-        return this.offset == other.offset &&
-               this.length == other.length;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("offset", offset)
-                .add("length", length)
-                .toString();
     }
 }

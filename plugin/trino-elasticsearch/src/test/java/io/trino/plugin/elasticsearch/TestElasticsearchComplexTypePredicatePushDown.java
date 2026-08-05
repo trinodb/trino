@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -39,10 +39,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 final class TestElasticsearchComplexTypePredicatePushDown
         extends AbstractTestQueryFramework
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    private RestClient client;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -74,8 +74,8 @@ final class TestElasticsearchComplexTypePredicatePushDown
             Map<String, Object> document = new HashMap<>();
             document.put("col", null);
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
-            String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
+            String jsonDocument = JSON_MAPPER.writeValueAsString(document);
+            String jsonIndex = JSON_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
         }
 
@@ -126,8 +126,8 @@ final class TestElasticsearchComplexTypePredicatePushDown
             document.put("col", inner);
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
 
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
-            String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
+            String jsonDocument = JSON_MAPPER.writeValueAsString(document);
+            String jsonIndex = JSON_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
         }
 
@@ -176,39 +176,39 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
         @Language("JSON")
         String properties =
-                  """
-                  {
-                      "properties": {
-                          "col1Row": {
-                              "properties": {
-                                  "a": {
-                                      "type": "long"
-                                  },
-                                  "b": {
-                                      "type": "long"
-                                  },
-                                  "c": {
-                                      "properties": {
-                                          "c1": {
-                                              "type": "long"
-                                          },
-                                          "c2": {
-                                              "properties": {
-                                                  "c21": {
-                                                      "type": "long"
-                                                  },
-                                                  "c22": {
-                                                      "type": "long"
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  }
-                  """;
+                """
+                {
+                    "properties": {
+                        "col1Row": {
+                            "properties": {
+                                "a": {
+                                    "type": "long"
+                                },
+                                "b": {
+                                    "type": "long"
+                                },
+                                "c": {
+                                    "properties": {
+                                        "c1": {
+                                            "type": "long"
+                                        },
+                                        "c2": {
+                                            "properties": {
+                                                "c21": {
+                                                    "type": "long"
+                                                },
+                                                "c22": {
+                                                    "type": "long"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                """;
 
         int a = 2;
         int b = 100;
@@ -232,8 +232,8 @@ final class TestElasticsearchComplexTypePredicatePushDown
                             .buildOrThrow())
                     .buildOrThrow();
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
-            String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
+            String jsonDocument = JSON_MAPPER.writeValueAsString(document);
+            String jsonIndex = JSON_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
 
             a = a + 2;
@@ -291,22 +291,22 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
         @Language("JSON")
         String properties =
-                  """
-                  {
-                      "_meta": {
-                          "trino": {
-                              "colArray": {
-                                  "isArray": true
-                              }
-                          }
-                      },
-                      "properties": {
-                          "colArray": {
-                              "type": "long"
-                          }
-                      }
-                  }
-                  """;
+                """
+                {
+                    "_meta": {
+                        "trino": {
+                            "colArray": {
+                                "isArray": true
+                            }
+                        }
+                    },
+                    "properties": {
+                        "colArray": {
+                            "type": "long"
+                        }
+                    }
+                }
+                """;
 
         StringBuilder payload = new StringBuilder();
         for (int i = 0; i < 10000; i++) {
@@ -318,8 +318,8 @@ final class TestElasticsearchComplexTypePredicatePushDown
                     .buildOrThrow();
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
 
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
-            String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
+            String jsonDocument = JSON_MAPPER.writeValueAsString(document);
+            String jsonIndex = JSON_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
         }
         createIndex(tableName, properties);
@@ -348,7 +348,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String mappings = indexMapping(properties);
         Request request = new Request("PUT", "/" + indexName);
         request.setJsonEntity(mappings);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private static String indexMapping(@Language("JSON") String properties)
@@ -362,7 +362,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String endpoint = format("%s?refresh", bulkEndpoint(index));
         Request request = new Request("PUT", endpoint);
         request.setJsonEntity(payload);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private static String bulkEndpoint(String index)
@@ -374,6 +374,6 @@ final class TestElasticsearchComplexTypePredicatePushDown
             throws IOException
     {
         Request request = new Request("DELETE", "/" + indexName);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 }

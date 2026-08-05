@@ -13,15 +13,20 @@
  */
 package io.trino.util;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slice;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
-import org.assertj.core.util.VisibleForTesting;
+import io.trino.sql.tree.CompositeIntervalQualifier;
+import io.trino.sql.tree.IntervalField;
+import io.trino.sql.tree.IntervalLiteral;
 import org.joda.time.DateTime;
 import org.joda.time.DurationFieldType;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
+import org.joda.time.PeriodType;
 import org.joda.time.ReadWritablePeriod;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -34,6 +39,7 @@ import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
 import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +51,8 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
-import static io.trino.sql.tree.IntervalLiteral.IntervalField;
+import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
+import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.toIntExact;
@@ -57,7 +64,7 @@ public final class DateTimeUtils
 
     private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
-    public static int parseDate(String value)
+    public static int parseDate(Slice value)
     {
         // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever varchar->date conversion (CAST) behavior changes.
 
@@ -68,9 +75,10 @@ public final class DateTimeUtils
 
         OptionalInt days = parseIfIso8601DateFormat(value);
         if (days.isPresent()) {
-            return days.getAsInt();
+            return days.orElseThrow();
         }
-        return toIntExact(TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value)));
+        // only the fallback formatter needs the value as a String
+        return toIntExact(TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value.toStringUtf8())));
     }
 
     /**
@@ -80,9 +88,10 @@ public final class DateTimeUtils
      * @throws DateTimeException when value matches the expected format but is invalid (month or day number out of range)
      */
     @VisibleForTesting
-    static OptionalInt parseIfIso8601DateFormat(String value)
+    static OptionalInt parseIfIso8601DateFormat(Slice value)
     {
-        if (value.length() != 10 || value.charAt(4) != '-' || value.charAt(7) != '-') {
+        // the format is all ASCII, so a byte length of ten is also a length of ten characters
+        if (value.length() != 10 || value.getByte(4) != '-' || value.getByte(7) != '-') {
             return OptionalInt.empty();
         }
 
@@ -101,7 +110,7 @@ public final class DateTimeUtils
             return OptionalInt.empty();
         }
 
-        LocalDate date = LocalDate.of(year.getAsInt(), month.getAsInt(), day.getAsInt());
+        LocalDate date = LocalDate.of(year.orElseThrow(), month.orElseThrow(), day.orElseThrow());
         return OptionalInt.of(toIntExact(date.toEpochDay()));
     }
 
@@ -110,13 +119,13 @@ public final class DateTimeUtils
      *
      * @return parsed value or empty if any non digit found
      */
-    private static OptionalInt parseIntSimple(String input, int offset, int length)
+    private static OptionalInt parseIntSimple(Slice input, int offset, int length)
     {
         checkArgument(length > 0, "Invalid length %s", length);
 
         int result = 0;
         for (int i = 0; i < length; i++) {
-            int digit = input.charAt(offset + i) - '0';
+            int digit = input.getByte(offset + i) - '0';
             if (digit < 0 || digit > 9) {
                 return OptionalInt.empty();
             }
@@ -137,7 +146,8 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyyyy-M-d").getParser(),
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m").getParser(),
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m:s").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS").getParser()};
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS").getParser(),
+        };
 
         DateTimeParser[] timestampWithTimeZoneParser = {
                 DateTimeFormat.forPattern("yyyyyy-M-dZ").getParser(),
@@ -155,7 +165,8 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m:sZZZ").getParser(),
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m:s ZZZ").getParser(),
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSSZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS ZZZ").getParser()};
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS ZZZ").getParser(),
+        };
 
         DateTimePrinter timestampWithTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter();
 
@@ -191,59 +202,59 @@ public final class DateTimeUtils
     private static final int SECOND_FIELD = 6;
     private static final int MILLIS_FIELD = 7;
 
-    private static final PeriodFormatter INTERVAL_DAY_SECOND_FORMATTER = createPeriodFormatter(IntervalField.DAY, IntervalField.SECOND);
-    private static final PeriodFormatter INTERVAL_DAY_MINUTE_FORMATTER = createPeriodFormatter(IntervalField.DAY, IntervalField.MINUTE);
-    private static final PeriodFormatter INTERVAL_DAY_HOUR_FORMATTER = createPeriodFormatter(IntervalField.DAY, IntervalField.HOUR);
-    private static final PeriodFormatter INTERVAL_DAY_FORMATTER = createPeriodFormatter(IntervalField.DAY, IntervalField.DAY);
+    private static final PeriodFormatter INTERVAL_DAY_SECOND_FORMATTER = createPeriodFormatter(new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()));
+    private static final PeriodFormatter INTERVAL_DAY_MINUTE_FORMATTER = createPeriodFormatter(new IntervalField.Day(), new IntervalField.Minute());
+    private static final PeriodFormatter INTERVAL_DAY_HOUR_FORMATTER = createPeriodFormatter(new IntervalField.Day(), new IntervalField.Hour());
+    private static final PeriodFormatter INTERVAL_DAY_FORMATTER = createPeriodFormatter(new IntervalField.Day(), new IntervalField.Day());
 
-    private static final PeriodFormatter INTERVAL_HOUR_SECOND_FORMATTER = createPeriodFormatter(IntervalField.HOUR, IntervalField.SECOND);
-    private static final PeriodFormatter INTERVAL_HOUR_MINUTE_FORMATTER = createPeriodFormatter(IntervalField.HOUR, IntervalField.MINUTE);
-    private static final PeriodFormatter INTERVAL_HOUR_FORMATTER = createPeriodFormatter(IntervalField.HOUR, IntervalField.HOUR);
+    private static final PeriodFormatter INTERVAL_HOUR_SECOND_FORMATTER = createPeriodFormatter(new IntervalField.Hour(), new IntervalField.Second(OptionalInt.empty()));
+    private static final PeriodFormatter INTERVAL_HOUR_MINUTE_FORMATTER = createPeriodFormatter(new IntervalField.Hour(), new IntervalField.Minute());
+    private static final PeriodFormatter INTERVAL_HOUR_FORMATTER = createPeriodFormatter(new IntervalField.Hour(), new IntervalField.Hour());
 
-    private static final PeriodFormatter INTERVAL_MINUTE_SECOND_FORMATTER = createPeriodFormatter(IntervalField.MINUTE, IntervalField.SECOND);
-    private static final PeriodFormatter INTERVAL_MINUTE_FORMATTER = createPeriodFormatter(IntervalField.MINUTE, IntervalField.MINUTE);
+    private static final PeriodFormatter INTERVAL_MINUTE_SECOND_FORMATTER = createPeriodFormatter(new IntervalField.Minute(), new IntervalField.Second(OptionalInt.empty()));
+    private static final PeriodFormatter INTERVAL_MINUTE_FORMATTER = createPeriodFormatter(new IntervalField.Minute(), new IntervalField.Minute());
 
-    private static final PeriodFormatter INTERVAL_SECOND_FORMATTER = createPeriodFormatter(IntervalField.SECOND, IntervalField.SECOND);
+    private static final PeriodFormatter INTERVAL_SECOND_FORMATTER = createPeriodFormatter(new IntervalField.Second(OptionalInt.empty()), new IntervalField.Second(OptionalInt.empty()));
 
-    private static final PeriodFormatter INTERVAL_YEAR_MONTH_FORMATTER = createPeriodFormatter(IntervalField.YEAR, IntervalField.MONTH);
-    private static final PeriodFormatter INTERVAL_YEAR_FORMATTER = createPeriodFormatter(IntervalField.YEAR, IntervalField.YEAR);
+    private static final PeriodFormatter INTERVAL_YEAR_MONTH_FORMATTER = createPeriodFormatter(new IntervalField.Year(), new IntervalField.Month());
+    private static final PeriodFormatter INTERVAL_YEAR_FORMATTER = createPeriodFormatter(new IntervalField.Year(), new IntervalField.Year());
 
-    private static final PeriodFormatter INTERVAL_MONTH_FORMATTER = createPeriodFormatter(IntervalField.MONTH, IntervalField.MONTH);
+    private static final PeriodFormatter INTERVAL_MONTH_FORMATTER = createPeriodFormatter(new IntervalField.Month(), new IntervalField.Month());
 
     public static long parseDayTimeInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
         try {
-            if (startField == IntervalField.DAY && endField.isEmpty()) {
+            if (startField instanceof IntervalField.Day && endField.isEmpty()) {
                 return parsePeriodMillis(INTERVAL_DAY_FORMATTER, value);
             }
-            if (startField == IntervalField.DAY && endField.get() == IntervalField.SECOND) {
+            if (startField instanceof IntervalField.Day && endField.get() instanceof IntervalField.Second) {
                 return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value);
             }
-            if (startField == IntervalField.DAY && endField.get() == IntervalField.MINUTE) {
+            if (startField instanceof IntervalField.Day && endField.get() instanceof IntervalField.Minute) {
                 return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value);
             }
-            if (startField == IntervalField.DAY && endField.get() == IntervalField.HOUR) {
+            if (startField instanceof IntervalField.Day && endField.get() instanceof IntervalField.Hour) {
                 return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value);
             }
 
-            if (startField == IntervalField.HOUR && endField.isEmpty()) {
+            if (startField instanceof IntervalField.Hour && endField.isEmpty()) {
                 return parsePeriodMillis(INTERVAL_HOUR_FORMATTER, value);
             }
-            if (startField == IntervalField.HOUR && endField.get() == IntervalField.SECOND) {
+            if (startField instanceof IntervalField.Hour && endField.get() instanceof IntervalField.Second) {
                 return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value);
             }
-            if (startField == IntervalField.HOUR && endField.get() == IntervalField.MINUTE) {
+            if (startField instanceof IntervalField.Hour && endField.get() instanceof IntervalField.Minute) {
                 return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value);
             }
 
-            if (startField == IntervalField.MINUTE && endField.isEmpty()) {
+            if (startField instanceof IntervalField.Minute && endField.isEmpty()) {
                 return parsePeriodMillis(INTERVAL_MINUTE_FORMATTER, value);
             }
-            if (startField == IntervalField.MINUTE && endField.get() == IntervalField.SECOND) {
+            if (startField instanceof IntervalField.Minute && endField.get() instanceof IntervalField.Second) {
                 return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value);
             }
 
-            if (startField == IntervalField.SECOND && endField.isEmpty()) {
+            if (startField instanceof IntervalField.Second && endField.isEmpty()) {
                 return parsePeriodMillis(INTERVAL_SECOND_FORMATTER, value);
             }
         }
@@ -252,6 +263,19 @@ public final class DateTimeUtils
         }
 
         throw invalidQualifier(startField, endField.orElse(startField));
+    }
+
+    public static IntervalLiteral formatDayTimeInterval(Duration duration)
+    {
+        long millis = duration.toMillis();
+        IntervalLiteral.Sign sign = millis < 0 ? NEGATIVE : POSITIVE;
+        Period period = new Period(Math.abs(millis)).normalizedStandard(PeriodType.dayTime());
+        // Always use INTERVAL DAY TO SECOND. The output is more verbose
+        // (e.g., "1 0:00:00" instead of "1"), but this avoids the need to
+        // determine the minimal field range and choose a specialized formatter.
+        String value = INTERVAL_DAY_SECOND_FORMATTER.print(period);
+
+        return new IntervalLiteral(value, sign, new CompositeIntervalQualifier(OptionalInt.empty(), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty())));
     }
 
     private static long parsePeriodMillis(PeriodFormatter periodFormatter, String value)
@@ -268,14 +292,14 @@ public final class DateTimeUtils
     public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
         try {
-            if (startField == IntervalField.YEAR && endField.isEmpty()) {
+            if (startField instanceof IntervalField.Year && endField.isEmpty()) {
                 return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER);
             }
-            if (startField == IntervalField.YEAR && endField.get() == IntervalField.MONTH) {
+            if (startField instanceof IntervalField.Year && endField.get() instanceof IntervalField.Month) {
                 return parsePeriodMonths(value, INTERVAL_YEAR_MONTH_FORMATTER);
             }
 
-            if (startField == IntervalField.MONTH && endField.isEmpty()) {
+            if (startField instanceof IntervalField.Month && endField.isEmpty()) {
                 return parsePeriodMonths(value, INTERVAL_MONTH_FORMATTER);
             }
         }
@@ -316,10 +340,10 @@ public final class DateTimeUtils
     {
         String message;
         if (startField == endField) {
-            message = format("Invalid INTERVAL %s value: %s", startField, value);
+            message = format("Invalid INTERVAL %s value: %s", startField.name(), value);
         }
         else {
-            message = format("Invalid INTERVAL %s TO %s value: %s", startField, endField, value);
+            message = format("Invalid INTERVAL %s TO %s value: %s", startField.name(), endField.name(), value);
         }
         return new TrinoException(INVALID_LITERAL, message, throwable);
     }
@@ -337,53 +361,70 @@ public final class DateTimeUtils
 
         List<PeriodParser> parsers = new ArrayList<>();
 
-        PeriodFormatterBuilder builder = new PeriodFormatterBuilder();
+        PeriodFormatterBuilder builder = new PeriodFormatterBuilder()
+                // Ensures zero-valued fields are printed instead of omitted. This affects printing only, not parsing.
+                // Example for INTERVAL HOUR TO SECOND:
+                //   With printZeroIfSupported():    "2:00:45"
+                //   Without printZeroIfSupported(): "2::45"
+                .printZeroIfSupported();
         switch (startField) {
-            case YEAR:
+            case IntervalField.Year _:
                 builder.appendYears();
                 parsers.add(builder.toParser());
-                if (endField == IntervalField.YEAR) {
+                if (endField instanceof IntervalField.Year) {
                     break;
                 }
                 builder.appendLiteral("-");
                 // fall through
 
-            case MONTH:
+            case IntervalField.Month _:
                 builder.appendMonths();
                 parsers.add(builder.toParser());
-                if (endField != IntervalField.MONTH) {
+                if (!(endField instanceof IntervalField.Month)) {
                     throw invalidQualifier(startField, endField);
                 }
                 break;
 
-            case DAY:
+            case IntervalField.Day _:
                 builder.appendDays();
                 parsers.add(builder.toParser());
-                if (endField == IntervalField.DAY) {
+                if (endField instanceof IntervalField.Day) {
                     break;
                 }
                 builder.appendLiteral(" ");
                 // fall through
 
-            case HOUR:
+            case IntervalField.Hour _:
                 builder.appendHours();
                 parsers.add(builder.toParser());
-                if (endField == IntervalField.HOUR) {
+                if (endField instanceof IntervalField.Hour) {
                     break;
                 }
                 builder.appendLiteral(":");
+                // Ensures fixed-width, zero-padded minutes. This affects printing only, not parsing.
+                // Applies to the next appended field (minutes).
+                // Example for INTERVAL HOUR TO MINUTE:
+                //   With minimumPrintedDigits(2): "2:05"
+                //   Without minimumPrintedDigits(2): "2:5"
+                builder.minimumPrintedDigits(2);
                 // fall through
 
-            case MINUTE:
+            case IntervalField.Minute _:
                 builder.appendMinutes();
                 parsers.add(builder.toParser());
-                if (endField == IntervalField.MINUTE) {
+                if (endField instanceof IntervalField.Minute) {
                     break;
                 }
                 builder.appendLiteral(":");
+                // Ensures fixed-width, zero-padded seconds. This affects printing only, not parsing.
+                // Applies to the next appended field (seconds).
+                // Example for INTERVAL HOUR TO SECOND:
+                //   With minimumPrintedDigits(2): "2:05:07"
+                //   Without minimumPrintedDigits(2): "2:05:7"
+                builder.minimumPrintedDigits(2);
                 // fall through
 
-            case SECOND:
+            case IntervalField.Second _:
                 builder.appendSecondsWithOptionalMillis();
                 parsers.add(builder.toParser());
                 break;

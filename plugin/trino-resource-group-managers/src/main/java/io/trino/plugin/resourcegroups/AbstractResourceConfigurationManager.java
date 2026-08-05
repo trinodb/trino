@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Queue;
 
@@ -74,21 +75,20 @@ public abstract class AbstractResourceConfigurationManager
             }
             if (group.getSchedulingPolicy().isPresent()) {
                 switch (group.getSchedulingPolicy().get()) {
-                    case WEIGHTED:
-                    case WEIGHTED_FAIR:
+                    case WEIGHTED, WEIGHTED_FAIR -> {
                         checkArgument(
                                 subGroups.stream().allMatch(t -> t.getSchedulingWeight().isPresent()) || subGroups.stream().noneMatch(t -> t.getSchedulingWeight().isPresent()),
                                 "Must specify scheduling weight for all sub-groups of '%s' or none of them",
                                 group.getName());
-                        break;
-                    case QUERY_PRIORITY:
-                    case FAIR:
+                    }
+                    case QUERY_PRIORITY, FAIR -> {
                         for (ResourceGroupSpec subGroup : subGroups) {
                             checkArgument(subGroup.getSchedulingWeight().isEmpty(), "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName());
                         }
-                        break;
-                    default:
+                    }
+                    default -> {
                         throw new UnsupportedOperationException();
+                    }
                 }
             }
         }
@@ -107,6 +107,7 @@ public abstract class AbstractResourceConfigurationManager
                     spec.getSourceRegex(),
                     spec.getClientTags(),
                     spec.getResourceEstimate(),
+                    spec.getQueryTextRegex(),
                     spec.getQueryType(),
                     spec.getGroup()));
         }
@@ -144,7 +145,7 @@ public abstract class AbstractResourceConfigurationManager
         memoryPoolManager.addChangeListener(poolInfo -> {
             Map<ResourceGroup, DataSize> memoryLimits = new HashMap<>();
             synchronized (memoryPoolFraction) {
-                for (Map.Entry<ResourceGroup, Double> entry : memoryPoolFraction.entrySet()) {
+                for (Entry<ResourceGroup, Double> entry : memoryPoolFraction.entrySet()) {
                     long bytes = Math.round(poolInfo.getMaxBytes() * entry.getValue());
                     // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "memoryPoolFraction" lock
                     memoryLimits.put(entry.getKey(), DataSize.ofBytes(bytes));
@@ -206,7 +207,7 @@ public abstract class AbstractResourceConfigurationManager
         }
         else {
             synchronized (memoryPoolFraction) {
-                double fraction = match.getSoftMemoryLimitFraction().get();
+                double fraction = match.getSoftMemoryLimitFraction().orElseThrow();
                 memoryPoolFraction.put(group, fraction);
                 group.setSoftMemoryLimitBytes((long) (memoryPoolBytes * fraction));
             }

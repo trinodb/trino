@@ -85,10 +85,10 @@ final class TestRedshiftUnload
         assertQueryStats(
                 getSession(),
                 """
-                       SELECT nationkey, name FROM nation WHERE regionkey = 0
-                       UNION
-                       SELECT nationkey, name FROM nation WHERE regionkey = 1
-                       """,
+                SELECT nationkey, name FROM nation WHERE regionkey = 0
+                UNION
+                SELECT nationkey, name FROM nation WHERE regionkey = 1
+                """,
                 queryStats -> {
                     List<String> unloadedPaths =
                             queryStats.getOperatorSummaries()
@@ -228,6 +228,6 @@ final class TestRedshiftUnload
 
     private static SqlExecutor onRemoteDatabase()
     {
-        return TestingRedshiftServer::executeInRedshift;
+        return TestingRedshiftServer::executeInRedshiftWithRetry;
     }
 }

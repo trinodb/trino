@@ -39,6 +39,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.ToDoubleFunction;
 
 import static com.google.common.base.Verify.verify;
@@ -159,8 +160,10 @@ public class DeterminePartitionCount
             }
             maxPartitionCount = getMaxHashPartitionCount(session);
         }
-        verify(minPartitionCount <= maxPartitionCount, "minPartitionCount %s larger than maxPartitionCount %s",
-                minPartitionCount, maxPartitionCount);
+        verify(minPartitionCount <= maxPartitionCount,
+                "minPartitionCount %s larger than maxPartitionCount %s",
+                minPartitionCount,
+                maxPartitionCount);
         int maxPossiblePartitionCount = taskCountEstimator.estimateHashedTaskCount(session);
         RetryPolicy retryPolicy = getRetryPolicy(session);
         if (maxPossiblePartitionCount <= 2 * minPartitionCount && !retryPolicy.equals(RetryPolicy.TASK)) {
@@ -348,7 +351,7 @@ public class DeterminePartitionCount
 
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
             if (isEligibleRemoteExchange(node, taskRetries)) {
-                partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
+                partitioningScheme = partitioningScheme.withPartitionCount(OptionalInt.of(partitionCount));
             }
 
             return new ExchangeNode(

@@ -54,7 +54,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -131,22 +130,21 @@ public class TableSnapshot
                 transactionLogMaxCachedFileSize);
     }
 
-    public Optional<TableSnapshot> getUpdatedSnapshot(ConnectorSession session, TransactionLogReader transactionLogReader, TrinoFileSystem fileSystem, Optional<Long> toVersion)
+    public Optional<TableSnapshot> getUpdatedSnapshot(ConnectorSession session, TransactionLogReader transactionLogReader, TrinoFileSystem fileSystem, Optional<Long> toVersion, Optional<LastCheckpoint> currentLastCheckpoint)
             throws IOException
     {
         if (toVersion.isEmpty()) {
             // Load any newer table snapshot
 
-            Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
-            if (lastCheckpoint.isPresent()) {
+            if (currentLastCheckpoint.isPresent()) {
                 long ourCheckpointVersion = getLastCheckpointVersion().orElse(0L);
-                if (ourCheckpointVersion != lastCheckpoint.get().version()) {
+                if (ourCheckpointVersion != currentLastCheckpoint.get().version()) {
                     // There is a new checkpoint in the table, load anew
                     return Optional.of(TableSnapshot.load(
                             session,
                             transactionLogReader,
                             table,
-                            lastCheckpoint,
+                            currentLastCheckpoint,
                             tableLocation,
                             parquetReaderOptions,
                             checkpointRowStatisticsWritingEnabled,
@@ -350,34 +348,51 @@ public class TableSnapshot
     {
         // Sidecar files contain only ADD and REMOVE entry types. https://github.com/delta-io/delta/blob/master/PROTOCOL.md#v2-spec
         Set<CheckpointEntryIterator.EntryType> dataEntryTypes = Sets.intersection(entryTypes, Set.of(ADD, REMOVE));
-        List<CompletableFuture<Stream<DeltaLakeTransactionLogEntry>>> logEntryStreamFutures =
-                getV2CheckpointEntries(session, entryTypes, metadataEntry, protocolEntry, checkpointSchemaManager, typeManager, stats, checkpoint, checkpointFile, partitionConstraint, addStatsMinMaxColumnFilter, fileSystem, fileSize)
-                        .map(v2checkpointEntry -> {
-                            if (v2checkpointEntry.getSidecar() == null || dataEntryTypes.isEmpty()) {
-                                return CompletableFuture.completedFuture(Stream.of(v2checkpointEntry));
-                            }
-                            // Sidecar files are retrieved in parallel using a bounded executor
-                            return supplyAsync(() -> {
-                                Location sidecar = checkpointFile.location().sibling("_sidecars").appendPath(v2checkpointEntry.getSidecar().path());
-                                CheckpointEntryIterator iterator = new CheckpointEntryIterator(
-                                        fileSystem.newInputFile(sidecar),
-                                        session,
-                                        v2checkpointEntry.getSidecar().sizeInBytes(),
-                                        checkpointSchemaManager,
-                                        typeManager,
-                                        dataEntryTypes,
-                                        metadataEntry,
-                                        protocolEntry,
-                                        stats,
-                                        parquetReaderOptions,
-                                        checkpointRowStatisticsWritingEnabled,
-                                        domainCompactionThreshold,
-                                        partitionConstraint,
-                                        addStatsMinMaxColumnFilter);
-                                return stream(iterator).onClose(iterator::close);
-                            }, executor);
-                        })
-                        .collect(toImmutableList());
+        Stream<DeltaLakeTransactionLogEntry> v2CheckpointEntries = getV2CheckpointEntries(
+                session,
+                entryTypes,
+                metadataEntry,
+                protocolEntry,
+                checkpointSchemaManager,
+                typeManager,
+                stats,
+                checkpoint,
+                checkpointFile,
+                partitionConstraint,
+                addStatsMinMaxColumnFilter,
+                fileSystem,
+                fileSize);
+        if (dataEntryTypes.isEmpty()) {
+            return v2CheckpointEntries;
+        }
+
+        List<CompletableFuture<Stream<DeltaLakeTransactionLogEntry>>> logEntryStreamFutures = v2CheckpointEntries
+                .map(v2checkpointEntry -> {
+                    if (v2checkpointEntry.getSidecar() == null) {
+                        return CompletableFuture.completedFuture(Stream.of(v2checkpointEntry));
+                    }
+                    // Sidecar files are retrieved in parallel using a bounded executor
+                    return supplyAsync(() -> {
+                        Location sidecar = checkpointFile.location().sibling("_sidecars").appendPath(v2checkpointEntry.getSidecar().path());
+                        CheckpointEntryIterator iterator = new CheckpointEntryIterator(
+                                fileSystem.newInputFile(sidecar),
+                                session,
+                                v2checkpointEntry.getSidecar().sizeInBytes(),
+                                checkpointSchemaManager,
+                                typeManager,
+                                dataEntryTypes,
+                                metadataEntry,
+                                protocolEntry,
+                                stats,
+                                parquetReaderOptions,
+                                checkpointRowStatisticsWritingEnabled,
+                                domainCompactionThreshold,
+                                partitionConstraint,
+                                addStatsMinMaxColumnFilter);
+                        return stream(iterator).onClose(iterator::close);
+                    }, executor);
+                })
+                .collect(toImmutableList());
         // Return the stream to retrieve the values of the futures lazily and allow streamlined split generation
         return logEntryStreamFutures.stream()
                 .mapMulti((logEntryStream, builder)

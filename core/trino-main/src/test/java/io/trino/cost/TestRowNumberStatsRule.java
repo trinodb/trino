@@ -39,11 +39,11 @@ public class TestRowNumberStatsRule
     {
         // grouping on a key with 0 nulls fraction without max rows per partition limit
         tester().assertStatsFor(pb -> pb
-                .rowNumber(
-                        ImmutableList.of(pb.symbol("x", DOUBLE)),
-                        Optional.empty(),
-                        pb.symbol("z", DOUBLE),
-                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
+                        .rowNumber(
+                                ImmutableList.of(pb.symbol("x", DOUBLE)),
+                                Optional.empty(),
+                                pb.symbol("z", DOUBLE),
+                                pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
@@ -61,11 +61,11 @@ public class TestRowNumberStatsRule
 
         // grouping on a key with 0 nulls fraction with max rows per partition limit
         tester().assertStatsFor(pb -> pb
-                .rowNumber(
-                        ImmutableList.of(pb.symbol("x", DOUBLE)),
-                        Optional.of(1),
-                        pb.symbol("z", DOUBLE),
-                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
+                        .rowNumber(
+                                ImmutableList.of(pb.symbol("x", DOUBLE)),
+                                Optional.of(1),
+                                pb.symbol("z", DOUBLE),
+                                pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
@@ -81,11 +81,11 @@ public class TestRowNumberStatsRule
 
         // grouping on a key with non zero nulls fraction
         tester().assertStatsFor(pb -> pb
-                .rowNumber(
-                        ImmutableList.of(pb.symbol("y", DOUBLE)),
-                        Optional.empty(),
-                        pb.symbol("z", DOUBLE),
-                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
+                        .rowNumber(
+                                ImmutableList.of(pb.symbol("y", DOUBLE)),
+                                Optional.empty(),
+                                pb.symbol("z", DOUBLE),
+                                pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
                         .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
@@ -101,11 +101,11 @@ public class TestRowNumberStatsRule
 
         // unknown input row count
         tester().assertStatsFor(pb -> pb
-                .rowNumber(
-                        ImmutableList.of(pb.symbol("x", DOUBLE)),
-                        Optional.of(1),
-                        pb.symbol("z", DOUBLE),
-                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
+                        .rowNumber(
+                                ImmutableList.of(pb.symbol("x", DOUBLE)),
+                                Optional.of(1),
+                                pb.symbol("z", DOUBLE),
+                                pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
                         .addSymbolStatistics(new Symbol(DOUBLE, "y"), yStats)
@@ -118,11 +118,11 @@ public class TestRowNumberStatsRule
     {
         // grouping on multiple keys with the number of estimated groups less than the row count
         tester().assertStatsFor(pb -> pb
-                .rowNumber(
-                        ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
-                        Optional.empty(),
-                        pb.symbol("z", DOUBLE),
-                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
+                        .rowNumber(
+                                ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
+                                Optional.empty(),
+                                pb.symbol("z", DOUBLE),
+                                pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
                         .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
@@ -138,11 +138,11 @@ public class TestRowNumberStatsRule
 
         // grouping on multiple keys with the number of estimated groups greater than the row count
         tester().assertStatsFor(pb -> pb
-                .rowNumber(
-                        ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
-                        Optional.empty(),
-                        pb.symbol("z", DOUBLE),
-                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
+                        .rowNumber(
+                                ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
+                                Optional.empty(),
+                                pb.symbol("z", DOUBLE),
+                                pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
                         .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
@@ -160,11 +160,11 @@ public class TestRowNumberStatsRule
 
         // grouping on multiple keys with stats for one of the keys are unknown
         tester().assertStatsFor(pb -> pb
-                .rowNumber(
-                        ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
-                        Optional.empty(),
-                        pb.symbol("z", DOUBLE),
-                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
+                        .rowNumber(
+                                ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
+                                Optional.empty(),
+                                pb.symbol("z", DOUBLE),
+                                pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
                         .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)

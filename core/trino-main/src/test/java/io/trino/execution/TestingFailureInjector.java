@@ -23,7 +23,6 @@ import java.util.Optional;
 
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TestingFailureInjector
         implements FailureInjector
@@ -34,15 +33,14 @@ public class TestingFailureInjector
     @Inject
     public TestingFailureInjector(TestingFailureInjectionConfig config)
     {
-        this(
-                config.getExpirationPeriod(),
+        this(config.getExpirationPeriod(),
                 config.getRequestTimeout());
     }
 
     public TestingFailureInjector(Duration expirationPeriod, Duration requestTimeout)
     {
         failures = buildNonEvictableCache(CacheBuilder.newBuilder()
-                .expireAfterWrite(expirationPeriod.toMillis(), MILLISECONDS));
+                .expireAfterWrite(expirationPeriod.toJavaTime()));
         this.requestTimeout = requireNonNull(requestTimeout, "requestTimeout is null");
     }
 

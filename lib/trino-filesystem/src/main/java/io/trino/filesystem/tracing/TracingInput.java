@@ -104,7 +104,7 @@ final class TracingInput
     private SpanBuilder spanBuilder(String name, long readLength)
     {
         return tracer.spanBuilder(name)
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
                 .setAllAttributes(attribute(FileSystemAttributes.FILE_SIZE, fileLength))
                 .setAttribute(FileSystemAttributes.FILE_READ_SIZE, readLength);
     }

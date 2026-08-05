@@ -285,14 +285,14 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName);
+    void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch);
 
     /**
      * Check if identity is allowed to delete from the specified table.
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName);
+    void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch);
 
     /**
      * Check if identity is allowed to truncate the specified table.
@@ -306,7 +306,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames);
+    void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> updatedColumnNames);
 
     /**
      * Check if identity is allowed to create the specified view.
@@ -341,7 +341,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
+    void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames);
 
     /**
      * Check if identity is allowed to create the specified materialized view.
@@ -481,7 +481,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
+    void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames);
 
     /**
      * Check if identity is allowed to create the specified role.
@@ -513,7 +513,8 @@ public interface AccessControl
      * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanRevokeRoles(SecurityContext context,
+    void checkCanRevokeRoles(
+            SecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,

@@ -27,7 +27,6 @@ import org.apache.pinot.core.operator.transform.function.LiteralTransformFunctio
 import org.apache.pinot.core.operator.transform.function.TransformFunctionFactory;
 import org.apache.pinot.segment.local.segment.index.datasource.EmptyDataSource;
 import org.apache.pinot.segment.spi.datasource.DataSource;
-import org.apache.pinot.segment.spi.index.metadata.ColumnMetadataImpl;
 import org.apache.pinot.spi.data.FieldSpec;
 
 import java.util.Map;
@@ -56,9 +55,7 @@ public class PinotTypeResolver
         try {
             return pinotClient.getTableSchema(pinotTableName).getFieldSpecMap().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey,
-                            entry -> new EmptyDataSource(new ColumnMetadataImpl.Builder()
-                                    .setFieldSpec(entry.getValue())
-                                    .build())));
+                            entry -> new EmptyDataSource(entry.getValue())));
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -67,20 +64,20 @@ public class PinotTypeResolver
 
     public Type resolveExpressionType(ExpressionContext expression, SchemaTableName schemaTableName, Map<String, ColumnHandle> columnHandles)
     {
-        switch (expression.getType()) {
-            case IDENTIFIER:
+        return switch (expression.getType()) {
+            case IDENTIFIER -> {
                 PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(expression.getIdentifier().toLowerCase(ENGLISH));
                 if (columnHandle == null) {
                     throw new ColumnNotFoundException(schemaTableName, expression.getIdentifier());
                 }
-                return columnHandle.getDataType();
-            case FUNCTION:
-                return typeConverter.toTrinoType(TransformFunctionFactory.get(expression, datasourceMap).getResultMetadata());
-            case LITERAL:
+                yield columnHandle.getDataType();
+            }
+            case FUNCTION -> typeConverter.toTrinoType(TransformFunctionFactory.get(expression, datasourceMap).getResultMetadata());
+            case LITERAL -> {
                 FieldSpec.DataType literalDataType = new LiteralTransformFunction(expression.getLiteral()).getResultMetadata().getDataType();
-                return typeConverter.toTrinoType(new TransformResultMetadata(literalDataType, true, false));
-            default:
-                throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), format("Unsupported expression: '%s'", expression));
-        }
+                yield typeConverter.toTrinoType(new TransformResultMetadata(literalDataType, true, false));
+            }
+            default -> throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), format("Unsupported expression: '%s'", expression));
+        };
     }
 }

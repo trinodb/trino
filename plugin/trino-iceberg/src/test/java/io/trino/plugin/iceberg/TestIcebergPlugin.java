@@ -20,9 +20,11 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -188,7 +190,7 @@ public class TestIcebergPlugin
             throws Exception
     {
         ConnectorFactory connectorFactory = getConnectorFactory();
-        File tempFile = File.createTempFile("test-iceberg-plugin-access-control", ".json");
+        File tempFile = Files.createTempFile("test-iceberg-plugin-access-control", ".json").toFile();
         tempFile.deleteOnExit();
         Files.writeString(tempFile.toPath(), "{}");
 
@@ -239,6 +241,41 @@ public class TestIcebergPlugin
     }
 
     @Test
+    void testRestCatalogWithBigLakeMetastore(@TempDir Path jsonKeyFilePath)
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.catalog.type", "rest")
+                                .put("iceberg.rest-catalog.uri", "https://foo:1234")
+                                .put("iceberg.rest-catalog.security", "GOOGLE")
+                                .put("iceberg.rest-catalog.google-project-id", "dev")
+                                .put("gcs.json-key-file-path", jsonKeyFilePath.toString())
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    void testRestCatalogWithBigLakeMetastoreUsingApplicationDefaultCredentials()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.catalog.type", "rest")
+                                .put("iceberg.rest-catalog.uri", "https://foo:1234")
+                                .put("iceberg.rest-catalog.security", "GOOGLE")
+                                .put("iceberg.rest-catalog.google-project-id", "dev")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
     public void testRestCatalogValidations()
     {
         ConnectorFactory factory = getConnectorFactory();
@@ -255,6 +292,22 @@ public class TestIcebergPlugin
                 .shutdown())
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Using the `register_table` procedure with vended credentials is currently not supported");
+    }
+
+    @Test
+    public void testRestCatalogHttpHeaders()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.catalog.type", "rest")
+                                .put("iceberg.rest-catalog.uri", "https://foo:1234")
+                                .put("iceberg.rest-catalog.http-headers", "Polaris-Realm: default-realm")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test

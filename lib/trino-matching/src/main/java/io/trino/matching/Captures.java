@@ -14,22 +14,10 @@
 package io.trino.matching;
 
 import java.util.NoSuchElementException;
-import java.util.Objects;
 
-public class Captures
+public record Captures(Capture<?> capture, Object value, Captures tail)
 {
     private static final Captures NIL = new Captures(null, null, null);
-
-    private final Capture<?> capture;
-    private final Object value;
-    private final Captures tail;
-
-    private Captures(Capture<?> capture, Object value, Captures tail)
-    {
-        this.capture = capture;
-        this.value = value;
-        this.tail = tail;
-    }
 
     public static Captures empty()
     {
@@ -59,30 +47,5 @@ public class Captures
             return (T) value;
         }
         return tail.get(capture);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        Captures captures = (Captures) o;
-        return Objects.equals(capture, captures.capture)
-                && Objects.equals(value, captures.value)
-                && Objects.equals(tail, captures.tail);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int result = capture != null ? capture.hashCode() : 0;
-        result = 31 * result + (value != null ? value.hashCode() : 0);
-        result = 31 * result + (tail != null ? tail.hashCode() : 0);
-        return result;
     }
 }

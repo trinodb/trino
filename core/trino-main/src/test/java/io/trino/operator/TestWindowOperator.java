@@ -486,7 +486,7 @@ public class TestWindowOperator
         for (int i = 0; i < 500_000; ++i) {
             pageBuilder.row("b", 0L);
         }
-        List<Page> input = pageBuilder.build();
+        Page input = pageBuilder.buildPage();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, BIGINT),
@@ -499,16 +499,16 @@ public class TestWindowOperator
                 false);
 
         DriverContext driverContext = createDriverContext(1000);
-        Operator operator = operatorFactory.createOperator(driverContext);
-        operatorFactory.noMoreOperators();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.needsInput()).isTrue();
-        operator.addInput(input.get(0));
-        operator.finish();
-        operator.getOutput();
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            operatorFactory.noMoreOperators();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.needsInput()).isTrue();
+            operator.addInput(input);
+            operator.finish();
+            operator.getOutput();
 
-        // this should not fail
-        operator.close();
+            // implicit close should not fail
+        }
     }
 
     @Test

@@ -521,7 +521,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testIndexJoinThroughWindow()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -546,7 +547,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testIndexJoinThroughWindowDoubleAggregation()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -571,7 +573,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testIndexJoinThroughWindowPartialPartition()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -596,7 +599,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testNoIndexJoinThroughWindowWithRowNumberFunction()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -621,7 +625,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testNoIndexJoinThroughWindowWithOrderBy()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -646,7 +651,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testNoIndexJoinThroughWindowWithRowFrame()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT l.orderkey, o.c\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +

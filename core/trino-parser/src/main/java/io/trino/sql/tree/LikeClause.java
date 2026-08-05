@@ -31,7 +31,7 @@ public final class LikeClause
     public enum PropertiesOption
     {
         INCLUDING,
-        EXCLUDING
+        EXCLUDING,
     }
 
     public LikeClause(QualifiedName tableName, Optional<PropertiesOption> propertiesOption)

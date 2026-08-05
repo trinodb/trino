@@ -140,7 +140,8 @@ public class TestRepartitionQueries
         // the join does not filter out any rows so the query just returns columnExpression,
         // formatted using columnProjection (used in case columnExpression is not supported by h2).
         // expected query uses actualColumnExpression to format the value in h2 in the same way as columnExpression
-        assertQuery(format("WITH custkey_ex AS (" +
+        assertQuery(format(
+                        "WITH custkey_ex AS (" +
                                 "  SELECT" +
                                 "    custkey," +
                                 "    nationkey," +
@@ -152,7 +153,8 @@ public class TestRepartitionQueries
                                 "  FROM custkey_ex c, nation n " +
                                 "  WHERE c.nationkey = n.nationkey" +
                                 ")",
-                        columnExpression, columnProjection),
+                        columnExpression,
+                        columnProjection),
                 format("SELECT %s AS column_under_test FROM customer", actualColumnExpression));
     }
 }

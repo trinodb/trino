@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -26,7 +26,9 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -34,8 +36,10 @@ import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.spi.type.TestingTypeManager;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.io.File;
@@ -49,23 +53,42 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.airlift.units.Duration.ZERO;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
+import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestTrinoGlueCatalog
         extends BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(TestTrinoGlueCatalog.class);
+    private FlociS3AndGlue floci;
+
+    @BeforeAll
+    public void startFloci()
+    {
+        floci = new FlociS3AndGlue();
+    }
+
+    @AfterAll
+    public void stopFloci()
+    {
+        floci.close();
+    }
 
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
@@ -73,15 +96,24 @@ public class TestTrinoGlueCatalog
         return createGlueTrinoCatalog(useUniqueTableLocations, false);
     }
 
+    @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
+    {
+        try (GlueClient glueClient = floci.createGlueClient()) {
+            glueClient.createDatabase(database -> database
+                    .databaseInput(input -> input.name(namespace).parameters(properties)));
+        }
+    }
+
     private TrinoCatalog createGlueTrinoCatalog(boolean useUniqueTableLocations, boolean useSystemSecurity)
     {
-        GlueClient glueClient = GlueClient.create();
+        GlueClient glueClient = floci.createGlueClient();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 HDFS_FILE_SYSTEM_FACTORY,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 catalogConfig.isCacheTableMetadata(),
                 new GlueIcebergTableOperationsProvider(
                         HDFS_FILE_SYSTEM_FACTORY,
@@ -89,15 +121,16 @@ public class TestTrinoGlueCatalog
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        ENCRYPTION_MANAGER_FACTORY),
                 "test",
-                glueClient,
-                new GlueMetastoreStats(),
+                new StatsRecordingGlueClient(glueClient, new GlueMetastoreStats()),
                 useSystemSecurity,
                 Optional.empty(),
                 useUniqueTableLocations,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService());
     }
 
     /**
@@ -110,7 +143,7 @@ public class TestTrinoGlueCatalog
         // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
         String trinoSchemaName = databaseName.toLowerCase(ENGLISH);
 
-        GlueClient glueClient = GlueClient.create();
+        GlueClient glueClient = floci.createGlueClient();
         glueClient.createDatabase(database -> database
                 .databaseInput(input -> input
                         // Currently this is actually stored in lowercase
@@ -128,20 +161,26 @@ public class TestTrinoGlueCatalog
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                    new CatalogName("iceberg"),
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    (connectorIdentity, fileIoProperties) -> {
+                    (_, _) -> {
                         throw new UnsupportedOperationException();
                     },
+                    TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
+                    UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    0,
+                    ZERO,
+                    ConnectorExpressionEvaluator.NO_OP);
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")
@@ -174,6 +213,7 @@ public class TestTrinoGlueCatalog
                             Optional.of("catalog_name"),
                             Optional.of("schema_name"),
                             ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("col1", INTEGER.getTypeId(), Optional.empty())),
+                            Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
                             Optional.of("test_owner"),
@@ -215,13 +255,13 @@ public class TestTrinoGlueCatalog
         tmpDirectory.toFile().deleteOnExit();
 
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        GlueClient glueClient = GlueClient.create();
+        GlueClient glueClient = floci.createGlueClient();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 catalogConfig.isCacheTableMetadata(),
                 new GlueIcebergTableOperationsProvider(
                         fileSystemFactory,
@@ -229,15 +269,16 @@ public class TestTrinoGlueCatalog
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        ENCRYPTION_MANAGER_FACTORY),
                 "test",
-                glueClient,
-                new GlueMetastoreStats(),
+                new StatsRecordingGlueClient(glueClient, new GlueMetastoreStats()),
                 false,
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService());
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";

@@ -36,7 +36,8 @@ public class ExceededMemoryLimitException
 
     public static ExceededMemoryLimitException exceededLocalUserMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
     {
-        return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,
+        return new ExceededMemoryLimitException(
+                EXCEEDED_LOCAL_MEMORY_LIMIT,
                 format("Query exceeded per-node memory limit of %s [%s]", maxMemory, additionalFailureInfo));
     }
 

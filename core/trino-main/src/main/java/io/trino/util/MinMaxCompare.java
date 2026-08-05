@@ -21,7 +21,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -38,11 +38,11 @@ public final class MinMaxCompare
 
     private MinMaxCompare() {}
 
-    public static FunctionDependencyDeclaration getMinMaxCompareFunctionDependencies(TypeSignature typeSignature, boolean min)
+    public static FunctionDependencyDeclaration getMinMaxCompareFunctionDependencies(TypeTemplate typeTemplate, boolean min)
     {
         OperatorType comparisonOperator = getMinMaxCompareOperatorType(min);
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(comparisonOperator, ImmutableList.of(typeSignature, typeSignature))
+                .addOperatorSignature(comparisonOperator, ImmutableList.of(typeTemplate, typeTemplate))
                 .build();
     }
 

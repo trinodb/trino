@@ -35,6 +35,7 @@ public class TestDeltaLakeDynamicPartitionPruningTest
             throws Exception
     {
         return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .setExtraProperties(EXTRA_PROPERTIES)
                 .addDeltaProperty("delta.dynamic-filtering.wait-timeout", "1h")
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")

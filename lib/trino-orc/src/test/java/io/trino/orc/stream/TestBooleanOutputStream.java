@@ -22,8 +22,12 @@ import io.trino.orc.checkpoint.ByteStreamCheckpoint;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Random;
 
 import static io.trino.orc.metadata.CompressionKind.NONE;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBooleanOutputStream
@@ -74,6 +78,42 @@ public class TestBooleanOutputStream
                 assertThat(checkpointsEqual(batchWriteCheckpoints.get(i), singleWriteCheckpoints.get(i))).isTrue();
             }
             assertThat(batchWriteBuffer).isEqualTo(singleWriteBuffer);
+        }
+    }
+
+    @Test
+    public void testWriteBits()
+    {
+        Random random = new Random(87234);
+        for (int rawBitOffset : new int[] {0, 1, 7, 63}) {
+            for (int bitCount : new int[] {0, 1, 7, 8, 9, 63, 64, 65, 127}) {
+                long[] values = allocateWords(rawBitOffset + bitCount, false);
+                for (int position = 0; position < bitCount; position++) {
+                    if (random.nextBoolean()) {
+                        set(values, rawBitOffset, position);
+                    }
+                }
+
+                OrcOutputBuffer buffer = new OrcOutputBuffer(NONE, 1024);
+                BooleanOutputStream output = new BooleanOutputStream(buffer);
+                output.writeBoolean(true);
+                output.writeBits(values, rawBitOffset, bitCount);
+                output.close();
+                DynamicSliceOutput packedOutput = new DynamicSliceOutput(128);
+                buffer.writeDataTo(packedOutput);
+
+                buffer.reset();
+                output.reset();
+                output.writeBoolean(true);
+                for (int position = 0; position < bitCount; position++) {
+                    output.writeBoolean(isSet(values, rawBitOffset, position));
+                }
+                output.close();
+                DynamicSliceOutput scalarOutput = new DynamicSliceOutput(128);
+                buffer.writeDataTo(scalarOutput);
+
+                assertThat(packedOutput.slice()).isEqualTo(scalarOutput.slice());
+            }
         }
     }
 

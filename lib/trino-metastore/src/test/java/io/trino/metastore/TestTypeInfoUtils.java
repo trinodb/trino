@@ -16,6 +16,7 @@ package io.trino.metastore;
 import io.trino.metastore.type.PrimitiveTypeInfo;
 import io.trino.metastore.type.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TimestampLocalTZTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.assertj.core.api.ObjectAssert;
 import org.junit.jupiter.api.Test;
 
@@ -185,6 +186,6 @@ public class TestTypeInfoUtils
 
     private static org.apache.hadoop.hive.serde2.typeinfo.TypeInfo getHiveTypeInfo(String typeString)
     {
-        return org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfoFromTypeString(typeString);
+        return TypeInfoUtils.getTypeInfoFromTypeString(typeString);
     }
 }

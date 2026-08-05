@@ -280,7 +280,6 @@ public interface SystemAccessControl
      * Check if identity is allowed to change the specified schema's user/role.
      *
      * @throws AccessDeniedException if not allowed
-     *
      * @deprecated {Use {@link #checkCanSetEntityAuthorization}
      */
     @Deprecated(forRemoval = true)
@@ -493,7 +492,6 @@ public interface SystemAccessControl
      * Check if identity is allowed to change the specified table's user/role.
      *
      * @throws AccessDeniedException if not allowed
-     *
      * @deprecated {Use {@link #checkCanSetEntityAuthorization}
      */
     @Deprecated(forRemoval = true)
@@ -517,6 +515,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
+    {
+        checkCanSelectFromColumns(context, table, columns);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanSelectFromColumns(SystemSecurityContext, CatalogSchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denySelectColumns(table.toString(), columns);
@@ -527,6 +534,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
+    {
+        checkCanInsertIntoTable(context, table);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanInsertIntoTable(SystemSecurityContext, CatalogSchemaTableName, Optional)}
+     */
+    @Deprecated
     default void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyInsertTable(table.toString());
@@ -537,6 +553,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
+    {
+        checkCanDeleteFromTable(context, table);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanDeleteFromTable(SystemSecurityContext, CatalogSchemaTableName, Optional)}
+     */
+    @Deprecated
     default void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyDeleteTable(table.toString());
@@ -557,6 +582,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Optional<String> branch, Set<String> updatedColumnNames)
+    {
+        checkCanUpdateTableColumns(securityContext, table, updatedColumnNames);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanUpdateTableColumns(SystemSecurityContext, CatalogSchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
     {
         denyUpdateTableColumns(table.toString(), updatedColumnNames);
@@ -586,7 +620,6 @@ public interface SystemAccessControl
      * Check if identity is allowed to change the specified view's user/role.
      *
      * @throws AccessDeniedException if not allowed
-     *
      * @deprecated {Use {@link #checkCanSetEntityAuthorization}
      */
     @Deprecated(forRemoval = true)
@@ -609,7 +642,6 @@ public interface SystemAccessControl
      * Check if identity is allowed to change the specified materialized view's user/role.
      *
      * @throws AccessDeniedException if not allowed
-     *
      * @deprecated {Use {@link #checkCanSetEntityAuthorization}
      */
     @Deprecated(forRemoval = true)
@@ -633,6 +665,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, table, columns);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanCreateViewWithSelectFromColumns(SystemSecurityContext, CatalogSchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denyCreateViewWithSelect(table.toString(), context.getIdentity());
@@ -1048,32 +1089,31 @@ public interface SystemAccessControl
         String kind = entityKindAndName.entityKind().toUpperCase(Locale.ENGLISH);
         List<String> name = entityKindAndName.name();
         switch (kind) {
-            case "SCHEMA":
+            case "SCHEMA" -> {
                 if (name.size() != 2) {
                     throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The schema name %s must have two elements".formatted(name));
                 }
                 checkCanSetSchemaAuthorization(context, new CatalogSchemaName(name.get(0), name.get(1)), principal);
-                break;
-            case "TABLE":
+            }
+            case "TABLE" -> {
                 if (name.size() != 3) {
                     throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The table name %s must have three elements".formatted(name));
                 }
                 checkCanSetTableAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
-                break;
-            case "VIEW":
+            }
+            case "VIEW" -> {
                 if (name.size() != 3) {
                     throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
                 }
                 checkCanSetViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
-                break;
-            case "MATERIALIZED VIEW":
+            }
+            case "MATERIALIZED VIEW" -> {
                 if (name.size() != 3) {
                     throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
                 }
                 checkCanSetMaterializedViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
-                break;
-            default:
-                denySetEntityAuthorization(new EntityKindAndName(kind, name), principal);
+            }
+            default -> denySetEntityAuthorization(new EntityKindAndName(kind, name), principal);
         }
     }
 

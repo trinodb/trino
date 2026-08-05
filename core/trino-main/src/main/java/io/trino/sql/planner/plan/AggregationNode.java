@@ -22,15 +22,16 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedAggregationFunctionMetadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -134,7 +135,7 @@ public class AggregationNode
 
     /**
      * @return true if the aggregation collapses all rows into a single global group (e.g., as a result of a GROUP BY () query).
-     * Otherwise, false.
+     *         Otherwise, false.
      */
     public boolean hasSingleGlobalAggregation()
     {
@@ -143,11 +144,11 @@ public class AggregationNode
 
     /**
      * @return whether this node should produce default output in case of no input pages.
-     * For example for query:
-     * <pre>{@code
+     *         For example for query:
+     *         <pre>{@code
      * SELECT count(*) FROM nation WHERE nationkey < 0
      * }</pre>
-     * A default output of "0" is expected to be produced by FINAL aggregation operator.
+     *         A default output of "0" is expected to be produced by FINAL aggregation operator.
      */
     public boolean hasDefaultOutput()
     {
@@ -263,7 +264,7 @@ public class AggregationNode
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getResolvedFunction)
                 .map(resolvedFunction -> metadata.getAggregationFunctionMetadata(session, resolvedFunction))
-                .allMatch(AggregationFunctionMetadata::isDecomposable);
+                .allMatch(ResolvedAggregationFunctionMetadata::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
@@ -292,10 +293,10 @@ public class AggregationNode
 
     public static GroupingSetDescriptor globalAggregation()
     {
-        return singleGroupingSet(ImmutableList.of());
+        return singleGroupingSet(ImmutableSet.of());
     }
 
-    public static GroupingSetDescriptor singleGroupingSet(List<Symbol> groupingKeys)
+    public static GroupingSetDescriptor singleGroupingSet(Collection<Symbol> groupingKeys)
     {
         Set<Integer> globalGroupingSets;
         if (groupingKeys.isEmpty()) {
@@ -308,7 +309,7 @@ public class AggregationNode
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
     }
 
-    public static GroupingSetDescriptor groupingSets(List<Symbol> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+    public static GroupingSetDescriptor groupingSets(Collection<Symbol> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
     {
         return new GroupingSetDescriptor(groupingKeys, groupingSetCount, globalGroupingSets);
     }
@@ -321,7 +322,7 @@ public class AggregationNode
 
         @JsonCreator
         public GroupingSetDescriptor(
-                @JsonProperty("groupingKeys") List<Symbol> groupingKeys,
+                @JsonProperty("groupingKeys") Collection<Symbol> groupingKeys,
                 @JsonProperty("groupingSetCount") int groupingSetCount,
                 @JsonProperty("globalGroupingSets") Set<Integer> globalGroupingSets)
         {
@@ -422,7 +423,8 @@ public class AggregationNode
             this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
             for (Expression argument : arguments) {
                 checkArgument(argument instanceof Reference || argument instanceof Lambda,
-                        "argument must be symbol or lambda expression: %s", argument.getClass().getSimpleName());
+                        "argument must be symbol or lambda expression: %s",
+                        argument.getClass().getSimpleName());
             }
             this.distinct = distinct;
             this.filter = requireNonNull(filter, "filter is null");

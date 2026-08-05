@@ -16,8 +16,10 @@ package io.trino.plugin.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
@@ -43,9 +45,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
@@ -70,7 +72,7 @@ public final class KafkaQueryRunner
 
     public static Builder builder(TestingKafka testingKafka)
     {
-        return new Builder(TPCH_SCHEMA, false)
+        return new Builder(testingKafka, TPCH_SCHEMA, false)
                 .addConnectorProperties(Map.of(
                         "kafka.nodes", testingKafka.getConnectString(),
                         "kafka.messages-per-split", "1000",
@@ -79,7 +81,7 @@ public final class KafkaQueryRunner
 
     public static Builder builderForConfluentSchemaRegistry(TestingKafka testingKafka)
     {
-        return new Builder("default", true)
+        return new Builder(testingKafka, "default", true)
                 .addConnectorProperties(Map.of(
                         "kafka.nodes", testingKafka.getConnectString(),
                         "kafka.messages-per-split", "1000",
@@ -92,16 +94,18 @@ public final class KafkaQueryRunner
             extends DistributedQueryRunner.Builder<Builder>
     {
         private final Map<String, String> connectorProperties = new HashMap<>();
+        private final TestingKafka testingKafka;
         private List<TpchTable<?>> tables = ImmutableList.of();
         private Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription = ImmutableMap.of();
         private final boolean schemaRegistryEnabled;
 
-        private Builder(String schemaName, boolean schemaRegistryEnabled)
+        private Builder(TestingKafka testingKafka, String schemaName, boolean schemaRegistryEnabled)
         {
             super(testSessionBuilder()
                     .setCatalog("kafka")
                     .setSchema(schemaName)
                     .build());
+            this.testingKafka = requireNonNull(testingKafka, "testingKafka is null");
             this.schemaRegistryEnabled = schemaRegistryEnabled;
         }
 
@@ -135,15 +139,16 @@ public final class KafkaQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
-                ImmutableList.Builder<Module> extensions = ImmutableList.<Module>builder();
-
+                Supplier<Module> extensions;
                 if (schemaRegistryEnabled) {
                     checkState(extraTopicDescription.isEmpty(), "unsupported extraTopicDescription with schema registry enabled");
+                    extensions = () -> _ -> {};
                 }
                 else {
+                    Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getPlannerContext().getTypeManager(), tables);
                     ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                             .putAll(extraTopicDescription)
-                            .putAll(createTpchTopicDescriptions(queryRunner.getPlannerContext().getTypeManager(), tables));
+                            .putAll(tpchTopicDescriptions);
 
                     List<SchemaTableName> tableNames = new ArrayList<>();
                     tableNames.add(new SchemaTableName("read_test", "all_datatypes_json"));
@@ -155,19 +160,28 @@ public final class KafkaQueryRunner
                     for (SchemaTableName tableName : tableNames) {
                         topicDescriptions.put(tableName, createTable(tableName, topicDescriptionJsonCodec));
                     }
+                    Map<SchemaTableName, KafkaTopicDescription> topicDescriptionMap = topicDescriptions.buildOrThrow();
+                    tpchTopicDescriptions.values().stream()
+                            .map(KafkaTopicDescription::topicName)
+                            .distinct()
+                            .forEach(testingKafka::createTopic);
 
-                    extensions
-                            .add(conditionalModule(
-                                    KafkaConfig.class,
-                                    kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
-                                    binder -> binder.bind(TableDescriptionSupplier.class)
-                                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions.buildOrThrow()))))
-                            .add(binder -> binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON))
-                            .add(new DecoderModule())
-                            .add(new EncoderModule());
+                    extensions = () -> new AbstractConfigurationAwareModule()
+                    {
+                        @Override
+                        protected void setup(Binder binder)
+                        {
+                            if (buildConfigObject(KafkaConfig.class).getTableDescriptionSupplier().equalsIgnoreCase(TEST)) {
+                                binder.bind(TableDescriptionSupplier.class).toInstance(new MapBasedTableDescriptionSupplier(topicDescriptionMap));
+                            }
+                            binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON);
+                            install(new DecoderModule());
+                            install(new EncoderModule());
+                        }
+                    };
                 }
 
-                queryRunner.installPlugin(new KafkaPlugin(extensions.build()));
+                queryRunner.installPlugin(new KafkaPlugin(extensions));
                 queryRunner.createCatalog("kafka", "kafka", connectorProperties);
 
                 if (schemaRegistryEnabled) {
@@ -246,7 +260,7 @@ public final class KafkaQueryRunner
     {
         private DefaultKafkaQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             Logging.initialize();
@@ -266,7 +280,7 @@ public final class KafkaQueryRunner
     {
         private ConfluentSchemaRegistryQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             Logging.initialize();

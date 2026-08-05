@@ -16,6 +16,7 @@ package io.trino.testng.services;
 import com.google.common.annotations.VisibleForTesting;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
+import org.testng.annotations.Test;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
@@ -91,22 +92,10 @@ public class ReportPrivateMethods
     {
         return Arrays.stream(method.getAnnotations())
                 .map(Annotation::annotationType)
-                .anyMatch(annotationClass -> {
-                    if (org.testng.annotations.Test.class.getPackage().equals(annotationClass.getPackage())) {
-                        // testng annotation (@Test, @Before*, @DataProvider, etc.)
-                        return true;
-                    }
-                    if ("io.trino.tempto".equals(annotationClass.getPackage().getName())) {
-                        // tempto annotation (@BeforeMethodWithContext, @AfterMethodWithContext)
-                        return true;
-                    }
-                    return false;
-                });
+                .anyMatch(annotationClass -> Test.class.getPackage().equals(annotationClass.getPackage()));
     }
 
     @Retention(RUNTIME)
     @Target(METHOD)
-    public @interface Suppress
-    {
-    }
+    public @interface Suppress {}
 }

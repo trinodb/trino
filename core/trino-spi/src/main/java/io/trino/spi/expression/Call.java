@@ -13,6 +13,8 @@
  */
 package io.trino.spi.expression;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -27,21 +29,24 @@ public final class Call
     private final FunctionName functionName;
     private final List<ConnectorExpression> arguments;
 
+    @JsonCreator
     public Call(
-            Type type,
-            FunctionName functionName,
-            List<ConnectorExpression> arguments)
+            @JsonProperty("type") Type type,
+            @JsonProperty("functionName") FunctionName functionName,
+            @JsonProperty("arguments") List<ConnectorExpression> arguments)
     {
         super(type);
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.arguments = List.copyOf(requireNonNull(arguments, "arguments is null"));
     }
 
+    @JsonProperty("functionName")
     public FunctionName getFunctionName()
     {
         return functionName;
     }
 
+    @JsonProperty("arguments")
     public List<ConnectorExpression> getArguments()
     {
         return arguments;

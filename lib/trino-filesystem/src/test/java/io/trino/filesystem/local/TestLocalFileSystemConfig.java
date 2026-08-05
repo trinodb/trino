@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
@@ -32,7 +31,7 @@ final class TestLocalFileSystemConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(LocalFileSystemConfig.class)
-                .setLocation(Paths.get(System.getProperty(JAVA_IO_TMPDIR.key()))));
+                .setLocation(Path.of(System.getProperty(JAVA_IO_TMPDIR.key()))));
     }
 
     @Test

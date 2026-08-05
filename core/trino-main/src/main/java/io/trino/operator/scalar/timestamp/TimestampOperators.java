@@ -25,10 +25,10 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.rescale;
-import static io.trino.type.DateTimes.round;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static java.lang.Math.multiplyExact;
@@ -37,6 +37,7 @@ public final class TimestampOperators
 {
     private TimestampOperators() {}
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalDayToSecond
     {
@@ -66,6 +67,7 @@ public final class TimestampOperators
         }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class IntervalDayToSecondPlusTimestamp
     {
@@ -170,6 +172,7 @@ public final class TimestampOperators
         }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusIntervalDayToSecond
     {

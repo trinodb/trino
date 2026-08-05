@@ -86,6 +86,7 @@ class StageManager
         for (SubPlan planNode : Traverser.forTree(SubPlan::getChildren).breadthFirst(planTree)) {
             PlanFragment fragment = planNode.getFragment();
             SqlStage stage = createSqlStage(
+                    metadata,
                     getStageId(session.getQueryId(), fragment.getId()),
                     fragment,
                     TableInfo.extract(session, metadata, fragment),
@@ -175,7 +176,7 @@ class StageManager
 
     public void failTaskRemotely(TaskId taskId, Throwable failureCause)
     {
-        SqlStage sqlStage = requireNonNull(stages.get(taskId.getStageId()), () -> "stage not found: %s" + taskId.getStageId());
+        SqlStage sqlStage = requireNonNull(stages.get(taskId.stageId()), () -> "stage not found: %s" + taskId.stageId());
         sqlStage.failTaskRemotely(taskId, failureCause);
     }
 
@@ -262,7 +263,7 @@ class StageManager
                 rootStageId,
                 stages.values().stream().map(sqlStage -> {
                     StageInfo stageInfo = sqlStage.getStageInfo();
-                    List<StageId> childStages = ImmutableList.copyOf(children.get(stageInfo.getStageId()));
+                    List<StageId> childStages = ImmutableList.copyOf(children.get(stageInfo.stageId()));
                     if (childStages.isEmpty()) {
                         return stageInfo;
                     }

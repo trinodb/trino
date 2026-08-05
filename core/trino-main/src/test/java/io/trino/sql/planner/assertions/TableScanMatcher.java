@@ -14,7 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import io.trino.Session;
-import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -53,12 +52,12 @@ public final class TableScanMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         TableScanNode tableScanNode = (TableScanNode) node;
-        CatalogSchemaTableName tableName = metadata.getTableName(session, tableScanNode.getTable());
+        CatalogSchemaTableName tableName = context.metadata().getTableName(context.session(), tableScanNode.getTable());
         String actualTableName = tableName.getSchemaTableName().getTableName();
 
         // TODO (https://github.com/trinodb/trino/issues/17) change to equals()
@@ -66,7 +65,7 @@ public final class TableScanMatcher
             return NO_MATCH;
         }
 
-        if (!domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)) {
+        if (!domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), context.session(), context.metadata())) {
             return NO_MATCH;
         }
 

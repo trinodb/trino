@@ -13,122 +13,96 @@
  */
 package io.trino.spi.type;
 
-import java.util.Objects;
+import com.google.errorprone.annotations.Immutable;
+
+import java.util.Optional;
 
 import static java.lang.String.format;
 
-public class TypeParameter
+@Immutable
+public sealed interface TypeParameter
+        permits TypeParameter.Numeric,
+                TypeParameter.Type
 {
-    private final ParameterKind kind;
-    private final Object value;
-
-    private TypeParameter(ParameterKind kind, Object value)
+    static TypeParameter typeParameter(TypeDescriptor typeDescriptor)
     {
-        this.kind = kind;
-        this.value = value;
+        return new Type(Optional.empty(), typeDescriptor);
     }
 
-    public static TypeParameter of(Type type)
+    static TypeParameter typeParameter(Optional<String> name, TypeDescriptor typeDescriptor)
     {
-        return new TypeParameter(ParameterKind.TYPE, type);
+        return new Type(name, typeDescriptor);
     }
 
-    public static TypeParameter of(long longLiteral)
+    static TypeParameter numericParameter(long longLiteral)
     {
-        return new TypeParameter(ParameterKind.LONG, longLiteral);
+        return new Numeric(longLiteral);
     }
 
-    public static TypeParameter of(NamedType namedType)
+    static TypeParameter namedField(String name, TypeDescriptor type)
     {
-        return new TypeParameter(ParameterKind.NAMED_TYPE, namedType);
+        return new Type(Optional.of(name), type);
     }
 
-    public static TypeParameter of(String variable)
+    static TypeParameter anonymousField(TypeDescriptor type)
     {
-        return new TypeParameter(ParameterKind.VARIABLE, variable);
+        return new Type(Optional.empty(), type);
     }
 
-    public static TypeParameter of(TypeSignatureParameter parameter, TypeManager typeManager)
+    String jsonValue();
+
+    boolean isCalculated();
+
+    record Type(Optional<String> name, TypeDescriptor type)
+            implements TypeParameter
     {
-        return switch (parameter.getKind()) {
-            case TYPE -> {
-                Type type = typeManager.getType(parameter.getTypeSignature());
-                yield of(type);
+        @Override
+        public String toString()
+        {
+            if (name.isPresent()) {
+                return format("\"%s\" %s", name.get().replace("\"", "\"\""), type.toString());
             }
-            case LONG -> of(parameter.getLongLiteral());
-            case NAMED_TYPE -> {
-                Type type = typeManager.getType(parameter.getNamedTypeSignature().getTypeSignature());
-                yield of(new NamedType(
-                        parameter.getNamedTypeSignature().getFieldName(),
-                        type));
+            return type.toString();
+        }
+
+        @Override
+        public String jsonValue()
+        {
+            String prefix = "";
+
+            if (name.isPresent()) {
+                prefix = format("\"%s\" ", name.get().replace("\"", "\"\""));
             }
-            case VARIABLE -> of(parameter.getVariable());
-        };
-    }
 
-    public ParameterKind getKind()
-    {
-        return kind;
-    }
-
-    public <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
-    {
-        if (kind != expectedParameterKind) {
-            throw new AssertionError(format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
+            return prefix + type.jsonValue();
         }
-        return target.cast(value);
-    }
 
-    public boolean isLongLiteral()
-    {
-        return kind == ParameterKind.LONG;
-    }
-
-    public Type getType()
-    {
-        return getValue(ParameterKind.TYPE, Type.class);
-    }
-
-    public Long getLongLiteral()
-    {
-        return getValue(ParameterKind.LONG, Long.class);
-    }
-
-    public NamedType getNamedType()
-    {
-        return getValue(ParameterKind.NAMED_TYPE, NamedType.class);
-    }
-
-    public String getVariable()
-    {
-        return getValue(ParameterKind.VARIABLE, String.class);
-    }
-
-    @Override
-    public String toString()
-    {
-        return value.toString();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
+        @Override
+        public boolean isCalculated()
+        {
+            return type.isCalculated();
         }
-        if (o == null || getClass() != o.getClass()) {
+    }
+
+    record Numeric(long value)
+            implements TypeParameter
+    {
+        @Override
+        public String toString()
+        {
+            return Long.toString(value);
+        }
+
+        @Override
+        public String jsonValue()
+        {
+            return toString();
+        }
+
+        @Override
+        public boolean isCalculated()
+        {
             return false;
         }
-
-        TypeParameter other = (TypeParameter) o;
-
-        return this.kind == other.kind &&
-                Objects.equals(this.value, other.value);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(kind, value);
     }
 }

@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,7 +80,6 @@ public class TestOperatorStats
             DataSize.ofBytes(20),
             DataSize.ofBytes(22),
             DataSize.ofBytes(24),
-            DataSize.ofBytes(25),
             DataSize.ofBytes(26),
             Optional.empty(),
             NON_MERGEABLE_INFO);
@@ -128,7 +128,6 @@ public class TestOperatorStats
             DataSize.ofBytes(20),
             DataSize.ofBytes(22),
             DataSize.ofBytes(24),
-            DataSize.ofBytes(25),
             DataSize.ofBytes(26),
             Optional.empty(),
             MERGEABLE_INFO);
@@ -136,7 +135,7 @@ public class TestOperatorStats
     @Test
     public void testJson()
     {
-        JsonCodec<OperatorStats> codec = JsonCodec.jsonCodec(OperatorStats.class);
+        JsonCodec<OperatorStats> codec = jsonCodec(OperatorStats.class);
 
         String json = codec.toJson(EXPECTED);
         OperatorStats actual = codec.fromJson(json);
@@ -186,7 +185,6 @@ public class TestOperatorStats
         assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(20));
         assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(22));
         assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(24));
-        assertThat(actual.getPeakTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(25));
         assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(26));
         assertThat(actual.getInfo().getClass()).isEqualTo(TableFinishInfo.class);
         assertThat(((TableFinishInfo) actual.getInfo()).getStatisticsCpuTime()).isEqualTo(NON_MERGEABLE_INFO.getStatisticsCpuTime());
@@ -236,7 +234,6 @@ public class TestOperatorStats
         assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(3 * 20));
         assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(22));
         assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(24));
-        assertThat(actual.getPeakTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(25));
         assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(3 * 26));
         assertThat(actual.getInfo()).isNull();
     }
@@ -285,7 +282,6 @@ public class TestOperatorStats
         assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(3 * 20));
         assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(22));
         assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(24));
-        assertThat(actual.getPeakTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(25));
         assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(3 * 26));
         assertThat(actual.getInfo().getClass()).isEqualTo(PartitionedOutputInfo.class);
         assertThat(((PartitionedOutputInfo) actual.getInfo()).getOutputBufferPeakMemoryUsage()).isEqualTo(MERGEABLE_INFO.getOutputBufferPeakMemoryUsage());

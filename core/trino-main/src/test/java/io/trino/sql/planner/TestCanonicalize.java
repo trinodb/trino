@@ -72,6 +72,7 @@ public class TestCanonicalize
                 ImmutableList.of(
                         new UnaliasSymbolReferences(),
                         new IterativeOptimizer(
+                                "TestRemoveIdentityProjections",
                                 getPlanTester().getPlannerContext(),
                                 new RuleStatsRecorder(),
                                 getPlanTester().getStatsCalculator(),

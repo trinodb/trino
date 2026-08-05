@@ -61,7 +61,7 @@ public class TrinoException
     {
         String message = getRawMessage();
         if (location.isPresent()) {
-            message = format("line %s:%s: %s", location.get().getLineNumber(), location.get().getColumnNumber(), message);
+            message = format("line %s:%s: %s", location.get().lineNumber(), location.get().columnNumber(), message);
         }
         return message;
     }

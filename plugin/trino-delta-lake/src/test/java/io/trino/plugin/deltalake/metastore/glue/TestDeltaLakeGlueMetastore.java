@@ -22,8 +22,6 @@ import com.google.inject.Key;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
@@ -31,22 +29,19 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
 import io.trino.plugin.deltalake.DeltaLakeSecurityModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.spi.Node;
-import io.trino.spi.PageIndexerFactory;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.spi.TrinoException;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.AfterAll;
@@ -100,6 +95,7 @@ public class TestDeltaLakeGlueMetastore
     private DeltaLakeMetadataFactory metadataFactory;
     private String databaseName;
     private TestingConnectorSession session;
+    private FlociS3AndGlue floci;
 
     @BeforeAll
     public void setUp()
@@ -107,32 +103,26 @@ public class TestDeltaLakeGlueMetastore
     {
         tempDir = Files.createTempDirectory(null).toFile();
         String temporaryLocation = tempDir.toURI().toString();
+        floci = new FlociS3AndGlue();
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "glue")
                 .put("delta.hide-non-delta-lake-tables", "true")
                 .put("fs.hadoop.enabled", "true")
+                .putAll(floci.glueProperties())
                 .buildOrThrow();
 
         ConnectorContext context = new TestingConnectorContext();
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
-                binder -> {
-                    binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
-                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    binder.bind(Node.class).toInstance(context.getCurrentNode());
-                    binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                    binder.bind(NodeVersion.class).toInstance(new NodeVersion("test_version"));
-                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                    binder.bind(Tracer.class).toInstance(context.getTracer());
-                },
+                new ConnectorContextModule("test", context),
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
                 new DeltaLakeSecurityModule(),
                 // test setup
-                new FileSystemModule("test", context.getCurrentNode().isCoordinator(), context.getOpenTelemetry(), false));
+                new FileSystemModule("test", context, false));
 
         Injector injector = app
                 .doNotInitializeLogging()
@@ -166,6 +156,7 @@ public class TestDeltaLakeGlueMetastore
         closeAll(
                 () -> metastoreClient.dropDatabase(databaseName, true),
                 () -> lifeCycleManager.stop(),
+                () -> floci.close(),
                 () -> {
                     if (tempDir.exists()) {
                         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
@@ -175,6 +166,7 @@ public class TestDeltaLakeGlueMetastore
         databaseName = null;
         lifeCycleManager = null;
         tempDir = null;
+        floci = null;
     }
 
     @Test
@@ -198,9 +190,9 @@ public class TestDeltaLakeGlueMetastore
         });
         createTransactionLog(deltaLakeTableLocation);
 
-        createTable(nonDeltaLakeTable1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
+        createTable(nonDeltaLakeTable1, tableLocation(nonDeltaLakeTable1), _ -> {});
         createTable(nonDeltaLakeTable2, tableLocation(nonDeltaLakeTable2), tableBuilder -> tableBuilder.setParameter(TABLE_PROVIDER_PROPERTY, "foo"));
-        createView(nonDeltaLakeView1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
+        createView(nonDeltaLakeView1, tableLocation(nonDeltaLakeTable1), _ -> {});
 
         DeltaLakeMetadata metadata = metadataFactory.create(SESSION.getIdentity());
 

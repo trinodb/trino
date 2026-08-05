@@ -13,10 +13,9 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
@@ -25,6 +24,8 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -38,7 +39,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestDomain
+class TestDomain
 {
     @Test
     public void testOrderableNone()
@@ -131,7 +132,7 @@ public class TestDomain
         assertThat(domain.includesNullableValue((long) floatToRawIntBits(Float.MIN_VALUE))).isTrue();
         assertThat(domain.includesNullableValue(null)).isTrue();
         assertThat(domain.includesNullableValue((long) floatToRawIntBits(Float.NaN))).isTrue();
-        assertThat(domain.includesNullableValue((long) 0x7fc01234)).isTrue(); // different NaN representation
+        assertThat(domain.includesNullableValue((long) 0x7FC01234)).isTrue(); // different NaN representation
         assertThat(domain.complement()).isEqualTo(Domain.none(REAL));
         assertThat(domain.toString()).isEqualTo("ALL");
 
@@ -150,7 +151,7 @@ public class TestDomain
         assertThat(domain.includesNullableValue(Double.MIN_VALUE)).isTrue();
         assertThat(domain.includesNullableValue(null)).isTrue();
         assertThat(domain.includesNullableValue(Double.NaN)).isTrue();
-        assertThat(domain.includesNullableValue(longBitsToDouble(0x7ff8123412341234L))).isTrue(); // different NaN representation
+        assertThat(domain.includesNullableValue(longBitsToDouble(0x7FF8123412341234L))).isTrue(); // different NaN representation
         assertThat(domain.complement()).isEqualTo(Domain.none(DOUBLE));
         assertThat(domain.toString()).isEqualTo("ALL");
     }
@@ -523,14 +524,13 @@ public class TestDomain
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+        JsonMapper mapper = new JsonMapperProvider()
+                .withJsonDeserializers(Map.of(
+                        Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
+                        Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())))
+                .withJsonSerializers(Map.of(
+                        Block.class, new TestingBlockJsonSerde.Serializer(new TestingBlockEncodingSerde())))
+                .get();
 
         Domain domain = Domain.all(BIGINT);
         assertThat(domain).isEqualTo(mapper.readValue(mapper.writeValueAsString(domain), Domain.class));

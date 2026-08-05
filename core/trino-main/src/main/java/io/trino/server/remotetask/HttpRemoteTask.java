@@ -16,10 +16,10 @@ package io.trino.server.remotetask;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -67,6 +67,7 @@ import io.trino.server.TaskUpdateRequest;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -104,6 +105,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -144,6 +146,7 @@ public final class HttpRemoteTask
     private final String nodeId;
     private final AtomicBoolean speculative;
     private final PlanFragment planFragment;
+    private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
 
     private final AtomicLong nextSplitId = new AtomicLong();
 
@@ -179,7 +182,8 @@ public final class HttpRemoteTask
     @GuardedBy("this")
     private OptionalLong whenSplitQueueHasSpaceThreshold = OptionalLong.empty();
 
-    @VisibleForTesting final AtomicInteger splitBatchSize;
+    @VisibleForTesting
+    final AtomicInteger splitBatchSize;
 
     private final boolean summarizeTaskInfo;
 
@@ -217,6 +221,7 @@ public final class HttpRemoteTask
             boolean speculative,
             URI location,
             PlanFragment planFragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             HttpClient httpClient,
@@ -246,6 +251,7 @@ public final class HttpRemoteTask
         requireNonNull(node, "node is null");
         requireNonNull(location, "location is null");
         requireNonNull(planFragment, "planFragment is null");
+        requireNonNull(tableCredentials, "tableCredentials is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(executor, "executor is null");
@@ -264,6 +270,7 @@ public final class HttpRemoteTask
             this.nodeId = node.getNodeIdentifier();
             this.speculative = new AtomicBoolean(speculative);
             this.planFragment = planFragment;
+            this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
             this.executor = executor;
@@ -295,8 +302,10 @@ public final class HttpRemoteTask
             // TODO. https://github.com/trinodb/trino/issues/15820
             this.adaptiveUpdateRequestSizeEnabled = numOfPartitionedSources == 1 && isRemoteTaskAdaptiveUpdateRequestSizeEnabled(session);
             if (numOfPartitionedSources > 1) {
-                log.debug("%s - There are more than one partitioned sources: numOfPartitionedSources=%s",
-                        taskId, planFragment.getPartitionedSources().size());
+                log.debug(
+                        "%s - There are more than one partitioned sources: numOfPartitionedSources=%s",
+                        taskId,
+                        planFragment.getPartitionedSources().size());
             }
 
             int pendingSourceSplitCount = 0;
@@ -368,7 +377,7 @@ public final class HttpRemoteTask
                     retryPolicy);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
-                TaskState state = newStatus.getState();
+                TaskState state = newStatus.state();
                 // cleanup when done or partially cleanup when terminating begins
                 if (state.isTerminatingOrDone()) {
                     cleanUpTask(state);
@@ -384,8 +393,8 @@ public final class HttpRemoteTask
 
             this.outboundDynamicFiltersCollector = new DynamicFiltersCollector(this::triggerUpdate);
             dynamicFilterService.registerDynamicFilterConsumer(
-                    taskId.getQueryId(),
-                    taskId.getAttemptId(),
+                    taskId.queryId(),
+                    taskId.attemptId(),
                     outboundDynamicFilterIds,
                     outboundDynamicFiltersCollector::updateDomains);
 
@@ -438,7 +447,7 @@ public final class HttpRemoteTask
         requireNonNull(splitsBySource, "splitsBySource is null");
 
         // only add pending split if not done
-        if (getTaskStatus().getState().isTerminatingOrDone() || terminating.get()) {
+        if (getTaskStatus().state().isTerminatingOrDone() || terminating.get()) {
             return;
         }
 
@@ -487,7 +496,7 @@ public final class HttpRemoteTask
     @Override
     public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        if (getTaskStatus().getState().isTerminatingOrDone() || terminating.get()) {
+        if (getTaskStatus().state().isTerminatingOrDone() || terminating.get()) {
             return;
         }
 
@@ -518,16 +527,16 @@ public final class HttpRemoteTask
     public PartitionedSplitsInfo getPartitionedSplitsInfo()
     {
         TaskStatus taskStatus = getTaskStatus();
-        if (taskStatus.getState().isDone()) {
+        if (taskStatus.state().isDone()) {
             return PartitionedSplitsInfo.forZeroSplits();
         }
         // Do not consider queued or unacknowledged splits if the task is in the process of terminating
-        if (taskStatus.getState().isTerminating()) {
-            return PartitionedSplitsInfo.forSplitCountAndWeightSum(taskStatus.getRunningPartitionedDrivers(), taskStatus.getRunningPartitionedSplitsWeight());
+        if (taskStatus.state().isTerminating()) {
+            return PartitionedSplitsInfo.forSplitCountAndWeightSum(taskStatus.runningPartitionedDrivers(), taskStatus.runningPartitionedSplitsWeight());
         }
         PartitionedSplitsInfo unacknowledgedSplitsInfo = getUnacknowledgedPartitionedSplitsInfo();
-        int count = unacknowledgedSplitsInfo.getCount() + taskStatus.getQueuedPartitionedDrivers() + taskStatus.getRunningPartitionedDrivers();
-        long weight = unacknowledgedSplitsInfo.getWeightSum() + taskStatus.getQueuedPartitionedSplitsWeight() + taskStatus.getRunningPartitionedSplitsWeight();
+        int count = unacknowledgedSplitsInfo.getCount() + taskStatus.queuedPartitionedDrivers() + taskStatus.runningPartitionedDrivers();
+        long weight = unacknowledgedSplitsInfo.getWeightSum() + taskStatus.queuedPartitionedSplitsWeight() + taskStatus.runningPartitionedSplitsWeight();
         return PartitionedSplitsInfo.forSplitCountAndWeightSum(count, weight);
     }
 
@@ -543,12 +552,12 @@ public final class HttpRemoteTask
     public PartitionedSplitsInfo getQueuedPartitionedSplitsInfo()
     {
         TaskStatus taskStatus = getTaskStatus();
-        if (taskStatus.getState().isTerminatingOrDone()) {
+        if (taskStatus.state().isTerminatingOrDone()) {
             return PartitionedSplitsInfo.forZeroSplits();
         }
         PartitionedSplitsInfo unacknowledgedSplitsInfo = getUnacknowledgedPartitionedSplitsInfo();
-        int count = unacknowledgedSplitsInfo.getCount() + taskStatus.getQueuedPartitionedDrivers();
-        long weight = unacknowledgedSplitsInfo.getWeightSum() + taskStatus.getQueuedPartitionedSplitsWeight();
+        int count = unacknowledgedSplitsInfo.getCount() + taskStatus.queuedPartitionedDrivers();
+        long weight = unacknowledgedSplitsInfo.getWeightSum() + taskStatus.queuedPartitionedSplitsWeight();
         return PartitionedSplitsInfo.forSplitCountAndWeightSum(count, weight);
     }
 
@@ -573,10 +582,10 @@ public final class HttpRemoteTask
     private long getQueuedPartitionedSplitsWeight()
     {
         TaskStatus taskStatus = getTaskStatus();
-        if (taskStatus.getState().isTerminatingOrDone()) {
+        if (taskStatus.state().isTerminatingOrDone()) {
             return 0;
         }
-        return getPendingSourceSplitsWeight() + taskStatus.getQueuedPartitionedSplitsWeight();
+        return getPendingSourceSplitsWeight() + taskStatus.queuedPartitionedSplitsWeight();
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
@@ -603,7 +612,7 @@ public final class HttpRemoteTask
     public synchronized ListenableFuture<Void> whenSplitQueueHasSpace(long weightThreshold)
     {
         if (whenSplitQueueHasSpaceThreshold.isPresent()) {
-            checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.getAsLong(), "Multiple split queue space notification thresholds not supported");
+            checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.orElseThrow(), "Multiple split queue space notification thresholds not supported");
         }
         else {
             whenSplitQueueHasSpaceThreshold = OptionalLong.of(weightThreshold);
@@ -625,7 +634,7 @@ public final class HttpRemoteTask
     {
         // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
         splitQueueHasSpace = getUnacknowledgedPartitionedSplitCount() < maxUnacknowledgedSplits &&
-                (whenSplitQueueHasSpaceThreshold.isEmpty() || getQueuedPartitionedSplitsWeight() < whenSplitQueueHasSpaceThreshold.getAsLong());
+                (whenSplitQueueHasSpaceThreshold.isEmpty() || getQueuedPartitionedSplitsWeight() < whenSplitQueueHasSpaceThreshold.orElseThrow());
         // Only trigger notifications if a listener might be registered
         if (splitQueueHasSpace && whenSplitQueueHasSpaceThreshold.isPresent()) {
             whenSplitQueueHasSpace.complete(null, executor);
@@ -646,7 +655,7 @@ public final class HttpRemoteTask
                 if (pendingSplits.remove(planNodeId, split)) {
                     if (isPartitionedSource) {
                         removed++;
-                        removedWeight = addExact(removedWeight, split.getSplit().getSplitWeight().getRawValue());
+                        removedWeight = addExact(removedWeight, split.split().getSplitWeight().getRawValue());
                     }
                 }
             }
@@ -719,8 +728,12 @@ public final class HttpRemoteTask
             }
             // abandon current request and reschedule update if size of request body exceeds requestSizeLimit and splitBatchSize is updated
             if (numSplits > newSplitBatchSize && requestSize > maxRequestSizeInBytes) {
-                log.debug("%s - current taskUpdateRequestJson exceeded limit: %d, currentSplitBatchSize: %d, newSplitBatchSize: %d",
-                        taskId, requestSize, currentSplitBatchSize, newSplitBatchSize);
+                log.debug(
+                        "%s - current taskUpdateRequestJson exceeded limit: %d, currentSplitBatchSize: %d, newSplitBatchSize: %d",
+                        taskId,
+                        requestSize,
+                        currentSplitBatchSize,
+                        newSplitBatchSize);
                 return true; // reschedule needed
             }
         }
@@ -741,7 +754,7 @@ public final class HttpRemoteTask
     {
         TaskStatus taskStatus = getTaskStatus();
         // don't update if the task is already finishing or finished, or if we have sent a termination command
-        if (taskStatus.getState().isTerminatingOrDone() || terminating.get()) {
+        if (taskStatus.state().isTerminatingOrDone() || terminating.get()) {
             return;
         }
         checkState(started.get());
@@ -767,6 +780,7 @@ public final class HttpRemoteTask
                 session.getIdentity().getExtraCredentials(),
                 stageSpan,
                 fragment,
+                tableCredentials,
                 splitAssignments,
                 outputBuffers.get(),
                 dynamicFilterDomains.getDynamicFilterDomains(),
@@ -790,7 +804,7 @@ public final class HttpRemoteTask
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
         Request request = preparePost()
                 .setUri(uriBuilder.build())
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                .setHeader(CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                 .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
                 .setSpanBuilder(createSpanBuilder("task-update", span))
                 .build();
@@ -826,7 +840,7 @@ public final class HttpRemoteTask
         if (planFragment.isPartitionedSources(planNodeId) && currentSplitBatchSize < splits.size()) {
             log.debug("%s - Splits are limited by splitBatchSize: splitBatchSize=%s, splits=%s, planNodeId=%s", taskId, currentSplitBatchSize, splits.size(), planNodeId);
             splits = splits.stream()
-                    .sorted(Comparator.comparingLong(ScheduledSplit::getSequenceId))
+                    .sorted(Comparator.comparingLong(ScheduledSplit::sequenceId))
                     .limit(currentSplitBatchSize)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
             // if not last batch, we need to defer setting no more splits
@@ -850,7 +864,7 @@ public final class HttpRemoteTask
 
         synchronized (this) {
             try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
-                if (!getTaskStatus().getState().isTerminatingOrDone()) {
+                if (!getTaskStatus().state().isTerminatingOrDone()) {
                     scheduleAsyncCleanupRequest("abort", true);
                 }
             }
@@ -868,7 +882,7 @@ public final class HttpRemoteTask
         synchronized (this) {
             try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
                 TaskStatus taskStatus = getTaskStatus();
-                if (!taskStatus.getState().isTerminatingOrDone()) {
+                if (!taskStatus.state().isTerminatingOrDone()) {
                     scheduleAsyncCleanupRequest("cancel", false);
                 }
             }
@@ -940,7 +954,7 @@ public final class HttpRemoteTask
     private void scheduleAsyncCleanupRequest(String action, Supplier<Request> remoteRequestSupplier)
     {
         // Only allow a single final cleanup request once the task status sees a final state
-        TaskState taskStatusState = getTaskStatus().getState();
+        TaskState taskStatusState = getTaskStatus().state();
         if (taskStatusState.isDone() && !cleanedUp.compareAndSet(false, true)) {
             return;
         }
@@ -964,7 +978,7 @@ public final class HttpRemoteTask
         uriBuilder = uriBuilder.appendPath("fail");
         return preparePost()
                 .setUri(uriBuilder.build())
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                .setHeader(CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                 .setBodyGenerator(createStaticBodyGenerator(failTaskRequestCodec.toJsonBytes(failTaskRequest)))
                 .setSpanBuilder(createSpanBuilder("task-fail", span))
                 .build();
@@ -992,7 +1006,7 @@ public final class HttpRemoteTask
                 }
                 finally {
                     // if cleanup operation has not at least started task termination, mark the task failed
-                    TaskState taskState = getTaskInfo().taskStatus().getState();
+                    TaskState taskState = getTaskInfo().taskStatus().state();
                     if (!taskState.isTerminatingOrDone()) {
                         fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), format("Unable to %s task at %s, last known state was: %s", action, request.getUri(), taskState)));
                     }
@@ -1013,7 +1027,7 @@ public final class HttpRemoteTask
             {
                 try {
                     // final task info has been received, no need to resend the request
-                    if (getTaskInfo().taskStatus().getState().isDone()) {
+                    if (getTaskInfo().taskStatus().state().isDone()) {
                         return;
                     }
 
@@ -1052,16 +1066,16 @@ public final class HttpRemoteTask
                 synchronized (HttpRemoteTask.this) {
                     try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
                         TaskStatus taskStatus = getTaskStatus();
-                        if (taskStatus.getState().isDone()) {
+                        if (taskStatus.state().isDone()) {
                             log.warn("Task %s already in terminal state %s; cannot overwrite with FAILED due to %s",
-                                    taskStatus.getTaskId(),
-                                    taskStatus.getState(),
+                                    taskStatus.taskId(),
+                                    taskStatus.state(),
                                     cause);
                         }
                         else {
-                            List<ExecutionFailureInfo> failures = ImmutableList.<ExecutionFailureInfo>builderWithExpectedSize(taskStatus.getFailures().size() + 1)
+                            List<ExecutionFailureInfo> failures = ImmutableList.<ExecutionFailureInfo>builderWithExpectedSize(taskStatus.failures().size() + 1)
                                     .add(toFailure(cause))
-                                    .addAll(taskStatus.getFailures())
+                                    .addAll(taskStatus.failures())
                                     .build();
                             taskStatus = failWith(taskStatus, FAILED, failures);
                         }
@@ -1083,7 +1097,7 @@ public final class HttpRemoteTask
     {
         try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
             TaskStatus taskStatus = getTaskStatus();
-            if (!taskStatus.getState().isDone()) {
+            if (!taskStatus.state().isDone()) {
                 // Update the taskInfo with the new taskStatus.
 
                 // Generally, we send a cleanup request to the worker, and update the TaskInfo on
@@ -1093,9 +1107,9 @@ public final class HttpRemoteTask
                 // we have to set the local query info directly so that we stop trying to fetch
                 // updated TaskInfo from the worker. This way, the task on the worker eventually
                 // expires due to lack of activity.
-                List<ExecutionFailureInfo> failures = ImmutableList.<ExecutionFailureInfo>builderWithExpectedSize(taskStatus.getFailures().size() + 1)
+                List<ExecutionFailureInfo> failures = ImmutableList.<ExecutionFailureInfo>builderWithExpectedSize(taskStatus.failures().size() + 1)
                         .add(toFailure(cause))
-                        .addAll(taskStatus.getFailures())
+                        .addAll(taskStatus.failures())
                         .build();
                 taskStatus = failWith(taskStatus, FAILED, failures);
                 if (cause instanceof TrinoTransportException) {
@@ -1133,8 +1147,8 @@ public final class HttpRemoteTask
         synchronized (this) {
             try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
                 TaskStatus taskStatus = getTaskStatus();
-                if (!taskStatus.getState().isTerminatingOrDone()) {
-                    log.debug(cause, "Remote task %s failed with %s", taskStatus.getSelf(), cause);
+                if (!taskStatus.state().isTerminatingOrDone()) {
+                    log.debug(cause, "Remote task %s failed with %s", taskStatus.self(), cause);
                     scheduleAsyncCleanupRequest("fail", new FailTaskRequest(toFailure(cause)));
                 }
             }
@@ -1150,12 +1164,12 @@ public final class HttpRemoteTask
         synchronized (this) {
             try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
                 TaskStatus taskStatus = getTaskStatus();
-                if (!taskStatus.getState().isDone()) {
+                if (!taskStatus.state().isDone()) {
                     // Record and force the task into a failed state immediately without waiting for the task to respond. A final cleanup
                     // command will be sent to the task, but will not await the response
-                    List<ExecutionFailureInfo> failures = ImmutableList.<ExecutionFailureInfo>builderWithExpectedSize(taskStatus.getFailures().size() + 1)
+                    List<ExecutionFailureInfo> failures = ImmutableList.<ExecutionFailureInfo>builderWithExpectedSize(taskStatus.failures().size() + 1)
                             .add(toFailure(cause))
-                            .addAll(taskStatus.getFailures())
+                            .addAll(taskStatus.failures())
                             .build();
                     taskStatusFetcher.updateTaskStatus(failWith(taskStatus, FAILED, failures));
                 }
@@ -1165,7 +1179,7 @@ public final class HttpRemoteTask
 
     private HttpUriBuilder getHttpUriBuilder(TaskStatus taskStatus)
     {
-        HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf());
+        HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.self());
         if (summarizeTaskInfo) {
             uriBuilder.addParameter("summarize");
         }
@@ -1176,8 +1190,8 @@ public final class HttpRemoteTask
     {
         return tracer.spanBuilder(name)
                 .setParent(Context.current().with(parent))
-                .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                 .setAttribute(TrinoAttributes.TASK_ID, taskId.toString());
     }
 
@@ -1234,7 +1248,7 @@ public final class HttpRemoteTask
 
                     // if task not already done, record error
                     TaskStatus taskStatus = getTaskStatus();
-                    if (!taskStatus.getState().isDone()) {
+                    if (!taskStatus.state().isDone()) {
                         updateErrorTracker.requestFailed(cause);
                     }
 

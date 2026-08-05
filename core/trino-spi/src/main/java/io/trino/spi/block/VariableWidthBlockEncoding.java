@@ -19,10 +19,10 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
-import java.util.Arrays;
-
-import static io.trino.spi.block.EncoderUtil.decodeNullBits;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.trino.spi.block.Bitmap.checkBitRange;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
 import static java.lang.String.format;
 import static java.util.Objects.checkFromIndexSize;
 
@@ -53,92 +53,95 @@ public class VariableWidthBlockEncoding
 
         int arrayBaseOffset = variableWidthBlock.getRawArrayBase();
         @Nullable
-        boolean[] isNull = variableWidthBlock.getRawValueIsNull();
+        long[] valueIsValid = variableWidthBlock.getRawValueIsValid();
+        encodeValidityAsLongs(sliceOutput, valueIsValid, arrayBaseOffset, positionCount);
+
         int[] rawOffsets = variableWidthBlock.getRawOffsets();
-        checkFromIndexSize(arrayBaseOffset, positionCount + 1, rawOffsets.length);
+        writeOffsetsWithNullsCompacted(sliceOutput, rawOffsets, valueIsValid, arrayBaseOffset, positionCount);
 
-        // lengths
-        int[] lengths = new int[positionCount];
-        int totalLength = 0;
-        int nonNullsCount = 0;
+        int startingOffset = rawOffsets[arrayBaseOffset];
+        int totalLength = rawOffsets[positionCount + arrayBaseOffset] - startingOffset;
 
-        for (int position = 0; position < positionCount; position++) {
-            int length = rawOffsets[position + arrayBaseOffset + 1] - rawOffsets[position + arrayBaseOffset];
-            totalLength += length;
-            lengths[nonNullsCount] = length;
-            nonNullsCount += isNull != null && isNull[position + arrayBaseOffset] ? 0 : 1;
-        }
-
-        sliceOutput
-                .appendInt(nonNullsCount)
-                .writeInts(lengths, 0, nonNullsCount);
-
-        encodeNullsAsBits(sliceOutput, isNull, arrayBaseOffset, positionCount);
-
-        sliceOutput
-                .appendInt(totalLength)
-                .writeBytes(variableWidthBlock.getRawSlice(), variableWidthBlock.getPositionOffset(0), totalLength);
+        sliceOutput.writeBytes(variableWidthBlock.getRawSlice(), startingOffset, totalLength);
     }
 
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
-        int nonNullsCount = sliceInput.readInt();
 
-        if (nonNullsCount > positionCount) {
-            throw new IllegalArgumentException(format("nonNullsCount must be <= positionCount, found: %s > %s", nonNullsCount, positionCount));
-        }
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
 
-        int[] offsets = new int[positionCount + 1];
-        // Read the lengths array into the end of the offsets array, since nonNullsCount <= positionCount
-        int lengthIndex = offsets.length - nonNullsCount;
-        sliceInput.readInts(offsets, lengthIndex, nonNullsCount);
+        int[] offsets = readOffsetsWithNullsCompacted(sliceInput, valueIsValid, positionCount);
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
-        // Transform lengths back to offsets
-        if (valueIsNull == null) {
-            if (positionCount != nonNullsCount || lengthIndex != 1) {
-                throw new IllegalArgumentException(format("nonNullsCount must equal positionCount, found: %s <> %s", nonNullsCount, positionCount));
-            }
-            // Simplified loop for no nulls present
-            for (int i = 1; i < offsets.length; i++) {
-                offsets[i] += offsets[i - 1];
-            }
-        }
-        else {
-            computeOffsetsFromLengths(offsets, valueIsNull, lengthIndex);
-        }
-
-        int blockSize = sliceInput.readInt();
-        Slice slice = Slices.allocate(blockSize);
+        int sliceSize = offsets[offsets.length - 1];
+        Slice slice = Slices.allocate(sliceSize);
         sliceInput.readBytes(slice);
 
-        return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsNull);
+        return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsValid);
     }
 
-    private static void computeOffsetsFromLengths(int[] offsets, boolean[] valueIsNull, int lengthIndex)
+    private static void writeOffsetsWithNullsCompacted(SliceOutput sliceOutput, int[] rawOffsets, @Nullable long[] valueIsValid, int baseOffset, int positionCount)
     {
-        if (lengthIndex < 0 || lengthIndex > offsets.length) {
-            throw new IllegalArgumentException(format("Invalid lengthIndex %s for offsets %s", lengthIndex, offsets.length));
+        checkFromIndexSize(baseOffset, positionCount + 1, rawOffsets.length);
+
+        int startingOffset = rawOffsets[baseOffset];
+        if (valueIsValid == null && startingOffset == 0) {
+            // No translation of offsets required, write the range of raw offsets directly to the output
+            sliceOutput
+                    .appendInt(positionCount)
+                    .writeInts(rawOffsets, baseOffset + 1, positionCount);
         }
-        int currentOffset = 0;
-        for (int i = 1; i < offsets.length; i++) {
-            if (lengthIndex == offsets.length) {
-                // Populate remaining null elements
-                Arrays.fill(offsets, i, offsets.length, currentOffset);
-                break;
+        else {
+            int[] nonNullOffsets;
+            int nonNullOffsetsCount;
+            if (valueIsValid == null) {
+                // Subtract starting offset from each ending offset to translate them to start from zero, no null suppression required
+                nonNullOffsets = new int[positionCount];
+                for (int i = 0; i < nonNullOffsets.length; i++) {
+                    nonNullOffsets[i] = rawOffsets[i + baseOffset + 1] - startingOffset;
+                }
+                nonNullOffsetsCount = nonNullOffsets.length;
             }
-            boolean isNull = valueIsNull[i - 1];
-            // must be accessed unconditionally, otherwise CMOV optimization isn't applied due to
-            // ArrayIndexOutOfBoundsException checks
-            int length = offsets[lengthIndex];
-            lengthIndex += isNull ? 0 : 1;
-            currentOffset += isNull ? 0 : length;
-            offsets[i] = currentOffset;
+            else {
+                // Translate ending offsets and suppress null values from the output
+                nonNullOffsets = new int[positionCount];
+                nonNullOffsetsCount = 0;
+                for (int i = 0; i < positionCount; i++) {
+                    nonNullOffsets[nonNullOffsetsCount] = rawOffsets[i + baseOffset + 1] - startingOffset;
+                    nonNullOffsetsCount += isSet(valueIsValid, baseOffset, i) ? 1 : 0;
+                }
+            }
+            sliceOutput
+                    .appendInt(nonNullOffsetsCount)
+                    .writeInts(nonNullOffsets, 0, nonNullOffsetsCount);
         }
-        if (lengthIndex != offsets.length) {
-            throw new IllegalArgumentException(format("Failed to consume all length entries, found %s <> %s", lengthIndex, offsets.length));
+    }
+
+    private static int[] readOffsetsWithNullsCompacted(SliceInput sliceInput, @Nullable long[] valueIsValid, int positionCount)
+    {
+        checkBitRange(valueIsValid, 0, positionCount);
+        int nonNullOffsetCount = sliceInput.readInt();
+        if (nonNullOffsetCount > positionCount) {
+            throw new IllegalArgumentException(format("nonNullOffsetCount must be <= positionCount, found: %s > %s", nonNullOffsetCount, positionCount));
         }
+        // Offsets are read into the end of the array, expansion will pull values down into the lower range until null positions are expanded in place
+        int[] offsets = new int[positionCount + 1];
+        int compactIndex = offsets.length - nonNullOffsetCount;
+        sliceInput.readInts(offsets, compactIndex, nonNullOffsetCount);
+        if (valueIsValid == null || compactIndex == 1) {
+            if (positionCount != nonNullOffsetCount) {
+                throw new IllegalArgumentException(format("nonNullOffsetCount must match positionCount, found %s <> %s", nonNullOffsetCount, positionCount));
+            }
+            return offsets;
+        }
+        // Shift the offsets from the end of the offsets array downwards, repeating the previous offset when nulls are encountered
+        // until no more nulls are present
+        int readFrom = compactIndex - 1;
+        for (int position = 0; position < readFrom; position++) {
+            offsets[position] = offsets[readFrom];
+            readFrom += isSet(valueIsValid, 0, position) ? 1 : 0;
+        }
+        return offsets;
     }
 }

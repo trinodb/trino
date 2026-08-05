@@ -50,7 +50,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -178,7 +178,7 @@ public class SetColumnTypeTask
     {
         Type type;
         try {
-            type = typeManager.getType(toTypeSignature(statement.getType()));
+            type = typeManager.getType(toTypeDescriptor(statement.getType()));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_NOT_FOUND, statement.getType(), "Unknown type '%s' for column '%s'", statement.getType(), statement.getColumnName());
