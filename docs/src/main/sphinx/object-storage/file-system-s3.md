@@ -157,6 +157,44 @@ fails at startup.
       (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
 :::
 
+## Keystore credentials
+
+Use the following properties to load S3 credentials from a JCEKS keystore file
+instead of plaintext keys. This matches the Hadoop `secrets.jceks` pattern used
+on many CDP clusters. Configure either global aliases or a per-bucket alias
+prefix, but not both.
+
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
+
+* - Property
+  - Description
+* - `s3.keystore.path`
+  - Path to the JCEKS keystore file containing credential aliases.
+* - `s3.keystore.type`
+  - Keystore type. Defaults to `JCEKS`.
+* - `s3.keystore.password`
+  - Password for the keystore file. Defaults to the
+    `HADOOP_CREDSTORE_PASSWORD` environment variable, then `none`.
+* - `s3.keystore.entry-password`
+  - Password protecting individual keystore entries. Defaults to
+    `s3.keystore.password`.
+* - `s3.aws-access-key-alias`
+  - Keystore alias for the global S3 access key. Requires
+    `s3.aws-secret-key-alias` and cannot be combined with
+    `s3.keystore.bucket-key-prefix`.
+* - `s3.aws-secret-key-alias`
+  - Keystore alias for the global S3 secret key. Requires
+    `s3.aws-access-key-alias` and cannot be combined with
+    `s3.keystore.bucket-key-prefix`.
+* - `s3.keystore.bucket-key-prefix`
+  - Prefix for per-bucket credential aliases. For bucket `my-bucket`, aliases
+    are resolved as `<prefix>my-bucket.access.key` and
+    `<prefix>my-bucket.secret.key`. Requires `s3.keystore.path` and cannot be
+    combined with global aliases or `s3.security-mapping.enabled`.
+:::
+
 ## Security mapping
 
 Trino supports flexible security mapping for S3, allowing for separate
