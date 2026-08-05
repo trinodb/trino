@@ -74,7 +74,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getLast;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -362,12 +361,35 @@ public class SqlRoutineAnalyzer
         switch (statement) {
             case ReturnStatement _ -> {}
             case CompoundStatement body -> {
-                if (!(getLast(body.getStatements(), null) instanceof ReturnStatement)) {
+                if (!alwaysReturns(body)) {
                     throw semanticException(MISSING_RETURN, body, "Function must end in a RETURN statement");
                 }
             }
             default -> throw new IllegalArgumentException("Invalid function statement: " + statement);
         }
+    }
+
+    // Determines whether a statement is guaranteed to execute a RETURN on every path through it.
+    // Loops are never considered exhaustive, since a LEAVE can exit one before its body reaches a RETURN.
+    private static boolean alwaysReturns(ControlStatement statement)
+    {
+        return switch (statement) {
+            case ReturnStatement _ -> true;
+            case CompoundStatement body -> alwaysReturns(body.getStatements());
+            case IfStatement ifStatement -> ifStatement.getElseClause().isPresent() &&
+                    alwaysReturns(ifStatement.getStatements()) &&
+                    ifStatement.getElseIfClauses().stream().allMatch(clause -> alwaysReturns(clause.getStatements())) &&
+                    alwaysReturns(ifStatement.getElseClause().orElseThrow().getStatements());
+            case CaseStatement caseStatement -> caseStatement.getElseClause().isPresent() &&
+                    caseStatement.getWhenClauses().stream().allMatch(clause -> alwaysReturns(clause.getStatements())) &&
+                    alwaysReturns(caseStatement.getElseClause().orElseThrow().getStatements());
+            default -> false;
+        };
+    }
+
+    private static boolean alwaysReturns(List<ControlStatement> statements)
+    {
+        return !statements.isEmpty() && alwaysReturns(statements.getLast());
     }
 
     private class StatementVisitor
