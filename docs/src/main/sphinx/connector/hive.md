@@ -264,6 +264,13 @@ Hive connector documentation.
     can use the `hive_views_legacy_translation` catalog session property for
     temporary, catalog specific use.
   - `false`
+* - `hive.trino-views.run-as-invoker`
+  - Run Trino views stored in the metastore with the permissions of the invoker
+    rather than the view owner, ignoring the owner recorded when the view was
+    created. This makes all Trino views in the catalog behave as if defined with
+    `SECURITY INVOKER`. Views explicitly created with `SECURITY INVOKER` are
+    unaffected.
+  - `false`
 * - `hive.parallel-partitioned-bucketed-writes`
   - Improve parallelism of partitioned and bucketed table writes. When disabled,
     the number of writing threads is limited to number of buckets.
