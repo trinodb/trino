@@ -72,6 +72,7 @@ import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -1085,7 +1086,8 @@ public class MockConnector
                 ConnectorSession session,
                 ConnectorMergeTableHandle mergeHandle,
                 Optional<ConnectorTableCredentials> tableCredentials,
-                ConnectorPageSinkId pageSinkId)
+                ConnectorPageSinkId pageSinkId,
+                MemoryContext memoryContext)
         {
             return new MockPageSink();
         }
