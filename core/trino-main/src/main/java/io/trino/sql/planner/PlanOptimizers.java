@@ -242,6 +242,7 @@ import io.trino.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
 import io.trino.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
+import io.trino.sql.planner.iterative.rule.UnwrapAtTimeZoneInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapRowSubscript;
@@ -376,6 +377,7 @@ public class PlanOptimizers
                 .addAll(new PushCastIntoRow(plannerContext).rules())
                 .addAll(new UnwrapCastInComparison(plannerContext).rules())
                 .addAll(new UnwrapDateTruncInComparison(plannerContext).rules())
+                .addAll(new UnwrapAtTimeZoneInComparison(plannerContext).rules())
                 .addAll(new UnwrapYearInComparison(plannerContext).rules())
                 .addAll(new RemoveDuplicateConditions().rules())
                 .addAll(new CanonicalizeExpressions(plannerContext).rules())
