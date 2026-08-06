@@ -22,7 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -72,27 +72,8 @@ public final class ApproximateDoublePercentileArrayAggregations
         state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState TDigestAndPercentileArrayState state, TDigestAndPercentileArrayState otherState)
-    {
-        TDigest otherDigest = otherState.getDigest();
-        TDigest digest = state.getDigest();
-
-        if (digest == null) {
-            state.setDigest(otherDigest);
-            state.addMemoryUsage(otherDigest.estimatedInMemorySizeInBytes());
-        }
-        else {
-            state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
-            digest.mergeWith(otherDigest);
-            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-        }
-
-        state.setPercentiles(otherState.getPercentiles());
-    }
-
     @SqlNullable
-    @OutputFunction("array(double)")
+    @OutputFunction(value = "array(double)", decomposition = @Decomposition(partial = "approx_percentile_array$intermediate", output = "approx_percentile_array_double$final"))
     public static void output(@AggregationState TDigestAndPercentileArrayState state, BlockBuilder out)
     {
         TDigest digest = state.getDigest();

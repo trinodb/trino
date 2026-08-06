@@ -18,7 +18,7 @@ import io.trino.operator.aggregation.state.TDigestAndPercentileState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -47,14 +47,8 @@ public final class ApproximateLongPercentileAggregations
         ApproximateDoublePercentileAggregations.weightedInput(state, toDoubleExact(value), weight, percentile);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState TDigestAndPercentileState state, TDigestAndPercentileState otherState)
-    {
-        ApproximateDoublePercentileAggregations.combine(state, otherState);
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "approx_percentile$intermediate", output = "approx_percentile_bigint$final"))
     public static void output(@AggregationState TDigestAndPercentileState state, BlockBuilder out)
     {
         TDigest digest = state.getDigest();

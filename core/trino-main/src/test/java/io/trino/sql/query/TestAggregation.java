@@ -200,7 +200,8 @@ public class TestAggregation
                         cardinality(make_set_digest(orderkey)), tdigest_agg(orderkey) IS NOT NULL, qdigest_agg(orderkey) IS NOT NULL,
                         round(corr(orderkey, custkey), 6), round(covar_samp(orderkey, custkey), 0), round(covar_pop(orderkey, custkey), 0),
                         round(regr_slope(orderkey, custkey), 6), round(regr_intercept(orderkey, custkey), 0),
-                        approx_distinct(orderkey), approx_distinct(orderkey, 0.01e0), approx_distinct(orderkey > 100)
+                        approx_distinct(orderkey), approx_distinct(orderkey, 0.01e0), approx_distinct(orderkey > 100),
+                        approx_percentile(orderkey, 0.5e0) IS NOT NULL, cardinality(approx_percentile(orderkey, ARRAY[0.1e0, 0.9e0]))
                     FROM tpch.tiny.orders
                     """))
                     .matches(
@@ -210,7 +211,8 @@ public class TestAggregation
                                 cardinality(make_set_digest(orderkey)), tdigest_agg(orderkey) IS NOT NULL, qdigest_agg(orderkey) IS NOT NULL,
                                 round(corr(orderkey, custkey), 6), round(covar_samp(orderkey, custkey), 0), round(covar_pop(orderkey, custkey), 0),
                                 round(regr_slope(orderkey, custkey), 6), round(regr_intercept(orderkey, custkey), 0),
-                                approx_distinct(orderkey), approx_distinct(orderkey, 0.01e0), approx_distinct(orderkey > 100)
+                                approx_distinct(orderkey), approx_distinct(orderkey, 0.01e0), approx_distinct(orderkey > 100),
+                                approx_percentile(orderkey, 0.5e0) IS NOT NULL, cardinality(approx_percentile(orderkey, ARRAY[0.1e0, 0.9e0]))
                             FROM tpch.tiny.orders
                             """);
         }

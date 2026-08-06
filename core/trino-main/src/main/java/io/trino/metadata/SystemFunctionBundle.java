@@ -21,6 +21,8 @@ import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateLongPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateLongPercentileArrayAggregations;
+import io.trino.operator.aggregation.ApproximatePercentileArrayDecomposedAggregation;
+import io.trino.operator.aggregation.ApproximatePercentileDecomposedAggregation;
 import io.trino.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateSetAggregation;
@@ -63,6 +65,7 @@ import io.trino.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthSumAggregation;
 import io.trino.operator.aggregation.LegacyApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.LegacyApproximateLongPercentileAggregations;
+import io.trino.operator.aggregation.LegacyApproximatePercentileDecomposedAggregation;
 import io.trino.operator.aggregation.LegacyApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
@@ -410,6 +413,9 @@ public final class SystemFunctionBundle
                 .window(LeadFunction.class)
                 .aggregates(ApproximateCountDistinctAggregation.class)
                 .aggregates(ApproximateCountDistinctDecomposedAggregation.class)
+                .aggregates(ApproximatePercentileDecomposedAggregation.class)
+                .aggregates(ApproximatePercentileArrayDecomposedAggregation.class)
+                .aggregates(LegacyApproximatePercentileDecomposedAggregation.class)
                 .aggregates(BooleanApproximateCountDistinctDecomposedAggregation.class)
                 .aggregates(DefaultApproximateCountDistinctAggregation.class)
                 .aggregates(BooleanApproximateCountDistinctAggregation.class)
