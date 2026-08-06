@@ -21,6 +21,7 @@ import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateLongPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateLongPercentileArrayAggregations;
+import io.trino.operator.aggregation.ApproximateMostFrequentDecomposedAggregations;
 import io.trino.operator.aggregation.ApproximatePercentileArrayDecomposedAggregation;
 import io.trino.operator.aggregation.ApproximatePercentileDecomposedAggregation;
 import io.trino.operator.aggregation.ApproximateRealPercentileAggregations;
@@ -80,6 +81,7 @@ import io.trino.operator.aggregation.MinAggregationFunction;
 import io.trino.operator.aggregation.MinByAggregationFunction;
 import io.trino.operator.aggregation.NumberAverageAggregation;
 import io.trino.operator.aggregation.NumberSumAggregation;
+import io.trino.operator.aggregation.NumericHistogramDecomposedAggregation;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
@@ -98,6 +100,7 @@ import io.trino.operator.aggregation.VarcharApproximateMostFrequent;
 import io.trino.operator.aggregation.VarianceAggregation;
 import io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.trino.operator.aggregation.histogram.Histogram;
+import io.trino.operator.aggregation.histogram.HistogramMergeAggregation;
 import io.trino.operator.aggregation.listagg.ListaggAggregationFunction;
 import io.trino.operator.aggregation.minmaxbyn.MaxByNAggregationFunction;
 import io.trino.operator.aggregation.minmaxbyn.MinByNAggregationFunction;
@@ -467,6 +470,7 @@ public final class SystemFunctionBundle
                 .aggregates(MergeQuantileDigestFunction.class)
                 .aggregates(MergeTDigestAggregation.class)
                 .aggregates(DoubleHistogramAggregation.class)
+                .aggregates(NumericHistogramDecomposedAggregation.class)
                 .aggregates(RealHistogramAggregation.class)
                 .aggregates(DoubleCovarianceAggregation.class)
                 .aggregates(RealCovarianceAggregation.class)
@@ -633,6 +637,7 @@ public final class SystemFunctionBundle
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .aggregates(Histogram.class)
+                .aggregates(HistogramMergeAggregation.class)
                 .aggregates(ChecksumAggregationFunction.class)
                 .aggregates(ChecksumDecomposedAggregation.class)
                 .aggregates(ArbitraryAggregationFunction.class)
@@ -678,6 +683,8 @@ public final class SystemFunctionBundle
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class)
                 .aggregates(BigintApproximateMostFrequent.class)
+                .aggregates(ApproximateMostFrequentDecomposedAggregations.BigintDecomposed.class)
+                .aggregates(ApproximateMostFrequentDecomposedAggregations.VarcharDecomposed.class)
                 .aggregates(VarcharApproximateMostFrequent.class)
                 .scalar(ArrayHistogramFunction.class);
 

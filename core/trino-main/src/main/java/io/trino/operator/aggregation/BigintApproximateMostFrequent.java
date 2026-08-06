@@ -19,12 +19,13 @@ import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.VarbinaryType;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.StandardTypes.BIGINT;
@@ -75,22 +76,21 @@ public final class BigintApproximateMostFrequent
         histogram.add(value);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState State state, @AggregationState State otherState)
+    @AggregationFunction(value = "approx_most_frequent_bigint$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "varbinary", decomposition = @Decomposition(partial = "approx_most_frequent_bigint$partial", output = "approx_most_frequent_bigint$merge"))
+    public static void intermediateOutput(@AggregationState State state, BlockBuilder out)
     {
-        ApproximateMostFrequentHistogram<Long> otherHistogram = otherState.get();
-
-        ApproximateMostFrequentHistogram<Long> histogram = state.get();
-        if (histogram == null) {
-            state.set(otherHistogram);
+        if (state.get() == null) {
+            out.appendNull();
         }
         else {
-            histogram.merge(otherHistogram);
+            VarbinaryType.VARBINARY.writeSlice(out, state.get().serialize());
         }
     }
 
     @SqlNullable
-    @OutputFunction("map(bigint,bigint)")
+    @OutputFunction(value = "map(bigint,bigint)", decomposition = @Decomposition(partial = "approx_most_frequent_bigint$partial", output = "approx_most_frequent_bigint$final"))
     public static void output(@AggregationState State state, BlockBuilder out)
     {
         if (state.get() == null) {

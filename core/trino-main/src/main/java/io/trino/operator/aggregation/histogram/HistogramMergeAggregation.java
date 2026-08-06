@@ -13,42 +13,48 @@
  */
 package io.trino.operator.aggregation.histogram;
 
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.Decomposition;
-import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.Type;
 
-@AggregationFunction("histogram")
-@Description("Count the number of times each value occurs")
-public final class Histogram
+import static io.trino.spi.type.BigintType.BIGINT;
+
+// merges histogram intermediates, which are maps from value to count
+@AggregationFunction(value = "histogram$merge", hidden = true)
+public final class HistogramMergeAggregation
 {
-    private Histogram() {}
+    private HistogramMergeAggregation() {}
 
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @TypeParameter("T") Type type,
             @AggregationState("T") HistogramState state,
-            @BlockPosition @SqlType("T") ValueBlock key,
-            @BlockIndex int position)
+            @SqlType("map(T, bigint)") SqlMap value)
     {
-        state.add(key, position, 1L);
+        int rawOffset = value.getRawOffset();
+        Block rawKeyBlock = value.getRawKeyBlock();
+        Block rawValueBlock = value.getRawValueBlock();
+
+        ValueBlock rawKeyValues = rawKeyBlock.getUnderlyingValueBlock();
+        for (int i = 0; i < value.getSize(); i++) {
+            long count = BIGINT.getLong(rawValueBlock, rawOffset + i);
+            state.add(rawKeyValues, rawKeyBlock.getUnderlyingValuePosition(rawOffset + i), count);
+        }
     }
 
     @SqlNullable
-    @OutputFunction(value = "map(T, BIGINT)", decomposition = @Decomposition(partial = "histogram", output = "histogram$merge"))
-    public static void output(@TypeParameter("T") Type type, @AggregationState("T") HistogramState state, BlockBuilder out)
+    @OutputFunction(value = "map(T, BIGINT)", decomposition = @Decomposition(partial = "histogram$merge", output = "histogram$merge"))
+    public static void output(@AggregationState("T") HistogramState state, BlockBuilder out)
     {
         state.writeAll((MapBlockBuilder) out);
     }
