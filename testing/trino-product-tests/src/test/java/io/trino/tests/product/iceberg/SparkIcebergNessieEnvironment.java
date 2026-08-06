@@ -28,6 +28,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
+
 /**
  * Spark/Iceberg with Nessie catalog product test environment.
  * <p>
@@ -143,10 +145,14 @@ public class SparkIcebergNessieEnvironment
     @Override
     public QueryResult executeSpark(String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);
@@ -162,9 +168,13 @@ public class SparkIcebergNessieEnvironment
     @Override
     public int executeSparkUpdate(String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement()) {
-            return stmt.executeUpdate(sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement()) {
+                    return stmt.executeUpdate(sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark update: " + sql, e);

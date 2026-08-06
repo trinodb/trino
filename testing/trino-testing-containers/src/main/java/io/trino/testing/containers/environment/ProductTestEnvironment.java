@@ -19,6 +19,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
+
 /**
  * Represents a product test environment consisting of Trino and supporting services.
  * <p>
@@ -136,8 +138,12 @@ public abstract class ProductTestEnvironment
      */
     public QueryResult executeTrino(String sql)
     {
-        try (Statement stmt = getTrinoSessionConnection().createStatement()) {
-            return executeTrinoStatement(stmt, sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Statement stmt = getTrinoSessionConnection().createStatement()) {
+                    return executeTrinoStatement(stmt, sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException(e.getMessage(), e);
@@ -153,9 +159,13 @@ public abstract class ProductTestEnvironment
      */
     public QueryResult executeTrino(String sql, String user)
     {
-        try (Connection conn = createTrinoConnection(user);
-                Statement stmt = conn.createStatement()) {
-            return executeTrinoStatement(stmt, sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createTrinoConnection(user);
+                        Statement stmt = conn.createStatement()) {
+                    return executeTrinoStatement(stmt, sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException(e.getMessage(), e);
@@ -172,8 +182,12 @@ public abstract class ProductTestEnvironment
      */
     public int executeTrinoUpdate(String sql)
     {
-        try (Statement stmt = getTrinoSessionConnection().createStatement()) {
-            return executeTrinoUpdateStatement(stmt, sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Statement stmt = getTrinoSessionConnection().createStatement()) {
+                    return executeTrinoUpdateStatement(stmt, sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException(e.getMessage(), e);
@@ -189,9 +203,13 @@ public abstract class ProductTestEnvironment
      */
     public int executeTrinoUpdate(String sql, String user)
     {
-        try (Connection conn = createTrinoConnection(user);
-                Statement stmt = conn.createStatement()) {
-            return executeTrinoUpdateStatement(stmt, sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createTrinoConnection(user);
+                        Statement stmt = conn.createStatement()) {
+                    return executeTrinoUpdateStatement(stmt, sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException(e.getMessage(), e);
@@ -314,15 +332,17 @@ public abstract class ProductTestEnvironment
         public QueryResult executeQuery(String sql)
                 throws SQLException
         {
-            try (ResultSet rs = statement.executeQuery(sql)) {
-                return QueryResult.forResultSet(rs);
-            }
+            return executeWithRetry(() -> {
+                try (ResultSet rs = statement.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
 
         public int executeUpdate(String sql)
                 throws SQLException
         {
-            return statement.executeUpdate(sql);
+            return executeWithRetry(() -> statement.executeUpdate(sql));
         }
 
         public Connection getConnection()
