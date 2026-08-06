@@ -197,14 +197,18 @@ public class TestAggregation
                     """
                     SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0), round(geometric_mean(orderkey), 6), round(skewness(orderkey), 6), round(kurtosis(orderkey), 6), bitwise_xor_agg(orderkey), checksum(orderkey), checksum(orderstatus),
                         cardinality(approx_set(orderkey)),
-                        cardinality(make_set_digest(orderkey)), tdigest_agg(orderkey) IS NOT NULL, qdigest_agg(orderkey) IS NOT NULL
+                        cardinality(make_set_digest(orderkey)), tdigest_agg(orderkey) IS NOT NULL, qdigest_agg(orderkey) IS NOT NULL,
+                        round(corr(orderkey, custkey), 6), round(covar_samp(orderkey, custkey), 0), round(covar_pop(orderkey, custkey), 0),
+                        round(regr_slope(orderkey, custkey), 6), round(regr_intercept(orderkey, custkey), 0)
                     FROM tpch.tiny.orders
                     """))
                     .matches(
                             """
                             SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0), round(geometric_mean(orderkey), 6), round(skewness(orderkey), 6), round(kurtosis(orderkey), 6), bitwise_xor_agg(orderkey), checksum(orderkey), checksum(orderstatus),
                                 cardinality(approx_set(orderkey)),
-                                cardinality(make_set_digest(orderkey)), tdigest_agg(orderkey) IS NOT NULL, qdigest_agg(orderkey) IS NOT NULL
+                                cardinality(make_set_digest(orderkey)), tdigest_agg(orderkey) IS NOT NULL, qdigest_agg(orderkey) IS NOT NULL,
+                                round(corr(orderkey, custkey), 6), round(covar_samp(orderkey, custkey), 0), round(covar_pop(orderkey, custkey), 0),
+                                round(regr_slope(orderkey, custkey), 6), round(regr_intercept(orderkey, custkey), 0)
                             FROM tpch.tiny.orders
                             """);
         }

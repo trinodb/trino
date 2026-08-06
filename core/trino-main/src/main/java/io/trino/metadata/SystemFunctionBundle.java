@@ -39,9 +39,11 @@ import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
 import io.trino.operator.aggregation.ChecksumAggregationFunction;
 import io.trino.operator.aggregation.ChecksumDecomposedAggregation;
+import io.trino.operator.aggregation.CorrelationDecomposedAggregation;
 import io.trino.operator.aggregation.CountAggregation;
 import io.trino.operator.aggregation.CountColumn;
 import io.trino.operator.aggregation.CountIfAggregation;
+import io.trino.operator.aggregation.CovarianceDecomposedAggregation;
 import io.trino.operator.aggregation.DecimalAverageAggregation;
 import io.trino.operator.aggregation.DecimalSumAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
@@ -82,6 +84,7 @@ import io.trino.operator.aggregation.RealGeometricMeanAggregations;
 import io.trino.operator.aggregation.RealHistogramAggregation;
 import io.trino.operator.aggregation.RealRegressionAggregation;
 import io.trino.operator.aggregation.RealSumAggregation;
+import io.trino.operator.aggregation.RegressionDecomposedAggregation;
 import io.trino.operator.aggregation.Sum0Aggregation;
 import io.trino.operator.aggregation.SumDataSizeForStats;
 import io.trino.operator.aggregation.TDigestAggregationFunction;
@@ -457,6 +460,9 @@ public final class SystemFunctionBundle
                 .aggregates(RealCovarianceAggregation.class)
                 .aggregates(DoubleRegressionAggregation.class)
                 .aggregates(RealRegressionAggregation.class)
+                .aggregates(CorrelationDecomposedAggregation.class)
+                .aggregates(CovarianceDecomposedAggregation.class)
+                .aggregates(RegressionDecomposedAggregation.class)
                 .aggregates(DoubleCorrelationAggregation.class)
                 .aggregates(RealCorrelationAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)

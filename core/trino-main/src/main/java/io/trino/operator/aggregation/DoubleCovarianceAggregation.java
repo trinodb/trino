@@ -17,7 +17,7 @@ import io.trino.operator.aggregation.state.CovarianceState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -37,15 +37,9 @@ public final class DoubleCovarianceAggregation
         state.update(independentValue, dependentValue);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState CovarianceState state, @AggregationState CovarianceState otherState)
-    {
-        state.merge(otherState);
-    }
-
     @AggregationFunction("covar_samp")
     @SqlNullable
-    @OutputFunction(StandardTypes.DOUBLE)
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "covariance$intermediate", output = "covar_samp$final"))
     public static void covarSamp(@AggregationState CovarianceState state, BlockBuilder out)
     {
         if (state.getCount() <= 1) {
@@ -59,7 +53,7 @@ public final class DoubleCovarianceAggregation
 
     @AggregationFunction("covar_pop")
     @SqlNullable
-    @OutputFunction(StandardTypes.DOUBLE)
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "covariance$intermediate", output = "covar_pop$final"))
     public static void covarPop(@AggregationState CovarianceState state, BlockBuilder out)
     {
         if (state.getCount() == 0) {
