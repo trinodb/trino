@@ -296,19 +296,25 @@ public abstract class BaseJdbcClient
         for (int column = 1; column <= metadata.getColumnCount(); column++) {
             // Use getColumnLabel method because query pass-through table function may contain column aliases
             String name = metadata.getColumnLabel(column);
-            JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
-                    metadata.getColumnType(column),
-                    Optional.ofNullable(metadata.getColumnTypeName(column)),
-                    Optional.of(metadata.getPrecision(column)),
-                    Optional.of(metadata.getScale(column)),
-                    Optional.empty(), // TODO support arrays
-                    Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
+            JdbcTypeHandle jdbcTypeHandle = getColumnTypeHandle(metadata, column);
             Type type = toColumnMapping(session, connection, jdbcTypeHandle)
                     .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
                     .getType();
             columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
         }
         return columns.build();
+    }
+
+    protected JdbcTypeHandle getColumnTypeHandle(ResultSetMetaData metadata, int column)
+            throws SQLException
+    {
+        return new JdbcTypeHandle(
+                metadata.getColumnType(column),
+                Optional.ofNullable(metadata.getColumnTypeName(column)),
+                Optional.of(metadata.getPrecision(column)),
+                Optional.of(metadata.getScale(column)),
+                Optional.empty(), // TODO support arrays
+                Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
     }
 
     @Override
@@ -365,6 +371,12 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected Optional<String> getColumnDefaultValue(ResultSet resultSet)
+            throws SQLException
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -462,6 +474,7 @@ public abstract class BaseJdbcClient
                         }
 
                         String columnName = resultSet.getString("COLUMN_NAME");
+                        // This code doesn't do getCaseSensitivityForColumns. However, this does not impact the ColumnMetadata returned.
                         JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                                 getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                                 Optional.ofNullable(resultSet.getString("TYPE_NAME")),
@@ -525,6 +538,19 @@ public abstract class BaseJdbcClient
             currentTableColumns = null;
             return currentTableMetadata;
         }
+    }
+
+    protected JdbcTypeHandle getColumnTypeHandle(ResultSet resultSet, Optional<CaseSensitivity> caseSensitivity)
+            throws SQLException
+    {
+        return new JdbcTypeHandle(
+                getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
+                Optional.ofNullable(resultSet.getString("TYPE_NAME")),
+                getInteger(resultSet, "COLUMN_SIZE"),
+                getInteger(resultSet, "DECIMAL_DIGITS"),
+                // arrayDimensions
+                Optional.<Integer>empty(),
+                caseSensitivity);
     }
 
     private static void cleanupSuppressing(Throwable inflight, CheckedRunnable cleanup)
@@ -1887,7 +1913,7 @@ public abstract class BaseJdbcClient
         return name;
     }
 
-    private static RemoteTableName getRemoteTable(ResultSet resultSet)
+    protected RemoteTableName getRemoteTable(ResultSet resultSet)
             throws SQLException
     {
         return new RemoteTableName(

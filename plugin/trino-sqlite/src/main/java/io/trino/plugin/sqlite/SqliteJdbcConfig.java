@@ -11,13 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.connector;
+package io.trino.plugin.sqlite;
 
-public enum ConnectorCapabilities
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import jakarta.validation.constraints.AssertTrue;
+import org.sqlite.JDBC;
+
+public class SqliteJdbcConfig
+        extends BaseJdbcConfig
 {
-    DEFAULT_COLUMN_VALUE,
-    NOT_NULL_COLUMN_CONSTRAINT,
-    MATERIALIZED_VIEW_GRACE_PERIOD,
-    MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR,
-    MIXED_CASE_IDENTIFIER_SUPPORTED,
+    @AssertTrue(message = "Invalid JDBC URL for Sqlite connector")
+    public boolean isUrlValid()
+    {
+        return new JDBC().acceptsURL(getConnectionUrl());
+    }
 }

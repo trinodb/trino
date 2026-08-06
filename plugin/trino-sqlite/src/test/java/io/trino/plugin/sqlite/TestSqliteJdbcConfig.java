@@ -11,13 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.connector;
+package io.trino.plugin.sqlite;
 
-public enum ConnectorCapabilities
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+final class TestSqliteJdbcConfig
 {
-    DEFAULT_COLUMN_VALUE,
-    NOT_NULL_COLUMN_CONSTRAINT,
-    MATERIALIZED_VIEW_GRACE_PERIOD,
-    MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR,
-    MIXED_CASE_IDENTIFIER_SUPPORTED,
+    @Test
+    void testIsUrlValid()
+    {
+        assertThat(isUrlValid("jdbc:sqlite:")).isTrue();
+        assertThat(isUrlValid("jdbc:notsqlite:")).isFalse();
+    }
+
+    private static boolean isUrlValid(String url)
+    {
+        SqliteJdbcConfig config = new SqliteJdbcConfig();
+        config.setConnectionUrl(url);
+        return config.isUrlValid();
+    }
 }
