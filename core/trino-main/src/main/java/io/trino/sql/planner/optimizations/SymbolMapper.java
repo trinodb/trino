@@ -20,6 +20,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PartitioningScheme;
@@ -168,8 +169,22 @@ public class SymbolMapper
                         .collect(toImmutableList());
 
                 Expression body = treeRewriter.rewrite(node.body(), context);
-                if (body != node.body()) {
+                if (!arguments.equals(node.arguments()) || body != node.body()) {
                     return new Lambda(arguments, body);
+                }
+
+                return node;
+            }
+
+            @Override
+            public Expression rewriteLet(Let node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                // The bound name is a binder and must be mapped like the references to it in the body.
+                Symbol name = map(node.name());
+                Expression value = treeRewriter.rewrite(node.value(), context);
+                Expression body = treeRewriter.rewrite(node.body(), context);
+                if (!name.equals(node.name()) || value != node.value() || body != node.body()) {
+                    return new Let(name, value, body);
                 }
 
                 return node;
@@ -343,38 +358,25 @@ public class SymbolMapper
 
     private ExpressionAndValuePointers map(ExpressionAndValuePointers expressionAndValuePointers)
     {
-        // Map only the input symbols of ValuePointers. These are the symbols produced by the source node.
-        // Other symbols present in the ExpressionAndValuePointers structure are synthetic unique symbols
-        // with no outer usage or dependencies.
+        // Map the input symbols of ValuePointers, which are produced by the source node. Assignment
+        // symbols are synthetic and only referenced by the expression, so both are left alone.
+        // Aggregation arguments go through map(Expression), which also renames references to the
+        // classifier and match-number symbols, so those fields are mapped alongside to stay
+        // consistent with the arguments.
         ImmutableList.Builder<ExpressionAndValuePointers.Assignment> newAssignments = ImmutableList.builder();
         for (ExpressionAndValuePointers.Assignment assignment : expressionAndValuePointers.getAssignments()) {
             ValuePointer newPointer = switch (assignment.valuePointer()) {
                 case ClassifierValuePointer pointer -> pointer;
                 case MatchNumberValuePointer pointer -> pointer;
                 case ScalarValuePointer pointer -> new ScalarValuePointer(pointer.getLogicalIndexPointer(), map(pointer.getInputSymbol()));
-                case AggregationValuePointer pointer -> {
-                    List<Expression> newArguments = pointer.getArguments().stream()
-                            .map(expression -> ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-                            {
-                                @Override
-                                public Expression rewriteReference(Reference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-                                {
-                                    if (pointer.getClassifierSymbol().isPresent() && Symbol.from(node).equals(pointer.getClassifierSymbol().get()) ||
-                                            pointer.getMatchNumberSymbol().isPresent() && Symbol.from(node).equals(pointer.getMatchNumberSymbol().get())) {
-                                        return node;
-                                    }
-                                    return map(node);
-                                }
-                            }, expression))
-                            .collect(toImmutableList());
-
-                    yield new AggregationValuePointer(
-                            pointer.getFunction(),
-                            pointer.getSetDescriptor(),
-                            newArguments,
-                            pointer.getClassifierSymbol(),
-                            pointer.getMatchNumberSymbol());
-                }
+                case AggregationValuePointer pointer -> new AggregationValuePointer(
+                        pointer.getFunction(),
+                        pointer.getSetDescriptor(),
+                        pointer.getArguments().stream()
+                                .map(this::map)
+                                .collect(toImmutableList()),
+                        pointer.getClassifierSymbol().map(this::map),
+                        pointer.getMatchNumberSymbol().map(this::map));
             };
 
             newAssignments.add(new ExpressionAndValuePointers.Assignment(assignment.symbol(), newPointer));
