@@ -16,7 +16,7 @@ package io.trino.plugin.geospatial.aggregation;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -62,27 +62,6 @@ public final class ConvexHullAggregation
         }
     }
 
-    @CombineFunction
-    public static void combine(
-            @AggregationState GeometryState state,
-            @AggregationState GeometryState otherState)
-    {
-        if (state.getGeometry() == null) {
-            state.setGeometry(otherState.getGeometry());
-        }
-        else if (otherState.getGeometry() != null) {
-            int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
-            if (!otherState.getGeometry().isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry()).convexHull();
-                result.setSRID(srid);
-                state.setGeometry(result);
-            }
-            else {
-                updateGeometrySrid(state, srid);
-            }
-        }
-    }
-
     private static void updateGeometrySrid(GeometryState state, int srid)
     {
         Geometry geometry = state.getGeometry();
@@ -96,7 +75,7 @@ public final class ConvexHullAggregation
     }
 
     @SqlNullable
-    @OutputFunction(StandardTypes.GEOMETRY)
+    @OutputFunction(value = StandardTypes.GEOMETRY, decomposition = @Decomposition(partial = "convex_hull_agg", output = "convex_hull_agg"))
     public static void output(@AggregationState GeometryState state, BlockBuilder out)
     {
         if (state.getGeometry() == null) {

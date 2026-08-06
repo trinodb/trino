@@ -386,7 +386,7 @@ public class TestGeometryUnionGeoAggregation
         GeometryState otherState = new GeometryStateFactory.SingleGeometryState();
         otherState.setGeometry(geometry("POINT EMPTY", 4326));
 
-        GeometryUnionAgg.combine(state, otherState);
+        GeometryUnionAgg.input(state, otherState.getGeometry());
 
         assertThat(state.getGeometry().getSRID()).isEqualTo(4326);
     }
