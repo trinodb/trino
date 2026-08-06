@@ -42,7 +42,7 @@ public final class DoubleSumAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "sum", output = "sum"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "sum"))
     public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
     {
         NullableDoubleState.write(DOUBLE, state, out);

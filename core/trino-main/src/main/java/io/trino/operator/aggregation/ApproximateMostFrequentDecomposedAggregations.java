@@ -57,7 +57,7 @@ public final class ApproximateMostFrequentDecomposedAggregations
 
         @AggregationFunction(value = "approx_most_frequent_bigint$merge", hidden = true)
         @SqlNullable
-        @OutputFunction(value = StandardTypes.VARBINARY, decomposition = @Decomposition(partial = "approx_most_frequent_bigint$merge", output = "approx_most_frequent_bigint$merge"))
+        @OutputFunction(value = StandardTypes.VARBINARY, decomposition = @Decomposition(partial = "approx_most_frequent_bigint$merge"))
         public static void intermediateOutput(@AggregationState BigintApproximateMostFrequent.State state, BlockBuilder out)
         {
             if (state.get() == null) {
@@ -109,7 +109,7 @@ public final class ApproximateMostFrequentDecomposedAggregations
 
         @AggregationFunction(value = "approx_most_frequent_varchar$merge", hidden = true)
         @SqlNullable
-        @OutputFunction(value = StandardTypes.VARBINARY, decomposition = @Decomposition(partial = "approx_most_frequent_varchar$merge", output = "approx_most_frequent_varchar$merge"))
+        @OutputFunction(value = StandardTypes.VARBINARY, decomposition = @Decomposition(partial = "approx_most_frequent_varchar$merge"))
         public static void intermediateOutput(@AggregationState VarcharApproximateMostFrequent.State state, BlockBuilder out)
         {
             if (state.get() == null) {

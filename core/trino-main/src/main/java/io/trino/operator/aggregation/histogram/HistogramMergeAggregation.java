@@ -53,7 +53,7 @@ public final class HistogramMergeAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = "map(T, BIGINT)", decomposition = @Decomposition(partial = "histogram$merge", output = "histogram$merge"))
+    @OutputFunction(value = "map(T, BIGINT)", decomposition = @Decomposition(partial = "histogram$merge"))
     public static void output(@AggregationState("T") HistogramState state, BlockBuilder out)
     {
         state.writeAll((MapBlockBuilder) out);

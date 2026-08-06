@@ -40,7 +40,7 @@ public final class Sum0Aggregation
         state.setValue(state.getValue() + value);
     }
 
-    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "$sum0", output = "$sum0"))
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "$sum0"))
     public static void intermediateOutput(@AggregationState LongState state, BlockBuilder out)
     {
         BIGINT.writeLong(out, state.getValue());

@@ -80,7 +80,7 @@ public final class NumericHistogramDecomposedAggregation
 
     @AggregationFunction(value = "numeric_histogram$intermediate", hidden = true)
     @SqlNullable
-    @OutputFunction(value = StandardTypes.VARBINARY, decomposition = @Decomposition(partial = "numeric_histogram$intermediate", output = "numeric_histogram$intermediate"))
+    @OutputFunction(value = StandardTypes.VARBINARY, decomposition = @Decomposition(partial = "numeric_histogram$intermediate"))
     public static void intermediateOutput(@AggregationState DoubleHistogramAggregation.State state, BlockBuilder out)
     {
         if (state.get() == null) {

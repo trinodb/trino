@@ -71,7 +71,7 @@ public final class CovarianceDecomposedAggregation
     }
 
     @AggregationFunction(value = "covariance$intermediate", hidden = true)
-    @OutputFunction(value = "row(c2 double, count bigint, mean_x double, mean_y double)", decomposition = @Decomposition(partial = "covariance$intermediate", output = "covariance$intermediate"))
+    @OutputFunction(value = "row(c2 double, count bigint, mean_x double, mean_y double)", decomposition = @Decomposition(partial = "covariance$intermediate"))
     public static void intermediateOutput(@AggregationState CovarianceState state, BlockBuilder out)
     {
         ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {

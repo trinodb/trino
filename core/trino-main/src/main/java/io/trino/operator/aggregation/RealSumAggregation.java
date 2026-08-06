@@ -79,7 +79,7 @@ public final class RealSumAggregation
 
         @AggregationFunction(value = "sum_real$intermediate", hidden = true)
         @SqlNullable
-        @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "sum_real$intermediate", output = "sum_real$intermediate"))
+        @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "sum_real$intermediate"))
         public static void intermediateOutput(@AggregationState NullableDoubleState state, BlockBuilder out)
         {
             if (state.isNull()) {

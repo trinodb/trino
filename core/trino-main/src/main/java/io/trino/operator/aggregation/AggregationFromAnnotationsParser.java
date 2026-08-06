@@ -223,12 +223,13 @@ public final class AggregationFromAnnotationsParser
     private static Optional<AggregationDecomposition> parseDecomposition(AnnotatedElement outputFunction)
     {
         Decomposition decomposition = requireNonNull(outputFunction.getAnnotation(OutputFunction.class), "OutputFunction is not present").decomposition();
-        if (decomposition.partial().isEmpty() && decomposition.output().isEmpty()) {
+        if (decomposition.partial().isEmpty()) {
+            checkArgument(decomposition.output().isEmpty(), "Decomposition output requires a partial function");
             return Optional.empty();
         }
         return Optional.of(new AggregationDecomposition(
                 decomposition.partial(),
-                decomposition.output(),
+                decomposition.output().isEmpty() ? decomposition.partial() : decomposition.output(),
                 Arrays.stream(decomposition.subsumes())
                         .map(subsumed -> new AggregationDecomposition.SubsumedFunction(subsumed.function(), subsumed.output()))
                         .collect(toImmutableList())));

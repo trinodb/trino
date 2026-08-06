@@ -78,7 +78,7 @@ public final class MergeQuantileDigestFunction
     }
 
     @SqlNullable
-    @OutputFunction(value = "qdigest(V)", decomposition = @Decomposition(partial = "merge", output = "merge"))
+    @OutputFunction(value = "qdigest(V)", decomposition = @Decomposition(partial = "merge"))
     public static void output(
             @TypeParameter("qdigest(V)") Type type,
             @AggregationState QuantileDigestState state,

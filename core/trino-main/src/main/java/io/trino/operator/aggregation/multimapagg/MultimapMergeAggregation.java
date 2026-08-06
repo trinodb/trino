@@ -58,7 +58,7 @@ public final class MultimapMergeAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = "map(K, array(V))", decomposition = @Decomposition(partial = "multimap_agg$merge", output = "multimap_agg$merge"))
+    @OutputFunction(value = "map(K, array(V))", decomposition = @Decomposition(partial = "multimap_agg$merge"))
     public static void output(@AggregationState({"K", "V"}) MultimapAggregationState state, BlockBuilder out)
     {
         state.writeAll((MapBlockBuilder) out);

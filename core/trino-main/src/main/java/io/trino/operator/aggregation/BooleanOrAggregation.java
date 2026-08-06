@@ -50,7 +50,7 @@ public final class BooleanOrAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.BOOLEAN, decomposition = @Decomposition(partial = "bool_or", output = "bool_or"))
+    @OutputFunction(value = StandardTypes.BOOLEAN, decomposition = @Decomposition(partial = "bool_or"))
     public static void output(@AggregationState TriStateBooleanState state, BlockBuilder out)
     {
         TriStateBooleanState.write(BooleanType.BOOLEAN, state, out);

@@ -57,7 +57,7 @@ public final class MergeHyperLogLogAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.HYPER_LOG_LOG, decomposition = @Decomposition(partial = "merge", output = "merge"))
+    @OutputFunction(value = StandardTypes.HYPER_LOG_LOG, decomposition = @Decomposition(partial = "merge"))
     public static void output(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
         serializer.serialize(state, out);

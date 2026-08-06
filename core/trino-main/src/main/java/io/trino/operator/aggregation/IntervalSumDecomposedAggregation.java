@@ -45,7 +45,7 @@ public final class IntervalSumDecomposedAggregation
 
     @AggregationFunction(value = "sum_interval$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "sum_interval$merge", output = "sum_interval$merge"))
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "sum_interval$merge"))
     public static void intermediateOutput(@AggregationState NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(BIGINT, state, out);

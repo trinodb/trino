@@ -71,7 +71,7 @@ public final class GeometryUnionAgg
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.GEOMETRY, decomposition = @Decomposition(partial = "geometry_union_agg", output = "geometry_union_agg"))
+    @OutputFunction(value = StandardTypes.GEOMETRY, decomposition = @Decomposition(partial = "geometry_union_agg"))
     public static void output(@AggregationState GeometryState state, BlockBuilder out)
     {
         if (state.getGeometry() == null) {

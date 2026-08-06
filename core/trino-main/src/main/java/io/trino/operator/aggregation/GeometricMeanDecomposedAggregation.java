@@ -77,7 +77,7 @@ public final class GeometricMeanDecomposedAggregation
     }
 
     @AggregationFunction(value = "geometric_mean$intermediate", hidden = true)
-    @OutputFunction(value = "row(sum double, count bigint)", decomposition = @Decomposition(partial = "geometric_mean$intermediate", output = "geometric_mean$intermediate"))
+    @OutputFunction(value = "row(sum double, count bigint)", decomposition = @Decomposition(partial = "geometric_mean$intermediate"))
     public static void intermediateOutput(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
         ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {

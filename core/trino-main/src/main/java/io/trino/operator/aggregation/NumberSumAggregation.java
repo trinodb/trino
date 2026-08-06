@@ -44,7 +44,7 @@ public final class NumberSumAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.NUMBER, decomposition = @Decomposition(partial = "sum", output = "sum"))
+    @OutputFunction(value = StandardTypes.NUMBER, decomposition = @Decomposition(partial = "sum"))
     public static void output(NumberState state, BlockBuilder out)
     {
         if (state.getValue() == null) {

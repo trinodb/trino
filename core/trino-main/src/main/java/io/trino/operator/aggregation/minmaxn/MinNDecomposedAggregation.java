@@ -41,7 +41,7 @@ public final class MinNDecomposedAggregation
 
     @AggregationFunction(value = "min_n$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "row(bigint, array(E))", decomposition = @Decomposition(partial = "min_n$merge", output = "min_n$merge"))
+    @OutputFunction(value = "row(bigint, array(E))", decomposition = @Decomposition(partial = "min_n$merge"))
     public static void intermediateOutput(@AggregationState("E") MinNState state, BlockBuilder out)
     {
         state.serialize(out);

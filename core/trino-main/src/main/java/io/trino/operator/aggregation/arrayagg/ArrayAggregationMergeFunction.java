@@ -45,7 +45,7 @@ public final class ArrayAggregationMergeFunction
     }
 
     @SqlNullable
-    @OutputFunction(value = "array(T)", decomposition = @Decomposition(partial = "array_agg$merge", output = "array_agg$merge"))
+    @OutputFunction(value = "array(T)", decomposition = @Decomposition(partial = "array_agg$merge"))
     public static void output(
             @AggregationState("T") ArrayAggregationState state,
             BlockBuilder out)

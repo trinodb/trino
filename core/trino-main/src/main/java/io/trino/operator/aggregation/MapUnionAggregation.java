@@ -55,7 +55,7 @@ public final class MapUnionAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = "map(K, V)", decomposition = @Decomposition(partial = "map_union", output = "map_union"))
+    @OutputFunction(value = "map(K, V)", decomposition = @Decomposition(partial = "map_union"))
     public static void output(@AggregationState({"K", "V"}) MapAggregationState state, BlockBuilder out)
     {
         state.writeAll((MapBlockBuilder) out);

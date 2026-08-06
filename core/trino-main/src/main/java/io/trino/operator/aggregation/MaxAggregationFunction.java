@@ -62,7 +62,7 @@ public final class MaxAggregationFunction
     }
 
     @SqlNullable
-    @OutputFunction(value = "T", decomposition = @Decomposition(partial = "max", output = "max"))
+    @OutputFunction(value = "T", decomposition = @Decomposition(partial = "max"))
     public static void output(@AggregationState("T") InOut state, BlockBuilder out)
     {
         state.get(out);

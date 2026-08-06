@@ -70,7 +70,7 @@ public final class MaxByDecomposedAggregation
 
     @AggregationFunction(value = "max_by$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "row(K, V)", decomposition = @Decomposition(partial = "max_by$merge", output = "max_by$merge"))
+    @OutputFunction(value = "row(K, V)", decomposition = @Decomposition(partial = "max_by$merge"))
     public static void intermediateOutput(
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,

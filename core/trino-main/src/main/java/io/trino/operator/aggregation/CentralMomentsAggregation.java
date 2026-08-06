@@ -70,7 +70,7 @@ public final class CentralMomentsAggregation
     }
 
     @AggregationFunction(value = "central_moments$intermediate", hidden = true)
-    @OutputFunction(value = "row(count bigint, m1 double, m2 double, m3 double, m4 double)", decomposition = @Decomposition(partial = "central_moments$intermediate", output = "central_moments$intermediate"))
+    @OutputFunction(value = "row(count bigint, m1 double, m2 double, m3 double, m4 double)", decomposition = @Decomposition(partial = "central_moments$intermediate"))
     public static void intermediateOutput(@AggregationState CentralMomentsState state, BlockBuilder out)
     {
         ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {

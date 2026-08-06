@@ -58,7 +58,7 @@ public final class MergeTDigestAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.TDIGEST, decomposition = @Decomposition(partial = "merge", output = "merge"))
+    @OutputFunction(value = StandardTypes.TDIGEST, decomposition = @Decomposition(partial = "merge"))
     public static void output(@AggregationState TDigestState state, BlockBuilder out)
     {
         serializer.serialize(state, out);

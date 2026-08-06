@@ -48,7 +48,7 @@ public final class ArbitraryAggregationFunction
     }
 
     @SqlNullable
-    @OutputFunction(value = "T", decomposition = @Decomposition(partial = "any_value", output = "any_value"))
+    @OutputFunction(value = "T", decomposition = @Decomposition(partial = "any_value"))
     public static void output(@AggregationState("T") InOut state, BlockBuilder out)
     {
         state.get(out);

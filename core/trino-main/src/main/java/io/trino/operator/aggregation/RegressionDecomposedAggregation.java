@@ -72,7 +72,7 @@ public final class RegressionDecomposedAggregation
     }
 
     @AggregationFunction(value = "regression$intermediate", hidden = true)
-    @OutputFunction(value = "row(c2 double, count bigint, m2_x double, mean_x double, mean_y double)", decomposition = @Decomposition(partial = "regression$intermediate", output = "regression$intermediate"))
+    @OutputFunction(value = "row(c2 double, count bigint, m2_x double, mean_x double, mean_y double)", decomposition = @Decomposition(partial = "regression$intermediate"))
     public static void intermediateOutput(@AggregationState RegressionState state, BlockBuilder out)
     {
         ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {

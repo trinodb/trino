@@ -73,7 +73,7 @@ public final class CorrelationDecomposedAggregation
     }
 
     @AggregationFunction(value = "corr$intermediate", hidden = true)
-    @OutputFunction(value = "row(c2 double, count bigint, m2_x double, m2_y double, mean_x double, mean_y double)", decomposition = @Decomposition(partial = "corr$intermediate", output = "corr$intermediate"))
+    @OutputFunction(value = "row(c2 double, count bigint, m2_x double, m2_y double, mean_x double, mean_y double)", decomposition = @Decomposition(partial = "corr$intermediate"))
     public static void intermediateOutput(@AggregationState CorrelationState state, BlockBuilder out)
     {
         ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {

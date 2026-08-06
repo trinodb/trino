@@ -44,7 +44,7 @@ public final class BitwiseOrAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "bitwise_or_agg", output = "bitwise_or_agg"))
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "bitwise_or_agg"))
     public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(BigintType.BIGINT, state, out);

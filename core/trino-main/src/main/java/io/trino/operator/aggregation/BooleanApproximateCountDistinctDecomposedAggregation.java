@@ -39,7 +39,7 @@ public final class BooleanApproximateCountDistinctDecomposedAggregation
     }
 
     @AggregationFunction(value = "approx_distinct_boolean$merge", hidden = true)
-    @OutputFunction(value = StandardTypes.TINYINT, decomposition = @Decomposition(partial = "approx_distinct_boolean$merge", output = "approx_distinct_boolean$merge"))
+    @OutputFunction(value = StandardTypes.TINYINT, decomposition = @Decomposition(partial = "approx_distinct_boolean$merge"))
     public static void intermediateOutput(@AggregationState BooleanDistinctState state, BlockBuilder out)
     {
         TINYINT.writeByte(out, state.getByte());

@@ -43,7 +43,7 @@ public final class BigintSumAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "sum", output = "sum"))
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "sum"))
     public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(BIGINT, state, out);

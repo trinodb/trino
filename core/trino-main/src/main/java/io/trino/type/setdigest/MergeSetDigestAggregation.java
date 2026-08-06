@@ -49,7 +49,7 @@ public final class MergeSetDigestAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.SET_DIGEST, decomposition = @Decomposition(partial = "merge_set_digest", output = "merge_set_digest"))
+    @OutputFunction(value = StandardTypes.SET_DIGEST, decomposition = @Decomposition(partial = "merge_set_digest"))
     public static void output(SetDigestState state, BlockBuilder out)
     {
         if (state.getDigest() == null) {

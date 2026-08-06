@@ -29,7 +29,8 @@ public @interface Decomposition
 {
     String partial();
 
-    String output();
+    /// Defaults to the partial function, for functions that merge their own intermediate state.
+    String output() default "";
 
     Subsumed[] subsumes() default {};
 }

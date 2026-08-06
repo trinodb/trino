@@ -38,7 +38,7 @@ public final class MaxDataSizeForStatsMergeAggregation
         state.setValue(max(state.getValue(), value));
     }
 
-    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "$internal$max_data_size_for_stats$merge", output = "$internal$max_data_size_for_stats$merge"))
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "$internal$max_data_size_for_stats$merge"))
     public static void output(@AggregationState LongState state, BlockBuilder out)
     {
         BigintType.BIGINT.writeLong(out, state.getValue());

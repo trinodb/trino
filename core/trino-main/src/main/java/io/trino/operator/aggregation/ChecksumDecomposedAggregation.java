@@ -46,7 +46,7 @@ public final class ChecksumDecomposedAggregation
 
     @AggregationFunction(value = "checksum$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "checksum$merge", output = "checksum$merge"))
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "checksum$merge"))
     public static void intermediateOutput(@AggregationState NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(BIGINT, state, out);

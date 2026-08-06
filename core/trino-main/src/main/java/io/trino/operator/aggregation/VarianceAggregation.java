@@ -67,7 +67,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction(value = "variance$intermediate", hidden = true)
-    @OutputFunction(value = "row(count bigint, m2 double, mean double)", decomposition = @Decomposition(partial = "variance$intermediate", output = "variance$intermediate"))
+    @OutputFunction(value = "row(count bigint, m2 double, mean double)", decomposition = @Decomposition(partial = "variance$intermediate"))
     public static void intermediateOutput(@AggregationState VarianceState state, BlockBuilder out)
     {
         ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {

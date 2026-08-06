@@ -41,7 +41,7 @@ public final class MaxNDecomposedAggregation
 
     @AggregationFunction(value = "max_n$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "row(bigint, array(E))", decomposition = @Decomposition(partial = "max_n$merge", output = "max_n$merge"))
+    @OutputFunction(value = "row(bigint, array(E))", decomposition = @Decomposition(partial = "max_n$merge"))
     public static void intermediateOutput(@AggregationState("E") MaxNState state, BlockBuilder out)
     {
         state.serialize(out);

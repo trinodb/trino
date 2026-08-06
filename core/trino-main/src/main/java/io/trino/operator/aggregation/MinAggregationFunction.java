@@ -62,7 +62,7 @@ public final class MinAggregationFunction
     }
 
     @SqlNullable
-    @OutputFunction(value = "T", decomposition = @Decomposition(partial = "min", output = "min"))
+    @OutputFunction(value = "T", decomposition = @Decomposition(partial = "min"))
     public static void output(@AggregationState("T") InOut state, BlockBuilder out)
     {
         state.get(out);

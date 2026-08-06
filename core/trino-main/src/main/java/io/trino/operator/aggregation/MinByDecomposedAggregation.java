@@ -70,7 +70,7 @@ public final class MinByDecomposedAggregation
 
     @AggregationFunction(value = "min_by$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "row(K, V)", decomposition = @Decomposition(partial = "min_by$merge", output = "min_by$merge"))
+    @OutputFunction(value = "row(K, V)", decomposition = @Decomposition(partial = "min_by$merge"))
     public static void intermediateOutput(
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,

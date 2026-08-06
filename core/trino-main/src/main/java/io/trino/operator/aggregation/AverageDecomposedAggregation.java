@@ -94,7 +94,7 @@ public final class AverageDecomposedAggregation
     }
 
     @AggregationFunction(value = "avg$intermediate", hidden = true)
-    @OutputFunction(value = "row(sum double, count bigint)", decomposition = @Decomposition(partial = "avg$intermediate", output = "avg$intermediate"))
+    @OutputFunction(value = "row(sum double, count bigint)", decomposition = @Decomposition(partial = "avg$intermediate"))
     public static void intermediateOutput(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
         ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {

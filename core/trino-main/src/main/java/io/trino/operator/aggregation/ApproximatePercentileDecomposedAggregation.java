@@ -106,7 +106,7 @@ public final class ApproximatePercentileDecomposedAggregation
 
     @AggregationFunction(value = "approx_percentile$intermediate", hidden = true)
     @SqlNullable
-    @OutputFunction(value = StandardTypes.VARBINARY, decomposition = @Decomposition(partial = "approx_percentile$intermediate", output = "approx_percentile$intermediate"))
+    @OutputFunction(value = StandardTypes.VARBINARY, decomposition = @Decomposition(partial = "approx_percentile$intermediate"))
     public static void intermediateOutput(@AggregationState TDigestAndPercentileState state, BlockBuilder out)
     {
         SERIALIZER.serialize(state, out);

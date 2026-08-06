@@ -75,7 +75,7 @@ public final class ConvexHullAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.GEOMETRY, decomposition = @Decomposition(partial = "convex_hull_agg", output = "convex_hull_agg"))
+    @OutputFunction(value = StandardTypes.GEOMETRY, decomposition = @Decomposition(partial = "convex_hull_agg"))
     public static void output(@AggregationState GeometryState state, BlockBuilder out)
     {
         if (state.getGeometry() == null) {
