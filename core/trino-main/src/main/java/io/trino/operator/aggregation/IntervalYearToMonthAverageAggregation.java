@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.LongAndDoubleState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -38,15 +38,8 @@ public final class IntervalYearToMonthAverageAggregation
         state.setDouble(state.getDouble() + value);
     }
 
-    @CombineFunction
-    public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
-    {
-        state.setLong(state.getLong() + otherState.getLong());
-        state.setDouble(state.getDouble() + otherState.getDouble());
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.INTERVAL_YEAR_TO_MONTH)
+    @OutputFunction(value = StandardTypes.INTERVAL_YEAR_TO_MONTH, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_interval_year_to_month$final"))
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

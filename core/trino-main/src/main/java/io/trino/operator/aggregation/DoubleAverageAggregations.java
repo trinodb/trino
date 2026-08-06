@@ -18,7 +18,7 @@ import io.trino.operator.aggregation.state.LongAndDoubleState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -41,15 +41,8 @@ public final class DoubleAverageAggregations
         state.setDouble(state.getDouble() + value);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState LongAndDoubleState state, @AggregationState LongAndDoubleState otherState)
-    {
-        state.setLong(state.getLong() + otherState.getLong());
-        state.setDouble(state.getDouble() + otherState.getDouble());
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.DOUBLE)
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg$final"))
     public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

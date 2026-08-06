@@ -25,6 +25,7 @@ import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateSetAggregation;
 import io.trino.operator.aggregation.ApproximateSetGenericAggregation;
 import io.trino.operator.aggregation.ArbitraryAggregationFunction;
+import io.trino.operator.aggregation.AverageDecomposedAggregation;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BigintAverageAggregations;
 import io.trino.operator.aggregation.BigintSumAggregation;
@@ -429,6 +430,7 @@ public final class SystemFunctionBundle
                 .aggregates(NumberSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
+                .aggregates(AverageDecomposedAggregation.class)
                 .aggregates(BigintAverageAggregations.class)
                 .aggregates(DoubleAverageAggregations.class)
                 .aggregates(RealAverageAggregation.class)

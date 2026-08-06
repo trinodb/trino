@@ -14,12 +14,11 @@
 package io.trino.operator.aggregation;
 
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.operator.aggregation.state.DoubleState;
-import io.trino.operator.aggregation.state.LongState;
+import io.trino.operator.aggregation.state.LongAndDoubleState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -39,38 +38,22 @@ public final class RealAverageAggregation
     private RealAverageAggregation() {}
 
     @InputFunction
-    public static void input(
-            @AggregationState LongState count,
-            @AggregationState DoubleState sum,
-            @SqlType("REAL") long value)
+    public static void input(@AggregationState LongAndDoubleState state, @SqlType("REAL") long value)
     {
-        count.setValue(count.getValue() + 1);
-        sum.setValue(sum.getValue() + intBitsToFloat((int) value));
-    }
-
-    @CombineFunction
-    public static void combine(
-            @AggregationState LongState count,
-            @AggregationState DoubleState sum,
-            @AggregationState LongState otherCount,
-            @AggregationState DoubleState otherSum)
-    {
-        count.setValue(count.getValue() + otherCount.getValue());
-        sum.setValue(sum.getValue() + otherSum.getValue());
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + intBitsToFloat((int) value));
     }
 
     @SqlNullable
-    @OutputFunction("REAL")
-    public static void output(
-            @AggregationState LongState count,
-            @AggregationState DoubleState sum,
-            BlockBuilder out)
+    @OutputFunction(value = "REAL", decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_real$final"))
+    public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
-        if (count.getValue() == 0) {
+        long count = state.getLong();
+        if (count == 0) {
             out.appendNull();
         }
         else {
-            REAL.writeLong(out, toReal((float) (sum.getValue() / count.getValue())));
+            REAL.writeLong(out, toReal((float) (state.getDouble() / count)));
         }
     }
 

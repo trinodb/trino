@@ -157,7 +157,7 @@ public class TestAggregation
         // intermediate aggregation kept above the join must be re-resolved over the intermediate type
         assertThat(assertions.query(session,
                 """
-                SELECT d.year, variance(f.amount), var_pop(f.amount), count(f.amount), sum(f.amount)
+                SELECT d.year, variance(f.amount), var_pop(f.amount), count(f.amount), sum(f.amount), avg(f.amount)
                 FROM (VALUES
                     (1, 1e0),
                     (1, 1e0),
@@ -175,8 +175,8 @@ public class TestAggregation
                 .matches(
                         """
                         VALUES
-                            (10, 4e0, 3e0, BIGINT '4', 8e0),
-                            (20, 16e0, 12e0, BIGINT '4', 16e0)
+                            (10, 4e0, 3e0, BIGINT '4', 8e0, 2e0),
+                            (20, 16e0, 12e0, BIGINT '4', 16e0, 4e0)
                         """);
     }
 
@@ -195,12 +195,12 @@ public class TestAggregation
             // declared decomposition must be re-resolved over the intermediate type
             assertThat(tpchAssertions.query(session,
                     """
-                    SELECT count(orderkey), sum(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0)
+                    SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0)
                     FROM tpch.tiny.orders
                     """))
                     .matches(
                             """
-                            SELECT count(orderkey), sum(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0)
+                            SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0)
                             FROM tpch.tiny.orders
                             """);
         }

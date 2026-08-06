@@ -271,7 +271,8 @@ public class TestPushPartialAggregationThroughJoin
                 .matches(
                         aggregation(
                                 singleGroupingSet("DATE_DIM_YEAR"),
-                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("AVG"))),
+                                // avg has a declared decomposition, so the intermediate aggregation uses its declared output function
+                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg$final", ImmutableList.of("AVG"))),
                                 Optional.empty(),
                                 INTERMEDIATE,
                                 project(ImmutableMap.of(
