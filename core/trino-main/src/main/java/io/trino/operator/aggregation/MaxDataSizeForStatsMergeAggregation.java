@@ -15,40 +15,30 @@ package io.trino.operator.aggregation;
 
 import io.trino.operator.aggregation.state.LongState;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
-import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.StandardTypes;
 
-@AggregationFunction(value = SumDataSizeForStats.NAME, hidden = true)
-public final class SumDataSizeForStats
-{
-    public static final String NAME = "$internal$sum_data_size_for_stats";
+import static java.lang.Math.max;
 
-    private SumDataSizeForStats() {}
+// merges $internal$max_data_size_for_stats partial results, preserving the 0 result on empty input
+@AggregationFunction(value = "$internal$max_data_size_for_stats$merge", hidden = true)
+public final class MaxDataSizeForStatsMergeAggregation
+{
+    private MaxDataSizeForStatsMergeAggregation() {}
 
     @InputFunction
-    @TypeParameter("T")
-    public static void input(@AggregationState LongState state, @SqlNullable @BlockPosition @SqlType("T") ValueBlock block, @BlockIndex int index)
+    public static void input(@AggregationState LongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        update(state, block.getEstimatedDataSizeForStats(index));
+        state.setValue(max(state.getValue(), value));
     }
 
-    private static void update(LongState state, long size)
-    {
-        state.setValue(state.getValue() + size);
-    }
-
-    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = SumDataSizeForStats.NAME, output = "$sum0"))
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "$internal$max_data_size_for_stats$merge", output = "$internal$max_data_size_for_stats$merge"))
     public static void output(@AggregationState LongState state, BlockBuilder out)
     {
         BigintType.BIGINT.writeLong(out, state.getValue());

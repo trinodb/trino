@@ -72,6 +72,7 @@ import io.trino.operator.aggregation.MapUnionAggregation;
 import io.trino.operator.aggregation.MaxAggregationFunction;
 import io.trino.operator.aggregation.MaxByAggregationFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
+import io.trino.operator.aggregation.MaxDataSizeForStatsMergeAggregation;
 import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
 import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
@@ -422,6 +423,7 @@ public final class SystemFunctionBundle
                 .aggregates(BooleanDefaultApproximateCountDistinctAggregation.class)
                 .aggregates(SumDataSizeForStats.class)
                 .aggregates(MaxDataSizeForStats.class)
+                .aggregates(MaxDataSizeForStatsMergeAggregation.class)
                 .aggregates(CountAggregation.class)
                 .aggregates(Sum0Aggregation.class)
                 .aggregates(VarianceAggregation.class)
