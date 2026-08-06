@@ -86,6 +86,13 @@ public final class GeometricMeanDecomposedAggregation
         });
     }
 
+    @AggregationFunction(value = "geometric_mean_count$final", hidden = true)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "geometric_mean$intermediate", output = "geometric_mean_count$final"))
+    public static void countOutput(@AggregationState LongAndDoubleState state, BlockBuilder out)
+    {
+        BIGINT.writeLong(out, state.getLong());
+    }
+
     @AggregationFunction(value = "geometric_mean$final", hidden = true)
     @SqlNullable
     @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "geometric_mean$intermediate", output = "geometric_mean$final"))

@@ -22,6 +22,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -46,7 +47,7 @@ public final class GeometricMeanAggregations
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "geometric_mean$intermediate", output = "geometric_mean$final"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "geometric_mean$intermediate", output = "geometric_mean$final", subsumes = @Subsumed(function = "count", output = "geometric_mean_count$final")))
     public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

@@ -28,6 +28,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -81,10 +82,17 @@ public final class CentralMomentsAggregation
         });
     }
 
+    @AggregationFunction(value = "central_moments_count$final", hidden = true)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "central_moments$intermediate", output = "central_moments_count$final"))
+    public static void countOutput(@AggregationState CentralMomentsState state, BlockBuilder out)
+    {
+        BIGINT.writeLong(out, state.getCount());
+    }
+
     @AggregationFunction("skewness")
     @Description("Returns the skewness of the argument")
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "central_moments$intermediate", output = "skewness"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "central_moments$intermediate", output = "skewness", subsumes = @Subsumed(function = "count", output = "central_moments_count$final")))
     public static void skewness(@AggregationState CentralMomentsState state, BlockBuilder out)
     {
         long n = state.getCount();
@@ -101,7 +109,7 @@ public final class CentralMomentsAggregation
     @AggregationFunction("kurtosis")
     @Description("Returns the (excess) kurtosis of the argument")
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "central_moments$intermediate", output = "kurtosis"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "central_moments$intermediate", output = "kurtosis", subsumes = @Subsumed(function = "count", output = "central_moments_count$final")))
     public static void kurtosis(@AggregationState CentralMomentsState state, BlockBuilder out)
     {
         double n = state.getCount();

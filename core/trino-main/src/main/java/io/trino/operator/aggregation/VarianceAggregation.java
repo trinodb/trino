@@ -28,6 +28,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -76,10 +77,17 @@ public final class VarianceAggregation
         });
     }
 
+    @AggregationFunction(value = "variance_count$final", hidden = true)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "variance$intermediate", output = "variance_count$final"))
+    public static void countOutput(@AggregationState VarianceState state, BlockBuilder out)
+    {
+        BIGINT.writeLong(out, state.getCount());
+    }
+
     @AggregationFunction(value = "variance", alias = "var_samp")
     @Description("Returns the sample variance of the argument")
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "variance$intermediate", output = "variance"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "variance$intermediate", output = "variance", subsumes = @Subsumed(function = "count", output = "variance_count$final")))
     public static void variance(@AggregationState VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -96,7 +104,7 @@ public final class VarianceAggregation
     @AggregationFunction("var_pop")
     @Description("Returns the population variance of the argument")
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "variance$intermediate", output = "var_pop"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "variance$intermediate", output = "var_pop", subsumes = @Subsumed(function = "count", output = "variance_count$final")))
     public static void variancePop(@AggregationState VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -113,7 +121,7 @@ public final class VarianceAggregation
     @AggregationFunction(value = "stddev", alias = "stddev_samp")
     @Description("Returns the sample standard deviation of the argument")
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "variance$intermediate", output = "stddev"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "variance$intermediate", output = "stddev", subsumes = @Subsumed(function = "count", output = "variance_count$final")))
     public static void stddev(@AggregationState VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
@@ -131,7 +139,7 @@ public final class VarianceAggregation
     @AggregationFunction("stddev_pop")
     @Description("Returns the population standard deviation of the argument")
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "variance$intermediate", output = "stddev_pop"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "variance$intermediate", output = "stddev_pop", subsumes = @Subsumed(function = "count", output = "variance_count$final")))
     public static void stddevPop(@AggregationState VarianceState state, BlockBuilder out)
     {
         long count = state.getCount();
