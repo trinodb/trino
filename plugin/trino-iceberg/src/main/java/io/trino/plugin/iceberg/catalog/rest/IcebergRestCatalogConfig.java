@@ -52,12 +52,19 @@ public class IcebergRestCatalogConfig
         USER,
     }
 
+    public enum SnapshotLoadingMode
+    {
+        ALL,
+        REFS,
+    }
+
     private URI restUri;
     private Optional<String> prefix = Optional.empty();
     private Optional<String> warehouse = Optional.empty();
     private boolean nestedNamespaceEnabled;
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
+    private SnapshotLoadingMode snapshotLoadingMode = SnapshotLoadingMode.ALL;
     private Duration connectionTimeout;
     private Duration socketTimeout;
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
@@ -148,6 +155,20 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setSessionType(SessionType sessionType)
     {
         this.sessionType = sessionType;
+        return this;
+    }
+
+    @NotNull
+    public SnapshotLoadingMode getSnapshotLoadingMode()
+    {
+        return snapshotLoadingMode;
+    }
+
+    @Config("iceberg.rest-catalog.snapshot-loading-mode")
+    @ConfigDescription("Load all table snapshots eagerly (ALL), or only branch/tag-referenced snapshots with lazy loading of the remaining ones (REFS)")
+    public IcebergRestCatalogConfig setSnapshotLoadingMode(SnapshotLoadingMode snapshotLoadingMode)
+    {
+        this.snapshotLoadingMode = snapshotLoadingMode;
         return this;
     }
 
