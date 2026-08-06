@@ -33,6 +33,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static io.trino.tests.product.iceberg.IcebergCatalogPropertiesBuilder.icebergCatalog;
 import static java.util.Objects.requireNonNull;
 
@@ -151,10 +152,14 @@ public class SparkIcebergEnvironment
      */
     public QueryResult executeSpark(String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);
@@ -169,15 +174,19 @@ public class SparkIcebergEnvironment
      */
     public int executeSparkUpdate(String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement()) {
-            if (stmt.execute(sql)) {
-                try (ResultSet ignored = stmt.getResultSet()) {
-                    // intentionally ignored
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement()) {
+                    if (stmt.execute(sql)) {
+                        try (ResultSet ignored = stmt.getResultSet()) {
+                            // intentionally ignored
+                        }
+                        return -1;
+                    }
+                    return stmt.getUpdateCount();
                 }
-                return -1;
-            }
-            return stmt.getUpdateCount();
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark update: " + sql, e);

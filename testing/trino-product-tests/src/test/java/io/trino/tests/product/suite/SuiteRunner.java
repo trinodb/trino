@@ -28,6 +28,7 @@ import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
 import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
+import java.io.PrintStream;
 import java.lang.annotation.Annotation;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -102,10 +103,9 @@ public final class SuiteRunner
         if (source instanceof MethodSource methodSource) {
             String className = methodSource.getClassName();
             String methodName = methodSource.getMethodName();
-            String simpleClassName = className.substring(className.lastIndexOf('.') + 1);
-            return new FailureInfo(className, methodName, simpleClassName, failure.getTestIdentifier().getDisplayName());
+            return new FailureInfo(className, methodName, failure.getTestIdentifier().getDisplayName());
         }
-        return new FailureInfo("", "", "", failure.getTestIdentifier().getDisplayName());
+        return new FailureInfo("", "", failure.getTestIdentifier().getDisplayName());
     }
 
     private static TestRunResult run(
@@ -186,9 +186,20 @@ public final class SuiteRunner
      */
     public static void printSummary(List<TestRunResult> results)
     {
-        System.out.println("\n========================================");
-        System.out.println("           COMBINED TEST SUMMARY        ");
-        System.out.println("========================================\n");
+        printSummary(results, System.out);
+    }
+
+    /**
+     * Prints a combined summary of all test runs to the specified output.
+     *
+     * @param results the list of test run results
+     * @param output the destination for the summary
+     */
+    public static void printSummary(List<TestRunResult> results, PrintStream output)
+    {
+        output.println("\n========================================");
+        output.println("           COMBINED TEST SUMMARY        ");
+        output.println("========================================\n");
 
         long totalFound = 0;
         long totalSucceeded = 0;
@@ -204,7 +215,7 @@ public final class SuiteRunner
             totalSkipped += summary.getTestsSkippedCount();
             totalContainerFailed += summary.getContainersFailedCount();
 
-            System.out.printf(
+            output.printf(
                     "%-30s | Found: %3d | Passed: %3d | Failed: %3d | Skipped: %3d | CFail: %3d%n",
                     result.runName(),
                     summary.getTestsFoundCount(),
@@ -214,8 +225,8 @@ public final class SuiteRunner
                     summary.getContainersFailedCount());
         }
 
-        System.out.println("----------------------------------------");
-        System.out.printf(
+        output.println("----------------------------------------");
+        output.printf(
                 "%-30s | Found: %3d | Passed: %3d | Failed: %3d | Skipped: %3d | CFail: %3d%n",
                 "TOTAL",
                 totalFound,
@@ -223,11 +234,11 @@ public final class SuiteRunner
                 totalFailed,
                 totalSkipped,
                 totalContainerFailed);
-        System.out.println("========================================\n");
+        output.println("========================================\n");
 
         if (hasFailures(results)) {
-            System.out.println("FAILURE DETAILS:");
-            System.out.println("----------------");
+            output.println("FAILURE DETAILS:");
+            output.println("----------------");
             for (TestRunResult result : results) {
                 List<TestExecutionSummary.Failure> failures = result.summary().getFailures().stream()
                         .sorted(Comparator
@@ -236,25 +247,24 @@ public final class SuiteRunner
                                 .thenComparing(failure -> failureInfo(failure).displayName()))
                         .toList();
                 if (!failures.isEmpty()) {
-                    System.out.println("\n" + result.runName() + " (" + result.environmentName() + "):");
+                    output.println("\n" + result.runName() + " (" + result.environmentName() + "):");
                     for (TestExecutionSummary.Failure failure : failures) {
                         Throwable exception = failure.getException();
                         String prefix = (exception instanceof AssertionError) ? "[FAILURE]" : "[ERROR]";
                         FailureInfo info = failureInfo(failure);
 
                         if (!info.className().isEmpty()) {
-                            System.out.println(prefix + " " + info.methodName() + "(" + result.environmentName() + ")");
-                            System.out.println("    at " + info.className() + "." + info.methodName() + "(" + info.simpleClassName() + ".java:1)");
+                            output.println(prefix + " " + info.displayName() + " (" + result.environmentName() + ")");
                         }
                         else {
-                            System.out.println(prefix + " " + info.displayName());
+                            output.println(prefix + " " + info.displayName());
                         }
 
-                        System.out.println("    " + exception.getClass().getSimpleName() + ": " + exception.getMessage());
+                        exception.printStackTrace(output);
                     }
                 }
             }
-            System.out.println();
+            output.println();
         }
     }
 
@@ -337,7 +347,6 @@ public final class SuiteRunner
     private record FailureInfo(
             String className,
             String methodName,
-            String simpleClassName,
             String displayName) {}
 
     /**
