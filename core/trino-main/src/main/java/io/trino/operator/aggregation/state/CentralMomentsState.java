@@ -60,8 +60,13 @@ public interface CentralMomentsState
 
     default void merge(CentralMomentsState otherState)
     {
+        merge(otherState.getCount(), otherState.getM1(), otherState.getM2(), otherState.getM3(), otherState.getM4());
+    }
+
+    default void merge(long count, double m1, double m2, double m3, double m4)
+    {
         long na = getCount();
-        long nb = otherState.getCount();
+        long nb = count;
 
         checkArgument(nb >= 0, "count is negative");
         if (nb == 0) {
@@ -71,9 +76,9 @@ public interface CentralMomentsState
         double m1a = getM1();
         double m2a = getM2();
         double m3a = getM3();
-        double m1b = otherState.getM1();
-        double m2b = otherState.getM2();
-        double m3b = otherState.getM3();
+        double m1b = m1;
+        double m2b = m2;
+        double m3b = m3;
         double n = na + nb; // Use double as type of n to avoid integer overflow for n*n and n*n*n
         double delta = m1b - m1a;
         double delta2 = delta * delta;
@@ -86,7 +91,7 @@ public interface CentralMomentsState
         setM3(m3a + m3b
                 + delta3 * na * nb * (na - nb) / (n * n)
                 + 3 * delta * (na * m2b - nb * m2a) / n);
-        setM4(getM4() + otherState.getM4()
+        setM4(getM4() + m4
                 + delta4 * na * nb * (na * na - na * nb + nb * nb) / (n * n * n)
                 + 6 * delta2 * (na * na * m2b + nb * nb * m2a) / (n * n)
                 + 4 * delta * (na * m3b - nb * m3a) / n);
