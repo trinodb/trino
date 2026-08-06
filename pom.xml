@@ -2222,7 +2222,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.5.9</version>
+                <version>3.5.10</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.github.waffle</groupId>
