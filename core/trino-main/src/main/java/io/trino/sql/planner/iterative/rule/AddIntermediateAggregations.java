@@ -33,6 +33,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -219,11 +220,16 @@ public class AddIntermediateAggregations
      */
     private Map<Symbol, AggregationNode.Aggregation> inputsAsOutputs(Map<Symbol, AggregationNode.Aggregation> assignments, Session session)
     {
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
+        // multiple final aggregations may share one intermediate symbol; their intermediate
+        // aggregations are identical, so keep the first
+        Map<Symbol, AggregationNode.Aggregation> intermediates = new LinkedHashMap<>();
         for (Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
             AggregationNode.Aggregation aggregation = entry.getValue();
             Symbol input = getOnlyElement(SymbolsExtractor.extractAll(aggregation));
+            if (intermediates.containsKey(input)) {
+                continue;
+            }
 
             if (!aggregation.isLegacyDecomposition()) {
                 // The final aggregation function consumes the intermediate type but produces the final result,
@@ -239,8 +245,8 @@ public class AddIntermediateAggregations
                         aggregation.isLegacyDecomposition());
             }
 
-            builder.put(input, aggregation);
+            intermediates.put(input, aggregation);
         }
-        return builder.buildOrThrow();
+        return ImmutableMap.copyOf(intermediates);
     }
 }

@@ -36,7 +36,9 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -240,7 +242,7 @@ public class PushPartialAggregationThroughExchange
     private PlanNode split(AggregationNode node, Rule.Context context)
     {
         // otherwise, add a partial and final with an exchange in between
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> intermediateAggregation = ImmutableMap.builder();
+        Map<AggregationNode.Aggregation, Symbol> intermediateSymbols = new LinkedHashMap<>();
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> finalAggregation = ImmutableMap.builder();
         for (Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
@@ -249,17 +251,20 @@ public class PushPartialAggregationThroughExchange
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
             DecomposedAggregation decomposed = decompose(plannerContext.getMetadata(), plannerContext.getTypeManager(), context.getSession(), resolvedFunction);
 
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(resolvedFunction.signature().getName().functionName(), decomposed.intermediateType());
-            intermediateAggregation.put(
-                    intermediateSymbol,
-                    new AggregationNode.Aggregation(
-                            decomposed.partialFunction(),
-                            originalAggregation.getArguments(),
-                            originalAggregation.isDistinct(),
-                            originalAggregation.getFilter(),
-                            originalAggregation.getOrderingScheme(),
-                            originalAggregation.getMask(),
-                            decomposed.legacyDecomposition()));
+            // functions declaring the same partial over the same inputs share one partial aggregation
+            // (e.g. variance and stddev, or the whole variance family), so the partial state is computed
+            // once and shipped through the exchange once
+            AggregationNode.Aggregation partialAggregation = new AggregationNode.Aggregation(
+                    decomposed.partialFunction(),
+                    originalAggregation.getArguments(),
+                    originalAggregation.isDistinct(),
+                    originalAggregation.getFilter(),
+                    originalAggregation.getOrderingScheme(),
+                    originalAggregation.getMask(),
+                    decomposed.legacyDecomposition());
+            Symbol intermediateSymbol = intermediateSymbols.computeIfAbsent(
+                    partialAggregation,
+                    _ -> context.getSymbolAllocator().newSymbol(resolvedFunction.signature().getName().functionName(), decomposed.intermediateType()));
 
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(
@@ -278,6 +283,9 @@ public class PushPartialAggregationThroughExchange
                             Optional.empty(),
                             decomposed.legacyDecomposition()));
         }
+
+        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> intermediateAggregation = ImmutableMap.builder();
+        intermediateSymbols.forEach((aggregation, symbol) -> intermediateAggregation.put(symbol, aggregation));
 
         PlanNode partial = new AggregationNode(
                 context.getIdAllocator().getNextId(),

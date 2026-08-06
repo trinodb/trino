@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
@@ -39,7 +40,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 
 public class TestPushPartialAggregationThroughExchange
@@ -76,6 +79,43 @@ public class TestPushPartialAggregationThroughExchange
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("a", "b")))));
+    }
+
+    @Test
+    public void testSharedPartialAggregationForFunctionsWithSamePartial()
+    {
+        tester().assertThat(new PushPartialAggregationThroughExchange(tester().getPlannerContext())
+                        .pushPartialAggregationThroughExchangeWithoutProjection())
+                .on(p -> {
+                    Symbol a = p.symbol("a", INTEGER);
+                    Symbol b = p.symbol("b", DOUBLE);
+                    Symbol variance = p.symbol("variance", DOUBLE);
+                    Symbol stddev = p.symbol("stddev", DOUBLE);
+                    return p.aggregation(aggregationBuilder -> aggregationBuilder
+                            .singleGroupingSet(a)
+                            .step(SINGLE)
+                            .addAggregation(variance, PlanBuilder.aggregation("variance", ImmutableList.of(new Reference(DOUBLE, "b"))), ImmutableList.of(DOUBLE))
+                            .addAggregation(stddev, PlanBuilder.aggregation("stddev", ImmutableList.of(new Reference(DOUBLE, "b"))), ImmutableList.of(DOUBLE))
+                            .source(p.exchange(e -> e
+                                    .type(REPARTITION)
+                                    .addSource(p.values(a, b))
+                                    .addInputsSet(a, b)
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(a, b), ImmutableList.of(a)))));
+                })
+                .matches(
+                        aggregation(
+                                singleGroupingSet("a"),
+                                ImmutableMap.of(
+                                        Optional.of("variance"), aggregationFunction("variance", ImmutableList.of("INTERMEDIATE")),
+                                        Optional.of("stddev"), aggregationFunction("stddev", ImmutableList.of("INTERMEDIATE"))),
+                                Optional.empty(),
+                                FINAL,
+                                aggregation(
+                                        singleGroupingSet("a"),
+                                        ImmutableMap.of(Optional.of("INTERMEDIATE"), aggregationFunction("variance$intermediate", ImmutableList.of("b"))),
+                                        Optional.empty(),
+                                        PARTIAL,
+                                        exchange(values("a", "b")))));
     }
 
     @Test
