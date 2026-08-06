@@ -72,6 +72,7 @@ import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
 import io.trino.operator.aggregation.MaxAggregationFunction;
 import io.trino.operator.aggregation.MaxByAggregationFunction;
+import io.trino.operator.aggregation.MaxByDecomposedAggregation;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
 import io.trino.operator.aggregation.MaxDataSizeForStatsMergeAggregation;
 import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
@@ -79,6 +80,7 @@ import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
 import io.trino.operator.aggregation.MinAggregationFunction;
 import io.trino.operator.aggregation.MinByAggregationFunction;
+import io.trino.operator.aggregation.MinByDecomposedAggregation;
 import io.trino.operator.aggregation.NumberAverageAggregation;
 import io.trino.operator.aggregation.NumberSumAggregation;
 import io.trino.operator.aggregation.NumericHistogramDecomposedAggregation;
@@ -649,7 +651,9 @@ public final class SystemFunctionBundle
                 .aggregates(MinAggregationFunction.class)
                 .aggregates(MaxAggregationFunction.class)
                 .aggregates(MinByAggregationFunction.class)
+                .aggregates(MinByDecomposedAggregation.class)
                 .aggregates(MaxByAggregationFunction.class)
+                .aggregates(MaxByDecomposedAggregation.class)
                 .aggregates(MaxNAggregationFunction.class)
                 .aggregates(MinNAggregationFunction.class)
                 .aggregates(MinByNAggregationFunction.class)

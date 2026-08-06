@@ -14,14 +14,13 @@
 package io.trino.operator.aggregation;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Decomposition;
-import io.trino.spi.function.Description;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
@@ -37,48 +36,60 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 
-@AggregationFunction("min_by")
-@Description("Returns the value of the first argument, associated with the minimum value of the second argument")
-public final class MinByAggregationFunction
+// merges max_by intermediates, which carry the current best key and its associated value
+@AggregationFunction
+public final class MaxByDecomposedAggregation
 {
-    private MinByAggregationFunction() {}
+    private MaxByDecomposedAggregation() {}
 
     @InputFunction
     @TypeParameter("V")
     @TypeParameter("K")
-    public static void input(
+    public static void intermediateInput(
             @OperatorDependency(
-                    operator = OperatorType.COMPARISON_UNORDERED_LAST,
+                    operator = OperatorType.COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"K", "K"},
                     convention = @Convention(arguments = {VALUE_BLOCK_POSITION_NOT_NULL, IN_OUT}, result = FAIL_ON_NULL))
             MethodHandle compare,
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,
-            @SqlNullable @BlockPosition @SqlType("V") ValueBlock valueBlock,
-            @BlockIndex int valuePosition,
-            @BlockPosition @SqlType("K") ValueBlock keyBlock,
-            @BlockIndex int keyPosition)
+            @SqlType("row(K, V)") SqlRow value)
             throws Throwable
     {
-        if (keyState.isNull() || ((long) compare.invokeExact(keyBlock, keyPosition, keyState)) < 0) {
+        int rawIndex = value.getRawIndex();
+        ValueBlock keyBlock = value.getRawFieldBlock(0).getUnderlyingValueBlock();
+        int keyPosition = value.getRawFieldBlock(0).getUnderlyingValuePosition(rawIndex);
+        if (keyBlock.isNull(keyPosition)) {
+            return;
+        }
+        if (keyState.isNull() || ((long) compare.invokeExact(keyBlock, keyPosition, keyState)) > 0) {
             keyState.set(keyBlock, keyPosition);
-            valueState.set(valueBlock, valuePosition);
+            valueState.set(value.getRawFieldBlock(1).getUnderlyingValueBlock(), value.getRawFieldBlock(1).getUnderlyingValuePosition(rawIndex));
         }
     }
 
-    @AggregationFunction(value = "min_by$partial", hidden = true)
+    @AggregationFunction(value = "max_by$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "row(K, V)", decomposition = @Decomposition(partial = "min_by$partial", output = "min_by$merge"))
+    @OutputFunction(value = "row(K, V)", decomposition = @Decomposition(partial = "max_by$merge", output = "max_by$merge"))
     public static void intermediateOutput(
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,
             BlockBuilder out)
     {
-        MinByDecomposedAggregation.writeIntermediate(keyState, valueState, out);
+        MaxByDecomposedAggregation.writeIntermediate(keyState, valueState, out);
     }
 
+    static void writeIntermediate(InOut keyState, InOut valueState, BlockBuilder out)
+    {
+        ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {
+            keyState.get(fieldBuilders.get(0));
+            valueState.get(fieldBuilders.get(1));
+        });
+    }
+
+    @AggregationFunction(value = "max_by$final", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "V", decomposition = @Decomposition(partial = "min_by$partial", output = "min_by$final"))
+    @OutputFunction(value = "V", decomposition = @Decomposition(partial = "max_by$merge", output = "max_by$final"))
     public static void output(
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,
