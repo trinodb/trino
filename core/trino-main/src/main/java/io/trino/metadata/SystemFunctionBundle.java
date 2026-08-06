@@ -51,6 +51,7 @@ import io.trino.operator.aggregation.DoubleHistogramAggregation;
 import io.trino.operator.aggregation.DoubleRegressionAggregation;
 import io.trino.operator.aggregation.DoubleSumAggregation;
 import io.trino.operator.aggregation.GeometricMeanAggregations;
+import io.trino.operator.aggregation.GeometricMeanDecomposedAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondSumAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthAverageAggregation;
@@ -437,6 +438,7 @@ public final class SystemFunctionBundle
                 .aggregates(NumberAverageAggregation.class)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
+                .aggregates(GeometricMeanDecomposedAggregation.class)
                 .aggregates(GeometricMeanAggregations.class)
                 .aggregates(RealGeometricMeanAggregations.class)
                 .aggregates(MergeHyperLogLogAggregation.class)
