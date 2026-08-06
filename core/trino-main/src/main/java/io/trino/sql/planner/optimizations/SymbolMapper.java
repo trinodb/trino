@@ -20,6 +20,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PartitioningScheme;
@@ -170,6 +171,23 @@ public class SymbolMapper
                 Expression body = treeRewriter.rewrite(node.body(), context);
                 if (body != node.body()) {
                     return new Lambda(arguments, body);
+                }
+
+                return node;
+            }
+
+            @Override
+            public Expression rewriteLet(Let node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                // The bound name is a binder, just like a lambda argument, so it has to go through the
+                // same mapping as the references to it in the body. Leaving it alone leaves those
+                // references dangling once they are mapped, producing an expression that depends on a
+                // symbol nothing produces.
+                Symbol name = map(node.name());
+                Expression value = treeRewriter.rewrite(node.value(), context);
+                Expression body = treeRewriter.rewrite(node.body(), context);
+                if (!name.equals(node.name()) || value != node.value() || body != node.body()) {
+                    return new Let(name, value, body);
                 }
 
                 return node;
