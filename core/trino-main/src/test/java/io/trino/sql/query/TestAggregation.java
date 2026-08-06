@@ -202,7 +202,8 @@ public class TestAggregation
                         round(regr_slope(orderkey, custkey), 6), round(regr_intercept(orderkey, custkey), 0),
                         approx_distinct(orderkey), approx_distinct(orderkey, 0.01e0), approx_distinct(orderkey > 100),
                         approx_percentile(orderkey, 0.5e0) IS NOT NULL, cardinality(approx_percentile(orderkey, ARRAY[0.1e0, 0.9e0])),
-                        histogram(orderstatus), cardinality(numeric_histogram(10, orderkey * 1e0)), approx_most_frequent(3, orderstatus, 100), approx_most_frequent(3, orderkey, 100) IS NOT NULL
+                        histogram(orderstatus), cardinality(numeric_histogram(10, orderkey * 1e0)), approx_most_frequent(3, orderstatus, 100), approx_most_frequent(3, orderkey, 100) IS NOT NULL,
+                        cardinality(map_agg(orderkey, orderstatus)), cardinality(map_union(map(ARRAY[orderstatus], ARRAY[1]))), cardinality(multimap_agg(orderstatus, orderkey))
                     FROM tpch.tiny.orders
                     """))
                     .matches(
@@ -214,7 +215,8 @@ public class TestAggregation
                                 round(regr_slope(orderkey, custkey), 6), round(regr_intercept(orderkey, custkey), 0),
                                 approx_distinct(orderkey), approx_distinct(orderkey, 0.01e0), approx_distinct(orderkey > 100),
                                 approx_percentile(orderkey, 0.5e0) IS NOT NULL, cardinality(approx_percentile(orderkey, ARRAY[0.1e0, 0.9e0])),
-                                histogram(orderstatus), cardinality(numeric_histogram(10, orderkey * 1e0)), approx_most_frequent(3, orderstatus, 100), approx_most_frequent(3, orderkey, 100) IS NOT NULL
+                                histogram(orderstatus), cardinality(numeric_histogram(10, orderkey * 1e0)), approx_most_frequent(3, orderstatus, 100), approx_most_frequent(3, orderkey, 100) IS NOT NULL,
+                                cardinality(map_agg(orderkey, orderstatus)), cardinality(map_union(map(ARRAY[orderstatus], ARRAY[1]))), cardinality(multimap_agg(orderstatus, orderkey))
                             FROM tpch.tiny.orders
                             """);
         }

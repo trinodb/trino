@@ -107,6 +107,7 @@ import io.trino.operator.aggregation.minmaxbyn.MinByNAggregationFunction;
 import io.trino.operator.aggregation.minmaxn.MaxNAggregationFunction;
 import io.trino.operator.aggregation.minmaxn.MinNAggregationFunction;
 import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import io.trino.operator.aggregation.multimapagg.MultimapMergeAggregation;
 import io.trino.operator.scalar.ArrayAllMatchFunction;
 import io.trino.operator.scalar.ArrayAnyMatchFunction;
 import io.trino.operator.scalar.ArrayCardinalityFunction;
@@ -621,6 +622,7 @@ public final class SystemFunctionBundle
                 .aggregates(MapUnionAggregation.class)
                 .function(REDUCE_AGG)
                 .aggregates(MultimapAggregationFunction.class)
+                .aggregates(MultimapMergeAggregation.class)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(NUMBER_TO_DECIMAL_CAST, DECIMAL_TO_NUMBER_CAST)
