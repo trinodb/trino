@@ -56,6 +56,7 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -316,6 +317,62 @@ public class TestPushPredicateIntoTableScan
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
                                 TupleDomain.all())))
                 .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireWhenPredicateReferencesSymbolNotProducedByTableScan()
+    {
+        // A filter sitting directly on a table scan can only reference symbols that the scan produces.
+        // When that invariant is broken, the extracted domain cannot be mapped to column handles, and the
+        // rule used to fail with "mapping function ... returned null for <symbol>". BETWEEN over a
+        // non-column expression hit this: it is desugared into a Let, and the binder was lost while the
+        // predicate was round-tripped through the connector expression translator. Declining to rewrite
+        // keeps the plan untouched so that the real problem surfaces through plan validation instead.
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(
+                        comparison(EQUAL, new Reference(BIGINT, "between_0"), new Constant(BIGINT, 1L)),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testRestoresOriginalPredicateWhenRewriteWouldReferenceUnknownSymbol()
+    {
+        // Here the unknown symbol sits in a conjunct that cannot be turned into a domain, so the rule gets
+        // past the extracted-domain check and pushes the rest down. The predicate it would put back above
+        // the scan still references that symbol, which is exactly the shape the connector expression
+        // round-trip produces in production for BETWEEN over a non-column expression. The rule must keep
+        // the pushdown - connectors that require a partition filter inspect the constraint they recorded -
+        // and restore the original predicate so that the plan stays valid.
+        Expression original = new Logical(AND, ImmutableList.of(
+                comparison(EQUAL, new Reference(VARCHAR, "col"), new Constant(VARCHAR, utf8Slice("G"))),
+                comparison(
+                        EQUAL,
+                        new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "between_0"), new Constant(BIGINT, 17L))),
+                        new Constant(BIGINT, 44L))));
+
+        Session session = Session.builder(tester().getSession())
+                .setCatalog(MOCK_CATALOG)
+                .build();
+        tester().assertThat(pushPredicateIntoTableScan)
+                .withSession(session)
+                .on(p -> p.filter(
+                        original,
+                        p.tableScan(
+                                mockTableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE),
+                                ImmutableList.of(p.symbol("col", VARCHAR)),
+                                ImmutableMap.of(p.symbol("col", VARCHAR), MOCK_COLUMN_HANDLE))))
+                .matches(node(
+                        FilterNode.class,
+                        // the domain for the extractable conjunct must have reached the connector, otherwise
+                        // the plan shape alone would also match a rule that pushed nothing down
+                        tableScan("partitioned").with(TableScanNode.class, scan -> scan.getEnforcedConstraint()
+                                .equals(TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        MOCK_COLUMN_HANDLE, singleValue(VARCHAR, utf8Slice("G")))))))
+                        .with(FilterNode.class, filter -> filter.getPredicate().equals(original)));
     }
 
     @Test

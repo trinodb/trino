@@ -46,6 +46,7 @@ import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
 import static io.trino.sql.ir.IrUtils.filterNonDeterministicConjuncts;
 import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.createResultingPredicate;
+import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.isKeyedByScanAssignments;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -96,6 +97,10 @@ public class RemoveRedundantPredicateAboveTableScan
 
         if (decomposedPredicate.getTupleDomain().isAll()) {
             // no conjunct could be fully converted to tuple domain
+            return Result.empty();
+        }
+
+        if (!isKeyedByScanAssignments(decomposedPredicate.getTupleDomain(), node)) {
             return Result.empty();
         }
 

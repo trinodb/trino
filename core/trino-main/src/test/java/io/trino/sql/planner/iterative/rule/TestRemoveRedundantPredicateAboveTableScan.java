@@ -95,6 +95,27 @@ public class TestRemoveRedundantPredicateAboveTableScan
     }
 
     @Test
+    public void doesNotFireWhenPredicateReferencesSymbolNotProducedByTableScan()
+    {
+        // Same invariant as in TestPushPredicateIntoTableScan: a filter sitting directly on a table scan
+        // can only reference symbols the scan produces. Without the guard the extracted domain cannot be
+        // mapped to column handles and the rule fails with "mapping function ... returned null".
+        // The enforced constraint must not be ALL, otherwise the rule's pattern does not even match and the
+        // assertion below would hold without ever reaching the guard.
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
+                .on(p -> p.filter(
+                        comparison(EQUAL, new Reference(BIGINT, "between_0"), new Constant(BIGINT, 1L)),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, 44L))))))
+                .doesNotFire();
+    }
+
+    @Test
     public void consumesDeterministicPredicateIfNewDomainIsSame()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);

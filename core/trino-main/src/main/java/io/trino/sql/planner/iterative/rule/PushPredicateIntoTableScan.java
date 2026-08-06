@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.matching.Capture;
@@ -42,6 +43,7 @@ import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EngineExpressions;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -163,6 +165,10 @@ public class PushPredicateIntoTableScan
                 session,
                 splitExpression.getDeterministicPredicate());
 
+        if (!isKeyedByScanAssignments(decomposedPredicate.getTupleDomain(), node)) {
+            return Optional.empty();
+        }
+
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
                 .transformKeys(node.getAssignments()::get)
                 .intersect(node.getEnforcedConstraint());
@@ -211,6 +217,11 @@ public class PushPredicateIntoTableScan
                     decomposedPredicate.getRemainingExpression());
 
             if (!Booleans.TRUE.equals(resultingPredicate)) {
+                if (!referencesOnlySourceSymbols(resultingPredicate, node)) {
+                    // Nothing was pushed on this path - the scan is unchanged - so declining leaves the
+                    // original, valid plan in place.
+                    return Optional.empty();
+                }
                 return Optional.of(new FilterNode(filterNode.getId(), node, resultingPredicate));
             }
 
@@ -282,10 +293,53 @@ public class PushPredicateIntoTableScan
                 remainingDecomposedPredicate);
 
         if (!Booleans.TRUE.equals(resultingPredicate)) {
+            if (!referencesOnlySourceSymbols(resultingPredicate, tableScan)) {
+                // Keep the pushdown, but restore the original predicate above the scan. Re-applying an
+                // already enforced predicate is redundant, never wrong, and it keeps the constraint that
+                // the connector recorded during applyFilter - which matters for connectors that require a
+                // partition filter to have been pushed (they inspect the recorded constraint columns).
+                return Optional.of(new FilterNode(filterNode.getId(), tableScan, filterNode.getPredicate()));
+            }
             return Optional.of(new FilterNode(filterNode.getId(), tableScan, resultingPredicate));
         }
 
         return Optional.of(tableScan);
+    }
+
+    /**
+     * Tells whether the extracted domain is keyed only by symbols the table scan produces.
+     * <p>
+     * Every free symbol of a filter sitting directly on a table scan is produced by that scan, so this
+     * holds for any valid plan. When it does not - see {@link #referencesOnlySourceSymbols} for how such
+     * a plan comes about - the domain cannot be mapped to column handles. Declining to rewrite leaves the
+     * plan untouched and lets plan validation report the real problem, rather than failing with an opaque
+     * "mapping function returned null" {@link NullPointerException} from {@link TupleDomain#transformKeys}.
+     */
+    static boolean isKeyedByScanAssignments(TupleDomain<Symbol> domain, TableScanNode node)
+    {
+        return domain.getDomains()
+                .map(domains -> node.getAssignments().keySet().containsAll(domains.keySet()))
+                .orElse(true);
+    }
+
+    /**
+     * Tells whether every free symbol of the rewritten predicate is produced by the new source.
+     * <p>
+     * The rewrite round-trips the predicate through {@link ConnectorExpressionTranslator} and the IR
+     * optimizer, both of which may allocate symbols. When a {@code Let} binder is lost on the way, the
+     * rewritten predicate can reference a symbol that no node produces - the {@code between_N} symbol
+     * that {@code BETWEEN} over a non-column expression is desugared into is one such case. The
+     * resulting plan is invalid, and a later application of this rule fails while mapping the extracted
+     * domain back to column handles ("mapping function returned null for between_N").
+     * <p>
+     * Callers fall back to the original predicate, which is valid by construction, so results are
+     * unaffected. The only cost is that a predicate the connector already enforced may be evaluated
+     * once more above the scan.
+     */
+    private static boolean referencesOnlySourceSymbols(Expression predicate, PlanNode source)
+    {
+        return ImmutableSet.copyOf(source.getOutputSymbols())
+                .containsAll(SymbolsExtractor.extractUnique(predicate));
     }
 
     // PushPredicateIntoTableScan might be executed after AddExchanges and DetermineTableScanNodePartitioning.
