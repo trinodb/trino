@@ -36,6 +36,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.TimeZone;
 
+import static io.trino.tests.product.suite.Logging.configureConsoleLogging;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -115,6 +116,9 @@ public final class SuiteRunner
             List<String> excludeTags)
             throws Exception
     {
+        Thread.currentThread().setName(environmentClass.getSimpleName());
+        configureConsoleLogging();
+
         // Legacy launcher forced this timezone for all product test JVM executions.
         TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(PRODUCT_TESTS_TIME_ZONE)));
         System.setProperty("user.timezone", PRODUCT_TESTS_TIME_ZONE);
