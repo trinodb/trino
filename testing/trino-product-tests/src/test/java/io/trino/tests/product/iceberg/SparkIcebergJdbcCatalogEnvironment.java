@@ -33,6 +33,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Map;
 
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static java.util.Map.entry;
 
 /**
@@ -239,9 +240,13 @@ public class SparkIcebergJdbcCatalogEnvironment
     @Override
     public QueryResult executeSpark(String sql)
     {
-        try (Statement stmt = sparkConnection().createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
+        try {
+            return executeWithRetry(() -> {
+                try (Statement stmt = sparkConnection().createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);
@@ -257,8 +262,12 @@ public class SparkIcebergJdbcCatalogEnvironment
     @Override
     public int executeSparkUpdate(String sql)
     {
-        try (Statement stmt = sparkConnection().createStatement()) {
-            return stmt.executeUpdate(sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Statement stmt = sparkConnection().createStatement()) {
+                    return stmt.executeUpdate(sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark update: " + sql, e);
