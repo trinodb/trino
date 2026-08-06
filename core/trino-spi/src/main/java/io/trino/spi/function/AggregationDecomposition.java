@@ -13,10 +13,17 @@
  */
 package io.trino.spi.function;
 
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
-public record AggregationDecomposition(String partial, String output)
+public record AggregationDecomposition(String partial, String output, List<SubsumedFunction> subsumed)
 {
+    public AggregationDecomposition(String partial, String output)
+    {
+        this(partial, output, List.of());
+    }
+
     public AggregationDecomposition
     {
         requireNonNull(partial, "partial cannot be null");
@@ -26,6 +33,24 @@ public record AggregationDecomposition(String partial, String output)
         requireNonNull(output, "output cannot be null");
         if (output.isEmpty()) {
             throw new IllegalArgumentException("output cannot be empty");
+        }
+        subsumed = List.copyOf(requireNonNull(subsumed, "subsumed cannot be null"));
+    }
+
+    /// Another aggregation function whose result over the same arguments is contained in this
+    /// decomposition's intermediate state and can be extracted with the given output function.
+    public record SubsumedFunction(String function, String output)
+    {
+        public SubsumedFunction
+        {
+            requireNonNull(function, "function cannot be null");
+            if (function.isEmpty()) {
+                throw new IllegalArgumentException("function cannot be empty");
+            }
+            requireNonNull(output, "output cannot be null");
+            if (output.isEmpty()) {
+                throw new IllegalArgumentException("output cannot be empty");
+            }
         }
     }
 }

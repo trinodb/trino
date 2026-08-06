@@ -21,6 +21,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -39,7 +40,7 @@ public final class IntervalDayToSecondAverageAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.INTERVAL_DAY_TO_SECOND, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_interval_day_to_second$final"))
+    @OutputFunction(value = StandardTypes.INTERVAL_DAY_TO_SECOND, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_interval_day_to_second$final", subsumes = @Subsumed(function = "count", output = "avg_count$final")))
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

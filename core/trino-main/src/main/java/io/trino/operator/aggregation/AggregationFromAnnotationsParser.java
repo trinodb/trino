@@ -226,7 +226,12 @@ public final class AggregationFromAnnotationsParser
         if (decomposition.partial().isEmpty() && decomposition.output().isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new AggregationDecomposition(decomposition.partial(), decomposition.output()));
+        return Optional.of(new AggregationDecomposition(
+                decomposition.partial(),
+                decomposition.output(),
+                Arrays.stream(decomposition.subsumes())
+                        .map(subsumed -> new AggregationDecomposition.SubsumedFunction(subsumed.function(), subsumed.output()))
+                        .collect(toImmutableList())));
     }
 
     private static Optional<Class<? extends WindowAccumulator>> getWindowAccumulator(AggregationFunction aggregationAnnotation)

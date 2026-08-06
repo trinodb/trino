@@ -131,6 +131,39 @@ public final class AverageDecomposedAggregation
         }
     }
 
+    @AggregationFunction(value = "avg_sum$final", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_sum$final"))
+    public static void sumOutput(@AggregationState LongAndDoubleState state, BlockBuilder out)
+    {
+        if (state.getLong() == 0) {
+            out.appendNull();
+        }
+        else {
+            DOUBLE.writeDouble(out, state.getDouble());
+        }
+    }
+
+    @AggregationFunction(value = "avg_sum_real$final", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = StandardTypes.REAL, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_sum_real$final"))
+    public static void sumRealOutput(@AggregationState LongAndDoubleState state, BlockBuilder out)
+    {
+        if (state.getLong() == 0) {
+            out.appendNull();
+        }
+        else {
+            REAL.writeLong(out, toReal((float) state.getDouble()));
+        }
+    }
+
+    @AggregationFunction(value = "avg_count$final", hidden = true)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_count$final"))
+    public static void countOutput(@AggregationState LongAndDoubleState state, BlockBuilder out)
+    {
+        BIGINT.writeLong(out, state.getLong());
+    }
+
     @AggregationFunction(value = "avg_interval_day_to_second$final", hidden = true)
     @SqlNullable
     @OutputFunction(value = StandardTypes.INTERVAL_DAY_TO_SECOND, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_interval_day_to_second$final"))

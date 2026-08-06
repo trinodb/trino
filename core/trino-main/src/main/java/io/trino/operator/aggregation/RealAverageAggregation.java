@@ -24,6 +24,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 
@@ -45,7 +46,7 @@ public final class RealAverageAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = "REAL", decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_real$final"))
+    @OutputFunction(value = "REAL", decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_real$final", subsumes = {@Subsumed(function = "sum", output = "avg_sum_real$final"), @Subsumed(function = "count", output = "avg_count$final")}))
     public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

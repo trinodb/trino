@@ -21,6 +21,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -39,7 +40,7 @@ public final class IntervalYearToMonthAverageAggregation
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.INTERVAL_YEAR_TO_MONTH, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_interval_year_to_month$final"))
+    @OutputFunction(value = StandardTypes.INTERVAL_YEAR_TO_MONTH, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_interval_year_to_month$final", subsumes = @Subsumed(function = "count", output = "avg_count$final")))
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

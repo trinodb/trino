@@ -23,6 +23,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.StandardTypes;
@@ -42,7 +43,7 @@ public final class BigintAverageAggregations
     }
 
     @SqlNullable
-    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg$final"))
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg$final", subsumes = @Subsumed(function = "count", output = "avg_count$final")))
     public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

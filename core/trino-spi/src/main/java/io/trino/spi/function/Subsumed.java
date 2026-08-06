@@ -13,23 +13,22 @@
  */
 package io.trino.spi.function;
 
-import com.google.errorprone.annotations.Keep;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-@Keep
+/// Declares that this decomposition's intermediate state also contains the result of another
+/// aggregation function applied to the same arguments, allowing the planner to answer both
+/// functions from one shared partial aggregation.
 @Retention(RUNTIME)
-@Target({TYPE, METHOD})
-public @interface Decomposition
+@Target({})
+public @interface Subsumed
 {
-    String partial();
+    /// Name of the aggregation function whose result is contained in the intermediate state,
+    /// applied to the same arguments as the declaring function.
+    String function();
 
+    /// Name of the aggregation function that extracts the subsumed result from the intermediate state.
     String output();
-
-    Subsumed[] subsumes() default {};
 }

@@ -41,13 +41,14 @@ public final class AggregationDecompositions
     private AggregationDecompositions() {}
 
     /// How a single-step aggregation function splits into a partial and an output step.
-    public record DecomposedAggregation(ResolvedFunction partialFunction, ResolvedFunction outputFunction, Type intermediateType, boolean legacyDecomposition)
+    public record DecomposedAggregation(ResolvedFunction partialFunction, ResolvedFunction outputFunction, Type intermediateType, boolean legacyDecomposition, List<AggregationDecomposition.SubsumedFunction> subsumed)
     {
         public DecomposedAggregation
         {
             requireNonNull(partialFunction, "partialFunction is null");
             requireNonNull(outputFunction, "outputFunction is null");
             requireNonNull(intermediateType, "intermediateType is null");
+            subsumed = List.copyOf(requireNonNull(subsumed, "subsumed is null"));
         }
     }
 
@@ -59,14 +60,14 @@ public final class AggregationDecompositions
                     .map(typeManager::getType)
                     .collect(toImmutableList());
             Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.getFirst() : RowType.anonymous(intermediateTypes);
-            return new DecomposedAggregation(function, function, intermediateType, true);
+            return new DecomposedAggregation(function, function, intermediateType, true, List.of());
         }
 
         AggregationDecomposition decomposition = functionMetadata.decomposition().get();
         ResolvedFunction partialFunction = metadata.resolveBuiltinFunction(decomposition.partial(), fromTypes(function.signature().getArgumentTypes()));
         Type intermediateType = partialFunction.signature().getReturnType();
         ResolvedFunction outputFunction = metadata.resolveBuiltinFunction(decomposition.output(), fromTypes(intermediateType));
-        return new DecomposedAggregation(partialFunction, outputFunction, intermediateType, false);
+        return new DecomposedAggregation(partialFunction, outputFunction, intermediateType, false, decomposition.subsumed());
     }
 
     /// Resolves the intermediate function for a function in partial position (consuming raw input).
