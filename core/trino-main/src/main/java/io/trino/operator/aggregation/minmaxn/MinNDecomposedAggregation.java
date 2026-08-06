@@ -14,47 +14,42 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.Decomposition;
-import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
-@AggregationFunction("min")
-@Description("Returns the minimum values of the argument")
-public final class MinNAggregationFunction
+// merges min_n intermediates, which carry the capacity and the collected values
+@AggregationFunction
+public final class MinNDecomposedAggregation
 {
-    private MinNAggregationFunction() {}
+    private MinNDecomposedAggregation() {}
 
     @InputFunction
     @TypeParameter("E")
-    public static void input(
+    public static void intermediateInput(
             @AggregationState("E") MinNState state,
-            @BlockPosition @SqlType("E") ValueBlock block,
-            @BlockIndex int blockIndex,
-            @SqlType("BIGINT") long n)
+            @SqlType("row(bigint, array(E))") SqlRow value)
     {
-        state.initialize(n);
-        state.add(block, blockIndex);
+        state.merge(value);
     }
 
-    @AggregationFunction(value = "min_n$partial", hidden = true)
+    @AggregationFunction(value = "min_n$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "row(bigint, array(E))", decomposition = @Decomposition(partial = "min_n$partial", output = "min_n$merge"))
+    @OutputFunction(value = "row(bigint, array(E))", decomposition = @Decomposition(partial = "min_n$merge", output = "min_n$merge"))
     public static void intermediateOutput(@AggregationState("E") MinNState state, BlockBuilder out)
     {
         state.serialize(out);
     }
 
+    @AggregationFunction(value = "min_n$final", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "array(E)", decomposition = @Decomposition(partial = "min_n$partial", output = "min_n$final"))
+    @OutputFunction(value = "array(E)", decomposition = @Decomposition(partial = "min_n$merge", output = "min_n$final"))
     public static void output(@AggregationState("E") MinNState state, BlockBuilder out)
     {
         state.writeAllSorted(out);

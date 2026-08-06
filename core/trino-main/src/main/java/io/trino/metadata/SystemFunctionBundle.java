@@ -108,9 +108,13 @@ import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.operator.aggregation.histogram.HistogramMergeAggregation;
 import io.trino.operator.aggregation.listagg.ListaggAggregationFunction;
 import io.trino.operator.aggregation.minmaxbyn.MaxByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxbyn.MaxByNDecomposedAggregation;
 import io.trino.operator.aggregation.minmaxbyn.MinByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxbyn.MinByNDecomposedAggregation;
 import io.trino.operator.aggregation.minmaxn.MaxNAggregationFunction;
+import io.trino.operator.aggregation.minmaxn.MaxNDecomposedAggregation;
 import io.trino.operator.aggregation.minmaxn.MinNAggregationFunction;
+import io.trino.operator.aggregation.minmaxn.MinNDecomposedAggregation;
 import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.trino.operator.aggregation.multimapagg.MultimapMergeAggregation;
 import io.trino.operator.scalar.ArrayAllMatchFunction;
@@ -659,9 +663,13 @@ public final class SystemFunctionBundle
                 .aggregates(MaxByAggregationFunction.class)
                 .aggregates(MaxByDecomposedAggregation.class)
                 .aggregates(MaxNAggregationFunction.class)
+                .aggregates(MaxNDecomposedAggregation.class)
                 .aggregates(MinNAggregationFunction.class)
+                .aggregates(MinNDecomposedAggregation.class)
                 .aggregates(MinByNAggregationFunction.class)
+                .aggregates(MinByNDecomposedAggregation.class)
                 .aggregates(MaxByNAggregationFunction.class)
+                .aggregates(MaxByNDecomposedAggregation.class)
                 .aggregates(CountColumn.class)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(ROW_TO_JSON, ARRAY_TO_JSON, MAP_TO_JSON)

@@ -14,50 +14,43 @@
 package io.trino.operator.aggregation.minmaxbyn;
 
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.Decomposition;
-import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
-@AggregationFunction("min_by")
-@Description("Returns the values of the first argument associated with the minimum values of the second argument")
-public final class MinByNAggregationFunction
+// merges min_by_n intermediates, which carry the capacity and the collected keys and values
+@AggregationFunction
+public final class MinByNDecomposedAggregation
 {
-    private MinByNAggregationFunction() {}
+    private MinByNDecomposedAggregation() {}
 
     @InputFunction
     @TypeParameter("K")
     @TypeParameter("V")
-    public static void input(
+    public static void intermediateInput(
             @AggregationState({"K", "V"}) MinByNState state,
-            @SqlNullable @BlockPosition @SqlType("V") ValueBlock valueBlock,
-            @BlockIndex int valuePosition,
-            @BlockPosition @SqlType("K") ValueBlock keyBlock,
-            @BlockIndex int keyPosition,
-            @SqlType("BIGINT") long n)
+            @SqlType("row(bigint, array(K), array(V))") SqlRow value)
     {
-        state.initialize(n);
-        state.add(keyBlock, keyPosition, valueBlock, valuePosition);
+        state.merge(value);
     }
 
-    @AggregationFunction(value = "min_by_n$partial", hidden = true)
+    @AggregationFunction(value = "min_by_n$merge", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "row(bigint, array(K), array(V))", decomposition = @Decomposition(partial = "min_by_n$partial", output = "min_by_n$merge"))
+    @OutputFunction(value = "row(bigint, array(K), array(V))", decomposition = @Decomposition(partial = "min_by_n$merge", output = "min_by_n$merge"))
     public static void intermediateOutput(@AggregationState({"K", "V"}) MinByNState state, BlockBuilder out)
     {
         state.serialize(out);
     }
 
+    @AggregationFunction(value = "min_by_n$final", hidden = true)
     @SqlNullable
-    @OutputFunction(value = "array(V)", decomposition = @Decomposition(partial = "min_by_n$partial", output = "min_by_n$final"))
+    @OutputFunction(value = "array(V)", decomposition = @Decomposition(partial = "min_by_n$merge", output = "min_by_n$final"))
     public static void output(@AggregationState({"K", "V"}) MinByNState state, BlockBuilder out)
     {
         state.popAll(out);

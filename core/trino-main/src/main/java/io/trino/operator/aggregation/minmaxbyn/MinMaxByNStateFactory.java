@@ -42,7 +42,12 @@ public final class MinMaxByNStateFactory
         @Override
         public final void merge(MinMaxByNState other)
         {
-            SqlRow sqlRow = ((SingleMinMaxByNState) other).removeTempSerializedState();
+            merge(((SingleMinMaxByNState) other).removeTempSerializedState());
+        }
+
+        @Override
+        public final void merge(SqlRow sqlRow)
+        {
             int rawIndex = sqlRow.getRawIndex();
 
             int capacity = toIntExact(BIGINT.getLong(sqlRow.getRawFieldBlock(0), rawIndex));

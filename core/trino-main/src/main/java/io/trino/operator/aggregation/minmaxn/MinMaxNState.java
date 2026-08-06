@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 
@@ -37,6 +38,11 @@ public interface MinMaxNState
      * the internal details of the state may be reused in this state.
      */
     void merge(MinMaxNState other);
+
+    /**
+     * Merge with the specified serialized state.
+     */
+    void merge(SqlRow serializedState);
 
     /**
      * Writes all values to the supplied block builder as an array entry.
