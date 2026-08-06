@@ -23,8 +23,8 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Convention;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
@@ -38,6 +38,7 @@ import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
 @AggregationFunction("checksum")
@@ -72,17 +73,18 @@ public final class ChecksumAggregationFunction
         }
     }
 
-    @CombineFunction
-    public static void combine(
+    @AggregationFunction(value = "checksum$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "BIGINT", decomposition = @Decomposition(partial = "checksum$partial", output = "checksum$merge"))
+    public static void intermediateOutput(
             @AggregationState NullableLongState state,
-            @AggregationState NullableLongState otherState)
+            BlockBuilder out)
     {
-        state.setNull(state.isNull() && otherState.isNull());
-        state.setValue(state.getValue() + otherState.getValue());
+        NullableLongState.write(BIGINT, state, out);
     }
 
     @SqlNullable
-    @OutputFunction("VARBINARY")
+    @OutputFunction(value = "VARBINARY", decomposition = @Decomposition(partial = "checksum$partial", output = "checksum$final"))
     public static void output(
             @AggregationState NullableLongState state,
             BlockBuilder out)

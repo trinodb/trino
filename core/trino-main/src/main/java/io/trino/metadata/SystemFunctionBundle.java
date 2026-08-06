@@ -38,6 +38,7 @@ import io.trino.operator.aggregation.BooleanDefaultApproximateCountDistinctAggre
 import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
 import io.trino.operator.aggregation.ChecksumAggregationFunction;
+import io.trino.operator.aggregation.ChecksumDecomposedAggregation;
 import io.trino.operator.aggregation.CountAggregation;
 import io.trino.operator.aggregation.CountColumn;
 import io.trino.operator.aggregation.CountIfAggregation;
@@ -615,6 +616,7 @@ public final class SystemFunctionBundle
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .aggregates(Histogram.class)
                 .aggregates(ChecksumAggregationFunction.class)
+                .aggregates(ChecksumDecomposedAggregation.class)
                 .aggregates(ArbitraryAggregationFunction.class)
                 .functions(GREATEST, LEAST)
                 .aggregates(MinAggregationFunction.class)

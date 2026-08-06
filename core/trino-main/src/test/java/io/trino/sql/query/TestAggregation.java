@@ -195,12 +195,12 @@ public class TestAggregation
             // declared decomposition must be re-resolved over the intermediate type
             assertThat(tpchAssertions.query(session,
                     """
-                    SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0), round(geometric_mean(orderkey), 6), round(skewness(orderkey), 6), round(kurtosis(orderkey), 6), bitwise_xor_agg(orderkey)
+                    SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0), round(geometric_mean(orderkey), 6), round(skewness(orderkey), 6), round(kurtosis(orderkey), 6), bitwise_xor_agg(orderkey), checksum(orderkey), checksum(orderstatus)
                     FROM tpch.tiny.orders
                     """))
                     .matches(
                             """
-                            SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0), round(geometric_mean(orderkey), 6), round(skewness(orderkey), 6), round(kurtosis(orderkey), 6), bitwise_xor_agg(orderkey)
+                            SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0), round(geometric_mean(orderkey), 6), round(skewness(orderkey), 6), round(kurtosis(orderkey), 6), bitwise_xor_agg(orderkey), checksum(orderkey), checksum(orderstatus)
                             FROM tpch.tiny.orders
                             """);
         }
