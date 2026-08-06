@@ -21,7 +21,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -42,12 +42,6 @@ public final class MergeHyperLogLogAggregation
         merge(state, input);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
-    {
-        merge(state, otherState.getHyperLogLog());
-    }
-
     private static void merge(@AggregationState HyperLogLogState state, HyperLogLog input)
     {
         HyperLogLog previous = state.getHyperLogLog();
@@ -63,7 +57,7 @@ public final class MergeHyperLogLogAggregation
     }
 
     @SqlNullable
-    @OutputFunction(StandardTypes.HYPER_LOG_LOG)
+    @OutputFunction(value = StandardTypes.HYPER_LOG_LOG, decomposition = @Decomposition(partial = "merge", output = "merge"))
     public static void output(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
         serializer.serialize(state, out);

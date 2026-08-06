@@ -20,7 +20,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -38,12 +38,6 @@ public final class MergeTDigestAggregation
     public static void input(@AggregationState TDigestState state, @SqlType(StandardTypes.TDIGEST) Object value)
     {
         merge(state, (TDigest) value);
-    }
-
-    @CombineFunction
-    public static void combine(@AggregationState TDigestState state, @AggregationState TDigestState otherState)
-    {
-        merge(state, otherState.getTDigest());
     }
 
     private static void merge(@AggregationState TDigestState state, TDigest input)
@@ -64,7 +58,7 @@ public final class MergeTDigestAggregation
     }
 
     @SqlNullable
-    @OutputFunction(StandardTypes.TDIGEST)
+    @OutputFunction(value = StandardTypes.TDIGEST, decomposition = @Decomposition(partial = "merge", output = "merge"))
     public static void output(@AggregationState TDigestState state, BlockBuilder out)
     {
         serializer.serialize(state, out);
