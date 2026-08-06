@@ -575,6 +575,99 @@
                                     <old>method io.trino.spi.connector.ConnectorMergeSink io.trino.spi.connector.ConnectorPageSinkProvider::createMergeSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
                                     <new>method io.trino.spi.connector.ConnectorMergeSink io.trino.spi.connector.ConnectorPageSinkProvider::createMergeSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId, io.trino.spi.connector.MemoryContext)</new>
                                 </item>
+                                <!--
+                                    TrinoPrincipal and RoleGrant are plain SPI value objects and no longer depend on Jackson.
+                                    JSON serialization of role grants now lives in the file metastore, which maps them to its own
+                                    HiveRoleGrant DTO, so the on-disk format is unchanged.
+                                -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method void io.trino.spi.security.RoleGrant::&lt;init&gt;(io.trino.spi.security.TrinoPrincipal, java.lang.String, boolean)</old>
+                                    <new>method void io.trino.spi.security.RoleGrant::&lt;init&gt;(io.trino.spi.security.TrinoPrincipal, java.lang.String, boolean)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonCreator</annotation>
+                                    <justification>Serialization of RoleGrant is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.security.RoleGrant::&lt;init&gt;(===io.trino.spi.security.TrinoPrincipal===, java.lang.String, boolean)</old>
+                                    <new>parameter void io.trino.spi.security.RoleGrant::&lt;init&gt;(===io.trino.spi.security.TrinoPrincipal===, java.lang.String, boolean)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("grantee")</annotation>
+                                    <justification>Serialization of RoleGrant is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.security.RoleGrant::&lt;init&gt;(io.trino.spi.security.TrinoPrincipal, ===java.lang.String===, boolean)</old>
+                                    <new>parameter void io.trino.spi.security.RoleGrant::&lt;init&gt;(io.trino.spi.security.TrinoPrincipal, ===java.lang.String===, boolean)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("roleName")</annotation>
+                                    <justification>Serialization of RoleGrant is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.security.RoleGrant::&lt;init&gt;(io.trino.spi.security.TrinoPrincipal, java.lang.String, ===boolean===)</old>
+                                    <new>parameter void io.trino.spi.security.RoleGrant::&lt;init&gt;(io.trino.spi.security.TrinoPrincipal, java.lang.String, ===boolean===)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("grantable")</annotation>
+                                    <justification>Serialization of RoleGrant is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method io.trino.spi.security.TrinoPrincipal io.trino.spi.security.RoleGrant::getGrantee()</old>
+                                    <new>method io.trino.spi.security.TrinoPrincipal io.trino.spi.security.RoleGrant::getGrantee()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty</annotation>
+                                    <justification>Serialization of RoleGrant is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.security.RoleGrant::getRoleName()</old>
+                                    <new>method java.lang.String io.trino.spi.security.RoleGrant::getRoleName()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty</annotation>
+                                    <justification>Serialization of RoleGrant is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean io.trino.spi.security.RoleGrant::isGrantable()</old>
+                                    <new>method boolean io.trino.spi.security.RoleGrant::isGrantable()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty</annotation>
+                                    <justification>Serialization of RoleGrant is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method void io.trino.spi.security.TrinoPrincipal::&lt;init&gt;(io.trino.spi.security.PrincipalType, java.lang.String)</old>
+                                    <new>method void io.trino.spi.security.TrinoPrincipal::&lt;init&gt;(io.trino.spi.security.PrincipalType, java.lang.String)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonCreator</annotation>
+                                    <justification>Serialization of TrinoPrincipal is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.security.TrinoPrincipal::&lt;init&gt;(===io.trino.spi.security.PrincipalType===, java.lang.String)</old>
+                                    <new>parameter void io.trino.spi.security.TrinoPrincipal::&lt;init&gt;(===io.trino.spi.security.PrincipalType===, java.lang.String)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("type")</annotation>
+                                    <justification>Serialization of TrinoPrincipal is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.security.TrinoPrincipal::&lt;init&gt;(io.trino.spi.security.PrincipalType, ===java.lang.String===)</old>
+                                    <new>parameter void io.trino.spi.security.TrinoPrincipal::&lt;init&gt;(io.trino.spi.security.PrincipalType, ===java.lang.String===)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("name")</annotation>
+                                    <justification>Serialization of TrinoPrincipal is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method io.trino.spi.security.PrincipalType io.trino.spi.security.TrinoPrincipal::getType()</old>
+                                    <new>method io.trino.spi.security.PrincipalType io.trino.spi.security.TrinoPrincipal::getType()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty</annotation>
+                                    <justification>Serialization of TrinoPrincipal is the responsibility of the code that persists it, not of the SPI.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
