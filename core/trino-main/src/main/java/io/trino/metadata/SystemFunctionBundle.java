@@ -16,6 +16,7 @@ package io.trino.metadata;
 import io.trino.FeaturesConfig;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.ApproximateCountDistinctDecomposedAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateLongPercentileAggregations;
@@ -34,6 +35,7 @@ import io.trino.operator.aggregation.BitwiseOrAggregation;
 import io.trino.operator.aggregation.BitwiseXorAggregation;
 import io.trino.operator.aggregation.BooleanAndAggregation;
 import io.trino.operator.aggregation.BooleanApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.BooleanApproximateCountDistinctDecomposedAggregation;
 import io.trino.operator.aggregation.BooleanDefaultApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
@@ -407,6 +409,8 @@ public final class SystemFunctionBundle
                 .window(LagFunction.class)
                 .window(LeadFunction.class)
                 .aggregates(ApproximateCountDistinctAggregation.class)
+                .aggregates(ApproximateCountDistinctDecomposedAggregation.class)
+                .aggregates(BooleanApproximateCountDistinctDecomposedAggregation.class)
                 .aggregates(DefaultApproximateCountDistinctAggregation.class)
                 .aggregates(BooleanApproximateCountDistinctAggregation.class)
                 .aggregates(BooleanDefaultApproximateCountDistinctAggregation.class)

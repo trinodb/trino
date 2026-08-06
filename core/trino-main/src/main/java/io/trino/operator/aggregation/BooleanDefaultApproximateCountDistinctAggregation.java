@@ -16,11 +16,13 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.BooleanDistinctState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+
+import static io.trino.spi.type.TinyintType.TINYINT;
 
 @AggregationFunction("approx_distinct")
 public final class BooleanDefaultApproximateCountDistinctAggregation
@@ -36,13 +38,14 @@ public final class BooleanDefaultApproximateCountDistinctAggregation
         BooleanApproximateCountDistinctAggregation.input(state, value, DEFAULT_STANDARD_ERROR);
     }
 
-    @CombineFunction
-    public static void combineState(BooleanDistinctState state, BooleanDistinctState otherState)
+    @AggregationFunction(value = "approx_distinct_boolean$partial", hidden = true)
+    @OutputFunction(value = StandardTypes.TINYINT, decomposition = @Decomposition(partial = "approx_distinct_boolean$partial", output = "approx_distinct_boolean$merge"))
+    public static void intermediateOutput(BooleanDistinctState state, BlockBuilder out)
     {
-        BooleanApproximateCountDistinctAggregation.combineState(state, otherState);
+        TINYINT.writeByte(out, state.getByte());
     }
 
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "approx_distinct_boolean$partial", output = "approx_distinct_boolean$final"))
     public static void evaluateFinal(BooleanDistinctState state, BlockBuilder out)
     {
         BooleanApproximateCountDistinctAggregation.evaluateFinal(state, out);
