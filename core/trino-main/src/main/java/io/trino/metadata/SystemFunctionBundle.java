@@ -99,6 +99,7 @@ import io.trino.operator.aggregation.TDigestAggregationFunction;
 import io.trino.operator.aggregation.VarcharApproximateMostFrequent;
 import io.trino.operator.aggregation.VarianceAggregation;
 import io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction;
+import io.trino.operator.aggregation.arrayagg.ArrayAggregationMergeFunction;
 import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.operator.aggregation.histogram.HistogramMergeAggregation;
 import io.trino.operator.aggregation.listagg.ListaggAggregationFunction;
@@ -615,6 +616,7 @@ public final class SystemFunctionBundle
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_SUBSCRIPT, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY, JSON_STRING_ARRAY_EXTRACT_SCALAR)
                 .aggregates(ArrayAggregationFunction.class)
+                .aggregates(ArrayAggregationMergeFunction.class)
                 .aggregates(ListaggAggregationFunction.class)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, JSON_TO_MAP, JSON_STRING_TO_MAP)

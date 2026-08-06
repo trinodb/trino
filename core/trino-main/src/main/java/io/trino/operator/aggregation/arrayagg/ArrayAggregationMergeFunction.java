@@ -14,41 +14,39 @@
 package io.trino.operator.aggregation.arrayagg;
 
 import io.trino.spi.block.ArrayBlockBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.Decomposition;
-import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.Type;
 
-@AggregationFunction(value = "array_agg", isOrderSensitive = true)
-@Description("return an array of values")
-public final class ArrayAggregationFunction
+// merges array_agg intermediates by concatenating the collected values
+@AggregationFunction(value = "array_agg$merge", isOrderSensitive = true, hidden = true)
+public final class ArrayAggregationMergeFunction
 {
-    private ArrayAggregationFunction() {}
+    private ArrayAggregationMergeFunction() {}
 
     @InputFunction
     @TypeParameter("T")
     public static void input(
             @AggregationState("T") ArrayAggregationState state,
-            @SqlNullable @BlockPosition @SqlType("T") ValueBlock value,
-            @BlockIndex int position)
+            @SqlType("array(T)") Block value)
     {
-        state.add(value, position);
+        ValueBlock elements = value.getUnderlyingValueBlock();
+        for (int i = 0; i < value.getPositionCount(); i++) {
+            state.add(elements, value.getUnderlyingValuePosition(i));
+        }
     }
 
     @SqlNullable
-    @OutputFunction(value = "array(T)", decomposition = @Decomposition(partial = "array_agg", output = "array_agg$merge"))
+    @OutputFunction(value = "array(T)", decomposition = @Decomposition(partial = "array_agg$merge", output = "array_agg$merge"))
     public static void output(
-            @TypeParameter("T") Type elementType,
             @AggregationState("T") ArrayAggregationState state,
             BlockBuilder out)
     {
