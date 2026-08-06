@@ -310,6 +310,22 @@ SELECT date_trunc('year', TIMESTAMP '2022-10-20 05:10:00');
 ```
 :::
 
+## Binning function
+
+:::{function} date_bin(stride, source, origin) -> [same as input]
+Returns `source` rounded down to the nearest multiple of `stride` aligned to `origin`.
+`stride` must be a positive `INTERVAL DAY TO SECOND` value. Month-based intervals are
+not supported because their length varies.
+
+```
+SELECT date_bin(INTERVAL '15' MINUTE, TIMESTAMP '2020-02-11 15:44:17', TIMESTAMP '2001-01-01 00:00:00');
+-- 2020-02-11 15:30:00.000
+
+SELECT date_bin(INTERVAL '0.5' SECOND, TIMESTAMP '2020-02-11 15:44:17.345', TIMESTAMP '2001-01-01 00:00:00.000');
+-- 2020-02-11 15:44:17.000
+```
+:::
+
 (datetime-interval-functions)=
 ## Interval functions
 
