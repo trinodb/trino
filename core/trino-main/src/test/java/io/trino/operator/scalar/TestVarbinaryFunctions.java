@@ -45,6 +45,15 @@ public class TestVarbinaryFunctions
 {
     private static final byte[] ALL_BYTES;
 
+    /**
+     * A 274 byte Zstandard frame that expands to 8MB of zero bytes, produced by
+     * {@code head -c 8388608 /dev/zero | zstd -19}.
+     */
+    private static final String ZSTD_EXPANSION_BOMB = "KLUv/QRoTAAACAABAPz/ORACAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAA"
+            + "AgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIA"
+            + "EAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAACABAAAgAQAAIAEAADABAA"
+            + "D9/2YQ==";
+
     static {
         ALL_BYTES = new byte[256];
         for (int i = 0; i < ALL_BYTES.length; i++) {
@@ -837,8 +846,27 @@ public class TestVarbinaryFunctions
     @Test
     public void testZstdDecompress()
     {
+        // "hello world" compressed by the zstd command line tool reading from a pipe. The frame
+        // header of a stream of unknown length does not declare the size of the content.
+        assertThat(assertions.expression("zstd_decompress(from_base64('KLUv/QRYWQAAaGVsbG8gd29ybGRoaR6y'))"))
+                .isEqualTo(sqlVarbinary("hello world"));
+
+        // "hello " and "world" compressed separately and concatenated, which the format allows.
+        // Both frames declare their content size, but the size in the first one covers only the
+        // first one.
+        assertThat(assertions.expression("zstd_decompress(from_base64('KLUv/SQGMQAAaGVsbG8g0jvhqSi1L/0kBSkAAHdvcmxk71HuZg=='))"))
+                .isEqualTo(sqlVarbinary("hello world"));
+
         assertTrinoExceptionThrownBy(assertions.expression("zstd_decompress(CAST('not a zstd frame' AS VARBINARY))")::evaluate)
                 .hasMessageStartingWith("invalid zstd frame");
+
+        // the first half of a valid frame
+        assertTrinoExceptionThrownBy(assertions.expression("zstd_decompress(from_base64('KLUv/QRYWQAAaGVs'))")::evaluate)
+                .hasMessageStartingWith("invalid zstd frame");
+
+        // a 274 byte frame that expands to 8MB of zero bytes
+        assertTrinoExceptionThrownBy(assertions.expression("zstd_decompress(from_base64('%s'))".formatted(ZSTD_EXPANSION_BOMB))::evaluate)
+                .hasMessage("result of zstd_decompress function must not exceed 4194304 bytes");
     }
 
     @Test

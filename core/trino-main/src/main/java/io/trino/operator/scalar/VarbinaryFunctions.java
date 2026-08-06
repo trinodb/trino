@@ -19,13 +19,14 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 import io.airlift.compress.v3.MalformedInputException;
 import io.airlift.compress.v3.zstd.ZstdCompressor;
-import io.airlift.compress.v3.zstd.ZstdDecompressor;
+import io.airlift.compress.v3.zstd.ZstdInputStream;
 import io.airlift.compress.v3.zstd.ZstdNativeCompressor;
 import io.airlift.slice.Murmur3Hash128;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
+import io.airlift.units.DataSize;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
@@ -33,14 +34,18 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.zip.CRC32;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.scalar.HmacFunctions.computeHash;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 public final class VarbinaryFunctions
 {
@@ -51,6 +56,7 @@ public final class VarbinaryFunctions
 
     private static final int ZSTD_MIN_COMPRESSION_LEVEL = 1;
     private static final int ZSTD_MAX_COMPRESSION_LEVEL = 22;
+    private static final int ZSTD_MAX_DECOMPRESSED_SIZE = toIntExact(DataSize.of(4, MEGABYTE).toBytes());
 
     private VarbinaryFunctions() {}
 
@@ -425,22 +431,19 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice zstdDecompress(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        ZstdDecompressor decompressor = ZstdDecompressor.create();
-        byte[] input = slice.byteArray();
-        int inputOffset = slice.byteArrayOffset();
-        int inputLength = slice.length();
-        try {
-            long decompressedSize = decompressor.getDecompressedSize(input, inputOffset, inputLength);
-            if (decompressedSize < 0 || decompressedSize > Integer.MAX_VALUE) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "invalid zstd frame: content size is unknown or too large");
-            }
-            byte[] output = new byte[(int) decompressedSize];
-            decompressor.decompress(input, inputOffset, inputLength, output, 0, output.length);
+        // Decompress incrementally instead of trusting the size declared in the frame header.
+        // The header is optional, it only describes the first of possibly several concatenated
+        // frames, and it is under the control of whoever produced the input.
+        try (InputStream input = new ZstdInputStream(slice.getInput())) {
+            byte[] output = input.readNBytes(ZSTD_MAX_DECOMPRESSED_SIZE + 1);
+            checkCondition(
+                    output.length <= ZSTD_MAX_DECOMPRESSED_SIZE,
+                    INVALID_FUNCTION_ARGUMENT,
+                    "result of zstd_decompress function must not exceed %s bytes",
+                    ZSTD_MAX_DECOMPRESSED_SIZE);
             return Slices.wrappedBuffer(output);
         }
-        catch (MalformedInputException | IllegalArgumentException e) {
-            // The pure-Java decompressor throws MalformedInputException; the native
-            // decompressor reports the same class of error as IllegalArgumentException.
+        catch (IOException | MalformedInputException | IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "invalid zstd frame: " + e.getMessage(), e);
         }
     }

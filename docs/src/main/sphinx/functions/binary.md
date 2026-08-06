@@ -224,5 +224,8 @@ to be available.
 :::
 
 :::{function} zstd_decompress(binary) -> varbinary
-Decompresses `binary`, which must be data produced by {func}`zstd_compress`.
+Decompresses `binary`, which must be one or more Zstandard frames, and returns the
+original data. Any Zstandard-compressed data can be decompressed, whether or not it
+was produced by {func}`zstd_compress`. The function fails if the decompressed data
+exceeds 4MB.
 :::
