@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.NumberState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -43,24 +43,8 @@ public final class NumberSumAggregation
         }
     }
 
-    @CombineFunction
-    public static void combine(NumberState state, NumberState otherState)
-    {
-        if (state.getValue() == null) {
-            if (otherState.getValue() == null) {
-                return;
-            }
-            state.setValue(otherState.getValue());
-            return;
-        }
-
-        if (otherState.getValue() != null) {
-            state.setValue(add(state.getValue(), otherState.getValue()));
-        }
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.NUMBER)
+    @OutputFunction(value = StandardTypes.NUMBER, decomposition = @Decomposition(partial = "sum", output = "sum"))
     public static void output(NumberState state, BlockBuilder out)
     {
         if (state.getValue() == null) {

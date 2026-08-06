@@ -62,6 +62,7 @@ import io.trino.operator.aggregation.GeometricMeanAggregations;
 import io.trino.operator.aggregation.GeometricMeanDecomposedAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondSumAggregation;
+import io.trino.operator.aggregation.IntervalSumDecomposedAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthSumAggregation;
 import io.trino.operator.aggregation.LegacyApproximateDoublePercentileAggregations;
@@ -82,6 +83,7 @@ import io.trino.operator.aggregation.MinAggregationFunction;
 import io.trino.operator.aggregation.MinByAggregationFunction;
 import io.trino.operator.aggregation.MinByDecomposedAggregation;
 import io.trino.operator.aggregation.NumberAverageAggregation;
+import io.trino.operator.aggregation.NumberAverageDecomposedAggregation;
 import io.trino.operator.aggregation.NumberSumAggregation;
 import io.trino.operator.aggregation.NumericHistogramDecomposedAggregation;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
@@ -453,12 +455,14 @@ public final class SystemFunctionBundle
                 .aggregates(BigintSumAggregation.class)
                 .aggregates(NumberSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
+                .aggregates(IntervalSumDecomposedAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
                 .aggregates(AverageDecomposedAggregation.class)
                 .aggregates(BigintAverageAggregations.class)
                 .aggregates(DoubleAverageAggregations.class)
                 .aggregates(RealAverageAggregation.class)
                 .aggregates(NumberAverageAggregation.class)
+                .aggregates(NumberAverageDecomposedAggregation.class)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
                 .aggregates(GeometricMeanDecomposedAggregation.class)
