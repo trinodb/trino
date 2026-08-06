@@ -45,17 +45,16 @@ public class PagesInputStreamFactory
     public void write(OutputStream stream, List<Slice> serializedPages)
             throws IOException
     {
-        try (stream) {
-            SliceOutput header = new OutputStreamSliceOutput(stream);
-            header.writeInt(SERIALIZED_PAGES_MAGIC);
-            header.writeLong(dataIntegrityVerificationEnabled ? calculateChecksum(serializedPages) : NO_CHECKSUM);
-            header.writeInt(serializedPages.size());
-            header.flush();
+        try {
+            SliceOutput output = new OutputStreamSliceOutput(stream);
+            output.writeInt(SERIALIZED_PAGES_MAGIC);
+            output.writeLong(dataIntegrityVerificationEnabled ? calculateChecksum(serializedPages) : NO_CHECKSUM);
+            output.writeInt(serializedPages.size());
 
             for (Slice page : serializedPages) {
-                page.getInput().transferTo(stream);
-                stream.flush();
+                output.writeBytes(page);
             }
+            output.flush();
         }
         catch (IOException | UncheckedIOException e) {
             // EOF exception occurs when the client disconnects while writing data
