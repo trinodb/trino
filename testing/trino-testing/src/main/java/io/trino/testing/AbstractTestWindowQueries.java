@@ -753,6 +753,105 @@ public abstract class AbstractTestWindowQueries
     }
 
     @Test
+    public void testDecimalSlidingSum()
+    {
+        // short decimal
+        assertThat(query(
+                """
+                SELECT k, sum(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, CAST(10.00 AS decimal(10, 2))),
+                    (2, CAST(-20.00 AS decimal(10, 2))),
+                    (3, CAST(30.00 AS decimal(10, 2))),
+                    (4, CAST(-40.00 AS decimal(10, 2))),
+                    (5, CAST(50.00 AS decimal(10, 2))),
+                    (6, CAST(-60.00 AS decimal(10, 2)))) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST(10.00 AS decimal(38, 2))),
+                            (2, CAST(-10.00 AS decimal(38, 2))),
+                            (3, CAST(20.00 AS decimal(38, 2))),
+                            (4, CAST(-20.00 AS decimal(38, 2))),
+                            (5, CAST(20.00 AS decimal(38, 2))),
+                            (6, CAST(-20.00 AS decimal(38, 2)))
+                        """);
+
+        // long decimal
+        assertThat(query(
+                """
+                SELECT k, sum(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, DECIMAL '10000000000000000000'),
+                    (2, DECIMAL '-20000000000000000000'),
+                    (3, DECIMAL '30000000000000000000'),
+                    (4, DECIMAL '-40000000000000000000'),
+                    (5, DECIMAL '50000000000000000000'),
+                    (6, DECIMAL '-60000000000000000000')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST(DECIMAL '10000000000000000000' AS decimal(38, 0))),
+                            (2, CAST(DECIMAL '-10000000000000000000' AS decimal(38, 0))),
+                            (3, CAST(DECIMAL '20000000000000000000' AS decimal(38, 0))),
+                            (4, CAST(DECIMAL '-20000000000000000000' AS decimal(38, 0))),
+                            (5, CAST(DECIMAL '20000000000000000000' AS decimal(38, 0))),
+                            (6, CAST(DECIMAL '-20000000000000000000' AS decimal(38, 0)))
+                        """);
+
+        // long decimal, removing values whose low 64-bit word is zero (2^64 and -2^64): exercises the carry into the high word during negation
+        assertThat(query(
+                """
+                SELECT k, sum(a) OVER (ORDER BY k ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, DECIMAL '18446744073709551616'),
+                    (2, DECIMAL '-18446744073709551616'),
+                    (3, DECIMAL '0'),
+                    (4, DECIMAL '0'),
+                    (5, DECIMAL '0')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST(DECIMAL '18446744073709551616' AS decimal(38, 0))),
+                            (2, CAST(DECIMAL '0' AS decimal(38, 0))),
+                            (3, CAST(DECIMAL '0' AS decimal(38, 0))),
+                            (4, CAST(DECIMAL '-18446744073709551616' AS decimal(38, 0))),
+                            (5, CAST(DECIMAL '0' AS decimal(38, 0)))
+                        """);
+
+        // long decimal, overflow-counter cancellation: with A = 9e37 the removeInput before the incoming add pushes the
+        // accumulator transiently past +2^127 (partition 'plus') or -2^127 (partition 'minus'), so the overflow counter must reverse
+        assertThat(query(
+                """
+                SELECT k, p, sum(a) OVER (PARTITION BY p ORDER BY k ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, 'plus', DECIMAL '-90000000000000000000000000000000000000'),
+                    (2, 'plus', DECIMAL '90000000000000000000000000000000000000'),
+                    (3, 'plus', DECIMAL '90000000000000000000000000000000000000'),
+                    (4, 'plus', DECIMAL '-90000000000000000000000000000000000000'),
+                    (1, 'minus', DECIMAL '90000000000000000000000000000000000000'),
+                    (2, 'minus', DECIMAL '-90000000000000000000000000000000000000'),
+                    (3, 'minus', DECIMAL '-90000000000000000000000000000000000000'),
+                    (4, 'minus', DECIMAL '90000000000000000000000000000000000000')) t(k, p, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, 'plus', CAST(DECIMAL '-90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (2, 'plus', CAST(DECIMAL '0' AS decimal(38, 0))),
+                            (3, 'plus', CAST(DECIMAL '90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (4, 'plus', CAST(DECIMAL '90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (1, 'minus', CAST(DECIMAL '90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (2, 'minus', CAST(DECIMAL '0' AS decimal(38, 0))),
+                            (3, 'minus', CAST(DECIMAL '-90000000000000000000000000000000000000' AS decimal(38, 0))),
+                            (4, 'minus', CAST(DECIMAL '-90000000000000000000000000000000000000' AS decimal(38, 0)))
+                        """);
+    }
+
+    @Test
     public void testDuplicateColumnsInWindowOrderByClause()
     {
         MaterializedResult actual = computeActual("SELECT a, row_number() OVER (ORDER BY a ASC, a DESC) FROM (VALUES 3, 2, 1) t(a)");
