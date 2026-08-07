@@ -308,6 +308,15 @@ public class TestClickHouseConnectorTest
                         ")");
     }
 
+    @Test
+    public void testTimestampPrecisionOnCreateTable()
+    {
+        try (TestTable table = newTrinoTable("test_timestamp_precision_", "(ts timestamp(12))")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("ts timestamp(9)");
+        }
+    }
+
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
@@ -599,7 +608,7 @@ public class TestClickHouseConnectorTest
                 }
                 yield Optional.of(dataMappingTestSetup);
             }
-            case "time", "time(6)", "timestamp", "timestamp(6)",
+            case "time", "time(6)",
                  "timestamp(3) with time zone", "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
             default -> Optional.of(dataMappingTestSetup);
         };
