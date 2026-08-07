@@ -14,17 +14,28 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunctionImplementation;
+import io.trino.spi.function.ColumnarScalarSpecializer;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.trino.operator.scalar.ArrayElementAtFunction.elementAt;
+import static io.trino.operator.scalar.ArrayElementBlockProjection.Selection.LAST;
+import static io.trino.operator.scalar.ArrayElementBlockProjection.project;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
@@ -34,6 +45,16 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 public final class ArrayLastFunction
 {
     private ArrayLastFunction() {}
+
+    @ColumnarScalarSpecializer
+    public static Optional<ColumnarScalarFunctionImplementation> specializeColumnar(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        Type returnType = boundSignature.getReturnType();
+        if (!(returnType instanceof ArrayType || returnType instanceof MapType || returnType instanceof RowType)) {
+            return Optional.empty();
+        }
+        return Optional.of((_, arguments) -> project(arguments.getBlock(0), null, LAST));
+    }
 
     @TypeParameter("E")
     @SqlNullable

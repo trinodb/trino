@@ -19,10 +19,12 @@ import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.annotations.ImplementationDependency;
+import io.trino.operator.scalar.annotations.ColumnarScalarImplementationParser.Implementations;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunctionImplementation;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
@@ -46,15 +48,18 @@ public class ParametricScalar
         extends SqlScalarFunction
 {
     private final ParametricImplementationsGroup<ParametricScalarImplementation> implementations;
+    private final Optional<Implementations> columnarImplementations;
 
     public ParametricScalar(
             Signature signature,
             ScalarHeader details,
             ParametricImplementationsGroup<ParametricScalarImplementation> implementations,
+            Optional<Implementations> columnarImplementations,
             boolean deprecated)
     {
         super(createFunctionMetadata(signature, details, deprecated, implementations.getFunctionNullability()));
         this.implementations = requireNonNull(implementations);
+        this.columnarImplementations = requireNonNull(columnarImplementations, "columnarImplementations is null");
     }
 
     private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated, FunctionNullability functionNullability)
@@ -107,6 +112,7 @@ public class ParametricScalar
         declareDependencies(builder, implementations.getExactImplementations().values());
         declareDependencies(builder, implementations.getSpecializedImplementations());
         declareDependencies(builder, implementations.getGenericImplementations());
+        columnarImplementations.ifPresent(implementations -> implementations.declareDependencies(builder));
         return builder.build();
     }
 
@@ -168,5 +174,11 @@ public class ParametricScalar
         }
 
         throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported binding %s for signature %s", boundSignature, getFunctionMetadata().getSignature()));
+    }
+
+    @Override
+    public Optional<ColumnarScalarFunctionImplementation> getColumnarScalarFunctionImplementation(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        return columnarImplementations.flatMap(implementations -> implementations.specialize(boundSignature, functionDependencies));
     }
 }

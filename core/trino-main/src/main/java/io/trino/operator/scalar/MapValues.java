@@ -14,18 +14,34 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.function.ColumnarScalarImplementation;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
+import static io.trino.operator.scalar.MapBlockProjection.project;
+
 @ScalarFunction(value = "map_values", neverFails = true)
 @Description("Returns the values of the given map(K,V) as an array")
 public final class MapValues
 {
     private MapValues() {}
+
+    @ColumnarScalarImplementation
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("array(V)")
+    public static Block getValuesColumnar(
+            @TypeParameter("V") Type valueType,
+            @SqlType("map(K,V)") Block mapColumn)
+    {
+        ColumnarMap map = ColumnarMap.toColumnarMap(mapColumn);
+        return project(map, map.getValuesBlock());
+    }
 
     @TypeParameter("K")
     @TypeParameter("V")

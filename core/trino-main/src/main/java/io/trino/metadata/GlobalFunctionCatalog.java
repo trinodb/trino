@@ -28,6 +28,7 @@ import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.ColumnarScalarFunctionImplementation;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -48,6 +49,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -195,6 +197,15 @@ public class GlobalFunctionCatalog
             InvocationConvention invocationConvention)
     {
         return functions.getFunctionBundle(functionId).getScalarFunctionImplementation(functionId, boundSignature, functionDependencies, invocationConvention);
+    }
+
+    @Override
+    public Optional<ColumnarScalarFunctionImplementation> getColumnarScalarFunctionImplementation(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies)
+    {
+        return functions.getFunctionBundle(functionId).getColumnarScalarFunctionImplementation(functionId, boundSignature, functionDependencies);
     }
 
     @Override
