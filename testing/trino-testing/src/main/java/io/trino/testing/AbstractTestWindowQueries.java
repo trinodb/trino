@@ -727,6 +727,60 @@ public abstract class AbstractTestWindowQueries
     }
 
     @Test
+    public void testDecimalSumWithSlidingWindowFrame()
+    {
+        // A trailing "last 4 rows" frame slides forward one row at a time, so from the 5th row on the frame
+        // gains a new value and drops the oldest one, exercising the window accumulator's removeInput path.
+        // Values alternate sign so that a positive value is removed on the 5th row and a negative one on the 6th.
+
+        // short decimal (long-backed)
+        assertThat(query(
+                """
+                SELECT k, sum(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, CAST(10.00 AS decimal(10, 2))),
+                    (2, CAST(-20.00 AS decimal(10, 2))),
+                    (3, CAST(30.00 AS decimal(10, 2))),
+                    (4, CAST(-40.00 AS decimal(10, 2))),
+                    (5, CAST(50.00 AS decimal(10, 2))),
+                    (6, CAST(-60.00 AS decimal(10, 2)))) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST(10.00 AS decimal(38, 2))),
+                            (2, CAST(-10.00 AS decimal(38, 2))),
+                            (3, CAST(20.00 AS decimal(38, 2))),
+                            (4, CAST(-20.00 AS decimal(38, 2))),
+                            (5, CAST(20.00 AS decimal(38, 2))),
+                            (6, CAST(-20.00 AS decimal(38, 2)))
+                        """);
+
+        // long decimal (Int128-backed); values exceed the signed 64-bit range
+        assertThat(query(
+                """
+                SELECT k, sum(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, DECIMAL '10000000000000000000'),
+                    (2, DECIMAL '-20000000000000000000'),
+                    (3, DECIMAL '30000000000000000000'),
+                    (4, DECIMAL '-40000000000000000000'),
+                    (5, DECIMAL '50000000000000000000'),
+                    (6, DECIMAL '-60000000000000000000')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST(DECIMAL '10000000000000000000' AS decimal(38, 0))),
+                            (2, CAST(DECIMAL '-10000000000000000000' AS decimal(38, 0))),
+                            (3, CAST(DECIMAL '20000000000000000000' AS decimal(38, 0))),
+                            (4, CAST(DECIMAL '-20000000000000000000' AS decimal(38, 0))),
+                            (5, CAST(DECIMAL '20000000000000000000' AS decimal(38, 0))),
+                            (6, CAST(DECIMAL '-20000000000000000000' AS decimal(38, 0)))
+                        """);
+    }
+
+    @Test
     public void testAverageWithSlidingWindowFrame()
     {
         // Same trailing "last 4 rows" frame, exercising the avg(bigint) window accumulator's removeInput path
