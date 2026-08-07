@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
@@ -32,7 +33,9 @@ import java.util.Optional;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValue;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -202,6 +205,15 @@ public class TestDeltaLakeParquetStatisticsUtils
 
         assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
         assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneComputedStatisticsRoundsMaxUp()
+    {
+        // Delta stats are millisecond-granular: floor the min and ceil the max so a microsecond value stays within the bounds
+        LongTimestampWithTimeZone value = LongTimestampWithTimeZone.fromEpochMillisAndFraction(Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli(), 456_000_000, UTC_KEY);
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_TZ_MICROS, value, false)).isEqualTo("2024-01-15T10:30:00.123Z");
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_TZ_MICROS, value, true)).isEqualTo("2024-01-15T10:30:00.124Z");
     }
 
     private static byte[] toParquetEncoding(LocalDateTime time)
