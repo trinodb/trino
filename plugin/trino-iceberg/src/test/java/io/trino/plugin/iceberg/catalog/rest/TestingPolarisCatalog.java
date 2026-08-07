@@ -118,6 +118,8 @@ public final class TestingPolarisCatalog
 
     private void createCatalog()
     {
+        // endpoint is vended to clients (Trino on the host); endpointInternal is used by Polaris on the Docker network
+        String minioClientAddress = minio.getMinioAddress();
         String minioInternalAddress = "http://%s:%s".formatted(DEFAULT_HOST_NAME, MINIO_API_PORT);
         String body =
                 """
@@ -129,6 +131,7 @@ public final class TestingPolarisCatalog
                         "storageConfigInfo": {
                             "storageType": "S3",
                             "endpoint": "%s",
+                            "endpointInternal": "%s",
                             "pathStyleAccess": true,
                             "region": "%s"
                         },
@@ -136,7 +139,7 @@ public final class TestingPolarisCatalog
                             "default-base-location": "%s"
                         }
                     }
-                }""".formatted(minioInternalAddress, MINIO_REGION, warehouseLocation);
+                }""".formatted(minioClientAddress, minioInternalAddress, MINIO_REGION, warehouseLocation);
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs"))
                 .setHeader(AUTHORIZATION, "Bearer " + token)

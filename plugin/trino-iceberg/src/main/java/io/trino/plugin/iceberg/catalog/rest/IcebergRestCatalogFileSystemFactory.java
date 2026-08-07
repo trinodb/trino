@@ -30,6 +30,7 @@ import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -130,15 +131,18 @@ public class IcebergRestCatalogFileSystemFactory
             throw new IllegalStateException("Failed to initialize the vended credentials from the provided fileIoProperties");
         }
 
+        // Preserve non-vended extra credentials already on the identity.
+        // Later vended values intentionally replace overlapping keys.
+        Map<String, String> mergedExtraCredentials = new HashMap<>(identity.getExtraCredentials());
+        mergedExtraCredentials.putAll(cached.extraCredentials());
+        mergedExtraCredentials.putAll(vendedCredentials.map(VendedCredentials::toExtraCredentials).orElse(ImmutableMap.of()));
+
         ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
                 .withGroups(identity.getGroups())
                 .withPrincipal(identity.getPrincipal())
                 .withEnabledSystemRoles(identity.getEnabledSystemRoles())
                 .withConnectorRole(identity.getConnectorRole())
-                .withExtraCredentials(ImmutableMap.<String, String>builder()
-                        .putAll(cached.extraCredentials())
-                        .putAll(ImmutableMap.copyOf(vendedCredentials.map(VendedCredentials::toExtraCredentials).orElse(ImmutableMap.of())))
-                        .buildOrThrow())
+                .withExtraCredentials(mergedExtraCredentials)
                 .build();
 
         return fileSystemFactory.create(identityWithExtraCredentials);
