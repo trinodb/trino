@@ -35,6 +35,8 @@ import static java.lang.Math.toIntExact;
 @ScalarFunction(value = AT_TIMEZONE_FUNCTION_NAME, hidden = true)
 public final class AtTimeZoneWithOffset
 {
+    private static final long MAX_OFFSET_MINUTES = 14 * 60;
+
     private AtTimeZoneWithOffset() {}
 
     @LiteralParameters({"x", "p"})
@@ -56,12 +58,14 @@ public final class AtTimeZoneWithOffset
     {
         int offsetMinutes = getZoneOffsetMinutes(zoneOffset);
         long picos = time.getPicoseconds() - (time.getOffsetMinutes() - offsetMinutes) * PICOSECONDS_PER_MINUTE;
-        return new LongTimeWithTimeZone(floorMod(picos, PICOSECONDS_PER_DAY), getZoneOffsetMinutes(zoneOffset));
+        return new LongTimeWithTimeZone(floorMod(picos, PICOSECONDS_PER_DAY), offsetMinutes);
     }
 
     private static int getZoneOffsetMinutes(long interval)
     {
         checkCondition((interval % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
-        return toIntExact(interval / 60_000L);
+        long offsetMinutes = interval / 60_000L;
+        checkCondition(offsetMinutes >= -MAX_OFFSET_MINUTES && offsetMinutes <= MAX_OFFSET_MINUTES, INVALID_FUNCTION_ARGUMENT, "Invalid offset minutes %s", offsetMinutes);
+        return toIntExact(offsetMinutes);
     }
 }

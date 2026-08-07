@@ -2403,6 +2403,38 @@ public class TestTimeWithTimeZone
     }
 
     @Test
+    public void testAtTimeZoneWithOffsetOutOfRange()
+    {
+        // offsets outside [-14:00, 14:00] must be rejected, see https://github.com/trinodb/trino/issues/9288
+        assertThat(assertions.expression("TIME '01:23:45' AT TIME ZONE INTERVAL '840' MINUTE")).matches("TIME '02:23:45+14:00'");
+        assertThat(assertions.expression("TIME '01:23:45' AT TIME ZONE INTERVAL '-840' MINUTE")).matches("TIME '22:23:45-14:00'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '01:23:45' AT TIME ZONE INTERVAL '841' MINUTE")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid offset minutes 841");
+
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '01:23:45' AT TIME ZONE INTERVAL '-841' MINUTE")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid offset minutes -841");
+
+        // the offset is packed into an 11-bit field, so these used to wrap around: 1024 to -1024, 2048 to 0
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '01:23:45' AT TIME ZONE INTERVAL '1024' MINUTE")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid offset minutes 1024");
+
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '01:23:45' AT TIME ZONE INTERVAL '2048' MINUTE")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid offset minutes 2048");
+
+        // long representation (precision > 9)
+        assertThat(assertions.expression("TIME '01:23:45.123456789123' AT TIME ZONE INTERVAL '840' MINUTE")).matches("TIME '02:23:45.123456789123+14:00'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '01:23:45.123456789123' AT TIME ZONE INTERVAL '841' MINUTE")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid offset minutes 841");
+    }
+
+    @Test
     public void testComparisonOperators()
     {
         // short (precision <= 9 → ShortTimeWithTimeZoneType)
