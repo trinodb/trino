@@ -213,14 +213,15 @@ class Query
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
+        QueryId queryId = session.getQueryId();
         ExchangeDataSource exchangeDataSource = new LazyExchangeDataSource(
-                session.getQueryId(),
-                new ExchangeId("query-results-exchange-" + session.getQueryId()),
+                queryId,
+                new ExchangeId("query-results-exchange-" + queryId),
                 session.getQuerySpan(),
                 directExchangeClientSupplier,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
-                getRetryPolicy(session),
+                () -> getRetryPolicy(queryManager.getQuerySession(queryId)),
                 exchangeManagerRegistry);
 
         Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);

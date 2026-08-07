@@ -147,6 +147,7 @@ public class SqlQueryExecution
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final ExchangeMetricsCollector exchangeMetricsCollector;
     private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
+    private final MetadataOnlyQueryPolicyResolver metadataOnlyQueryPolicyResolver;
     private final TaskDescriptorStorage taskDescriptorStorage;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
@@ -186,6 +187,7 @@ public class SqlQueryExecution
             ExchangeManagerRegistry exchangeManagerRegistry,
             ExchangeMetricsCollector exchangeMetricsCollector,
             EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
+            MetadataOnlyQueryPolicyResolver metadataOnlyQueryPolicyResolver,
             TaskDescriptorStorage taskDescriptorStorage)
     {
         try (SetThreadName _ = new SetThreadName("Query-" + stateMachine.getQueryId())) {
@@ -239,6 +241,7 @@ public class SqlQueryExecution
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "taskSourceFactory is null");
+            this.metadataOnlyQueryPolicyResolver = requireNonNull(metadataOnlyQueryPolicyResolver, "metadataOnlyQueryPolicyResolver is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
             this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         }
@@ -533,6 +536,8 @@ public class SqlQueryExecution
                 ((OutputNode) rootFragment.getRoot()).getColumnNames(),
                 rootFragment.getTypes());
 
+        stateMachine.replaceSession(session -> metadataOnlyQueryPolicyResolver.getSessionWithEffectiveRetryPolicy(session, analysis.getStatement(), analysis.getTables()));
+
         RetryPolicy retryPolicy = getRetryPolicy(getSession());
         QueryScheduler scheduler = switch (retryPolicy) {
             case QUERY, NONE -> new PipelinedQueryScheduler(
@@ -809,6 +814,7 @@ public class SqlQueryExecution
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final ExchangeMetricsCollector exchangeMetricsCollector;
         private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
+        private final MetadataOnlyQueryPolicyResolver metadataOnlyQueryPolicyResolver;
         private final TaskDescriptorStorage taskDescriptorStorage;
 
         @Inject
@@ -842,6 +848,7 @@ public class SqlQueryExecution
                 ExchangeManagerRegistry exchangeManagerRegistry,
                 ExchangeMetricsCollector exchangeMetricsCollector,
                 EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
+                MetadataOnlyQueryPolicyResolver metadataOnlyQueryPolicyResolver,
                 TaskDescriptorStorage taskDescriptorStorage)
         {
             this.tracer = requireNonNull(tracer, "tracer is null");
@@ -875,6 +882,7 @@ public class SqlQueryExecution
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "eventDrivenTaskSourceFactory is null");
+            this.metadataOnlyQueryPolicyResolver = requireNonNull(metadataOnlyQueryPolicyResolver, "metadataOnlyQueryPolicyResolver is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         }
 
@@ -926,6 +934,7 @@ public class SqlQueryExecution
                     exchangeManagerRegistry,
                     exchangeMetricsCollector,
                     eventDrivenTaskSourceFactory,
+                    metadataOnlyQueryPolicyResolver,
                     taskDescriptorStorage);
         }
     }

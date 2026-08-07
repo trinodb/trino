@@ -24,6 +24,7 @@ import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.base.configuration.ThreadCountParser;
+import io.trino.spi.resourcegroups.QueryType;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -110,6 +111,8 @@ public class QueryManagerConfig
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private Set<RetryPolicy> allowedRetryPolicies = EnumSet.allOf(RetryPolicy.class);
+    private Set<QueryType> retryPolicyExcludedQueryTypes = ImmutableSet.of(QueryType.DESCRIBE);
+    private boolean retryPolicyExcludeMetadataOnlyQueries = true;
 
     private int queryRetryAttempts = 4;
     private int taskRetryAttemptsPerTask = 4;
@@ -631,6 +634,32 @@ public class QueryManagerConfig
     public QueryManagerConfig setAllowedRetryPolicies(Set<RetryPolicy> allowedRetryPolicies)
     {
         this.allowedRetryPolicies = ImmutableSet.copyOf(allowedRetryPolicies);
+        return this;
+    }
+
+    public Set<QueryType> getRetryPolicyExcludedQueryTypes()
+    {
+        return retryPolicyExcludedQueryTypes;
+    }
+
+    @Config("retry-policy.excluded-query-types")
+    @ConfigDescription("Query types that always run with retry policy NONE even when a fault-tolerant retry policy is configured")
+    public QueryManagerConfig setRetryPolicyExcludedQueryTypes(Set<QueryType> retryPolicyExcludedQueryTypes)
+    {
+        this.retryPolicyExcludedQueryTypes = ImmutableSet.copyOf(retryPolicyExcludedQueryTypes);
+        return this;
+    }
+
+    public boolean isRetryPolicyExcludeMetadataOnlyQueries()
+    {
+        return retryPolicyExcludeMetadataOnlyQueries;
+    }
+
+    @Config("retry-policy.exclude-metadata-only-queries")
+    @ConfigDescription("Run queries that only access information_schema, system.metadata or system.jdbc tables with retry policy NONE even when a fault-tolerant retry policy is configured")
+    public QueryManagerConfig setRetryPolicyExcludeMetadataOnlyQueries(boolean retryPolicyExcludeMetadataOnlyQueries)
+    {
+        this.retryPolicyExcludeMetadataOnlyQueries = retryPolicyExcludeMetadataOnlyQueries;
         return this;
     }
 

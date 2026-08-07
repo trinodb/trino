@@ -110,7 +110,7 @@ public class ExchangeOperator
                         directExchangeClientSupplier,
                         operatorContext.localUserMemoryContext(),
                         taskContext::sourceTaskFailed,
-                        retryPolicy,
+                        () -> retryPolicy,
                         exchangeManagerRegistry);
             }
             int operatorInstanceId = nextOperatorInstanceId;

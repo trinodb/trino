@@ -82,7 +82,7 @@ public class TestLazyExchangeDataSource
                 (_, _) -> {
                     throw new UnsupportedOperationException();
                 },
-                RetryPolicy.NONE,
+                () -> RetryPolicy.NONE,
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()));
     }
 }
