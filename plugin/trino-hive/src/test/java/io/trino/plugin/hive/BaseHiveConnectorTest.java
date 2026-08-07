@@ -8361,12 +8361,15 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCtasFailsWithAvroSchemaUrl()
     {
+        // WITH NO DATA is a pure DDL operation that goes through createTable(), which validates the
+        // avro_schema_url property against the (default ORC) storage format rather than rejecting CTAS.
         @Language("SQL") String ctasSqlWithoutData = "CREATE TABLE create_avro\n" +
                 "WITH (avro_schema_url = 'dummy_schema')\n" +
                 "AS SELECT 'dummy_value' as dummy_col WITH NO DATA";
 
-        assertQueryFails(ctasSqlWithoutData, "CREATE TABLE AS not supported when Avro schema url is set");
+        assertQueryFails(ctasSqlWithoutData, "Cannot specify avro_schema_url table property for storage format: ORC");
 
+        // WITH DATA goes through beginCreateTable(), which rejects CTAS when an Avro schema url is set.
         @Language("SQL") String ctasSql = "CREATE TABLE create_avro\n" +
                 "WITH (avro_schema_url = 'dummy_schema')\n" +
                 "AS SELECT * FROM (VALUES('a')) t (a)";
