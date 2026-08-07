@@ -1,0 +1,28 @@
+name: zizmor
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    paths:
+      - '.github/**'
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run zizmor 🌈
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        with:
+          inputs: .github
+          version: 1.29.0
+          # Fail the job and annotate the PR instead of reporting to GitHub Advanced Security
+          advanced-security: false
+          annotations: true

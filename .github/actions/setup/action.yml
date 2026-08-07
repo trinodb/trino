@@ -54,54 +54,55 @@ runs:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
       - name: Get Bun version from parent pom
+        id: bun-version
         shell: bash
         run: |
           bun_version=$(grep -m 1 '<dep.frontend-bun.version>' "pom.xml" | sed -n 's/.*<dep.frontend-bun.version>\(.*\)<\/dep.frontend-bun.version>.*/\1/p')
           if [ -n "$bun_version" ]; then
             echo "bun version is ${bun_version}"
-            echo "BUN_VERSION=$bun_version" >>${GITHUB_ENV}
+            echo "version=$bun_version" >>"${GITHUB_OUTPUT}"
             exit 0
           fi
       - name: Cache and Restore local Bun
         id: cache-bun
-        if: ${{ format('{0}', inputs.cache) == 'true' && env.BUN_VERSION != '' }}
+        if: ${{ format('{0}', inputs.cache) == 'true' && steps.bun-version.outputs.version != '' }}
         uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: .bun
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-bun-
       - name: Restore local Bun
         id: cache_restore-bun
-        if: ${{ format('{0}', inputs.cache) == 'restore' && env.BUN_VERSION != '' }}
+        if: ${{ format('{0}', inputs.cache) == 'restore' && steps.bun-version.outputs.version != '' }}
         uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
           path: .bun
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-bun-
       - name: Cache and Restore bun packages
         id: cache-bun-packages
-        if: ${{ format('{0}', inputs.cache) == 'true' && env.BUN_VERSION != '' }}
+        if: ${{ format('{0}', inputs.cache) == 'true' && steps.bun-version.outputs.version != '' }}
         uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: ~/.bun
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}-packages-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-
+            ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}-packages-
       - name: Restore bun packages
         id: cache-restore-bun-packages
-        if: ${{ format('{0}', inputs.cache) == 'restore' && env.BUN_VERSION != '' }}
+        if: ${{ format('{0}', inputs.cache) == 'restore' && steps.bun-version.outputs.version != '' }}
         uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
           path: ~/.bun
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}-packages-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-
+            ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}-packages-
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}

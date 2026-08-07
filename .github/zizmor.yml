@@ -1,0 +1,5 @@
+rules:
+  template-injection:
+    disable: true
+  unpinned-uses:
+    disable: true
