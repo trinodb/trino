@@ -62,6 +62,7 @@ jobs:
   path-filters:
     runs-on: ubuntu-latest
     outputs:
+      ci: ${{ steps.filter.outputs.ci }}
       docs: ${{ steps.filter.outputs.docs }}
       non_docs: ${{ steps.filter.outputs.non_docs }}
     steps:
@@ -72,6 +73,7 @@ jobs:
           # Note: `docs` output is currently unused. The docs changes are tested by maven-checks job, leveraging GIB impact analysis.
           # TODO remove use of non_docs filters and remove `path-filters` job. Use GIB impact analysis to guard job skipping.
           filters: |
+            ci: '.github/**'
             docs: 'docs/**'
             non_docs: '!docs/**'
 
@@ -865,6 +867,17 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
+      - name: Determine impacted Maven modules
+        if: >-
+          github.event_name == 'pull_request' &&
+          needs.path-filters.outputs.ci != 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs'
+          # If GIB does not create the output, an empty file conservatively produces a full matrix.
+          touch gib-impacted.log
       - name: Build Trino Docker image for product tests
         run: |
           cd core/docker
@@ -886,9 +899,22 @@ jobs:
           name: product tests m2 io.trino
           path: ~/.m2/repository/io/trino
           retention-days: 1
+      - name: Build product-test matrix from impacted modules
+        if: >-
+          github.event_name == 'pull_request' &&
+          needs.path-filters.outputs.ci != 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: .github/bin/build-pt-matrix.py -v -i gib-impacted.log > matrix.json
+      - name: Build full product-test matrix
+        if: >-
+          github.event_name != 'pull_request' ||
+          needs.path-filters.outputs.ci == 'true' ||
+          contains(github.event.pull_request.labels.*.name, 'tests:all') ||
+          contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: .github/bin/build-pt-matrix.py -v > matrix.json
       - id: set-matrix
         run: |
-          .github/bin/build-pt-matrix.py > matrix.json
           echo "PT matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow

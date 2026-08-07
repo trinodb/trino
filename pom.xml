@@ -194,7 +194,7 @@
         <dep.derby.version>10.17.1.0</dep.derby.version>
         <dep.docker.images.version>127</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
-        <dep.frontend-maven-plugin.version>2.0.1</dep.frontend-maven-plugin.version>
+        <dep.frontend-maven-plugin.version>2.0.2</dep.frontend-maven-plugin.version>
         <dep.frontend-bun.version>v1.3.14</dep.frontend-bun.version>
         <dep.geoapi.version>3.0.2</dep.geoapi.version>
         <dep.httpcore5.version>5.4.3</dep.httpcore5.version>
@@ -324,7 +324,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.49.5</version>
+                <version>2.49.6</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -2222,7 +2222,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.5.9</version>
+                <version>3.5.10</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.github.waffle</groupId>
