@@ -81,7 +81,8 @@ public class TestHiveColumnHandle
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         testRoundTrip(projectedColumn);
     }
