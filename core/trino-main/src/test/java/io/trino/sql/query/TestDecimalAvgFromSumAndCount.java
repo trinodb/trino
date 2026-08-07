@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
@@ -173,6 +174,17 @@ final class TestDecimalAvgFromSumAndCount
         assertThat(assertions.query(
                 "SELECT CAST(CAST(488999.99 AS decimal(38, 2)) / CAST(200000 AS bigint) AS decimal(38, 2))"))
                 .matches("VALUES CAST(2.45 AS decimal(38, 2))");
+    }
+
+    @Test
+    void testNegativeDivisor()
+    {
+        // A negative divisor is currently unsupported
+        assertThat(assertions.query(
+                "SELECT \"$divide_round_to_scale\"(CAST(12345.00 AS decimal(38, 2)), BIGINT '-3')"))
+                .failure()
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("Negative divisor is not supported");
     }
 
     @Test
