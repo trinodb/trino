@@ -82,8 +82,15 @@ public class ReadSessionCreator
     public ReadSession create(ConnectorSession session, TableId remoteTable, List<BigQueryColumnHandle> selectedFields, Optional<String> filter, int currentWorkerCount)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
-        TableInfo tableDetails = client.getTable(remoteTable)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTable.getDataset(), remoteTable.getTable())));
+        RetryPolicy<Object> retryPolicy = RetryPolicy.builder()
+                .withMaxRetries(maxCreateReadSessionRetries)
+                .withBackoff(10, 500, MILLIS)
+                .onRetry(event -> log.debug("Request failed, retrying: %s", event.getLastException()))
+                .handleIf(BigQueryUtil::isRetryable)
+                .build();
+        TableInfo tableDetails = Failsafe.with(retryPolicy)
+                .get(() -> client.getTable(remoteTable)
+                        .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTable.getDataset(), remoteTable.getTable()))));
 
         TableInfo actualTable = getActualTable(client, tableDetails, selectedFields, isViewMaterializationWithFilter(session) ? filter : Optional.empty());
 
@@ -119,12 +126,7 @@ public class ReadSessionCreator
             }
             requestBuilder.setPreferredMinStreamCount(desiredParallelism);
 
-            return Failsafe.with(RetryPolicy.builder()
-                            .withMaxRetries(maxCreateReadSessionRetries)
-                            .withBackoff(10, 500, MILLIS)
-                            .onRetry(event -> log.debug("Request failed, retrying: %s", event.getLastException()))
-                            .handleIf(BigQueryUtil::isRetryable)
-                            .build())
+            return Failsafe.with(retryPolicy)
                     .get(() -> {
                         try {
                             return bigQueryReadClient.createReadSession(requestBuilder.build());
