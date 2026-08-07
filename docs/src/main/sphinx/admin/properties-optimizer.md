@@ -265,3 +265,19 @@ A value of `0` disables this optimization.
 
 When enabled the cost based optimizer is used to determine if repartitioning the output of an
 already partitioned stage is necessary.
+
+## `optimizer.use-legacy-decorrelator`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `false`
+- **Session property:** `use_legacy_decorrelator`
+
+Reverts subquery decorrelation to the legacy pattern-matched rules. By default Trino
+decorrelates correlated subqueries with a dependent-join framework that supports more
+shapes than the legacy rules — including correlation in projections and aggregate
+arguments, inequality-correlated bounds, and correlated set operations. Enable this
+property as an escape hatch if the default decorrelator produces a worse plan or an
+unexpected result for a query that the legacy decorrelator handled.
+
+This is a temporary compatibility control and will be removed once the legacy
+decorrelator is deleted.

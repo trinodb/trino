@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -40,6 +41,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.isUseLegacyDecorrelator;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.empty;
 import static io.trino.matching.Pattern.nonEmpty;
@@ -141,6 +143,13 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
     public Pattern<CorrelatedJoinNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        // Part of the legacy decorrelator, which runs only when explicitly re-enabled.
+        return isUseLegacyDecorrelator(session);
     }
 
     @Override
