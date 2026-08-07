@@ -25,7 +25,7 @@ import io.trino.spi.type.StandardTypes;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.Decimals.overflows;
 
-/// Divides a decimal by an integer count and rounds the quotient (HALF_UP) to the dividend's scale.
+/// Divides a decimal by an integer divisor and rounds the quotient (HALF_UP) to the dividend's scale.
 /// This is unlike the built-in decimal `/` operator, which widens the result scale to at least 6.
 ///
 /// This can be used when exact original scale is needed and `/ + CAST`'s double rounding is
@@ -40,14 +40,14 @@ public final class DivideRoundToScale
     private DivideRoundToScale() {}
 
     @ScalarFunction(value = NAME, hidden = true)
-    @Description("Divides a decimal by an integer count, rounding HALF_UP to the dividend's scale")
+    @Description("Divides a decimal by an integer divisor, rounding HALF_UP to the dividend's scale")
     @LiteralParameters({"p", "s"})
     @SqlType("decimal(p, s)")
     public static Int128 divideRoundToScale(
             @SqlType("decimal(p, s)") Int128 dividend,
-            @SqlType(StandardTypes.BIGINT) long count)
+            @SqlType(StandardTypes.BIGINT) long divisor)
     {
-        Int128 result = Int128Math.divideRoundUp(dividend.getHigh(), dividend.getLow(), 0, 0, count, 0);
+        Int128 result = Int128Math.divideRoundUp(dividend.getHigh(), dividend.getLow(), 0, 0, divisor, 0);
         if (overflows(result)) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
         }
