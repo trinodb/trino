@@ -24,4 +24,29 @@ public interface ColumnReader
     void prepareNextRead(int batchSize);
 
     ColumnChunk readPrimitive();
+
+    default boolean supportsSelectedPositions()
+    {
+        return false;
+    }
+
+    default ColumnChunk readPrimitive(int[] positions, int offset, int positionCount)
+    {
+        throw new UnsupportedOperationException("Selected positions are not supported");
+    }
+
+    default ColumnChunk readPrimitivePageFiltered(int[] positions, int offset, int positionCount)
+    {
+        throw new UnsupportedOperationException("Page-filtered positions are not supported");
+    }
+
+    default int getDataPageReadCount()
+    {
+        return 0;
+    }
+
+    default long preparePageFilteredRead(int[] positions, int offset, int positionCount, long maxBufferedBytes)
+    {
+        return 0;
+    }
 }

@@ -30,7 +30,7 @@ public class TestingSourcePage
 {
     private static final long INSTANCE_SIZE = instanceSize(TestingSourcePage.class);
 
-    private final int positionCount;
+    private int positionCount;
     private final Block[] blocks;
     private final boolean[] loaded;
 
@@ -127,5 +127,6 @@ public class TestingSourcePage
                 blocks[i] = block.getPositions(positions, offset, size);
             }
         }
+        positionCount = size;
     }
 }
