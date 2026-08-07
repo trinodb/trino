@@ -15,11 +15,14 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
 import io.trino.spi.type.StandardTypes;
@@ -258,16 +261,6 @@ public final class VarcharMethods
         return StringFunctions.endsWith(source, suffix);
     }
 
-    @Description("Translate characters from the source string based on original and translations strings")
-    @ScalarFunction("translate")
-    @InstanceMethod
-    @LiteralParameters({"x", "y", "z"})
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice translate(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
-    {
-        return StringFunctions.translate(source, from, to);
-    }
-
     @Description("Convert Unicode code point to a string")
     @ScalarFunction
     @StaticMethod(StandardTypes.VARCHAR)
@@ -286,22 +279,117 @@ public final class VarcharMethods
         return StringFunctions.fromUtf8(slice);
     }
 
-    @Description("Decodes the UTF-8 encoded string")
-    @ScalarFunction
-    @StaticMethod(StandardTypes.VARCHAR)
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType("varchar(x)") Slice replacementCharacter)
+    @Description("Translate characters from the source string based on original and translations strings")
+    @ScalarFunction("translate")
+    @InstanceMethod
+    public static final class Translate
     {
-        return StringFunctions.fromUtf8(slice, replacementCharacter);
+        private Translate() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters({"x", "y", "z"})
+            @SqlType(StandardTypes.VARCHAR)
+            public static Slice translate(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
+            {
+                return StringFunctions.translate(source, from, to);
+            }
+        }
+
+        @ConstantSpecialization(arguments = {1, 2})
+        public static final class ConstantTranslation
+        {
+            private final StringFunctions.Translate.ConstantTranslation delegate;
+
+            public ConstantTranslation(@ConstantArgument(1) Slice from, @ConstantArgument(2) Slice to)
+            {
+                delegate = new StringFunctions.Translate.ConstantTranslation(from, to);
+            }
+
+            @LiteralParameters("x")
+            @SqlType(StandardTypes.VARCHAR)
+            public Slice translate(@SqlType("varchar(x)") Slice source)
+            {
+                return delegate.translate(source);
+            }
+        }
     }
 
     @Description("Decodes the UTF-8 encoded string")
-    @ScalarFunction
+    @ScalarFunction("from_utf8")
     @StaticMethod(StandardTypes.VARCHAR)
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long replacementCodePoint)
+    public static final class FromUtf8WithReplacement
     {
-        return StringFunctions.fromUtf8(slice, replacementCodePoint);
+        private FromUtf8WithReplacement() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters("x")
+            @SqlType(StandardTypes.VARCHAR)
+            public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType("varchar(x)") Slice replacementCharacter)
+            {
+                return StringFunctions.fromUtf8(slice, replacementCharacter);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 1)
+        public static final class ConstantReplacement
+        {
+            private final StringFunctions.FromUtf8WithReplacement.ConstantReplacement delegate;
+
+            public ConstantReplacement(@ConstantArgument(1) Slice replacementCharacter)
+            {
+                delegate = new StringFunctions.FromUtf8WithReplacement.ConstantReplacement(replacementCharacter);
+            }
+
+            @SqlType(StandardTypes.VARCHAR)
+            public Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice)
+            {
+                return delegate.fromUtf8(slice);
+            }
+        }
+    }
+
+    @Description("Decodes the UTF-8 encoded string")
+    @ScalarFunction("from_utf8")
+    @StaticMethod(StandardTypes.VARCHAR)
+    public static final class FromUtf8WithCodePoint
+    {
+        private FromUtf8WithCodePoint() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @SqlType(StandardTypes.VARCHAR)
+            public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long replacementCodePoint)
+            {
+                return StringFunctions.fromUtf8(slice, replacementCodePoint);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 1)
+        public static final class ConstantReplacement
+        {
+            private final StringFunctions.FromUtf8WithCodePoint.ConstantReplacement delegate;
+
+            public ConstantReplacement(@ConstantArgument(1) long replacementCodePoint)
+            {
+                delegate = new StringFunctions.FromUtf8WithCodePoint.ConstantReplacement(replacementCodePoint);
+            }
+
+            @SqlType(StandardTypes.VARCHAR)
+            public Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice)
+            {
+                return delegate.fromUtf8(slice);
+            }
+        }
     }
 }
