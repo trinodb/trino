@@ -230,8 +230,8 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                     <Typography
                         variant="h6"
                         noWrap
-                        component="a"
-                        href="/"
+                        component={Link}
+                        to="/"
                         sx={{
                             mx: 2,
                             display: 'flex',
