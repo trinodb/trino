@@ -19,8 +19,8 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Convention;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InputFunction;
@@ -66,30 +66,19 @@ public final class MaxByAggregationFunction
         }
     }
 
-    @CombineFunction
-    public static void combine(
-            @OperatorDependency(
-                    operator = OperatorType.COMPARISON_UNORDERED_FIRST,
-                    argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {IN_OUT, IN_OUT}, result = FAIL_ON_NULL))
-            MethodHandle compare,
+    @AggregationFunction(value = "max_by$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "row(K, V)", decomposition = @Decomposition(partial = "max_by$partial", output = "max_by$merge"))
+    public static void intermediateOutput(
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,
-            @AggregationState("K") InOut otherKeyState,
-            @AggregationState("V") InOut otherValueState)
-            throws Throwable
+            BlockBuilder out)
     {
-        if (otherKeyState.isNull()) {
-            return;
-        }
-        if (keyState.isNull() || ((long) compare.invokeExact(otherKeyState, keyState)) > 0) {
-            keyState.set(otherKeyState);
-            valueState.set(otherValueState);
-        }
+        MaxByDecomposedAggregation.writeIntermediate(keyState, valueState, out);
     }
 
     @SqlNullable
-    @OutputFunction("V")
+    @OutputFunction(value = "V", decomposition = @Decomposition(partial = "max_by$partial", output = "max_by$final"))
     public static void output(
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,

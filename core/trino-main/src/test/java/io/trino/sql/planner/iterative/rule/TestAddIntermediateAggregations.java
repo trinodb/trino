@@ -31,7 +31,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testSessionDisable()
     {
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertThat(new AddIntermediateAggregations(tester().getPlannerContext()))
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "false")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
@@ -52,7 +52,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testWithGroups()
     {
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertThat(new AddIntermediateAggregations(tester().getPlannerContext()))
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {

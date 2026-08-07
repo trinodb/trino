@@ -18,7 +18,7 @@ import io.trino.operator.aggregation.state.QuantileDigestState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -75,14 +75,8 @@ public final class QuantileDigestAggregationFunction
             internalInput(state, doubleToSortableLong(value), weight, accuracy);
         }
 
-        @CombineFunction
-        public static void combine(@AggregationState QuantileDigestState state, @AggregationState QuantileDigestState otherState)
-        {
-            internalCombine(state, otherState);
-        }
-
         @SqlNullable
-        @OutputFunction("qdigest(DOUBLE)")
+        @OutputFunction(value = "qdigest(DOUBLE)", decomposition = @Decomposition(partial = "qdigest_agg", output = "merge"))
         public static void output(@AggregationState QuantileDigestState state, BlockBuilder out)
         {
             internalOutput(OUTPUT_TYPE, state, out);
@@ -124,14 +118,8 @@ public final class QuantileDigestAggregationFunction
             internalInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, accuracy);
         }
 
-        @CombineFunction
-        public static void combine(@AggregationState QuantileDigestState state, @AggregationState QuantileDigestState otherState)
-        {
-            internalCombine(state, otherState);
-        }
-
         @SqlNullable
-        @OutputFunction("qdigest(REAL)")
+        @OutputFunction(value = "qdigest(REAL)", decomposition = @Decomposition(partial = "qdigest_agg", output = "merge"))
         public static void output(@AggregationState QuantileDigestState state, BlockBuilder out)
         {
             internalOutput(OUTPUT_TYPE, state, out);
@@ -173,14 +161,8 @@ public final class QuantileDigestAggregationFunction
             internalInput(state, value, weight, accuracy);
         }
 
-        @CombineFunction
-        public static void combine(@AggregationState QuantileDigestState state, @AggregationState QuantileDigestState otherState)
-        {
-            internalCombine(state, otherState);
-        }
-
         @SqlNullable
-        @OutputFunction("qdigest(BIGINT)")
+        @OutputFunction(value = "qdigest(BIGINT)", decomposition = @Decomposition(partial = "qdigest_agg", output = "merge"))
         public static void output(@AggregationState QuantileDigestState state, BlockBuilder out)
         {
             internalOutput(OUTPUT_TYPE, state, out);

@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.ResolvedAggregationFunctionMetadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
+import io.trino.spi.function.AggregationDecomposition;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.planner.AggregationDecompositions.DecomposedAggregation;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
@@ -38,7 +38,9 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -48,6 +50,9 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.preferPartialAggregation;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.planner.AggregationDecompositions.decompose;
 import static io.trino.sql.planner.iterative.rule.PushProjectionThroughExchange.isSymbolToSymbolProjection;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -184,6 +189,46 @@ public class PushPartialAggregationThroughExchange
         };
     }
 
+    private record SubsumedAggregation(Symbol coveringSymbol, ResolvedFunction outputFunction) {}
+
+    private Map<Symbol, SubsumedAggregation> findSubsumedAggregations(AggregationNode node, Map<Symbol, DecomposedAggregation> decompositions)
+    {
+        Map<Symbol, SubsumedAggregation> subsumed = new LinkedHashMap<>();
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
+            AggregationNode.Aggregation aggregation = entry.getValue();
+            if (aggregation.isDistinct()) {
+                continue;
+            }
+            CatalogSchemaFunctionName functionName = aggregation.getResolvedFunction().signature().getName();
+            for (Entry<Symbol, AggregationNode.Aggregation> coveringEntry : node.getAggregations().entrySet()) {
+                if (coveringEntry.getKey().equals(entry.getKey())) {
+                    continue;
+                }
+                AggregationNode.Aggregation covering = coveringEntry.getValue();
+                DecomposedAggregation coveringDecomposition = decompositions.get(coveringEntry.getKey());
+                if (covering.isDistinct() ||
+                        coveringDecomposition.legacyDecomposition() ||
+                        !covering.getArguments().equals(aggregation.getArguments()) ||
+                        !covering.getFilter().equals(aggregation.getFilter()) ||
+                        !covering.getMask().equals(aggregation.getMask())) {
+                    continue;
+                }
+                Optional<String> extractFunction = coveringDecomposition.subsumed().stream()
+                        .filter(candidate -> builtinFunctionName(candidate.function()).equals(functionName))
+                        .map(AggregationDecomposition.SubsumedFunction::output)
+                        .findFirst();
+                if (extractFunction.isPresent()) {
+                    ResolvedFunction outputFunction = plannerContext.getMetadata().resolveBuiltinFunction(extractFunction.get(), fromTypes(coveringDecomposition.intermediateType()));
+                    subsumed.put(entry.getKey(), new SubsumedAggregation(coveringEntry.getKey(), outputFunction));
+                    break;
+                }
+            }
+        }
+        // an aggregation cannot be answered from a sibling that is itself answered from another
+        subsumed.values().removeIf(candidate -> subsumed.containsKey(candidate.coveringSymbol()));
+        return subsumed;
+    }
+
     private PlanNode pushPartial(AggregationNode aggregation, ExchangeNode exchange, Rule.Context context)
     {
         List<PlanNode> partials = new ArrayList<>();
@@ -241,34 +286,69 @@ public class PushPartialAggregationThroughExchange
     private PlanNode split(AggregationNode node, Rule.Context context)
     {
         // otherwise, add a partial and final with an exchange in between
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> intermediateAggregation = ImmutableMap.builder();
+        Map<Symbol, DecomposedAggregation> decompositions = new LinkedHashMap<>();
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
+            checkState(entry.getValue().getOrderingScheme().isEmpty(), "Aggregate with ORDER BY does not support partial aggregation");
+            decompositions.put(entry.getKey(), decompose(plannerContext.getMetadata(), plannerContext.getTypeManager(), context.getSession(), entry.getValue().getResolvedFunction()));
+        }
+
+        // An aggregation whose result is contained in a sibling's intermediate state (e.g. sum and
+        // count next to avg) is answered from that sibling's partial aggregation instead of
+        // computing its own
+        Map<Symbol, SubsumedAggregation> subsumedAggregations = findSubsumedAggregations(node, decompositions);
+
+        // functions declaring the same partial over the same inputs share one partial aggregation
+        // (e.g. variance and stddev, or the whole variance family), so the partial state is computed
+        // once and shipped through the exchange once
+        Map<AggregationNode.Aggregation, Symbol> intermediateSymbols = new LinkedHashMap<>();
+        Map<Symbol, Symbol> intermediateSymbolForOutput = new LinkedHashMap<>();
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
+            if (subsumedAggregations.containsKey(entry.getKey())) {
+                continue;
+            }
+            AggregationNode.Aggregation originalAggregation = entry.getValue();
+            ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
+            DecomposedAggregation decomposed = decompositions.get(entry.getKey());
+
+            AggregationNode.Aggregation partialAggregation = new AggregationNode.Aggregation(
+                    decomposed.partialFunction(),
+                    originalAggregation.getArguments(),
+                    originalAggregation.isDistinct(),
+                    originalAggregation.getFilter(),
+                    originalAggregation.getOrderingScheme(),
+                    originalAggregation.getMask(),
+                    decomposed.legacyDecomposition());
+            Symbol intermediateSymbol = intermediateSymbols.computeIfAbsent(
+                    partialAggregation,
+                    _ -> context.getSymbolAllocator().newSymbol(resolvedFunction.signature().getName().functionName(), decomposed.intermediateType()));
+            intermediateSymbolForOutput.put(entry.getKey(), intermediateSymbol);
+        }
+
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> finalAggregation = ImmutableMap.builder();
         for (Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
-            ResolvedAggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), resolvedFunction);
-            List<Type> intermediateTypes = functionMetadata.intermediateTypes().stream()
-                    .map(plannerContext.getTypeManager()::getType)
-                    .collect(toImmutableList());
-            Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(resolvedFunction.signature().getName().functionName(), intermediateType);
+            SubsumedAggregation subsumed = subsumedAggregations.get(entry.getKey());
+            if (subsumed != null) {
+                finalAggregation.put(
+                        entry.getKey(),
+                        new AggregationNode.Aggregation(
+                                subsumed.outputFunction(),
+                                ImmutableList.of(intermediateSymbolForOutput.get(subsumed.coveringSymbol()).toSymbolReference()),
+                                false,
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                false));
+                continue;
+            }
 
-            checkState(originalAggregation.getOrderingScheme().isEmpty(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(
-                    intermediateSymbol,
-                    new AggregationNode.Aggregation(
-                            resolvedFunction,
-                            originalAggregation.getArguments(),
-                            originalAggregation.isDistinct(),
-                            originalAggregation.getFilter(),
-                            originalAggregation.getOrderingScheme(),
-                            originalAggregation.getMask()));
-
+            DecomposedAggregation decomposed = decompositions.get(entry.getKey());
+            Symbol intermediateSymbol = intermediateSymbolForOutput.get(entry.getKey());
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(
                     entry.getKey(),
                     new AggregationNode.Aggregation(
-                            resolvedFunction,
+                            decomposed.outputFunction(),
                             ImmutableList.<Expression>builder()
                                     .add(intermediateSymbol.toSymbolReference())
                                     .addAll(originalAggregation.getArguments().stream()
@@ -278,8 +358,12 @@ public class PushPartialAggregationThroughExchange
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));
+                            Optional.empty(),
+                            decomposed.legacyDecomposition()));
         }
+
+        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> intermediateAggregation = ImmutableMap.builder();
+        intermediateSymbols.forEach((aggregation, symbol) -> intermediateAggregation.put(symbol, aggregation));
 
         PlanNode partial = new AggregationNode(
                 context.getIdAllocator().getNextId(),

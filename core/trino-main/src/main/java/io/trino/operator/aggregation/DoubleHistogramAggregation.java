@@ -20,7 +20,7 @@ import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -71,22 +71,8 @@ public final class DoubleHistogramAggregation
         add(state, buckets, value, 1);
     }
 
-    @CombineFunction
-    public static void merge(@AggregationState State state, State other)
-    {
-        NumericHistogram input = other.get();
-        NumericHistogram previous = state.get();
-
-        if (previous == null) {
-            state.set(input);
-        }
-        else {
-            previous.mergeWith(input);
-        }
-    }
-
     @SqlNullable
-    @OutputFunction("map(double,double)")
+    @OutputFunction(value = "map(double,double)", decomposition = @Decomposition(partial = "numeric_histogram$intermediate", output = "numeric_histogram$final"))
     public static void output(@AggregationState State state, BlockBuilder out)
     {
         if (state.get() == null) {

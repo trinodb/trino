@@ -39,14 +39,19 @@ public interface RegressionState
 
     default void merge(RegressionState otherState)
     {
-        if (otherState.getCount() == 0) {
+        merge(otherState.getCount(), otherState.getMeanX(), otherState.getMeanY(), otherState.getC2(), otherState.getM2X());
+    }
+
+    default void merge(long count, double otherMeanX, double otherMeanY, double c2, double m2X)
+    {
+        if (count == 0) {
             return;
         }
 
         long na = getCount();
-        long nb = otherState.getCount();
-        setM2X(getM2X() + otherState.getM2X() + na * nb * Math.pow(getMeanX() - otherState.getMeanX(), 2) / (double) (na + nb));
-        CovarianceState.super.merge(otherState);
+        long nb = count;
+        setM2X(getM2X() + m2X + na * nb * Math.pow(getMeanX() - otherMeanX, 2) / (double) (na + nb));
+        merge(count, otherMeanX, otherMeanY, c2);
     }
 
     default double getRegressionIntercept()

@@ -392,7 +392,7 @@ public class TestGeometryConvexHullGeoAggregation
         GeometryState otherState = new GeometryStateFactory.SingleGeometryState();
         otherState.setGeometry(geometry("POINT EMPTY", 4326));
 
-        ConvexHullAggregation.combine(state, otherState);
+        ConvexHullAggregation.input(state, otherState.getGeometry());
 
         assertThat(state.getGeometry().getSRID()).isEqualTo(4326);
     }

@@ -20,7 +20,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -45,16 +45,8 @@ public final class ArrayAggregationFunction
         state.add(value, position);
     }
 
-    @CombineFunction
-    public static void combine(
-            @AggregationState("T") ArrayAggregationState state,
-            @AggregationState("T") ArrayAggregationState otherState)
-    {
-        state.merge(otherState);
-    }
-
     @SqlNullable
-    @OutputFunction("array(T)")
+    @OutputFunction(value = "array(T)", decomposition = @Decomposition(partial = "array_agg", output = "array_agg$merge"))
     public static void output(
             @TypeParameter("T") Type elementType,
             @AggregationState("T") ArrayAggregationState state,

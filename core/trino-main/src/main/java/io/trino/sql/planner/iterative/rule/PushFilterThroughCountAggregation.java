@@ -214,7 +214,8 @@ public class PushFilterThroughCountAggregation
                 aggregation.isDistinct(),
                 aggregation.getFilter(),
                 aggregation.getOrderingScheme(),
-                Optional.empty());
+                Optional.empty(),
+                aggregation.isLegacyDecomposition());
 
         AggregationNode newAggregationNode = AggregationNode.builderFrom(aggregationNode)
                 .setSource(source)

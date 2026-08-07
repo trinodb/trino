@@ -25,6 +25,7 @@ public class AggregationImplementation
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> combineFunction;
     private final MethodHandle outputFunction;
+    private final boolean legacyDecomposition;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
     private final List<Class<?>> lambdaInterfaces;
     private final Optional<Class<? extends WindowAccumulator>> windowAccumulator;
@@ -33,6 +34,7 @@ public class AggregationImplementation
             MethodHandle inputFunction,
             Optional<MethodHandle> combineFunction,
             MethodHandle outputFunction,
+            boolean legacyDecomposition,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
             List<Class<?>> lambdaInterfaces,
             Optional<Class<? extends WindowAccumulator>> windowAccumulator)
@@ -40,6 +42,7 @@ public class AggregationImplementation
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
+        this.legacyDecomposition = legacyDecomposition;
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
         this.lambdaInterfaces = List.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
         this.windowAccumulator = windowAccumulator;
@@ -58,6 +61,11 @@ public class AggregationImplementation
     public MethodHandle getOutputFunction()
     {
         return outputFunction;
+    }
+
+    public boolean isLegacyDecomposition()
+    {
+        return legacyDecomposition;
     }
 
     public List<AccumulatorStateDescriptor<?>> getAccumulatorStateDescriptors()
@@ -149,6 +157,7 @@ public class AggregationImplementation
         private MethodHandle inputFunction;
         private Optional<MethodHandle> combineFunction = Optional.empty();
         private MethodHandle outputFunction;
+        private boolean legacyDecomposition = true;
         private List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = new ArrayList<>();
         private List<Class<?>> lambdaInterfaces = List.of();
         private Optional<Class<? extends WindowAccumulator>> windowAccumulator = Optional.empty();
@@ -170,6 +179,12 @@ public class AggregationImplementation
         public Builder outputFunction(MethodHandle outputFunction)
         {
             this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
+            return this;
+        }
+
+        public Builder setLegacyDecomposition(boolean legacyDecomposition)
+        {
+            this.legacyDecomposition = legacyDecomposition;
             return this;
         }
 
@@ -214,6 +229,7 @@ public class AggregationImplementation
                     inputFunction,
                     combineFunction,
                     outputFunction,
+                    legacyDecomposition,
                     accumulatorStateDescriptors,
                     lambdaInterfaces,
                     windowAccumulator);

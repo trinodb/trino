@@ -2287,7 +2287,7 @@ public class TestLogicalPlanner
                 output(
                         anyTree(
                                 aggregation(
-                                        ImmutableMap.of("final_count", aggregationFunction("count", ImmutableList.of("partial_count"))),
+                                        ImmutableMap.of("final_count", aggregationFunction("$sum0", ImmutableList.of("partial_count"))),
                                         FINAL,
                                         exchange(
                                                 LOCAL,

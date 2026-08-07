@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.LongAndNumberState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -47,25 +47,8 @@ public final class NumberAverageAggregation
         }
     }
 
-    @CombineFunction
-    public static void combine(LongAndNumberState state, LongAndNumberState otherState)
-    {
-        if (otherState.getLong() == 0) {
-            return;
-        }
-
-        if (state.getLong() == 0) {
-            state.setLong(otherState.getLong());
-            state.setNumber(otherState.getNumber());
-            return;
-        }
-
-        state.setLong(state.getLong() + otherState.getLong());
-        state.setNumber(add(state.getNumber(), otherState.getNumber()));
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.NUMBER)
+    @OutputFunction(value = StandardTypes.NUMBER, decomposition = @Decomposition(partial = "avg_number$intermediate", output = "avg_number$final"))
     public static void output(LongAndNumberState state, BlockBuilder out)
     {
         long count = state.getLong();

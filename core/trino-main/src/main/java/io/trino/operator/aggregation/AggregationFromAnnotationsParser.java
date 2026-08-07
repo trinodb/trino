@@ -29,10 +29,12 @@ import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.AggregationDecomposition;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationImplementation.AccumulatorStateDescriptor;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InputFunction;
@@ -106,10 +108,16 @@ public final class AggregationFromAnnotationsParser
         for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateDetails, typeVariables)) {
             AggregationHeader header = parseHeader(aggregationDefinition, outputFunction);
             if (header.decomposable()) {
-                checkArgument(combineFunction.isPresent(), "Decomposable method %s does not have a combine method", header.name());
+                if (header.decomposition().isPresent()) {
+                    checkArgument(combineFunction.isEmpty(), "Aggregate with custom decomposition method %s cannot have a combine method", header.name());
+                }
+                else {
+                    checkArgument(combineFunction.isPresent(), "Decomposable method %s does not have a combine method", header.name());
+                }
             }
             else if (combineFunction.isPresent()) {
                 log.warn("Aggregation function %s is not decomposable, but has combine method", header.name());
+                checkArgument(header.decomposition().isEmpty(), "Aggregation function %s is not decomposable, but has decomposition", header.name());
             }
 
             // Input functions can have either an exact signature, or generic/calculate signature
@@ -150,6 +158,7 @@ public final class AggregationFromAnnotationsParser
             functions.add(new ParametricAggregation(
                     exactImplementation.getSignature(),
                     header,
+                    header.hidden() || exactImplementation.isHidden(),
                     stateDetails,
                     ParametricImplementationsGroup.of(exactImplementation)));
         }
@@ -162,6 +171,7 @@ public final class AggregationFromAnnotationsParser
             functions.add(new ParametricAggregation(
                     implementations.getSignature(),
                     header,
+                    header.hidden() || nonExactImplementations.stream().allMatch(ParametricAggregationImplementation::isHidden),
                     stateDetails,
                     implementations));
         }
@@ -185,6 +195,7 @@ public final class AggregationFromAnnotationsParser
                 getAliases(aggregationAnnotation, outputFunction),
                 parseDescription(aggregationDefinition, outputFunction),
                 aggregationAnnotation.decomposable(),
+                parseDecomposition(outputFunction),
                 aggregationAnnotation.isOrderSensitive(),
                 aggregationAnnotation.hidden(),
                 aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0,
@@ -207,6 +218,21 @@ public final class AggregationFromAnnotationsParser
             return ImmutableSet.copyOf(annotation.alias());
         }
         return ImmutableSet.copyOf(aggregationAnnotation.alias());
+    }
+
+    private static Optional<AggregationDecomposition> parseDecomposition(AnnotatedElement outputFunction)
+    {
+        Decomposition decomposition = requireNonNull(outputFunction.getAnnotation(OutputFunction.class), "OutputFunction is not present").decomposition();
+        if (decomposition.partial().isEmpty()) {
+            checkArgument(decomposition.output().isEmpty(), "Decomposition output requires a partial function");
+            return Optional.empty();
+        }
+        return Optional.of(new AggregationDecomposition(
+                decomposition.partial(),
+                decomposition.output().isEmpty() ? decomposition.partial() : decomposition.output(),
+                Arrays.stream(decomposition.subsumes())
+                        .map(subsumed -> new AggregationDecomposition.SubsumedFunction(subsumed.function(), subsumed.output()))
+                        .collect(toImmutableList())));
     }
 
     private static Optional<Class<? extends WindowAccumulator>> getWindowAccumulator(AggregationFunction aggregationAnnotation)

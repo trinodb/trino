@@ -17,7 +17,7 @@ import io.trino.operator.aggregation.state.TriStateBooleanState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -49,20 +49,8 @@ public final class BooleanAndAggregation
         }
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState TriStateBooleanState state, @AggregationState TriStateBooleanState otherState)
-    {
-        if (state.getValue() == NULL_VALUE) {
-            state.setValue(otherState.getValue());
-            return;
-        }
-        if (otherState.getValue() == FALSE_VALUE) {
-            state.setValue(FALSE_VALUE);
-        }
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.BOOLEAN)
+    @OutputFunction(value = StandardTypes.BOOLEAN, decomposition = @Decomposition(partial = "bool_and"))
     public static void output(@AggregationState TriStateBooleanState state, BlockBuilder out)
     {
         TriStateBooleanState.write(BooleanType.BOOLEAN, state, out);

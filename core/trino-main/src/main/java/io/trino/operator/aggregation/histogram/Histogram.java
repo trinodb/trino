@@ -20,7 +20,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -46,14 +46,8 @@ public final class Histogram
         state.add(key, position, 1L);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState("T") HistogramState state, @AggregationState("T") HistogramState otherState)
-    {
-        state.merge(otherState);
-    }
-
     @SqlNullable
-    @OutputFunction("map(T, BIGINT)")
+    @OutputFunction(value = "map(T, BIGINT)", decomposition = @Decomposition(partial = "histogram", output = "histogram$merge"))
     public static void output(@TypeParameter("T") Type type, @AggregationState("T") HistogramState state, BlockBuilder out)
     {
         state.writeAll((MapBlockBuilder) out);

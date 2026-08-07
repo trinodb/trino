@@ -1017,7 +1017,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
-                        .addAll(new PushPartialAggregationThroughJoin().rules())
+                        .addAll(new PushPartialAggregationThroughJoin(plannerContext).rules())
                         .addAll(new PushPartialAggregationThroughExchange(plannerContext).rules())
                         .add(new PruneJoinColumns(),
                                 new PruneJoinChildrenColumns(),
@@ -1037,7 +1037,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.of(
-                        new AddIntermediateAggregations(),
+                        new AddIntermediateAggregations(plannerContext),
                         new RemoveRedundantIdentityProjections())));
         // DO NOT add optimizers that change the plan shape (computations) after this point
 

@@ -18,11 +18,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metadata.ResolvedAggregationFunctionMetadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.AggregationDecompositions.DecomposedAggregation;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -32,7 +30,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.planner.AggregationDecompositions.decompose;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
@@ -69,28 +67,27 @@ public class StatisticAggregations
         for (Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
-            ResolvedAggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(session, resolvedFunction);
-            List<Type> intermediateTypes = functionMetadata.intermediateTypes().stream()
-                    .map(plannerContext.getTypeManager()::getType)
-                    .collect(toImmutableList());
-            Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);
-            Symbol partialSymbol = symbolAllocator.newSymbol(resolvedFunction.signature().getName().functionName(), intermediateType);
+            DecomposedAggregation decomposed = decompose(plannerContext.getMetadata(), plannerContext.getTypeManager(), session, resolvedFunction);
+
+            Symbol partialSymbol = symbolAllocator.newSymbol(resolvedFunction.signature().getName().functionName(), decomposed.intermediateType());
             mappings.put(entry.getKey(), partialSymbol);
             partialAggregation.put(partialSymbol, new Aggregation(
-                    resolvedFunction,
+                    decomposed.partialFunction(),
                     originalAggregation.getArguments(),
                     originalAggregation.isDistinct(),
                     originalAggregation.getFilter(),
                     originalAggregation.getOrderingScheme(),
-                    originalAggregation.getMask()));
+                    originalAggregation.getMask(),
+                    decomposed.legacyDecomposition()));
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
-                            resolvedFunction,
+                            decomposed.outputFunction(),
                             ImmutableList.of(partialSymbol.toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));
+                            Optional.empty(),
+                            decomposed.legacyDecomposition()));
         }
         groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));
         return new Parts(

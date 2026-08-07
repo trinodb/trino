@@ -23,8 +23,8 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Convention;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
@@ -142,25 +142,8 @@ public final class ApproximateSetGenericAggregation
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    @CombineFunction
-    public static void combineState(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
-    {
-        HyperLogLog input = otherState.getHyperLogLog();
-
-        HyperLogLog previous = state.getHyperLogLog();
-        if (previous == null) {
-            state.setHyperLogLog(input);
-            state.addMemoryUsage(input.estimatedInMemorySize());
-        }
-        else {
-            state.addMemoryUsage(-previous.estimatedInMemorySize());
-            previous.mergeWith(input);
-            state.addMemoryUsage(previous.estimatedInMemorySize());
-        }
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.HYPER_LOG_LOG)
+    @OutputFunction(value = StandardTypes.HYPER_LOG_LOG, decomposition = @Decomposition(partial = APPROX_SET_FUNCTION_NAME, output = "merge"))
     public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
         SERIALIZER.serialize(state, out);

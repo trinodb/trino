@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -53,21 +53,8 @@ public final class BuildSetDigestAggregation
         state.getDigest().add(value);
     }
 
-    @CombineFunction
-    public static void combine(SetDigestState state, SetDigestState otherState)
-    {
-        if (state.getDigest() == null) {
-            SetDigest copy = new SetDigest();
-            copy.mergeWith(otherState.getDigest());
-            state.setDigest(copy);
-        }
-        else {
-            state.getDigest().mergeWith(otherState.getDigest());
-        }
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.SET_DIGEST)
+    @OutputFunction(value = StandardTypes.SET_DIGEST, decomposition = @Decomposition(partial = "make_set_digest", output = "merge_set_digest"))
     public static void output(SetDigestState state, BlockBuilder out)
     {
         SERIALIZER.serialize(state, out);
