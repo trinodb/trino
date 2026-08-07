@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -44,17 +45,31 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.filesystem.azure.AzureFileSystemConstants.EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX;
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY;
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SSE_CUSTOMER_KEY_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestIcebergRestCatalogFileSystemFactory
 {
+    // 32-byte AES-256 keys encoded in Base64
+    private static final String BASE64_KEY_A = aes256KeyWithFirstByte((byte) 0);
+    private static final String BASE64_KEY_B = aes256KeyWithFirstByte((byte) 1);
+
+    private static String aes256KeyWithFirstByte(byte firstByte)
+    {
+        byte[] key = new byte[32];
+        key[0] = firstByte;
+        return Base64.getEncoder().encodeToString(key);
+    }
+
     @Test
     void testS3VendedCredentials()
     {
@@ -156,15 +171,271 @@ final class TestIcebergRestCatalogFileSystemFactory
     }
 
     @Test
+    void testS3SseCVendedEncryptionKey()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                S3FileIOProperties.SSE_TYPE, S3FileIOProperties.SSE_TYPE_CUSTOM,
+                S3FileIOProperties.SSE_KEY, BASE64_KEY_A);
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("s3://bucket/path"));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_SSE_CUSTOMER_KEY_PROPERTY, BASE64_KEY_A);
+    }
+
+    @Test
+    void testS3SseKmsIsNotWrapped()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new NoOpTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        // SSE-KMS uses server-managed keys; no client-side encryption key needed
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                S3FileIOProperties.SSE_TYPE, S3FileIOProperties.SSE_TYPE_KMS,
+                S3FileIOProperties.SSE_KEY, "arn:aws:kms:us-east-1:123456789:key/test-key");
+
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+        // Trigger lazy loader; SSE-KMS adds nothing, so the original identity should pass through unchanged.
+        assertThatThrownBy(() -> fileSystem.newInputFile(Location.of("s3://bucket/path/file")))
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .doesNotContainKey(EXTRA_CREDENTIALS_SSE_CUSTOMER_KEY_PROPERTY);
+    }
+
+    @Test
+    void testGcsCsekBothKeys()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        // GCS key rotation: different encryption and decryption keys
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                GCPProperties.GCS_ENCRYPTION_KEY, BASE64_KEY_A,
+                GCPProperties.GCS_DECRYPTION_KEY, BASE64_KEY_B);
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("gs://bucket/path"));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY, BASE64_KEY_A)
+                .containsEntry(EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY, BASE64_KEY_B);
+    }
+
+    @Test
+    void testGcsCsekEncryptionKeyOnly()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        // Only encryption key: new writes are encrypted, reads are unencrypted
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                GCPProperties.GCS_ENCRYPTION_KEY, BASE64_KEY_A);
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("gs://bucket/path"));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY, BASE64_KEY_A)
+                .doesNotContainKey(EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY);
+    }
+
+    @Test
+    void testGcsCsekDecryptionKeyOnly()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        // Only decryption key: reads use the key, writes are unencrypted
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                GCPProperties.GCS_DECRYPTION_KEY, BASE64_KEY_B);
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("gs://bucket/path"));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .doesNotContainKey(EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY)
+                .containsEntry(EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY, BASE64_KEY_B);
+    }
+
+    @Test
+    void testEncryptionKeysNotAppliedWhenVendedCredentialsDisabled()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new NoOpTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                S3FileIOProperties.SSE_TYPE, S3FileIOProperties.SSE_TYPE_CUSTOM,
+                S3FileIOProperties.SSE_KEY, BASE64_KEY_A,
+                GCPProperties.GCS_ENCRYPTION_KEY, BASE64_KEY_A);
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .doesNotContainKey(EXTRA_CREDENTIALS_SSE_CUSTOMER_KEY_PROPERTY)
+                .doesNotContainKey(EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY)
+                .doesNotContainKey(EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY);
+    }
+
+    @Test
     void testNoVendedCredentialsInProperties()
     {
-        IcebergRestCatalogFileSystemFactory factory = createFactory(_ -> new MockTrinoFileSystem(), true);
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new NoOpTrinoFileSystem();
+        };
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
         TrinoFileSystem fileSystem = factory.create(originalIdentity, ImmutableMap.of());
-
+        // Trigger the lazy loader: with no vended creds and no extras, the original identity should pass through unchanged.
         assertThatThrownBy(() -> fileSystem.newInputFile(Location.of("s3://bucket/path/file")))
-                .hasMessage("Failed to initialize the vended credentials from the provided fileIoProperties");
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThat(capturedIdentity.get()).isSameAs(originalIdentity);
+    }
+
+    @Test
+    void testUnsupportedSchemeDelegatesWithOriginalIdentity()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new NoOpTrinoFileSystem();
+        };
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
+        TrinoFileSystem fileSystem = factory.create(originalIdentity, ImmutableMap.of());
+        // A scheme without vended credentials (for example an HDFS location handled by the delegate) must fall through
+        // to the delegate filesystem with the original identity rather than failing on the credential scheme switch.
+        assertThatThrownBy(() -> fileSystem.newInputFile(Location.of("hdfs://namenode/path/file")))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThat(capturedIdentity.get()).isSameAs(originalIdentity);
+    }
+
+    private static class NoOpTrinoFileSystem
+            implements TrinoFileSystem
+    {
+        @Override
+        public TrinoInputFile newInputFile(Location location)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TrinoInputFile newInputFile(Location location, long length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TrinoOutputFile newOutputFile(Location location)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteFile(Location location)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteDirectory(Location location)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void renameFile(Location source, Location target)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public FileIterator listFiles(Location location)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Boolean> directoryExists(Location location)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void createDirectory(Location location)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void renameDirectory(Location source, Location target)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Set<Location> listDirectories(Location location)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Test
