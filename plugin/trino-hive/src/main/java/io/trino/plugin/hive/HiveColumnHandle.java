@@ -94,6 +94,7 @@ public class HiveColumnHandle
     private final HiveType baseHiveType;
     private final Type baseType;
     private final Optional<String> comment;
+    private final boolean nullable;
 
     // Information about parts of the base column to be referenced by this column handle.
     private final Optional<HiveColumnProjectionInfo> hiveColumnProjectionInfo;
@@ -109,7 +110,8 @@ public class HiveColumnHandle
             @JsonProperty("baseType") Type baseType,
             @JsonProperty("hiveColumnProjectionInfo") Optional<HiveColumnProjectionInfo> hiveColumnProjectionInfo,
             @JsonProperty("columnType") ColumnType columnType,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("nullable") Boolean nullable)
     {
         this.baseColumnName = requireNonNull(baseColumnName, "baseColumnName is null");
         checkArgument(baseHiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "baseHiveColumnIndex is negative");
@@ -123,6 +125,8 @@ public class HiveColumnHandle
 
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.comment = requireNonNull(comment, "comment is null");
+        // Default to true (nullable) when deserializing from pre-NOT-NULL serialized handles
+        this.nullable = nullable == null || nullable;
     }
 
     public static HiveColumnHandle createBaseColumn(
@@ -133,12 +137,12 @@ public class HiveColumnHandle
             ColumnType columnType,
             Optional<String> comment)
     {
-        return new HiveColumnHandle(topLevelColumnName, topLevelColumnIndex, hiveType, type, Optional.empty(), columnType, comment);
+        return new HiveColumnHandle(topLevelColumnName, topLevelColumnIndex, hiveType, type, Optional.empty(), columnType, comment, true);
     }
 
     public HiveColumnHandle getBaseColumn()
     {
-        return isBaseColumn() ? this : createBaseColumn(baseColumnName, baseHiveColumnIndex, baseHiveType, baseType, columnType, comment);
+        return isBaseColumn() ? this : new HiveColumnHandle(baseColumnName, baseHiveColumnIndex, baseHiveType, baseType, Optional.empty(), columnType, comment, nullable);
     }
 
     public String getName()
@@ -196,12 +200,19 @@ public class HiveColumnHandle
         return columnType == SYNTHESIZED;
     }
 
+    @JsonProperty
+    public boolean isNullable()
+    {
+        return nullable;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
                 .setName(name)
                 .setType(getType())
                 .setHidden(isHidden())
+                .setNullable(nullable)
                 .build();
     }
 
@@ -225,7 +236,7 @@ public class HiveColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(baseColumnName, baseHiveColumnIndex, baseHiveType, baseType, hiveColumnProjectionInfo, columnType, comment);
+        return Objects.hash(baseColumnName, baseHiveColumnIndex, baseHiveType, baseType, hiveColumnProjectionInfo, columnType, comment, nullable);
     }
 
     @Override
@@ -245,7 +256,8 @@ public class HiveColumnHandle
                 Objects.equals(this.hiveColumnProjectionInfo, other.hiveColumnProjectionInfo) &&
                 Objects.equals(this.name, other.name) &&
                 this.columnType == other.columnType &&
-                Objects.equals(this.comment, other.comment);
+                Objects.equals(this.comment, other.comment) &&
+                this.nullable == other.nullable;
     }
 
     @Override

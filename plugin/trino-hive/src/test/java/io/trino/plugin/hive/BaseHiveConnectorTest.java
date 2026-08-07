@@ -193,6 +193,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
@@ -292,15 +293,42 @@ public abstract class BaseHiveConnectorTest
                  // MERGE, UPDATE are supported only on transactional tables, so not supported in current setup
                  SUPPORTS_MERGE,
                  SUPPORTS_UPDATE,
-                 SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TRUNCATE -> false;
+            case SUPPORTS_NOT_NULL_CONSTRAINT -> true;
             case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return "NULL value not allowed for NOT NULL column: " + columnName;
+    }
+
+    @Test
+    @Override
+    public void testAddNotNullColumn()
+    {
+        // Hive enforces NOT NULL on writes only, so adding NOT NULL to a non-empty table is allowed.
+        // Existing rows are unaffected; only future writes are checked.
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT));
+
+        try (TestTable table = newTrinoTable("test_add_nn_col", "(a_varchar varchar)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertThat(columnIsNullable(tableName, "b_varchar")).isFalse();
+            assertQueryFails(
+                    "INSERT INTO " + tableName + " VALUES ('b', NULL)",
+                    "NULL value not allowed for NOT NULL column: b_varchar");
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('b', 'val')", 1);
+        }
     }
 
     @Test

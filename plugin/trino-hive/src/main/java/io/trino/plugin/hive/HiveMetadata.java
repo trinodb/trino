@@ -151,6 +151,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -364,6 +365,7 @@ public class HiveMetadata
     public static final String TRINO_VERSION_NAME = "trino_version";
     public static final String TRINO_CREATED_BY = "trino_created_by";
     public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
+    public static final String TRINO_NOT_NULL_COLUMN_PARAM_PREFIX = "trino_not_null_col_";
     private static final String BUCKETING_VERSION = "bucketing_version";
     public static final String STORAGE_TABLE = "storage_table";
     public static final String TRANSACTIONAL = "transactional";
@@ -1119,6 +1121,22 @@ public class HiveMetadata
             }
         }
 
+        Set<String> partitionColumnNames = ImmutableSet.copyOf(partitionedBy);
+        List<ColumnMetadata> notNullColumns = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isNullable() && !partitionColumnNames.contains(column.getName()) && !column.isHidden())
+                .collect(toImmutableList());
+        if (!notNullColumns.isEmpty() && external) {
+            throw new TrinoException(NOT_SUPPORTED, "NOT NULL is not supported for external tables");
+        }
+        if (!notNullColumns.isEmpty()) {
+            ImmutableMap.Builder<String, String> tablePropertiesWithNotNull = ImmutableMap.builder();
+            tablePropertiesWithNotNull.putAll(tableProperties);
+            for (ColumnMetadata column : notNullColumns) {
+                tablePropertiesWithNotNull.put(TRINO_NOT_NULL_COLUMN_PARAM_PREFIX + column.getName(), "true");
+            }
+            tableProperties = tablePropertiesWithNotNull.buildOrThrow();
+        }
+
         Table table = buildTableObject(
                 session.getQueryId(),
                 schemaName,
@@ -1525,7 +1543,22 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(handle);
 
-        metastore.addColumn(handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(column.getType()), column.getComment().orElse(null));
+        if (!column.isNullable()) {
+            // metastore.addColumn and metastore.replaceTable both call setExclusive, so they cannot be
+            // combined in one transaction. Instead, do the column addition and NOT NULL parameter in a
+            // single replaceTable call.
+            Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
+            Table updatedTable = Table.builder(table)
+                    .addDataColumn(new Column(column.getName(), toHiveType(column.getType()), column.getComment(), ImmutableMap.of()))
+                    .setParameter(TRINO_NOT_NULL_COLUMN_PARAM_PREFIX + column.getName(), "true")
+                    .build();
+            PrincipalPrivileges principalPrivileges = usingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
+            metastore.replaceTable(handle.getSchemaName(), handle.getTableName(), updatedTable, principalPrivileges);
+        }
+        else {
+            metastore.addColumn(handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(column.getType()), column.getComment().orElse(null));
+        }
     }
 
     @Override
@@ -1536,6 +1569,20 @@ public class HiveMetadata
         HiveColumnHandle sourceHandle = (HiveColumnHandle) source;
 
         metastore.renameColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), sourceHandle.getName(), target);
+        if (!sourceHandle.isNullable()) {
+            Table table = metastore.getTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
+            Table updatedTable = Table.builder(table)
+                    .apply(builder -> {
+                        Map<String, String> params = new LinkedHashMap<>(table.getParameters());
+                        params.remove(TRINO_NOT_NULL_COLUMN_PARAM_PREFIX + sourceHandle.getName());
+                        params.put(TRINO_NOT_NULL_COLUMN_PARAM_PREFIX + target, "true");
+                        return builder.setParameters(params);
+                    })
+                    .build();
+            PrincipalPrivileges principalPrivileges = usingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
+            metastore.replaceTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), updatedTable, principalPrivileges);
+        }
     }
 
     @Override
@@ -1546,6 +1593,42 @@ public class HiveMetadata
         HiveColumnHandle columnHandle = (HiveColumnHandle) column;
 
         metastore.dropColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), columnHandle.getName());
+        if (!columnHandle.isNullable()) {
+            removeNotNullColumnParameter(session, hiveTableHandle, columnHandle.getName());
+        }
+    }
+
+    @Override
+    public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
+        removeNotNullColumnParameter(session, hiveTableHandle, hiveColumnHandle.getName());
+    }
+
+    private void setNotNullColumnParameter(String schemaName, String tableName, String columnName)
+    {
+        SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
+        Table table = metastore.getTable(schemaName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+        Table updatedTable = Table.builder(table)
+                .setParameter(TRINO_NOT_NULL_COLUMN_PARAM_PREFIX + columnName, "true")
+                .build();
+        PrincipalPrivileges principalPrivileges = usingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(table.getOwner().orElse(""));
+        metastore.replaceTable(schemaName, tableName, updatedTable, principalPrivileges);
+    }
+
+    private void removeNotNullColumnParameter(ConnectorSession session, HiveTableHandle hiveTableHandle, String columnName)
+    {
+        Table table = metastore.getTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
+        Map<String, String> params = new LinkedHashMap<>(table.getParameters());
+        params.remove(TRINO_NOT_NULL_COLUMN_PARAM_PREFIX + columnName);
+        Table updatedTable = Table.builder(table)
+                .setParameters(params)
+                .build();
+        PrincipalPrivileges principalPrivileges = usingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
+        metastore.replaceTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), updatedTable, principalPrivileges);
     }
 
     @Override
@@ -3285,7 +3368,8 @@ public class HiveMetadata
                 column.getBaseType(),
                 Optional.of(columnProjectionInfo),
                 column.getColumnType(),
-                column.getComment());
+                column.getComment(),
+                column.isNullable());
     }
 
     @Override
