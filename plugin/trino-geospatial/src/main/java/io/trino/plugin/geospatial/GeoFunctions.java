@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.geospatial;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +53,8 @@ import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
+import org.locationtech.jts.geom.TopologyException;
+import org.locationtech.jts.geom.util.GeometryFixer;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
@@ -91,8 +94,11 @@ import static io.trino.geospatial.GeometryType.MULTI_POINT;
 import static io.trino.geospatial.GeometryType.MULTI_POLYGON;
 import static io.trino.geospatial.GeometryType.POINT;
 import static io.trino.geospatial.GeometryType.POLYGON;
+import static io.trino.geospatial.GeometryUtils.invalidInputGeometryException;
 import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
 import static io.trino.geospatial.GeometryUtils.jtsGeometryFromJson;
+import static io.trino.geospatial.GeometryUtils.strictInvalidOverlay;
+import static io.trino.geospatial.GeometryUtils.verifyValidInputGeometries;
 import static io.trino.geospatial.serde.JtsGeometrySerde.hasZ;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serializeWithoutSrid;
 import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
@@ -1136,7 +1142,13 @@ public final class GeoFunctions
 
     private static Geometry stUnionGeometries(Iterable<Geometry> inputGeometries)
     {
-        List<Geometry> geometries = new ArrayList<>();
+        return stUnionGeometries(inputGeometries, strictInvalidOverlay());
+    }
+
+    @VisibleForTesting
+    static Geometry stUnionGeometries(Iterable<Geometry> inputGeometries, boolean rejectInvalidInputs)
+    {
+        List<Geometry> sourceGeometries = new ArrayList<>();
         int expectedSrid = 0;
         for (Geometry geometry : inputGeometries) {
             // Ignore null inputs
@@ -1154,11 +1166,16 @@ public final class GeoFunctions
                         format("SRID mismatch: %d vs %d", expectedSrid, srid));
             }
             if (!geometry.isEmpty()) {
-                // Flatten geometry collections to get individual geometries
-                flattenGeometry(geometry, geometries);
+                sourceGeometries.add(geometry);
             }
         }
 
+        if (rejectInvalidInputs) {
+            verifyValidInputGeometries(sourceGeometries);
+        }
+
+        List<Geometry> geometries = new ArrayList<>();
+        sourceGeometries.forEach(geometry -> flattenGeometry(geometry, geometries));
         if (geometries.isEmpty()) {
             // Return empty geometry collection instead of null for empty inputs
             Geometry result = GEOMETRY_FACTORY.createGeometryCollection();
@@ -1167,7 +1184,47 @@ public final class GeoFunctions
         }
 
         // JTS UnaryUnionOp handles mixed dimensions properly
-        Geometry result = UnaryUnionOp.union(geometries);
+        Geometry result;
+        try {
+            result = UnaryUnionOp.union(geometries);
+        }
+        catch (TopologyException failure) {
+            List<Geometry> invalidGeometries = new ArrayList<>();
+            List<Geometry> repairedGeometries = new ArrayList<>();
+            try {
+                for (Geometry geometry : sourceGeometries) {
+                    if (geometry.isValid()) {
+                        flattenGeometry(geometry, repairedGeometries);
+                        continue;
+                    }
+                    invalidGeometries.add(geometry);
+                    // Repair the original input before flattening. An invalid MultiPolygon can
+                    // consist entirely of valid polygons whose overlap violates its topology.
+                    flattenGeometry(GeometryFixer.fix(geometry), repairedGeometries);
+                }
+            }
+            catch (RuntimeException repairFailure) {
+                if (!invalidGeometries.isEmpty()) {
+                    throw invalidInputGeometryException(invalidGeometries, failure, repairFailure);
+                }
+                failure.addSuppressed(repairFailure);
+                throw failure;
+            }
+            if (invalidGeometries.isEmpty()) {
+                throw failure;
+            }
+            if (repairedGeometries.isEmpty()) {
+                result = GEOMETRY_FACTORY.createGeometryCollection();
+            }
+            else {
+                try {
+                    result = UnaryUnionOp.union(repairedGeometries);
+                }
+                catch (RuntimeException retryFailure) {
+                    throw invalidInputGeometryException(invalidGeometries, failure, retryFailure);
+                }
+            }
+        }
 
         // Post-process to match ESRI behavior:
         // 1. Merge connected line segments
@@ -1687,7 +1744,7 @@ public final class GeoFunctions
     public static Geometry stDifference(@SqlType(StandardTypes.GEOMETRY) Geometry leftGeometry, @SqlType(StandardTypes.GEOMETRY) Geometry rightGeometry)
     {
         // Use OverlayNGRobust for better handling of edge cases and invalid geometries
-        Geometry result = OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.DIFFERENCE);
+        Geometry result = overlayRobustly(leftGeometry, rightGeometry, OverlayNG.DIFFERENCE);
         result.setSRID(validateAndGetSrid(leftGeometry, rightGeometry));
         return result;
     }
@@ -1745,7 +1802,7 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Geometry stIntersection(@SqlType(StandardTypes.GEOMETRY) Geometry leftGeometry, @SqlType(StandardTypes.GEOMETRY) Geometry rightGeometry)
     {
-        Geometry result = OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.INTERSECTION);
+        Geometry result = overlayRobustly(leftGeometry, rightGeometry, OverlayNG.INTERSECTION);
         result.setSRID(validateAndGetSrid(leftGeometry, rightGeometry));
         return result;
     }
@@ -1756,9 +1813,65 @@ public final class GeoFunctions
     public static Geometry stSymmetricDifference(@SqlType(StandardTypes.GEOMETRY) Geometry leftGeometry, @SqlType(StandardTypes.GEOMETRY) Geometry rightGeometry)
     {
         // Use OverlayNGRobust for better handling of edge cases and invalid geometries
-        Geometry result = OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.SYMDIFFERENCE);
+        Geometry result = overlayRobustly(leftGeometry, rightGeometry, OverlayNG.SYMDIFFERENCE);
         result.setSRID(validateAndGetSrid(leftGeometry, rightGeometry));
         return result;
+    }
+
+    /**
+     * Runs an OverlayNG operation, retrying once with {@link GeometryFixer} when the operation fails
+     * (e.g. self-intersections yielding "side location conflict"). When an invalid input is found,
+     * valid inputs are left unchanged. If both inputs are valid, the original failure is preserved.
+     * This does not promise exact result equivalence with the legacy Esri engine.
+     * In strict mode (see {@link io.trino.geospatial.GeometryUtils#STRICT_INVALID_OVERLAY_PROPERTY})
+     * invalid inputs raise a user error instead of being repaired.
+     */
+    private static Geometry overlayRobustly(Geometry left, Geometry right, int opCode)
+    {
+        return overlayRobustly(left, right, opCode, strictInvalidOverlay());
+    }
+
+    @VisibleForTesting
+    static Geometry overlayRobustly(Geometry left, Geometry right, int opCode, boolean rejectInvalidInputs)
+    {
+        if (rejectInvalidInputs) {
+            verifyValidInputGeometries(ImmutableList.of(left, right));
+        }
+
+        try {
+            return OverlayNGRobust.overlay(left, right, opCode);
+        }
+        catch (TopologyException failure) {
+            boolean leftValid;
+            boolean rightValid;
+            try {
+                leftValid = left.isValid();
+                rightValid = right.isValid();
+            }
+            catch (RuntimeException validationFailure) {
+                failure.addSuppressed(validationFailure);
+                throw failure;
+            }
+            if (leftValid && rightValid) {
+                throw failure;
+            }
+            List<Geometry> invalidInputs = new ArrayList<>();
+            if (!leftValid) {
+                invalidInputs.add(left);
+            }
+            if (!rightValid) {
+                invalidInputs.add(right);
+            }
+            try {
+                return OverlayNGRobust.overlay(
+                        leftValid ? left : GeometryFixer.fix(left),
+                        rightValid ? right : GeometryFixer.fix(right),
+                        opCode);
+            }
+            catch (RuntimeException retryFailure) {
+                throw invalidInputGeometryException(invalidInputs, failure, retryFailure);
+            }
+        }
     }
 
     @Description("Returns merged LineStrings from the input geometry")
