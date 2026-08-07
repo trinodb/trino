@@ -16,6 +16,7 @@ package io.trino.operator.output;
 import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -138,8 +138,11 @@ public class TestPositionsAppenderPageBuilder
                 List.of(VARCHAR),
                 new PositionsAppenderFactory(new BlockTypeOperators()));
 
-        Block valueBlock = writeNativeValue(VARCHAR, Slices.utf8Slice("test"));
-        Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[10]);
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 2);
+        VARCHAR.writeString(dictionaryBuilder, "first");
+        VARCHAR.writeString(dictionaryBuilder, "second");
+        Block valueBlock = dictionaryBuilder.build();
+        Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[] {0, 1, 0, 1, 0, 1, 0, 1, 0, 1});
         Page inputPage = new Page(dictionaryBlock);
 
         pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
