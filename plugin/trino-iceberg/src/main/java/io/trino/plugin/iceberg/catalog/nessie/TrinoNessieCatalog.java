@@ -47,6 +47,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+import org.apache.iceberg.view.ViewMetadata;
 import org.projectnessie.model.IcebergTable;
 
 import java.util.Iterator;
@@ -388,6 +389,12 @@ public class TrinoNessieCatalog
     public void dropView(ConnectorSession session, SchemaTableName schemaViewName)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropView is not supported for Iceberg Nessie catalogs");
+    }
+
+    @Override
+    public void registerView(ConnectorSession session, SchemaTableName schemaViewName, ViewMetadata viewMetadata)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "registerView is not supported for Iceberg Nessie catalogs");
     }
 
     @Override

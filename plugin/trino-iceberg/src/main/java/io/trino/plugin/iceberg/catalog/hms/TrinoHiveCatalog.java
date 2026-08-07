@@ -65,6 +65,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.exceptions.NotFoundException;
+import org.apache.iceberg.view.ViewMetadata;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -562,6 +563,12 @@ public class TrinoHiveCatalog
     public void dropView(ConnectorSession session, SchemaTableName schemaViewName)
     {
         trinoViewHiveMetastore.dropView(schemaViewName);
+    }
+
+    @Override
+    public void registerView(ConnectorSession session, SchemaTableName schemaViewName, ViewMetadata viewMetadata)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Hive catalog does not support registering Iceberg views");
     }
 
     @Override

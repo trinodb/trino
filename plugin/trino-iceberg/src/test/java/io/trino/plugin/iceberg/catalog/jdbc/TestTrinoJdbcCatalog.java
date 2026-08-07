@@ -19,9 +19,13 @@ import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
+import org.apache.iceberg.view.BaseView;
+import org.apache.iceberg.view.ViewMetadata;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -31,6 +35,7 @@ import org.postgresql.Driver;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -57,6 +62,7 @@ final class TestTrinoJdbcCatalog
     private static final String CATALOG_NAME = "iceberg_jdbc";
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
+    private final Map<TrinoCatalog, JdbcCatalog> underlyingJdbcCatalogs = new IdentityHashMap<>();
     private TestingIcebergJdbcServer server;
 
     @BeforeAll
@@ -80,7 +86,17 @@ final class TestTrinoJdbcCatalog
         warehouseLocation.toFile().deleteOnExit();
         JdbcCatalog jdbcCatalog = createJdbcCatalog(server.getJdbcUrl(), warehouseLocation);
         closer.register(jdbcCatalog);
-        return createTrinoJdbcCatalog(useUniqueTableLocations, warehouseLocation, server.getJdbcUrl(), jdbcCatalog);
+        TrinoCatalog catalog = createTrinoJdbcCatalog(useUniqueTableLocations, warehouseLocation, server.getJdbcUrl(), jdbcCatalog);
+        underlyingJdbcCatalogs.put(catalog, jdbcCatalog);
+        return catalog;
+    }
+
+    @Override
+    protected Optional<ViewMetadata> loadIcebergViewMetadata(TrinoCatalog catalog, SchemaTableName viewName)
+    {
+        JdbcCatalog jdbcCatalog = underlyingJdbcCatalogs.get(catalog);
+        BaseView view = (BaseView) jdbcCatalog.loadView(TableIdentifier.of(viewName.getSchemaName(), viewName.getTableName()));
+        return Optional.of(view.operations().current());
     }
 
     private static TrinoJdbcCatalog createTrinoJdbcCatalog(boolean useUniqueTableLocations, Path warehouseLocation, String jdbcUrl, JdbcCatalog jdbcCatalog)
