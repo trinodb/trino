@@ -29,7 +29,7 @@ public record TrinoIdentity(
     {
         return new TrinoIdentity(
                 identity.getUser(),
-                identity.getPrincipal().isPresent() ? identity.getPrincipal().get().getName() : identity.getUser(),
+                identity.getPrincipal().map(principal -> principal.getName()).orElseGet(identity::getUser),
                 identity.getGroups());
     }
 
