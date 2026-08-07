@@ -29,7 +29,7 @@ import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
-@AggregationFunction("avg")
+@AggregationFunction(value = "avg", windowAccumulator = BigintAverageAggregations.LongAverageWindowAccumulator.class)
 public final class BigintAverageAggregations
 {
     private BigintAverageAggregations() {}

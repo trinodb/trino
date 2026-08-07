@@ -725,4 +725,32 @@ public abstract class AbstractTestWindowQueries
                         "(3000, 200, 1, 105, 86.0), " +
                         "(3000, 300, 1, 93, 93.0)");
     }
+
+    @Test
+    public void testAverageWithSlidingWindowFrame()
+    {
+        // Same trailing "last 4 rows" frame, exercising the avg(bigint) window accumulator's removeInput path
+        // over mixed-sign values. Values are multiples of 12 so every frame average is exact as a double.
+        assertThat(query(
+                """
+                SELECT k, avg(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, BIGINT '12'),
+                    (2, BIGINT '-24'),
+                    (3, BIGINT '36'),
+                    (4, BIGINT '-48'),
+                    (5, BIGINT '60'),
+                    (6, BIGINT '-72')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '12.0'),
+                            (2, DOUBLE '-6.0'),
+                            (3, DOUBLE '8.0'),
+                            (4, DOUBLE '-6.0'),
+                            (5, DOUBLE '6.0'),
+                            (6, DOUBLE '-6.0')
+                        """);
+    }
 }
