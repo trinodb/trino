@@ -39,6 +39,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.StandardTypes.JSON;
@@ -70,40 +71,64 @@ public final class ParquetTypeUtils
         return groupColumnIO;
     }
 
-    /* For backward-compatibility, the type of elements in LIST-annotated structures should always be determined by the following rules:
-     * 1. If the repeated field is not a group, then its type is the element type and elements are required.
-     * 2. If the repeated field is a group with multiple fields, then its type is the element type and elements are required.
-     * 3. If the repeated field is a group with one field and is named either array or uses the LIST-annotated group's name with _tuple appended then the repeated type is the element type and elements are required.
-     * 4. Otherwise, the repeated field's type is the element type with the repeated field's repetition.
-     * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
+    /**
+     * Resolve the element ColumnIO of a LIST-annotated group given its (single) REPEATED child.
+     * <p>
+     * Follows the <a href="https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists">
+     * Parquet spec backward-compatibility rules</a>, but disambiguates the legacy single-field
+     * case using the caller-provided Trino element type:
+     * <ol>
+     *   <li>If the repeated field is not a group, it is the element (e.g. {@code repeated int32 x}).</li>
+     *   <li>If the repeated field is a group carrying its own {@code LIST}, {@code MAP}, or other
+     *       logical type annotation, the repeated group IS the element. This covers the
+     *       {@code SingleLevelArraySchemaConverter} encoding of nested lists/maps used by legacy
+     *       Hive writes.</li>
+     *   <li>If the repeated field is a group with multiple fields, it is the element (a struct).</li>
+     *   <li>If the repeated field is a group with one field and is named either {@code array} or
+     *       {@code <parent>_tuple}, it is the element ONLY when the caller expects a RowType.
+     *       This is the ambiguous legacy case: the same schema can encode either
+     *       {@code list<row(f)>} (spec rule 3) or {@code list<T>} where T happens to be nested
+     *       under a legacy-named wrapper. See issue #27766.</li>
+     *   <li>Otherwise, the single child is the element (modern 3-level {@code list.element}, or a
+     *       legacy-named wrapper around a non-struct element).</li>
+     * </ol>
      */
-    public static ColumnIO getArrayElementColumn(ColumnIO columnIO)
+    public static ColumnIO getArrayElementColumn(Type elementType, ColumnIO repeatedFieldColumnIO)
     {
-        while (columnIO instanceof GroupColumnIO && !columnIO.getType().isRepetition(REPEATED)) {
-            columnIO = ((GroupColumnIO) columnIO).getChild(0);
+        checkArgument(
+                repeatedFieldColumnIO.getType().isRepetition(REPEATED),
+                "Expected REPEATED child of LIST group, got %s",
+                repeatedFieldColumnIO.getType().getRepetition());
+
+        // Rule 1: repeated primitive
+        if (!(repeatedFieldColumnIO instanceof GroupColumnIO repeatedGroup)) {
+            return repeatedFieldColumnIO;
         }
 
-        /* If array has a standard 3-level structure with middle level repeated group with a single field:
-         *  optional group my_list (LIST) {
-         *     repeated group element {
-         *        required binary str (UTF8);
-         *     };
-         *  }
-         */
-        if (columnIO instanceof GroupColumnIO groupColumnIO &&
-                columnIO.getType().getLogicalTypeAnnotation() == null &&
-                groupColumnIO.getChildrenCount() == 1 &&
-                !columnIO.getName().equals("array") &&
-                !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")) {
-            return groupColumnIO.getChild(0);
+        // Rule 2: repeated group with its own logical type annotation (LIST, MAP, ...) — the
+        // group itself is the element. Legacy Hive writes (SingleLevelArraySchemaConverter) use
+        // this shape to encode nested lists and maps.
+        if (repeatedGroup.getType().getLogicalTypeAnnotation() != null) {
+            return repeatedGroup;
         }
 
-        /* Backward-compatibility support for 2-level arrays where a repeated field is not a group:
-         *   optional group my_list (LIST) {
-         *      repeated int32 element;
-         *   }
-         */
-        return columnIO;
+        // Rule 3: repeated group with multiple fields → struct element
+        if (repeatedGroup.getChildrenCount() != 1) {
+            return repeatedGroup;
+        }
+
+        // Rule 4 (disambiguated): legacy-named single-field repeated group.
+        // Historically this branch always treated the repeated group as the element (a 1-field
+        // struct), which broke schemas like #27766 where the caller wants a nested list/primitive.
+        // Only apply this interpretation when the caller expects a RowType.
+        String name = repeatedGroup.getName();
+        boolean legacyName = name.equals("array") || name.equals(repeatedGroup.getParent().getName() + "_tuple");
+        if (legacyName && elementType instanceof RowType) {
+            return repeatedGroup;
+        }
+
+        // Rule 5 / modern 3-level list: the single child is the element.
+        return repeatedGroup.getChild(0);
     }
 
     public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
@@ -359,7 +384,7 @@ public final class ParquetTypeUtils
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)), false);
+            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(arrayType.getElementType(), groupColumnIO.getChild(0)), false);
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
