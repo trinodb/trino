@@ -29,6 +29,7 @@ import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -77,6 +78,15 @@ public class TracingAccessControl
         Span span = startSpan("checkCanImpersonateUser");
         try (var _ = scopedSpan(span)) {
             delegate.checkCanImpersonateUser(identity, userName);
+        }
+    }
+
+    @Override
+    public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason)
+    {
+        Span span = startSpan("checkCanSetEffectiveIdentity");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanSetEffectiveIdentity(identity, targetIdentity, reason);
         }
     }
 

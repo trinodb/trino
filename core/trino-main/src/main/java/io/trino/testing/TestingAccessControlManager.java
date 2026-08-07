@@ -30,6 +30,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.ViewExpression;
 import io.trino.transaction.TransactionManager;
 
@@ -80,6 +81,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEffectiveIdentity;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
@@ -135,6 +137,7 @@ public class TestingAccessControlManager
 {
     private static final BiPredicate<Identity, String> IDENTITY_TABLE_TRUE = (_, _) -> true;
     private static final BiPredicate<Identity, String> IDENTITY_FUNCTION_TRUE = (_, _) -> true;
+    private static final BiPredicate<Identity, Identity> EFFECTIVE_IDENTITY_TRUE = (_, _) -> true;
 
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
@@ -145,6 +148,7 @@ public class TestingAccessControlManager
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
     private BiPredicate<Identity, String> denyIdentityFunction = IDENTITY_FUNCTION_TRUE;
     private BiPredicate<Identity, String> denyImpersonationFunction = IDENTITY_FUNCTION_TRUE;
+    private BiPredicate<Identity, Identity> denyEffectiveIdentityFunction = EFFECTIVE_IDENTITY_TRUE;
 
     @Inject
     public TestingAccessControlManager(
@@ -216,6 +220,7 @@ public class TestingAccessControlManager
         rowFilters.clear();
         columnMasks.clear();
         denyImpersonationFunction = IDENTITY_FUNCTION_TRUE;
+        denyEffectiveIdentityFunction = EFFECTIVE_IDENTITY_TRUE;
     }
 
     public void denyCatalogs(Predicate<String> deniedCatalogs)
@@ -246,6 +251,11 @@ public class TestingAccessControlManager
     public void denyImpersonation(BiPredicate<Identity, String> denyImpersonationFunction)
     {
         this.denyImpersonationFunction = requireNonNull(denyImpersonationFunction, "denyImpersonationFunction is null");
+    }
+
+    public void denyEffectiveIdentity(BiPredicate<Identity, Identity> denyEffectiveIdentityFunction)
+    {
+        this.denyEffectiveIdentityFunction = requireNonNull(denyEffectiveIdentityFunction, "denyEffectiveIdentityFunction is null");
     }
 
     @Override
@@ -292,6 +302,15 @@ public class TestingAccessControlManager
         if (denyPrivileges.isEmpty()) {
             super.checkCanImpersonateUser(identity, userName);
         }
+    }
+
+    @Override
+    public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason)
+    {
+        if (!denyEffectiveIdentityFunction.test(identity, targetIdentity)) {
+            denySetEffectiveIdentity(identity.getUser(), targetIdentity.getUser());
+        }
+        super.checkCanSetEffectiveIdentity(identity, targetIdentity, reason);
     }
 
     @Override

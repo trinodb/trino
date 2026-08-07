@@ -31,6 +31,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -137,6 +138,47 @@ public class TestFileBasedSystemAccessControl
 
         AccessControlManager accessControlManagerWithPrincipal = newAccessControlManager(transactionManager, "catalog_principal.json");
         accessControlManagerWithPrincipal.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
+    }
+
+    @Test
+    public void testCanSetEffectiveIdentityOperations()
+            throws Exception
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+
+        // rules without a reasons field apply only to explicit impersonation, so identity switches stay allowed
+        AccessControlManager legacyRules = newAccessControlManager(transactionManager, "catalog_impersonation.json");
+        legacyRules.checkCanSetEffectiveIdentity(Identity.ofUser("invalid"), Identity.ofUser("alice"), IdentitySwitchReason.VIEW_OWNER);
+
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_identity_switch.json");
+
+        // the allow-all rule for admin defaults to explicit impersonation only
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "anything");
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("admin"), Identity.ofUser("anything"), IdentitySwitchReason.VIEW_OWNER);
+
+        // denied only for the listed reasons
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("alice"), Identity.ofUser("bob"), IdentitySwitchReason.VIEW_OWNER))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("User alice cannot run as user bob");
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("alice"), Identity.ofUser("bob"), IdentitySwitchReason.MATERIALIZED_VIEW_OWNER))
+                .isInstanceOf(AccessDeniedException.class);
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("alice"), Identity.ofUser("bob"), IdentitySwitchReason.ROW_FILTER);
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("charlie"), Identity.ofUser("bob"), IdentitySwitchReason.VIEW_OWNER);
+
+        // a rule can combine explicit impersonation with identity switch reasons
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("bob"), "charlie"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("bob"), Identity.ofUser("charlie"), IdentitySwitchReason.ROW_FILTER))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("bob"), Identity.ofUser("charlie"), IdentitySwitchReason.COLUMN_MASK))
+                .isInstanceOf(AccessDeniedException.class);
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("bob"), Identity.ofUser("charlie"), IdentitySwitchReason.FUNCTION_OWNER);
+
+        // an explicit allow rule matches before the allow-by-default fallback
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("alice"), Identity.ofUser("dave"), IdentitySwitchReason.FUNCTION_OWNER);
+
+        // switching to the same user is never denied
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.ofUser("charlie"), Identity.ofUser("charlie"), IdentitySwitchReason.ROW_FILTER);
     }
 
     @Test
