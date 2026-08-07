@@ -21,6 +21,7 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
@@ -62,9 +63,10 @@ public class HiveMetastoreTableOperations
             String database,
             String table,
             Optional<String> owner,
-            Optional<String> location)
+            Optional<String> location,
+            EncryptionManagerFactory encryptionManagerFactory)
     {
-        super(fileIo, metastore, session, database, table, owner, location);
+        super(fileIo, metastore, session, database, table, owner, location, encryptionManagerFactory);
         this.thriftMetastore = requireNonNull(thriftMetastore, "thriftMetastore is null");
         this.lockingEnabled = lockingEnabled;
     }

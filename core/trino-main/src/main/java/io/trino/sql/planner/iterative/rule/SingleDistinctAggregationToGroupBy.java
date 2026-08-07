@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -143,7 +144,7 @@ public class SingleDistinctAggregationToGroupBy
                                 // remove DISTINCT flag from function calls
                                 aggregation.getAggregations()
                                         .entrySet().stream()
-                                        .collect(Collectors.toMap(
+                                        .collect(toImmutableMap(
                                                 Map.Entry::getKey,
                                                 e -> removeDistinct(e.getValue()))))
                         .setPreGroupedSymbols(ImmutableList.of())

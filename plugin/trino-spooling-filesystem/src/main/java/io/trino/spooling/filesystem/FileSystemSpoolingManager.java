@@ -211,6 +211,12 @@ public class FileSystemSpoolingManager
     }
 
     @Override
+    public boolean isRecoverableException(IOException exception)
+    {
+        return !TrinoFileSystem.isUnrecoverableException(exception);
+    }
+
+    @Override
     public SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers)
     {
         BasicSliceInput input = identifier.getInput();

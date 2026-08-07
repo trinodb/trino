@@ -41,8 +41,8 @@ import static io.trino.server.ServletSecurityUtils.sendErrorMessage;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_DISABLED;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -74,7 +74,7 @@ public class OAuth2WebUiAuthenticationFilter
     public void filter(ContainerRequestContext request)
     {
         String path = request.getUriInfo().getRequestUri().getPath();
-        if (path.equals(DISABLED_LOCATION)) {
+        if (path.equals(UI_DISABLED)) {
             return;
         }
 
@@ -86,7 +86,7 @@ public class OAuth2WebUiAuthenticationFilter
                 sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
                 return;
             }
-            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(DISABLED_LOCATION)).build());
+            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(UI_DISABLED)).build());
             return;
         }
         Optional<TokenPair> tokenPair = getTokenPair(request);

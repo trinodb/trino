@@ -113,7 +113,7 @@ public class AvroFileReader
     private void loadNextPageIfNecessary()
             throws IOException
     {
-        while (nextPage == null && (end.isEmpty() || !fileReader.pastSync(end.getAsLong())) && fileReader.hasNext()) {
+        while (nextPage == null && (end.isEmpty() || !fileReader.pastSync(end.orElseThrow())) && fileReader.hasNext()) {
             try {
                 nextPage = fileReader.next().orElse(null);
             }

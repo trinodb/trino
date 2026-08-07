@@ -15,6 +15,8 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
@@ -30,8 +32,8 @@ import io.trino.spi.spool.SpooledSegmentHandle;
 import io.trino.spi.spool.SpoolingContext;
 import io.trino.spi.spool.SpoolingManager;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.assertj.core.util.VisibleForTesting;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -48,6 +50,7 @@ import java.util.function.ToLongFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.primitives.Ints.saturatedCast;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.client.spooling.DataAttribute.EXPIRES_AT;
@@ -146,7 +149,9 @@ public class OutputSpoolingOperatorFactory
     static class OutputSpoolingOperator
             implements Operator
     {
-        private static final long SPOOLING_THRESHOLD = DataSize.of(2, MEGABYTE).toBytes(); // this roughly translates to 400 KB compressed segment
+        private static final Logger log = Logger.get(OutputSpoolingOperator.class);
+        @VisibleForTesting
+        static final long SPOOLING_THRESHOLD = DataSize.of(2, MEGABYTE).toBytes(); // this roughly translates to 400 KB compressed segment
 
         private final SpoolingController controller;
         private final ZoneId clientZoneId;
@@ -297,47 +302,73 @@ public class OutputSpoolingOperatorFactory
                     continue;
                 }
 
-                // Spool the partition as it is large enough
-                SpooledSegmentHandle segmentHandle = spoolingManager.create(new SpoolingContext(
-                        queryDataEncoder.encoding(),
-                        operatorContext.getDriverContext().getSession().getQueryId(),
-                        rows,
-                        size));
-
-                OperationTimer overallTimer = new OperationTimer(false);
-                try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
-                    spooledSegmentsCount.incrementAndGet();
-                    DataAttributes attributes = queryDataEncoder.encodeTo(output, partition)
-                            .toBuilder()
-                            .set(ROWS_COUNT, rows)
-                            .set(EXPIRES_AT, ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString())
-                            .build();
-                    spooledEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
-                    // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
-                    spooledMetadataBuilder.add(SpooledMetadataBlock.forSpooledLocation(spoolingManager.location(segmentHandle), attributes));
+                // Spool the partition as it is large enough, falling back to inlining on recoverable failures
+                try {
+                    spooledMetadataBuilder.add(spool(partition, rows, size));
                 }
                 catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-                finally {
-                    overallTimer.end(spoolingTiming);
+                    if (!inliningEnabled || !spoolingManager.isRecoverableException(e)) {
+                        throw new UncheckedIOException(e);
+                    }
+                    log.warn(e, "Failed to spool segment of %s rows (%s bytes), falling back to inlining", rows, size);
+                    spooledMetadataBuilder.addAll(inlineFallback(partition));
                 }
             }
 
             return serialize(spooledMetadataBuilder.build());
         }
 
+        // Spools a single partition and returns its metadata. The segment is recorded only after the stream
+        // is closed and the location resolved, so a failure at any step here can safely fall back to inlining.
+        private SpooledMetadataBlock spool(List<Page> partition, long rows, long size)
+                throws IOException
+        {
+            SpooledSegmentHandle segmentHandle = spoolingManager.create(new SpoolingContext(
+                    queryDataEncoder.encoding(),
+                    operatorContext.getDriverContext().getSession().getQueryId(),
+                    rows,
+                    size));
+
+            OperationTimer overallTimer = new OperationTimer(false);
+            DataAttributes attributes;
+            try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
+                attributes = queryDataEncoder.encodeTo(output, partition)
+                        .toBuilder()
+                        .set(ROWS_COUNT, rows)
+                        .set(EXPIRES_AT, ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString())
+                        .build();
+            }
+            finally {
+                overallTimer.end(spoolingTiming);
+            }
+
+            SpooledMetadataBlock block = SpooledMetadataBlock.forSpooledLocation(spoolingManager.location(segmentHandle), attributes);
+            spooledSegmentsCount.incrementAndGet();
+            spooledEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
+            return block;
+        }
+
+        // Splits a partition that failed to spool into chunks small enough to inline as individual segments.
+        private List<SpooledMetadataBlock> inlineFallback(List<Page> partition)
+        {
+            ImmutableList.Builder<SpooledMetadataBlock> builder = ImmutableList.builder();
+            for (List<Page> chunk : SpoolingPagePartitioner.partition(partition, SPOOLING_THRESHOLD)) {
+                builder.addAll(inline(chunk));
+            }
+            return builder.build();
+        }
+
         private List<SpooledMetadataBlock> inline(List<Page> pages)
         {
             inlinedSegmentsCount.incrementAndGet();
             OperationTimer overallTimer = new OperationTimer(false);
-            try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            try (DynamicSliceOutput output = new DynamicSliceOutput(saturatedCast(reduce(pages, Page::getSizeInBytes)))) {
                 DataAttributes attributes = queryDataEncoder.encodeTo(output, pages)
                         .toBuilder()
                         .set(ROWS_COUNT, reduce(pages, Page::getPositionCount))
                         .build();
                 inlinedEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
-                return ImmutableList.of(SpooledMetadataBlock.forInlineData(attributes, output.toByteArray()));
+                return ImmutableList.of(SpooledMetadataBlock.forInlineData(attributes, output.slice()));
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -373,6 +404,7 @@ public class OutputSpoolingOperatorFactory
     private static class PageBuffer
     {
         private final List<Page> buffer = new ArrayList<>();
+        private long sizeInBytes;
 
         private PageBuffer() {}
 
@@ -384,11 +416,15 @@ public class OutputSpoolingOperatorFactory
         public synchronized void add(Page page)
         {
             buffer.add(page);
+            sizeInBytes += page.getSizeInBytes();
         }
 
-        public synchronized void addAll(List<Page> page)
+        public synchronized void addAll(List<Page> pages)
         {
-            buffer.addAll(page);
+            buffer.addAll(pages);
+            for (Page page : pages) {
+                sizeInBytes += page.getSizeInBytes();
+            }
         }
 
         public boolean isEmpty()
@@ -400,14 +436,13 @@ public class OutputSpoolingOperatorFactory
         {
             List<Page> pages = ImmutableList.copyOf(buffer);
             buffer.clear();
+            sizeInBytes = 0;
             return pages;
         }
 
         public synchronized long getSize()
         {
-            return buffer.stream()
-                    .mapToLong(Page::getSizeInBytes)
-                    .sum();
+            return sizeInBytes;
         }
     }
 

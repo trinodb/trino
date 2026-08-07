@@ -20,6 +20,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -53,6 +54,7 @@ public final class RealHistogramAggregation
         DoubleHistogramAggregation.merge(state, other);
     }
 
+    @SqlNullable
     @OutputFunction("map(real,real)")
     public static void output(@AggregationState DoubleHistogramAggregation.State state, BlockBuilder out)
     {

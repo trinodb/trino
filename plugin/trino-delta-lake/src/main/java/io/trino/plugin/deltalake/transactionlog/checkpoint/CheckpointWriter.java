@@ -491,7 +491,7 @@ public class CheckpointWriter
     {
         return valuesOptional.map(
                 values -> {
-                    Map<String, Type> fieldTypes = valuesType.getFields().stream().collect(toMap(
+                    Map<String, Type> fieldTypes = valuesType.getFields().stream().collect(toImmutableMap(
                             // anonymous row fields are not expected here
                             field -> field.getName().orElseThrow(),
                             RowType.Field::getType));

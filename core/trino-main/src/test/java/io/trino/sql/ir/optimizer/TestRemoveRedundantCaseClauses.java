@@ -24,7 +24,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCaseClauses;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -38,6 +37,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,6 +107,6 @@ public class TestRemoveRedundantCaseClauses
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantCaseClauses().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new RemoveRedundantCaseClauses().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

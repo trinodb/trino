@@ -373,7 +373,7 @@ public final class DomainTranslator
             if (result.getTupleDomain().isAll()) {
                 // Nothing was extracted; keep the original Let as the remainder so the residual
                 // predicate still evaluates the bound value exactly once.
-                return new ExtractionResult(TupleDomain.all(), node);
+                return new ExtractionResult(TupleDomain.all(), complementIfNecessary(node, complement));
             }
             return result;
         }

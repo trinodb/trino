@@ -17,23 +17,15 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
 import static java.util.Objects.checkFromIndexSize;
 
 public class Fixed12BlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "FIXED12";
-
-    private final boolean vectorizeNullBitPacking;
-
-    public Fixed12BlockEncoding(boolean vectorizeNullBitPacking)
-    {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
-    }
 
     @Override
     public String getName()
@@ -54,35 +46,18 @@ public class Fixed12BlockEncoding
         int positionCount = fixed12Block.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        int rawArrayOffset = fixed12Block.getRawOffset();
+        int rawOffset = fixed12Block.getRawOffset();
         @Nullable
-        boolean[] isNull = fixed12Block.getRawValueIsNull();
+        long[] valueIsValid = fixed12Block.getRawValueIsValid();
         int[] rawValues = fixed12Block.getRawValues();
-        checkFromIndexSize(rawArrayOffset * 3, positionCount * 3, rawValues.length);
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, isNull, rawArrayOffset, positionCount);
+        encodeValidityAsLongs(sliceOutput, valueIsValid, rawOffset, positionCount);
+
+        if (valueIsValid == null) {
+            sliceOutput.writeInts(rawValues, rawOffset * 3, positionCount * 3);
         }
         else {
-            encodeNullsAsBitsScalar(sliceOutput, isNull, rawArrayOffset, positionCount);
-        }
-
-        if (isNull == null) {
-            sliceOutput.writeInts(rawValues, rawArrayOffset * 3, positionCount * 3);
-        }
-        else {
-            int[] valuesWithoutNull = new int[positionCount * 3];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                int rawIntOffset = (i + rawArrayOffset) * 3;
-                valuesWithoutNull[nonNullPositionCount] = rawValues[rawIntOffset];
-                valuesWithoutNull[nonNullPositionCount + 1] = rawValues[rawIntOffset + 1];
-                valuesWithoutNull[nonNullPositionCount + 2] = rawValues[rawIntOffset + 2];
-                nonNullPositionCount += isNull[i + rawArrayOffset] ? 0 : 3;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount / 3);
-            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
+            compactFixed12WithNulls(sliceOutput, rawValues, valueIsValid, rawOffset, positionCount);
         }
     }
 
@@ -91,29 +66,50 @@ public class Fixed12BlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull;
-        if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
-        }
-        else {
-            valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
+        if (valueIsValid == null) {
+            int[] values = new int[positionCount * 3];
+            sliceInput.readInts(values);
+            return new Fixed12Block(0, positionCount, null, values);
         }
 
-        int[] values = new int[positionCount * 3];
-        if (valueIsNull == null) {
-            sliceInput.readInts(values);
-        }
-        else {
-            int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readInts(values, 0, nonNullPositionCount * 3);
-            int position = 3 * (nonNullPositionCount - 1);
-            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
-                System.arraycopy(values, position, values, 3 * i, 3);
-                if (!valueIsNull[i]) {
-                    position -= 3;
-                }
+        return expandFixed12WithNulls(sliceInput, positionCount, valueIsValid);
+    }
+
+    static void compactFixed12WithNulls(SliceOutput sliceOutput, int[] values, long[] valueIsValid, int offset, int length)
+    {
+        checkFromIndexSize(offset * 3, length * 3, values.length);
+        int[] compacted = new int[length * 3];
+        int compactedIndex = 0;
+        for (int position = 0; position < length; position++) {
+            if (isSet(valueIsValid, offset, position)) {
+                int rawValuesIndex = (position + offset) * 3;
+                compacted[compactedIndex] = values[rawValuesIndex];
+                compacted[compactedIndex + 1] = values[rawValuesIndex + 1];
+                compacted[compactedIndex + 2] = values[rawValuesIndex + 2];
+                compactedIndex += 3;
             }
         }
-        return new Fixed12Block(0, positionCount, valueIsNull, values);
+
+        sliceOutput.writeInt(compactedIndex / 3);
+        sliceOutput.writeInts(compacted, 0, compactedIndex);
+    }
+
+    static Fixed12Block expandFixed12WithNulls(SliceInput sliceInput, int positionCount, long[] valueIsValid)
+    {
+        int[] values = new int[positionCount * 3];
+        int nonNullPositionCount = sliceInput.readInt();
+        sliceInput.readInts(values, 0, nonNullPositionCount * 3);
+        int compactedIndex = 3 * (nonNullPositionCount - 1);
+        for (int position = positionCount - 1; position >= 0 && compactedIndex >= 0; position--) {
+            if (isSet(valueIsValid, 0, position)) {
+                int valuesIndex = position * 3;
+                values[valuesIndex] = values[compactedIndex];
+                values[valuesIndex + 1] = values[compactedIndex + 1];
+                values[valuesIndex + 2] = values[compactedIndex + 2];
+                compactedIndex -= 3;
+            }
+        }
+        return new Fixed12Block(0, positionCount, valueIsValid, values);
     }
 }

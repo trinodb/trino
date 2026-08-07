@@ -344,8 +344,8 @@ public final class TransactionLogParser
         FileIterator files = fileSystem.listFilesStartingFrom(Location.of(getTransactionLogDir(tableLocation)), startingFrom);
         while (files.hasNext()) {
             OptionalLong commitVersion = extractCommitVersion(files.next().location().fileName());
-            if (commitVersion.isPresent() && commitVersion.getAsLong() > latestCommitVersion) {
-                latestCommitVersion = commitVersion.getAsLong();
+            if (commitVersion.isPresent() && commitVersion.orElseThrow() > latestCommitVersion) {
+                latestCommitVersion = commitVersion.orElseThrow();
             }
         }
         return latestCommitVersion == -1 ? OptionalLong.empty() : OptionalLong.of(latestCommitVersion);

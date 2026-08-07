@@ -19,7 +19,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.FlattenLogical;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -29,6 +28,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -112,6 +112,6 @@ class TestFlattenLogical
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new FlattenLogical().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new FlattenLogical().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

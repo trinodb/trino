@@ -506,8 +506,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         (_, stageInfo) -> stageInfo.withSubStages(
                                 sourceFragments.stream()
                                         .map(sourceFragment -> {
-                                            StageInfo stageInfo1 = reportedStageInfos.get(sourceFragment);
-                                            return stageInfo1.stageId();
+                                            StageInfo fragmentStageInfo = reportedStageInfos.get(sourceFragment);
+                                            return fragmentStageInfo.stageId();
                                         })
                                         .collect(toImmutableList())));
             });
@@ -1779,7 +1779,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 if (!outputBufferStatus.exchangeSinkInstanceHandleUpdateRequired()) {
                     return;
                 }
-                long remoteVersion = outputBufferStatus.outputBuffersVersion().getAsLong();
+                long remoteVersion = outputBufferStatus.outputBuffersVersion().orElseThrow();
                 while (true) {
                     long localVersion = respondedToVersion.get();
                     if (remoteVersion <= localVersion) {

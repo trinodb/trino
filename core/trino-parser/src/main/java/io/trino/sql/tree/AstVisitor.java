@@ -487,6 +487,11 @@ public abstract class AstVisitor<R, C>
         return visitPredicate(node, context);
     }
 
+    protected R visitOverlapsPredicate(OverlapsPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
     protected R visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, C context)
     {
         return visitPredicate(node, context);
@@ -498,6 +503,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitArrayWildcardSubscript(ArrayWildcardSubscript node, C context)
     {
         return visitExpression(node, context);
     }
@@ -575,6 +585,21 @@ public abstract class AstVisitor<R, C>
     protected R visitSampledRelation(SampledRelation node, C context)
     {
         return visitRelation(node, context);
+    }
+
+    protected R visitPivot(Pivot node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitPivotAggregation(PivotAggregation node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPivotValueGroup(PivotValueGroup node, C context)
+    {
+        return visitNode(node, context);
     }
 
     protected R visitJoin(Join node, C context)

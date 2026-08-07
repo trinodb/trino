@@ -64,8 +64,8 @@ public final class MemorySplitManager
             long rows = dataFragment.rows();
             totalRows += rows;
 
-            if (table.limit().isPresent() && totalRows > table.limit().getAsLong()) {
-                rows -= totalRows - table.limit().getAsLong();
+            if (table.limit().isPresent() && totalRows > table.limit().orElseThrow()) {
+                rows -= totalRows - table.limit().orElseThrow();
                 splits.add(new MemorySplit(table.id(), 0, 1, dataFragment.hostAddress(), rows, OptionalLong.of(rows)));
                 break;
             }

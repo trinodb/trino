@@ -17,6 +17,8 @@ import io.trino.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -27,6 +29,12 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 public class TestAggregateWindowFunction
         extends AbstractTestWindowFunction
 {
+    @Override
+    protected Optional<WindowFunctionUnderTest> windowFunctionUnderTest()
+    {
+        return Optional.of(new WindowFunctionUnderTest("count", "count(orderkey)"));
+    }
+
     @Test
     public void testCountRowsOrdered()
     {

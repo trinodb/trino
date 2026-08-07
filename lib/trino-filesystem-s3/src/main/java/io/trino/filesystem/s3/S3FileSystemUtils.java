@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.s3;
 
+import io.trino.filesystem.s3.S3FileSystemConfig.S3AuthType;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -38,7 +40,7 @@ final class S3FileSystemUtils
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
-        boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
+        S3AuthType authType = config.getAuthType();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
         String externalId = config.getExternalId();
@@ -52,23 +54,20 @@ final class S3FileSystemUtils
                 .pathStyleAccessEnabled(pathStyleAccess)
                 .build());
 
-        if (useWebIdentityTokenCredentialsProvider) {
-            s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
+        switch (authType) {
+            case ANONYMOUS -> s3.credentialsProvider(AnonymousCredentialsProvider.create());
+            case WEB_IDENTITY -> s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
                     .asyncCredentialUpdateEnabled(true)
                     .build());
-        }
-        else if (staticIamRole.isPresent()) {
-            s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
+            case IAM_ROLE -> s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
-                            .roleArn(staticIamRole.get())
+                            .roleArn(staticIamRole.orElseThrow())
                             .roleSessionName(staticRoleSessionName)
                             .externalId(externalId))
                     .stsClient(createStsClient(config, staticCredentialsProvider))
                     .asyncCredentialUpdateEnabled(true)
                     .build());
-        }
-        else {
-            staticCredentialsProvider.ifPresent(s3::credentialsProvider);
+            case DEFAULT -> staticCredentialsProvider.ifPresent(s3::credentialsProvider);
         }
 
         return s3.build();

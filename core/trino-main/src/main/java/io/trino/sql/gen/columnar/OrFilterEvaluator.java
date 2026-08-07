@@ -33,14 +33,14 @@ import static io.trino.sql.gen.columnar.FilterEvaluator.isReorderingSafe;
 public final class OrFilterEvaluator
         implements FilterEvaluator
 {
-    public static Optional<Supplier<FilterEvaluator>> createOrExpressionEvaluator(ColumnarFilterCompiler compiler, Logical logical, Map<Symbol, Integer> layout, boolean filterReorderingEnabled)
+    public static Optional<Supplier<FilterEvaluator>> createOrExpressionEvaluator(ColumnarFilterCompiler compiler, Logical logical, Map<Symbol, Integer> layout, boolean filterReorderingEnabled, boolean dynamicFilter)
     {
         checkArgument(logical.operator() == Logical.Operator.OR, "logical %s should be OR", logical);
         checkArgument(logical.terms().size() >= 2, "OR expression %s should have at least 2 arguments", logical);
 
         ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builder();
         for (Expression expression : logical.terms()) {
-            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, layout, compiler, filterReorderingEnabled);
+            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, layout, compiler, filterReorderingEnabled, dynamicFilter);
             if (subExpressionEvaluator.isEmpty()) {
                 return Optional.empty();
             }

@@ -344,6 +344,10 @@ public class CompressingDecryptingPageDeserializer
             }
 
             ReadBuffer source = buffers[buffers.length - 1];
+            if (source.available() == 0) {
+                return;
+            }
+
             ReadBuffer sink = buffers[buffers.length - 2];
             int bytesPreserved = sink.rollOver();
 
@@ -398,6 +402,10 @@ public class CompressingDecryptingPageDeserializer
             Decompressor decompressor = this.decompressor.get();
 
             ReadBuffer source = buffers[1];
+            if (source.available() == 0) {
+                return;
+            }
+
             ReadBuffer sink = buffers[0];
             int bytesPreserved = sink.rollOver();
 
@@ -416,12 +424,7 @@ public class CompressingDecryptingPageDeserializer
                         sink.getSlice().length() - bytesPreserved);
             }
             else {
-                System.arraycopy(
-                        source.getSlice().byteArray(),
-                        source.getSlice().byteArrayOffset() + source.getPosition(),
-                        sink.getSlice().byteArray(),
-                        sink.getSlice().byteArrayOffset() + bytesPreserved,
-                        blockSize);
+                source.getSlice().getBytes(source.getPosition(), sink.getSlice(), bytesPreserved, blockSize);
                 decompressedSize = blockSize;
             }
             source.setPosition(source.getPosition() + blockSize);

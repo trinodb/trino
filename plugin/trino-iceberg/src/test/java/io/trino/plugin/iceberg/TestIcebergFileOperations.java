@@ -782,7 +782,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 4)
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 4)
-                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 5)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 3)
                         .build());
 
         assertUpdate("DROP TABLE " + tableName);

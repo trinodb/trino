@@ -612,7 +612,7 @@ public final class HttpRemoteTask
     public synchronized ListenableFuture<Void> whenSplitQueueHasSpace(long weightThreshold)
     {
         if (whenSplitQueueHasSpaceThreshold.isPresent()) {
-            checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.getAsLong(), "Multiple split queue space notification thresholds not supported");
+            checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.orElseThrow(), "Multiple split queue space notification thresholds not supported");
         }
         else {
             whenSplitQueueHasSpaceThreshold = OptionalLong.of(weightThreshold);
@@ -634,7 +634,7 @@ public final class HttpRemoteTask
     {
         // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
         splitQueueHasSpace = getUnacknowledgedPartitionedSplitCount() < maxUnacknowledgedSplits &&
-                (whenSplitQueueHasSpaceThreshold.isEmpty() || getQueuedPartitionedSplitsWeight() < whenSplitQueueHasSpaceThreshold.getAsLong());
+                (whenSplitQueueHasSpaceThreshold.isEmpty() || getQueuedPartitionedSplitsWeight() < whenSplitQueueHasSpaceThreshold.orElseThrow());
         // Only trigger notifications if a listener might be registered
         if (splitQueueHasSpace && whenSplitQueueHasSpaceThreshold.isPresent()) {
             whenSplitQueueHasSpace.complete(null, executor);

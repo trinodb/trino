@@ -1506,27 +1506,27 @@ public abstract class AbstractTestAggregations
     @Test
     public void testApproxMostFrequentWithLongGroupBy()
     {
-        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, cast(v as bigint), 15) FROM (values ('a', 1), ('b', 2), ('a', 1), ('c', 3), ('a', 1), ('b', 2), ('c', 3), ('a', 4), ('b', 5)) t(k, v) GROUP BY 1 ORDER BY 1");
-        assertThat(actual1.getRowCount()).isEqualTo(3);
-        assertThat(actual1.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
-        assertThat(actual1.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of(1L, 3L, 4L, 1L));
-        assertThat(actual1.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
-        assertThat(actual1.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of(2L, 2L, 5L, 1L));
-        assertThat(actual1.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
-        assertThat(actual1.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of(3L, 2L));
+        MaterializedResult actual = computeActual("SELECT k, approx_most_frequent(3, cast(v as bigint), 15) FROM (values ('a', 1), ('b', 2), ('a', 1), ('c', 3), ('a', 1), ('b', 2), ('c', 3), ('a', 4), ('b', 5)) t(k, v) GROUP BY 1 ORDER BY 1");
+        assertThat(actual.getRowCount()).isEqualTo(3);
+        assertThat(actual.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
+        assertThat(actual.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of(1L, 3L, 4L, 1L));
+        assertThat(actual.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
+        assertThat(actual.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of(2L, 2L, 5L, 1L));
+        assertThat(actual.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
+        assertThat(actual.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of(3L, 2L));
     }
 
     @Test
     public void testApproxMostFrequentWithStringGroupBy()
     {
-        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, v, 15) FROM (values ('a', 'A'), ('b', 'B'), ('a', 'A'), ('c', 'C'), ('a', 'A'), ('b', 'B'), ('c', 'C'), ('a', 'D'), ('b', 'E')) t(k, v) GROUP BY 1 ORDER BY 1");
-        assertThat(actual1.getRowCount()).isEqualTo(3);
-        assertThat(actual1.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
-        assertThat(actual1.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of("A", 3L, "D", 1L));
-        assertThat(actual1.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
-        assertThat(actual1.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of("B", 2L, "E", 1L));
-        assertThat(actual1.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
-        assertThat(actual1.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of("C", 2L));
+        MaterializedResult actual = computeActual("SELECT k, approx_most_frequent(3, v, 15) FROM (values ('a', 'A'), ('b', 'B'), ('a', 'A'), ('c', 'C'), ('a', 'A'), ('b', 'B'), ('c', 'C'), ('a', 'D'), ('b', 'E')) t(k, v) GROUP BY 1 ORDER BY 1");
+        assertThat(actual.getRowCount()).isEqualTo(3);
+        assertThat(actual.getMaterializedRows().get(0).getFields().get(0)).isEqualTo("a");
+        assertThat(actual.getMaterializedRows().get(0).getFields().get(1)).isEqualTo(ImmutableMap.of("A", 3L, "D", 1L));
+        assertThat(actual.getMaterializedRows().get(1).getFields().get(0)).isEqualTo("b");
+        assertThat(actual.getMaterializedRows().get(1).getFields().get(1)).isEqualTo(ImmutableMap.of("B", 2L, "E", 1L));
+        assertThat(actual.getMaterializedRows().get(2).getFields().get(0)).isEqualTo("c");
+        assertThat(actual.getMaterializedRows().get(2).getFields().get(1)).isEqualTo(ImmutableMap.of("C", 2L));
     }
 
     @Test

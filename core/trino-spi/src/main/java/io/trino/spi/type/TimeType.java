@@ -138,7 +138,7 @@ public final class TimeType
         return Optional.of(value + rescale(PICOSECONDS_PER_SECOND, getPrecision(), 0));
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -148,7 +148,7 @@ public final class TimeType
         return (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             long value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -159,37 +159,37 @@ public final class TimeType
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {
         return left == right;
     }
 
-    @ScalarOperator(value = HASH_CODE, neverFails = true)
+    @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash(value);
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(long value)
     {
         return XxHash64.hash(value);
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(long left, long right)
     {
         return Long.compare(left, right);
     }
 
-    @ScalarOperator(value = LESS_THAN, neverFails = true)
+    @ScalarOperator(LESS_THAN)
     private static boolean lessThan(long left, long right)
     {
         return left < right;
     }
 
-    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqual(long left, long right)
     {
         return left <= right;

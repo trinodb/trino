@@ -62,6 +62,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
 import static io.trino.metastore.AcidOperation.CREATE_TABLE;
@@ -98,7 +99,6 @@ import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 public class HiveWriterFactory
 {
@@ -237,7 +237,7 @@ public class HiveWriterFactory
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         if (bucketCount.isPresent()) {
-            checkArgument(bucketCount.getAsInt() < MAX_BUCKET_COUNT, "bucketCount must be smaller than %s", MAX_BUCKET_COUNT);
+            checkArgument(bucketCount.orElseThrow() < MAX_BUCKET_COUNT, "bucketCount must be smaller than %s", MAX_BUCKET_COUNT);
         }
 
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
@@ -249,7 +249,7 @@ public class HiveWriterFactory
     {
         if (bucketCount.isPresent()) {
             checkArgument(bucketNumber.isPresent(), "Bucket not provided for bucketed table");
-            checkArgument(bucketNumber.getAsInt() < bucketCount.getAsInt(), "Bucket number %s must be less than bucket count %s", bucketNumber, bucketCount);
+            checkArgument(bucketNumber.orElseThrow() < bucketCount.orElseThrow(), "Bucket number %s must be less than bucket count %s", bucketNumber, bucketCount);
         }
         else {
             checkArgument(bucketNumber.isEmpty(), "Bucket number provided by for table that is not bucketed");
@@ -419,7 +419,7 @@ public class HiveWriterFactory
 
         validateSchema(partitionName, schema);
 
-        int bucketToUse = bucketNumber.isEmpty() ? 0 : bucketNumber.getAsInt();
+        int bucketToUse = bucketNumber.isEmpty() ? 0 : bucketNumber.orElseThrow();
 
         Location path = writeInfo.writePath();
         if (transaction.isAcidTransactionRunning() && transaction.getOperation() != CREATE_TABLE) {
@@ -571,7 +571,7 @@ public class HiveWriterFactory
 
         // verify we can write all input columns to the file
         Map<String, DataColumn> inputColumnMap = dataColumns.stream()
-                .collect(toMap(DataColumn::name, identity()));
+                .collect(toImmutableMap(DataColumn::name, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
             throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
@@ -628,9 +628,9 @@ public class HiveWriterFactory
 
         if (bucketNumber.isPresent()) {
             if (isCreateTransactionalTable) {
-                return computeTransactionalBucketedFilename(bucketNumber.getAsInt());
+                return computeTransactionalBucketedFilename(bucketNumber.orElseThrow());
             }
-            return computeNonTransactionalBucketedFilename(queryId, bucketNumber.getAsInt());
+            return computeNonTransactionalBucketedFilename(queryId, bucketNumber.orElseThrow());
         }
 
         if (isCreateTransactionalTable) {

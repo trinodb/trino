@@ -88,7 +88,6 @@ public final class IntBigArrays
     /**
      * Sorts the specified range of elements according to the order induced by the specified
      * comparator using quicksort.
-     * <p>
      * <p>The sorting algorithm is a tuned quicksort adapted from Jon L. Bentley and M. Douglas
      * McIlroy, &ldquo;Engineering a Sort Function&rdquo;, <i>Software: Practice and Experience</i>, 23(11), pages
      * 1249&minus;1265, 1993.

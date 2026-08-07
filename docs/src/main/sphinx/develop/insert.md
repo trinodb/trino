@@ -9,9 +9,9 @@ To support `INSERT`, a connector must implement:
 
 When executing an `INSERT` statement, the engine calls the `beginInsert()`
 method in the connector, which receives a table handle and a list of columns.
-It should return a `ConnectorInsertTableHandle`, that can carry any
-connector specific information, and it's passed to the page sink provider.
-The `PageSinkProvider` creates a page sink, that accepts `Page` objects.
+It should return a `ConnectorInsertTableHandle` that can carry any
+connector-specific information and is passed to the page sink provider.
+The `PageSinkProvider` creates a page sink that accepts `Page` objects.
 
 When all the pages for a specific split have been processed, Trino calls
 `ConnectorPageSink.finish()`, which returns a `Collection<Slice>`

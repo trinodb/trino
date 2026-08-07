@@ -29,7 +29,6 @@ import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +47,7 @@ import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -197,7 +197,7 @@ public class TestSimplifyFilterPredicate
         // NULLIF(x, y) returns true if and only if: x != y AND x = true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        nullIf(new SymbolAllocator(), new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
+                        nullIf(emptySymbolAllocator(), new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(

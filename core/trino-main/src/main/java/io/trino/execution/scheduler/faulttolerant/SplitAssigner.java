@@ -27,9 +27,9 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 /**
  * An implementation is not required to be thread safe
@@ -73,7 +73,7 @@ interface SplitAssigner
                     .add("partitionId", partitionId)
                     .add("planNodeId", planNodeId)
                     .add("readyForScheduling", readyForScheduling)
-                    .add("splits", splits.asMap().entrySet().stream().collect(toMap(
+                    .add("splits", splits.asMap().entrySet().stream().collect(toImmutableMap(
                             Map.Entry::getKey,
                             entry -> entry.getValue().size())))
                     .add("noMoreSplits", noMoreSplits)

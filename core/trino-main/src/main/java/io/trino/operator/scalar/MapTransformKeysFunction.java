@@ -76,7 +76,7 @@ import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -165,7 +165,7 @@ public final class MapTransformKeysFunction
                                         .throwObject(),
                                 ImmutableList.of(type(DuplicateMapKeyException.class))))));
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformKeysFunction.class.getClassLoader());
+        Class<?> generatedClass = defineHiddenClass(definition, Object.class, binder.getClassData());
         return methodHandle(generatedClass, "transform", Object.class, ConnectorSession.class, SqlMap.class, BinaryFunctionInterface.class);
     }
 

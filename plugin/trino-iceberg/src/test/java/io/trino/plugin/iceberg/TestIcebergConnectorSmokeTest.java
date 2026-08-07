@@ -24,7 +24,6 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -102,12 +101,6 @@ public class TestIcebergConnectorSmokeTest
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 
     @Test

@@ -73,7 +73,7 @@ public class TrinoHudiStorage
                 fileEntry.length(),
                 false,
                 (short) 0,
-                0,
+                fileEntry.length(),
                 fileEntry.lastModified().toEpochMilli());
     }
 

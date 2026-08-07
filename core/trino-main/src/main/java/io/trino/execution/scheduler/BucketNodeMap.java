@@ -20,6 +20,7 @@ import io.trino.node.InternalNode;
 import java.util.List;
 import java.util.function.ToIntFunction;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class BucketNodeMap
@@ -51,6 +52,11 @@ public final class BucketNodeMap
     public InternalNode getAssignedNode(Split split)
     {
         return getAssignedNode(getBucket(split));
+    }
+
+    public List<InternalNode> getDistinctNodes()
+    {
+        return bucketToNode.stream().distinct().collect(toImmutableList());
     }
 
     public ToIntFunction<Split> getSplitToBucketFunction()

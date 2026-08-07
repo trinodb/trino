@@ -46,7 +46,7 @@ public class TestDefinitionLevelWriter
     public void testWritePrimitiveDefinitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
-            Block block = new LongArrayBlock(POSITIONS, nullsProvider.getNulls(POSITIONS), new long[POSITIONS]);
+            Block block = new LongArrayBlock(POSITIONS, nullsProvider.getValidities(POSITIONS), new long[POSITIONS]);
             int maxDefinitionLevel = 3;
             // Write definition levels for all positions
             assertDefinitionLevels(block, ImmutableList.of(), maxDefinitionLevel);
@@ -63,7 +63,7 @@ public class TestDefinitionLevelWriter
     public void testWriteRowDefinitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
-            RowBlock rowBlock = createRowBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            RowBlock rowBlock = createRowBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
             List<Block> fields = getNullSuppressedRowFieldsFromBlock(rowBlock);
             int fieldMaxDefinitionLevel = 2;
             // Write definition levels for all positions
@@ -97,7 +97,7 @@ public class TestDefinitionLevelWriter
     public void testWriteArrayDefinitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
-            Block arrayBlock = createArrayBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            Block arrayBlock = createArrayBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
             ColumnarArray columnarArray = toColumnarArray(arrayBlock);
             int maxDefinitionLevel = 3;
             // Write definition levels for all positions
@@ -124,7 +124,7 @@ public class TestDefinitionLevelWriter
     public void testWriteMapDefinitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
-            Block mapBlock = createMapBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            Block mapBlock = createMapBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
             ColumnarMap columnarMap = toColumnarMap(mapBlock);
             int keysMaxDefinitionLevel = 2;
             int valuesMaxDefinitionLevel = 3;

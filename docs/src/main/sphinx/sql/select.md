@@ -40,6 +40,13 @@ For detailed description of `MATCH_RECOGNIZE` clause, see {doc}`pattern
 recognition in FROM clause</sql/match-recognize>`.
 
 ```text
+from_item PIVOT pivot_specification
+  [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+```
+
+For detailed description of `PIVOT` clause, see {doc}`pivot</sql/pivot>`.
+
+```text
 TABLE (table_function_invocation) [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
 ```
 
@@ -272,6 +279,9 @@ is defined.
 In the case of `row_expression.* [ AS ( column_alias [, ...] ) ]`,
 the `row_expression` is an arbitrary expression of type `ROW`.
 All fields of the row define output columns to be included in the result set.
+When the receiver is of type `JSON`, the same surface syntax instead invokes
+the {ref}`JSON simplified accessor <json-simplified-accessor>` — see the JSON
+functions reference for details.
 
 In the case of `relation.*`, all columns of `relation` are included
 in the result set. In this case column aliases are not allowed.

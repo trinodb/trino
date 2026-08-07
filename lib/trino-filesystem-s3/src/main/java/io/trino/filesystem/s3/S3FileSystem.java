@@ -57,16 +57,17 @@ import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
+import static io.trino.filesystem.s3.S3Exceptions.handleS3Exception;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static io.trino.filesystem.s3.S3SseRequestConfigurator.setEncryptionSettings;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 final class S3FileSystem
         implements TrinoFileSystem
@@ -153,7 +154,7 @@ final class S3FileSystem
             client.deleteObject(request);
         }
         catch (SdkException e) {
-            throw new TrinoFileSystemException("Failed to delete file: " + location, e);
+            throw handleS3Exception(e, "Failed to delete file: " + location);
         }
     }
 
@@ -218,7 +219,7 @@ final class S3FileSystem
                     }
                 }
                 catch (SdkException e) {
-                    throw new TrinoFileSystemException("Error while batch deleting files", e);
+                    throw handleS3Exception(e, "Error while batch deleting files");
                 }
             }
         }
@@ -294,7 +295,7 @@ final class S3FileSystem
                     .collect(toImmutableSet());
         }
         catch (SdkException e) {
-            throw new TrinoFileSystemException("Failed to list location: " + location, e);
+            throw handleS3Exception(e, "Failed to list location: " + location);
         }
     }
 
@@ -350,7 +351,7 @@ final class S3FileSystem
             return Optional.of(new UriLocation(preSigned.url().toURI(), filterHeaders(preSigned.httpRequest().headers())));
         }
         catch (SdkException e) {
-            throw new IOException("Failed to generate pre-signed URI", e);
+            throw handleS3Exception(e, "Failed to generate pre-signed URI");
         }
         catch (URISyntaxException e) {
             throw new TrinoFileSystemException("Failed to convert pre-signed URI to URI", e);
@@ -386,7 +387,7 @@ final class S3FileSystem
             return iterator;
         }
         catch (SdkException e) {
-            throw new TrinoFileSystemException("Failed to list location: " + location, e);
+            throw handleS3Exception(e, "Failed to list location: " + location);
         }
     }
 
@@ -419,7 +420,7 @@ final class S3FileSystem
     {
         return headers.entrySet().stream()
                 .filter(entry -> !entry.getKey().equalsIgnoreCase("host"))
-                .collect(toMap(Entry::getKey, Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     @SuppressWarnings("ResultOfObjectAllocationIgnored")

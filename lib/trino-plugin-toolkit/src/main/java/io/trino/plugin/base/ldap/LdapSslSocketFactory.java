@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public final class LdapSslSocketFactory
         extends SocketFactory
 {
-    private static final ThreadLocal<SSLContext> SSL_CONTEXT = new ThreadLocal<>();
+    private static final ScopedValue<SSLContext> SSL_CONTEXT = ScopedValue.newInstance();
 
     private final SocketFactory socketFactory;
 
@@ -74,13 +74,14 @@ public final class LdapSslSocketFactory
     @SuppressWarnings({"unused", "MethodOverridesStaticMethodOfSuperclass"})
     public static SocketFactory getDefault()
     {
-        SSLContext sslContext = SSL_CONTEXT.get();
-        checkState(sslContext != null, "SSLContext was not set");
-        return new LdapSslSocketFactory(sslContext.getSocketFactory());
+        checkState(SSL_CONTEXT.isBound(), "SSLContext was not set");
+        return new LdapSslSocketFactory(SSL_CONTEXT.get().getSocketFactory());
     }
 
-    public static void setSslContextForCurrentThread(SSLContext sslContext)
+    public static <T, X extends Throwable> T callWithSslContext(SSLContext sslContext, ScopedValue.CallableOp<T, X> action)
+            throws X
     {
-        SSL_CONTEXT.set(sslContext);
+        requireNonNull(sslContext, "sslContext is null");
+        return ScopedValue.where(SSL_CONTEXT, sslContext).call(action);
     }
 }

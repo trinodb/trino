@@ -79,7 +79,6 @@ import io.trino.tracing.TrinoAttributes;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -89,6 +88,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -109,7 +109,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -1168,8 +1167,7 @@ public class PipelinedQueryScheduler
             if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                 // no remote source
                 bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, partitionCount);
-                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session).allNodes());
-                Collections.shuffle(stageNodeList);
+                stageNodeList = bucketNodeMap.getDistinctNodes();
             }
             else {
                 // remote source requires nodePartitionMap
@@ -1263,7 +1261,7 @@ public class PipelinedQueryScheduler
                 }
             }
 
-            Set<StageId> finishedStages = newConcurrentHashSet();
+            Set<StageId> finishedStages = ConcurrentHashMap.newKeySet();
             for (StageExecution stageExecution : stageExecutions.values()) {
                 stageExecution.addStateChangeListener(state -> {
                     if (stateMachine.getState().isDone()) {
@@ -1335,9 +1333,11 @@ public class PipelinedQueryScheduler
                         futures.addAll(blockedStages);
                         // allow for schedule to resume scheduling (e.g. when some active stage completes
                         // and dependent stages can be started)
-                        stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
-                        try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
-                            tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
+                        if (blockedStages.size() == stagesScheduleResult.getStagesToSchedule().size()) {
+                            stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
+                            try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
+                                tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
+                            }
                         }
                         for (ListenableFuture<Void> blockedStage : blockedStages) {
                             blockedStage.cancel(true);

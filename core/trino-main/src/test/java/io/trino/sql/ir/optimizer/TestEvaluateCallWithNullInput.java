@@ -22,7 +22,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.EvaluateCallWithNullInput;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -30,6 +29,7 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,6 +51,6 @@ public class TestEvaluateCallWithNullInput
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateCallWithNullInput().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new EvaluateCallWithNullInput().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

@@ -177,9 +177,9 @@ public class InternalResourceGroup
                     hardConcurrencyLimit,
                     succinctBytes(hardPhysicalDataScanLimitBytes),
                     maxQueuedQueries,
-                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
-                    succinctBytes(cachedResourceUsage.getPhysicalInputDataUsageBytes()),
+                    succinctBytes(cachedResourceUsage.memoryUsageBytes()),
+                    succinctDuration(cachedResourceUsage.cpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.physicalInputDataUsageBytes()),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -204,9 +204,9 @@ public class InternalResourceGroup
                     hardConcurrencyLimit,
                     succinctBytes(hardPhysicalDataScanLimitBytes),
                     maxQueuedQueries,
-                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
-                    succinctBytes(cachedResourceUsage.getPhysicalInputDataUsageBytes()),
+                    succinctBytes(cachedResourceUsage.memoryUsageBytes()),
+                    succinctDuration(cachedResourceUsage.cpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.physicalInputDataUsageBytes()),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -305,19 +305,19 @@ public class InternalResourceGroup
     @Managed
     public long getCpuUsageMillis()
     {
-        return getResourceUsageSnapshot().getCpuUsageMillis();
+        return getResourceUsageSnapshot().cpuUsageMillis();
     }
 
     @Managed
     public long getMemoryUsageBytes()
     {
-        return getResourceUsageSnapshot().getMemoryUsageBytes();
+        return getResourceUsageSnapshot().memoryUsageBytes();
     }
 
     @Managed
     public long getPhysicalInputDataUsageBytes()
     {
-        return getResourceUsageSnapshot().getPhysicalInputDataUsageBytes();
+        return getResourceUsageSnapshot().physicalInputDataUsageBytes();
     }
 
     @Managed
@@ -934,12 +934,12 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to generate quotas");
         synchronized (root) {
-            long oldCpuUsageMillis = cachedResourceUsage.getCpuUsageMillis();
-            long oldDataScanBytes = cachedResourceUsage.getPhysicalInputDataUsageBytes();
+            long oldCpuUsageMillis = cachedResourceUsage.cpuUsageMillis();
+            long oldDataScanBytes = cachedResourceUsage.physicalInputDataUsageBytes();
 
             long newCpuUsageMillis = computeNewUsage(oldCpuUsageMillis, elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
             long newDataScanBytes = computeNewUsage(oldDataScanBytes, elapsedSeconds, physicalDataScanQuotaGenerationBytesPerSecond);
-            cachedResourceUsage = new ResourceUsage(newCpuUsageMillis, cachedResourceUsage.getMemoryUsageBytes(), newDataScanBytes);
+            cachedResourceUsage = new ResourceUsage(newCpuUsageMillis, cachedResourceUsage.memoryUsageBytes(), newDataScanBytes);
 
             if ((newCpuUsageMillis < hardCpuLimitMillis && oldCpuUsageMillis >= hardCpuLimitMillis) ||
                     (newCpuUsageMillis < softCpuLimitMillis && oldCpuUsageMillis >= softCpuLimitMillis) ||
@@ -1073,9 +1073,9 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
-            long cpuUsageMillis = cachedResourceUsage.getCpuUsageMillis();
-            long memoryUsageBytes = cachedResourceUsage.getMemoryUsageBytes();
-            long physicalInputDataUsageBytes = cachedResourceUsage.getPhysicalInputDataUsageBytes();
+            long cpuUsageMillis = cachedResourceUsage.cpuUsageMillis();
+            long memoryUsageBytes = cachedResourceUsage.memoryUsageBytes();
+            long physicalInputDataUsageBytes = cachedResourceUsage.physicalInputDataUsageBytes();
             if ((cpuUsageMillis >= hardCpuLimitMillis) || (memoryUsageBytes > softMemoryLimitBytes) || (physicalInputDataUsageBytes >= hardPhysicalDataScanLimitBytes)) {
                 return false;
             }

@@ -59,7 +59,7 @@ public abstract class AbstractSvmModel
         File file = null;
         try {
             // libsvm doesn't have a method to serialize the model into a buffer, so write it out to a file and then read it back in
-            file = File.createTempFile("svm", null);
+            file = Files.createTempFile("svm", null).toFile();
             svm.svm_save_model(file.getAbsolutePath(), model);
             return Files.readAllBytes(file.toPath());
         }

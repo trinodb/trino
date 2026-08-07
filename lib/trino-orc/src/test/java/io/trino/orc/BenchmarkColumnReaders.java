@@ -498,6 +498,9 @@ public class BenchmarkColumnReaders
     public static class BooleanWithNullBenchmarkData
             extends BenchmarkData
     {
+        @Param({"0.01", "0.1", "0.5", "0.9"})
+        private double nullRate;
+
         @Setup
         public void setup()
                 throws Exception
@@ -509,7 +512,7 @@ public class BenchmarkColumnReaders
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextBoolean() ? random.nextBoolean() : null);
+                values.add(random.nextDouble() < nullRate ? null : random.nextBoolean());
             }
             return values.iterator();
         }

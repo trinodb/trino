@@ -19,28 +19,35 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -64,6 +71,7 @@ final class TestRangerSystemAccessControl
     private static final CatalogSchemaRoutineName FUNC_ALICE_SCH1_FUNC1 = new CatalogSchemaRoutineName(CATALOG_ALICE, "sch1", "func1");
     private static final CatalogSchemaName SCHEMA_USER_BOB = new CatalogSchemaName(CATALOG_USER_HOME, "bob_schema");
     private static final CatalogSchemaTableName TABLE_USER_BOB_TBL1 = new CatalogSchemaTableName(CATALOG_USER_HOME, SCHEMA_USER_BOB.getSchemaName(), "tbl1");
+    private static final CatalogSchemaTableName TABLE_USER_SCH1_TBL1 = new CatalogSchemaTableName(CATALOG_USER_HOME, "sch1", "tbl1");
 
     @BeforeAll
     public static void setUpBeforeClass()
@@ -74,6 +82,36 @@ final class TestRangerSystemAccessControl
         config.setServiceName("dev_trino");
 
         accessControlManager = new RangerSystemAccessControl(config);
+    }
+
+    @Test
+    void testEverythingImplementedInSystemAccessControl()
+            throws NoSuchMethodException
+    {
+        assertAllMethodsOverridden(SystemAccessControl.class, RangerSystemAccessControl.class, ImmutableSet.<Method>builder()
+                // deprecated, obsoleted by checkCanSetEntityAuthorization which we implement
+                .add(RangerSystemAccessControl.class.getMethod("checkCanSetSchemaAuthorization", SystemSecurityContext.class, CatalogSchemaName.class, TrinoPrincipal.class))
+                // deprecated, obsoleted by checkCanSetEntityAuthorization which we implement
+                .add(RangerSystemAccessControl.class.getMethod("checkCanSetTableAuthorization", SystemSecurityContext.class, CatalogSchemaTableName.class, TrinoPrincipal.class))
+                // deprecated, obsoleted by checkCanSetEntityAuthorization which we implement
+                .add(RangerSystemAccessControl.class.getMethod("checkCanSetViewAuthorization", SystemSecurityContext.class, CatalogSchemaTableName.class, TrinoPrincipal.class))
+                // deprecated, obsoleted by checkCanSetEntityAuthorization which we implement
+                .add(RangerSystemAccessControl.class.getMethod("checkCanSetMaterializedViewAuthorization", SystemSecurityContext.class, CatalogSchemaTableName.class, TrinoPrincipal.class))
+                // deprecated, obsoleted by checkCanInsertIntoTable(..,branch)
+                .add(RangerSystemAccessControl.class.getMethod("checkCanInsertIntoTable", SystemSecurityContext.class, CatalogSchemaTableName.class))
+                // deprecated, obsoleted by checkCanDeleteFromTable(..,branch)
+                .add(RangerSystemAccessControl.class.getMethod("checkCanDeleteFromTable", SystemSecurityContext.class, CatalogSchemaTableName.class))
+                // deprecated, obsoleted by checkCanUpdateTableColumns(..,branch)
+                .add(RangerSystemAccessControl.class.getMethod("checkCanUpdateTableColumns", SystemSecurityContext.class, CatalogSchemaTableName.class, Set.class))
+                // deprecated, obsoleted by checkCanSelectFromColumns(..,branch)
+                .add(RangerSystemAccessControl.class.getMethod("checkCanSelectFromColumns", SystemSecurityContext.class, CatalogSchemaTableName.class, Set.class))
+                // deprecated, obsoleted by checkCanCreateViewWithSelectFromColumns(..,branch)
+                .add(RangerSystemAccessControl.class.getMethod("checkCanCreateViewWithSelectFromColumns", SystemSecurityContext.class, CatalogSchemaTableName.class, Set.class))
+                // deprecated, obsoleted by filterColumns(..,String, Map)
+                .add(RangerSystemAccessControl.class.getMethod("filterColumns", SystemSecurityContext.class, CatalogSchemaTableName.class, Set.class))
+                // deprecated, obsoleted by getColumnMask(.., List)
+                .add(RangerSystemAccessControl.class.getMethod("getColumnMask", SystemSecurityContext.class, CatalogSchemaTableName.class, String.class, Type.class))
+                .build());
     }
 
     @Test
@@ -142,7 +180,8 @@ final class TestRangerSystemAccessControl
         accessControlManager.checkCanDropSchema(context(ALICE), SCHEMA_ALICE_SCH1);
         accessControlManager.checkCanRenameSchema(context(ALICE), SCHEMA_ALICE_SCH1, "new-schema");
         accessControlManager.checkCanShowSchemas(context(ALICE), CATALOG_ALICE);
-        accessControlManager.checkCanSetSchemaAuthorization(context(ALICE), SCHEMA_ALICE_SCH1, new TrinoPrincipal(USER, "principal"));
+        EntityKindAndName aliceEntityKindAndName = new EntityKindAndName("SCHEMA", List.of(SCHEMA_ALICE_SCH1.getCatalogName(), SCHEMA_ALICE_SCH1.getSchemaName()));
+        accessControlManager.checkCanSetEntityAuthorization(context(ALICE), aliceEntityKindAndName, new TrinoPrincipal(USER, "principal"));
         accessControlManager.checkCanShowCreateSchema(context(ALICE), SCHEMA_ALICE_SCH1);
 
         Set<String> aliceSchemas = ImmutableSet.of("sch1");
@@ -153,7 +192,7 @@ final class TestRangerSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanDropSchema(context(BOB), SCHEMA_ALICE_SCH1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRenameSchema(context(BOB), SCHEMA_ALICE_SCH1, "new-schema")).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowSchemas(context(BOB), SCHEMA_ALICE_SCH1.getCatalogName())).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSetSchemaAuthorization(context(BOB), SCHEMA_ALICE_SCH1, new TrinoPrincipal(USER, "principal"))).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEntityAuthorization(context(BOB), aliceEntityKindAndName, new TrinoPrincipal(USER, "principal"))).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowCreateSchema(context(BOB), SCHEMA_ALICE_SCH1)).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -167,7 +206,10 @@ final class TestRangerSystemAccessControl
         accessControlManager.checkCanRenameTable(context(ALICE), TABLE_ALICE_SCH1_TBL1, newTableName);
         accessControlManager.checkCanSetTableProperties(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableMap.of());
         accessControlManager.checkCanSetTableComment(context(ALICE), TABLE_ALICE_SCH1_TBL1);
-        accessControlManager.checkCanSetTableAuthorization(context(ALICE), TABLE_ALICE_SCH1_TBL1, new TrinoPrincipal(USER, "principal"));
+        EntityKindAndName aliceEntityKindAndName = new EntityKindAndName(
+                "TABLE",
+                List.of(TABLE_ALICE_SCH1_TBL1.getCatalogName(), TABLE_ALICE_SCH1_TBL1.getSchemaTableName().getSchemaName(), TABLE_ALICE_SCH1_TBL1.getSchemaTableName().getTableName()));
+        accessControlManager.checkCanSetEntityAuthorization(context(ALICE), aliceEntityKindAndName, new TrinoPrincipal(USER, "principal"));
         accessControlManager.checkCanShowTables(context(ALICE), SCHEMA_ALICE_SCH1);
         accessControlManager.checkCanShowCreateTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanInsertIntoTable(context(ALICE), TABLE_ALICE_SCH1_TBL1, Optional.empty());
@@ -185,7 +227,7 @@ final class TestRangerSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanRenameTable(context(BOB), TABLE_ALICE_SCH1_TBL1, newTableName)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetTableProperties(context(BOB), TABLE_ALICE_SCH1_TBL1, Collections.emptyMap())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetTableComment(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSetTableAuthorization(context(BOB), TABLE_ALICE_SCH1_TBL1, new TrinoPrincipal(USER, "principal"))).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEntityAuthorization(context(BOB), aliceEntityKindAndName, new TrinoPrincipal(USER, "principal"))).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowTables(context(BOB), SCHEMA_ALICE_SCH1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowCreateTable(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty())).isInstanceOf(AccessDeniedException.class);
@@ -211,9 +253,7 @@ final class TestRangerSystemAccessControl
         Set<String> columns = ImmutableSet.of("column-1");
         Map<SchemaTableName, Set<String>> tableColumns = ImmutableMap.of(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), columns);
 
-        assertThat(accessControlManager.filterColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, columns)).isEqualTo(columns);
         assertThat(accessControlManager.filterColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(tableColumns);
-        assertThat(accessControlManager.filterColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, columns)).isEmpty();
         assertThat(accessControlManager.filterColumns(context(BOB), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(Collections.singletonMap(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), Collections.emptySet()));
 
         assertThatThrownBy(() -> accessControlManager.checkCanAddColumn(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
@@ -222,7 +262,10 @@ final class TestRangerSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanRenameColumn(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetColumnComment(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowColumns(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of())).isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Cannot select from table tbl1");
+        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_USER_SCH1_TBL1, Optional.empty(), ImmutableSet.of("id", "name", "time"))).isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Cannot select from columns [id, name] in table or view tbl1");
         assertThatThrownBy(() -> accessControlManager.checkCanUpdateTableColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), Collections.emptySet())).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -234,17 +277,20 @@ final class TestRangerSystemAccessControl
         accessControlManager.checkCanCreateView(context(ALICE), VIEW_ALICE_SCH1_VW1);
         accessControlManager.checkCanDropView(context(ALICE), VIEW_ALICE_SCH1_VW1);
         accessControlManager.checkCanRenameView(context(ALICE), VIEW_ALICE_SCH1_VW1, newViewName);
-        accessControlManager.checkCanSetViewAuthorization(context(ALICE), VIEW_ALICE_SCH1_VW1, new TrinoPrincipal(USER, "user"));
-        accessControlManager.checkCanCreateViewWithSelectFromColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableSet.of());
-        accessControlManager.checkCanSetViewAuthorization(context(ALICE), VIEW_ALICE_SCH1_VW1, new TrinoPrincipal(USER, "user"));
+        EntityKindAndName aliceEntityKindAndName = new EntityKindAndName(
+                "VIEW",
+                List.of(VIEW_ALICE_SCH1_VW1.getCatalogName(), VIEW_ALICE_SCH1_VW1.getSchemaTableName().getSchemaName(), VIEW_ALICE_SCH1_VW1.getSchemaTableName().getTableName()));
+        accessControlManager.checkCanSetEntityAuthorization(context(ALICE), aliceEntityKindAndName, new TrinoPrincipal(USER, "user"));
+        accessControlManager.checkCanCreateViewWithSelectFromColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of());
+        accessControlManager.checkCanSetEntityAuthorization(context(ALICE), aliceEntityKindAndName, new TrinoPrincipal(USER, "user"));
         accessControlManager.checkCanSetViewComment(context(ALICE), VIEW_ALICE_SCH1_VW1);
 
         assertThatThrownBy(() -> accessControlManager.checkCanCreateView(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanDropView(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRenameView(context(BOB), VIEW_ALICE_SCH1_VW1, newViewName)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSetViewAuthorization(context(BOB), VIEW_ALICE_SCH1_VW1, new TrinoPrincipal(USER, "user"))).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, ImmutableSet.of())).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSetViewAuthorization(context(BOB), VIEW_ALICE_SCH1_VW1, new TrinoPrincipal(USER, "user"))).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEntityAuthorization(context(BOB), aliceEntityKindAndName, new TrinoPrincipal(USER, "user"))).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEntityAuthorization(context(BOB), aliceEntityKindAndName, new TrinoPrincipal(USER, "user"))).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetViewComment(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -295,18 +341,26 @@ final class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testColumnMask()
+    public void testColumnMasks()
     {
-        VarcharType varcharType = VarcharType.createVarcharType(20);
-
         // MASK_NONE
-        Optional<ViewExpression> ret = accessControlManager.getColumnMask(context(ALICE), TABLE_ALICE_SCH1_TBL1, "national_id", varcharType);
-        assertThat(ret).isNotPresent();
+        Map<ColumnSchema, ViewExpression> ret = accessControlManager.getColumnMasks(context(ALICE), TABLE_ALICE_SCH1_TBL1, List.of(createVarcharColumnSchema("national_id")));
+        assertThat(ret).hasSize(0);
 
         // MASK_SHOW_FIRST_4
-        ret = accessControlManager.getColumnMask(context(BOB), TABLE_ALICE_SCH1_TBL1, "national_id", varcharType);
-        assertThat(ret).isPresent();
-        assertThat(ret.get().getExpression()).isEqualTo("cast(regexp_replace(national_id, '(^.{4})(.*)', x -> x[1] || regexp_replace(x[2], '.', 'X')) as varchar(20))");
+        ret = accessControlManager.getColumnMasks(context(BOB), TABLE_ALICE_SCH1_TBL1, List.of(createVarcharColumnSchema("national_id")));
+        assertThat(ret).hasSize(1);
+        assertThat(ret.values().stream().map(ViewExpression::getExpression))
+                .containsExactly("cast(regexp_replace(national_id, '(^.{4})(.*)', x -> x[1] || regexp_replace(x[2], '.', 'X')) as varchar(20))");
+
+        // MASK_SHOW_FIRST_4 list of columns
+        ret = accessControlManager.getColumnMasks(context(BOB), TABLE_ALICE_SCH1_TBL1, Stream.of("national_id", "new-column")
+                .map(TestRangerSystemAccessControl::createVarcharColumnSchema).toList());
+        assertThat(ret).hasSize(2);
+        assertThat(ret.values().stream().map(ViewExpression::getExpression))
+                .containsOnly(Stream.of("national_id", "new-column")
+                        .map("cast(regexp_replace(%s, '(^.{4})(.*)', x -> x[1] || regexp_replace(x[2], '.', 'X')) as varchar(20))"::formatted)
+                        .toArray(String[]::new));
     }
 
     @Test
@@ -319,6 +373,14 @@ final class TestRangerSystemAccessControl
         assertThat(retArray).isNotEmpty();
         assertThat(retArray).hasSize(1);
         assertThat(retArray.getFirst().getExpression()).isEqualTo("status = 'active'");
+    }
+
+    private static ColumnSchema createVarcharColumnSchema(String columnName)
+    {
+        return ColumnSchema.builder()
+                .setName(columnName)
+                .setType(VarcharType.createVarcharType(20))
+                .build();
     }
 
     private static SystemSecurityContext context(Identity id)

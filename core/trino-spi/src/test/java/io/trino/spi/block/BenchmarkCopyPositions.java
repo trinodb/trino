@@ -32,6 +32,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.spi.block.Bitmap.set;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -68,7 +69,7 @@ public class BenchmarkCopyPositions
         @Param
         private SelectedPositions selectedPositions;
 
-        @Param({"VARCHAR", "ROW(BIGINT)"})
+        @Param({"VARCHAR", "ROW(BIGINT)", "BOOLEAN"})
         private String type;
 
         private int[] positionsIds;
@@ -95,10 +96,41 @@ public class BenchmarkCopyPositions
                 Slice[] slices = generateValues();
                 block = createBlockBuilderWithValues(slices).build();
             }
+            else if (type.equals("BOOLEAN")) {
+                long[] values = Bitmap.allocateWords(POSITIONS, false);
+                Optional<long[]> valueIsValid = Optional.empty();
+                Random random = new Random(SEED);
+                if (nullsAllowed) {
+                    long[] generatedValidity = Bitmap.allocateWords(POSITIONS, false);
+                    for (int position = 0; position < POSITIONS; position++) {
+                        if (!randomNullChance(random)) {
+                            set(generatedValidity, 0, position);
+                        }
+                    }
+                    valueIsValid = Optional.of(generatedValidity);
+                }
+                for (int position = 0; position < POSITIONS; position++) {
+                    if (random.nextBoolean()) {
+                        set(values, 0, position);
+                    }
+                }
+                block = new BitArrayBlock(POSITIONS, valueIsValid, values);
+            }
             else if (type.equals("ROW(BIGINT)")) {
-                Optional<boolean[]> rowIsNull = nullsAllowed ? Optional.of(generateIsNull(POSITIONS)) : Optional.empty();
-                LongArrayBlock randomLongArrayBlock = new LongArrayBlock(POSITIONS, rowIsNull, new Random(SEED).longs().limit(POSITIONS).toArray());
-                block = RowBlock.fromNotNullSuppressedFieldBlocks(POSITIONS, rowIsNull, new Block[] {randomLongArrayBlock});
+                Optional<long[]> valueIsValid = Optional.empty();
+                if (nullsAllowed) {
+                    long[] generatedValidity = new long[Bitmap.wordsForBits(POSITIONS)];
+                    Random random = new Random(SEED);
+                    for (int position = 0; position < POSITIONS; position++) {
+                        boolean isNull = randomNullChance(random);
+                        if (!isNull) {
+                            Bitmap.set(generatedValidity, 0, position);
+                        }
+                    }
+                    valueIsValid = Optional.of(generatedValidity);
+                }
+                LongArrayBlock randomLongArrayBlock = new LongArrayBlock(POSITIONS, valueIsValid, new Random(SEED).longs().limit(POSITIONS).toArray());
+                block = RowBlock.fromNotNullSuppressedFieldBlocks(POSITIONS, valueIsValid, new Block[] {randomLongArrayBlock});
             }
         }
 
@@ -139,16 +171,6 @@ public class BenchmarkCopyPositions
                 }
             }
             return blockBuilder;
-        }
-
-        private static boolean[] generateIsNull(int positionCount)
-        {
-            Random random = new Random(SEED);
-            boolean[] result = new boolean[positionCount];
-            for (int i = 0; i < positionCount; i++) {
-                result[i] = randomNullChance(random);
-            }
-            return result;
         }
 
         public int[] getPositionsIds()
@@ -213,7 +235,7 @@ public class BenchmarkCopyPositions
     {
         for (SelectedPositions selectedPositions : SelectedPositions.values()) {
             for (boolean nullsAllowed : new boolean[] {false, true}) {
-                for (String type : new String[] {"VARCHAR", "ROW(BIGINT)"}) {
+                for (String type : new String[] {"VARCHAR", "ROW(BIGINT)", "BOOLEAN"}) {
                     BenchmarkData data = new BenchmarkData(1024, nullsAllowed, selectedPositions, type);
                     data.setup();
                     copyPositions(data);

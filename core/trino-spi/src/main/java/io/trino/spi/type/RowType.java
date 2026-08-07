@@ -848,21 +848,19 @@ public class RowType
             return emptyList();
         }
 
-        boolean neverFails = true;
         List<MethodHandle> comparisonOperators = new ArrayList<>(fields.size());
         for (Field field : fields) {
             InvocationConvention fieldConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL);
             // compare non-null field values with the same null ordering, so nested nulls are ordered consistently
-            OperatorMethodHandle fieldComparison = nullsFirst
-                    ? typeOperators.getComparisonUnorderedFirstOperatorHandle(field.getType(), fieldConvention)
-                    : typeOperators.getComparisonUnorderedLastOperatorHandle(field.getType(), fieldConvention);
-            neverFails = neverFails && fieldComparison.isNeverFails();
-            comparisonOperators.add(fieldComparison.getMethodHandle());
+            MethodHandle fieldComparison = nullsFirst
+                    ? typeOperators.getComparisonUnorderedFirstOperator(field.getType(), fieldConvention)
+                    : typeOperators.getComparisonUnorderedLastOperator(field.getType(), fieldConvention);
+            comparisonOperators.add(fieldComparison);
         }
 
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
-            return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, insertArguments(COMPARISON, 0, nullsFirst, comparisonOperators), neverFails));
+            return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, insertArguments(COMPARISON, 0, nullsFirst, comparisonOperators)));
         }
 
         // (SqlRow, SqlRow):long
@@ -877,7 +875,7 @@ public class RowType
             // (SqlRow, SqlRow):long
             comparison = permuteArguments(comparison, methodType(long.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
         }
-        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison, neverFails));
+        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison));
     }
 
     private static long megamorphicComparisonOperator(boolean nullsFirst, List<MethodHandle> comparisonOperators, SqlRow leftRow, SqlRow rightRow)
@@ -950,21 +948,17 @@ public class RowType
             return emptyList();
         }
 
-        boolean neverFails = true;
         List<MethodHandle> equalOperators = new ArrayList<>(fields.size());
         List<MethodHandle> lessThanOperators = new ArrayList<>(fields.size());
         for (Field field : fields) {
             InvocationConvention fieldConvention = simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL);
-            // equality is total over all comparable types, so it never affects neverFails
             equalOperators.add(typeOperators.getEqualOperator(field.getType(), fieldConvention));
-            OperatorMethodHandle fieldLessThan = typeOperators.getLessThanOperatorHandle(field.getType(), fieldConvention);
-            neverFails = neverFails && fieldLessThan.isNeverFails();
-            lessThanOperators.add(fieldLessThan.getMethodHandle());
+            lessThanOperators.add(typeOperators.getLessThanOperator(field.getType(), fieldConvention));
         }
 
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
-            return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, insertArguments(LESS_THAN, 0, orEqual, equalOperators, lessThanOperators), neverFails));
+            return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, insertArguments(LESS_THAN, 0, orEqual, equalOperators, lessThanOperators)));
         }
 
         // (SqlRow, SqlRow):int
@@ -981,7 +975,7 @@ public class RowType
         }
         // (SqlRow, SqlRow):Boolean
         MethodHandle lessThanResult = filterReturnValue(lessThan, insertArguments(LESS_THAN_RESULT, 0, orEqual));
-        return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, lessThanResult, neverFails));
+        return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, lessThanResult));
     }
 
     private static Boolean megamorphicLessThanOperator(boolean orEqual, List<MethodHandle> equalOperators, List<MethodHandle> lessThanOperators, SqlRow leftRow, SqlRow rightRow)

@@ -20,9 +20,7 @@ import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.Split;
-import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.index.PageRecordSet;
 import io.trino.operator.project.PageProcessor;
@@ -57,11 +55,9 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -69,23 +65,18 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
-import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
-import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -282,80 +273,6 @@ public class TestScanFilterAndProjectOperator
             MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
 
             assertThat(actual).containsExactlyElementsOf(expected);
-        }
-    }
-
-    @Test
-    public void testPageYield()
-            throws Exception
-    {
-        int totalRows = 1000;
-        Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), totalRows, 1);
-        DriverContext driverContext = newDriverContext();
-
-        // 20 columns; each column is associated with a function that will force yield per projection
-        int totalColumns = 20;
-        ImmutableList.Builder<SqlScalarFunction> functions = ImmutableList.builder();
-        for (int i = 0; i < totalColumns; i++) {
-            functions.add(new GenericLongFunction("page_col" + i, value -> {
-                driverContext.getYieldSignal().forceYieldForTesting();
-                return value;
-            }));
-        }
-        runner.addFunctions(new InternalFunctionBundle(functions.build()));
-
-        // match each column with a projection
-        FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(
-                new PageFunctionCompiler(functionManager, runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getTypeManager(), 0),
-                new ColumnarFilterCompiler(runner.getPlannerContext(), 0));
-        Reference col0 = new Reference(BIGINT, "$col_0");
-        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
-        ImmutableList.Builder<Expression> projections = ImmutableList.builder();
-        for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), col0));
-        }
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections.build(), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE));
-        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
-
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
-                _ -> pageProcessor.get(),
-                TEST_TABLE_HANDLE,
-                Optional.empty(),
-                ImmutableList.of(),
-                DynamicFilter.EMPTY,
-                ImmutableList.copyOf(nCopies(totalColumns, BIGINT)),
-                DataSize.ofBytes(0),
-                0);
-
-        try (SourceOperator operator = factory.createOperator(driverContext)) {
-            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
-            operator.noMoreSplits();
-
-            // In the below loop we yield for every cell: 20 X 1000 times
-            // Currently we don't check for the yield signal in the generated projection loop, we only check for the yield signal
-            // in the PageProcessor.PositionsPageProcessorIterator::computeNext() method. Therefore, after 20 calls we will have
-            // exactly 20 blocks (one for each column) and the PageProcessor will be able to create a Page out of it.
-            for (int i = 1; i <= totalRows * totalColumns; i++) {
-                driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
-                Page page = operator.getOutput();
-                if (i == totalColumns) {
-                    assertThat(page).isNotNull();
-                    assertThat(page.getPositionCount()).isEqualTo(totalRows);
-                    assertThat(page.getChannelCount()).isEqualTo(totalColumns);
-                    for (int j = 0; j < totalColumns; j++) {
-                        assertBlockEquals(BIGINT, page.getBlock(j), input.getBlock(0));
-                    }
-                }
-                else {
-                    assertThat(page).isNull();
-                }
-                driverContext.getYieldSignal().reset();
-            }
         }
     }
 

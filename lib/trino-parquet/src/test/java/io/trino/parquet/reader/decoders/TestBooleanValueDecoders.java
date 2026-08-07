@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
+import io.trino.parquet.reader.flat.BitBuffer;
 import io.trino.spi.type.BooleanType;
 import org.apache.parquet.column.values.ValuesWriter;
 
@@ -28,7 +29,7 @@ import java.util.Random;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.reader.TestData.generateMixedData;
-import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
+import static io.trino.parquet.reader.flat.BitColumnAdapter.BIT_ADAPTER;
 import static io.trino.testing.DataProviders.concat;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,7 +53,7 @@ public final class TestBooleanValueDecoders
                         BooleanInputProvider.values()));
     }
 
-    private static TestType<byte[]> createBooleanTestType(boolean vectorizedDecodingEnabled)
+    private static TestType<BitBuffer> createBooleanTestType(boolean vectorizedDecodingEnabled)
     {
         PrimitiveField field = createField(BOOLEAN, OptionalInt.empty(), BooleanType.BOOLEAN);
         ValueDecoders valueDecoders = new ValueDecoders(field, vectorizedDecodingEnabled);
@@ -60,8 +61,11 @@ public final class TestBooleanValueDecoders
                 field,
                 valueDecoders::getBooleanDecoder,
                 BooleanApacheParquetValueDecoder::new,
-                BYTE_ADAPTER,
-                (actual, expected) -> assertThat(actual).isEqualTo(expected));
+                BIT_ADAPTER,
+                (actual, expected) -> {
+                    assertThat(actual.getSize()).isEqualTo(expected.getSize());
+                    assertThat(actual.getValues()).isEqualTo(expected.getValues());
+                });
     }
 
     private enum BooleanInputProvider

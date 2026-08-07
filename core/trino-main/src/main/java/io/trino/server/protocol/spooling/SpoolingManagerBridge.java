@@ -119,6 +119,12 @@ public class SpoolingManagerBridge
         return delegate().handle(fromUri(secretKey, identifier), headers);
     }
 
+    @Override
+    public boolean isRecoverableException(IOException exception)
+    {
+        return delegate().isRecoverableException(exception);
+    }
+
     private SpoolingManager delegate()
     {
         return registry

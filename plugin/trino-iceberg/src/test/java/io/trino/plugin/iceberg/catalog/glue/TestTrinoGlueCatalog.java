@@ -59,6 +59,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
@@ -120,7 +121,8 @@ public class TestTrinoGlueCatalog
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        ENCRYPTION_MANAGER_FACTORY),
                 "test",
                 new StatsRecordingGlueClient(glueClient, new GlueMetastoreStats()),
                 useSystemSecurity,
@@ -267,7 +269,8 @@ public class TestTrinoGlueCatalog
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        ENCRYPTION_MANAGER_FACTORY),
                 "test",
                 new StatsRecordingGlueClient(glueClient, new GlueMetastoreStats()),
                 false,

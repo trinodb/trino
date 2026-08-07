@@ -20,22 +20,13 @@ import io.airlift.slice.SliceOutput;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
 
 public class RowBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "ROW";
-
-    private final boolean vectorizeNullBitPacking;
-
-    public RowBlockEncoding(boolean vectorizeNullBitPacking)
-    {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
-    }
 
     @Override
     public String getName()
@@ -62,12 +53,7 @@ public class RowBlockEncoding
             blockEncodingSerde.writeBlock(sliceOutput, fieldBlock);
         }
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, rowBlock.getRawRowIsNull(), rowBlock.getOffsetBase(), rowBlock.getPositionCount());
-        }
-        else {
-            encodeNullsAsBitsScalar(sliceOutput, rowBlock.getRawRowIsNull(), rowBlock.getOffsetBase(), rowBlock.getPositionCount());
-        }
+        encodeValidityAsLongs(sliceOutput, rowBlock.getRawValueIsValid(), rowBlock.getOffsetBase(), rowBlock.getPositionCount());
     }
 
     @Override
@@ -81,13 +67,7 @@ public class RowBlockEncoding
             fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
 
-        Optional<boolean[]> rowIsNull;
-        if (vectorizeNullBitPacking) {
-            rowIsNull = decodeNullBitsVectorized(sliceInput, positionCount);
-        }
-        else {
-            rowIsNull = decodeNullBitsScalar(sliceInput, positionCount);
-        }
-        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
+        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(valueIsValid), fieldBlocks);
     }
 }

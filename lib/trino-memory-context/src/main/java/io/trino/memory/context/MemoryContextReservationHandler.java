@@ -23,10 +23,20 @@ final class MemoryContextReservationHandler
         implements MemoryReservationHandler
 {
     private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
+    // Propagating every page-sized fluctuation to the operator memory context walks the
+    // whole context tree from inside the reader's decode loop. Following the strategy of
+    // CoarseGrainLocalMemoryContext, round usage up to this granule and report only when
+    // the rounded value changes, preferring over-counting over under-counting.
+    private static final long REPORT_GRANULARITY = 1 << 20;
+    private static final long GRANULARITY_MASK = ~(REPORT_GRANULARITY - 1);
+
     private final MemoryContext memoryContext;
 
     @GuardedBy("this")
     private long memoryUsage;
+
+    @GuardedBy("this")
+    private long reportedUsage;
 
     public MemoryContextReservationHandler(MemoryContext memoryContext)
     {
@@ -39,10 +49,20 @@ final class MemoryContextReservationHandler
         if (delta != 0) {
             synchronized (this) {
                 memoryUsage += delta;
-                memoryContext.setBytes(memoryUsage);
+                long roundedUsage = roundUpToGranularity(memoryUsage);
+                if (roundedUsage != reportedUsage) {
+                    memoryContext.setBytes(roundedUsage);
+                    reportedUsage = roundedUsage;
+                }
             }
         }
         return NOT_BLOCKED;
+    }
+
+    private static long roundUpToGranularity(long bytes)
+    {
+        long masked = bytes & GRANULARITY_MASK;
+        return masked == bytes ? masked : masked + REPORT_GRANULARITY;
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.tree.QualifiedName;
 
@@ -26,7 +27,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * TODO: this needs to be merged with RowType at some point (when the type system is unified)
@@ -38,6 +41,7 @@ public class RelationType
     private final List<Field> allFields;
 
     private final Map<Field, Integer> fieldIndexes;
+    private final ListMultimap<String, Field> fieldsByName;
 
     public RelationType(Field... fields)
     {
@@ -58,6 +62,10 @@ public class RelationType
             builder.put(field, index++);
         }
         fieldIndexes = builder.buildOrThrow();
+
+        this.fieldsByName = allFields.stream()
+                .filter(field -> field.getName().isPresent())
+                .collect(toImmutableListMultimap(field -> canonicalize(field.getName().get()), identity()));
     }
 
     /**
@@ -129,9 +137,26 @@ public class RelationType
      */
     public List<Field> resolveFields(QualifiedName name)
     {
-        return allFields.stream()
+        // The index lookup only narrows the candidate set; Field.canResolve remains the authority
+        // on whether a field matches, so resolution semantics are unchanged.
+        return fieldsByName.get(canonicalize(name.getSuffix())).stream()
                 .filter(input -> input.canResolve(name))
                 .collect(toImmutableList());
+    }
+
+    /**
+     * Maps an identifier to the canonical form of its {@link String#equalsIgnoreCase} equivalence class,
+     * so that index lookups agree with the case-insensitive comparison in {@link Field#canResolve}.
+     * {@code String.toLowerCase} would be incorrect here: it uses different character mappings
+     * (e.g. GREEK SMALL LETTER FINAL SIGMA) and can change the string length.
+     */
+    private static String canonicalize(String identifier)
+    {
+        char[] chars = identifier.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            chars[i] = Character.toLowerCase(Character.toUpperCase(chars[i]));
+        }
+        return new String(chars);
     }
 
     public boolean canResolve(QualifiedName name)

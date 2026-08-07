@@ -299,7 +299,7 @@ public final class ParquetMetadataConverter
                 // Fill the former min-max statistics only if the comparison logic is
                 // signed so the logic of V1 and V2 stats are the same (which is
                 // trivially true for equal min-max values)
-                if (sortOrder(stats.type()) == SortOrder.SIGNED || Arrays.equals(min, max)) {
+                if (sortOrder(stats.type()) == SortOrder.SIGNED || minMaxStatsAreExactSingleValue(stats.type(), min, max)) {
                     if (min != null) {
                         formatStats.setMin(min);
                     }
@@ -308,7 +308,7 @@ public final class ParquetMetadataConverter
                     }
                 }
 
-                if (isMinMaxStatsSupported(stats.type()) || Arrays.equals(min, max)) {
+                if (isMinMaxStatsSupported(stats.type()) || minMaxStatsAreExactSingleValue(stats.type(), min, max)) {
                     if (min != null) {
                         formatStats.setMin_value(min);
                         formatStats.setIs_min_value_exact(isMinValueExact);
@@ -331,14 +331,14 @@ public final class ParquetMetadataConverter
             if (statistics.isSetMin_value() && statistics.isSetMax_value()) {
                 byte[] min = statistics.min_value.array();
                 byte[] max = statistics.max_value.array();
-                if (isMinMaxStatsSupported(type) || Arrays.equals(min, max)) {
+                if (isMinMaxStatsSupported(type) || minMaxStatsAreExactSingleValue(type, min, max)) {
                     statsBuilder.withMin(min);
                     statsBuilder.withMax(max);
                 }
             }
             else {
                 boolean isSet = statistics.isSetMax() && statistics.isSetMin();
-                boolean maxEqualsMin = isSet && Arrays.equals(statistics.getMin(), statistics.getMax());
+                boolean maxEqualsMin = isSet && minMaxStatsAreExactSingleValue(type, statistics.getMin(), statistics.getMax());
                 boolean sortOrdersMatch = SortOrder.SIGNED == sortOrder(type);
                 if (isSet && !shouldIgnoreStatistics(createdBy, type.getPrimitiveTypeName()) && (sortOrdersMatch || maxEqualsMin)) {
                     statsBuilder.withMin(statistics.min.array());
@@ -384,6 +384,11 @@ public final class ParquetMetadataConverter
         }
         return annotation.accept(new SortOrderVisitor())
                 .orElse(defaultSortOrder(primitive.getPrimitiveTypeName()));
+    }
+
+    private static boolean minMaxStatsAreExactSingleValue(PrimitiveType type, byte[] min, byte[] max)
+    {
+        return !isGeospatialLogicalType(type.getLogicalTypeAnnotation()) && Arrays.equals(min, max);
     }
 
     private static SortOrder defaultSortOrder(PrimitiveTypeName primitive)

@@ -24,6 +24,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
@@ -61,6 +62,7 @@ public final class MapUnionAggregation
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction("map(K, V)")
     public static void output(@AggregationState({"K", "V"}) MapAggregationState state, BlockBuilder out)
     {

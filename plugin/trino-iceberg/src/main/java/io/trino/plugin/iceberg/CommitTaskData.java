@@ -27,7 +27,7 @@ public record CommitTaskData(
         IcebergFileFormat fileFormat,
         long fileSizeInBytes,
         MetricsWrapper metrics,
-        String partitionSpecJson,
+        int partitionSpecId,
         Optional<String> partitionDataJson,
         FileContent content,
         Optional<String> referencedDataFile,
@@ -40,7 +40,6 @@ public record CommitTaskData(
         requireNonNull(path, "path is null");
         requireNonNull(fileFormat, "fileFormat is null");
         requireNonNull(metrics, "metrics is null");
-        requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(content, "content is null");
         requireNonNull(referencedDataFile, "referencedDataFile is null");

@@ -13,30 +13,30 @@
  */
 package io.trino.parquet.writer;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 import io.trino.parquet.writer.valuewriter.BigintValueWriter;
 import io.trino.parquet.writer.valuewriter.BinaryValueWriter;
 import io.trino.parquet.writer.valuewriter.BooleanValueWriter;
-import io.trino.parquet.writer.valuewriter.DateValueWriter;
 import io.trino.parquet.writer.valuewriter.DoubleValueWriter;
 import io.trino.parquet.writer.valuewriter.FixedLenByteArrayLongDecimalValueWriter;
 import io.trino.parquet.writer.valuewriter.FixedLenByteArrayShortDecimalValueWriter;
 import io.trino.parquet.writer.valuewriter.Int32ShortDecimalValueWriter;
-import io.trino.parquet.writer.valuewriter.Int64ShortDecimalValueWriter;
 import io.trino.parquet.writer.valuewriter.Int96TimestampValueWriter;
 import io.trino.parquet.writer.valuewriter.IntegerValueWriter;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.parquet.writer.valuewriter.RealValueWriter;
+import io.trino.parquet.writer.valuewriter.SmallintValueWriter;
 import io.trino.parquet.writer.valuewriter.TimeMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampMillisValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampNanosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzNanosValueWriter;
+import io.trino.parquet.writer.valuewriter.TinyintValueWriter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.parquet.writer.valuewriter.UuidValueWriter;
+import io.trino.parquet.writer.valuewriter.ValuesWriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -47,7 +47,6 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.variant.Header;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.AdaptiveBlockSplitBloomFilter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
@@ -106,18 +105,25 @@ final class ParquetWriters
         if (BOOLEAN.equals(type)) {
             return new BooleanValueWriter(valuesWriter, parquetType);
         }
-        if (INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
-            return new IntegerValueWriter(valuesWriter, type, parquetType);
+        if (INTEGER.equals(type)) {
+            return new IntegerValueWriter(valuesWriter, parquetType);
+        }
+        if (SMALLINT.equals(type)) {
+            return new SmallintValueWriter(valuesWriter, parquetType);
+        }
+        if (TINYINT.equals(type)) {
+            return new TinyintValueWriter(valuesWriter, parquetType);
         }
         if (BIGINT.equals(type)) {
-            return new BigintValueWriter(valuesWriter, type, parquetType);
+            return new BigintValueWriter(valuesWriter, parquetType);
         }
         if (type instanceof DecimalType decimalType) {
             if (parquetType.getPrimitiveTypeName() == INT32) {
                 return new Int32ShortDecimalValueWriter(valuesWriter, type, parquetType);
             }
             if (parquetType.getPrimitiveTypeName() == INT64) {
-                return new Int64ShortDecimalValueWriter(valuesWriter, type, parquetType);
+                checkArgument(decimalType.isShort(), "type is not a short decimal");
+                return new BigintValueWriter(valuesWriter, parquetType);
             }
             if (decimalType.isShort()) {
                 return new FixedLenByteArrayShortDecimalValueWriter(valuesWriter, type, parquetType);
@@ -125,7 +131,7 @@ final class ParquetWriters
             return new FixedLenByteArrayLongDecimalValueWriter(valuesWriter, type, parquetType);
         }
         if (DATE.equals(type)) {
-            return new DateValueWriter(valuesWriter, parquetType);
+            return new IntegerValueWriter(valuesWriter, parquetType);
         }
         if (TIME_MICROS.equals(type)) {
             verifyParquetType(type, parquetType, TimeLogicalTypeAnnotation.class, isTime(LogicalTypeAnnotation.TimeUnit.MICROS));
@@ -138,15 +144,15 @@ final class ParquetWriters
             }
             if (TIMESTAMP_MILLIS.equals(type)) {
                 verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MILLIS));
-                return new TimestampMillisValueWriter(valuesWriter, type, parquetType);
+                return new TimestampMillisValueWriter(valuesWriter, parquetType);
             }
             if (TIMESTAMP_MICROS.equals(type)) {
                 verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MICROS));
-                return new BigintValueWriter(valuesWriter, type, parquetType);
+                return new BigintValueWriter(valuesWriter, parquetType);
             }
             if (TIMESTAMP_NANOS.equals(type)) {
                 verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.NANOS));
-                return new TimestampNanosValueWriter(valuesWriter, type, parquetType);
+                return new TimestampNanosValueWriter(valuesWriter, parquetType);
             }
         }
 
@@ -167,7 +173,7 @@ final class ParquetWriters
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             // Binary writer is suitable also for char data, as UTF-8 encoding is used on both sides.
-            return new BinaryValueWriter(valuesWriter, type, parquetType);
+            return new BinaryValueWriter(valuesWriter, parquetType);
         }
         if (type instanceof UuidType) {
             return new UuidValueWriter(valuesWriter, parquetType);
@@ -354,7 +360,7 @@ final class ParquetWriters
             if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(colummType)) {
                 return Optional.empty();
             }
-            String dotPath = Joiner.on('.').join(columnDescriptor.getPath());
+            String dotPath = String.join(".", columnDescriptor.getPath());
             if (bloomFilterColumns.contains(dotPath)) {
                 return Optional.of(new AdaptiveBlockSplitBloomFilter(maxBloomFilterSize, BLOOM_FILTER_CANDIDATES_NUMBER, bloomFilterFpp, columnDescriptor));
             }

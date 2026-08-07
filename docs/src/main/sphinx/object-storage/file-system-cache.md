@@ -7,9 +7,16 @@ and processed on these workers. Repeated queries with different parameters, or
 even different queries from different users, often access, and therefore
 transfer, the same objects.
 
-Trino includes support for caching these files with the help of the open
-source [Alluxio](https://github.com/Alluxio/alluxio) libraries with catalogs
-using the following connectors:
+Trino caches these files with a *cache manager*, configured on every node of the
+cluster. Two cache managers are available:
+
+* `alluxio` caches files on local disks with the help of the open source
+  [Alluxio](https://github.com/Alluxio/alluxio) libraries, and is the cache
+  manager to use for caching table data.
+* `memory` caches files on the Java heap, and is used by the coordinator to cache
+  the metadata files it reads during query planning.
+
+Caching of table data is available for catalogs using the following connectors:
 
 * [](/connector/delta-lake)
 * [](/connector/hive)
@@ -37,14 +44,15 @@ separately, following the TTL and size configuration, and cached files are
 evicted from the cache.
 
 You can limit the number of hosts that are preferred to process these tasks with
-`fs.cache.preferred-hosts-count`. Query processing still uses all other nodes as
-required for the parallel processing of tasks, and therefore potentially caches
-files on more nodes than the preferred hosts only. A low setting, such as the
-default 2, can reduce the overall size of the cache because it can reduce how
-often the same file is cached on multiple nodes. A higher setting, up to the
-number of nodes in the cluster, distributes the workload across more workers by
-default, and leads to more resilience against node failures at the expense of
-effective cache size.
+the `node-scheduler.cache-preferred-hosts-count` property in the coordinator's
+`etc/config.properties`.
+Query processing still uses all other nodes as required for the parallel
+processing of tasks, and therefore potentially caches files on more nodes than
+the preferred hosts only. A low setting, such as the default 2, can reduce the
+overall size of the cache because it can reduce how often the same file is
+cached on multiple nodes. A higher setting, up to the number of nodes in the
+cluster, distributes the workload across more workers by default, and leads to
+more resilience against node failures at the expense of effective cache size.
 
 (fs-cache-benefits)=
 ## Benefits
@@ -90,27 +98,59 @@ also when hosted in public cloud provider systems.
 (fs-cache-configuration)=
 ## Configuration
 
-Use the properties from the following table in your catalog properties files to
-enable and configure caching for the specific catalogs.
+Configuring the cache takes two steps:
 
-:::{list-table} File system cache configuration properties
+1. Configure one or more cache managers on every node of the cluster, as
+   described in [](fs-cache-managers). All nodes must use the same
+   configuration.
+2. Enable caching in each catalog that must use it, as described in
+   [](fs-cache-catalogs).
+
+(fs-cache-managers)=
+### Cache managers
+
+Cache managers are configured per node, not per catalog. Set
+`cache-manager.config-files` in the node's `etc/config.properties` to a
+comma-separated list of properties files, one per cache manager:
+
+```properties
+cache-manager.config-files=etc/cache-manager-alluxio.properties,etc/cache-manager-memory.properties
+```
+
+Every listed file must set `cache-manager.name` to the name of the cache
+manager, followed by that manager's own properties. For example
+`etc/cache-manager-alluxio.properties`:
+
+```properties
+cache-manager.name=alluxio
+fs.cache.directories=/tmp/trino-cache
+fs.cache.max-sizes=500GB
+```
+
+A cluster can load at most one cache manager for each kind of caching. Loading
+both `alluxio` and `memory` therefore uses `alluxio` for table data, since it is
+the only one that can cache more data than fits on the heap, and `memory` for
+coordinator metadata caching.
+
+If `cache-manager.config-files` is not set, Trino loads the `memory` cache
+manager with default configuration, so that the coordinator caches metadata
+files. Once the property is set, only the listed cache managers are loaded, and
+metadata caching requires listing a `memory` cache manager explicitly.
+
+:::{list-table} Alluxio cache manager properties
 :widths: 25, 75
 :header-rows: 1
 
 * - Property
   - Description
-* - `fs.cache.enabled`
-  - Enable object storage caching. Defaults to no caching with the value `false`.
 * - `fs.cache.directories`
   - Required, comma-separated list of absolute paths to directories to use for
     caching. All directories must exist on the coordinator and all workers.
     Trino must have read and write permissions for files and nested directories.
     A valid example with only one directory is `/tmp/trino-cache`.
 
-    Directories must be specific for each catalog with caching enabled. When
-    enabling caching in multiple catalogs, you must use different directories
-    and set the values for `fs.cache.max-sizes` or
-    `fs.cache.max-disk-usage-percentages` accordingly.
+    All catalogs with caching enabled share these directories, and entries are
+    separated by catalog within the cache.
 * - `fs.cache.max-sizes`
   - Comma-separated list of maximum [data sizes](prop-type-data-size) for each
     caching directory. Order of values must be identical to the directories
@@ -127,12 +167,6 @@ enable and configure caching for the specific catalogs.
   -  The maximum [duration](prop-type-duration) for objects to remain in the cache
      before eviction. Defaults to `7d`. The minimum value of `0s` means that caching
      is effectively turned off.
-* - `fs.cache.preferred-hosts-count`
-  - The number of preferred nodes for caching files. Defaults to 2. Processing
-    identifies and subsequently prefers using specific nodes. If the preferred
-    nodes identified for caching a split are unavailable or too busy, then an
-    available node is chosen at random from the cluster. More information in
-    [](fs-cache-distributed).
 * - `fs.cache.page-size`
   - The page [data size](prop-type-data-size) used for caching data. Each transfer of files
     uses at least this amount of data. Defaults to `1MB`. Values must be between
@@ -140,21 +174,84 @@ enable and configure caching for the specific catalogs.
     smaller values are less efficient since they result in more individual downloads.
 :::
 
+:::{list-table} Memory cache manager properties
+:widths: 25, 75
+:header-rows: 1
+
+* - Property
+  - Description
+* - `fs.memory-cache.max-size`
+  - Maximum total [data size](prop-type-data-size) of the cache on the heap.
+    Defaults to two percent of the maximum heap size.
+* - `fs.memory-cache.max-content-length`
+  - Maximum [data size](prop-type-data-size) of a single cached file. Larger
+    files are read directly from storage and never cached. Defaults to `8MB`,
+    and must not exceed `15MB`.
+* - `fs.memory-cache.ttl`
+  - The maximum [duration](prop-type-duration) for files to remain in the cache
+    before eviction. Defaults to `1h`.
+:::
+
+(fs-cache-catalogs)=
+### Catalog configuration
+
+Set `fs.cache.enabled` to `true` in the catalog properties file of every catalog
+that must cache table data:
+
+```properties
+fs.cache.enabled=true
+```
+
+Every node must have a cache manager that can cache table data, `alluxio`, when
+a catalog enables caching. Trino fails to start the catalog otherwise.
+
+Enabling table data caching does not replace metadata caching on the
+coordinator. If a `memory` cache manager is loaded as well, the coordinator
+looks up that cache first and reads through to `alluxio` on a miss, so planning
+keeps the lower latency of the heap cache.
+
 ## Monitoring
 
-The cache exposes the
+The Alluxio cache manager exposes the
 [Alluxio JMX client metrics](https://docs.alluxio.io/ee-da/user/stable/en/reference/Metrics-List.html#client-metrics)
-under the `org.alluxio` package, and metrics on external reads and cache reads under
-`io.trino.filesystem.alluxio.AlluxioCacheStats`.
+under the `org.alluxio` package, and metrics on external reads and cache reads
+per catalog under `io.trino.blob.cache.alluxio:type=AlluxioCacheStats,name=<catalog>`.
+
+The memory cache manager exposes per-catalog metrics under
+`io.trino.blob.cache.memory:type=MemoryBlobCacheStats,name=<catalog>`, and metrics
+for the shared cache under `io.trino.blob.cache.memory:name=MemoryBlobCache`.
 
 The cache code uses [OpenTelemetry tracing](/admin/opentelemetry).
+
+(fs-cache-migration)=
+## Migration from catalog-level caching
+
+In earlier versions the Alluxio cache was configured with `fs.cache.*`
+properties in each catalog properties file. When upgrading:
+
+* Move `fs.cache.directories`, `fs.cache.max-sizes`,
+  `fs.cache.max-disk-usage-percentages`, `fs.cache.ttl`, and
+  `fs.cache.page-size` out of the catalog properties files and into an
+  `alluxio` cache manager properties file on every node. Catalogs keep only
+  `fs.cache.enabled`.
+* Catalogs no longer need separate cache directories. All catalogs that enable
+  caching share the directories of the node's cache manager.
+* Existing cached data on disk is not reused, because cache entries are
+  identified differently. The cache repopulates from storage on the first
+  queries after the upgrade, and the previous cache directory contents are
+  evicted by the configured size limit.
+* JMX object names changed. The Alluxio cache statistics moved from
+  `io.trino.filesystem.alluxio:type=AlluxioCacheStats,name=<catalog>` to
+  `io.trino.blob.cache.alluxio:type=AlluxioCacheStats,name=<catalog>`, and the
+  Hive connector's `io.trino.plugin.hive.fs:type=TrinoFileSystemCache` bean no
+  longer exists. Update dashboards and alerts accordingly.
 
 ## Recommendations
 
 The speed of the local cache storage is crucial to the performance of the cache.
-The most common and cost-efficient approach is to attach high performance SSD
-disk or equivalents. Fast cache performance can be also be achieved with a RAM
-disk used as in-memory cache.
+The most common and cost-efficient approach is to attach high-performance SSD
+disks or equivalent storage. Fast cache performance can also be achieved with a
+RAM disk used as an in-memory cache.
 
 In all cases, avoid using the root partition and disk of the node. Instead
 attach one or more dedicated storage devices for the cache on each node. Storage
@@ -162,4 +259,4 @@ should be local, dedicated on each node, and not shared.
 
 Your deployment method for Trino decides how to attach storage and create the
 directories for caching. Typically you need to connect a fast storage system,
-like an SSD drive, and ensure that is it mounted on the configured path.
+like an SSD drive, and ensure that it is mounted on the configured path.

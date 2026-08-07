@@ -248,6 +248,16 @@ public final class VarcharMethods
         return StringFunctions.startsWith(source, prefix);
     }
 
+    @Description("Determine whether source ends with suffix or not")
+    @ScalarFunction("ends_with")
+    @InstanceMethod
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean endsWith(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice suffix)
+    {
+        return StringFunctions.endsWith(source, suffix);
+    }
+
     @Description("Translate characters from the source string based on original and translations strings")
     @ScalarFunction("translate")
     @InstanceMethod

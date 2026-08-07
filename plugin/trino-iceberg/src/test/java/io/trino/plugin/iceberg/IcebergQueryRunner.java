@@ -16,11 +16,13 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.inject.Module;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.blob.cache.memory.MemoryBlobCachePlugin;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -103,6 +105,7 @@ public final class IcebergQueryRunner
         private ImmutableMap.Builder<String, String> icebergProperties = ImmutableMap.builder();
         private Optional<SchemaInitializer> schemaInitializer = Optional.of(SchemaInitializer.builder().build());
         private boolean tpcdsCatalogEnabled;
+        private Optional<Module> additionalOverrideModule = Optional.empty();
 
         protected Builder()
         {
@@ -169,6 +172,12 @@ public final class IcebergQueryRunner
             return self();
         }
 
+        public Builder setAdditionalOverrideModule(Module additionalOverrideModule)
+        {
+            this.additionalOverrideModule = Optional.of(requireNonNull(additionalOverrideModule, "additionalOverrideModule is null"));
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -184,7 +193,9 @@ public final class IcebergQueryRunner
                 }
 
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-                queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
+                queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, Optional::empty, () -> additionalOverrideModule));
+                queryRunner.installPlugin(new MemoryBlobCachePlugin());
+                queryRunner.loadBlobCacheManager("memory", Map.of("fs.memory-cache.max-size", "128MB"));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
                 schemaInitializer.ifPresent(initializer -> initializer.accept(queryRunner));
 
@@ -401,21 +412,26 @@ public final class IcebergQueryRunner
         static void main()
                 throws Exception
         {
-            Path warehouseLocation = Files.createTempDirectory(null);
-            warehouseLocation.toFile().deleteOnExit();
+            String bucketName = "test-bucket";
+            String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
             @SuppressWarnings("resource")
-            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.toString());
+            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation, bucketName);
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
-                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.catalog.type", "rest")
                     .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
                     .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
                     .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
+                    .addIcebergProperty("iceberg.rest-catalog.http-headers", TestingPolarisCatalog.POLARIS_REALM_HEADER + ": " + TestingPolarisCatalog.POLARIS_REALM_NAME)
+                    .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                    .addIcebergProperty("fs.s3.enabled", "true")
+                    .addIcebergProperty("s3.region", MINIO_REGION)
+                    .addIcebergProperty("s3.endpoint", polarisCatalog.minio().getMinioAddress())
+                    .addIcebergProperty("s3.path-style-access", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
@@ -654,6 +670,8 @@ public final class IcebergQueryRunner
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
     }
+
+    // TODO: Add a new query runner for table encryption
 
     public static final class IcebergAzureQueryRunnerMain
     {

@@ -1,7 +1,10 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      # "/" covers workflows in .github/workflows; composite actions must be listed explicitly
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
     cooldown:
@@ -28,8 +31,8 @@ updates:
     ignore:
       # TODO remove once https://github.com/jline/jline3/issues/1879 has been addressed
       - dependency-name: "org.jline:jline-*"
-  - package-ecosystem: "npm"
-    directory: "/core/trino-web-ui/src/main/resources/webapp-preview"
+  - package-ecosystem: "bun"
+    directory: "/core/trino-web-ui/src/main/resources/webapp"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10

@@ -72,6 +72,7 @@ public class HudiSplitSource
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
             SplitAffinityProvider splitAffinityProvider,
+            long maxSplitSize,
             List<String> partitions)
     {
         HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
@@ -85,7 +86,8 @@ public class HudiSplitSource
                 table,
                 partitionColumnHandles,
                 partitions,
-                !tableHandle.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session));
+                !tableHandle.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
+                maxSplitSize);
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
         HudiBackgroundSplitLoader splitLoader = new HudiBackgroundSplitLoader(

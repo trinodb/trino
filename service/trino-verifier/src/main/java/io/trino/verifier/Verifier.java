@@ -328,7 +328,7 @@ public class Verifier
         if (result.isEmpty()) {
             return null;
         }
-        return result.getAsDouble();
+        return result.orElseThrow();
     }
 
     private static <T> T takeUnchecked(CompletionService<T> completionService)

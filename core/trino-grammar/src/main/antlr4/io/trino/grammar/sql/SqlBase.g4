@@ -392,9 +392,34 @@ joinCriteria
     ;
 
 sampledRelation
-    : patternRecognition (
+    : pivot (
         TABLESAMPLE sampleType '(' percentage=expression ')'
       )?
+    ;
+
+pivot
+    : patternRecognition (
+        PIVOT '('
+          pivotAggregation (',' pivotAggregation)*
+          FOR pivotColumns IN '(' pivotValueGroup (',' pivotValueGroup)* ')'
+          (GROUP BY groupBy)?
+        ')'
+        (AS? identifier columnAliases?)?
+      )?
+    ;
+
+pivotAggregation
+    : expression (AS? identifier)?
+    ;
+
+pivotColumns
+    : qualifiedName
+    | '(' qualifiedName (',' qualifiedName)* ')'
+    ;
+
+pivotValueGroup
+    : '(' expression (',' expression)+ ')' (AS? identifier)?
+    | expression (AS? identifier)?
     ;
 
 sampleType
@@ -589,6 +614,7 @@ predicate[ParserRuleContext value]
     | IS NOT? truthValue=(TRUE | FALSE | UNKNOWN)                         #booleanTest
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
     | MATCH UNIQUE? matchType=(SIMPLE | PARTIAL | FULL)? '(' query ')'    #match
+    | OVERLAPS right=valueExpression                                      #overlaps
     ;
 
 valueExpression
@@ -631,8 +657,10 @@ primaryExpression
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
     | '[' (expression (',' expression)*)? ']'                                             #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
+    | value=primaryExpression '[' ASTERISK ']'                                            #arrayWildcardSubscript
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
+    | base=primaryExpression '.' stringField=string                                       #stringLiteralDereference
     | name=CURRENT_DATE                                                                   #currentDate
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #currentTime
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #currentTimestamp
@@ -1084,7 +1112,7 @@ nonReserved
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW | OVERLAY
-    | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
+    | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PIVOT | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
@@ -1292,6 +1320,7 @@ OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
 OVERLAY: 'OVERLAY';
 PARTIAL: 'PARTIAL';
+OVERLAPS: 'OVERLAPS';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
 PASSING: 'PASSING';
@@ -1301,6 +1330,7 @@ PATTERN: 'PATTERN';
 PER: 'PER';
 PERIOD: 'PERIOD';
 PERMUTE: 'PERMUTE';
+PIVOT: 'PIVOT';
 PLACING: 'PLACING';
 PLAN : 'PLAN';
 POSITION: 'POSITION';

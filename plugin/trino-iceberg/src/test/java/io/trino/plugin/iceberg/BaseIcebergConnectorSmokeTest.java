@@ -119,19 +119,6 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "\\)");
     }
 
-    @Test
-    public void testHiddenPathColumn()
-    {
-        try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
-            String filePath = (String) computeScalar(format("SELECT file_path FROM \"%s$files\"", table.getName()));
-
-            assertQuery("SELECT DISTINCT \"$path\" FROM " + table.getName(), "VALUES " + "'" + filePath + "'");
-
-            // Check whether the "$path" hidden column is correctly evaluated in the filter expression
-            assertQuery(format("SELECT a FROM %s WHERE \"$path\" = '%s'", table.getName(), filePath), "VALUES 1");
-        }
-    }
-
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     @Timeout(120)
@@ -421,7 +408,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+        String tableLocationWithTrailingSpace = schemaPath() + "/" + tableName + " ";
 
         assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
 
@@ -542,37 +529,6 @@ public abstract class BaseIcebergConnectorSmokeTest
                 "Schema (.*) not found");
         assertThat(locationExists(tableLocation))
                 .as("location should not exist").isFalse();
-    }
-
-    @Test
-    public void testSortedNationTable()
-    {
-        try (TestTable table = newTrinoTable(
-                "test_sorted_nation_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
-        }
-    }
-
-    @Test
-    public void testFileSortingWithLargerTable()
-    {
-        // Using a larger table forces buffered data to be written to disk
-        try (TestTable table = newTrinoTable(
-                "test_sorted_lineitem_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
-            assertUpdate(
-                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
-                    "VALUES 60175");
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
-        }
     }
 
     @Test
@@ -747,8 +703,6 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertQueryFails(session, "EXPLAIN " + query, failureMessage);
         assertUpdate(session, "DROP TABLE " + tableName);
     }
-
-    protected abstract boolean isFileSorted(Location path, String sortColumnName);
 
     @Test
     public void testTableChangesFunction()

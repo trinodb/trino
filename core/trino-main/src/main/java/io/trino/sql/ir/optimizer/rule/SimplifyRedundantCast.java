@@ -36,7 +36,7 @@ public class SimplifyRedundantCast
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Cast(Expression value, Type type) && type.equals(value.type())) {
+        if (expression instanceof Cast(Expression value, Type type, _) && type.equals(value.type())) {
             return Optional.of(value);
         }
 

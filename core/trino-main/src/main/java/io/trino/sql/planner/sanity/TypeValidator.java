@@ -14,6 +14,8 @@
 package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ListMultimap;
+import com.google.common.graph.SuccessorsFunction;
+import com.google.common.graph.Traverser;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.function.BoundSignature;
@@ -21,8 +23,10 @@ import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.ExpressionExtractor;
 import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -31,6 +35,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
 import java.util.List;
@@ -38,6 +43,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.ir.Cast.Kind.CONVERT;
+import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
 
 /**
  * Ensures that all the expressions and FunctionCalls matches their output symbols
@@ -53,6 +60,16 @@ public final class TypeValidator
             WarningCollector warningCollector)
     {
         plan.accept(new Visitor(), null);
+
+        TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
+            for (Expression node : Traverser.forTree((SuccessorsFunction<Expression>) Expression::children).depthFirstPreOrder(expression)) {
+                if (node instanceof Cast cast) {
+                    Cast.Kind expected = typeCoercion.isTypeOnlyCoercion(cast.expression().type(), cast.type()) ? REINTERPRET : CONVERT;
+                    checkArgument(cast.kind() == expected, "Cast from %s to %s must have kind %s but was %s", cast.expression().type(), cast.type(), expected, cast.kind());
+                }
+            }
+        }
     }
 
     private static class Visitor

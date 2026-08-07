@@ -28,6 +28,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculator.EstimatedExchanges;
 import io.trino.cost.CostCalculatorUsingExchanges;
@@ -70,11 +71,11 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
-import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
-import io.trino.execution.scheduler.ConsistentHashingAddressProviderConfig;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.SplitSchedulerStats;
+import io.trino.execution.scheduler.StableHostAddressProvider;
+import io.trino.execution.scheduler.StableHostAddressProviderConfig;
 import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorModule;
 import io.trino.execution.scheduler.UniformNodeSelectorModule;
@@ -110,6 +111,8 @@ import io.trino.memory.TotalReservationOnBlockedNodesTaskLowMemoryKiller;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
@@ -274,9 +277,8 @@ public class CoordinatorModule
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
-        // consistent hashing address provider used by the scheduler to place splits that carry a cache key
-        configBinder(binder).bindConfig(ConsistentHashingAddressProviderConfig.class);
-        binder.bind(ConsistentHashingAddressProvider.class).in(Scopes.SINGLETON);
+        // stable host address provider used by the scheduler to place splits that carry an affinity key
+        configBinder(binder).bindConfig(StableHostAddressProviderConfig.class);
 
         // network topology
         switch (buildConfigObject(NodeSchedulerConfig.class).getNodeSchedulerPolicy()) {
@@ -449,6 +451,17 @@ public class CoordinatorModule
     public static ResourceGroupManager<?> getResourceGroupManager(@SuppressWarnings("rawtypes") ResourceGroupManager manager)
     {
         return manager;
+    }
+
+    @Provides
+    @Singleton
+    public static StableHostAddressProvider createStableHostAddressProvider(
+            InternalNode currentNode,
+            InternalNodeManager nodeManager,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            StableHostAddressProviderConfig config)
+    {
+        return new StableHostAddressProvider(new DefaultNodeManager(currentNode, nodeManager, nodeSchedulerConfig.isIncludeCoordinator()), config);
     }
 
     @Provides

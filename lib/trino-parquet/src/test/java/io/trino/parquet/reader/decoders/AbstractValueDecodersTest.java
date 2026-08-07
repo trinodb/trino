@@ -241,7 +241,7 @@ public abstract class AbstractValueDecodersTest
     {
         Types.PrimitiveBuilder<PrimitiveType> builder = Types.required(typeName);
         if (typeLength.isPresent()) {
-            builder = builder.length(typeLength.getAsInt());
+            builder = builder.length(typeLength.orElseThrow());
         }
         if (trinoType instanceof DecimalType decimalType) {
             builder = builder.as(LogicalTypeAnnotation.decimalType(decimalType.getScale(), decimalType.getPrecision()));

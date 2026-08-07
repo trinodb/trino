@@ -37,6 +37,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -313,22 +315,24 @@ public class UnnestOperator
     private static Block buildOrdinalityBlockWithNulls(int[] outputEntriesPerPosition, boolean[] ordinalityNull, int offset, int inputEntryCount, int outputEntryCount)
     {
         long[] values = new long[outputEntryCount];
-        boolean[] isNull = new boolean[outputEntryCount];
+        long[] validity = new long[wordsForBits(outputEntryCount)];
 
         int outputPosition = 0;
         for (int i = 0; i < inputEntryCount; i++) {
             if (ordinalityNull[offset + i]) {
-                isNull[outputPosition++] = true;
+                outputPosition++;
             }
             else {
                 int currentOutputEntries = outputEntriesPerPosition[offset + i];
                 for (int j = 1; j <= currentOutputEntries; j++) {
-                    values[outputPosition++] = j;
+                    values[outputPosition] = j;
+                    set(validity, 0, outputPosition);
+                    outputPosition++;
                 }
             }
         }
 
-        return new LongArrayBlock(outputEntryCount, Optional.of(isNull), values);
+        return new LongArrayBlock(outputEntryCount, Optional.of(validity), values);
     }
 
     private static Unnester createUnnester(Type nestedType)

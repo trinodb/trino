@@ -29,7 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 
-@ScalarFunction("array_max")
+@ScalarFunction(value = "array_max", neverFails = true)
 @Description("Get maximum value of array")
 public final class ArrayMaxFunction
 {

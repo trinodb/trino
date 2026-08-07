@@ -88,6 +88,7 @@ import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicated;
@@ -422,10 +423,10 @@ public final class ExpressionFormatter
         {
             if (node.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
                 checkArgument(node.getPrecision().isPresent(), "Leading precision is required when fractional precision is specified");
-                return "SECOND(" + node.getPrecision().getAsInt() + ", " + fractionalPrecision.getAsInt() + ")";
+                return "SECOND(" + node.getPrecision().orElseThrow() + ", " + fractionalPrecision.orElseThrow() + ")";
             }
 
-            return node.getField().name() + (node.getPrecision().isPresent() ? "(" + node.getPrecision().getAsInt() + ")" : "");
+            return node.getField().name() + (node.getPrecision().isPresent() ? "(" + node.getPrecision().orElseThrow() + ")" : "");
         }
 
         @Override
@@ -434,12 +435,12 @@ public final class ExpressionFormatter
             StringBuilder result = new StringBuilder();
             result.append(node.getFrom().name());
             if (node.getPrecision().isPresent()) {
-                result.append("(").append(node.getPrecision().getAsInt()).append(")");
+                result.append("(").append(node.getPrecision().orElseThrow()).append(")");
             }
             result.append(" TO ");
             result.append(node.getTo().name());
             if (node.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
-                result.append("(").append(fractionalPrecision.getAsInt()).append(")");
+                result.append("(").append(fractionalPrecision.orElseThrow()).append(")");
             }
             return result.toString();
         }
@@ -668,6 +669,12 @@ public final class ExpressionFormatter
             builder.append(' ').append(node.getType());
             builder.append(' ').append(process(node.getSubquery(), context));
             return builder.toString();
+        }
+
+        @Override
+        protected String visitOverlapsPredicate(OverlapsPredicate node, Void context)
+        {
+            return "OVERLAPS " + process(node.getRight(), context);
         }
 
         @Override

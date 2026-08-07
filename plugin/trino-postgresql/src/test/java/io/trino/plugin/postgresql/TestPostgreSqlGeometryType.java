@@ -58,6 +58,17 @@ final class TestPostgreSqlGeometryType
     }
 
     @Test
+    void testGeometryReadWithSridAndZ()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_read", "(geom geometry(pointz, 4326))")) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (ST_SetSRID(ST_MakePoint(1, 2, 3), 4326))");
+
+            assertThat(query("SELECT ST_AsEWKT(geom), ST_SRID(geom), ST_CoordDim(geom) FROM " + table.getName()))
+                    .matches("VALUES (VARCHAR 'SRID=4326;POINT Z (1 2 3)', 4326, TINYINT '3')");
+        }
+    }
+
+    @Test
     void testGeometryWrite()
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_write", "(geom geometry)")) {
@@ -94,6 +105,19 @@ final class TestPostgreSqlGeometryType
                     .matches("VALUES 4326");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES ST_Point(1, 1)");
+        }
+    }
+
+    @Test
+    void testGeometryWriteWithSridAndZ()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_write", "(geom geometry(pointz, 4326))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 4326))", 1);
+
+            assertThat(query("SELECT ST_AsEWKT(geom), ST_SRID(geom), ST_CoordDim(geom) FROM " + table.getName()))
+                    .matches("VALUES (VARCHAR 'SRID=4326;POINT Z (1 2 3)', 4326, TINYINT '3')");
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT ST_AsEWKT(geom), ST_SRID(geom), ST_Z(geom) FROM tpch." + table.getName() + "'))"))
+                    .matches("VALUES (VARCHAR 'SRID=4326;POINT(1 2 3)', 4326, DOUBLE '3.0')");
         }
     }
 
@@ -135,6 +159,27 @@ final class TestPostgreSqlGeometryType
         try (TestTable table = new TestTable(postgreSqlServer::execute, "test_point_write", "(geom point)")) {
             assertQueryFails("INSERT INTO " + table.getName() + " VALUES (ST_LineString(ARRAY[ST_Point(0,0), ST_Point(1,1)]))",
                     "Expected Point geometry when writing to PostgreSQL point column, but got LineString.*");
+        }
+    }
+
+    @Test
+    void testGeometryWriteRejectsMismatchedSridIntoConstrainedColumn()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_write", "(geom geometry(point, 4326))")) {
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (ST_SetSRID(ST_Point(1, 1), 3857))",
+                    ".*Geometry SRID \\(3857\\) does not match column SRID \\(4326\\).*");
+        }
+    }
+
+    @Test
+    void testGeographyUnsupported()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geography_read", "(geog geography)")) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (ST_GeogFromText('SRID=4326;POINT(1 2)'))");
+
+            assertQueryFails("SELECT * FROM " + table.getName(), "\\QTable 'tpch." + table.getName() + "' has no supported columns (all 1 columns are not supported)");
+            assertQueryFails("SHOW COLUMNS FROM " + table.getName(), "\\QTable 'tpch." + table.getName() + "' has no supported columns (all 1 columns are not supported)");
         }
     }
 

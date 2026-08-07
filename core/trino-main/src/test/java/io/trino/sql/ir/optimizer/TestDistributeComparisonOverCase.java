@@ -21,7 +21,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -34,6 +33,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -127,7 +127,7 @@ public class TestDistributeComparisonOverCase
     void testDoesNotDistributeNullIf()
     {
         // NULLIF(x, 1) desugars to a Case; it must be left intact so it stays recognizable for connector pushdown.
-        Expression nullIf = nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L));
+        Expression nullIf = nullIf(emptySymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L));
 
         assertThat(optimize(comparison(EQUAL, nullIf, new Reference(BIGINT, "m"))))
                 .describedAs("nullif(...) = reference")
@@ -140,6 +140,6 @@ public class TestDistributeComparisonOverCase
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new DistributeComparisonOverCase(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new DistributeComparisonOverCase(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

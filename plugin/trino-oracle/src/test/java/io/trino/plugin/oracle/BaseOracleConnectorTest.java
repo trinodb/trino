@@ -25,6 +25,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -452,6 +453,56 @@ public abstract class BaseOracleConnectorTest
         // override because Oracle succeeds in preparing query, and then fails because of no metadata available
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
                 .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+    }
+
+    @Test
+    public void testNativeQueryMaterializedViewNumberZeroPrecision()
+    {
+        // Oracle JDBC reports precision=0 for COUNT(*) result columns in passthrough queries,
+        // unlike regular NUMBER columns in table metadata which use 127 as the "unspecified" sentinel.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        String viewName = getUser() + ".test_mv_num_" + randomNameSuffix();
+        onRemoteDatabase().execute("CREATE MATERIALIZED VIEW " + viewName + " BUILD IMMEDIATE AS SELECT COUNT(*) AS col FROM dual");
+        try {
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT count(*) FROM " + viewName + "'))"))
+                    .matches("VALUES NUMBER '1'");
+        }
+        finally {
+            onRemoteDatabase().execute("DROP MATERIALIZED VIEW " + viewName);
+        }
+    }
+
+    @Test
+    public void testNativeQueryStoredViewExtractYearNumberZeroPrecision()
+    {
+        // EXTRACT(YEAR FROM date) returns NUMBER with columnSize=0, decimalDigits=0 via Oracle JDBC.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view_yr", "SELECT EXTRACT(YEAR FROM SYSDATE) AS yr FROM dual")) {
+            assertThat(query("SELECT yr FROM TABLE(system.query(query => 'SELECT yr FROM " + view.getName() + "'))"))
+                    .matches("VALUES NUMBER '" + LocalDate.now().getYear() + "'");
+        }
+    }
+
+    @Test
+    public void testNativeQueryStoredViewCountNumberZeroPrecision()
+    {
+        // COUNT(*) in a stored Oracle view returns NUMBER with columnSize=0, decimalDigits=0 via Oracle JDBC.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view_cnt", "SELECT COUNT(*) AS cnt FROM dual")) {
+            assertThat(query("SELECT cnt FROM TABLE(system.query(query => 'SELECT cnt FROM " + view.getName() + "'))"))
+                    .matches("VALUES NUMBER '1'");
+        }
+    }
+
+    @Test
+    public void testNativeQueryStoredViewSumNumberZeroPrecision()
+    {
+        // SUM() in a stored Oracle view returns NUMBER with columnSize=0, decimalDigits=0 via Oracle JDBC.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view_sum", "SELECT SUM(1) AS total FROM dual")) {
+            assertThat(query("SELECT total FROM TABLE(system.query(query => 'SELECT total FROM " + view.getName() + "'))"))
+                    .matches("VALUES NUMBER '1'");
+        }
     }
 
     @Override

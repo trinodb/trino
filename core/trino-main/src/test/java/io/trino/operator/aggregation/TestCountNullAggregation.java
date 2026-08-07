@@ -89,6 +89,7 @@ public class TestCountNullAggregation
             state.setNull(state.isNull() && scratchState.isNull());
         }
 
+        @SqlNullable
         @OutputFunction(StandardTypes.BIGINT)
         public static void output(@AggregationState NullableLongState state, BlockBuilder out)
         {

@@ -375,6 +375,7 @@ public class TrinoHiveCatalog
                     .collect(toImmutableList());
         }
         catch (ExecutionException e) {
+            throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }
     }
@@ -400,6 +401,7 @@ public class TrinoHiveCatalog
                     .collect(toImmutableList());
         }
         catch (ExecutionException e) {
+            throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }
     }
@@ -911,7 +913,7 @@ public class TrinoHiveCatalog
     }
 
     @Override
-    protected void invalidateTableCache(SchemaTableName schemaTableName)
+    public void invalidateTableCache(SchemaTableName schemaTableName)
     {
         tableMetadataCache.invalidate(schemaTableName);
     }

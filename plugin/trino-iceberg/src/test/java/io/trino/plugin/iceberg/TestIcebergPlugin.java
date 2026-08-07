@@ -190,7 +190,7 @@ public class TestIcebergPlugin
             throws Exception
     {
         ConnectorFactory connectorFactory = getConnectorFactory();
-        File tempFile = File.createTempFile("test-iceberg-plugin-access-control", ".json");
+        File tempFile = Files.createTempFile("test-iceberg-plugin-access-control", ".json").toFile();
         tempFile.deleteOnExit();
         Files.writeString(tempFile.toPath(), "{}");
 
@@ -252,6 +252,23 @@ public class TestIcebergPlugin
                                 .put("iceberg.rest-catalog.security", "GOOGLE")
                                 .put("iceberg.rest-catalog.google-project-id", "dev")
                                 .put("gcs.json-key-file-path", jsonKeyFilePath.toString())
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    void testRestCatalogWithBigLakeMetastoreUsingApplicationDefaultCredentials()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.catalog.type", "rest")
+                                .put("iceberg.rest-catalog.uri", "https://foo:1234")
+                                .put("iceberg.rest-catalog.security", "GOOGLE")
+                                .put("iceberg.rest-catalog.google-project-id", "dev")
                                 .put("bootstrap.quiet", "true")
                                 .buildOrThrow(),
                         new TestingConnectorContext())

@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.array.ReferenceCountMap;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
@@ -26,7 +25,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 
 import java.util.Arrays;
@@ -47,7 +45,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
-import static io.trino.operator.WorkProcessor.ProcessState.yielded;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
@@ -59,24 +56,20 @@ public class PageProcessor
     static final int MAX_PAGE_SIZE_IN_BYTES = 16 * 1024 * 1024;
     static final int MIN_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
 
-    private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<FilterEvaluator> filterEvaluator;
     private final Optional<FilterEvaluator> dynamicFilterEvaluator;
     private final List<PageProjection> projections;
+    // identity projections return a subset of the input page and cannot expand output size
+    private final boolean identityProjections;
 
     private int projectBatchSize;
 
     public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
-        this(filterEvaluator, dynamicFilterEvaluator, projections, initialBatchSize, new ExpressionProfiler());
-    }
-
-    @VisibleForTesting
-    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
-    {
         this.filterEvaluator = requireNonNull(filterEvaluator, "filterEvaluator is null");
         this.dynamicFilterEvaluator = requireNonNull(dynamicFilterEvaluator, "dynamicFilterEvaluator is null");
+        this.identityProjections = !projections.isEmpty() && projections.stream().allMatch(InputPageProjection.class::isInstance);
         this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
@@ -85,8 +78,12 @@ public class PageProcessor
                     return projection;
                 })
                 .collect(toImmutableList());
-        this.projectBatchSize = initialBatchSize.orElse(1);
-        this.expressionProfiler = requireNonNull(expressionProfiler, "expressionProfiler is null");
+        if (identityProjections) {
+            this.projectBatchSize = MAX_BATCH_SIZE;
+        }
+        else {
+            this.projectBatchSize = initialBatchSize.orElse(1);
+        }
     }
 
     @VisibleForTesting
@@ -96,15 +93,14 @@ public class PageProcessor
     }
 
     @VisibleForTesting
-    public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, SourcePage page)
+    public Iterator<Optional<Page>> process(ConnectorSession session, LocalMemoryContext memoryContext, SourcePage page)
     {
-        WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, new PageProcessorMetrics(), page);
+        WorkProcessor<Page> processor = createWorkProcessor(session, memoryContext, new PageProcessorMetrics(), page);
         return processor.yieldingIterator();
     }
 
     public WorkProcessor<Page> createWorkProcessor(
             ConnectorSession session,
-            DriverYieldSignal yieldSignal,
             LocalMemoryContext memoryContext,
             PageProcessorMetrics metrics,
             SourcePage page)
@@ -138,7 +134,7 @@ public class PageProcessor
             return WorkProcessor.of(new Page(selectedPositions.size()));
         }
 
-        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
+        return WorkProcessor.create(new ProjectSelectedPositions(session, memoryContext, metrics, page, selectedPositions));
     }
 
     private class ProjectSelectedPositions
@@ -147,7 +143,6 @@ public class PageProcessor
         private static final long INSTANCE_SIZE = instanceSize(ProjectSelectedPositions.class);
 
         private final ConnectorSession session;
-        private final DriverYieldSignal yieldSignal;
         private final LocalMemoryContext memoryContext;
         private final PageProcessorMetrics metrics;
 
@@ -155,13 +150,8 @@ public class PageProcessor
         private final Block[] previouslyComputedResults;
         private SelectedPositions selectedPositions;
 
-        // remember if we need to re-use the same batch size if we yield last time
-        private boolean lastComputeYielded;
-        private int lastComputeBatchSize;
-
         private ProjectSelectedPositions(
                 ConnectorSession session,
-                DriverYieldSignal yieldSignal,
                 LocalMemoryContext memoryContext,
                 PageProcessorMetrics metrics,
                 SourcePage page,
@@ -170,7 +160,6 @@ public class PageProcessor
             checkArgument(!selectedPositions.isEmpty(), "selectedPositions is empty");
 
             this.session = session;
-            this.yieldSignal = yieldSignal;
             this.metrics = metrics;
             this.page = page;
             this.memoryContext = memoryContext;
@@ -181,36 +170,16 @@ public class PageProcessor
         @Override
         public ProcessState<Page> process()
         {
-            int batchSize;
             while (true) {
                 if (selectedPositions.isEmpty()) {
-                    verify(!lastComputeYielded);
                     return finished();
                 }
 
-                // we always process one chunk
-                if (lastComputeYielded) {
-                    // re-use the batch size from the last checkpoint
-                    verify(lastComputeBatchSize > 0);
-                    batchSize = lastComputeBatchSize;
-                    lastComputeYielded = false;
-                    lastComputeBatchSize = 0;
-                }
-                else {
-                    batchSize = Math.min(selectedPositions.size(), projectBatchSize);
-                }
+                int batchSize = Math.min(selectedPositions.size(), projectBatchSize);
                 ProcessBatchResult result = processBatch(batchSize);
 
-                if (result.isYieldFinish()) {
-                    // if we are running out of time, save the batch size and continue next time
-                    lastComputeYielded = true;
-                    lastComputeBatchSize = batchSize;
-                    updateRetainedSize();
-                    return yielded();
-                }
-
                 if (result.isPageTooLarge()) {
-                    // if the page buffer filled up, so halve the batch size and retry
+                    // the page buffer filled up, so halve the batch size and retry
                     verify(batchSize > 1);
                     projectBatchSize = projectBatchSize / 2;
                     continue;
@@ -218,7 +187,10 @@ public class PageProcessor
 
                 verify(result.isSuccess());
                 Page resultPage = result.getPage();
-                updateBatchSize(resultPage.getPositionCount(), resultPage.getSizeInBytes());
+                if (!identityProjections) {
+                    // output size is bounded by the input page, so no need to measure it or adapt the batch size
+                    updateBatchSize(resultPage.getPositionCount(), resultPage.getSizeInBytes());
+                }
 
                 // remove batch from selectedPositions and previouslyComputedResults
                 selectedPositions = selectedPositions.subRange(batchSize, selectedPositions.size());
@@ -247,13 +219,13 @@ public class PageProcessor
 
         private void updateBatchSize(int positionCount, long pageSize)
         {
-            // if we produced a large page or if the expression is expensive, halve the batch size for the next call
-            if (positionCount > 1 && (pageSize > MAX_PAGE_SIZE_IN_BYTES || expressionProfiler.isExpressionExpensive())) {
+            // if we produced a large page, halve the batch size for the next call
+            if (positionCount > 1 && pageSize > MAX_PAGE_SIZE_IN_BYTES) {
                 projectBatchSize = projectBatchSize / 2;
             }
 
             // if we produced a small page, double the batch size for the next call
-            if (pageSize < MIN_PAGE_SIZE_IN_BYTES && projectBatchSize < MAX_BATCH_SIZE && !expressionProfiler.isExpressionExpensive()) {
+            if (pageSize < MIN_PAGE_SIZE_IN_BYTES && projectBatchSize < MAX_BATCH_SIZE) {
                 projectBatchSize = projectBatchSize * 2;
             }
         }
@@ -306,11 +278,7 @@ public class PageProcessor
             long pageSize = 0;
             SelectedPositions positionsBatch = selectedPositions.subRange(0, batchSize);
             for (int i = 0; i < projections.size(); i++) {
-                if (yieldSignal.isSet()) {
-                    return ProcessBatchResult.processBatchYield();
-                }
-
-                if (positionsBatch.size() > 1 && pageSize > MAX_PAGE_SIZE_IN_BYTES) {
+                if (!identityProjections && positionsBatch.size() > 1 && pageSize > MAX_PAGE_SIZE_IN_BYTES) {
                     return ProcessBatchResult.processBatchTooLarge();
                 }
 
@@ -321,16 +289,17 @@ public class PageProcessor
                 }
                 else {
                     SourcePage inputChannelsSourcePage = projection.getInputChannels().getInputChannels(page);
-                    expressionProfiler.start();
+                    long projectionStartNanos = System.nanoTime();
                     Block result = projection.project(session, inputChannelsSourcePage, positionsBatch);
-                    long projectionTimeNanos = expressionProfiler.stop(positionsBatch.size());
-                    metrics.recordProjectionTime(projectionTimeNanos);
+                    metrics.recordProjectionTime(System.nanoTime() - projectionStartNanos);
 
                     previouslyComputedResults[i] = result;
                     blocks[i] = previouslyComputedResults[i];
                 }
 
-                pageSize += blocks[i].getSizeInBytes();
+                if (!identityProjections) {
+                    pageSize += blocks[i].getSizeInBytes();
+                }
             }
             return ProcessBatchResult.processBatchSuccess(new Page(positionsBatch.size(), blocks));
         }
@@ -362,11 +331,6 @@ public class PageProcessor
 
     private record ProcessBatchResult(ProcessBatchState state, Page page)
     {
-        public boolean isYieldFinish()
-        {
-            return state == ProcessBatchState.YIELD;
-        }
-
         public boolean isPageTooLarge()
         {
             return state == ProcessBatchState.PAGE_TOO_LARGE;
@@ -383,11 +347,6 @@ public class PageProcessor
             return verifyNotNull(page);
         }
 
-        public static ProcessBatchResult processBatchYield()
-        {
-            return new ProcessBatchResult(ProcessBatchState.YIELD, null);
-        }
-
         public static ProcessBatchResult processBatchTooLarge()
         {
             return new ProcessBatchResult(ProcessBatchState.PAGE_TOO_LARGE, null);
@@ -400,7 +359,6 @@ public class PageProcessor
 
         private enum ProcessBatchState
         {
-            YIELD,
             PAGE_TOO_LARGE,
             SUCCESS,
         }

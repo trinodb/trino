@@ -26,6 +26,7 @@ import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.DecimalType;
@@ -129,6 +130,7 @@ public final class DecimalAverageAggregation
         state.addLong(otherState.getLong()); // row counter
     }
 
+    @SqlNullable
     @OutputFunction("decimal(p,s)")
     public static void outputDecimal(
             @TypeParameter("decimal(p,s)") Type type,

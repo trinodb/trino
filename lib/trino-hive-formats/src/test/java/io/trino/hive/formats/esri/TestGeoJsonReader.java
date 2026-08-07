@@ -19,13 +19,13 @@ import io.trino.spi.PageBuilder;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKTReader;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
 
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.hive.formats.esri.EsriDeserializer.Format.GEO_JSON;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -133,13 +133,36 @@ public class TestGeoJsonReader
         assertThat(page.getPositionCount()).isZero();
     }
 
+    @Test
+    public void testReadFeatureCollectionPreservesCoordinateZ()
+            throws IOException
+    {
+        String json =
+                """
+                {
+                   "type": "FeatureCollection",
+                   "features": [{
+                       "type": "Feature",
+                       "geometry": {
+                           "type": "Point",
+                           "coordinates": [102.0, 0.5, 12.25]
+                       }
+                   }]
+                }
+                """;
+
+        Page page = readAll(json);
+        assertThat(page.getPositionCount()).isEqualTo(1);
+        assertGeometry(page, "POINT Z (102.0 0.5 12.25)", 4326, 1, 0);
+        assertThat(readGeometry(page, 1, 0).getCoordinate().getZ()).isEqualTo(12.25);
+    }
+
     static void assertGeometry(Page page, String expectedWkt, int expectedSrid, int channel, int position)
     {
         assertThat(page.getBlock(channel).isNull(position)).isFalse();
 
         try {
-            byte[] actualWkb = VARBINARY.getSlice(page.getBlock(channel), position).getBytes();
-            Geometry actualGeometry = new WKBReader().read(actualWkb);
+            Geometry actualGeometry = readGeometry(page, channel, position);
             Geometry expectedGeometry = new WKTReader().read(expectedWkt);
             assertThat(actualGeometry.equalsExact(expectedGeometry)).isTrue();
             assertThat(actualGeometry.getSRID()).isEqualTo(expectedSrid);
@@ -147,6 +170,11 @@ public class TestGeoJsonReader
         catch (ParseException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static Geometry readGeometry(Page page, int channel, int position)
+    {
+        return deserialize(VARBINARY.getSlice(page.getBlock(channel), position));
     }
 
     private static Page readAll(String json)

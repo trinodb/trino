@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -146,6 +147,33 @@ public class TestCsvFormat
         // Since the escape character is swapped, the quote or separator character can be the same as the original escape character
         assertLine("\"a\"|\"b\\\"b\"|\"c\"", Arrays.asList("a", "b\"b", "c"), Optional.of('|'), Optional.of('"'), Optional.of('"'));
         assertLine("*a*\"*b\\\"b*\"*c*", Arrays.asList("a", "b\"b", "c"), Optional.of('"'), Optional.of('*'), Optional.of('"'));
+    }
+
+    @Test
+    public void testRandomLinesMatchHive()
+            throws Exception
+    {
+        // Lines without a quote or an escape character are split without decoding a String, so
+        // cover both that path and the general one, using Hive itself as the oracle.
+        Random random = new Random(20260712);
+        for (int i = 0; i < 4000; i++) {
+            String csvLine = randomCsvLine(random);
+            @SuppressWarnings("unchecked")
+            List<String> hiveValues = (List<String>) readHiveLine(3, csvLine, Optional.empty(), Optional.empty(), Optional.empty());
+            assertTrinoLine(csvLine, hiveValues, Optional.empty(), Optional.empty(), Optional.empty());
+        }
+    }
+
+    private static String randomCsvLine(Random random)
+    {
+        // include the separator, quote, and escape characters, whitespace, and multi byte UTF-8
+        String alphabet = random.nextBoolean() ? "ab,  ," : "ab,\"\\ ,ą日";
+        StringBuilder line = new StringBuilder();
+        int length = random.nextInt(24);
+        for (int i = 0; i < length; i++) {
+            line.append(alphabet.charAt(random.nextInt(alphabet.length())));
+        }
+        return line.toString();
     }
 
     private static void assertLine(boolean shouldRoundTrip, String csvLine, List<String> expectedValues)

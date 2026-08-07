@@ -469,7 +469,7 @@ public class OpenSearchMetadata
             return Optional.empty();
         }
 
-        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().orElseThrow() <= limit) {
             return Optional.empty();
         }
 

@@ -56,6 +56,7 @@ public final class MaxByNAggregationFunction
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction("array(V)")
     public static void output(@AggregationState({"K", "V"}) MaxByNState state, BlockBuilder out)
     {

@@ -18,6 +18,7 @@ import com.google.common.net.InetAddresses;
 import io.trino.node.DnsNodeInventory.HostResolver;
 import org.junit.jupiter.api.Test;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.util.Set;
 
@@ -26,11 +27,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestDnsNodeInventory
 {
     private static final HostResolver RESOLVER = host -> switch (host) {
-        case "example.com" -> ImmutableSet.of(InetAddresses.forString("10.0.0.1"), InetAddresses.forString("10.0.0.2"));
-        case "other.example.org" -> ImmutableSet.of(InetAddresses.forString("fd00::1:2:3:4"), InetAddresses.forString("fd00::1:2:3:5"));
+        case "example.com" -> ImmutableSet.of(InetAddress.ofLiteral("10.0.0.1"), InetAddress.ofLiteral("10.0.0.2"));
+        case "other.example.org" -> ImmutableSet.of(InetAddress.ofLiteral("fd00::1:2:3:4"), InetAddress.ofLiteral("fd00::1:2:3:5"));
         default -> {
             if (InetAddresses.isInetAddress(host)) {
-                yield ImmutableSet.of(InetAddresses.forString(host));
+                yield ImmutableSet.of(InetAddress.ofLiteral(host));
             }
             throw new IllegalArgumentException("Unknown host: " + host);
         }

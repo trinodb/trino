@@ -16,10 +16,10 @@ package io.trino.operator.scalar.json;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.json.JsonPathEvaluator;
-import io.trino.json.JsonPathInvocationContext;
-import io.trino.json.PathEvaluationException;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.JsonPathEvaluator;
+import io.trino.jsonpath.JsonPathInvocationContext;
+import io.trino.jsonpath.PathEvaluationException;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SqlScalarFunction;
@@ -34,14 +34,14 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.tree.JsonExists.ErrorBehavior;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -71,7 +71,7 @@ public class JsonExistsFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .returnType(BOOLEAN)
-                        .argumentTypes(type(JSON_2016), type(JsonPath2016Type.NAME), typeVariable("T"), type(TINYINT))
+                        .argumentTypes(type(JSON_2016), type(SqlJsonPathType.NAME), typeVariable("T"), type(TINYINT))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false)

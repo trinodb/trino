@@ -407,10 +407,10 @@ public class MapType
         return NAME + "(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
     }
 
-    public MapBlock createBlockFromKeyValue(Optional<boolean[]> mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
+    public MapBlock createBlockFromKeyValue(Optional<long[]> valueIsValid, int[] offsets, Block keyBlock, Block valueBlock)
     {
         return MapBlock.fromKeyValueBlock(
-                mapIsNull,
+                valueIsValid,
                 offsets,
                 keyBlock,
                 valueBlock,

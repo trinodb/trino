@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.procedure;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.filesystem.FileEntry;
@@ -40,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -71,7 +71,7 @@ public final class RemoveOrphanFiles
         // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
         // representations due to things like double slashes. Using file names may result in retaining files which could be removed.
         // However, in practice Iceberg metadata and data files have UUIDs in their names which makes this unlikely.
-        Set<String> validFileNames = Sets.newConcurrentHashSet();
+        Set<String> validFileNames = ConcurrentHashMap.newKeySet();
         List<Future<?>> manifestScanFutures = new ArrayList<>();
 
         for (Snapshot snapshot : table.snapshots()) {

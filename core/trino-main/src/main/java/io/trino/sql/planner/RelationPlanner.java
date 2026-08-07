@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.Session;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
@@ -134,6 +134,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PatternSearchMode;
+import io.trino.sql.tree.Pivot;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
@@ -192,6 +193,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
@@ -320,7 +322,7 @@ class RelationPlanner
                     .map(Field::getType)
                     .collect(toImmutableList());
 
-            NodeAndMappings coerced = coerce(subPlan, types, symbolAllocator, idAllocator);
+            NodeAndMappings coerced = coerce(plannerContext.getTypeManager(), subPlan, types, symbolAllocator, idAllocator);
 
             plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
         }
@@ -353,7 +355,7 @@ class RelationPlanner
                         .map(Field::getType)
                         .collect(toImmutableList());
                 // apply required coercion and prune invisible fields from child outputs
-                NodeAndMappings coerced = coerce(plan, types, symbolAllocator, idAllocator);
+                NodeAndMappings coerced = coerce(plannerContext.getTypeManager(), plan, types, symbolAllocator, idAllocator);
                 plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
             }
         }
@@ -388,7 +390,7 @@ class RelationPlanner
         for (io.trino.sql.tree.Expression filter : filters) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
-            Expression predicate = coerceIfNecessary(analysis, filter, planBuilder.rewrite(filter));
+            Expression predicate = coerceIfNecessary(plannerContext, analysis, filter, planBuilder.rewrite(filter));
             predicate = predicateTransformation.apply(predicate);
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
@@ -413,7 +415,7 @@ class RelationPlanner
 
             Expression predicate = ifExpression(
                     // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
-                    new Coalesce(coerceIfNecessary(analysis, constraint, planBuilder.rewrite(constraint)), Booleans.TRUE),
+                    new Coalesce(coerceIfNecessary(plannerContext, analysis, constraint, planBuilder.rewrite(constraint)), Booleans.TRUE),
                     Booleans.TRUE,
                     new Cast(failFunction(plannerContext.getMetadata(), CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), BOOLEAN));
 
@@ -453,7 +455,7 @@ class RelationPlanner
             if (mask != null) {
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
                 symbol = symbolAllocator.newSymbol(symbol);
-                projection = coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask));
+                projection = coerceIfNecessary(plannerContext, analysis, mask, planBuilder.rewrite(mask));
             }
 
             assignments.put(symbol, projection);
@@ -516,7 +518,7 @@ class RelationPlanner
                 // if there are partitioning columns, they might have to be coerced for copartitioning
                 if (tableArgument.getPartitionBy().isPresent() && !tableArgument.getPartitionBy().get().isEmpty()) {
                     List<io.trino.sql.tree.Expression> partitioningColumns = tableArgument.getPartitionBy().get();
-                    PlanAndMappings copartitionCoercions = coerce(sourcePlanBuilder, partitioningColumns, analysis, idAllocator, symbolAllocator);
+                    PlanAndMappings copartitionCoercions = coerce(plannerContext.getTypeManager(), sourcePlanBuilder, partitioningColumns, analysis, idAllocator, symbolAllocator);
                     sourcePlanBuilder = copartitionCoercions.getSubPlan();
                     partitionBy = partitioningColumns.stream()
                             .map(copartitionCoercions::get)
@@ -804,7 +806,7 @@ class RelationPlanner
                             new AggregatedSetDescriptor(labels, descriptor.mode() == RUNNING),
                             descriptor.arguments().stream()
                                     .filter(argument -> !DereferenceExpression.isQualifiedAllFieldsReference(argument))
-                                    .map(argument -> coerceIfNecessary(analysis, argument, argumentTranslation.rewrite(argument)))
+                                    .map(argument -> coerceIfNecessary(plannerContext, analysis, argument, argumentTranslation.rewrite(argument)))
                                     .toList(),
                             classifierSymbol,
                             matchNumberSymbol);
@@ -995,9 +997,9 @@ class RelationPlanner
             leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, symbolAllocator, idAllocator);
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
-            PlanAndMappings leftCoercions = coerce(leftPlanBuilder, leftComparisonExpressions, analysis, idAllocator, symbolAllocator);
+            PlanAndMappings leftCoercions = coerce(plannerContext.getTypeManager(), leftPlanBuilder, leftComparisonExpressions, analysis, idAllocator, symbolAllocator);
             leftPlanBuilder = leftCoercions.getSubPlan();
-            PlanAndMappings rightCoercions = coerce(rightPlanBuilder, rightComparisonExpressions, analysis, idAllocator, symbolAllocator);
+            PlanAndMappings rightCoercions = coerce(plannerContext.getTypeManager(), rightPlanBuilder, rightComparisonExpressions, analysis, idAllocator, symbolAllocator);
             rightPlanBuilder = rightCoercions.getSubPlan();
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
@@ -1067,7 +1069,7 @@ class RelationPlanner
                     rightPlanBuilder.getRoot().getOutputSymbols(),
                     false,
                     Optional.of(IrUtils.and(complexJoinExpressions.stream()
-                            .map(e -> coerceIfNecessary(analysis, e, translationMap.rewrite(e)))
+                            .map(e -> coerceIfNecessary(plannerContext, analysis, e, translationMap.rewrite(e)))
                             .collect(Collectors.toList()))),
                     Optional.empty(),
                     Optional.empty(),
@@ -1081,7 +1083,7 @@ class RelationPlanner
             rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, subqueries);
 
             for (io.trino.sql.tree.Expression expression : complexJoinExpressions) {
-                postInnerJoinConditions.add(coerceIfNecessary(analysis, expression, rootPlanBuilder.rewrite(expression)));
+                postInnerJoinConditions.add(coerceIfNecessary(plannerContext, analysis, expression, rootPlanBuilder.rewrite(expression)));
             }
             root = rootPlanBuilder.getRoot();
 
@@ -1155,13 +1157,13 @@ class RelationPlanner
             // compute the coercion for the field on the left to the common supertype of left & right
             Symbol leftOutput = symbolAllocator.newSymbol(identifier.getValue(), type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
-            leftCoercions.put(leftOutput, new Cast(left.getSymbol(leftField).toSymbolReference(), type));
+            leftCoercions.put(leftOutput, cast(plannerContext.getTypeManager(), left.getSymbol(leftField).toSymbolReference(), type));
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
             Symbol rightOutput = symbolAllocator.newSymbol(identifier.getValue(), type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
-            rightCoercions.put(rightOutput, new Cast(right.getSymbol(rightField).toSymbolReference(), type));
+            rightCoercions.put(rightOutput, cast(plannerContext.getTypeManager(), right.getSymbol(rightField).toSymbolReference(), type));
             rightJoinColumns.put(identifier, rightOutput);
 
             clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
@@ -1331,7 +1333,7 @@ class RelationPlanner
                 rightPlanBuilder.getRoot().getOutputSymbols(),
                 false,
                 Optional.of(IrUtils.and(predicates.stream()
-                        .map(expression -> coerceIfNecessary(analysis, expression, candidateTranslations.rewrite(expression)))
+                        .map(expression -> coerceIfNecessary(plannerContext, analysis, expression, candidateTranslations.rewrite(expression)))
                         .collect(toImmutableList()))),
                 Optional.empty(),
                 Optional.empty(),
@@ -1400,7 +1402,7 @@ class RelationPlanner
             }
 
             io.trino.sql.tree.Expression filterExpression = (io.trino.sql.tree.Expression) getOnlyElement(criteria.getNodes());
-            rewrittenFilterCondition = coerceIfNecessary(analysis, filterExpression, translationMap.rewrite(filterExpression));
+            rewrittenFilterCondition = coerceIfNecessary(plannerContext, analysis, filterExpression, translationMap.rewrite(filterExpression));
         }
 
         PlanBuilder planBuilder = subqueryPlanner.appendCorrelatedJoin(
@@ -1501,7 +1503,7 @@ class RelationPlanner
         // apply coercions
         // coercions might be necessary for the context item and path parameters before the input functions are applied
         // also, the default expressions in value columns (DEFAULT ... ON EMPTY / ON ERROR) might need a coercion to match the required output type
-        PlanAndMappings coerced = coerce(planBuilder, inputExpressions, analysis, idAllocator, symbolAllocator);
+        PlanAndMappings coerced = coerce(plannerContext.getTypeManager(), planBuilder, inputExpressions, analysis, idAllocator, symbolAllocator);
         planBuilder = coerced.getSubPlan();
 
         // apply the input function to the input expression
@@ -1537,7 +1539,7 @@ class RelationPlanner
         Map<NodeRef<io.trino.sql.tree.Expression>, Expression> rewrittenDefaultExpressions = new HashMap<>();
         ImmutableList.Builder<Symbol> defaultSymbolsBuilder = ImmutableList.builder();
         for (io.trino.sql.tree.Expression defaultExpression : defaultExpressions) {
-            Expression rewritten = coerceIfNecessary(analysis, defaultExpression, planBuilder.rewrite(defaultExpression));
+            Expression rewritten = coerceIfNecessary(plannerContext, analysis, defaultExpression, planBuilder.rewrite(defaultExpression));
             rewrittenDefaultExpressions.put(NodeRef.of(defaultExpression), rewritten);
             defaultSymbolsBuilder.addAll(SymbolsExtractor.extractUnique(rewritten));
         }
@@ -1646,7 +1648,7 @@ class RelationPlanner
                 Type expectedType = jsonTableRelationType.getFieldByIndex(i).getType();
                 Type resultType = outputFunction.signature().getReturnType();
                 if (!resultType.equals(expectedType)) {
-                    result = new Cast(result, expectedType);
+                    result = cast(plannerContext.getTypeManager(), result, expectedType);
                 }
 
                 Symbol output = symbolAllocator.newSymbol(result);
@@ -1878,6 +1880,14 @@ class RelationPlanner
     }
 
     @Override
+    protected RelationPlan visitPivot(Pivot node, Void context)
+    {
+        RelationPlan inputPlan = process(node.getInput(), context);
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+                .planPivot(node, inputPlan);
+    }
+
+    @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
@@ -1911,7 +1921,7 @@ class RelationPlanner
 
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (io.trino.sql.tree.Expression row : node.getRows()) {
-            Expression rewritten = coerceIfNecessary(analysis, row, translationMap.rewrite(row));
+            Expression rewritten = coerceIfNecessary(plannerContext, analysis, row, translationMap.rewrite(row));
             if (!(analysis.getType(row) instanceof RowType)) {
                 rewritten = new Row(ImmutableList.of(rewritten));
             }
@@ -2041,7 +2051,7 @@ class RelationPlanner
             }
             else {
                 // apply required coercion and prune invisible fields from child outputs
-                planAndMappings = coerce(plan, types, symbolAllocator, idAllocator);
+                planAndMappings = coerce(plannerContext.getTypeManager(), plan, types, symbolAllocator, idAllocator);
             }
             for (int i = 0; i < outputFields.getAllFields().size(); i++) {
                 symbolMapping.put(outputs.get(i), planAndMappings.getFields().get(i));

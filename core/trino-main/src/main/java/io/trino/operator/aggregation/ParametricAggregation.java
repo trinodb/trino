@@ -64,7 +64,6 @@ public class ParametricAggregation
         super(createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
                 createAggregationFunctionMetadata(details, stateDetails));
         this.stateDetails = ImmutableList.copyOf(requireNonNull(stateDetails, "stateDetails is null"));
-        checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
 

@@ -88,6 +88,7 @@ public final class MaxByAggregationFunction
         }
     }
 
+    @SqlNullable
     @OutputFunction("V")
     public static void output(
             @AggregationState("K") InOut keyState,

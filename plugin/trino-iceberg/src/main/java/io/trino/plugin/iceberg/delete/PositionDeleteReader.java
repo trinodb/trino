@@ -69,7 +69,7 @@ public final class PositionDeleteReader
         List<IcebergColumnHandle> deleteColumns = ImmutableList.of(deleteFilePath, deleteFilePos);
         TupleDomain<IcebergColumnHandle> deleteDomain = TupleDomain.fromFixedValues(ImmutableMap.of(deleteFilePath, NullableValue.of(VARCHAR, targetPath)));
         if (startRowPosition.isPresent()) {
-            Range positionRange = Range.range(deleteFilePos.getType(), startRowPosition.getAsLong(), true, endRowPosition.getAsLong(), true);
+            Range positionRange = Range.range(deleteFilePos.getType(), startRowPosition.orElseThrow(), true, endRowPosition.orElseThrow(), true);
             TupleDomain<IcebergColumnHandle> positionDomain = TupleDomain.withColumnDomains(ImmutableMap.of(deleteFilePos, Domain.create(ValueSet.ofRanges(positionRange), false)));
             deleteDomain = deleteDomain.intersect(positionDomain);
         }
@@ -97,8 +97,8 @@ public final class PositionDeleteReader
 
         OptionalLong positionLowerBound = deleteFile.rowPositionLowerBound();
         OptionalLong positionUpperBound = deleteFile.rowPositionUpperBound();
-        return (positionLowerBound.isEmpty() || positionLowerBound.getAsLong() <= endRowPosition.orElseThrow()) &&
-                (positionUpperBound.isEmpty() || positionUpperBound.getAsLong() >= startRowPosition.getAsLong());
+        return (positionLowerBound.isEmpty() || positionLowerBound.orElseThrow() <= endRowPosition.orElseThrow()) &&
+                (positionUpperBound.isEmpty() || positionUpperBound.orElseThrow() >= startRowPosition.orElseThrow());
     }
 
     public static void readSingleFilePositionDeletes(ConnectorPageSource pageSource, LongConsumer filePositionConsumer)

@@ -286,6 +286,7 @@ public final class DistributedQueryRunner
     {
         Logging logging = Logging.initialize();
         logging.setLevel("io.trino.bootstrap", WARN);
+        logging.setLevel("org.apache.parquet.schema", ERROR);
         logging.setLevel("org.glassfish", ERROR);
         logging.setLevel("org.eclipse.jetty.server", WARN);
         logging.setLevel("org.hibernate.validator.internal.util.Version", WARN);
@@ -313,7 +314,12 @@ public final class DistributedQueryRunner
                 .put("exchange.http-client.min-threads", "1") // default 8
                 .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
-                .put("task.max-index-memory", "16kB"); // causes index joins to fault load
+                .put("task.max-index-memory", "16kB") // causes index joins to fault load
+                // Purge finished-task info quickly so per-task stats are not retained, preserving memory on CI.
+                // Must stay above task.info-update-interval so the coordinator can fetch a task's final
+                // TaskInfo (incl. SpoolingOutputStats needed by fault-tolerant execution) before it is evicted.
+                .put("task.info.max-age", "10s")
+                .put("task.info-update-interval", "1s");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
@@ -670,6 +676,14 @@ public final class DistributedQueryRunner
     }
 
     @Override
+    public void loadBlobCacheManager(String name, Map<String, String> properties)
+    {
+        for (TestingTrinoServer server : servers) {
+            server.loadBlobCacheManager(name, properties);
+        }
+    }
+
+    @Override
     public void loadSpoolingManager(String name, Map<String, String> properties)
     {
         for (TestingTrinoServer server : servers) {
@@ -738,6 +752,9 @@ public final class DistributedQueryRunner
         private boolean withTracing;
         private Optional<String> exchangeType = Optional.empty();
         private Optional<Map<String, String>> exchangeProperties = Optional.empty();
+        private Optional<String> blobCacheType = Optional.empty();
+        private Optional<Map<String, String>> blobCacheProperties = Optional.empty();
+        private final ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
         private int workerCount = 2;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
@@ -929,6 +946,19 @@ public final class DistributedQueryRunner
             return self();
         }
 
+        public SELF withBlobCache(String type, Map<String, String> properties)
+        {
+            this.blobCacheType = Optional.of(type);
+            this.blobCacheProperties = Optional.of(ImmutableMap.copyOf(properties));
+            return self();
+        }
+
+        public SELF withPlugin(Plugin plugin)
+        {
+            plugins.add(plugin);
+            return self();
+        }
+
         public SELF withProtocolSpooling(String encoding)
         {
             this.encoding = Optional.of(encoding);
@@ -1013,6 +1043,14 @@ public final class DistributedQueryRunner
                         }
                         default -> throw new IllegalArgumentException("Unknow exchange type: " + exchangeType);
                     }
+                }
+
+                for (Plugin plugin : plugins.build()) {
+                    queryRunner.installPlugin(plugin);
+                }
+
+                if (blobCacheType.isPresent()) {
+                    queryRunner.loadBlobCacheManager(blobCacheType.orElseThrow(), blobCacheProperties.orElseThrow());
                 }
 
                 additionalSetup.accept(queryRunner);

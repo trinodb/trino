@@ -14,11 +14,11 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
+import io.trino.spi.block.BitArrayBlock;
+import io.trino.spi.block.BitArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.ByteArrayBlock;
-import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
@@ -51,26 +51,14 @@ public final class BooleanType
 
     public static final BooleanType BOOLEAN = new BooleanType();
 
-    /**
-     * This method signifies a contract to callers that as an optimization, they can encode BooleanType blocks as a byte[] directly
-     * and potentially bypass the BlockBuilder / BooleanType abstraction in the name of efficiency. If in the future BooleanType
-     * encoding changes such that {@link ByteArrayBlock} is not always a valid or efficient representation, then this method must be
-     * removed and any usages changed
-     */
-    public static Block wrapByteArrayAsBooleanBlockWithoutNulls(byte[] booleansAsBytes)
-    {
-        return new ByteArrayBlock(booleansAsBytes.length, Optional.empty(), booleansAsBytes);
-    }
-
     public static Block createBlockForSingleNonNullValue(boolean value)
     {
-        byte byteValue = value ? (byte) 1 : 0;
-        return new ByteArrayBlock(1, Optional.empty(), new byte[] {byteValue});
+        return new BitArrayBlock(1, Optional.empty(), new long[] {value ? 1 : 0});
     }
 
     private BooleanType()
     {
-        super(new TypeDescriptor(NAME), boolean.class, ByteArrayBlock.class);
+        super(new TypeDescriptor(NAME), boolean.class, BitArrayBlock.class);
     }
 
     @Override
@@ -89,7 +77,7 @@ public final class BooleanType
         else {
             maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
-        return new ByteArrayBlockBuilder(
+        return new BitArrayBlockBuilder(
                 blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / Byte.BYTES));
     }
@@ -97,7 +85,7 @@ public final class BooleanType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new ByteArrayBlockBuilder(null, positionCount);
+        return new BitArrayBlockBuilder(null, positionCount);
     }
 
     @Override
@@ -137,13 +125,13 @@ public final class BooleanType
     @Override
     public boolean getBoolean(Block block, int position)
     {
-        return read((ByteArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
+        return read((BitArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
     public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
-        ((ByteArrayBlockBuilder) blockBuilder).writeByte((byte) (value ? 1 : 0));
+        ((BitArrayBlockBuilder) blockBuilder).writeBoolean(value);
     }
 
     @Override
@@ -164,13 +152,13 @@ public final class BooleanType
         return getClass().hashCode();
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
-    private static boolean read(@BlockPosition ByteArrayBlock block, @BlockIndex int position)
+    @ScalarOperator(READ_VALUE)
+    private static boolean read(@BlockPosition BitArrayBlock block, @BlockIndex int position)
     {
-        return block.getByte(position) != 0;
+        return block.getBoolean(position);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static boolean readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -180,7 +168,7 @@ public final class BooleanType
         return fixedSizeSlice[fixedSizeOffset] != 0;
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             boolean value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -191,31 +179,31 @@ public final class BooleanType
         fixedSizeSlice[fixedSizeOffset] = (byte) (value ? 1 : 0);
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(boolean left, boolean right)
     {
         return left == right;
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(boolean value)
     {
         return value ? TRUE_XX_HASH : FALSE_XX_HASH;
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(boolean left, boolean right)
     {
         return Boolean.compare(left, right);
     }
 
-    @ScalarOperator(value = LESS_THAN, neverFails = true)
+    @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(boolean left, boolean right)
     {
         return !left && right;
     }
 
-    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqualOperator(boolean left, boolean right)
     {
         return !left || right;

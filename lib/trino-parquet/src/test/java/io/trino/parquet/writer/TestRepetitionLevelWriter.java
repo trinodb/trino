@@ -54,11 +54,11 @@ public class TestRepetitionLevelWriter
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
             // Using an array of row blocks for testing as Structs don't have a repetition level by themselves
-            Optional<boolean[]> valueIsNull = RANDOM_NULLS.getNulls(POSITIONS);
-            int[] arrayOffsets = generateOffsets(valueIsNull, POSITIONS);
+            Optional<long[]> valueIsValid = RANDOM_NULLS.getValidities(POSITIONS);
+            int[] arrayOffsets = generateOffsets(valueIsValid, POSITIONS);
             int rowBlockPositions = arrayOffsets[POSITIONS];
-            RowBlock rowBlock = createRowBlock(nullsProvider.getNulls(rowBlockPositions), rowBlockPositions);
-            ArrayBlock arrayBlock = fromElementBlock(POSITIONS, valueIsNull, arrayOffsets, rowBlock);
+            RowBlock rowBlock = createRowBlock(nullsProvider.getValidities(rowBlockPositions), rowBlockPositions);
+            ArrayBlock arrayBlock = fromElementBlock(POSITIONS, valueIsValid, arrayOffsets, rowBlock);
 
             ColumnarArray columnarArray = toColumnarArray(arrayBlock);
             Block row = columnarArray.getElementsBlock();
@@ -90,7 +90,7 @@ public class TestRepetitionLevelWriter
     public void testWriteArrayRepetitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
-            Block arrayBlock = createArrayBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            Block arrayBlock = createArrayBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
             ColumnarArray columnarArray = toColumnarArray(arrayBlock);
             // Write Repetition levels for all positions
             assertRepetitionLevels(columnarArray, ImmutableList.of());
@@ -107,7 +107,7 @@ public class TestRepetitionLevelWriter
     public void testWriteMapRepetitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
-            Block mapBlock = createMapBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            Block mapBlock = createMapBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
             ColumnarMap columnarMap = toColumnarMap(mapBlock);
             // Write Repetition levels for all positions
             assertRepetitionLevels(columnarMap, ImmutableList.of());
@@ -124,7 +124,7 @@ public class TestRepetitionLevelWriter
     public void testNestedStructRepetitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
-            RowBlock rowBlock = createNestedRowBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            RowBlock rowBlock = createNestedRowBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
             List<Block> fieldBlocks = getNullSuppressedRowFieldsFromBlock(rowBlock);
 
             for (int field = 0; field < fieldBlocks.size(); field++) {
@@ -146,24 +146,24 @@ public class TestRepetitionLevelWriter
         }
     }
 
-    private static RowBlock createNestedRowBlock(Optional<boolean[]> rowIsNull, int positionCount)
+    private static RowBlock createNestedRowBlock(Optional<long[]> rowIsValid, int positionCount)
     {
         Block[] fieldBlocks = new Block[2];
         // no nulls map block
-        fieldBlocks[0] = createMapOfArraysBlock(rowIsNull, positionCount);
+        fieldBlocks[0] = createMapOfArraysBlock(rowIsValid, positionCount);
         // random nulls map block
-        fieldBlocks[1] = createMapOfArraysBlock(RANDOM_NULLS.getNulls(positionCount, rowIsNull), positionCount);
+        fieldBlocks[1] = createMapOfArraysBlock(RANDOM_NULLS.getValidities(positionCount, rowIsValid), positionCount);
 
-        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
+        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsValid, fieldBlocks);
     }
 
-    private static Block createMapOfArraysBlock(Optional<boolean[]> mapIsNull, int positionCount)
+    private static Block createMapOfArraysBlock(Optional<long[]> mapIsValid, int positionCount)
     {
-        int[] offsets = generateOffsets(mapIsNull, positionCount);
+        int[] offsets = generateOffsets(mapIsValid, positionCount);
         int entriesCount = offsets[positionCount];
         Block keyBlock = createArrayBlock(Optional.empty(), entriesCount);
-        Block valueBlock = createArrayBlock(RANDOM_NULLS.getNulls(entriesCount), entriesCount);
-        return fromKeyValueBlock(mapIsNull, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, new TypeOperators()));
+        Block valueBlock = createArrayBlock(RANDOM_NULLS.getValidities(entriesCount), entriesCount);
+        return fromKeyValueBlock(mapIsValid, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, new TypeOperators()));
     }
 
     private static void assertRepetitionLevels(

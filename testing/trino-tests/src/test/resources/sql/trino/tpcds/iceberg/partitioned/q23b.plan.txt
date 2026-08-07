@@ -42,8 +42,8 @@ local exchange (GATHER, SINGLE, [])
                                     final aggregation over (ss_customer_sk_52)
                                         local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
-                                                partial aggregation over (ss_customer_sk_52)
-                                                    remote exchange (REPARTITION, HASH, [ss_customer_sk_52])
+                                                remote exchange (REPARTITION, HASH, [ss_customer_sk_52])
+                                                    partial aggregation over (ss_customer_sk_52)
                                                         dynamic filter (ss_customer_sk_52::EQUAL)
                                                             scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
@@ -58,8 +58,8 @@ local exchange (GATHER, SINGLE, [])
                                                             final aggregation over (ss_customer_sk_100)
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, PARTITIONED):
-                                                                        partial aggregation over (ss_customer_sk_100)
-                                                                            remote exchange (REPARTITION, HASH, [ss_customer_sk_100])
+                                                                        remote exchange (REPARTITION, HASH, [ss_customer_sk_100])
+                                                                            partial aggregation over (ss_customer_sk_100)
                                                                                 join (INNER, REPLICATED):
                                                                                     dynamic filter (ss_customer_sk_100::EQUAL, ss_sold_date_sk_120::EQUAL)
                                                                                         scan store_sales
@@ -111,8 +111,8 @@ local exchange (GATHER, SINGLE, [])
                                     final aggregation over (ss_customer_sk_330)
                                         local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
-                                                partial aggregation over (ss_customer_sk_330)
-                                                    remote exchange (REPARTITION, HASH, [ss_customer_sk_330])
+                                                remote exchange (REPARTITION, HASH, [ss_customer_sk_330])
+                                                    partial aggregation over (ss_customer_sk_330)
                                                         dynamic filter (ss_customer_sk_330::EQUAL)
                                                             scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
@@ -127,8 +127,8 @@ local exchange (GATHER, SINGLE, [])
                                                             final aggregation over (ss_customer_sk_379)
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, PARTITIONED):
-                                                                        partial aggregation over (ss_customer_sk_379)
-                                                                            remote exchange (REPARTITION, HASH, [ss_customer_sk_379])
+                                                                        remote exchange (REPARTITION, HASH, [ss_customer_sk_379])
+                                                                            partial aggregation over (ss_customer_sk_379)
                                                                                 join (INNER, REPLICATED):
                                                                                     dynamic filter (ss_customer_sk_379::EQUAL, ss_sold_date_sk_399::EQUAL)
                                                                                         scan store_sales

@@ -81,6 +81,7 @@ public final class ChecksumAggregationFunction
         state.setValue(state.getValue() + otherState.getValue());
     }
 
+    @SqlNullable
     @OutputFunction("VARBINARY")
     public static void output(
             @AggregationState NullableLongState state,

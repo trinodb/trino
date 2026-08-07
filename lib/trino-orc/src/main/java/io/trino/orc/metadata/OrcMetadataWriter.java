@@ -258,11 +258,13 @@ public class OrcMetadataWriter
 
         if (columnStatistics.getStringStatistics() != null) {
             OrcProto.StringStatistics.Builder statisticsBuilder = OrcProto.StringStatistics.newBuilder();
-            if (columnStatistics.getStringStatistics().getMin() != null) {
-                statisticsBuilder.setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()));
+            Slice min = columnStatistics.getStringStatistics().getMin();
+            if (min != null) {
+                statisticsBuilder.setMinimumBytes(ByteString.copyFrom(min.byteArray(), min.byteArrayOffset(), min.length()));
             }
-            if (columnStatistics.getStringStatistics().getMax() != null) {
-                statisticsBuilder.setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()));
+            Slice max = columnStatistics.getStringStatistics().getMax();
+            if (max != null) {
+                statisticsBuilder.setMaximumBytes(ByteString.copyFrom(max.byteArray(), max.byteArrayOffset(), max.length()));
             }
             statisticsBuilder.setSum(columnStatistics.getStringStatistics().getSum());
             builder.setStringStatistics(statisticsBuilder.build());
@@ -300,9 +302,10 @@ public class OrcMetadataWriter
 
     private static UserMetadataItem toUserMetadata(Entry<String, Slice> entry)
     {
+        Slice value = entry.getValue();
         return OrcProto.UserMetadataItem.newBuilder()
                 .setName(entry.getKey())
-                .setValue(ByteString.copyFrom(entry.getValue().getBytes()))
+                .setValue(ByteString.copyFrom(value.byteArray(), value.byteArrayOffset(), value.length()))
                 .build();
     }
 

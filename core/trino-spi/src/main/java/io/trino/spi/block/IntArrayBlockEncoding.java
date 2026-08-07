@@ -20,12 +20,11 @@ import jdk.incubator.vector.IntVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
-import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
-import static java.lang.System.arraycopy;
+import static io.trino.spi.block.Bitmap.getBits;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
+import static java.lang.Long.bitCount;
 import static java.util.Objects.checkFromIndexSize;
 
 public class IntArrayBlockEncoding
@@ -34,13 +33,11 @@ public class IntArrayBlockEncoding
     private static final VectorSpecies<Integer> INT_SPECIES = IntVector.SPECIES_PREFERRED;
     public static final String NAME = "INT_ARRAY";
 
-    private final boolean vectorizeNullBitPacking;
     private final boolean vectorizeNullCompress;
     private final boolean vectorizeNullExpand;
 
-    public IntArrayBlockEncoding(boolean vectorizeNullBitPacking, boolean vectorizeNullCompress, boolean vectorizeNullExpand)
+    public IntArrayBlockEncoding(boolean vectorizeNullCompress, boolean vectorizeNullExpand)
     {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
         this.vectorizeNullCompress = vectorizeNullCompress;
         this.vectorizeNullExpand = vectorizeNullExpand;
     }
@@ -66,26 +63,19 @@ public class IntArrayBlockEncoding
 
         int rawOffset = intArrayBlock.getRawValuesOffset();
         @Nullable
-        boolean[] isNull = intArrayBlock.getRawValueIsNull();
+        long[] valueIsValid = intArrayBlock.getRawValueIsValid();
         int[] rawValues = intArrayBlock.getRawValues();
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, isNull, rawOffset, positionCount);
-        }
-        else {
-            encodeNullsAsBitsScalar(sliceOutput, isNull, rawOffset, positionCount);
-        }
+        encodeValidityAsLongs(sliceOutput, valueIsValid, rawOffset, positionCount);
 
-        if (isNull == null) {
+        if (valueIsValid == null) {
             sliceOutput.writeInts(rawValues, rawOffset, positionCount);
         }
+        else if (vectorizeNullCompress) {
+            compactIntsWithNullsVectorized(sliceOutput, rawValues, valueIsValid, rawOffset, positionCount);
+        }
         else {
-            if (vectorizeNullCompress) {
-                compactIntsWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
-            }
-            else {
-                compactIntsWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
-            }
+            compactIntsWithNulls(sliceOutput, rawValues, valueIsValid, rawOffset, positionCount);
         }
     }
 
@@ -94,81 +84,86 @@ public class IntArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
-        if (valueIsNullPacked == null) {
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
+        if (valueIsValid == null) {
             int[] values = new int[positionCount];
             sliceInput.readInts(values);
             return new IntArrayBlock(0, positionCount, null, values);
         }
 
-        boolean[] valueIsNull;
-        if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(valueIsNullPacked, positionCount);
-        }
-        else {
-            valueIsNull = decodeNullBitsScalar(valueIsNullPacked, positionCount);
-        }
         if (vectorizeNullExpand) {
-            return expandIntsWithNullsVectorized(sliceInput, positionCount, valueIsNull);
+            return expandIntsWithNullsVectorized(sliceInput, positionCount, valueIsValid);
         }
-        return expandIntsWithNullsScalar(sliceInput, positionCount, valueIsNullPacked, valueIsNull);
+        return expandIntsWithNulls(sliceInput, positionCount, valueIsValid);
     }
 
-    static void compactIntsWithNullsVectorized(SliceOutput sliceOutput, int[] values, boolean[] isNull, int offset, int length)
+    static void compactIntsWithNullsVectorized(SliceOutput sliceOutput, int[] values, long[] valueIsValid, int offset, int length)
     {
         checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
         int[] compacted = new int[length];
         int valuesIndex = 0;
         int compactedIndex = 0;
         for (; valuesIndex < INT_SPECIES.loopBound(length); valuesIndex += INT_SPECIES.length()) {
-            VectorMask<Integer> mask = INT_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            long validBits = getBits(valueIsValid, offset, valuesIndex, INT_SPECIES.length());
+            VectorMask<Integer> mask = VectorMask.fromLong(INT_SPECIES, validBits);
             IntVector.fromArray(INT_SPECIES, values, valuesIndex + offset)
                     .compress(mask)
                     .intoArray(compacted, compactedIndex);
-            compactedIndex += mask.trueCount();
+            compactedIndex += bitCount(validBits);
         }
         for (; valuesIndex < length; valuesIndex++) {
             compacted[compactedIndex] = values[valuesIndex + offset];
-            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+            compactedIndex += isSet(valueIsValid, offset, valuesIndex) ? 1 : 0;
         }
         sliceOutput.writeInt(compactedIndex);
         sliceOutput.writeInts(compacted, 0, compactedIndex);
     }
 
-    static void compactIntsWithNullsScalar(SliceOutput sliceOutput, int[] values, boolean[] isNull, int offset, int length)
+    static void compactIntsWithNulls(SliceOutput sliceOutput, int[] values, long[] valueIsValid, int offset, int length)
     {
         checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
         int[] compacted = new int[length];
         int compactedIndex = 0;
-        for (int i = 0; i < length; i++) {
-            compacted[compactedIndex] = values[i + offset];
-            compactedIndex += isNull[i + offset] ? 0 : 1;
+        for (int position = 0; position < length; position++) {
+            if (isSet(valueIsValid, offset, position)) {
+                compacted[compactedIndex++] = values[position + offset];
+            }
         }
         sliceOutput.writeInt(compactedIndex);
         sliceOutput.writeInts(compacted, 0, compactedIndex);
     }
 
-    static IntArrayBlock expandIntsWithNullsVectorized(SliceInput sliceInput, int positionCount, boolean[] valueIsNull)
+    static IntArrayBlock expandIntsWithNulls(SliceInput sliceInput, int positionCount, long[] valueIsValid)
     {
-        if (valueIsNull.length != positionCount) {
-            throw new IllegalArgumentException("valueIsNull length must match positionCount");
-        }
-        int nonNullPositionsCount = sliceInput.readInt();
-        int nonNullIndex = positionCount - nonNullPositionsCount;
         int[] values = new int[positionCount];
-        sliceInput.readInts(values, nonNullIndex, nonNullPositionsCount);
+        int nonNullPositionCount = sliceInput.readInt();
+        int[] compacted = new int[nonNullPositionCount];
+        sliceInput.readInts(compacted);
+
+        int compactedIndex = 0;
+        for (int position = 0; position < positionCount; position++) {
+            if (isSet(valueIsValid, 0, position)) {
+                values[position] = compacted[compactedIndex++];
+            }
+        }
+        return new IntArrayBlock(0, positionCount, valueIsValid, values);
+    }
+
+    static IntArrayBlock expandIntsWithNullsVectorized(SliceInput sliceInput, int positionCount, long[] valueIsValid)
+    {
+        int[] values = new int[positionCount];
+        int nonNullPositionCount = sliceInput.readInt();
+        int nonNullIndex = positionCount - nonNullPositionCount;
+        sliceInput.readInts(values, nonNullIndex, nonNullPositionCount);
 
         int position = 0;
-        if ((nonNullPositionsCount * (INT_SPECIES.length() * 4L)) <= positionCount) {
-            // Selective loop with many nulls, specialized handling with a branching approach
+        if ((nonNullPositionCount * (INT_SPECIES.length() * 4L)) <= positionCount) {
             for (; position < nonNullIndex && nonNullIndex + INT_SPECIES.length() < values.length; position += INT_SPECIES.length()) {
-                VectorMask<Integer> nullMask = INT_SPECIES.loadMask(valueIsNull, position);
-                if (!nullMask.allTrue()) {
-                    VectorMask<Integer> nonNullMask = nullMask.not();
+                long validBits = getBits(valueIsValid, 0, position, INT_SPECIES.length());
+                if (validBits != 0) {
                     IntVector nonNullValues = IntVector.fromArray(INT_SPECIES, values, nonNullIndex);
-                    nonNullIndex += nonNullMask.trueCount();
+                    VectorMask<Integer> nonNullMask = VectorMask.fromLong(INT_SPECIES, validBits);
+                    nonNullIndex += bitCount(validBits);
                     nonNullValues
                             .expand(nonNullMask)
                             .intoArray(values, position);
@@ -176,58 +171,21 @@ public class IntArrayBlockEncoding
             }
         }
         else {
-            // Branchless vectorized loop while the current position is still before the compacted starting offset,
-            // and we can load a full vector of non-null values before the end of the array
             for (; position < nonNullIndex && nonNullIndex + INT_SPECIES.length() < values.length; position += INT_SPECIES.length()) {
+                long validBits = getBits(valueIsValid, 0, position, INT_SPECIES.length());
                 IntVector nonNullValues = IntVector.fromArray(INT_SPECIES, values, nonNullIndex);
-                VectorMask<Integer> nonNullMask = INT_SPECIES.loadMask(valueIsNull, position).not();
-                nonNullIndex += nonNullMask.trueCount();
+                VectorMask<Integer> nonNullMask = VectorMask.fromLong(INT_SPECIES, validBits);
+                nonNullIndex += bitCount(validBits);
                 nonNullValues
                         .expand(nonNullMask)
                         .intoArray(values, position);
             }
         }
         for (; position < nonNullIndex; position++) {
-            values[position] = valueIsNull[position] ? 0 : values[nonNullIndex++];
-        }
-        return new IntArrayBlock(0, positionCount, valueIsNull, values);
-    }
-
-    static IntArrayBlock expandIntsWithNullsScalar(SliceInput sliceInput, int positionCount, byte[] valueIsNullPacked, boolean[] valueIsNull)
-    {
-        if (valueIsNull.length != positionCount) {
-            throw new IllegalArgumentException("valueIsNull length must match positionCount");
-        }
-        int[] values = new int[positionCount];
-        int nonNullPositionCount = sliceInput.readInt();
-        sliceInput.readInts(values, 0, nonNullPositionCount);
-        int position = nonNullPositionCount - 1;
-
-        // Handle Last (positionCount % 8) values
-        for (int i = positionCount - 1; i >= (positionCount & ~0b111) && position >= 0; i--) {
-            values[i] = values[position];
-            if (!valueIsNull[i]) {
-                position--;
+            if (isSet(valueIsValid, 0, position)) {
+                values[position] = values[nonNullIndex++];
             }
         }
-
-        // Handle the remaining positions.
-        for (int i = (positionCount & ~0b111) - 8; i >= 0 && position >= 0; i -= 8) {
-            byte packed = valueIsNullPacked[i >>> 3];
-            if (packed == 0) { // Only values
-                arraycopy(values, position - 7, values, i, 8);
-                position -= 8;
-            }
-            else if (packed != -1) { // At least one non-null
-                for (int j = i + 7; j >= i && position >= 0; j--) {
-                    values[j] = values[position];
-                    if (!valueIsNull[j]) {
-                        position--;
-                    }
-                }
-            }
-            // Do nothing if there are only nulls
-        }
-        return new IntArrayBlock(0, positionCount, valueIsNull, values);
+        return new IntArrayBlock(0, positionCount, valueIsValid, values);
     }
 }

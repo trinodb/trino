@@ -193,19 +193,35 @@ public class TestMemoryContexts
 
         // test trySetBytes()
         coarseGrainContext.setBytes(0);
+        assertThat(coarseGrainContext.getExactBytes()).isEqualTo(0);
         assertThat(coarseGrainContext.trySetBytes(1)).isEqualTo(true);
+        assertThat(coarseGrainContext.getExactBytes()).isEqualTo(1);
         assertThat(coarseGrainContext.getBytes()).isEqualTo(granularity);
         assertThat(delegate.getBytes()).isEqualTo(granularity);
 
+        // test addBytes
+        coarseGrainContext.setBytes(0);
+        coarseGrainContext.addBytes(5);
+        coarseGrainContext.addBytes(10);
+        assertThat(coarseGrainContext.getExactBytes()).isEqualTo(15);
+        assertThat(coarseGrainContext.getBytes()).isEqualTo(granularity);
+
         // new bytes = previously set bytes(rounded-up)
         assertThat(coarseGrainContext.trySetBytes(2)).isEqualTo(true);
+        assertThat(coarseGrainContext.getExactBytes()).isEqualTo(2);
         assertThat(coarseGrainContext.getBytes()).isEqualTo(granularity);
         assertThat(delegate.getBytes()).isEqualTo(granularity);
 
         // something underlying delegate cannot set
         assertThat(coarseGrainContext.trySetBytes(guaranteedMemory * 3)).isEqualTo(false);
+        assertThat(coarseGrainContext.getExactBytes()).isEqualTo(2); // from last successful value
         assertThat(coarseGrainContext.getBytes()).isEqualTo(granularity);
         assertThat(delegate.getBytes()).isEqualTo(granularity);
+
+        coarseGrainContext.close();
+        assertThat(coarseGrainContext.getExactBytes()).isEqualTo(0);
+        assertThat(coarseGrainContext.getBytes()).isEqualTo(0);
+        assertThat(delegate.getBytes()).isEqualTo(0);
     }
 
     private static void assertCoarseGrainContextValues(
@@ -215,6 +231,7 @@ public class TestMemoryContexts
             long expectedValue)
     {
         assertThat(coarseGrainContext.setBytes(valueToSet)).isEqualTo(NOT_BLOCKED);
+        assertThat(coarseGrainContext.getExactBytes()).isEqualTo(valueToSet);
 
         assertThat(coarseGrainContext.roundUpToNearest(valueToSet)).isEqualTo(expectedValue);
         assertThat(coarseGrainContext.getBytes()).isEqualTo(expectedValue);

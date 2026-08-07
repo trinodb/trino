@@ -123,6 +123,12 @@ public class LocalSpoolingManager
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public boolean isRecoverableException(IOException exception)
+    {
+        return false;
+    }
+
     @PreDestroy
     public void close()
     {

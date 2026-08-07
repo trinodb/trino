@@ -16,15 +16,19 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
 import io.trino.spi.Page;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.GroupByHash.createGroupByHash;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 
 public class MarkDistinctHash
 {
@@ -77,18 +81,15 @@ public class MarkDistinctHash
                 return RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(true), positions);
             }
         }
-        byte[] distinctMask = new byte[positions];
-        for (int position = 0; position < distinctMask.length; position++) {
+        long[] distinctMask = new long[wordsForBits(positions)];
+        for (int position = 0; position < positions; position++) {
             if (ids[position] == nextDistinctId) {
-                distinctMask[position] = 1;
+                set(distinctMask, 0, position);
                 nextDistinctId++;
-            }
-            else {
-                distinctMask[position] = 0;
             }
         }
         checkState(nextDistinctId == groupCount);
-        return BooleanType.wrapByteArrayAsBooleanBlockWithoutNulls(distinctMask);
+        return new BitArrayBlock(positions, Optional.empty(), distinctMask);
     }
 
     public MarkDistinctHash copy()

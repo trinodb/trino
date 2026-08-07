@@ -14,14 +14,13 @@
 package io.trino.operator.scalar.timetz;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.TrinoException;
+import io.trino.operator.scalar.TimeField;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimeWithTimeZone;
 
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
@@ -30,7 +29,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
-import static java.util.Locale.ENGLISH;
 
 @Description("Truncate to the specified precision")
 @ScalarFunction("date_trunc")
@@ -59,14 +57,11 @@ public final class DateTrunc
 
     private static long truncate(long picos, Slice unit)
     {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-
-        return switch (unitString) {
-            case "millisecond" -> picos / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
-            case "second" -> picos / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
-            case "minute" -> picos / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
-            case "hour" -> picos / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
-            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        return switch (TimeField.match(unit)) {
+            case MILLISECOND -> picos / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> picos / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
+            case MINUTE -> picos / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
+            case HOUR -> picos / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
         };
     }
 }

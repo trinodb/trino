@@ -25,6 +25,7 @@ import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 
 import java.util.HashMap;
 import java.util.List;
@@ -83,6 +84,15 @@ public class EvaluateMatch
                 clauseBindings.put(arguments.get(i).name(), ((Constant) bind.values().get(i)).value());
             }
             clauseBindings.put(arguments.getLast().name(), constantOperand.value());
+
+            // The evaluator silently resolves unbound references to null, so a body referencing
+            // symbols beyond the lambda arguments cannot be folded soundly. Bail and leave the
+            // Match for per-row evaluation.
+            boolean hasFreeReferences = SymbolsExtractor.extractAll(lambda.body()).stream()
+                    .anyMatch(symbol -> !clauseBindings.containsKey(symbol.name()));
+            if (hasFreeReferences) {
+                return Optional.empty();
+            }
 
             Object result;
             try {

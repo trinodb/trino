@@ -4,6 +4,8 @@ Trino provides a web-based user interface (UI) for monitoring a Trino cluster
 and managing queries. The Web UI is accessible on the coordinator via
 HTTP or HTTPS, using the corresponding port number specified in the coordinator
 {ref}`config-properties`. It can be configured with {doc}`/admin/properties-web-interface`.
+The Web UI is available at `/ui`. The legacy Web UI remains available at
+`/ui/legacy`.
 
 The Web UI can be disabled entirely with the `web-ui.enabled` property.
 

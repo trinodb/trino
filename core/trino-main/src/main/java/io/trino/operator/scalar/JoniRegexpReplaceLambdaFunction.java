@@ -31,7 +31,8 @@ import io.trino.type.JoniRegexp;
 import io.trino.type.JoniRegexpType;
 
 import static io.airlift.slice.SliceUtf8.lengthOfCodePointFromStartByte;
-import static io.trino.operator.scalar.JoniRegexpFunctions.getSearchingOffset;
+import static io.trino.operator.scalar.JoniRegexpFunctions.matcher;
+import static io.trino.operator.scalar.JoniRegexpFunctions.search;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @ScalarFunction("regexp_replace")
@@ -48,9 +49,9 @@ public final class JoniRegexpReplaceLambdaFunction
             @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
             @SqlType("function(array(varchar), varchar(x))") UnaryFunctionInterface replaceFunction)
     {
+        Matcher matcher = matcher(source, pattern);
         // If there is no match we can simply return the original source without doing copy.
-        Matcher matcher = pattern.matcher(source.getBytes());
-        if (getSearchingOffset(matcher, 0, source.length()) == -1) {
+        if (search(matcher, source, 0) == -1) {
             return source;
         }
 
@@ -102,7 +103,7 @@ public final class JoniRegexpReplaceLambdaFunction
             }
             output.appendBytes(replaced);
         }
-        while (getSearchingOffset(matcher, nextStart, source.length()) != -1);
+        while (search(matcher, source, nextStart) != -1);
         // Append the last un-matched part
         output.writeBytes(source, appendPosition, source.length() - appendPosition);
         return output.slice();

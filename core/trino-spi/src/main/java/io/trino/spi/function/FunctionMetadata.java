@@ -254,9 +254,6 @@ public class FunctionMetadata
                 description = "";
             }
             this.kind = kind;
-            if (kind == AGGREGATE || kind == WINDOW) {
-                nullable = true;
-            }
         }
 
         public Builder signature(Signature signature)

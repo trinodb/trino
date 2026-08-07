@@ -104,6 +104,7 @@ public class TestQueryRunner
         OkHttpClient httpClient = newClientWithCache("http-client");
         OkHttpClient segmentHttpClient = newClientWithCache("segment-http-client");
         QueryRunner queryRunner = new QueryRunner(
+                Theme.DARK,
                 createClientSession(server),
                 false,
                 httpClient,
@@ -169,6 +170,7 @@ public class TestQueryRunner
     static QueryRunner createQueryRunner(TrinoUri uri, ClientSession clientSession)
     {
         return new QueryRunner(
+                Theme.DARK,
                 uri,
                 clientSession,
                 false,

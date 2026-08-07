@@ -38,7 +38,10 @@ import java.util.OptionalLong;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
+import static io.trino.spi.block.Bitmap.getBits;
+import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractColumnReader<BufferType>
@@ -118,18 +121,50 @@ public abstract class AbstractColumnReader<BufferType>
     protected static void unpackDictionaryNullId(
             int[] source,
             int[] destination,
-            boolean[] isNull,
+            long[] valueIsValid,
             int destOffset,
             int chunkSize,
             int nullId)
     {
         int srcOffset = 0;
-        for (int i = destOffset; i < destOffset + chunkSize; i++) {
-            if (isNull[i]) {
-                destination[i] = nullId;
+        int endOffset = destOffset + chunkSize;
+        while (destOffset < endOffset) {
+            int bitsInWord = min(Long.SIZE, endOffset - destOffset);
+            long validBits = getBits(valueIsValid, 0, destOffset, bitsInWord);
+            if (validBits == 0) {
+                fill(destination, destOffset, destOffset + bitsInWord, nullId);
+                destOffset += bitsInWord;
+                continue;
             }
-            else {
-                destination[i] = source[srcOffset++];
+            if (Long.bitCount(validBits) == bitsInWord) {
+                System.arraycopy(source, srcOffset, destination, destOffset, bitsInWord);
+                srcOffset += bitsInWord;
+                destOffset += bitsInWord;
+                continue;
+            }
+
+            int offsetInWord = 0;
+            while (offsetInWord < bitsInWord) {
+                int nullCount = min(Long.numberOfTrailingZeros(validBits), bitsInWord - offsetInWord);
+                fill(destination, destOffset, destOffset + nullCount, nullId);
+                destOffset += nullCount;
+                offsetInWord += nullCount;
+                validBits >>>= nullCount;
+                if (offsetInWord == bitsInWord) {
+                    break;
+                }
+
+                int validCount = min(Long.numberOfTrailingZeros(~validBits), bitsInWord - offsetInWord);
+                if (validCount == 1) {
+                    destination[destOffset] = source[srcOffset];
+                }
+                else {
+                    System.arraycopy(source, srcOffset, destination, destOffset, validCount);
+                }
+                srcOffset += validCount;
+                destOffset += validCount;
+                offsetInWord += validCount;
+                validBits >>>= validCount;
             }
         }
     }

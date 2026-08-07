@@ -194,7 +194,7 @@ final class LongTimestampType
         return Optional.of(new LongTimestamp(epochMicros, picosOfMicro));
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static LongTimestamp readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -206,7 +206,7 @@ final class LongTimestampType
                 (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Long.BYTES));
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void readFlatToBlock(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -219,7 +219,7 @@ final class LongTimestampType
                 (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             LongTimestamp value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -231,7 +231,7 @@ final class LongTimestampType
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, value.getPicosOfMicro());
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeBlockFlat(
             @BlockPosition Fixed12Block block,
             @BlockIndex int position,
@@ -244,7 +244,7 @@ final class LongTimestampType
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, getFraction(block, position));
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(LongTimestamp left, LongTimestamp right)
     {
         return equal(
@@ -254,7 +254,7 @@ final class LongTimestampType
                 right.getPicosOfMicro());
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
@@ -264,7 +264,7 @@ final class LongTimestampType
                 getFraction(rightBlock, rightPosition));
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(
             @FlatFixed byte[] leftFixedSizeSlice,
             @FlatFixedOffset int leftFixedSizeOffset,
@@ -285,13 +285,13 @@ final class LongTimestampType
         return leftEpochMicros == rightEpochMicros && leftFraction == rightFraction;
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(LongTimestamp value)
     {
         return xxHash64(value.getEpochMicros(), value.getPicosOfMicro());
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(@BlockPosition Fixed12Block block, @BlockIndex int position)
     {
         return xxHash64(
@@ -299,7 +299,7 @@ final class LongTimestampType
                 getFraction(block, position));
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(
             @FlatFixed byte[] leftFixedSizeSlice,
             @FlatFixedOffset int leftFixedSizeOffset,
@@ -316,13 +316,13 @@ final class LongTimestampType
         return XxHash64.hash(epochMicros) ^ XxHash64.hash(fraction);
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(LongTimestamp left, LongTimestamp right)
     {
         return comparison(left.getEpochMicros(), left.getPicosOfMicro(), right.getEpochMicros(), right.getPicosOfMicro());
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return comparison(
@@ -341,13 +341,13 @@ final class LongTimestampType
         return Integer.compare(leftPicosOfMicro, rightPicosOfMicro);
     }
 
-    @ScalarOperator(value = LESS_THAN, neverFails = true)
+    @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(LongTimestamp left, LongTimestamp right)
     {
         return lessThan(left.getEpochMicros(), left.getPicosOfMicro(), right.getEpochMicros(), right.getPicosOfMicro());
     }
 
-    @ScalarOperator(value = LESS_THAN, neverFails = true)
+    @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThan(
@@ -363,13 +363,13 @@ final class LongTimestampType
                 ((leftEpochMicros == rightEpochMicros) && (leftPicosOfMicro < rightPicosOfMicro));
     }
 
-    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqualOperator(LongTimestamp left, LongTimestamp right)
     {
         return lessThanOrEqual(left.getEpochMicros(), left.getPicosOfMicro(), right.getEpochMicros(), right.getPicosOfMicro());
     }
 
-    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqualOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThanOrEqual(

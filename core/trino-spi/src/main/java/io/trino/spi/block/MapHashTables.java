@@ -56,10 +56,10 @@ public final class MapHashTables
         return new MapHashTables(mapType, mode, 1, Optional.of(hashTables));
     }
 
-    static MapHashTables create(HashBuildMode mode, MapType mapType, int hashTableCount, Block keyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
+    static MapHashTables create(HashBuildMode mode, MapType mapType, int hashTableCount, Block keyBlock, int[] offsets, @Nullable long[] valueIsValid)
     {
         MapHashTables hashTables = new MapHashTables(mapType, mode, hashTableCount, Optional.empty());
-        hashTables.buildAllHashTables(keyBlock, offsets, mapIsNull);
+        hashTables.buildAllHashTables(keyBlock, offsets, valueIsValid);
         return hashTables;
     }
 
@@ -97,15 +97,15 @@ public final class MapHashTables
         return Optional.ofNullable(hashTables);
     }
 
-    void buildAllHashTablesIfNecessary(Block rawKeyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
+    void buildAllHashTablesIfNecessary(Block rawKeyBlock, int[] offsets, @Nullable long[] valueIsValid)
     {
         // this is double-checked locking
         if (hashTables == null) {
-            buildAllHashTables(rawKeyBlock, offsets, mapIsNull);
+            buildAllHashTables(rawKeyBlock, offsets, valueIsValid);
         }
     }
 
-    private synchronized void buildAllHashTables(Block rawKeyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
+    private synchronized void buildAllHashTables(Block rawKeyBlock, int[] offsets, @Nullable long[] valueIsValid)
     {
         if (hashTables != null) {
             return;
@@ -120,7 +120,7 @@ public final class MapHashTables
             if (keyCount < 0) {
                 throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
             }
-            if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
+            if (valueIsValid != null && !Bitmap.isSet(valueIsValid, 0, i) && keyCount != 0) {
                 throw new IllegalArgumentException("A null map must have zero entries");
             }
             buildHashTable(mode, mapType, rawKeyBlock, keyOffset, keyCount, hashTables);

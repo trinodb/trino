@@ -95,10 +95,7 @@ public class ByteColumnWriter
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
-        // record nulls
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            presentStream.writeBoolean(!block.isNull(position));
-        }
+        presentStream.writeBlock(block);
 
         // record values
         for (int position = 0; position < block.getPositionCount(); position++) {

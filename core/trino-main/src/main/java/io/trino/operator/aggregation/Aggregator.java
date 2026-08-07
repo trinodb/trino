@@ -74,7 +74,7 @@ public class Aggregator
             Page arguments = page.getColumns(inputChannels);
             Optional<Block> maskBlock = Optional.empty();
             if (maskChannel.isPresent()) {
-                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()));
+                maskBlock = Optional.of(page.getBlock(maskChannel.orElseThrow()));
             }
             AggregationMask mask = maskBuilder.buildAggregationMask(arguments, maskBlock);
 

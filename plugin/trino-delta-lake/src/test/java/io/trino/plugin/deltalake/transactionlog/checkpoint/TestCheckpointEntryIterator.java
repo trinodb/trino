@@ -48,6 +48,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
@@ -486,7 +487,7 @@ public class TestCheckpointEntryIterator
                 "test",
                 ParquetWriterOptions.builder().build());
 
-        File targetFile = File.createTempFile("testAddStatsProjection-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testAddStatsProjection-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -667,7 +668,7 @@ public class TestCheckpointEntryIterator
                         .setMaxPageSize(DataSize.ofBytes(64L))
                         .build());
 
-        File targetFile = File.createTempFile("testSkipAddEntries-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testSkipAddEntries-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -795,7 +796,7 @@ public class TestCheckpointEntryIterator
                         .setMaxPageSize(DataSize.ofBytes(128L))
                         .build());
 
-        File targetFile = File.createTempFile("testSkipAddEntries-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testSkipAddEntries-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -931,7 +932,7 @@ public class TestCheckpointEntryIterator
                         .setMaxPageSize(DataSize.ofBytes(64L))
                         .build());
 
-        File targetFile = File.createTempFile("testSkipRemoveEntries-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testSkipRemoveEntries-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();

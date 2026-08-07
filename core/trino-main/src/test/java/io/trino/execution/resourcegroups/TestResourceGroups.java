@@ -1919,7 +1919,7 @@ public class TestResourceGroups
 
     private static void assertExceedsCpuLimit(InternalResourceGroup group, long expectedMillis)
     {
-        long actualMillis = group.getResourceUsageSnapshot().getCpuUsageMillis();
+        long actualMillis = group.getResourceUsageSnapshot().cpuUsageMillis();
         assertThat(actualMillis).isEqualTo(expectedMillis);
         assertThat(actualMillis >= group.getHardCpuLimit().toMillis()).isTrue();
         assertThat(group.getCpuUsageMillis()).isEqualTo(expectedMillis);
@@ -1927,7 +1927,7 @@ public class TestResourceGroups
 
     private static void assertWithinCpuLimit(InternalResourceGroup group, long expectedMillis)
     {
-        long actualMillis = group.getResourceUsageSnapshot().getCpuUsageMillis();
+        long actualMillis = group.getResourceUsageSnapshot().cpuUsageMillis();
         assertThat(actualMillis).isEqualTo(expectedMillis);
         assertThat(actualMillis < group.getHardCpuLimit().toMillis()).isTrue();
         assertThat(group.getCpuUsageMillis()).isEqualTo(expectedMillis);
@@ -1935,7 +1935,7 @@ public class TestResourceGroups
 
     private static void assertExceedsMemoryLimit(InternalResourceGroup group, long expectedBytes)
     {
-        long actualBytes = group.getResourceUsageSnapshot().getMemoryUsageBytes();
+        long actualBytes = group.getResourceUsageSnapshot().memoryUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isGreaterThan(group.getSoftMemoryLimitBytes());
         assertThat(group.getMemoryUsageBytes()).isEqualTo(expectedBytes);
@@ -1943,7 +1943,7 @@ public class TestResourceGroups
 
     private static void assertWithinMemoryLimit(InternalResourceGroup group, long expectedBytes)
     {
-        long actualBytes = group.getResourceUsageSnapshot().getMemoryUsageBytes();
+        long actualBytes = group.getResourceUsageSnapshot().memoryUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isLessThanOrEqualTo(group.getSoftMemoryLimitBytes());
         assertThat(group.getMemoryUsageBytes()).isEqualTo(expectedBytes);
@@ -1951,7 +1951,7 @@ public class TestResourceGroups
 
     private static void assertExceedsPhysicalDataScanLimit(InternalResourceGroup group, long expectedBytes)
     {
-        long actualBytes = group.getResourceUsageSnapshot().getPhysicalInputDataUsageBytes();
+        long actualBytes = group.getResourceUsageSnapshot().physicalInputDataUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isGreaterThan(group.getHardPhysicalDataScanLimitBytes());
         assertThat(group.getPhysicalInputDataUsageBytes()).isEqualTo(expectedBytes);
@@ -1959,7 +1959,7 @@ public class TestResourceGroups
 
     private static void assertWithinPhysicalDataScanLimit(InternalResourceGroup group, long expectedBytes)
     {
-        long actualBytes = group.getResourceUsageSnapshot().getPhysicalInputDataUsageBytes();
+        long actualBytes = group.getResourceUsageSnapshot().physicalInputDataUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isLessThanOrEqualTo(group.getHardPhysicalDataScanLimitBytes());
         assertThat(group.getPhysicalInputDataUsageBytes()).isEqualTo(expectedBytes);

@@ -18,19 +18,16 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.Random;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
-import static io.trino.spi.block.ShortArrayBlockEncoding.compactShortsWithNullsScalar;
+import static io.trino.spi.block.Bitmap.compactBitmap;
+import static io.trino.spi.block.Bitmap.hasUnsetBit;
+import static io.trino.spi.block.ShortArrayBlockEncoding.compactShortsWithNulls;
 import static io.trino.spi.block.ShortArrayBlockEncoding.compactShortsWithNullsVectorized;
-import static io.trino.spi.block.ShortArrayBlockEncoding.expandShortsWithNullsScalar;
+import static io.trino.spi.block.ShortArrayBlockEncoding.expandShortsWithNulls;
 import static io.trino.spi.block.ShortArrayBlockEncoding.expandShortsWithNullsVectorized;
 import static io.trino.spi.block.TestEncoderUtil.assertBlockEquals;
-import static io.trino.spi.block.TestEncoderUtil.getEncodedNullsAsBits;
-import static io.trino.spi.block.TestEncoderUtil.getIsNullArray;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestShortArrayBlockEncoding
         extends BaseBlockEncodingTest<Short>
@@ -54,38 +51,48 @@ final class TestShortArrayBlockEncoding
     }
 
     @Test
-    void testCompressAndExpandShortsScalarEqualsVector()
+    void testCompressAndExpandShortsWithValidity()
     {
         for (int length : TestEncoderUtil.getTestLengths()) {
             for (int offset : TestEncoderUtil.getTestOffsets()) {
                 short[] values = randomShorts(offset + length);
-                for (boolean[] isNull : getIsNullArray(offset + length)) {
-                    byte[] scalar = compressShortsScalar(values, isNull, offset, length);
-                    byte[] vector = compressShortsVectorized(values, isNull, offset, length);
-                    assertThat(vector).as("shorts: scalar and vector outputs differ").isEqualTo(scalar);
-                    byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
-                    assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
-                    ShortArrayBlock scalarBlock = expandShortsWithNullsScalar(Slices.wrappedBuffer(scalar).getInput(), length, packedIsNullBits, decodedIsNull);
-                    ShortArrayBlock vectorBlock = expandShortsWithNullsVectorized(Slices.wrappedBuffer(scalar).getInput(), length, decodedIsNull);
-                    assertBlockEquals(SMALLINT, scalarBlock, vectorBlock);
+                for (long[] validity : TestEncoderUtil.getValidityArrays(offset + length)) {
+                    if (!hasUnsetBit(validity, offset, length)) {
+                        continue;
+                    }
+                    long[] compactedValidity = compactBitmap(validity, offset, length);
+                    byte[] compactedValues = compactShorts(values, validity, offset, length);
+                    ShortArrayBlock actualBlock = expandShortsWithNulls(Slices.wrappedBuffer(compactedValues).getInput(), length, compactedValidity);
+                    ShortArrayBlock expectedBlock = new ShortArrayBlock(0, length, compactedValidity, copyValues(values, offset, length));
+                    assertBlockEquals(SMALLINT, actualBlock, expectedBlock);
+
+                    byte[] vectorizedCompactedValues = compactShortsVectorized(values, validity, offset, length);
+                    ShortArrayBlock vectorizedActualBlock = expandShortsWithNullsVectorized(Slices.wrappedBuffer(vectorizedCompactedValues).getInput(), length, compactedValidity);
+                    assertBlockEquals(SMALLINT, vectorizedActualBlock, expectedBlock);
                 }
             }
         }
     }
 
-    private static byte[] compressShortsScalar(short[] values, boolean[] isNull, int offset, int length)
+    private static byte[] compactShorts(short[] values, long[] validity, int offset, int length)
     {
         DynamicSliceOutput out = new DynamicSliceOutput(length * (Short.BYTES + 4));
-        compactShortsWithNullsScalar(out, values, isNull, offset, length);
+        compactShortsWithNulls(out, values, validity, offset, length);
         return out.slice().getBytes();
     }
 
-    private static byte[] compressShortsVectorized(short[] values, boolean[] isNull, int offset, int length)
+    private static byte[] compactShortsVectorized(short[] values, long[] validity, int offset, int length)
     {
         DynamicSliceOutput out = new DynamicSliceOutput(length * (Short.BYTES + 4));
-        compactShortsWithNullsVectorized(out, values, isNull, offset, length);
+        compactShortsWithNullsVectorized(out, values, validity, offset, length);
         return out.slice().getBytes();
+    }
+
+    private static short[] copyValues(short[] values, int offset, int length)
+    {
+        short[] copy = new short[length];
+        System.arraycopy(values, offset, copy, 0, length);
+        return copy;
     }
 
     private static short[] randomShorts(int length)

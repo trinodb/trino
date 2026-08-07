@@ -16,7 +16,6 @@ package io.trino;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -152,7 +151,7 @@ public final class Session
         requireNonNull(catalogProperties, "catalogProperties is null");
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         catalogProperties.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
+                .map(entry -> Map.entry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(catalogPropertiesBuilder::put);
         this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
 
@@ -412,7 +411,7 @@ public final class Session
         systemProperties.putAll(this.systemProperties);
 
         Map<String, Map<String, String>> catalogProperties = catalogPropertyDefaults.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
+                .map(entry -> Map.entry(entry.getKey(), new HashMap<>(entry.getValue())))
                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
         for (Entry<String, Map<String, String>> catalogEntry : this.catalogProperties.entrySet()) {
             catalogProperties.computeIfAbsent(catalogEntry.getKey(), _ -> new HashMap<>())

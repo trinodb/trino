@@ -1098,7 +1098,7 @@ public class TestExpressionCompiler
         if (values.stream().anyMatch(Objects::isNull)) {
             return VARCHAR;
         }
-        return createVarcharType(values.stream().mapToInt(String::length).max().getAsInt());
+        return createVarcharType(values.stream().mapToInt(String::length).max().orElseThrow());
     }
 
     private static Object nullIf(Object left, Object right)

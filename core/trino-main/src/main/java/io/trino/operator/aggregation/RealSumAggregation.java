@@ -21,6 +21,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
@@ -59,6 +60,7 @@ public final class RealSumAggregation
         }
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.REAL)
     public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
     {

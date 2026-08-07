@@ -51,6 +51,7 @@ import io.trino.sql.ir.optimizer.rule.EvaluateLogical;
 import io.trino.sql.ir.optimizer.rule.EvaluateMatch;
 import io.trino.sql.ir.optimizer.rule.EvaluateReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateRow;
+import io.trino.sql.ir.optimizer.rule.ExtractCommonConjunctFromCase;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
 import io.trino.sql.ir.optimizer.rule.FlattenLogical;
 import io.trino.sql.ir.optimizer.rule.InlineTrivialLet;
@@ -59,11 +60,13 @@ import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantMatchClauses;
+import io.trino.sql.ir.optimizer.rule.RemoveRedundantTry;
 import io.trino.sql.ir.optimizer.rule.SimplifyCharLength;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCase;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCast;
+import io.trino.sql.ir.optimizer.rule.SimplifyRedundantTryCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedNot;
 import io.trino.sql.ir.optimizer.rule.SpecializeCastWithJsonParse;
@@ -109,9 +112,11 @@ public class IrExpressionOptimizer
                 new EvaluateCallWithNullInput(),
                 new RemoveRedundantMatchClauses(context),
                 new RemoveRedundantCaseClauses(),
+                new RemoveRedundantTry(context),
                 new RemoveRedundantInItems(context),
                 new SimplifyContinuousInValues(context),
                 new SimplifyRedundantCast(),
+                new SimplifyRedundantTryCast(context),
                 new SimplifyCharLength(context),
                 new SimplifyStackedNot(),
                 new SimplifyStackedArithmeticNegation(),
@@ -123,6 +128,7 @@ public class IrExpressionOptimizer
                 new DistributeComparisonOverMatch(context),
                 new DistributeComparisonOverCase(context),
                 new SimplifyRedundantCase(context),
+                new ExtractCommonConjunctFromCase(context),
                 new SpecializeCastWithJsonParse(context),
                 new SpecializeTransformWithJsonParse(context)));
     }
@@ -180,7 +186,7 @@ public class IrExpressionOptimizer
     {
         return switch (expression) {
             case Reference _, Constant _ -> Optional.empty();
-            case Cast cast -> process(cast.expression(), session, symbolAllocator, bindings).map(value -> new Cast(value, cast.type()));
+            case Cast cast -> process(cast.expression(), session, symbolAllocator, bindings).map(value -> new Cast(value, cast.type(), cast.kind()));
             case IsNull isNull -> process(isNull.value(), session, symbolAllocator, bindings).map(value -> new IsNull(value));
             case Logical logical -> process(logical.terms(), session, symbolAllocator, bindings).map(arguments -> new Logical(logical.operator(), arguments));
             case Call call -> process(call.arguments(), session, symbolAllocator, bindings).map(arguments -> new Call(call.function(), arguments));

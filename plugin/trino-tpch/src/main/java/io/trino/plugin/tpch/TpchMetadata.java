@@ -78,9 +78,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
 import static io.trino.plugin.tpch.util.PredicateUtils.convertToPredicate;
@@ -559,7 +559,7 @@ public class TpchMetadata
     private static TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)
     {
         return TupleDomain.withColumnDomains(predicate.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> {
                     Type type = entry.getKey().type();
                     return entry.getValue().stream()
                             .map(nullableValue -> Domain.singleValue(type, nullableValue.getValue()))

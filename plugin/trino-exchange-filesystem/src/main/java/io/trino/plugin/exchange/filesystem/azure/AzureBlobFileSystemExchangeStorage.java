@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.exchange.filesystem.azure;
 
+import com.azure.core.http.HttpClient;
+import com.azure.core.http.netty.NettyAsyncHttpClientBuilder;
 import com.azure.core.http.rest.PagedResponse;
 import com.azure.core.util.BinaryData;
 import com.azure.identity.DefaultAzureCredentialBuilder;
@@ -64,6 +66,7 @@ import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
 import jakarta.annotation.PreDestroy;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.io.IOException;
 import java.net.URI;
@@ -96,6 +99,7 @@ import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PR
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
+import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
 
@@ -115,8 +119,6 @@ public class AzureBlobFileSystemExchangeStorage
         this.blockSize = toIntExact(config.getAzureStorageBlockSize().toBytes());
 
         RequestRetryOptions retryOptions = new RequestRetryOptions(RetryPolicyType.EXPONENTIAL, config.getMaxErrorRetries(), (Integer) null, null, null, null);
-        BlobServiceClientBuilder blobServiceClientBuilder = new BlobServiceClientBuilder()
-                .retryOptions(retryOptions);
         Optional<String> connectionString = config.getAzureStorageConnectionString();
         Optional<String> endpoint = config.getAzureStorageEndpoint();
 
@@ -124,6 +126,9 @@ public class AzureBlobFileSystemExchangeStorage
             throw new IllegalArgumentException("Exactly one of exchange.azure.endpoint or exchange.azure.connection-string must be provided");
         }
 
+        BlobServiceClientBuilder blobServiceClientBuilder = new BlobServiceClientBuilder()
+                .httpClient(buildHttpClient("exchange-azure-blob", config))
+                .retryOptions(retryOptions);
         if (connectionString.isPresent()) {
             blobServiceClientBuilder.connectionString(connectionString.get());
         }
@@ -137,6 +142,7 @@ public class AzureBlobFileSystemExchangeStorage
 
         if (this.isHierarchical) {
             DataLakeServiceClientBuilder dataLakeServiceClientBuilder = new DataLakeServiceClientBuilder()
+                    .httpClient(buildHttpClient("exchange-azure-adls", config))
                     .retryOptions(retryOptions);
             if (connectionString.isPresent()) {
                 dataLakeServiceClientBuilder.connectionString(connectionString.get());
@@ -150,6 +156,17 @@ public class AzureBlobFileSystemExchangeStorage
         else {
             this.dataLakeServiceAsyncClient = Optional.empty();
         }
+    }
+
+    private static HttpClient buildHttpClient(String poolName, ExchangeAzureConfig config)
+    {
+        return new NettyAsyncHttpClientBuilder()
+                .connectionProvider(ConnectionProvider.builder(poolName)
+                        .maxConnections(config.getMaxConnections())
+                        .pendingAcquireMaxCount(config.getPendingAcquireMaxCount())
+                        .pendingAcquireTimeout(ofMillis(config.getConnectionAcquisitionTimeout().toMillis()))
+                        .build())
+                .build();
     }
 
     private boolean isHierarchical(List<URI> baseUris, BlobServiceClient blobServiceClient)

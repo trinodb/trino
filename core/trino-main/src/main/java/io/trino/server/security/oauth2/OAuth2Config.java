@@ -49,6 +49,7 @@ public class OAuth2Config
     private Optional<File> userMappingFile = Optional.empty();
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
+    private Optional<String> domainHint = Optional.empty();
 
     public Optional<String> getStateKey()
     {
@@ -241,6 +242,19 @@ public class OAuth2Config
     public OAuth2Config setEnableDiscovery(boolean enableDiscovery)
     {
         this.enableDiscovery = enableDiscovery;
+        return this;
+    }
+
+    public Optional<String> getDomainHint()
+    {
+        return domainHint;
+    }
+
+    @Config("http-server.authentication.oauth2.domain-hint")
+    @ConfigDescription("Domain hint to restrict SSO account selection to a specific domain (e.g. for Azure AD)")
+    public OAuth2Config setDomainHint(String domainHint)
+    {
+        this.domainHint = Optional.ofNullable(domainHint);
         return this;
     }
 }

@@ -16,6 +16,7 @@ package io.trino.cli;
 import com.google.common.collect.ImmutableList;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
+import org.jline.utils.AttributedString;
 import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;
@@ -32,6 +33,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.jline.utils.AttributedString.stripAnsi;
 
 public class TestAlignedTablePrinter
 {
@@ -45,7 +47,7 @@ public class TestAlignedTablePrinter
                 .add(column("quantity", BIGINT))
                 .build();
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         printer.printRows(rows(
                         row("hello", "world", 123),
@@ -74,13 +76,48 @@ public class TestAlignedTablePrinter
     }
 
     @Test
+    public void testColoredPrinting()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("first", VARCHAR))
+                .add(column("quantity", BIGINT))
+                .build();
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.DARK);
+
+        printer.printRows(rows(
+                        row("hello", 123),
+                        row("bye", null)),
+                true);
+        printer.finish();
+
+        String output = writer.getBuffer().toString();
+
+        // stripping ANSI yields exactly the uncolored layout: coloring never shifts columns
+        String expected = "" +
+                " first | quantity \n" +
+                "-------+----------\n" +
+                " hello |      123 \n" +
+                " bye   |     NULL \n" +
+                "(2 rows)\n";
+        assertThat(stripAnsi(output)).isEqualTo(expected);
+
+        // only the header names are wrapped in the theme styles; data values are never colored
+        assertThat(output)
+                .contains(new AttributedString(" first ", Theme.DARK.keyword()).toAnsi())
+                .doesNotContain(new AttributedString("123", Theme.DARK.number()).toAnsi())
+                .doesNotContain(new AttributedString("NULL", Theme.DARK.comment()).toAnsi());
+    }
+
+    @Test
     public void testHexPrintingInLists()
             throws Exception
     {
         List<Column> columns = ImmutableList.of(column("list", ARRAY));
 
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         byte[] value = "hello".getBytes(UTF_8);
 
@@ -103,7 +140,7 @@ public class TestAlignedTablePrinter
         List<Column> columns = ImmutableList.of(column("map", MAP));
 
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         byte[] value = "hello".getBytes(UTF_8);
 
@@ -126,7 +163,7 @@ public class TestAlignedTablePrinter
         List<Column> columns = ImmutableList.of(column("map", MAP));
 
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         byte[] value = "hello".getBytes(UTF_8);
 
@@ -149,7 +186,7 @@ public class TestAlignedTablePrinter
         List<Column> columns = ImmutableList.of(column("map", MAP));
 
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         byte[] value = "hello".getBytes(UTF_8);
 
@@ -174,7 +211,7 @@ public class TestAlignedTablePrinter
                 .add(column("last", VARCHAR))
                 .build();
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         printer.printRows(rows(row("a long line\nwithout wrapping", "text")), true);
         printer.finish();
@@ -198,7 +235,7 @@ public class TestAlignedTablePrinter
                 .add(column("last", VARCHAR))
                 .build();
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         printer.finish();
 
@@ -220,7 +257,7 @@ public class TestAlignedTablePrinter
                 .add(column("last", VARCHAR))
                 .build();
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         printer.printRows(rows(
                         row("hello", bytes("hello"), "world"),
@@ -252,7 +289,7 @@ public class TestAlignedTablePrinter
                 .add(column("quantity\u7f51", BIGINT))
                 .build();
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer, Theme.NONE);
 
         printer.printRows(rows(
                         row("hello", "wide\u7f51", 123),

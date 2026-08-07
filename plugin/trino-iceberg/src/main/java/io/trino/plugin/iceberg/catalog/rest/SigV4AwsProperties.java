@@ -16,18 +16,19 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.plugin.iceberg.StsAwsCredentialProvider;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.iceberg.catalog.rest.SigV4AwsCredentialProvider.AWS_IAM_ROLE;
-import static io.trino.plugin.iceberg.catalog.rest.SigV4AwsCredentialProvider.AWS_IAM_ROLE_SESSION_NAME;
-import static io.trino.plugin.iceberg.catalog.rest.SigV4AwsCredentialProvider.AWS_ROLE_EXTERNAL_ID;
-import static io.trino.plugin.iceberg.catalog.rest.SigV4AwsCredentialProvider.AWS_STS_ACCESS_KEY_ID;
-import static io.trino.plugin.iceberg.catalog.rest.SigV4AwsCredentialProvider.AWS_STS_ENDPOINT;
-import static io.trino.plugin.iceberg.catalog.rest.SigV4AwsCredentialProvider.AWS_STS_REGION;
-import static io.trino.plugin.iceberg.catalog.rest.SigV4AwsCredentialProvider.AWS_STS_SECRET_ACCESS_KEY;
-import static io.trino.plugin.iceberg.catalog.rest.SigV4AwsCredentialProvider.AWS_STS_SIGNER_REGION;
+import static io.trino.plugin.iceberg.StsAwsCredentialProvider.AWS_IAM_ROLE;
+import static io.trino.plugin.iceberg.StsAwsCredentialProvider.AWS_IAM_ROLE_SESSION_NAME;
+import static io.trino.plugin.iceberg.StsAwsCredentialProvider.AWS_ROLE_EXTERNAL_ID;
+import static io.trino.plugin.iceberg.StsAwsCredentialProvider.AWS_STS_ACCESS_KEY_ID;
+import static io.trino.plugin.iceberg.StsAwsCredentialProvider.AWS_STS_ENDPOINT;
+import static io.trino.plugin.iceberg.StsAwsCredentialProvider.AWS_STS_REGION;
+import static io.trino.plugin.iceberg.StsAwsCredentialProvider.AWS_STS_SECRET_ACCESS_KEY;
+import static io.trino.plugin.iceberg.StsAwsCredentialProvider.AWS_STS_SIGNER_REGION;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.aws.AwsClientProperties.CLIENT_CREDENTIALS_PROVIDER;
 import static org.apache.iceberg.aws.AwsProperties.REST_ACCESS_KEY_ID;
@@ -64,7 +65,7 @@ public class SigV4AwsProperties
 
         if (s3Config.getIamRole() != null) {
             builder
-                    .put(CLIENT_CREDENTIALS_PROVIDER, SigV4AwsCredentialProvider.class.getName())
+                    .put(CLIENT_CREDENTIALS_PROVIDER, StsAwsCredentialProvider.class.getName())
                     .put(CLIENT_CREDENTIAL_AWS_IAM_ROLE, s3Config.getIamRole())
                     .put(CLIENT_CREDENTIAL_AWS_IAM_ROLE_SESSION_NAME, "trino-iceberg-rest-catalog")
                     .put(CLIENT_CREDENTIAL_AWS_SIGNER_REGION, s3Config.getRegion());

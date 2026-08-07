@@ -127,13 +127,13 @@ final class ShortTimestampWithTimeZoneType
         return Long.BYTES;
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
     {
         return block.getLong(position);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -143,7 +143,7 @@ final class ShortTimestampWithTimeZoneType
         return (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             long value,
             byte[] fixedSizeSlice,
@@ -154,7 +154,7 @@ final class ShortTimestampWithTimeZoneType
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {
         long leftValue = unpackMillisUtc(left);
@@ -162,31 +162,31 @@ final class ShortTimestampWithTimeZoneType
         return leftValue == rightValue;
     }
 
-    @ScalarOperator(value = HASH_CODE, neverFails = true)
+    @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash(unpackMillisUtc(value));
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(long value)
     {
         return XxHash64.hash(unpackMillisUtc(value));
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(long left, long right)
     {
         return Long.compare(unpackMillisUtc(left), unpackMillisUtc(right));
     }
 
-    @ScalarOperator(value = LESS_THAN, neverFails = true)
+    @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(long left, long right)
     {
         return unpackMillisUtc(left) < unpackMillisUtc(right);
     }
 
-    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
         return unpackMillisUtc(left) <= unpackMillisUtc(right);

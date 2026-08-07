@@ -47,7 +47,6 @@ import static java.lang.invoke.MethodHandles.lookup;
  * <p>
  * Stack representation of this type is {@link TrinoNumber} which wraps a slice with the format documented below.
  * <b>Note:</b> the binary format is not stable and may change between releases. Only the Java API is considered stable.
- * <p>
  * <h2>Current unstable binary format</h2>
  * <pre>
  *    ┌───────────────────────┬─────────────────────────┐
@@ -152,7 +151,7 @@ public class NumberType
         return getClass().hashCode();
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     static boolean equalOperator(TrinoNumber left, TrinoNumber right)
     {
         if (left.isNaN() || right.isNaN()) {
@@ -162,7 +161,7 @@ public class NumberType
         return left.bytes().equals(right.bytes());
     }
 
-    @ScalarOperator(value = IDENTICAL, neverFails = true)
+    @ScalarOperator(IDENTICAL)
     static boolean identicalOperator(@SqlNullable TrinoNumber left, @SqlNullable TrinoNumber right)
     {
         if (left == null || right == null) {
@@ -193,7 +192,7 @@ public class NumberType
         return fixedSizeSlice[fixedSizeOffset] & 0xFF;
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static TrinoNumber readFlatToStack(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -204,7 +203,7 @@ public class NumberType
         return new TrinoNumber(wrappedBuffer(variableSizeSlice, variableSizeOffset, length));
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void readFlatToBlock(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -216,7 +215,7 @@ public class NumberType
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(variableSizeSlice, variableSizeOffset, length);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlatFromStack(
             TrinoNumber value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -231,7 +230,7 @@ public class NumberType
         bytes.getBytes(0, variableSizeSlice, variableSizeOffset, length);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlatFromBlock(
             @BlockPosition VariableWidthBlock block,
             @BlockIndex int position,
@@ -252,7 +251,7 @@ public class NumberType
     // TODO EQUAL with block, position, block, position
     // TODO EQUAL with flat slice, block position
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(TrinoNumber value)
     {
         Slice slice = value.bytes();
@@ -262,7 +261,7 @@ public class NumberType
     // TODO XX_HASH_64 with block, position
     // TODO XX_HASH_64 with flat slice
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(TrinoNumber left, TrinoNumber right)
     {
         return COMPARE_NAN_LAST.compare(left.toBigDecimal(), right.toBigDecimal());
@@ -270,7 +269,7 @@ public class NumberType
 
     // TODO COMPARISON_UNORDERED_LAST with block, position, block, position
 
-    @ScalarOperator(value = LESS_THAN, neverFails = true)
+    @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(TrinoNumber left, TrinoNumber right)
     {
         if (left.isNaN() || right.isNaN()) {
@@ -282,7 +281,7 @@ public class NumberType
 
     // TODO LESS_THAN with block, position, block, position
 
-    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqualOperator(TrinoNumber left, TrinoNumber right)
     {
         if (left.isNaN() || right.isNaN()) {

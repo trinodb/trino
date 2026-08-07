@@ -51,11 +51,6 @@ public class ScalarHeader
     private final Optional<TypeTemplate> receiverType;
     private final boolean instanceMethod;
 
-    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails)
-    {
-        this(name, aliases, description, hidden, deterministic, neverFails, Optional.empty(), false);
-    }
-
     public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeTemplate> receiverType, boolean instanceMethod)
     {
         this.name = requireNonNull(name, "name is null");
@@ -114,6 +109,9 @@ public class ScalarHeader
         }
 
         if (scalarOperator != null) {
+            if (scalarOperator.value().neverFails() && scalarOperator.neverFails()) {
+                throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(scalarOperator.value(), annotated));
+            }
             builder.add(new ScalarHeader(scalarOperator.value(), description, scalarOperator.neverFails()));
         }
 

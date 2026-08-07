@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.time;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.TrinoException;
+import io.trino.operator.scalar.TimeField;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -22,7 +22,6 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeType.MAX_PRECISION;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
@@ -36,7 +35,6 @@ import static io.trino.spi.type.Timestamps.SECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.HOURS_PER_DAY;
-import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeConstants.MINUTES_PER_DAY;
 
 public final class TimeFunctions
@@ -85,14 +83,11 @@ public final class TimeFunctions
     @SqlType("time(p)")
     public static long truncate(@SqlType("varchar(x)") Slice unit, @SqlType("time(p)") long time)
     {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-
-        return switch (unitString) {
-            case "millisecond" -> time / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
-            case "second" -> time / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
-            case "minute" -> time / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
-            case "hour" -> time / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
-            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        return switch (TimeField.match(unit)) {
+            case MILLISECOND -> time / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> time / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
+            case MINUTE -> time / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
+            case HOUR -> time / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
         };
     }
 
@@ -106,13 +101,11 @@ public final class TimeFunctions
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType("time(p)") long time)
     {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        long delta = switch (unitString) {
-            case "millisecond" -> (value % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
-            case "second" -> (value % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
-            case "minute" -> (value % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
-            case "hour" -> (value % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
-            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        long delta = switch (TimeField.match(unit)) {
+            case MILLISECOND -> (value % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> (value % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
+            case MINUTE -> (value % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
+            case HOUR -> (value % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
         };
 
         long result = TimeOperators.add(time, delta);
@@ -132,13 +125,11 @@ public final class TimeFunctions
     public static long dateDiff(@SqlType("varchar(x)") Slice unit, @SqlType("time(p)") long time1, @SqlType("time(p)") long time2)
     {
         long delta = time2 - time1;
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        return switch (unitString) {
-            case "millisecond" -> delta / PICOSECONDS_PER_MILLISECOND;
-            case "second" -> delta / PICOSECONDS_PER_SECOND;
-            case "minute" -> delta / PICOSECONDS_PER_MINUTE;
-            case "hour" -> delta / PICOSECONDS_PER_HOUR;
-            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        return switch (TimeField.match(unit)) {
+            case MILLISECOND -> delta / PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> delta / PICOSECONDS_PER_SECOND;
+            case MINUTE -> delta / PICOSECONDS_PER_MINUTE;
+            case HOUR -> delta / PICOSECONDS_PER_HOUR;
         };
     }
 }

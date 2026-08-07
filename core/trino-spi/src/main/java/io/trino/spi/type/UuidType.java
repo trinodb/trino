@@ -177,7 +177,7 @@ public class UuidType
                 reverseBytes(uuid.getLong(SIZE_OF_LONG)));
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static Slice read(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
         Slice value = Slices.allocate(INT128_BYTES);
@@ -186,7 +186,7 @@ public class UuidType
         return value;
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static Slice readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -196,7 +196,7 @@ public class UuidType
         return wrappedBuffer(fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             Slice sourceSlice,
             @FlatFixed byte[] fixedSizeSlice,
@@ -207,7 +207,7 @@ public class UuidType
         sourceSlice.getBytes(0, fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
     }
 
-    @ScalarOperator(value = READ_VALUE, neverFails = true)
+    @ScalarOperator(READ_VALUE)
     private static void readFlatToBlock(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -220,7 +220,7 @@ public class UuidType
                 (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(Slice left, Slice right)
     {
         return equal(
@@ -230,7 +230,7 @@ public class UuidType
                 right.getLong(SIZE_OF_LONG));
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
@@ -240,7 +240,7 @@ public class UuidType
                 rightBlock.getInt128Low(rightPosition));
     }
 
-    @ScalarOperator(value = EQUAL, neverFails = true)
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(
             @FlatFixed byte[] leftFixedSizeSlice,
             @FlatFixedOffset int leftFixedSizeOffset,
@@ -261,19 +261,19 @@ public class UuidType
         return leftLow == rightLow && leftHigh == rightHigh;
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(Slice value)
     {
         return xxHash64(value.getLong(0), value.getLong(SIZE_OF_LONG));
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
         return xxHash64(block.getInt128High(position), block.getInt128Low(position));
     }
 
-    @ScalarOperator(value = XX_HASH_64, neverFails = true)
+    @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -290,7 +290,7 @@ public class UuidType
         return XxHash64.hash(low) ^ XxHash64.hash(high);
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(Slice left, Slice right)
     {
         return compareLittleEndian(
@@ -300,7 +300,7 @@ public class UuidType
                 right.getLong(SIZE_OF_LONG));
     }
 
-    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return compareLittleEndian(

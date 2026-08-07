@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
@@ -120,7 +121,7 @@ public class TestHiveCreateExternalTable
     public void testCreateExternalTableOnExistingPathToFile()
             throws Exception
     {
-        File tempFile = File.createTempFile("temp", ".tmp");
+        File tempFile = Files.createTempFile("temp", ".tmp").toFile();
         tempFile.deleteOnExit();
         String tableName = "test_create_external_on_file_" + randomNameSuffix();
 

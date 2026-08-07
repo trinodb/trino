@@ -14,6 +14,7 @@
 
 package io.trino.plugin.hive.coercions;
 
+import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -21,6 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.util.NumberParser.parseLong;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -55,21 +57,27 @@ public final class VarcharToIntegralNumericCoercers
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
             try {
-                String valueToBeCoerced = fromType.getSlice(block, position).toStringUtf8();
-                if (toType.equals(TINYINT) || toType.equals(SMALLINT) || toType.equals(INTEGER)) {
-                    int intValue = Integer.parseInt(valueToBeCoerced);
-                    if (toType.equals(TINYINT)) {
-                        toType.writeLong(blockBuilder, (byte) intValue);
-                    }
-                    else if (toType.equals(SMALLINT)) {
-                        toType.writeLong(blockBuilder, (short) intValue);
-                    }
-                    else {
-                        toType.writeLong(blockBuilder, intValue);
-                    }
+                Slice value = fromType.getSlice(block, position);
+                long parsed = parseLong(value, 0, value.length());
+                if (toType.equals(BIGINT)) {
+                    toType.writeLong(blockBuilder, parsed);
+                    return;
                 }
-                else if (toType.equals(BIGINT)) {
-                    toType.writeLong(blockBuilder, Long.parseLong(valueToBeCoerced));
+
+                // Integer.parseInt rejects anything outside the int range
+                if (parsed != (int) parsed) {
+                    throw new NumberFormatException();
+                }
+                // Hive narrows to tinyint and smallint by truncating rather than by rejecting
+                int intValue = (int) parsed;
+                if (toType.equals(TINYINT)) {
+                    toType.writeLong(blockBuilder, (byte) intValue);
+                }
+                else if (toType.equals(SMALLINT)) {
+                    toType.writeLong(blockBuilder, (short) intValue);
+                }
+                else {
+                    toType.writeLong(blockBuilder, intValue);
                 }
             }
             catch (NumberFormatException e) {
@@ -114,7 +122,8 @@ public final class VarcharToIntegralNumericCoercers
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
             try {
-                long value = Long.parseLong(fromType.getSlice(block, position).toStringUtf8());
+                Slice slice = fromType.getSlice(block, position);
+                long value = parseLong(slice, 0, slice.length());
                 if (minValue <= value && value <= maxValue) {
                     toType.writeLong(blockBuilder, value);
                 }

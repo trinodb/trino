@@ -201,11 +201,11 @@ public class ArrayType
         }
         InvocationConvention elementConvention = simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL);
         // compare non-null elements with the same null ordering, so nested nulls are ordered consistently
-        OperatorMethodHandle elementComparison = nullsFirst
-                ? typeOperators.getComparisonUnorderedFirstOperatorHandle(elementType, elementConvention)
-                : typeOperators.getComparisonUnorderedLastOperatorHandle(elementType, elementConvention);
-        MethodHandle comparison = insertArguments(COMPARISON, 0, nullsFirst, elementComparison.getMethodHandle());
-        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison, elementComparison.isNeverFails()));
+        MethodHandle elementComparison = nullsFirst
+                ? typeOperators.getComparisonUnorderedFirstOperator(elementType, elementConvention)
+                : typeOperators.getComparisonUnorderedLastOperator(elementType, elementConvention);
+        MethodHandle comparison = insertArguments(COMPARISON, 0, nullsFirst, elementComparison);
+        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison));
     }
 
     private static List<OperatorMethodHandle> getLessThanOperatorInvokers(TypeOperators typeOperators, Type elementType, boolean orEqual)
@@ -214,11 +214,10 @@ public class ArrayType
             return emptyList();
         }
         InvocationConvention elementConvention = simpleConvention(NULLABLE_RETURN, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL);
-        // equality is total over all comparable types, so it never affects neverFails
         MethodHandle elementEqual = typeOperators.getEqualOperator(elementType, elementConvention);
-        OperatorMethodHandle elementLessThan = typeOperators.getLessThanOperatorHandle(elementType, elementConvention);
-        MethodHandle lessThan = insertArguments(LESS_THAN, 0, orEqual, elementEqual, elementLessThan.getMethodHandle());
-        return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, lessThan, elementLessThan.isNeverFails()));
+        MethodHandle elementLessThan = typeOperators.getLessThanOperator(elementType, elementConvention);
+        MethodHandle lessThan = insertArguments(LESS_THAN, 0, orEqual, elementEqual, elementLessThan);
+        return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, lessThan));
     }
 
     public Type getElementType()

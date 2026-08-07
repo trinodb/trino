@@ -38,6 +38,8 @@ public class CoarseGrainLocalMemoryContext
     private final long mask;
     @GuardedBy("this")
     private long currentBytes;
+    @GuardedBy("this")
+    private long exactBytes;
 
     public CoarseGrainLocalMemoryContext(LocalMemoryContext delegate)
     {
@@ -59,9 +61,16 @@ public class CoarseGrainLocalMemoryContext
         return currentBytes;
     }
 
+    @VisibleForTesting
+    synchronized long getExactBytes()
+    {
+        return exactBytes;
+    }
+
     @Override
     public synchronized ListenableFuture<Void> setBytes(long bytes)
     {
+        exactBytes = bytes;
         long roundedUpBytes = roundUpToNearest(bytes);
         if (roundedUpBytes != currentBytes) {
             currentBytes = roundedUpBytes;
@@ -73,21 +82,25 @@ public class CoarseGrainLocalMemoryContext
     @Override
     public synchronized ListenableFuture<Void> addBytes(long delta)
     {
-        return setBytes(addExact(currentBytes, delta));
+        return setBytes(addExact(exactBytes, delta));
     }
 
     @Override
     public synchronized boolean trySetBytes(long bytes)
     {
         long roundedUpBytes = roundUpToNearest(bytes);
-        if (roundedUpBytes != currentBytes) {
+        if (roundedUpBytes == currentBytes) {
+            exactBytes = bytes;
+            return true;
+        }
+        else {
             if (delegate.trySetBytes(roundedUpBytes)) {
                 currentBytes = roundedUpBytes;
+                exactBytes = bytes;
                 return true;
             }
             return false;
         }
-        return true;
     }
 
     @Override
@@ -95,6 +108,7 @@ public class CoarseGrainLocalMemoryContext
     {
         delegate.close();
         currentBytes = 0;
+        exactBytes = 0;
     }
 
     @VisibleForTesting

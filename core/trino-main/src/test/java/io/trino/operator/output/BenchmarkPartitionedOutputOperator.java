@@ -96,6 +96,8 @@ import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -266,18 +268,18 @@ public class BenchmarkPartitionedOutputOperator
                         Optional.of(ImmutableList.of(0)),
                         types.stream()
                                 .map(_ -> {
-                                    boolean[] isNull = null;
+                                    long[] valueIsValid = null;
                                     if (nullRate > 0) {
-                                        isNull = new boolean[positionCount];
+                                        valueIsValid = allocateWords(positionCount, true);
                                         Set<Integer> nullPositions = chooseNullPositions(positionCount, nullRate);
                                         for (int nullPosition : nullPositions) {
-                                            isNull[nullPosition] = true;
+                                            clear(valueIsValid, 0, nullPosition);
                                         }
                                     }
 
                                     return RowBlock.fromNotNullSuppressedFieldBlocks(
                                             positionCount,
-                                            Optional.ofNullable(isNull),
+                                            Optional.ofNullable(valueIsValid),
                                             new Block[] {
                                                     RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), positionCount),
                                                     createRandomLongsBlock(positionCount, nullRate),

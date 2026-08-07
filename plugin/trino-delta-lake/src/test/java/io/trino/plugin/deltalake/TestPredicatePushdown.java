@@ -206,7 +206,7 @@ public class TestPredicatePushdown
                 .describedAs("Missing update count")
                 .isPresent();
 
-        assertThat(actualCount.getAsLong())
+        assertThat(actualCount.orElseThrow())
                 .describedAs("Wrong number of rows updated")
                 .isEqualTo(count);
 

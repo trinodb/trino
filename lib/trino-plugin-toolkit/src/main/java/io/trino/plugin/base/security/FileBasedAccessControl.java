@@ -92,6 +92,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTableBranchPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
@@ -387,13 +388,21 @@ public class FileBasedAccessControl
         }
 
         ConnectorIdentity identity = context.getIdentity();
-        boolean allowed = tableRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
-                .map(rule -> rule.canSelectColumns(columnNames))
+        TableAccessControlRule rule = tableRules.stream()
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
                 .findFirst()
-                .orElse(false);
-        if (!allowed) {
+                .orElse(null);
+        if (rule == null) {
             denySelectTable(tableName.toString(), branch);
+        }
+        if (!rule.canSelectColumns(columnNames)) {
+            Set<String> deniedColumns = rule.getDeniedColumns(columnNames);
+            if (deniedColumns.isEmpty()) {
+                denySelectTable(tableName.toString(), branch);
+            }
+            else {
+                denySelectColumns(tableName.toString(), deniedColumns, branch.orElse(null));
+            }
         }
     }
 

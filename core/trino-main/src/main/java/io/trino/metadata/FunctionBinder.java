@@ -15,7 +15,6 @@ package io.trino.metadata;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SignatureBinder.GroundSignature;
 import io.trino.spi.TrinoException;
@@ -51,6 +50,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -229,10 +229,9 @@ class FunctionBinder
         // all the functions are semantically the same. We can return just any of those.
         if (returnTypeIsTheSame(mostSpecificFunctions) && allReturnNullOnGivenInputTypes(mostSpecificFunctions, parameterTypes)) {
             // make it deterministic
-            ApplicableFunction selectedFunction = Ordering.usingToString()
-                    .reverse()
-                    .sortedCopy(mostSpecificFunctions)
-                    .get(0);
+            ApplicableFunction selectedFunction = mostSpecificFunctions.stream()
+                    .max(comparing(Object::toString))
+                    .orElseThrow();
             return ImmutableList.of(selectedFunction);
         }
 

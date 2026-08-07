@@ -40,15 +40,21 @@ public class ShortColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, short[] values)
+    public Block createNullableBlock(long[] valueIsValid, short[] values)
     {
-        return new ShortArrayBlock(values.length, Optional.of(nulls), values);
+        return new ShortArrayBlock(values.length, Optional.of(valueIsValid), values);
     }
 
     @Override
     public void copyValue(short[] source, int sourceIndex, short[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
+    }
+
+    @Override
+    public void copyValues(short[] source, int sourceIndex, short[] destination, int destinationIndex, int length)
+    {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
     }
 
     @Override

@@ -17,23 +17,15 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
 import static java.util.Objects.checkFromIndexSize;
 
 public class Int128ArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "INT128_ARRAY";
-
-    private final boolean vectorizeNullBitPacking;
-
-    public Int128ArrayBlockEncoding(boolean vectorizeNullBitPacking)
-    {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
-    }
 
     @Override
     public String getName()
@@ -54,34 +46,18 @@ public class Int128ArrayBlockEncoding
         int positionCount = int128ArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        int rawArrayOffset = int128ArrayBlock.getRawOffset();
+        int rawOffset = int128ArrayBlock.getRawOffset();
         @Nullable
-        boolean[] isNull = int128ArrayBlock.getRawValueIsNull();
+        long[] valueIsValid = int128ArrayBlock.getRawValueIsValid();
         long[] rawValues = int128ArrayBlock.getRawValues();
-        checkFromIndexSize(rawArrayOffset * 2, positionCount * 2, rawValues.length);
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, isNull, rawArrayOffset, positionCount);
+        encodeValidityAsLongs(sliceOutput, valueIsValid, rawOffset, positionCount);
+
+        if (valueIsValid == null) {
+            sliceOutput.writeLongs(rawValues, rawOffset * 2, positionCount * 2);
         }
         else {
-            encodeNullsAsBitsScalar(sliceOutput, isNull, rawArrayOffset, positionCount);
-        }
-
-        if (isNull == null) {
-            sliceOutput.writeLongs(rawValues, rawArrayOffset * 2, positionCount * 2);
-        }
-        else {
-            long[] valuesWithoutNull = new long[positionCount * 2];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                int rawValuesIndex = (i + rawArrayOffset) * 2;
-                valuesWithoutNull[nonNullPositionCount] = rawValues[rawValuesIndex];
-                valuesWithoutNull[nonNullPositionCount + 1] = rawValues[rawValuesIndex + 1];
-                nonNullPositionCount += isNull[i + rawArrayOffset] ? 0 : 2;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount / 2);
-            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
+            compactInt128WithNulls(sliceOutput, rawValues, valueIsValid, rawOffset, positionCount);
         }
     }
 
@@ -90,30 +66,48 @@ public class Int128ArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull;
-        if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
-        }
-        else {
-            valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
+        if (valueIsValid == null) {
+            long[] values = new long[positionCount * 2];
+            sliceInput.readLongs(values);
+            return new Int128ArrayBlock(0, positionCount, null, values);
         }
 
-        long[] values = new long[positionCount * 2];
-        if (valueIsNull == null) {
-            sliceInput.readLongs(values);
-        }
-        else {
-            int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readLongs(values, 0, nonNullPositionCount * 2);
-            int position = 2 * (nonNullPositionCount - 1);
-            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
-                System.arraycopy(values, position, values, 2 * i, 2);
-                if (!valueIsNull[i]) {
-                    position -= 2;
-                }
+        return expandInt128WithNulls(sliceInput, positionCount, valueIsValid);
+    }
+
+    static void compactInt128WithNulls(SliceOutput sliceOutput, long[] values, long[] valueIsValid, int offset, int length)
+    {
+        checkFromIndexSize(offset * 2, length * 2, values.length);
+        long[] compacted = new long[length * 2];
+        int compactedIndex = 0;
+        for (int position = 0; position < length; position++) {
+            if (isSet(valueIsValid, offset, position)) {
+                int rawValuesIndex = (position + offset) * 2;
+                compacted[compactedIndex] = values[rawValuesIndex];
+                compacted[compactedIndex + 1] = values[rawValuesIndex + 1];
+                compactedIndex += 2;
             }
         }
 
-        return new Int128ArrayBlock(0, positionCount, valueIsNull, values);
+        sliceOutput.writeInt(compactedIndex / 2);
+        sliceOutput.writeLongs(compacted, 0, compactedIndex);
+    }
+
+    static Int128ArrayBlock expandInt128WithNulls(SliceInput sliceInput, int positionCount, long[] valueIsValid)
+    {
+        long[] values = new long[positionCount * 2];
+        int nonNullPositionCount = sliceInput.readInt();
+        sliceInput.readLongs(values, 0, nonNullPositionCount * 2);
+        int compactedIndex = 2 * (nonNullPositionCount - 1);
+        for (int position = positionCount - 1; position >= 0 && compactedIndex >= 0; position--) {
+            if (isSet(valueIsValid, 0, position)) {
+                int valuesIndex = position * 2;
+                values[valuesIndex] = values[compactedIndex];
+                values[valuesIndex + 1] = values[compactedIndex + 1];
+                compactedIndex -= 2;
+            }
+        }
+        return new Int128ArrayBlock(0, positionCount, valueIsValid, values);
     }
 }

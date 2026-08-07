@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
@@ -124,7 +123,6 @@ public class BenchmarkAndColumnarFilterTpchData
         for (Page inputPage : inputPages) {
             WorkProcessor<Page> workProcessor = processor.createWorkProcessor(
                     null,
-                    new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
                     SourcePage.create(inputPage));
