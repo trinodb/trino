@@ -316,8 +316,8 @@ development server:
 
 Open `http://localhost:5173/ui` in your browser. The Vite development server
 provides Hot Module Replacement for quick iteration. By default, requests to
-`/ui/auth` and `/ui/api` are proxied to `http://127.0.0.1:8080/`. To use a
-different backend, update `VITE_BASE_URL` in
+`/ui/auth` and `/ui/api` are proxied to `http://127.0.0.1:8080`. To use a
+different backend, update `VITE_PROXY_TARGET` in
 `core/trino-web-ui/src/main/resources/webapp/.env.development`.
 
 To build the Web UI locally, run:
