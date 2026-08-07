@@ -30,12 +30,12 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -317,9 +317,9 @@ public class ExpressionBytecodeCompiler
         }
 
         @Override
-        protected BytecodeNode visitArray(Array node, Context context)
+        protected BytecodeNode visitCollection(Collection node, Context context)
         {
-            return new ArrayConstructorCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
+            return new CollectionConstructorCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override

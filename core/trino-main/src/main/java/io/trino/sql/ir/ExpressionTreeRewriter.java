@@ -81,10 +81,10 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitArray(Array node, Context<C> context)
+        protected Expression visitCollection(Collection node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteArray(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteCollection(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -93,7 +93,7 @@ public final class ExpressionTreeRewriter<C>
             List<Expression> elements = rewrite(node.elements(), context);
 
             if (!sameElements(node.elements(), elements)) {
-                return new Array(node.elementType(), elements);
+                return new Collection(node.type(), elements);
             }
 
             return node;
