@@ -30,6 +30,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.type.DateTimes;
 import io.trino.util.DateTimeUtils;
+import io.trino.util.NeriSchneider;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.Days;
@@ -75,14 +76,6 @@ public final class DateTimeFunctions
             new ThreadLocalCache<>(100, DateTimeFunctions::createDateTimeFormatter);
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
-    private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
-    private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
-    private static final DateTimeField DAY_OF_YEAR = UTC_CHRONOLOGY.dayOfYear();
-    private static final DateTimeField WEEK_OF_YEAR = UTC_CHRONOLOGY.weekOfWeekyear();
-    private static final DateTimeField YEAR_OF_WEEK = UTC_CHRONOLOGY.weekyear();
-    private static final DateTimeField MONTH_OF_YEAR = UTC_CHRONOLOGY.monthOfYear();
-    private static final DateTimeField QUARTER = QUARTER_OF_YEAR.getField(UTC_CHRONOLOGY);
-    private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
     private static final int MILLISECONDS_IN_SECOND = 1000;
     private static final int MILLISECONDS_IN_MINUTE = 60 * MILLISECONDS_IN_SECOND;
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
@@ -485,7 +478,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_WEEK.get(DAYS.toMillis(date));
+        return NeriSchneider.dayOfWeekFromDays((int) date);
     }
 
     @Description("Day of the month of the given date")
@@ -493,7 +486,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_MONTH.get(DAYS.toMillis(date));
+        return NeriSchneider.dayOfMonthFromDays((int) date);
     }
 
     @Description("Day of the month of the given interval")
@@ -509,8 +502,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date) + 1) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
+        return NeriSchneider.lastDayOfMonthFromDays((int) date);
     }
 
     @Description("Day of the year of the given date")
@@ -518,7 +510,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfYearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_YEAR.get(DAYS.toMillis(date));
+        return NeriSchneider.dayOfYearFromDays((int) date);
     }
 
     @Description("Week of the year of the given date")
@@ -526,7 +518,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long weekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return WEEK_OF_YEAR.get(DAYS.toMillis(date));
+        return NeriSchneider.weekFromDays((int) date);
     }
 
     @Description("Year of the ISO week of the given date")
@@ -534,7 +526,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return YEAR_OF_WEEK.get(DAYS.toMillis(date));
+        return NeriSchneider.yearOfWeekFromDays((int) date);
     }
 
     @Description("Month of the year of the given date")
@@ -542,7 +534,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long monthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return MONTH_OF_YEAR.get(DAYS.toMillis(date));
+        return NeriSchneider.monthFromDays((int) date);
     }
 
     @Description("Month of the year of the given interval")
@@ -558,7 +550,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long quarterFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return QUARTER.get(DAYS.toMillis(date));
+        return NeriSchneider.quarterFromDays((int) date);
     }
 
     @Description("Year of the given date")
@@ -566,7 +558,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return YEAR.get(DAYS.toMillis(date));
+        return NeriSchneider.yearFromDays((int) date);
     }
 
     @Description("Year of the given interval")
