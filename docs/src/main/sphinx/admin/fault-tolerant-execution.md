@@ -76,6 +76,22 @@ execution on a Trino cluster:
     This property is used to prevent a user from configuring a retry policy that
     is not meant to be used on the given cluster.
   - `NONE`, `QUERY`, `TASK` 
+* - `retry-policy.excluded-query-types`
+  - Comma-separated list of query types that always run with `retry_policy`
+    `NONE` even when a different retry policy is configured. `DESCRIBE`
+    covers both `SHOW` and `DESCRIBE` statements. Set to an empty value to
+    disable. Ignored with a warning at startup when `retry-policy.allowed` does
+    not include `NONE`.
+  - `DESCRIBE`
+* - `retry-policy.exclude-metadata-only-queries`
+  - When `true`, queries that read only `information_schema` (any catalog),
+    `system.metadata`, or `system.jdbc` tables run with `retry_policy` `NONE`,
+    bypassing different retry policies execution overhead. A table reference is recognized
+    as internal when it uses a two-part name whose schema is `information_schema`,
+    or a three-part name whose schema is `information_schema` or whose catalog is
+    `system`. Ignored with a warning at startup when `retry-policy.allowed` does
+    not include `NONE`.
+  - `true`
 * - `exchange.deduplication-buffer-size`
   - [Data size](prop-type-data-size) of the coordinator's in-memory buffer used
     by fault-tolerant execution to store output of query

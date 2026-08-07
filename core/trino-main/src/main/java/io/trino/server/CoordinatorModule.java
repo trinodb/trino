@@ -51,6 +51,7 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.ForQueryExecution;
+import io.trino.execution.MetadataOnlyQueryPolicyResolver;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecutionMBean;
@@ -225,6 +226,7 @@ public class CoordinatorModule
 
         // local dispatcher
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
+        binder.bind(MetadataOnlyQueryPolicyResolver.class).in(Scopes.SINGLETON);
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);

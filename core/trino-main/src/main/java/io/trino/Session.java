@@ -24,6 +24,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.operator.RetryPolicy;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
@@ -54,6 +55,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -451,6 +453,13 @@ public final class Session
                 protocolHeaders,
                 exchangeEncryptionKey,
                 queryDataEncoding);
+    }
+
+    public Session withRetryPolicy(RetryPolicy retryPolicy)
+    {
+        Map<String, String> systemProperties = new HashMap<>(this.systemProperties);
+        systemProperties.put(RETRY_POLICY, retryPolicy.name());
+        return withProperties(systemProperties, getCatalogProperties());
     }
 
     public Session withExchangeEncryption(Slice encryptionKey)
