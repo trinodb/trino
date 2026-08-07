@@ -82,8 +82,16 @@ public class ReadSessionCreator
     public ReadSession create(ConnectorSession session, TableId remoteTable, List<BigQueryColumnHandle> selectedFields, Optional<String> filter, int currentWorkerCount)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
-        TableInfo tableDetails = client.getTable(remoteTable)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTable.getDataset(), remoteTable.getTable())));
+        // The table was already resolved during planning, so "not found" here is most likely a transient
+        // metadata blip, or a transient server error reported as an empty result
+        TableInfo tableDetails = Failsafe.with(RetryPolicy.builder()
+                        .withMaxRetries(maxCreateReadSessionRetries)
+                        .withBackoff(10, 500, MILLIS)
+                        .onRetry(event -> log.debug("Get table request failed, retrying: %s", event.getLastException()))
+                        .handleIf(throwable -> BigQueryUtil.isRetryable(throwable) || throwable instanceof TableNotFoundException)
+                        .build())
+                .get(() -> client.getTable(remoteTable)
+                        .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTable.getDataset(), remoteTable.getTable()))));
 
         TableInfo actualTable = getActualTable(client, tableDetails, selectedFields, isViewMaterializationWithFilter(session) ? filter : Optional.empty());
 
