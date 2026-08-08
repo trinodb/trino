@@ -15,6 +15,7 @@ package io.trino.plugin.base.projection;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.expression.Call;
+import io.trino.spi.expression.Case;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
@@ -33,6 +34,7 @@ import java.util.function.Predicate;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
@@ -148,6 +150,27 @@ public class TestApplyProjectionUtil
                         INTEGER_TO_INTEGER,
                         ImmutableList.of(lambdaArgument),
                         new Call(INTEGER, ADD_FUNCTION_NAME, ImmutableList.of(lambdaArgument, newCapture))));
+    }
+
+    @Test
+    public void testReplaceWithNewVariablesInCase()
+    {
+        Variable condition = new Variable("condition", BOOLEAN);
+        Variable result = new Variable("result", INTEGER);
+        Variable newCondition = new Variable("projected_condition", BOOLEAN);
+        Variable newResult = new Variable("projected_result", INTEGER);
+        ConnectorExpression expression = new Case(
+                INTEGER,
+                ImmutableList.of(new Case.WhenClause(condition, result)),
+                INT_VARIABLE);
+
+        assertThat(replaceWithNewVariables(expression, Map.of(
+                condition, newCondition,
+                result, newResult)))
+                .isEqualTo(new Case(
+                        INTEGER,
+                        ImmutableList.of(new Case.WhenClause(newCondition, newResult)),
+                        INT_VARIABLE));
     }
 
     /**

@@ -46,13 +46,12 @@ import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Case;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.WhenClause;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.FilterNode;
@@ -74,8 +73,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Booleans.FALSE;
-import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -248,14 +245,10 @@ public class TestPushPredicateIntoTableScan
                                                         .build(),
                                                 new Constant(DOUBLE, 42.0)),
                                         // non-translatable to connector expression
-                                        new Case(
-                                                ImmutableList.of(new WhenClause(
-                                                        TRUE,
-                                                        comparison(
-                                                                EQUAL,
-                                                                new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
-                                                                new Constant(BIGINT, 44L)))),
-                                                FALSE),
+                                        comparison(
+                                                EQUAL,
+                                                new Row(ImmutableList.of(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))))),
+                                                new Row(ImmutableList.of(new Reference(BIGINT, "nationkey")))),
                                         Logical.or(
                                                 comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
                                                 comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 45L))))),
@@ -276,8 +269,8 @@ public class TestPushPredicateIntoTableScan
                                                 new Constant(DOUBLE, 42.0)),
                                         comparison(
                                                 EQUAL,
-                                                new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
-                                                new Constant(BIGINT, 44L))),
+                                                new Row(ImmutableList.of(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))))),
+                                                new Row(ImmutableList.of(new Reference(BIGINT, "nationkey"))))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),

@@ -16,6 +16,7 @@ package io.trino.plugin.base.projection;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.expression.Call;
+import io.trino.spi.expression.Case;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
@@ -143,6 +144,17 @@ public final class ApplyProjectionUtil
                     call.getArguments().stream()
                             .map(argument -> replaceWithNewVariables(argument, expressionToVariableMappings, localVariables))
                             .collect(toImmutableList()));
+        }
+
+        if (expression instanceof Case caseExpression) {
+            return new Case(
+                    caseExpression.getType(),
+                    caseExpression.getWhenClauses().stream()
+                            .map(whenClause -> new Case.WhenClause(
+                                    replaceWithNewVariables(whenClause.getCondition(), expressionToVariableMappings, localVariables),
+                                    replaceWithNewVariables(whenClause.getResult(), expressionToVariableMappings, localVariables)))
+                            .collect(toImmutableList()),
+                    replaceWithNewVariables(caseExpression.getDefaultValue(), expressionToVariableMappings, localVariables));
         }
 
         // We cannot skip processing for unsupported expression shapes. This may lead to variables being left in ProjectionApplicationResult
