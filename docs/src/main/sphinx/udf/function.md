@@ -92,11 +92,11 @@ SELECT example.default.meaning_of_life(); -- returns 42
 
 Equivalent usage with an inline function:
 
-```sql
+```{try-sql}
 WITH FUNCTION meaning_of_life()
   RETURNS BIGINT
   RETURN 42
-SELECT meaning_of_life();
+SELECT meaning_of_life()
 ```
 
 Further examples of varying complexity that cover usage of the `FUNCTION`
