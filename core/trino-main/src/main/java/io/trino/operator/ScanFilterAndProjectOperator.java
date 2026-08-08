@@ -27,6 +27,7 @@ import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
+import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -48,14 +49,11 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
@@ -67,7 +65,9 @@ public class ScanFilterAndProjectOperator
         implements WorkProcessorSourceOperator
 {
     private final PageSourceProvider pageSourceProvider;
-    private final WorkProcessor<Page> pages;
+    private final SplitToPages splitToPages;
+    // getOutputPages and getMaskedOutputPages both read from this stream; the driver calls only one of them
+    private final WorkProcessor<SourcePage> sourcePages;
     private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
 
     @Nullable
@@ -96,20 +96,20 @@ public class ScanFilterAndProjectOperator
             int minOutputPageRowCount)
     {
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        pages = split.flatTransform(
-                new SplitToPages(
-                        operatorContext.getSession(),
-                        yieldSignal,
-                        pageSourceProvider,
-                        pageProcessor,
-                        table,
-                        tableCredentials,
-                        columns,
-                        dynamicFilter,
-                        types,
-                        operatorContext.aggregateUserMemoryContext(),
-                        minOutputPageSize,
-                        minOutputPageRowCount));
+        this.splitToPages = new SplitToPages(
+                operatorContext.getSession(),
+                yieldSignal,
+                pageSourceProvider,
+                pageProcessor,
+                table,
+                tableCredentials,
+                columns,
+                dynamicFilter,
+                types,
+                operatorContext.aggregateUserMemoryContext(),
+                minOutputPageSize,
+                minOutputPageRowCount);
+        this.sourcePages = split.flatTransform(splitToPages);
     }
 
     @Override
@@ -163,12 +163,25 @@ public class ScanFilterAndProjectOperator
     @Override
     public WorkProcessor<Page> getOutputPages()
     {
-        return pages;
+        return splitToPages.toPages(sourcePages);
+    }
+
+    @Override
+    public boolean producesMaskedOutput()
+    {
+        return true;
+    }
+
+    @Override
+    public WorkProcessor<MaskedPage> getMaskedOutputPages()
+    {
+        return splitToPages.toMaskedPages(sourcePages);
     }
 
     @Override
     public void close()
     {
+        splitToPages.close();
         if (pageSource != null) {
             try {
                 pageSource.close();
@@ -181,7 +194,7 @@ public class ScanFilterAndProjectOperator
     }
 
     private class SplitToPages
-            implements WorkProcessor.Transformation<Split, WorkProcessor<Page>>
+            implements WorkProcessor.Transformation<Split, WorkProcessor<SourcePage>>
     {
         final Session session;
         final DriverYieldSignal yieldSignal;
@@ -233,10 +246,9 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
-        public TransformationState<WorkProcessor<Page>> process(Split split)
+        public TransformationState<WorkProcessor<SourcePage>> process(Split split)
         {
             if (split == null) {
-                memoryContext.close();
                 return finished();
             }
 
@@ -255,55 +267,40 @@ public class ScanFilterAndProjectOperator
             }
 
             pageSource = source;
-            return ofResult(processPageSource());
+            return ofResult(sourcePages());
         }
 
-        WorkProcessor<Page> processPageSource()
+        WorkProcessor<SourcePage> sourcePages()
         {
-            ConnectorSession connectorSession = session.toConnectorSession();
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages(pageSourceProviderMemoryContext))
-                    .yielding(yieldSignal::isSet)
-                    .flatMap(page -> {
-                        WorkProcessor<Page> workProcessor = pageProcessor.createWorkProcessor(
-                                connectorSession,
-                                outputMemoryContext,
-                                pageProcessorMetrics,
-                                page);
-                        // Note this is monitoring the original source page not the result page
-                        return workProcessor.withProcessStateMonitor(new ProcessedBytesMonitor(page, bytes -> processedBytes += bytes));
-                    })
+                    .yielding(yieldSignal::isSet);
+        }
+
+        WorkProcessor<MaskedPage> toMaskedPages(WorkProcessor<SourcePage> sourcePages)
+        {
+            ConnectorSession connectorSession = session.toConnectorSession();
+            return sourcePages.flatMap(page -> {
+                SelectedPositions selectedPositions = pageProcessor.evaluateFilter(connectorSession, pageProcessorMetrics, page);
+                if (selectedPositions.isEmpty()) {
+                    return WorkProcessor.of();
+                }
+                return WorkProcessor.of(pageProcessor.applyMask(connectorSession, page, selectedPositions, outputMemoryContext, pageProcessorMetrics));
+            });
+        }
+
+        WorkProcessor<Page> toPages(WorkProcessor<SourcePage> sourcePages)
+        {
+            ConnectorSession connectorSession = session.toConnectorSession();
+            return sourcePages
+                    .flatMap(page -> pageProcessor.createWorkProcessor(connectorSession, outputMemoryContext, pageProcessorMetrics, page))
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                     .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
-    }
 
-    static class ProcessedBytesMonitor
-            implements Consumer<ProcessState<Page>>
-    {
-        private final SourcePage page;
-        private final LongConsumer processedBytesConsumer;
-        private long localProcessedBytes;
-
-        public ProcessedBytesMonitor(SourcePage page, LongConsumer processedBytesConsumer)
+        void close()
         {
-            this.page = requireNonNull(page, "page is null");
-            this.processedBytesConsumer = requireNonNull(processedBytesConsumer, "processedBytesConsumer is null");
-            localProcessedBytes = page.getSizeInBytes();
-            processedBytesConsumer.accept(localProcessedBytes);
-        }
-
-        @Override
-        public void accept(ProcessState<Page> state)
-        {
-            update();
-        }
-
-        void update()
-        {
-            long newProcessedBytes = page.getSizeInBytes();
-            processedBytesConsumer.accept(newProcessedBytes - localProcessedBytes);
-            localProcessedBytes = newProcessedBytes;
+            memoryContext.close();
         }
     }
 
@@ -311,6 +308,7 @@ public class ScanFilterAndProjectOperator
             implements WorkProcessor.Process<SourcePage>
     {
         final LocalMemoryContext pageSourceProviderMemoryContext;
+        private SourcePage previousPage;
 
         ConnectorPageSourceToPages(LocalMemoryContext pageSourceProviderMemoryContext)
         {
@@ -320,6 +318,13 @@ public class ScanFilterAndProjectOperator
         @Override
         public ProcessState<SourcePage> process()
         {
+            if (previousPage != null) {
+                // account input bytes once the downstream is done with the prior page: lazily decoded
+                // channels are reflected in getSizeInBytes only after they are read
+                processedBytes += previousPage.getSizeInBytes();
+                previousPage = null;
+            }
+
             if (pageSource.isFinished()) {
                 return ProcessState.finished();
             }
@@ -346,6 +351,7 @@ public class ScanFilterAndProjectOperator
                 return ProcessState.yielded();
             }
 
+            previousPage = page;
             return ProcessState.ofResult(page);
         }
     }
@@ -425,20 +431,18 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
+        public List<Type> getOutputTypes()
+        {
+            return types;
+        }
+
+        @Override
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, Optional.of(sourceId), getOperatorType());
-
-            WorkProcessorSourceOperatorAdapter operator = new WorkProcessorSourceOperatorAdapter(operatorContext, this);
-
-            if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
-                return new OutputValidatingSourceOperator(
-                        operator,
-                        types,
-                        () -> "ScanFilterAndProjectOperator(%s); taskId=%s; operatorId=%s".formatted(table, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
-            }
-            return operator;
+            // the adapter validates both the regular and masked output streams; no outer wrapper needed
+            return new WorkProcessorSourceOperatorAdapter(operatorContext, this);
         }
 
         @Override

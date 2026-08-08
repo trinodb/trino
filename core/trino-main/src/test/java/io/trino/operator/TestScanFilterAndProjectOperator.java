@@ -57,7 +57,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -65,7 +64,6 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -203,18 +201,10 @@ public class TestScanFilterAndProjectOperator
         }
     }
 
-    @Test
-    public void testPageSourceLazyLoad()
-            throws Exception
+    private static ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory createLazyLoadFactory(TestingSourcePage input)
     {
-        Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
-        // If column 1 is loaded, test will fail
-        TestingSourcePage input = new TestingSourcePage(100, inputBlock, null);
-        DriverContext driverContext = newDriverContext();
-
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new LazyPagePageProjection()));
-
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
+        return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
@@ -227,6 +217,18 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);
+    }
+
+    @Test
+    public void testPageSourceLazyLoad()
+            throws Exception
+    {
+        Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
+        // If column 1 is loaded, test will fail
+        TestingSourcePage input = new TestingSourcePage(100, inputBlock, null);
+        DriverContext driverContext = newDriverContext();
+
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = createLazyLoadFactory(input);
 
         try (SourceOperator operator = factory.createOperator(driverContext)) {
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -236,6 +238,39 @@ public class TestScanFilterAndProjectOperator
             MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), toPages(operator));
 
             assertThat(actual).containsExactlyElementsOf(expected);
+
+            // input bytes account only decoded channels; column 1 is never loaded
+            assertThat(operator.getOperatorContext().getInputDataSize().getTotalCount())
+                    .isEqualTo(inputBlock.getSizeInBytes());
+        }
+    }
+
+    @Test
+    public void testMaskedOutputLazyLoad()
+            throws Exception
+    {
+        Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
+        // If column 1 is loaded, test will fail
+        TestingSourcePage input = new TestingSourcePage(100, inputBlock, null);
+        DriverContext driverContext = newDriverContext();
+
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = createLazyLoadFactory(input);
+
+        try (SourceOperator operator = factory.createOperator(driverContext)) {
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.noMoreSplits();
+
+            // source-pages validation is on by default; masked output must remain available under it
+            assertThat(operator.producesMaskedOutput()).isTrue();
+
+            MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
+            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), toMaskedPages(operator));
+
+            assertThat(actual).containsExactlyElementsOf(expected);
+
+            // input bytes account only decoded channels; column 1 is never loaded
+            assertThat(operator.getOperatorContext().getInputDataSize().getTotalCount())
+                    .isEqualTo(inputBlock.getSizeInBytes());
         }
     }
 
@@ -276,30 +311,32 @@ public class TestScanFilterAndProjectOperator
         }
     }
 
-    @Test
-    public void testRecordMaterializedBytes()
+    private static List<Page> toMaskedPages(SourceOperator operator)
     {
-        Block block = createIntsBlock(1, 2, 3);
-        SourcePage page = new TestingSourcePage(3, block, block, block);
+        ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
 
-        page.getBlock(1);
+        int nullPages = 0;
+        while (!operator.isFinished()) {
+            MaskedPage maskedPage = operator.getMaskedOutput();
+            if (maskedPage == null) {
+                assertThat(nullPages < 1_000_000)
+                        .describedAs("Too many null pages; infinite loop?")
+                        .isTrue();
+                nullPages++;
+                continue;
+            }
+            nullPages = 0;
+            // masked pages are valid only until the next output request, so materialize fully now
+            WorkProcessor<Page> materialized = maskedPage.materialize();
+            while (materialized.process()) {
+                if (materialized.isFinished()) {
+                    break;
+                }
+                outputPages.add(materialized.getResult());
+            }
+        }
 
-        AtomicLong sizeInBytes = new AtomicLong();
-        ScanFilterAndProjectOperator.ProcessedBytesMonitor monitor = new ScanFilterAndProjectOperator.ProcessedBytesMonitor(page, sizeInBytes::getAndAdd);
-
-        assertThat(sizeInBytes.get()).isEqualTo(block.getSizeInBytes() * 1);
-
-        page.getBlock(2);
-        monitor.update();
-        assertThat(sizeInBytes.get()).isEqualTo(block.getSizeInBytes() * 2);
-
-        page.getBlock(1);
-        monitor.update();
-        assertThat(sizeInBytes.get()).isEqualTo(block.getSizeInBytes() * 2);
-
-        page.getBlock(0);
-        monitor.update();
-        assertThat(sizeInBytes.get()).isEqualTo(block.getSizeInBytes() * 3);
+        return outputPages.build();
     }
 
     private static List<Page> toPages(Operator operator)

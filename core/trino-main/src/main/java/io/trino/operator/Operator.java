@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.Page;
+import jakarta.annotation.Nullable;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
@@ -24,6 +25,43 @@ public interface Operator
     ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
     OperatorContext getOperatorContext();
+
+    /**
+     * Whether this operator can emit {@link MaskedPage} output instead of materialized pages. The
+     * driver reads masked output only when the downstream operator returns true from
+     * {@link #supportsMaskedInput}; otherwise {@link #getOutput} is used.
+     */
+    default boolean producesMaskedOutput()
+    {
+        return false;
+    }
+
+    /**
+     * Analog of {@link #getOutput} producing a {@link MaskedPage}. The returned page is valid only
+     * until the next output request on this operator.
+     */
+    @Nullable
+    default MaskedPage getMaskedOutput()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Whether this operator can consume {@link MaskedPage} input instead of materialized pages.
+     */
+    default boolean supportsMaskedInput()
+    {
+        return false;
+    }
+
+    /**
+     * Analog of {@link #addInput} accepting a {@link MaskedPage}. The page is valid only for the
+     * duration of this call; the consumer must decode or copy everything it needs before returning.
+     */
+    default void addMaskedInput(MaskedPage maskedPage)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Returns a future that will be completed when the operator becomes
