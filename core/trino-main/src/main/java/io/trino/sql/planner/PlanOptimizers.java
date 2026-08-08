@@ -217,6 +217,7 @@ import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
 import io.trino.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.trino.sql.planner.iterative.rule.ReorderJoins;
+import io.trino.sql.planner.iterative.rule.ReplaceDecimalSumAndAvgWithSumAndCount;
 import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
@@ -837,6 +838,7 @@ public class PlanOptimizers
                         .add(new InlineProjections())
                         .add(new PushFilterIntoValues(plannerContext))
                         .add(new ReplaceJoinOverConstantWithProject())
+                        .add(new ReplaceDecimalSumAndAvgWithSumAndCount(plannerContext)) // must run after unreferenced columns are pruned
                         .build()));
 
         builder.add(new IterativeOptimizer(

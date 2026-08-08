@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>399</version>
+        <version>400</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -324,7 +324,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.49.6</version>
+                <version>2.50.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -334,7 +334,7 @@
                 <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>
-                <version>1.11.1</version>
+                <version>1.11.2</version>
             </dependency>
 
             <dependency>
