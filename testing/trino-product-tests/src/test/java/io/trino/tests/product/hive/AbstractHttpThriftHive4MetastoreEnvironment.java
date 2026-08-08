@@ -102,6 +102,13 @@ abstract class AbstractHttpThriftHive4MetastoreEnvironment
     }
 
     @Override
+    public Connection createTrinoConnection(String user)
+            throws SQLException
+    {
+        return TrinoProductTestContainer.createConnection(trino, user);
+    }
+
+    @Override
     public String getTrinoJdbcUrl()
     {
         return trino.getJdbcUrl();
