@@ -18,6 +18,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.MediaType;
@@ -126,6 +127,7 @@ import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.trino.spi.security.ExtraCredentials.isInternalExtraCredential;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
 import static java.lang.Math.clamp;
@@ -142,6 +144,7 @@ public final class HttpRemoteTask
     private final TaskId taskId;
 
     private final Session session;
+    private final Map<String, String> workerExtraCredentials;
     private final Span stageSpan;
     private final String nodeId;
     private final AtomicBoolean speculative;
@@ -266,6 +269,7 @@ public final class HttpRemoteTask
         try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
             this.taskId = taskId;
             this.session = session;
+            this.workerExtraCredentials = extraCredentialsForWorker(session.getIdentity().getExtraCredentials());
             this.stageSpan = stageSpan;
             this.nodeId = node.getNodeIdentifier();
             this.speculative = new AtomicBoolean(speculative);
@@ -777,7 +781,7 @@ public final class HttpRemoteTask
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
-                session.getIdentity().getExtraCredentials(),
+                workerExtraCredentials,
                 stageSpan,
                 fragment,
                 tableCredentials,
@@ -818,6 +822,11 @@ public final class HttpRemoteTask
                 future,
                 new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, dynamicFilterDomains.getVersion(), System.nanoTime(), currentPendingRequestsCounter), request.getUri(), stats),
                 executor);
+    }
+
+    private static Map<String, String> extraCredentialsForWorker(Map<String, String> extraCredentials)
+    {
+        return ImmutableMap.copyOf(Maps.filterKeys(extraCredentials, key -> !isInternalExtraCredential(key)));
     }
 
     private synchronized List<SplitAssignment> getSplitAssignments(int currentSplitBatchSize)

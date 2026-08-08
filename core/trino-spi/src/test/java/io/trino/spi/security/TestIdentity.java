@@ -80,4 +80,20 @@ class TestIdentity
         assertThat(otherIdentity.hashCode())
                 .isEqualTo(TEST_IDENTITY.hashCode());
     }
+
+    @Test
+    public void testToStringHidesInternalExtraCredentials()
+    {
+        Identity identity = Identity.forUser("user")
+                .withExtraCredentials(ImmutableMap.of(
+                        "token", "credential",
+                        ExtraCredentials.authenticatedExtraCredentialName("token"), "credential"))
+                .build();
+
+        assertThat(identity.toString())
+                .contains("token")
+                .contains("...")
+                .doesNotContain(ExtraCredentials.authenticatedExtraCredentialName("token"))
+                .doesNotContain("credential");
+    }
 }
