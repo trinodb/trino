@@ -171,6 +171,7 @@ import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
 import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
+import io.trino.sql.tree.PrimaryKeyDefinition;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.PrincipalSpecification.Type;
 import io.trino.sql.tree.ProcessingMode;
@@ -3563,6 +3564,33 @@ public class TestSqlParser
                                 columnDefinition(location(3, 1), "b", simpleType(location(3, 3), "BIGINT"), true, "hello world"),
                                 columnDefinition(location(4, 1), "c", simpleType(location(4, 3), "IPADDRESS")),
                                 columnDefinition(location(5, 1), "d", simpleType(location(5, 3), "INTEGER"), false)),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testCreateTableWithPrimaryKey()
+    {
+        assertThat(statement(
+                "CREATE TABLE foo (" +
+                        "a VARCHAR COMMENT 'column a', " +
+                        "b BIGINT COMMENT 'hello world', " +
+                        "c IPADDRESS, " +
+                        "d INTEGER, " +
+                        "PRIMARY KEY (a, d))"))
+                .ignoringLocation()
+                .isEqualTo(new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(QualifiedName.of("a"), simpleType(location(1, 20), "VARCHAR"), true, emptyList(), Optional.of("column a")),
+                                new ColumnDefinition(QualifiedName.of("b"), simpleType(location(1, 59), "BIGINT"), true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 91), "IPADDRESS"), true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 104), "INTEGER"), true, emptyList(), Optional.empty()),
+                                new PrimaryKeyDefinition(location(1, 104), ImmutableList.of(
+                                        new Identifier(location(1, 123), "a", false),
+                                        new Identifier(location(1, 126), "d", false)))),
                         FAIL,
                         ImmutableList.of(),
                         Optional.empty()));

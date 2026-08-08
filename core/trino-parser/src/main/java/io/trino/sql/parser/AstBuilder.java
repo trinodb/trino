@@ -229,6 +229,7 @@ import io.trino.sql.tree.PlanSiblings;
 import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
+import io.trino.sql.tree.PrimaryKeyDefinition;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.PropertiesCharacteristic;
@@ -3411,6 +3412,14 @@ class AstBuilder
                 nullable,
                 properties,
                 comment);
+    }
+
+    @Override
+    public Node visitPrimaryKeyDefinition(SqlBaseParser.PrimaryKeyDefinitionContext context)
+    {
+        return new PrimaryKeyDefinition(
+                getLocation(context),
+                visit(context.identifier(), Identifier.class));
     }
 
     @Override
