@@ -152,7 +152,8 @@ public abstract class BaseJdbcClient
         this.supportsRetries = supportsRetries;
     }
 
-    protected IdentifierMapping getIdentifierMapping()
+    @Override
+    public IdentifierMapping getIdentifierMapping()
     {
         return identifierMapping;
     }
@@ -1935,6 +1936,7 @@ public abstract class BaseJdbcClient
         return columnName;
     }
 
+    @Override
     public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
     {
         return jdbcRemoteIdentifiersFactory.createJdbcRemoteIdentifies(connection);
