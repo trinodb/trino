@@ -82,6 +82,7 @@
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
+        <module>plugin/trino-hsqldb</module>
         <module>plugin/trino-http-event-listener</module>
         <module>plugin/trino-http-server-event-listener</module>
         <module>plugin/trino-hudi</module>
@@ -1110,6 +1111,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive-formats</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-hsqldb</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2186,6 +2193,12 @@
                 <groupId>org.hdrhistogram</groupId>
                 <artifactId>HdrHistogram</artifactId>
                 <version>2.2.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.hsqldb</groupId>
+                <artifactId>hsqldb</artifactId>
+                <version>2.7.4</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
