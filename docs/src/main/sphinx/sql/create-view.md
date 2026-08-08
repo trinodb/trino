@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-CREATE [ OR REPLACE ] VIEW view_name
+CREATE [ OR REPLACE ] VIEW [ IF NOT EXISTS ] view_name
 [ COMMENT view_comment ]
 [ SECURITY { DEFINER | INVOKER } ]
 AS query
@@ -18,6 +18,11 @@ referenced by another query.
 
 The optional `OR REPLACE` clause causes the view to be replaced if it
 already exists rather than raising an error.
+
+The optional `IF NOT EXISTS` clause causes the error to be
+suppressed if the view already exists.
+
+`OR REPLACE` and `IF NOT EXISTS` cannot be used together.
 
 ## Security
 
