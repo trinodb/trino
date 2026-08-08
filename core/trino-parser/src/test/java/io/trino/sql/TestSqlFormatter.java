@@ -28,6 +28,13 @@ import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
+import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
+import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
+import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropDefaultValue;
@@ -36,6 +43,8 @@ import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
@@ -326,6 +335,187 @@ public class TestSqlFormatter
                            col VARCHAR NOT NULL WITH (abc = 'test', xyz = DEFAULT)
                         )\
                         """);
+
+        // Create a table with column default values
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "DATE", false), ImmutableList.of()),
+                                Optional.of(new CurrentDate(new NodeLocation(1, 1))),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col DATE DEFAULT current_date
+                        )""");
+
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "TIME", false), ImmutableList.of()),
+                                Optional.of(new CurrentTime(new NodeLocation(1, 1), Optional.empty())),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col TIME DEFAULT current_time
+                        )""");
+
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "TIMESTAMP", false), ImmutableList.of()),
+                                Optional.of(new CurrentTimestamp(new NodeLocation(1, 1), Optional.empty())),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col TIMESTAMP DEFAULT current_timestamp
+                        )""");
+
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "TIME", false), ImmutableList.of()),
+                                Optional.of(new LocalTime(new NodeLocation(1, 1))),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col TIME DEFAULT localtime
+                        )""");
+
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "TIMESTAMP", false), ImmutableList.of()),
+                                Optional.of(new LocalTimestamp(new NodeLocation(1, 1))),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col TIMESTAMP DEFAULT localtimestamp
+                        )""");
+
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "VARCHAR", false), ImmutableList.of()),
+                                Optional.of(new CurrentUser(new NodeLocation(1, 1))),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col VARCHAR DEFAULT CURRENT_USER
+                        )""");
+
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "VARCHAR", false), ImmutableList.of()),
+                                Optional.of(new CurrentCatalog(new NodeLocation(1, 1))),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col VARCHAR DEFAULT CURRENT_CATALOG
+                        )""");
+
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "VARCHAR", false), ImmutableList.of()),
+                                Optional.of(new CurrentSchema(new NodeLocation(1, 1))),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col VARCHAR DEFAULT CURRENT_SCHEMA
+                        )""");
+
+        assertThat(formatSql(
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier(new NodeLocation(1, 1), "VARCHAR", false), ImmutableList.of()),
+                                Optional.of(new CurrentPath(new NodeLocation(1, 1))),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col VARCHAR DEFAULT CURRENT_PATH
+                        )""");
     }
 
     @Test
@@ -594,6 +784,96 @@ public class TestSqlFormatter
                 new LongLiteral(new NodeLocation(1, 56), "123"),
                 true)))
                 .isEqualTo("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DEFAULT 123");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 23), "foo", false),
+                        new Identifier(new NodeLocation(1, 27), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
+                new CurrentDate(new NodeLocation(1, 56)),
+                true)))
+                .isEqualTo("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DEFAULT current_date");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new CurrentTime(new NodeLocation(1, 46), Optional.empty()),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT current_time");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new CurrentTimestamp(new NodeLocation(1, 46), Optional.empty()),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT current_timestamp");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new LocalTime(new NodeLocation(1, 46)),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT localtime");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new LocalTimestamp(new NodeLocation(1, 46)),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT localtimestamp");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new CurrentUser(new NodeLocation(1, 46)),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT CURRENT_USER");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new CurrentCatalog(new NodeLocation(1, 46)),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT CURRENT_CATALOG");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new CurrentSchema(new NodeLocation(1, 46)),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT CURRENT_SCHEMA");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new CurrentPath(new NodeLocation(1, 46)),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT CURRENT_PATH");
     }
 
     @Test
