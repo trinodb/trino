@@ -63,6 +63,21 @@ final class Reservation<T>
         semaphore.acquire();
     }
 
+    /// Attempt to claim a slot without blocking.
+    ///
+    /// @return true if a slot was claimed; the caller must later [#register] an entity for it or
+    ///         return the slot via [#releaseSlot()]
+    public boolean tryReserve()
+    {
+        return semaphore.tryAcquire();
+    }
+
+    /// Return a slot claimed via [#tryReserve()] that was never associated with an entity.
+    public void releaseSlot()
+    {
+        semaphore.release();
+    }
+
     public synchronized void register(T entry)
     {
         checkArgument(!reservations.contains(entry), "Already acquired: %s", entry);
