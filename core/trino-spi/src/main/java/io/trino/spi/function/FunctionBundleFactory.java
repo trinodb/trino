@@ -24,6 +24,11 @@ public interface FunctionBundleFactory
     {
         Builder functions(Class<?> functionClass);
 
+        default Builder functions(Object functionInstance)
+        {
+            throw new UnsupportedOperationException("Function instance registration is not supported");
+        }
+
         FunctionBundle build();
     }
 }
