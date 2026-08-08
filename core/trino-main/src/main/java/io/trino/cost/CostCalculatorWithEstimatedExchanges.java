@@ -17,11 +17,13 @@ package io.trino.cost;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.ReorderJoins;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -30,8 +32,11 @@ import io.trino.sql.planner.plan.UnionNode;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.isUsePartitioningInJoinCost;
 import static io.trino.cost.LocalCostEstimate.addPartialComponents;
 import static java.util.Objects.requireNonNull;
 
@@ -126,12 +131,66 @@ public class CostCalculatorWithEstimatedExchanges
         @Override
         public LocalCostEstimate visitJoin(JoinNode node, Void context)
         {
+            boolean replicated = Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED));
+            if (!replicated && isUsePartitioningInJoinCost(session)) {
+                return calculatePartitionedJoinExchangeCost(node, stats);
+            }
             return calculateJoinExchangeCost(
                     node.getLeft(),
                     node.getRight(),
                     stats,
-                    Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)),
+                    replicated,
                     taskCountEstimator.estimateSourceDistributedTaskCount(session));
+        }
+
+        /**
+         * As {@link #calculateJoinExchangeCost}, except that an input already partitioned on its
+         * join keys is not charged for being repartitioned. AddExchanges asks for each side to be
+         * partitioned on the join keys and leaves out the exchange when the side already is, so
+         * charging for it makes every plan that keeps a partitioning look worse than it runs.
+         */
+        private static LocalCostEstimate calculatePartitionedJoinExchangeCost(JoinNode node, StatsProvider stats)
+        {
+            PlanNode probe = node.getLeft();
+            PlanNode build = node.getRight();
+            double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe.getOutputSymbols());
+            double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputSymbols());
+
+            Set<Symbol> probeKeys = node.getCriteria().stream().map(EquiJoinClause::getLeft).collect(toImmutableSet());
+            Set<Symbol> buildKeys = node.getCriteria().stream().map(EquiJoinClause::getRight).collect(toImmutableSet());
+
+            LocalCostEstimate probeCost = keepsPartitioningOn(probe, probeKeys)
+                    ? LocalCostEstimate.zero()
+                    : calculateRemoteRepartitionCost(probeSizeInBytes);
+            LocalCostEstimate buildRemoteRepartitionCost = keepsPartitioningOn(build, buildKeys)
+                    ? LocalCostEstimate.zero()
+                    : calculateRemoteRepartitionCost(buildSizeInBytes);
+            LocalCostEstimate buildLocalRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
+            return addPartialComponents(probeCost, buildRemoteRepartitionCost, buildLocalRepartitionCost);
+        }
+
+        /**
+         * Whether {@code node} comes out partitioned in a way that satisfies partitioning on
+         * {@code keys}, as far as it can be told before exchanges are added. A partitioning
+         * satisfies a requirement when every column it hashes is one of the required keys: rows
+         * that agree on the keys then agree on every hashed column, so no exchange is needed. A
+         * join partitions both sides on its criteria, and a broadcast join passes through
+         * whatever the probe was partitioned on.
+         */
+        private static boolean keepsPartitioningOn(PlanNode node, Set<Symbol> keys)
+        {
+            if (keys.isEmpty()) {
+                return false;
+            }
+            if (node instanceof JoinNode joinNode && joinNode.getDistributionType().isPresent()) {
+                if (joinNode.getDistributionType().get() == JoinNode.DistributionType.PARTITIONED) {
+                    // either side of a clause counts, since its two sides hold the same values
+                    return !joinNode.getCriteria().isEmpty() && joinNode.getCriteria().stream()
+                            .allMatch(clause -> keys.contains(clause.getLeft()) || keys.contains(clause.getRight()));
+                }
+                return keepsPartitioningOn(joinNode.getLeft(), keys);
+            }
+            return false;
         }
 
         @Override

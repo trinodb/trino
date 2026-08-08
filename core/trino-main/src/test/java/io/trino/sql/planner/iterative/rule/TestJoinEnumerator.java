@@ -26,6 +26,11 @@ import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
+import io.trino.sql.ir.Call;
+import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -35,6 +40,7 @@ import io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
 import io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator;
 import io.trino.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,13 +49,21 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.buildJoinGraph;
+import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.countPartitions;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
+import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.isConnected;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -59,6 +73,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestJoinEnumerator
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
+
     private PlanTester planTester;
 
     @BeforeAll
@@ -75,21 +92,124 @@ public class TestJoinEnumerator
     }
 
     @Test
-    public void testGeneratePartitions()
+    public void testGeneratePartitionsOfCliqueEnumeratesEverySubset()
     {
-        assertThat(generatePartitions(4)).isEqualTo(ImmutableSet.of(
-                ImmutableSet.of(0),
-                ImmutableSet.of(0, 1),
-                ImmutableSet.of(0, 2),
-                ImmutableSet.of(0, 3),
-                ImmutableSet.of(0, 1, 2),
-                ImmutableSet.of(0, 1, 3),
-                ImmutableSet.of(0, 2, 3)));
+        // every subset containing the lowest node, except the full set
+        assertThat(generatePartitions(0b1111, clique(4)))
+                .containsExactly(0b0001, 0b0011, 0b0101, 0b0111, 0b1001, 0b1011, 0b1101);
 
-        assertThat(generatePartitions(3)).isEqualTo(ImmutableSet.of(
-                ImmutableSet.of(0),
-                ImmutableSet.of(0, 1),
-                ImmutableSet.of(0, 2)));
+        assertThat(generatePartitions(0b111, clique(3)))
+                .containsExactly(0b001, 0b011, 0b101);
+    }
+
+    @Test
+    public void testGeneratePartitionsSkipsDisconnectedHalves()
+    {
+        // 0 - 1 - 2 - 3: both halves are connected only when the chain is split in two
+        long[] chain = graph(4, 0, 1, 1, 2, 2, 3);
+        assertThat(generatePartitions(0b1111, chain))
+                .containsExactly(0b0001, 0b0011, 0b0111);
+
+        // 0 is the center, 1, 2 and 3 are the leaves: the half without the center must be a single leaf
+        long[] star = graph(4, 0, 1, 0, 2, 0, 3);
+        assertThat(generatePartitions(0b1111, star))
+                .containsExactly(0b0111, 0b1011, 0b1101);
+
+        // 0 - 1 and 2 - 3, with no edge in between
+        long[] disconnected = graph(4, 0, 1, 2, 3);
+        assertThat(generatePartitions(0b1111, disconnected)).isEmpty();
+        assertThat(generatePartitions(0b0011, disconnected)).containsExactly(0b0001);
+    }
+
+    @Test
+    public void testGeneratePartitionsOfSubsetIgnoresNodesOutsideIt()
+    {
+        long[] chain = graph(4, 0, 1, 1, 2, 2, 3);
+        assertThat(generatePartitions(0b1110, chain)).containsExactly(0b0010, 0b0110);
+        // 0 and 3 are not adjacent, so they cannot be joined
+        assertThat(generatePartitions(0b1001, chain)).isEmpty();
+    }
+
+    @Test
+    public void testCountPartitions()
+    {
+        // a chain is enumerated in cubic time, a clique in exponential time
+        assertThat(countPartitions(0b1111, graph(4, 0, 1, 1, 2, 2, 3), 1000)).isEqualTo(10);
+        assertThat(countPartitions(0b1111, clique(4), 1000)).isEqualTo(25);
+        assertThat(countPartitions((1L << 10) - 1, chain(10), 1_000_000)).isEqualTo(165);
+        assertThat(countPartitions((1L << 10) - 1, clique(10), 1_000_000)).isEqualTo(28501);
+    }
+
+    @Test
+    public void testCountPartitionsGivesUpOnceLimitIsExceeded()
+    {
+        // counting stops as soon as the limit is passed, rather than enumerating the whole space
+        assertThat(countPartitions((1L << 16) - 1, clique(16), 100)).isEqualTo(101);
+        assertThat(countPartitions((1L << 16) - 1, clique(16), 1000)).isEqualTo(1001);
+        // under the limit the count is exact
+        assertThat(countPartitions((1L << 16) - 1, chain(16), 1000)).isEqualTo(680);
+    }
+
+    @Test
+    public void testCountPartitionsDoesNotWalkTheSearchSpaceToGiveUp()
+    {
+        // a 40-source clique has 2^39 partitions at the top level alone: the count must stop at
+        // the limit instead of materializing them
+        assertThat(countPartitions((1L << 40) - 1, clique(40), 100)).isGreaterThan(100);
+        // a 40-source star generates exponentially many candidate subgraphs while yielding few
+        // partitions: the count must give up on the generation work, not only on the partitions
+        assertThat(countPartitions((1L << 40) - 1, star(40), 100)).isGreaterThan(100);
+    }
+
+    @Test
+    public void testBuildJoinGraphConnectsSourcesSharingAnEqualityClass()
+    {
+        PlanBuilder p = planBuilder();
+        Symbol a = p.symbol("A", BIGINT);
+        Symbol b = p.symbol("B", BIGINT);
+        Symbol c = p.symbol("C", BIGINT);
+        List<PlanNode> sources = ImmutableList.of(p.values(a), p.values(b), p.values(c));
+
+        // a = b and b = c form a single equality class, so every pair of sources is connected
+        long[] transitive = buildJoinGraph(sources, new EqualityInference(
+                planTester.getPlannerContext(),
+                comparison(EQUAL, a.toSymbolReference(), b.toSymbolReference()),
+                comparison(EQUAL, b.toSymbolReference(), c.toSymbolReference())));
+        assertThat(transitive).containsExactly(0b110, 0b101, 0b011);
+
+        // separate classes: a = b connects the first two sources, and nothing reaches c
+        long[] separate = buildJoinGraph(sources, new EqualityInference(
+                planTester.getPlannerContext(),
+                comparison(EQUAL, a.toSymbolReference(), b.toSymbolReference())));
+        assertThat(separate).containsExactly(0b010, 0b001, 0b000);
+    }
+
+    @Test
+    public void testBuildJoinGraphSeesSymbolsInsideDerivedExpressions()
+    {
+        PlanBuilder p = planBuilder();
+        Symbol a = p.symbol("A", BIGINT);
+        Symbol b = p.symbol("B", BIGINT);
+        Symbol c = p.symbol("C", BIGINT);
+        List<PlanNode> sources = ImmutableList.of(p.values(a), p.values(b), p.values(c));
+
+        // a = b together with -a = c lets the inference derive -b = c, so a join order that
+        // starts from the sources of b and c must stay reachable: all three must be connected
+        long[] graph = buildJoinGraph(sources, new EqualityInference(
+                planTester.getPlannerContext(),
+                comparison(EQUAL, a.toSymbolReference(), b.toSymbolReference()),
+                comparison(EQUAL, new Call(NEGATION_BIGINT, ImmutableList.of(a.toSymbolReference())), c.toSymbolReference())));
+        assertThat(isConnected(0b111, graph)).isTrue();
+    }
+
+    @Test
+    public void testIsConnected()
+    {
+        long[] chain = graph(4, 0, 1, 1, 2, 2, 3);
+        assertThat(isConnected(0b0010, chain)).isTrue();
+        assertThat(isConnected(0b0110, chain)).isTrue();
+        assertThat(isConnected(0b1011, chain)).isFalse();
+        assertThat(isConnected(0b1111, chain)).isTrue();
     }
 
     @Test
@@ -107,11 +227,17 @@ public class TestJoinEnumerator
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
+                multiJoinNode.getSources(),
                 createContext(),
                 planTester.getPlannerContext());
-        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), ImmutableSet.copyOf(multiJoinNode.getOutputSymbols()), ImmutableSet.of(0));
+        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(0b11, ImmutableSet.copyOf(multiJoinNode.getOutputSymbols()), 0b01);
         assertThat(actual.getPlanNode()).isEmpty();
         assertThat(actual.getCost()).isEqualTo(PlanCostEstimate.infinite());
+    }
+
+    private PlanBuilder planBuilder()
+    {
+        return new PlanBuilder(new PlanNodeIdAllocator(), planTester.getPlannerContext(), planTester.getDefaultSession());
     }
 
     private Rule.Context createContext()
@@ -178,5 +304,51 @@ public class TestJoinEnumerator
                 return WarningCollector.NOOP;
             }
         };
+    }
+
+    private static long[] chain(int nodes)
+    {
+        long[] neighbors = new long[nodes];
+        for (int node = 0; node + 1 < nodes; node++) {
+            neighbors[node] |= 1L << (node + 1);
+            neighbors[node + 1] |= 1L << node;
+        }
+        return neighbors;
+    }
+
+    /**
+     * Builds the adjacency masks of a star: node 0 in the center, every other node a leaf.
+     */
+    private static long[] star(int nodes)
+    {
+        long[] neighbors = new long[nodes];
+        for (int leaf = 1; leaf < nodes; leaf++) {
+            neighbors[0] |= 1L << leaf;
+            neighbors[leaf] = 1L;
+        }
+        return neighbors;
+    }
+
+    private static long[] clique(int nodes)
+    {
+        long[] neighbors = new long[nodes];
+        for (int node = 0; node < nodes; node++) {
+            neighbors[node] = ((1L << nodes) - 1) & ~(1L << node);
+        }
+        return neighbors;
+    }
+
+    /**
+     * Builds the adjacency masks of an undirected graph from pairs of connected nodes.
+     */
+    private static long[] graph(int nodes, int... edges)
+    {
+        checkArgument(edges.length % 2 == 0, "edges must be given in pairs");
+        long[] neighbors = new long[nodes];
+        for (int i = 0; i < edges.length; i += 2) {
+            neighbors[edges[i]] |= 1L << edges[i + 1];
+            neighbors[edges[i + 1]] |= 1L << edges[i];
+        }
+        return neighbors;
     }
 }

@@ -69,7 +69,8 @@ public class ExchangeStatsRule
     {
         checkArgument(inputs.size() == outputs.size(), "Input symbols count does not match output symbols count");
         PlanNodeStatsEstimate.Builder mapped = PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(estimate.getOutputRowCount());
+                .setOutputRowCount(estimate.getOutputRowCount())
+                .setConfidence(estimate.getConfidence());
 
         for (int i = 0; i < inputs.size(); i++) {
             mapped.addSymbolStatistics(outputs.get(i), estimate.getSymbolStatistics(inputs.get(i)));

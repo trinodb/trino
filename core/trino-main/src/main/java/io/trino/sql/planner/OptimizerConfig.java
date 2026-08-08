@@ -42,6 +42,7 @@ public class OptimizerConfig
     private double cpuCostWeight = 75;
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
+    private double lowConfidenceCostMargin = 1;
 
     private DataSize joinMaxBroadcastTableSize = DataSize.of(100, MEGABYTE);
     private JoinDistributionType joinDistributionType = JoinDistributionType.AUTOMATIC;
@@ -49,6 +50,8 @@ public class OptimizerConfig
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 8;
+    private int maxEnumeratedJoinOrders = 10_000;
+    private boolean usePartitioningInJoinCost;
     private int maxPrefetchedInformationSchemaPrefixes = 100;
 
     private boolean enableStatsCalculator = true;
@@ -178,6 +181,20 @@ public class OptimizerConfig
         return this;
     }
 
+    @Min(1)
+    public double getLowConfidenceCostMargin()
+    {
+        return lowConfidenceCostMargin;
+    }
+
+    @Config("optimizer.low-confidence-cost-margin")
+    @ConfigDescription("How much cheaper a plan derived from guessed statistics must be before it is preferred to one derived from reported statistics")
+    public OptimizerConfig setLowConfidenceCostMargin(double lowConfidenceCostMargin)
+    {
+        this.lowConfidenceCostMargin = lowConfidenceCostMargin;
+        return this;
+    }
+
     public JoinDistributionType getJoinDistributionType()
     {
         return joinDistributionType;
@@ -243,6 +260,33 @@ public class OptimizerConfig
     public OptimizerConfig setMaxReorderedJoins(int maxReorderedJoins)
     {
         this.maxReorderedJoins = maxReorderedJoins;
+        return this;
+    }
+
+    public boolean isUsePartitioningInJoinCost()
+    {
+        return usePartitioningInJoinCost;
+    }
+
+    @Config("optimizer.use-partitioning-in-join-cost")
+    @ConfigDescription("Do not charge a partitioned join for repartitioning an input that is already partitioned on its join keys")
+    public OptimizerConfig setUsePartitioningInJoinCost(boolean usePartitioningInJoinCost)
+    {
+        this.usePartitioningInJoinCost = usePartitioningInJoinCost;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxEnumeratedJoinOrders()
+    {
+        return maxEnumeratedJoinOrders;
+    }
+
+    @Config("optimizer.max-enumerated-join-orders")
+    @ConfigDescription("The maximum number of join orders to enumerate before simplifying the query graph in cost-based join reordering")
+    public OptimizerConfig setMaxEnumeratedJoinOrders(int maxEnumeratedJoinOrders)
+    {
+        this.maxEnumeratedJoinOrders = maxEnumeratedJoinOrders;
         return this;
     }
 

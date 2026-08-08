@@ -67,6 +67,7 @@ public final class PlanNodeStatsEstimateMath
 
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(outputRowCount);
+        result.setConfidence(EstimateConfidence.min(superset.getConfidence(), subset.getConfidence()));
 
         superset.getSymbolsWithKnownStatistics().forEach(symbol -> {
             SymbolStatsEstimate supersetSymbolStats = superset.getSymbolStatistics(symbol);
@@ -130,6 +131,7 @@ public final class PlanNodeStatsEstimateMath
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         double cappedRowCount = min(stats.getOutputRowCount(), cap.getOutputRowCount());
         result.setOutputRowCount(cappedRowCount);
+        result.setConfidence(EstimateConfidence.min(stats.getConfidence(), cap.getConfidence()));
 
         stats.getSymbolsWithKnownStatistics().forEach(symbol -> {
             SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
@@ -238,6 +240,7 @@ public final class PlanNodeStatsEstimateMath
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(0);
+        result.setConfidence(stats.getConfidence());
         stats.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
         return result.build();
     }
@@ -331,6 +334,7 @@ public final class PlanNodeStatsEstimateMath
 
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
+        statsBuilder.setConfidence(EstimateConfidence.min(left.getConfidence(), right.getConfidence()));
 
         concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
                 .distinct()
