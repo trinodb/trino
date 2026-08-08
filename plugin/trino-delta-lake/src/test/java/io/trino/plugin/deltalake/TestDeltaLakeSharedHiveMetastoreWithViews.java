@@ -111,7 +111,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         assertThat(query("SHOW CREATE TABLE delta." + schema + ".hive_table"))
                 .failure().hasMessageContaining("not a Delta Lake table");
         assertThat(query("SHOW CREATE TABLE delta." + schema + ".hive_view"))
-                .failure().hasMessageContaining("not a Delta Lake table");
+                .failure().hasMessageContaining("line 1:1: Table 'delta." + schema + ".hive_view' does not exist");
         assertThat(query("SHOW CREATE TABLE hive." + schema + ".delta_table"))
                 .failure().hasMessageContaining("Cannot query Delta Lake table");
 
