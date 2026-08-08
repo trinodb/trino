@@ -498,6 +498,123 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testDoubleWithFloatColumn()
+            throws Exception
+    {
+        // A column widened from REAL to DOUBLE keeps its physical FLOAT statistics in every file written before the change
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(FLOAT, "FloatColumn");
+
+        float minimum = 4.3f;
+        float maximum = 40.3f;
+
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(minimum, maximum), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+
+        assertThat(getDomain(DOUBLE, floatDictionaryDescriptor(minimum)))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) minimum, true)), true));
+
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(FLOAT).named("test_float"),
+                BoundaryOrder.UNORDERED,
+                asList(false),
+                asList(0L),
+                toFloatByteBufferList(minimum),
+                toFloatByteBufferList(maximum));
+        assertThat(getDomain(DOUBLE, 200, columnIndex, ID, columnDescriptor, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+    }
+
+    @Test
+    public void testIntegralStatisticsAcrossColumnWidths()
+            throws ParquetCorruptionException
+    {
+        // Both int32 and int64 statistics decode to a long, so a column read as a wider or a narrower integral type
+        // still narrows the domain. Bounds which do not fit the Trino type are dropped by isStatisticsOverflow
+        assertThat(getDomain(createColumnDescriptor(INT32, "IntColumn"), BIGINT, 10, intColumnStats(0, 100), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)), false));
+        assertThat(getDomain(createColumnDescriptor(INT64, "LongColumn"), INTEGER, 10, longColumnStats(0, 100), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(INTEGER, 0L, true, 100L, true)), false));
+    }
+
+    @Test
+    public void testStatisticsAreIgnoredWhenTypeDoesNotMatchColumn()
+            throws Exception
+    {
+        // BOOLEAN over INT32
+        assertThat(getDomain(createColumnDescriptor(INT32, "IntColumn"), BOOLEAN, 10, intColumnStats(0, 1), ID, UTC))
+                .isEqualTo(notNull(BOOLEAN));
+        // BIGINT over FLOAT
+        assertThat(getDomain(createColumnDescriptor(FLOAT, "FloatColumn"), BIGINT, 10, floatColumnStats(1.0f, 2.0f), ID, UTC))
+                .isEqualTo(notNull(BIGINT));
+        // INTEGER over BINARY
+        assertThat(getDomain(createColumnDescriptor(BINARY, "StringColumn"), INTEGER, 10, stringColumnStats("a", "b"), ID, UTC))
+                .isEqualTo(notNull(INTEGER));
+        // REAL over DOUBLE, the reverse of a widening
+        assertThat(getDomain(createColumnDescriptor(PrimitiveTypeName.DOUBLE, "DoubleColumn"), REAL, 10, doubleColumnStats(1, 2), ID, UTC))
+                .isEqualTo(notNull(REAL));
+        // DOUBLE over an integer column, whose readability depends on a logical annotation these statistics do not check
+        assertThat(getDomain(createColumnDescriptor(INT32, "IntColumn"), DOUBLE, 10, intColumnStats(3, 42), ID, UTC))
+                .isEqualTo(notNull(DOUBLE));
+        assertThat(getDomain(createColumnDescriptor(INT64, "LongColumn"), DOUBLE, 10, longColumnStats(1L << 60, (1L << 60) + 1), ID, UTC))
+                .isEqualTo(notNull(DOUBLE));
+        // VARCHAR over FLOAT, never converted because the numeric order is not the lexicographic one
+        assertThat(getDomain(createColumnDescriptor(FLOAT, "FloatColumn"), createUnboundedVarcharType(), 10, floatColumnStats(1.0f, 2.0f), ID, UTC))
+                .isEqualTo(notNull(createUnboundedVarcharType()));
+        // VARCHAR over INT32
+        assertThat(getDomain(createColumnDescriptor(INT32, "IntColumn"), createUnboundedVarcharType(), 10, intColumnStats(1, 2), ID, UTC))
+                .isEqualTo(notNull(createUnboundedVarcharType()));
+        // VARCHAR over FIXED_LEN_BYTE_ARRAY, which ColumnReaderFactory reads only for an unbounded varchar, so
+        // narrowing here could prune away every row group of a column the reader then refuses to read at all
+        assertThat(getDomain(createColumnDescriptor(FIXED_LEN_BYTE_ARRAY, "FixedColumn"), createUnboundedVarcharType(), 10, stringColumnStats("aa", "bb"), ID, UTC))
+                .isEqualTo(notNull(createUnboundedVarcharType()));
+        // VARCHAR over a DECIMAL annotated BINARY, which produces a Slice of two's complement bytes rather than text
+        assertThat(getDomain(createColumnDescriptor(BINARY, decimalType(2, 10), "DecimalColumn"), createUnboundedVarcharType(), 10, binaryColumnStats(0L, 100L), ID, UTC))
+                .isEqualTo(notNull(createUnboundedVarcharType()));
+        // DECIMAL over FLOAT
+        assertThat(getDomain(createColumnDescriptor(FLOAT, "FloatColumn"), createDecimalType(5, 2), 10, floatColumnStats(1.0f, 2.0f), ID, UTC))
+                .isEqualTo(notNull(createDecimalType(5, 2)));
+        // TIMESTAMP over INT32, neither of the two physical types the timestamp branch decodes
+        assertThat(getDomain(createColumnDescriptor(INT32, "IntColumn"), createTimestampType(3), 10, intColumnStats(1, 2), ID, UTC))
+                .isEqualTo(notNull(createTimestampType(3)));
+
+        // the dictionary entry point has no exception handling of its own, so a mismatch escaped it uncaught
+        assertThat(getDomain(createUnboundedVarcharType(), floatDictionaryDescriptor(1.0f)))
+                .isEqualTo(all(createUnboundedVarcharType()));
+        assertThat(getDomain(BOOLEAN, doubleDictionaryDescriptor(1, 2)))
+                .isEqualTo(all(BOOLEAN));
+
+        // the column index entry point wrapped the decoding failure in a ParquetCorruptionException, failing the query
+        ColumnIndex floatColumnIndex = ColumnIndexBuilder.build(
+                Types.required(FLOAT).named("test_float"),
+                BoundaryOrder.UNORDERED,
+                asList(false),
+                asList(0L),
+                toFloatByteBufferList(1.0f),
+                toFloatByteBufferList(2.0f));
+        assertThat(getDomain(createUnboundedVarcharType(), 200, floatColumnIndex, ID, createColumnDescriptor(FLOAT, "FloatColumn"), UTC))
+                .isEqualTo(notNull(createUnboundedVarcharType()));
+    }
+
+    @Test
+    public void testShortDecimalWithBinaryColumn()
+            throws Exception
+    {
+        // a decimal is stored as a plain binary as well as a fixed length one, and both decode the same way.
+        // The annotation matches the type, so the bytes are read as they are, which getShortDecimalValue
+        // only does for the eight bytes a short decimal fits in
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(BINARY, decimalType(2, 10), "BinaryDecimalColumn");
+        Type type = createDecimalType(10, 2);
+        BinaryStatistics statistics = (BinaryStatistics) Statistics.getBuilderForReading(Types.optional(BINARY).named("BinaryDecimalColumn"))
+                .withMin(paddingBigInteger(BigInteger.ZERO, 8))
+                .withMax(paddingBigInteger(BigInteger.valueOf(100), 8))
+                .withNumNulls(0)
+                .build();
+
+        assertThat(getDomain(columnDescriptor, type, 10, statistics, ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(type, 0L, true, 100L, true)), false));
+    }
+
+    @Test
     public void testDate()
             throws ParquetCorruptionException
     {
@@ -939,6 +1056,20 @@ public class TestTupleDomainParquetPredicate
         return new LongTimestamp(
                 start.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
                 toIntExact(round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * (long) PICOSECONDS_PER_NANOSECOND, toIntExact(TimestampType.MAX_PRECISION - precision))));
+    }
+
+    private static List<ByteBuffer> toFloatByteBufferList(Float... values)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>(values.length);
+        for (Float value : values) {
+            if (value == null) {
+                buffers.add(ByteBuffer.allocate(0));
+            }
+            else {
+                buffers.add(ByteBuffer.wrap(BytesUtils.intToBytes(Float.floatToIntBits(value))));
+            }
+        }
+        return buffers;
     }
 
     private static List<ByteBuffer> toByteBufferList(Long... values)
