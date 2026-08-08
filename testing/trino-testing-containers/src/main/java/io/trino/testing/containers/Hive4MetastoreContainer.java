@@ -19,10 +19,10 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
-import static java.util.Objects.requireNonNull;
-
 import java.time.Duration;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * A Hive 4 Metastore container for product tests.
