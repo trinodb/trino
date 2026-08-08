@@ -33,7 +33,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,6 +93,44 @@ public class TestSingleStoreConnectorTest
                  SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Test
+    @Override
+    public void testNativeQuerySelectFromNation()
+    {
+        // FIXME: SingleStore dont support double cote as delimiter but backtick?
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        assertQuery(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "VALUES 'ALGERIA'");
+    }
+
+    @Test
+    @Override
+    public void testNativeQueryColumnAlias()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        // The output column type may differ per connector. Skipping the check because it's unrelated to the test purpose.
+        // FIXME: SingleStore dont support double cote as delimiter but backtick?
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+                .skippingTypesCheck()
+                .matches("VALUES 'AFRICA'");
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+                .skippingTypesCheck()
+                .matches("VALUES 'AFRICA'");
     }
 
     @Override
@@ -180,7 +220,7 @@ public class TestSingleStoreConnectorTest
     public void testReadFromView()
     {
         onRemoteDatabase().execute("CREATE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
+        assertQuery("SELECT orderkey FROM test_view", "SELECT \"orderkey\" FROM \"orders\"");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 

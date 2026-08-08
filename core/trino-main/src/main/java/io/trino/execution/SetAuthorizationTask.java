@@ -25,6 +25,8 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.SetAuthorizationStatement;
 
 import java.util.List;
@@ -34,6 +36,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
+import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.fillInNameParts;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -76,19 +79,22 @@ public class SetAuthorizationTask
 
     private void setEntityAuthorization(Session session, SetAuthorizationStatement statement)
     {
-        List<String> name = fillInNameParts(session, statement, statement.getOwnedEntityKind(), statement.getSource().getParts());
-
         // Preprocess SCHEMA, TABLE and VIEW to generate error messages in the order compatible with existing tests
+        int size = statement.getSource().getParts().size();
+        boolean withCatalog = size > 2;
         switch (statement.getOwnedEntityKind()) {
             case "SCHEMA" -> {
-                CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
+                CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), metadata);
+                metadata.getResolverManager().setQueryResolver(session, metadata.getResolverManager().getResolver(session, source.getCatalogName()));
+                withCatalog = size > 1;
                 if (!metadata.schemaExists(session, source)) {
                     throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
                 }
             }
             case "TABLE" -> {
-                QualifiedObjectName tableName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
-                getRequiredCatalogHandle(metadata, session, statement, name.get(0));
+                QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
+                metadata.getResolverManager().setQueryResolver(session, metadata.getResolverManager().getResolver(session, tableName.catalogName()));
+                getRequiredCatalogHandle(metadata, session, statement, tableName.catalogName());
                 RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
                 if (redirection.tableHandle().isEmpty()) {
                     throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
@@ -98,21 +104,25 @@ public class SetAuthorizationTask
                 }
             }
             case "VIEW" -> {
-                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
+                QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
+                metadata.getResolverManager().setQueryResolver(session, metadata.getResolverManager().getResolver(session, viewName.catalogName()));
                 getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
                 if (!metadata.isView(session, viewName)) {
                     throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
                 }
             }
             case "MATERIALIZED VIEW" -> {
-                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
+                QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
+                metadata.getResolverManager().setQueryResolver(session, metadata.getResolverManager().getResolver(session, viewName.catalogName()));
                 getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
                 if (!metadata.isMaterializedView(session, viewName)) {
                     throw semanticException(TABLE_NOT_FOUND, statement, "Materialized view '%s' does not exist", viewName);
                 }
             }
         }
-
+        Resolver resolver = metadata.getResolverManager().getQueryResolver(session, Optional.empty());
+        QualifiedName qualifiedName = QualifiedName.of(resolver.getCanonicalizer(), statement.getSource(), withCatalog);
+        List<String> name = fillInNameParts(session, statement, statement.getOwnedEntityKind(), qualifiedName.getParts());
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
         Optional<String> maybeCatalogName = name.size() > 1 ? Optional.of(name.get(0)) : Optional.empty();
         checkRoleExists(session, statement, metadata, principal, maybeCatalogName.filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));

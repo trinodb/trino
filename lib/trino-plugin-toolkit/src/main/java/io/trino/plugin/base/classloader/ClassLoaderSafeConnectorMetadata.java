@@ -1389,4 +1389,60 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.getTableCredentials(session, tableFunctionHandle);
         }
     }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalize(value);
+        }
+    }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalize(value, delimited);
+        }
+    }
+
+    @Override
+    public String compare(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.compare(value);
+        }
+    }
+
+    @Override
+    public String compareSchema(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.compareSchema(value);
+        }
+    }
+
+    @Override
+    public String compareTable(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.compareTable(value);
+        }
+    }
+
+    @Override
+    public String compareColumn(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.compareColumn(value);
+        }
+    }
+
+    @Override
+    public boolean predicate(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.predicate(value);
+        }
+    }
 }

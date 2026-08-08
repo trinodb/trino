@@ -89,7 +89,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
 import static org.apache.iceberg.view.ViewProperties.COMMENT;
@@ -140,7 +139,7 @@ public class TrinoJdbcCatalog
     public List<String> listNamespaces(ConnectorSession session)
     {
         return jdbcCatalog.listNamespaces().stream()
-                .map(namespace -> namespace.level(0).toLowerCase(ENGLISH))
+                .map(namespace -> namespace.level(0))
                 .collect(toImmutableList());
     }
 

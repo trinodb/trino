@@ -31,12 +31,12 @@ public class ProcedureJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "procedures");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("procedure_cat", VARCHAR)
-            .column("procedure_schem", VARCHAR)
-            .column("procedure_name", VARCHAR)
-            .column("remarks", VARCHAR)
-            .column("procedure_type", BIGINT)
-            .column("specific_name", VARCHAR)
+            .column("PROCEDURE_CAT", VARCHAR)
+            .column("PROCEDURE_SCHEM", VARCHAR)
+            .column("PROCEDURE_NAME", VARCHAR)
+            .column("REMARKS", VARCHAR)
+            .column("PROCEDURE_TYPE", BIGINT)
+            .column("SPECIFIC_NAME", VARCHAR)
             .build();
 
     @Override

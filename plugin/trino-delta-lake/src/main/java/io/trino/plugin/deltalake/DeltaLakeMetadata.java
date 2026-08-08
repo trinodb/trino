@@ -759,6 +759,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return metastore.getAllDatabases().stream()
@@ -1032,7 +1038,7 @@ public class DeltaLakeMetadata
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.<String, Object>builder()
                 .put(LOCATION_PROPERTY, tableHandle.getLocation());
-        List<String> partitionColumnNames = metadataEntry.getLowercasePartitionColumns();
+        List<String> partitionColumnNames = metadataEntry.getOriginalPartitionColumns();
         if (!partitionColumnNames.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionColumnNames);
         }
@@ -1171,7 +1177,7 @@ public class DeltaLakeMetadata
     public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) tableHandle;
-        List<String> partitionColumnNames = deltaLakeTableHandle.getMetadataEntry().getLowercasePartitionColumns();
+        List<String> partitionColumnNames = deltaLakeTableHandle.getMetadataEntry().getOriginalPartitionColumns();
 
         if (partitionColumnNames.isEmpty()) {
             return Optional.empty();
@@ -1367,7 +1373,7 @@ public class DeltaLakeMetadata
     {
         ImmutableList.Builder<DeltaLakeColumnHandle> columns = ImmutableList.builder();
         extractSchema(deltaMetadata, protocolEntry, typeManager).stream()
-                .map(column -> toColumnHandle(column.name(), column.type(), column.fieldId(), column.physicalName(), column.physicalColumnType(), deltaMetadata.getLowercasePartitionColumns()))
+                .map(column -> toColumnHandle(column.name(), column.type(), column.fieldId(), column.physicalName(), column.physicalColumnType(), deltaMetadata.getOriginalPartitionColumns()))
                 .forEach(columns::add);
         columns.add(pathColumnHandle());
         columns.add(fileSizeColumnHandle());
@@ -2493,7 +2499,8 @@ public class DeltaLakeMetadata
 
         List<String> insertColumnNames = insertColumns.stream()
                 // Lowercase because the above allColumnNames uses lowercase
-                .map(column -> column.baseColumnName().toLowerCase(ENGLISH))
+                // FIXME: now we compare case sensitive
+                .map(DeltaLakeColumnHandle::baseColumnName)
                 .collect(toImmutableList());
 
         checkArgument(allColumnNames.equals(insertColumnNames), "Not all table columns passed on INSERT; table columns=%s; insert columns=%s", allColumnNames, insertColumnNames);
@@ -3102,12 +3109,12 @@ public class DeltaLakeMetadata
     private Optional<ConnectorTableLayout> getLayoutForOptimize(DeltaLakeTableExecuteHandle executeHandle)
     {
         DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
-        List<String> partitionColumnNames = optimizeHandle.getMetadataEntry().getLowercasePartitionColumns();
+        List<String> partitionColumnNames = optimizeHandle.getMetadataEntry().getOriginalPartitionColumns();
         if (partitionColumnNames.isEmpty()) {
             return Optional.empty();
         }
         Map<String, DeltaLakeColumnHandle> columnsByName = optimizeHandle.getTableColumns().stream()
-                .collect(toImmutableMap(column -> column.columnName().toLowerCase(ENGLISH), identity()));
+                .collect(toImmutableMap(column -> column.columnName(), identity()));
         ImmutableList.Builder<DeltaLakeColumnHandle> partitioningColumns = ImmutableList.builder();
         for (String columnName : partitionColumnNames) {
             partitioningColumns.add(columnsByName.get(columnName));

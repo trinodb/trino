@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.metadata.ResolverManager.getIdentityCanonicalizer;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class OpenLineageListenerQueryRunner
@@ -84,6 +85,7 @@ public final class OpenLineageListenerQueryRunner
                 // catalog used for output data
                 queryRunner.installPlugin(new MemoryPlugin());
                 queryRunner.createCatalog(CATALOG, "memory");
+                queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver(CATALOG, getIdentityCanonicalizer());
 
                 // catalog used for input data
                 queryRunner.installPlugin(new TpchPlugin());
@@ -96,6 +98,7 @@ public final class OpenLineageListenerQueryRunner
                 // catalog used for materialized views
                 queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.create()));
                 queryRunner.createCatalog("mock", "mock");
+                queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver("mock", getIdentityCanonicalizer());
 
                 // catalog used for deletes and merges
                 queryRunner.installPlugin(new BlackHolePlugin());

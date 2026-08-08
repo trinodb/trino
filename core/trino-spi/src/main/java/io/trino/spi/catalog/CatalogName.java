@@ -35,10 +35,7 @@ public final class CatalogName
             throw new IllegalArgumentException("catalogName is empty");
         }
         // Currently, catalog names must be lowercase.
-        if (!catalogName.equals(catalogName.toLowerCase(ENGLISH))) {
-            throw new IllegalArgumentException("catalogName is not lowercase: " + catalogName);
-        }
-        this.catalogName = catalogName;
+        this.catalogName = catalogName.toLowerCase(ENGLISH);
     }
 
     public long getRetainedSizeInBytes()

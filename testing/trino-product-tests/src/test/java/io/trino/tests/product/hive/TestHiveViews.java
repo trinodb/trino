@@ -101,34 +101,34 @@ class TestHiveViews
         // The expected behavior is different across hive versions. For hive 3, the call "getTableNamesByType" is
         // used in ThriftHiveMetastore#getAllViews. For older versions, the fallback to doGetTablesWithParameter
         // is used, so Trino's system.jdbc.tables table does not include translated Hive views.
-        String withSchemaFilter = "SELECT table_name FROM system.jdbc.tables WHERE " +
-                "table_cat = 'hive' AND " +
-                "table_schem = 'test_list_failing_views' AND " +
-                "table_type = 'VIEW'";
-        String withNoFilter = "SELECT table_name FROM system.jdbc.tables WHERE table_cat = 'hive' AND table_type = 'VIEW'";
+        String withSchemaFilter = "SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE " +
+                "\"TABLE_CAT\" = 'hive' AND " +
+                "\"TABLE_SCHEM\" = 'test_list_failing_views' AND " +
+                "\"TABLE_TYPE\" = 'VIEW'";
+        String withNoFilter = "SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_TYPE\" = 'VIEW'";
         assertThat(env.executeTrino(withSchemaFilter)).containsOnly(row("correct_view"), row("failing_view"));
         assertThat(env.executeTrino(withNoFilter)).contains(row("correct_view"), row("failing_view"));
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
         // a different API. so the Hive version does not matter here.
         assertThat(env.executeTrino(
-                "SELECT table_name FROM system.jdbc.tables WHERE " +
-                        "table_cat = 'hive' AND " +
-                        "table_schem = 'test_list_failing_views' AND " +
-                        "table_name = 'correct_view'"))
+                "SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE " +
+                        "\"TABLE_CAT\" = 'hive' AND " +
+                        "\"TABLE_SCHEM\" = 'test_list_failing_views' AND " +
+                        "\"TABLE_NAME\" = 'correct_view'"))
                 .containsOnly(row("correct_view"));
 
         // Listing fails when metadata for the problematic view is queried specifically
         assertThatThrownBy(() -> env.executeTrino(
-                "SELECT table_name FROM system.jdbc.tables WHERE " +
-                        "table_cat = 'hive' AND " +
-                        "table_schem = 'test_list_failing_views' AND " +
-                        "table_name = 'failing_view'"))
+                "SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE " +
+                        "\"TABLE_CAT\" = 'hive' AND " +
+                        "\"TABLE_SCHEM\" = 'test_list_failing_views' AND " +
+                        "\"TABLE_NAME\" = 'failing_view'"))
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on system.jdbc.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
         // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
-        assertThat(env.executeTrino("SELECT table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views'"))
+        assertThat(env.executeTrino("SELECT \"TABLE_NAME\", column_name FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
                         row("correct_view", "n_name"),
@@ -136,7 +136,7 @@ class TestHiveViews
                         row("correct_view", "n_comment"),
                         row("failing_view", "col0"));
 
-        assertThat(env.executeTrino("SELECT * FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views' AND table_name = 'failing_view'"))
+        assertThat(env.executeTrino("SELECT * FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = 'test_list_failing_views' AND \"TABLE_NAME\" = 'failing_view'"))
                 .hasNoRows();
     }
 
@@ -969,9 +969,9 @@ class TestHiveViews
         // Test with connection without default catalog/schema
         try (Connection conn = env.createTrinoConnectionWithoutDefaultCatalog();
                 Statement stmt = conn.createStatement()) {
-            // Query without schema should fail
+            // Query without catalog/schema should fail
             assertThatThrownBy(() -> stmt.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
-                    .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
+                    .hasMessageMatching(".*Catalog must be specified when session schema is not set.*");
             // Query with fully qualified name should succeed
             try (ResultSet rs = stmt.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view")) {
                 assertThat(rs.next()).isTrue();

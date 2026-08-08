@@ -30,6 +30,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 
+import static io.trino.metadata.ResolverManager.getLowerCaseCanonicalizer;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -70,6 +71,7 @@ public class TestProcedureCall
                 .withProcedures(new TestingProcedures(tester).getProcedures(PROCEDURE_SCHEMA))
                 .build()));
         queryRunner.createCatalog(TESTING_CATALOG, "mock");
+        queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver(TESTING_CATALOG, getLowerCaseCanonicalizer());
     }
 
     @AfterAll
@@ -166,15 +168,11 @@ public class TestProcedureCall
         assertCall("CALL TEST_LOWERCASE_NAME()", "simple");
         assertCall("CALL Test_Lowercase_NAME()", "simple");
         assertCall("CALL \"test_lowercase_name\"()", "simple");
-        assertCall("CALL \"TEST_LOWERCASE_NAME\"()", "simple");
-        assertCall("CALL \"Test_Lowercase_Name\"()", "simple");
 
         assertCall("CALL test_uppercase_name()", "simple");
         assertCall("CALL TEST_UPPERCASE_NAME()", "simple");
         assertCall("CALL Test_Uppercase_NAME()", "simple");
         assertCall("CALL \"test_uppercase_name\"()", "simple");
-        assertCall("CALL \"TEST_UPPERCASE_NAME\"()", "simple");
-        assertCall("CALL \"Test_Uppercase_NAME\"()", "simple");
     }
 
     @Test

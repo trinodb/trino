@@ -159,6 +159,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -802,6 +803,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
+            // FIXME: Does Row fields need to use now identifier canonicalized value?
+            //        Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
                             field.getName().map(Identifier::getCanonicalValue),
@@ -865,7 +868,8 @@ public class ExpressionAnalyzer
 
             // Lazy extraction to avoid unnecessary work
             Supplier<Set<Field>> accessibleFields = () -> extractAccessibleFields(scope.collectSuggestionFields());
-            ResolvedField resolvedField = scope.resolveField(node, QualifiedName.of(node.getValue()), accessibleFields);
+            // FIXME: To avoid losing the delimiters, QualifiedName must be instantiated with the Identifier rather than Identifier::getValue.
+            ResolvedField resolvedField = scope.resolveField(node, QualifiedName.of(node), accessibleFields);
 
             if (context.isPatternRecognition()) {
                 labels.put(NodeRef.of(node), Optional.empty());
@@ -906,7 +910,10 @@ public class ExpressionAnalyzer
         protected Type visitDereferenceExpression(DereferenceExpression node, Context context)
         {
             boolean hasWildcard = isQualifiedAllFieldsReference(node);
-            QualifiedName qualifiedName = hasWildcard ? null : DereferenceExpression.getQualifiedName(node);
+            // FIXME: query resolver will be used to resolve DereferenceExpression
+            Scope scope = context.getScope();
+            Resolver resolver = plannerContext.getMetadata().getResolverManager().getQueryResolver(session, Optional.of(scope));
+            QualifiedName qualifiedName = hasWildcard ? null : DereferenceExpression.getQualifiedName(resolver.getCanonicalizer(), node);
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {
@@ -940,7 +947,6 @@ public class ExpressionAnalyzer
                     throw missingAttributeException(node, qualifiedName);
                 }
 
-                Scope scope = context.getScope();
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
@@ -968,7 +974,8 @@ public class ExpressionAnalyzer
             }
 
             Identifier field = node.getField().orElseThrow();
-            String fieldName = field.getValue();
+            // FIXME: field will bee canonicalized
+            String fieldName = resolver.canonicalize(field);
 
             boolean foundFieldName = false;
             Type rowFieldType = null;
@@ -1784,7 +1791,7 @@ public class ExpressionAnalyzer
             // SQL:2023 6.3 Syntax Rule 2: a non-parenthesized value expression primary
             // of the form A.B(args) is treated as a method invocation if it satisfies
             // the rules for one; otherwise it is a routine invocation.
-            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context);
+            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context, node.getName());
             if (asMethod.isPresent()) {
                 return asMethod.get();
             }
@@ -2171,9 +2178,8 @@ public class ExpressionAnalyzer
                     .collect(toImmutableList());
         }
 
-        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context)
+        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context, QualifiedName name)
         {
-            QualifiedName name = node.getName();
             if (name.getParts().size() != 2) {
                 return Optional.empty();
             }
@@ -2447,6 +2453,7 @@ public class ExpressionAnalyzer
                     if (frame.getStart().getType() != CURRENT_ROW || frame.getEnd().isEmpty()) {
                         throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
                     }
+                    Resolver resolver = plannerContext.getMetadata().getResolverManager().getQueryResolver(session, Optional.of(context.getScope()));
                     PatternRecognitionAnalysis analysis = PatternRecognitionAnalyzer.analyze(
                             frame.getSubsets(),
                             frame.getVariableDefinitions(),
@@ -2456,14 +2463,14 @@ public class ExpressionAnalyzer
 
                     frame.getAfterMatchSkipTo()
                             .flatMap(SkipTo::getIdentifier)
-                            .ifPresent(label -> resolvedLabels.put(NodeRef.of(label), label.getCanonicalValue()));
+                            .ifPresent(label -> resolvedLabels.put(NodeRef.of(label), resolver.canonicalize(label)));
 
                     for (SubsetDefinition subset : frame.getSubsets()) {
-                        resolvedLabels.put(NodeRef.of(subset.getName()), subset.getName().getCanonicalValue());
+                        resolvedLabels.put(NodeRef.of(subset.getName()), resolver.canonicalize(subset.getName()));
                         subsets.put(
                                 NodeRef.of(subset),
                                 subset.getIdentifiers().stream()
-                                        .map(Identifier::getCanonicalValue)
+                                        .map(resolver::canonicalize)
                                         .collect(Collectors.toSet()));
                     }
 
@@ -2476,7 +2483,7 @@ public class ExpressionAnalyzer
                     for (VariableDefinition variableDefinition : frame.getVariableDefinitions()) {
                         Expression expression = variableDefinition.getExpression();
                         Type type = analyze(expression, context.getScope(), analysis.allLabels(), true);
-                        resolvedLabels.put(NodeRef.of(variableDefinition.getName()), variableDefinition.getName().getCanonicalValue());
+                        resolvedLabels.put(NodeRef.of(variableDefinition.getName()), resolver.canonicalize(variableDefinition.getName()));
 
                         if (!type.equals(BOOLEAN)) {
                             throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
@@ -2485,7 +2492,7 @@ public class ExpressionAnalyzer
                     for (MeasureDefinition measureDefinition : frame.getMeasures()) {
                         Expression expression = measureDefinition.getExpression();
                         analyze(expression, context.getScope(), analysis.allLabels(), true);
-                        resolvedLabels.put(NodeRef.of(measureDefinition.getName()), measureDefinition.getName().getCanonicalValue());
+                        resolvedLabels.put(NodeRef.of(measureDefinition.getName()), resolver.canonicalize(measureDefinition.getName()));
                     }
 
                     // TODO prohibited nesting: pattern recognition in frame end expression(?)
@@ -3439,9 +3446,10 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
+                Function<Identifier, String> canonicalizer = plannerContext.getMetadata().getResolverManager().getQueryResolver(session, Optional.of(context.getScope())).getCanonicalizer();
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
-                            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(dereference);
+                            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);
                             if (qualifiedName != null) {
                                 String label = label(qualifiedName.getOriginalParts().getFirst());
                                 if (context.getPatternRecognitionContext().labels().contains(label)) {

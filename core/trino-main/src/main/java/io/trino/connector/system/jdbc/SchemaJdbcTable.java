@@ -41,8 +41,8 @@ public class SchemaJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "schemas");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_schem", VARCHAR)
-            .column("table_catalog", VARCHAR)
+            .column("TABLE_SCHEM", VARCHAR)
+            .column("TABLE_CATALOG", VARCHAR)
             .build();
 
     private final Metadata metadata;
