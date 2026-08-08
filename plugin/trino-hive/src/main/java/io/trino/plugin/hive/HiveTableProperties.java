@@ -33,6 +33,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_ENABLED;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_IGNORE;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_ENFORCE_DIRECTORY;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
@@ -189,6 +190,11 @@ public class HiveTableProperties
                 stringProperty(
                         PARTITION_PROJECTION_LOCATION_TEMPLATE,
                         "Partition projection location template",
+                        null,
+                        false),
+                booleanProperty(
+                        PARTITION_PROJECTION_LOCATION_ENFORCE_DIRECTORY,
+                        "Require the location to have a trailing slash",
                         null,
                         false),
                 new PropertyMetadata<>(

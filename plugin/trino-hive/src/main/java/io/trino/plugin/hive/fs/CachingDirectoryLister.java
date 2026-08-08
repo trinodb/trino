@@ -45,6 +45,7 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.shouldEnforceDirectory;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
@@ -119,14 +120,20 @@ public class CachingDirectoryLister
     public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
             throws IOException
     {
+        boolean shouldEnforceDirectory = shouldEnforceDirectory(table.getParameters());
         if (!isCacheEnabledFor(table.getSchemaTableName())) {
-            return new TrinoFileStatusRemoteIterator(fs.listFiles(location), filterPredicate);
+            if (shouldEnforceDirectory) {
+                return new TrinoFileStatusRemoteIterator(fs.listFiles(location), filterPredicate);
+            }
+            else {
+                return new TrinoFileStatusRemoteIterator(fs.listFilesByPrefix(location), filterPredicate);
+            }
         }
 
-        return listInternal(fs, location, table.getSchemaTableName());
+        return listInternal(fs, location, table.getSchemaTableName(), shouldEnforceDirectory);
     }
 
-    private RemoteIterator<TrinoFileStatus> listInternal(TrinoFileSystem fs, Location location, SchemaTableName schemaTableName)
+    private RemoteIterator<TrinoFileStatus> listInternal(TrinoFileSystem fs, Location location, SchemaTableName schemaTableName, boolean shouldEnforceDirectory)
             throws IOException
     {
         CacheKey cacheKey = new CacheKey(location, schemaTableName);
@@ -135,13 +142,18 @@ public class CachingDirectoryLister
             return new SimpleRemoteIterator(cachedValueHolder.getFiles().get().iterator());
         }
 
-        return cachingRemoteIterator(cachedValueHolder, createListingRemoteIterator(fs, location, filterPredicate), cacheKey);
+        return cachingRemoteIterator(cachedValueHolder, createListingRemoteIterator(fs, location, filterPredicate, shouldEnforceDirectory), cacheKey);
     }
 
-    private static RemoteIterator<TrinoFileStatus> createListingRemoteIterator(TrinoFileSystem fs, Location location, Predicate<FileEntry> filterPredicate)
+    private static RemoteIterator<TrinoFileStatus> createListingRemoteIterator(TrinoFileSystem fs, Location location, Predicate<FileEntry> filterPredicate, boolean shouldEnforceDirectory)
             throws IOException
     {
-        return new TrinoFileStatusRemoteIterator(fs.listFiles(location), filterPredicate);
+        if (shouldEnforceDirectory) {
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(location), filterPredicate);
+        }
+        else {
+            return new TrinoFileStatusRemoteIterator(fs.listFilesByPrefix(location), filterPredicate);
+        }
     }
 
     @Override

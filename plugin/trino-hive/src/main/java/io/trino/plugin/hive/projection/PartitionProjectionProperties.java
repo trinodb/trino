@@ -52,6 +52,7 @@ public final class PartitionProjectionProperties
     private static final String METASTORE_PROPERTY_PROJECTION_INTERVAL_UNIT_SUFFIX = "interval.unit";
     private static final String METASTORE_PROPERTY_PROJECTION_ENABLED = "projection.enabled";
     private static final String METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE = "storage.location.template";
+    private static final String METASTORE_PROPERTY_PROJECTION_LOCATION_ENFORCE_DIRECTORY = "storage.location.enforce_directory";
     private static final String METASTORE_PROPERTY_PROJECTION_IGNORE = "trino.partition_projection.ignore";
     private static final String PROPERTY_KEY_PREFIX = "partition_projection_";
 
@@ -64,9 +65,19 @@ public final class PartitionProjectionProperties
     public static final String COLUMN_PROJECTION_TYPE = PROPERTY_KEY_PREFIX + COLUMN_PROJECTION_TYPE_SUFFIX;
     public static final String PARTITION_PROJECTION_IGNORE = PROPERTY_KEY_PREFIX + "ignore";
     public static final String PARTITION_PROJECTION_LOCATION_TEMPLATE = PROPERTY_KEY_PREFIX + "location_template";
+    public static final String PARTITION_PROJECTION_LOCATION_ENFORCE_DIRECTORY = PROPERTY_KEY_PREFIX + "enforce_directory";
     public static final String PARTITION_PROJECTION_ENABLED = PROPERTY_KEY_PREFIX + "enabled";
 
     private PartitionProjectionProperties() {}
+
+    public static boolean shouldEnforceDirectory(Map<String, String> tableParameters)
+    {
+        String enforceDirectory = tableParameters.get(METASTORE_PROPERTY_PROJECTION_LOCATION_ENFORCE_DIRECTORY);
+        if (enforceDirectory == null) {
+            return true;
+        }
+        return Boolean.parseBoolean(enforceDirectory);
+    }
 
     public static Map<String, Object> getPartitionProjectionTrinoTableProperties(Table table)
     {
@@ -86,6 +97,11 @@ public final class PartitionProjectionProperties
         String locationTemplate = metastoreTableProperties.get(METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE);
         if (locationTemplate != null) {
             trinoTablePropertiesBuilder.put(PARTITION_PROJECTION_LOCATION_TEMPLATE, locationTemplate);
+        }
+
+        String enforceDirectory = metastoreTableProperties.get(METASTORE_PROPERTY_PROJECTION_LOCATION_ENFORCE_DIRECTORY);
+        if (enforceDirectory != null) {
+            trinoTablePropertiesBuilder.put(PARTITION_PROJECTION_LOCATION_ENFORCE_DIRECTORY, Boolean.valueOf(enforceDirectory));
         }
 
         return trinoTablePropertiesBuilder.buildOrThrow();
@@ -116,6 +132,11 @@ public final class PartitionProjectionProperties
         Object locationTemplate = trinoTableProperties.get(PARTITION_PROJECTION_LOCATION_TEMPLATE);
         if (locationTemplate != null) {
             metastoreTablePropertiesBuilder.put(METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE, locationTemplate.toString());
+        }
+
+        Object enforceDirectory = trinoTableProperties.get(PARTITION_PROJECTION_LOCATION_ENFORCE_DIRECTORY);
+        if (enforceDirectory != null) {
+            metastoreTablePropertiesBuilder.put(METASTORE_PROPERTY_PROJECTION_LOCATION_ENFORCE_DIRECTORY, enforceDirectory.toString().toLowerCase(ROOT));
         }
 
         // Handle Column Properties

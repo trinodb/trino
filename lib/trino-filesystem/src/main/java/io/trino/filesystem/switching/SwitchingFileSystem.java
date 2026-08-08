@@ -117,6 +117,13 @@ final class SwitchingFileSystem
     }
 
     @Override
+    public FileIterator listFilesByPrefix(Location location)
+            throws IOException
+    {
+        return fileSystem(location).listFilesByPrefix(location);
+    }
+
+    @Override
     public FileIterator listFilesStartingFrom(Location location, String startingFrom)
             throws IOException
     {

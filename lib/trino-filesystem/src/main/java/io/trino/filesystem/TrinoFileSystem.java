@@ -231,6 +231,29 @@ public interface TrinoFileSystem
             throws IOException;
 
     /**
+     * Lists all files whose path starts with the specified location prefix. Unlike
+     * {@link #listFiles(Location)}, this method does not assume the location is a directory
+     * and does not append a trailing slash. The location is used as a raw prefix for matching.
+     * <p>
+     * This is useful for blob file systems where data is organized with non-directory key
+     * prefixes (e.g., partition projection with partial S3 prefixes like "foo-bar-" that
+     * match keys "foo-bar-baz/file.csv", "foo-bar-qux/file.csv", etc.).
+     * <p>
+     * For hierarchical file systems, this method falls back to directory listing behavior
+     * by appending a slash and delegating to {@link #listFiles(Location)}.
+     * <p>
+     * The returned FileEntry locations will start with the specified location exactly.
+     *
+     * @param location the prefix to match against file paths
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    default FileIterator listFilesByPrefix(Location location)
+            throws IOException
+    {
+        return listFiles(location);
+    }
+
+    /**
      * Lists files within the specified directory recursively, including only files where the
      * remainder of the path after the location is lexicographically greater than or equal to
      * {@code startingFrom}. The location can be empty, listing all files in the file system where
