@@ -31,6 +31,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -54,12 +55,18 @@ public class PageSourceManager
         return new PageSourceProviderInstance(provider.createPageSourceProvider());
     }
 
-    private record PageSourceProviderInstance(ConnectorPageSourceProvider pageSourceProvider)
+    private static class PageSourceProviderInstance
             implements PageSourceProvider
     {
-        private PageSourceProviderInstance
+        private final ConnectorPageSourceProvider pageSourceProvider;
+        // Shared provider state (e.g. loaded Iceberg equality delete filters) exists once per provider
+        // instance but is polled by every driver of the pipeline. At most one live tracker reports it,
+        // so that it is not counted once per driver.
+        private final AtomicReference<MemoryUsageTracker> memoryUsageReporter = new AtomicReference<>();
+
+        private PageSourceProviderInstance(ConnectorPageSourceProvider pageSourceProvider)
         {
-            requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         }
 
         @Override
@@ -97,6 +104,38 @@ public class PageSourceManager
         public long getMemoryUsage()
         {
             return pageSourceProvider.getMemoryUsage();
+        }
+
+        @Override
+        public MemoryUsageTracker createMemoryUsageTracker()
+        {
+            return new ClaimingMemoryUsageTracker();
+        }
+
+        private class ClaimingMemoryUsageTracker
+                implements MemoryUsageTracker
+        {
+            private volatile boolean closed;
+
+            @Override
+            public long getMemoryUsage()
+            {
+                if (closed) {
+                    return 0;
+                }
+                MemoryUsageTracker reporter = memoryUsageReporter.get();
+                if (reporter == this || (reporter == null && memoryUsageReporter.compareAndSet(null, this))) {
+                    return pageSourceProvider.getMemoryUsage();
+                }
+                return 0;
+            }
+
+            @Override
+            public void close()
+            {
+                closed = true;
+                memoryUsageReporter.compareAndSet(this, null);
+            }
         }
     }
 }
