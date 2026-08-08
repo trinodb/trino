@@ -50,7 +50,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
-import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.PushPredicateIntoTableScanWithoutProject;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -1279,7 +1279,7 @@ public class TestLogicalPlanner
     {
         if (optimizer instanceof IterativeOptimizer iterativeOptimizer) {
             return iterativeOptimizer.getRules().stream().anyMatch(rule -> {
-                if (rule instanceof PushPredicateIntoTableScan pushPredicateIntoTableScan) {
+                if (rule instanceof PushPredicateIntoTableScanWithoutProject pushPredicateIntoTableScan) {
                     return pushPredicateIntoTableScan.getPruneWithPredicateExpression();
                 }
                 return false;

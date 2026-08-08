@@ -15,7 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.matching.Capture;
@@ -36,15 +38,18 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EngineExpressions;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
@@ -54,10 +59,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
@@ -65,24 +72,23 @@ import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.filter;
+import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.counting;
+import static java.util.stream.Collectors.groupingBy;
 
 /**
  * These rules should not be run after AddExchanges so as not to overwrite the TableLayout
  * chosen by AddExchanges
  */
 public class PushPredicateIntoTableScan
-        implements Rule<FilterNode>
 {
-    private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
-
-    private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
-            tableScan().capturedAs(TABLE_SCAN)));
-
     private final PlannerContext plannerContext;
     private final boolean pruneWithPredicateExpression;
 
@@ -92,55 +98,252 @@ public class PushPredicateIntoTableScan
         this.pruneWithPredicateExpression = pruneWithPredicateExpression;
     }
 
-    @Override
-    public Pattern<FilterNode> getPattern()
+    public Set<Rule<?>> rules()
     {
-        return PATTERN;
+        return ImmutableSet.of(
+                new PushPredicateIntoTableScanWithoutProject(plannerContext, pruneWithPredicateExpression),
+                new PushPredicateIntoTableScanWithProject(plannerContext));
     }
 
-    @Override
-    public boolean isEnabled(Session session)
+    @VisibleForTesting
+    public static final class PushPredicateIntoTableScanWithoutProject
+            implements Rule<FilterNode>
     {
-        return isAllowPushdownIntoConnectors(session);
+        private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
+
+        private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
+                tableScan().capturedAs(TABLE_SCAN)));
+
+        private final PlannerContext plannerContext;
+        private final boolean pruneWithPredicateExpression;
+
+        public PushPredicateIntoTableScanWithoutProject(PlannerContext plannerContext, boolean pruneWithPredicateExpression)
+        {
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.pruneWithPredicateExpression = pruneWithPredicateExpression;
+        }
+
+        @Override
+        public Pattern<FilterNode> getPattern()
+        {
+            return PATTERN;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isAllowPushdownIntoConnectors(session);
+        }
+
+        @Override
+        public Result apply(FilterNode filterNode, Captures captures, Context context)
+        {
+            TableScanNode tableScan = captures.get(TABLE_SCAN);
+
+            Optional<PlanNode> rewritten = pushFilterIntoTableScan(
+                    filterNode,
+                    tableScan,
+                    pruneWithPredicateExpression,
+                    context.getSession(),
+                    plannerContext,
+                    context.getStatsProvider(),
+                    context.getSymbolAllocator());
+
+            if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
+                return Result.empty();
+            }
+
+            return Result.ofPlanNode(rewritten.get());
+        }
+
+        private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
+        {
+            if (!(rewritten instanceof FilterNode rewrittenFilter)) {
+                return false;
+            }
+
+            if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
+                return false;
+            }
+
+            if (!(rewrittenFilter.getSource() instanceof TableScanNode rewrittenTableScan)) {
+                return false;
+            }
+
+            return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint()) &&
+                    Objects.equals(tableScan.getTable(), rewrittenTableScan.getTable());
+        }
+
+        @VisibleForTesting
+        public boolean getPruneWithPredicateExpression()
+        {
+            return pruneWithPredicateExpression;
+        }
     }
 
-    @Override
-    public Result apply(FilterNode filterNode, Captures captures, Context context)
+    /**
+     * Derives a connector constraint from a filter that sits above a projection, without moving the filter.
+     * <p>
+     * Predicates over projected expressions often cannot be pushed below the projection by
+     * {@link io.trino.sql.planner.optimizations.PredicatePushDown}: a conjunct referencing a projected
+     * complex expression more than once (e.g. {@code expr BETWEEN a AND b OR expr BETWEEN c AND d}
+     * distributed into disjunctive conjuncts) is not an inlining candidate, because inlining would
+     * duplicate the computation. The predicate is then stranded above the projection and the table scan
+     * receives no constraint at all.
+     * <p>
+     * This rule inlines the projection's assignments into the predicate <b>only to derive a
+     * {@link TupleDomain} constraint</b> for the connector. The inlined expression is never placed in the
+     * plan or executed, so the cost concern behind the inlining restriction does not apply, and the
+     * original filter and projection are left untouched. Since the inlined predicate is semantically
+     * identical to the original filter over the projection's outputs, the extracted domain — a superset
+     * of the rows it can match — is a valid scan constraint.
+     */
+    @VisibleForTesting
+    public static final class PushPredicateIntoTableScanWithProject
+            implements Rule<FilterNode>
     {
-        TableScanNode tableScan = captures.get(TABLE_SCAN);
+        private static final Capture<ProjectNode> PROJECT = newCapture();
 
-        Optional<PlanNode> rewritten = pushFilterIntoTableScan(
-                filterNode,
-                tableScan,
-                pruneWithPredicateExpression,
-                context.getSession(),
-                plannerContext,
-                context.getStatsProvider(),
-                context.getSymbolAllocator());
+        private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
+                project().capturedAs(PROJECT)));
 
-        if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
-            return Result.empty();
+        private final PlannerContext plannerContext;
+
+        public PushPredicateIntoTableScanWithProject(PlannerContext plannerContext)
+        {
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         }
 
-        return Result.ofPlanNode(rewritten.get());
-    }
-
-    private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
-    {
-        if (!(rewritten instanceof FilterNode rewrittenFilter)) {
-            return false;
+        @Override
+        public Pattern<FilterNode> getPattern()
+        {
+            return PATTERN;
         }
 
-        if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
-            return false;
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isAllowPushdownIntoConnectors(session);
         }
 
-        if (!(rewrittenFilter.getSource() instanceof TableScanNode rewrittenTableScan)) {
-            return false;
+        @Override
+        public Result apply(FilterNode filterNode, Captures captures, Context context)
+        {
+            ProjectNode project = captures.get(PROJECT);
+            Session session = context.getSession();
+
+            PlanNode projectSource = context.getLookup().resolve(project.getSource());
+            Optional<FilterNode> residualFilter = Optional.empty();
+            TableScanNode tableScan;
+            if (projectSource instanceof TableScanNode scanNode) {
+                tableScan = scanNode;
+            }
+            else if (projectSource instanceof FilterNode filterBelowProject
+                    && context.getLookup().resolve(filterBelowProject.getSource()) instanceof TableScanNode scanNode) {
+                // A residual filter the connector could not enforce (e.g. a view's WHERE clause) commonly
+                // remains between the projection and the scan. The constraint derived from the outer
+                // filter's conjuncts is a valid superset of the rows they can match regardless of the
+                // rows the residual filter removes, so it can still be pushed to the scan.
+                residualFilter = Optional.of(filterBelowProject);
+                tableScan = scanNode;
+            }
+            else {
+                return Result.empty();
+            }
+
+            // Substituting an assignment into the predicate is semantics-preserving only for
+            // deterministic assignments; conjuncts must also be deterministic and dynamic filters
+            // are meaningless to connectors.
+            List<Expression> candidateConjuncts = extractConjuncts(filterNode.getPredicate()).stream()
+                    .filter(conjunct -> !isDynamicFilter(conjunct) && isDeterministic(conjunct))
+                    // Conjuncts that PredicatePushDown can inline below the projection must be left to the
+                    // regular pushdown: it both enforces them in the connector and removes them from the
+                    // filter. Deriving the constraint here first would leave such a conjunct in the filter
+                    // permanently, because the later applyFilter reports no change for an already-enforced
+                    // domain. This rule only handles what inlining cannot: conjuncts referencing a projected
+                    // complex expression more than once.
+                    .filter(conjunct -> !isInliningCandidate(conjunct, project))
+                    .filter(conjunct -> SymbolsExtractor.extractUnique(conjunct).stream()
+                            .allMatch(symbol -> {
+                                Expression assignment = project.getAssignments().get(symbol);
+                                return assignment != null && isDeterministic(assignment);
+                            }))
+                    .collect(toImmutableList());
+            if (candidateConjuncts.isEmpty()) {
+                return Result.empty();
+            }
+
+            Expression inlined = inlineSymbols(project.getAssignments()::get, combineConjuncts(candidateConjuncts));
+
+            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(plannerContext, session, inlined);
+
+            TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
+                    .transformKeys(tableScan.getAssignments()::get)
+                    .intersect(tableScan.getEnforcedConstraint());
+
+            if (newDomain.contains(tableScan.getEnforcedConstraint())) {
+                // no narrowing over what the scan already enforces
+                return Result.empty();
+            }
+
+            if (newDomain.isNone()) {
+                // the inlined predicate is equivalent to the original filter over the projection,
+                // so an unsatisfiable domain means the filter matches no rows
+                return Result.ofPlanNode(new ValuesNode(filterNode.getId(), filterNode.getOutputSymbols()));
+            }
+
+            Optional<ConstraintApplicationResult<TableHandle>> result =
+                    plannerContext.getMetadata().applyFilter(session, tableScan.getTable(), new Constraint(newDomain));
+            if (result.isEmpty()) {
+                return Result.empty();
+            }
+
+            TableHandle newTable = result.get().getHandle();
+            TableProperties newTableProperties = plannerContext.getMetadata().getTableProperties(session, newTable);
+            if (newTableProperties.getPredicate().isNone()) {
+                return Result.ofPlanNode(new ValuesNode(filterNode.getId(), filterNode.getOutputSymbols()));
+            }
+
+            TupleDomain<ColumnHandle> newEnforcedConstraint = computeEnforced(newDomain, result.get().getRemainingFilter());
+            if (newTable.equals(tableScan.getTable()) && newEnforcedConstraint.equals(tableScan.getEnforcedConstraint())) {
+                return Result.empty();
+            }
+
+            verifyTablePartitioning(session, plannerContext.getMetadata(), tableScan, newTableProperties.getTablePartitioning());
+
+            TableScanNode newScan = new TableScanNode(
+                    tableScan.getId(),
+                    newTable,
+                    tableScan.getOutputSymbols(),
+                    tableScan.getAssignments(),
+                    newEnforcedConstraint,
+                    deriveTableStatisticsForPushdown(context.getStatsProvider(), session, result.get().isPrecalculateStatistics(), filterNode),
+                    tableScan.isUpdateTarget(),
+                    tableScan.getUseConnectorNodePartitioning());
+
+            // The filter and projection are intentionally kept as-is: the constraint is only a superset
+            // of the rows the filter matches, and row-level semantics (nulls, errors) must be preserved.
+            PlanNode newSource = newScan;
+            if (residualFilter.isPresent()) {
+                newSource = residualFilter.get().replaceChildren(ImmutableList.of(newScan));
+            }
+            PlanNode newProject = project.replaceChildren(ImmutableList.of(newSource));
+            return Result.ofPlanNode(filterNode.replaceChildren(ImmutableList.of(newProject)));
         }
 
-        return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint()) &&
-                Objects.equals(tableScan.getTable(), rewrittenTableScan.getTable());
+        // Mirrors PredicatePushDown#isInliningCandidate
+        private static boolean isInliningCandidate(Expression conjunct, ProjectNode project)
+        {
+            Set<Symbol> outputs = ImmutableSet.copyOf(project.getOutputSymbols());
+            Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(conjunct).stream()
+                    .filter(outputs::contains)
+                    .collect(groupingBy(identity(), counting()));
+
+            return dependencies.entrySet().stream()
+                    .allMatch(entry -> entry.getValue() == 1
+                            || project.getAssignments().get(entry.getKey()) instanceof io.trino.sql.ir.Constant
+                            || project.getAssignments().get(entry.getKey()) instanceof Reference);
+        }
     }
 
     public static Optional<PlanNode> pushFilterIntoTableScan(
@@ -391,12 +594,6 @@ public class PushPredicateIntoTableScan
             }
         }
         return TupleDomain.withColumnDomains(enforcedDomainsBuilder.buildOrThrow());
-    }
-
-    @VisibleForTesting
-    public boolean getPruneWithPredicateExpression()
-    {
-        return pruneWithPredicateExpression;
     }
 
     private static class SplitExpression
