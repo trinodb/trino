@@ -4974,6 +4974,78 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSplitPruningForAtTimeZoneFilterOnPartitionColumn()
+    {
+        String tableName = "test_split_pruning_at_timezone";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        // disable writes redistribution to have predictable number of files written per partition (one).
+        Session noRedistributeWrites = Session.builder(getSession())
+                .setSystemProperty("redistribute_writes", "false")
+                .build();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, zone VARCHAR, ts TIMESTAMP(6) WITH TIME ZONE) WITH (partitioning = ARRAY['month(ts)'])");
+        assertUpdate(noRedistributeWrites, "INSERT INTO " + tableName + " VALUES " +
+                "(1, 'UTC', TIMESTAMP '2025-01-15 10:00:00.000000 UTC'), " +
+                "(2, 'Asia/Jerusalem', TIMESTAMP '2025-02-15 10:00:00.000000 UTC'), " +
+                "(3, 'America/New_York', TIMESTAMP '2025-03-15 10:00:00.000000 UTC')", 3);
+
+        // sanity check that table contains exactly one file per month partition
+        assertThat(computeScalar("SELECT count(*) FROM \"" + tableName + "$files\"")).isEqualTo(3L);
+
+        verifySplitCount("SELECT * FROM " + tableName, 3);
+
+        // at_timezone changes only the zone a value is rendered in, never the instant, so comparisons
+        // over it prune partitions exactly like comparisons on the column itself
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, 'UTC') = TIMESTAMP '2025-01-15 10:00:00.000000 UTC'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, 'Asia/Jerusalem') < TIMESTAMP '2025-02-01 00:00:00.000000 UTC'", 1);
+        // the zone argument may be a column, as in views exposing each row's timestamp in its own zone
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) = TIMESTAMP '2025-01-15 10:00:00.000000 UTC'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) BETWEEN TIMESTAMP '2025-02-01 00:00:00.000000 UTC' AND TIMESTAMP '2025-02-28 00:00:00.000000 UTC'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) < TIMESTAMP '2020-01-01 00:00:00.000000 UTC'", 0);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSplitPruningForAtTimeZoneFilterWithDstAmbiguousValue()
+    {
+        String tableName = "test_split_pruning_at_timezone_dst";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        // disable writes redistribution to have predictable number of files written per partition (one).
+        Session noRedistributeWrites = Session.builder(getSession())
+                .setSystemProperty("redistribute_writes", "false")
+                .build();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, ts TIMESTAMP(6) WITH TIME ZONE) WITH (partitioning = ARRAY['month(ts)'])");
+        // The wall time 2020-10-25 02:31:18 Europe/Warsaw is ambiguous: it occurs at 00:31:18 UTC
+        // (CEST, before the DST fall-back) and again at 01:31:18 UTC (CET, after). Store a row at
+        // each occurrence to verify pruning matches exactly the rows the comparison itself matches.
+        assertUpdate(noRedistributeWrites, "INSERT INTO " + tableName + " VALUES " +
+                "(1, TIMESTAMP '2020-10-25 00:31:18.000000 UTC'), " +
+                "(2, TIMESTAMP '2020-10-25 01:31:18.000000 UTC'), " +
+                "(3, TIMESTAMP '2020-11-15 10:00:00.000000 UTC')", 3);
+
+        // an ambiguous literal resolves to a single instant (the earlier offset) during analysis;
+        // the pruned plan must match exactly the same row as the comparison itself
+        assertThat(query("SELECT id FROM " + tableName + " WHERE at_timezone(ts, 'Europe/Warsaw') = TIMESTAMP '2020-10-25 02:31:18.000000 Europe/Warsaw'"))
+                .matches("VALUES BIGINT '1'");
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, 'Europe/Warsaw') = TIMESTAMP '2020-10-25 02:31:18.000000 Europe/Warsaw'", 1);
+
+        // a range spanning the repeated hour matches both occurrences
+        assertThat(query("SELECT id FROM " + tableName + " WHERE at_timezone(ts, 'Europe/Warsaw')" +
+                " BETWEEN TIMESTAMP '2020-10-25 02:00:00.000000 Europe/Warsaw' AND TIMESTAMP '2020-10-25 03:00:00.000000 Europe/Warsaw'"))
+                .matches("VALUES BIGINT '1', BIGINT '2'");
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, 'Europe/Warsaw')" +
+                " BETWEEN TIMESTAMP '2020-10-25 02:00:00.000000 Europe/Warsaw' AND TIMESTAMP '2020-10-25 03:00:00.000000 Europe/Warsaw'", 1);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testAllAvailableTypes()
     {
         assertUpdate("CREATE TABLE test_all_types (" +
