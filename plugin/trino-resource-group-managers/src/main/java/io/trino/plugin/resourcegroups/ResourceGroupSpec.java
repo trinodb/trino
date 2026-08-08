@@ -51,6 +51,11 @@ public class ResourceGroupSpec
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
     private final Optional<DataSize> hardPhysicalDataScanLimit;
+    private final Optional<DataSize> perQueryMemoryLimit;
+    private final Optional<Duration> perQueryCpuLimit;
+    private final Optional<DataSize> perQueryScanLimit;
+    private final Optional<Integer> hardTotalDriverLimit;
+    private final Optional<Integer> hardPlanningConcurrencyLimit;
 
     @JsonCreator
     public ResourceGroupSpec(
@@ -66,7 +71,12 @@ public class ResourceGroupSpec
             @JsonProperty("jmxExport") Optional<Boolean> jmxExport,
             @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
             @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit,
-            @JsonProperty("hardPhysicalDataScanLimit") Optional<DataSize> hardPhysicalDataScanLimit)
+            @JsonProperty("hardPhysicalDataScanLimit") Optional<DataSize> hardPhysicalDataScanLimit,
+            @JsonProperty("perQueryMemoryLimit") Optional<DataSize> perQueryMemoryLimit,
+            @JsonProperty("perQueryCpuLimit") Optional<Duration> perQueryCpuLimit,
+            @JsonProperty("perQueryScanLimit") Optional<DataSize> perQueryScanLimit,
+            @JsonProperty("hardTotalDriverLimit") Optional<Integer> hardTotalDriverLimit,
+            @JsonProperty("hardPlanningConcurrencyLimit") Optional<Integer> hardPlanningConcurrencyLimit)
     {
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
@@ -76,6 +86,13 @@ public class ResourceGroupSpec
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = softConcurrencyLimit;
         this.hardPhysicalDataScanLimit = requireNonNull(hardPhysicalDataScanLimit, "hardPhysicalDataScanLimit is null");
+        this.perQueryMemoryLimit = requireNonNull(perQueryMemoryLimit, "perQueryMemoryLimit is null");
+        this.perQueryCpuLimit = requireNonNull(perQueryCpuLimit, "perQueryCpuLimit is null");
+        this.perQueryScanLimit = requireNonNull(perQueryScanLimit, "perQueryScanLimit is null");
+        this.hardTotalDriverLimit = requireNonNull(hardTotalDriverLimit, "hardTotalDriverLimit is null");
+        this.hardPlanningConcurrencyLimit = requireNonNull(hardPlanningConcurrencyLimit, "hardPlanningConcurrencyLimit is null");
+        hardTotalDriverLimit.ifPresent(limit -> checkArgument(limit > 0, "hardTotalDriverLimit must be positive"));
+        hardPlanningConcurrencyLimit.ifPresent(limit -> checkArgument(limit > 0, "hardPlanningConcurrencyLimit must be positive"));
 
         checkArgument(hardConcurrencyLimit.isPresent() || maxRunning.isPresent(), "Missing required property: hardConcurrencyLimit");
         this.hardConcurrencyLimit = hardConcurrencyLimit.orElseGet(maxRunning::get);
@@ -176,6 +193,31 @@ public class ResourceGroupSpec
         return hardPhysicalDataScanLimit;
     }
 
+    public Optional<DataSize> getPerQueryMemoryLimit()
+    {
+        return perQueryMemoryLimit;
+    }
+
+    public Optional<Duration> getPerQueryCpuLimit()
+    {
+        return perQueryCpuLimit;
+    }
+
+    public Optional<DataSize> getPerQueryScanLimit()
+    {
+        return perQueryScanLimit;
+    }
+
+    public Optional<Integer> getHardTotalDriverLimit()
+    {
+        return hardTotalDriverLimit;
+    }
+
+    public Optional<Integer> getHardPlanningConcurrencyLimit()
+    {
+        return hardPlanningConcurrencyLimit;
+    }
+
     @Override
     public boolean equals(Object other)
     {
@@ -197,7 +239,12 @@ public class ResourceGroupSpec
                 jmxExport.equals(that.jmxExport) &&
                 softCpuLimit.equals(that.softCpuLimit) &&
                 hardCpuLimit.equals(that.hardCpuLimit) &&
-                hardPhysicalDataScanLimit.equals(that.hardPhysicalDataScanLimit));
+                hardPhysicalDataScanLimit.equals(that.hardPhysicalDataScanLimit) &&
+                perQueryMemoryLimit.equals(that.perQueryMemoryLimit) &&
+                perQueryCpuLimit.equals(that.perQueryCpuLimit) &&
+                perQueryScanLimit.equals(that.perQueryScanLimit) &&
+                hardTotalDriverLimit.equals(that.hardTotalDriverLimit) &&
+                hardPlanningConcurrencyLimit.equals(that.hardPlanningConcurrencyLimit));
     }
 
     // Subgroups not included, used to determine whether a group needs to be reconfigured
@@ -216,7 +263,12 @@ public class ResourceGroupSpec
                 jmxExport.equals(other.jmxExport) &&
                 softCpuLimit.equals(other.softCpuLimit) &&
                 hardCpuLimit.equals(other.hardCpuLimit) &&
-                hardPhysicalDataScanLimit.equals(other.hardPhysicalDataScanLimit));
+                hardPhysicalDataScanLimit.equals(other.hardPhysicalDataScanLimit) &&
+                perQueryMemoryLimit.equals(other.perQueryMemoryLimit) &&
+                perQueryCpuLimit.equals(other.perQueryCpuLimit) &&
+                perQueryScanLimit.equals(other.perQueryScanLimit) &&
+                hardTotalDriverLimit.equals(other.hardTotalDriverLimit) &&
+                hardPlanningConcurrencyLimit.equals(other.hardPlanningConcurrencyLimit));
     }
 
     @Override
@@ -234,7 +286,12 @@ public class ResourceGroupSpec
                 jmxExport,
                 softCpuLimit,
                 hardCpuLimit,
-                hardPhysicalDataScanLimit);
+                hardPhysicalDataScanLimit,
+                perQueryMemoryLimit,
+                perQueryCpuLimit,
+                perQueryScanLimit,
+                hardTotalDriverLimit,
+                hardPlanningConcurrencyLimit);
     }
 
     @Override
@@ -252,6 +309,11 @@ public class ResourceGroupSpec
                 .add("softCpuLimit", softCpuLimit)
                 .add("hardCpuLimit", hardCpuLimit)
                 .add("hardPhysicalDataScanLimit", hardPhysicalDataScanLimit)
+                .add("perQueryMemoryLimit", perQueryMemoryLimit)
+                .add("perQueryCpuLimit", perQueryCpuLimit)
+                .add("perQueryScanLimit", perQueryScanLimit)
+                .add("hardTotalDriverLimit", hardTotalDriverLimit)
+                .add("hardPlanningConcurrencyLimit", hardPlanningConcurrencyLimit)
                 .toString();
     }
 }
