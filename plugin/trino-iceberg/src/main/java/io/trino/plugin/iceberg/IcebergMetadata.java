@@ -513,6 +513,7 @@ public class IcebergMetadata
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
 
     public static final int GET_METADATA_BATCH_SIZE = 1000;
+    private static final int MAX_CAUSE_CHAIN_DEPTH = 100;
     private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
 
     private static final String DEPENDS_ON_TABLES = "dependsOnTables";
@@ -3817,16 +3818,21 @@ public class IcebergMetadata
      * with no pre-existing deletes uses an empty list. The scan uses {@code planWith} so manifest
      * I/O fans out across the shared {@code icebergPlanningExecutor}, matching the parallelism
      * already used by the regular query planning path inside this connector.
+     *
+     * <p>Deliberately does not push down the DML predicate: Iceberg's {@code DeleteFileIndex}
+     * prunes an equality-delete file whose value bounds don't intersect the scan filter even when
+     * the delete's referenced data file survives the filter, which would silently resurrect rows
+     * the delete file deletes once the whole file is rewritten during CoW.
      */
     static Map<String, List<io.trino.plugin.iceberg.delete.DeleteFile>> planPreExistingDeletesByDataFile(
             Table icebergTable,
             long snapshotId,
             ExecutorService planningExecutor)
     {
-        try (CloseableIterable<FileScanTask> fileScanTasks = icebergTable.newScan()
+        TableScan tableScan = icebergTable.newScan()
                 .useSnapshot(snapshotId)
-                .planWith(planningExecutor)
-                .planFiles()) {
+                .planWith(planningExecutor);
+        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             return extractPreExistingDeletesByDataFile(fileScanTasks);
         }
         catch (IOException e) {
@@ -3879,28 +3885,20 @@ public class IcebergMetadata
      * orphan-file cleanup is safe: when the commit state is unknown the catalog may have
      * accepted the snapshot, so deleting the just-written files would corrupt the table.
      *
+     * <p>Bounded to {@link #MAX_CAUSE_CHAIN_DEPTH} hops so a pathological self-referencing cause
+     * chain cannot spin this loop forever; real exception chains are a handful of hops deep.
+     *
      * <p>Visible-for-test: package-private so we can exercise nested cause and cycle handling
      * without driving a full Iceberg transaction.
      */
     static boolean hasCommitStateUnknownException(Throwable throwable)
     {
-        // Floyd's tortoise-and-hare guards against pathological self-referencing cause chains.
-        Throwable slow = throwable;
-        Throwable fast = throwable;
-        while (slow != null) {
-            if (slow instanceof CommitStateUnknownException) {
+        Throwable current = throwable;
+        for (int depth = 0; current != null && depth < MAX_CAUSE_CHAIN_DEPTH; depth++) {
+            if (current instanceof CommitStateUnknownException) {
                 return true;
             }
-            slow = slow.getCause();
-            if (fast != null) {
-                fast = fast.getCause();
-                if (fast != null) {
-                    fast = fast.getCause();
-                }
-            }
-            if (slow != null && slow == fast) {
-                return false;
-            }
+            current = current.getCause();
         }
         return false;
     }

@@ -34,16 +34,12 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.TypeManager;
-import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.types.Types;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -204,18 +200,9 @@ public class IcebergPageSinkProvider
         Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
 
         int formatVersion = merge.getTableHandle().getFormatVersion();
-
-        Schema outputSchema;
-        if (formatVersion >= 3) {
-            // Persist row IDs and last-updated sequence numbers so row lineage survives the rewrite.
-            List<Types.NestedField> columns = new ArrayList<>(schema.columns());
-            columns.add(MetadataColumns.ROW_ID);
-            columns.add(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER);
-            outputSchema = new Schema(columns);
-        }
-        else {
-            outputSchema = schema;
-        }
+        // Row-lineage columns have fixed field IDs; only append what the base schema is missing,
+        // matching IcebergMergeSink.getRewriteSchema so both agree on the same output schema.
+        Schema outputSchema = IcebergMergeSink.getRewriteSchema(schema, formatVersion);
         IcebergTableCredentials icebergTableCredentials = tableCredentials.map(IcebergTableCredentials.class::cast).get();
         Map<String, String> fileIoProperties = icebergTableCredentials.fileIoProperties();
         ConnectorPageSink pageSink = createPageSink(session, tableHandle, outputSchema, icebergTableCredentials);

@@ -2159,6 +2159,38 @@ final class TestIcebergCopyOnWrite
         }
     }
 
+    @Test
+    public void testCowRewriteScalesAcrossManyDataFiles()
+    {
+        // Scale check for the rewrite orchestration: a single CoW statement that rewrites well
+        // more files than iceberg.copy-on-write-rewrite-threads default workers must still
+        // complete and produce a correct result, rather than deadlocking or exhausting memory
+        // buffering every rewrite task before any of them are committed.
+        String tableName = "test_cow_scale_many_files_" + randomNameSuffix();
+        int fileCount = 50;
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, part BIGINT) " +
+                    "WITH (partitioning = ARRAY['part'], extra_properties = MAP(ARRAY['write.merge.mode'], ARRAY['copy-on-write']))");
+
+            for (int i = 0; i < fileCount; i++) {
+                assertUpdate("INSERT INTO " + tableName + " VALUES (" + i + ", " + (i % 5) + ")", 1);
+            }
+            long dataFileCount = (long) computeScalar(
+                    "SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + DATA.id());
+            assertThat(dataFileCount).isEqualTo(fileCount);
+
+            // Touches every file (predicate matches at least one row per partition), forcing the
+            // rewrite orchestrator to schedule fileCount rewrite tasks across the bounded executor.
+            assertUpdate("DELETE FROM " + tableName + " WHERE id % 10 = 0", fileCount / 10);
+            assertNoDeleteFiles(tableName);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES " + (fileCount - fileCount / 10));
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE id % 10 = 0", "VALUES 0");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Edge cases: UPDATE to NULL, DML on empty table, repeated same-row updates
     // -----------------------------------------------------------------------
@@ -3619,6 +3651,83 @@ final class TestIcebergCopyOnWrite
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (22, 30)");
+            assertNoDeleteFiles(tableName);
+        }
+        finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    public void testConcurrentOptimizeAndCopyOnWriteDeleteNeverLosesData()
+            throws Exception
+    {
+        // OPTIMIZE (via RewriteFiles) and a CoW DELETE (via OverwriteFiles) can both target the
+        // same underlying data file. Both validate against the base snapshot they started from, so
+        // whichever commits second observes the other's file already replaced/removed and fails
+        // with a validation error; the loser must fail cleanly with a commit conflict rather than
+        // the winner's changes being silently dropped or duplicated. In practice, with only two
+        // single-row files actually contended (see below), OPTIMIZE reliably wins this particular
+        // race since its rewrite plan is computed and committed faster than the CoW delete's
+        // rewrite-and-validate path, but the test does not assume a fixed winner.
+        //
+        // The table is unpartitioned with three separate single-row data files: OPTIMIZE only
+        // considers a partition eligible for compaction once it sees more than one file in it
+        // (see IcebergSplitSource.processFileScanTask), so a single file per partition -- as a
+        // partitioned CoW table would have here -- would make OPTIMIZE a no-op and never race.
+        int threads = 2;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        try (TestTable table = newCowTable(
+                "test_cow_optimize_race_",
+                "(a INT) WITH (extra_properties = MAP(ARRAY['write.merge.mode'], ARRAY['copy-on-write']))")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+
+            List<Future<Boolean>> futures = ImmutableList.of(
+                    executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            getQueryRunner().execute("DELETE FROM " + tableName + " WHERE a = 1");
+                            return true;
+                        }
+                        catch (Exception e) {
+                            assertThat(getTrinoExceptionCause(e))
+                                    .hasMessageMatching("(?s).*Failed to commit( the transaction)? during copy-on-write.*");
+                            return false;
+                        }
+                    }),
+                    executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            getQueryRunner().execute("ALTER TABLE " + tableName + " EXECUTE optimize");
+                            return true;
+                        }
+                        catch (Exception e) {
+                            assertThat(getTrinoExceptionCause(e))
+                                    .hasMessageMatching("(?s).*Failed to commit( the transaction)? during optimize.*");
+                            return false;
+                        }
+                    }));
+
+            boolean deleteSucceeded = tryGetFutureValue(futures.get(0), 30, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out"));
+            boolean optimizeSucceeded = tryGetFutureValue(futures.get(1), 30, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out"));
+
+            // At least one of the two commits must succeed; both losing is not a valid outcome
+            // of a two-way commit-conflict race.
+            assertThat(deleteSucceeded || optimizeSucceeded).isTrue();
+
+            // Row a=1 must be gone if and only if the CoW delete's commit actually won; no other
+            // row may ever be lost or duplicated regardless of which commit won the race.
+            if (deleteSucceeded) {
+                assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 2, 3");
+            }
+            else {
+                assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3");
+            }
             assertNoDeleteFiles(tableName);
         }
         finally {

@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -292,7 +293,7 @@ public class IcebergMergeSink
             PartitionSpec partitionSpec = partitionsSpecs.get(detail.partitionSpecId());
             verify(partitionSpec != null, "Unknown partition spec ID %s for file: %s", detail.partitionSpecId(), originalPath);
             Optional<PartitionData> partitionData = createPartitionData(partitionSpec, detail.partitionDataJson());
-            List<DeleteFile> preExistingDeletes = preExistingDeletesByDataFile.getOrDefault(originalPath, List.of());
+            List<DeleteFile> preExistingDeletes = preExistingDeletesByDataFile.getOrDefault(originalPath, ImmutableList.of());
             inputs.add(new RewriteInput(
                     originalPath,
                     deletionVector,
@@ -625,7 +626,7 @@ public class IcebergMergeSink
         return IcebergFileFormat.fromIceberg(FileFormat.fromString(tableProperties.getOrDefault(TableProperties.DEFAULT_FILE_FORMAT, TableProperties.DEFAULT_FILE_FORMAT_DEFAULT)));
     }
 
-    private static Schema getRewriteSchema(Schema schema, int formatVersion)
+    static Schema getRewriteSchema(Schema schema, int formatVersion)
     {
         if (formatVersion < 3) {
             return schema;
@@ -648,7 +649,7 @@ public class IcebergMergeSink
             List<DeleteFile> preExistingDeletes)
     {
         if (preExistingDeletes.isEmpty()) {
-            return List.of();
+            return ImmutableList.of();
         }
         List<CommitTaskData.DanglingDeleteFile> danglingDeleteFiles = new ArrayList<>();
         for (DeleteFile deleteFile : preExistingDeletes) {

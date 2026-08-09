@@ -22,6 +22,7 @@ import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -40,7 +41,6 @@ import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.mapping.NameMapping;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +49,7 @@ import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
@@ -184,7 +185,7 @@ public class CopyOnWriteFileRewriter
      *   <li>If any post-commit step throws, the rollback {@link RollbackAction} is invoked to delete
      *       the committed file before rethrowing.</li>
      *   <li>If the output has zero rows, the rollback is invoked eagerly; a cleanup failure is
-     *       surfaced as {@link UncheckedIOException} so the caller aborts the CoW commit.</li>
+     *       surfaced as {@link TrinoException} so the caller aborts the CoW commit.</li>
      * </ul>
      */
     static RewriteResult finalizeRewrite(
@@ -230,7 +231,7 @@ public class CopyOnWriteFileRewriter
                     rollbackAction.run();
                 }
                 catch (IOException e) {
-                    throw new UncheckedIOException("Failed to delete empty CoW rewrite output file: " + newFilePath, e);
+                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete empty CoW rewrite output file: " + newFilePath, e);
                 }
                 rollbackAction = () -> {};
                 newFile = Optional.empty();
@@ -350,7 +351,7 @@ public class CopyOnWriteFileRewriter
         catch (IOException | RuntimeException e) {
             rollbackQuietly(writer, e);
             if (e instanceof IOException ioException) {
-                throw new UncheckedIOException("Failed to rewrite data file: " + originalPath, ioException);
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to rewrite data file: " + originalPath, ioException);
             }
             throw (RuntimeException) e;
         }

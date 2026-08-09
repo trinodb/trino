@@ -267,6 +267,10 @@ implementation is used:
   - Number of threads to use for deleting files when running the `expire_snapshots`
     or `remove_orphan_files` procedure, or when executing `DROP TABLE` queries.
   - Double the number of processors on the coordinator node.
+* - `iceberg.copy-on-write-rewrite-threads`
+  - Number of threads per worker for parallel file rewrites during
+    [copy-on-write](iceberg-row-level-operation-modes) operations.
+  - Number of processors on the worker node.
 * - `iceberg.bucket-execution`
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.

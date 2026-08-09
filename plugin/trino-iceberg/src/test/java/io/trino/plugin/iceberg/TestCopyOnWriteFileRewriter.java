@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.trino.plugin.hive.RollbackAction;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.testing.connector.TestingConnectorSession;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -178,7 +180,7 @@ final class TestCopyOnWriteFileRewriter
     }
 
     @Test
-    void throwsUncheckedIOExceptionWhenEmptyOutputCleanupFailsToDelete()
+    void throwsTrinoExceptionWhenEmptyOutputCleanupFailsToDelete()
     {
         FakeWriter writer = FakeWriter.withRecordCount(0);
         writer.rollbackActionRunException = new IOException("fs refused delete");
@@ -193,7 +195,8 @@ final class TestCopyOnWriteFileRewriter
                 150,
                 1000,
                 System.currentTimeMillis()))
-                .isInstanceOf(UncheckedIOException.class)
+                .isInstanceOf(TrinoException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ICEBERG_FILESYSTEM_ERROR.toErrorCode())
                 .hasMessageContaining(NEW_PATH)
                 .hasRootCauseMessage("fs refused delete");
     }
