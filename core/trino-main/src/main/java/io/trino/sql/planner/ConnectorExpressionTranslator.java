@@ -116,6 +116,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchBetween;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
@@ -423,7 +424,7 @@ public final class ConnectorExpressionTranslator
                 if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType || formalType instanceof JsonPathType)
                         && argumentType instanceof VarcharType) {
                     // These types are not used in connector expressions, so require special handling when translating back to expressions.
-                    expression = new Cast(expression, formalType);
+                    expression = cast(plannerContext.getTypeManager(), expression, formalType);
                 }
                 else if (!argumentType.equals(formalType)) {
                     // There are no implicit coercions in connector expressions except for engine types that are not exposed in connector expressions.
@@ -468,7 +469,7 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> translatedExpression = translate(expression, lambdaArguments);
 
             if (translatedExpression.isPresent()) {
-                return Optional.of(new Cast(translatedExpression.get(), type));
+                return Optional.of(cast(plannerContext.getTypeManager(), translatedExpression.get(), type));
             }
 
             return Optional.empty();
@@ -492,7 +493,7 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> firstExpression = translate(first, lambdaArguments);
             Optional<Expression> secondExpression = translate(second, lambdaArguments);
             if (firstExpression.isPresent() && secondExpression.isPresent()) {
-                return Optional.of(IrExpressions.nullIf(plannerContext.getMetadata(), symbolAllocator, firstExpression.get(), secondExpression.get()));
+                return Optional.of(IrExpressions.nullIf(plannerContext.getMetadata(), plannerContext.getTypeManager(), symbolAllocator, firstExpression.get(), secondExpression.get()));
             }
 
             return Optional.empty();
@@ -636,13 +637,13 @@ public final class ConnectorExpressionTranslator
             return Optional.of(translatedExpressions.build());
         }
 
-        private static Expression castIfNecessary(Expression expression, Type type)
+        private Expression castIfNecessary(Expression expression, Type type)
         {
             if (expression.type().equals(type)) {
                 return expression;
             }
 
-            return new Cast(expression, type);
+            return cast(plannerContext.getTypeManager(), expression, type);
         }
     }
 

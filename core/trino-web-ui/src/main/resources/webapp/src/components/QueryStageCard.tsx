@@ -69,7 +69,8 @@ import {
     parseDuration,
 } from '../utils/utils'
 import { CodeBlock } from './CodeBlock'
-import { styled } from '@mui/material/styles'
+import { styled, useTheme } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 
 interface IQueryStageCard {
     key: string
@@ -110,6 +111,7 @@ const KpiRow = ({ label, value, isLast = false }: { label: string; value: string
 
 export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) => {
     const { stageStats } = stage
+    const theme = useTheme<Theme>()
 
     const [workerTaskPath, setWorkerTaskPath] = useState<WorkerTaskPath | null>(null)
     const [workerTaskJson, setWorkerTaskJson] = useState<string | null>(null)
@@ -200,7 +202,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
         <TableCell align="right">
             {icon && tooltipTitle ? (
                 <Tooltip placement="top-start" title={tooltipTitle}>
-                    <Box display="flex" alignItems="center" justifyContent="flex-end">
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                         <TableSortLabel
                             active={tasksOrderBy === property}
                             direction={tasksOrderBy === property ? tasksOrder : 'asc'}
@@ -268,6 +270,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                 series={[{ data: histogramData, valueFormatter: (value) => `${value} tasks` }]}
                 margin={{ left: 6, right: 0, top: 10, bottom: 6 }}
                 height={112}
+                colors={[theme.palette.secondary.main]}
             />
         )
     }
@@ -296,6 +299,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                 ]}
                 margin={{ left: 6, right: 0, top: 10, bottom: 6 }}
                 height={100}
+                colors={[theme.palette.secondary.main]}
             />
         )
     }
@@ -405,9 +409,11 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
     }
 
     const smallDropdownMenuPropsSx = {
-        PaperProps: {
-            sx: {
-                '& .MuiMenuItem-root': smallFormControlSx,
+        slotProps: {
+            paper: {
+                sx: {
+                    '& .MuiMenuItem-root': smallFormControlSx,
+                },
             },
         },
     }
@@ -442,7 +448,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                         },
                     }}
                 >
-                    <Grid container spacing={2} alignItems="center" sx={{ width: '100%' }}>
+                    <Grid container spacing={2} sx={{ width: '100%', alignItems: 'center' }}>
                         <Grid size={{ xs: 2 }}>
                             <Box
                                 style={{
@@ -545,7 +551,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                 <AccordionDetails>
                     <Box>
                         <Divider />
-                        <Grid container spacing={2} alignItems="center" sx={{ width: '100%', mb: 0.5 }}>
+                        <Grid container spacing={2} sx={{ width: '100%', mb: 0.5, alignItems: 'center' }}>
                             <Grid size={{ xs: 2 }} />
                             <Grid size={{ xs: 2 }}>
                                 <Typography

@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.AUTH_SESSION_TIMEOUT_MS;
+import static org.apache.iceberg.rest.RESTCatalogProperties.TABLE_CACHE_MAX_ENTRIES;
 
 public class IcebergRestCatalogPropertiesProvider
 {
@@ -55,6 +56,12 @@ public class IcebergRestCatalogPropertiesProvider
         for (Entry<String, String> entry : restConfig.getHttpHeaders().entrySet()) {
             properties.put("header.".concat(entry.getKey()), entry.getValue());
         }
+
+        // Disable the table cache because it is not useful here. Trino generates a random
+        // `SessionCatalog.SessionContext.sessionId` for every catalog access and uses it as the cache key.
+        // Disabling the cache avoids unnecessary memory consumption since cached data would
+        // otherwise be kept for `RESTCatalogProperties.TABLE_CACHE_EXPIRE_AFTER_WRITE_MS_DEFAULT`.
+        properties.put(TABLE_CACHE_MAX_ENTRIES, "0");
 
         catalogProperties = properties.buildOrThrow();
     }

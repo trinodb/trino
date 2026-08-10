@@ -17,7 +17,10 @@ import io.trino.spi.block.Block;
 
 import java.util.List;
 
-import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.countTransitions;
+import static io.trino.spi.block.Bitmap.getBits;
 
 public interface ColumnAdapter<BufferType>
 {
@@ -26,32 +29,85 @@ public interface ColumnAdapter<BufferType>
      */
     default BufferType createTemporaryBuffer(int currentOffset, int size, BufferType buffer)
     {
-        return createBuffer(size);
+        // Null unpacking may read one sentinel value after the last non-null value when filling trailing nulls.
+        return createBuffer(size + 1);
     }
 
     BufferType createBuffer(int size);
 
     void copyValue(BufferType source, int sourceIndex, BufferType destination, int destinationIndex);
 
-    Block createNullableBlock(boolean[] nulls, BufferType values);
+    void copyValues(BufferType source, int sourceIndex, BufferType destination, int destinationIndex, int length);
 
+    /// Creates a block from values and a validity bitmap using the [io.trino.spi.block.Bitmap] encoding.
+    Block createNullableBlock(long[] valueIsValid, BufferType values);
+
+    /// Creates a dictionary block with one trailing null entry. The validity bitmap uses the
+    /// [io.trino.spi.block.Bitmap] encoding.
     default Block createNullableDictionaryBlock(BufferType dictionary, int nonNullsCount)
     {
-        boolean[] nulls = new boolean[nonNullsCount + 1];
-        nulls[nonNullsCount] = true;
-        return createNullableBlock(nulls, dictionary);
+        long[] valueIsValid = allocateWords(nonNullsCount + 1, true);
+        clear(valueIsValid, 0, nonNullsCount);
+        return createNullableBlock(valueIsValid, dictionary);
     }
 
     Block createNonNullBlock(BufferType values);
 
-    default void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
+    /// Expands packed non-null values into a destination shaped by a validity bitmap using the
+    /// [io.trino.spi.block.Bitmap] encoding.
+    default void unpackNullValues(BufferType source, BufferType destination, long[] valueIsValid, int destOffset, int nonNullCount, int totalValuesCount)
     {
+        // Benchmarking shows scalar copying is faster once a validity word contains this many short runs.
+        int scalarCopyTransitionThreshold = 12;
         int srcOffset = 0;
-        while (srcOffset < nonNullCount) {
-            copyValue(source, srcOffset, destination, destOffset);
-            // Avoid branching
-            srcOffset += castToByteNegate(isNull[destOffset]);
-            destOffset++;
+        int endOffset = destOffset + totalValuesCount;
+        while (srcOffset < nonNullCount && destOffset < endOffset) {
+            int bitsInWord = Math.min(Long.SIZE, endOffset - destOffset);
+            long validBits = getBits(valueIsValid, 0, destOffset, bitsInWord);
+            if (validBits == 0) {
+                destOffset += bitsInWord;
+                continue;
+            }
+            if (Long.bitCount(validBits) == bitsInWord) {
+                copyValues(source, srcOffset, destination, destOffset, bitsInWord);
+                srcOffset += bitsInWord;
+                destOffset += bitsInWord;
+                continue;
+            }
+            if (countTransitions(validBits, bitsInWord) >= scalarCopyTransitionThreshold) {
+                int endOffsetInWord = destOffset + bitsInWord;
+                while (destOffset < endOffsetInWord) {
+                    copyValue(source, srcOffset, destination, destOffset);
+                    srcOffset += (int) (validBits & 1);
+                    destOffset++;
+                    validBits >>>= 1;
+                }
+                continue;
+            }
+
+            int offsetInWord = 0;
+            while (offsetInWord < bitsInWord) {
+                int nullCount = Math.min(Long.numberOfTrailingZeros(validBits), bitsInWord - offsetInWord);
+                destOffset += nullCount;
+                offsetInWord += nullCount;
+                validBits >>>= nullCount;
+                if (offsetInWord == bitsInWord) {
+                    break;
+                }
+
+                int validCount = Math.min(Long.numberOfTrailingZeros(~validBits), bitsInWord - offsetInWord);
+                if (validCount == 1) {
+                    // Avoid copyValues overhead for singleton valid runs.
+                    copyValue(source, srcOffset, destination, destOffset);
+                }
+                else {
+                    copyValues(source, srcOffset, destination, destOffset, validCount);
+                }
+                srcOffset += validCount;
+                destOffset += validCount;
+                offsetInWord += validCount;
+                validBits >>>= validCount;
+            }
         }
     }
 

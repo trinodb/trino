@@ -526,6 +526,11 @@ following properties:
     Defaults to `false`.
 * - `iceberg.rest-catalog.view-endpoints-enabled`
   - Enable view endpoints. Defaults to `true`.
+* - `iceberg.rest-catalog.server-assigned-table-location-enabled`
+  - Let the REST catalog server assign locations for created tables instead of
+    computing a default location from the namespace location. Must be enabled
+    for BigLake metastore, which assigns table locations with a random suffix
+    and rejects client-chosen locations. Defaults to `false`.
 * - `iceberg.rest-catalog.signing-name`
   - AWS SigV4 signing service name. Defaults to `execute-api`.
 * - `iceberg.rest-catalog.google-project-id`
@@ -574,6 +579,7 @@ iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatal
 iceberg.rest-catalog.security=GOOGLE
 iceberg.rest-catalog.google-project-id=example-project-id
 iceberg.rest-catalog.view-endpoints-enabled=false
+iceberg.rest-catalog.server-assigned-table-location-enabled=true
 fs.gcs.enabled=true
 gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```

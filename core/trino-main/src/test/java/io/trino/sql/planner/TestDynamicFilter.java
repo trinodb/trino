@@ -45,6 +45,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
@@ -295,7 +296,7 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.comment, l.comment FROM lineitem l, orders o WHERE o.comment < l.comment",
                 anyTree(filter(
-                        comparison(GREATER_THAN, new Cast(new Reference(VARCHAR, "L_COMMENT"), createVarcharType(79)), new Reference(createVarcharType(79), "O_COMMENT")),
+                        comparison(GREATER_THAN, new Cast(new Reference(VARCHAR, "L_COMMENT"), createVarcharType(79), REINTERPRET), new Reference(createVarcharType(79), "O_COMMENT")),
                         join(INNER, builder -> builder
                                 .addDynamicFilter("DF", "O_COMMENT")
                                 .left(
@@ -314,7 +315,7 @@ public class TestDynamicFilter
 
     private Expression typeOnlyCast(String symbol, Type asDataType)
     {
-        return new Cast(new Symbol(UNKNOWN, symbol).toSymbolReference(), asDataType);
+        return new Cast(new Symbol(UNKNOWN, symbol).toSymbolReference(), asDataType, REINTERPRET);
     }
 
     @Test

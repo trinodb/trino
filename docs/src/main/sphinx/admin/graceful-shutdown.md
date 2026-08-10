@@ -45,6 +45,6 @@ Once the API is called, the worker performs the following steps:
   : - After this, the coordinator is aware of the shutdown and stops sending
       tasks to the worker.
 - Block until all active tasks are complete.
-- Sleep for the grace period again in order to ensure the coordinator sees
-  all tasks are complete.
+- Sleep for the grace period again to ensure that the coordinator sees that all
+  tasks are complete.
 - Shutdown the application.

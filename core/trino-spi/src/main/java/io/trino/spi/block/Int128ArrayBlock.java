@@ -21,14 +21,15 @@ import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.checkBitRange;
+import static io.trino.spi.block.Bitmap.compactBitmap;
+import static io.trino.spi.block.Bitmap.copyBitmapAndAppendUnset;
+import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.compactIsNull;
-import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
-import static io.trino.spi.block.BlockUtil.hasNullValue;
 
 public final class Int128ArrayBlock
         implements ValueBlock
@@ -40,17 +41,17 @@ public final class Int128ArrayBlock
     private final int positionOffset;
     private final int positionCount;
     @Nullable
-    private final boolean[] valueIsNull;
+    private final long[] valueIsValid;
     private final long[] values;
 
     private final long retainedSizeInBytes;
 
-    public Int128ArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
+    public Int128ArrayBlock(int positionCount, Optional<long[]> valueIsValid, long[] values)
     {
-        this(0, positionCount, valueIsNull.orElse(null), values);
+        this(0, positionCount, valueIsValid.orElse(null), values);
     }
 
-    Int128ArrayBlock(int positionOffset, int positionCount, boolean[] valueIsNull, long[] values)
+    Int128ArrayBlock(int positionOffset, int positionCount, long[] valueIsValid, long[] values)
     {
         if (positionOffset < 0) {
             throw new IllegalArgumentException("positionOffset is negative");
@@ -66,12 +67,10 @@ public final class Int128ArrayBlock
         }
         this.values = values;
 
-        if (valueIsNull != null && valueIsNull.length - positionOffset < positionCount) {
-            throw new IllegalArgumentException("isNull length is less than positionCount");
-        }
-        this.valueIsNull = valueIsNull;
+        checkBitRange(valueIsValid, positionOffset, positionCount);
+        this.valueIsValid = valueIsValid;
 
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsValid) + sizeOf(values);
     }
 
     @Override
@@ -102,8 +101,8 @@ public final class Int128ArrayBlock
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(values, sizeOf(values));
-        if (valueIsNull != null) {
-            consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        if (valueIsValid != null) {
+            consumer.accept(valueIsValid, sizeOf(valueIsValid));
         }
         consumer.accept(this, INSTANCE_SIZE);
     }
@@ -136,13 +135,13 @@ public final class Int128ArrayBlock
     @Override
     public boolean mayHaveNull()
     {
-        return valueIsNull != null;
+        return valueIsValid != null;
     }
 
     @Override
     public boolean hasNull()
     {
-        return hasNullValue(valueIsNull, positionOffset, positionCount);
+        return Bitmap.hasUnsetBit(valueIsValid, positionOffset, positionCount);
     }
 
     @Override
@@ -152,7 +151,7 @@ public final class Int128ArrayBlock
             return false;
         }
         checkValidPosition(position, positionCount);
-        return valueIsNull[position + positionOffset];
+        return !Bitmap.isSet(valueIsValid, positionOffset, position);
     }
 
     @Override
@@ -162,7 +161,7 @@ public final class Int128ArrayBlock
         return new Int128ArrayBlock(
                 0,
                 1,
-                isNull(position) ? new boolean[] {true} : null,
+                isNull(position) ? new long[] {0} : null,
                 new long[] {
                         values[(position + positionOffset) * 2],
                         values[((position + positionOffset) * 2) + 1],
@@ -174,24 +173,21 @@ public final class Int128ArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean hasNull = false;
-        boolean[] newValueIsNull = null;
-        if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
+        long[] newValueIsValid = null;
+        if (valueIsValid != null) {
+            newValueIsValid = new long[Bitmap.wordsForBits(length)];
         }
         long[] newValues = new long[length * 2];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             checkValidPosition(position, positionCount);
-            if (valueIsNull != null) {
-                boolean isNull = valueIsNull[position + positionOffset];
-                newValueIsNull[i] = isNull;
-                hasNull |= isNull;
+            if (valueIsValid != null && Bitmap.isSet(valueIsValid, positionOffset, position)) {
+                set(newValueIsValid, 0, i);
             }
             newValues[i * 2] = values[(position + positionOffset) * 2];
             newValues[(i * 2) + 1] = values[((position + positionOffset) * 2) + 1];
         }
-        return new Int128ArrayBlock(0, length, hasNull ? newValueIsNull : null, newValues);
+        return new Int128ArrayBlock(0, length, Bitmap.hasUnsetBit(newValueIsValid, 0, length) ? newValueIsValid : null, newValues);
     }
 
     @Override
@@ -199,7 +195,7 @@ public final class Int128ArrayBlock
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        return new Int128ArrayBlock(positionOffset + this.positionOffset, length, valueIsNull, values);
+        return new Int128ArrayBlock(positionOffset + this.positionOffset, length, valueIsValid, values);
     }
 
     @Override
@@ -208,21 +204,21 @@ public final class Int128ArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += this.positionOffset;
-        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
+        long[] newValueIsValid = compactBitmap(valueIsValid, positionOffset, length);
         long[] newValues = compactArray(values, positionOffset * 2, length * 2);
 
-        if (newValueIsNull == valueIsNull && newValues == values) {
+        if (newValueIsValid == valueIsValid && newValues == values) {
             return this;
         }
-        return new Int128ArrayBlock(0, length, newValueIsNull, newValues);
+        return new Int128ArrayBlock(0, length, newValueIsValid, newValues);
     }
 
     @Override
     public Int128ArrayBlock copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
+        long[] newValueIsValid = copyBitmapAndAppendUnset(valueIsValid, positionOffset, positionCount);
         long[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 2);
-        return new Int128ArrayBlock(positionOffset, positionCount + 1, newValueIsNull, newValues);
+        return new Int128ArrayBlock(positionOffset, positionCount + 1, newValueIsValid, newValues);
     }
 
     @Override
@@ -238,9 +234,12 @@ public final class Int128ArrayBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(valueIsNull, positionOffset, positionCount);
+        if (valueIsValid == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new Bitmap(valueIsValid, positionOffset, positionCount));
     }
 
     public int getRawOffset()
@@ -248,10 +247,14 @@ public final class Int128ArrayBlock
         return positionOffset;
     }
 
+    /// Returns raw validity bitmap words using the [Bitmap] encoding, or null if all positions are valid.
+    ///
+    /// The returned array is raw block storage. Use [getValidityBitmap()] unless the caller already has the matching
+    /// raw bit offset.
     @Nullable
-    public boolean[] getRawValueIsNull()
+    public long[] getRawValueIsValid()
     {
-        return valueIsNull;
+        return valueIsValid;
     }
 
     public long[] getRawValues()

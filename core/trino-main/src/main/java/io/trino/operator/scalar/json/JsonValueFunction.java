@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.json.JsonPathEvaluator;
-import io.trino.json.JsonPathInvocationContext;
-import io.trino.json.PathEvaluationException;
-import io.trino.json.ir.IrJsonPath;
-import io.trino.json.ir.JsonLiteralConversionException;
-import io.trino.json.ir.TypedValue;
+import io.trino.jsonpath.JsonPathEvaluator;
+import io.trino.jsonpath.JsonPathInvocationContext;
+import io.trino.jsonpath.PathEvaluationException;
+import io.trino.jsonpath.ir.IrJsonPath;
+import io.trino.jsonpath.ir.JsonLiteralConversionException;
+import io.trino.jsonpath.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
@@ -46,7 +46,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -57,8 +57,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getTypedValue;
+import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getTypedValue;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
@@ -100,7 +100,7 @@ public class JsonValueFunction
                         .returnType(typeVariable("R"))
                         .argumentTypes(
                                 type(JSON_2016),
-                                type(JsonPath2016Type.NAME),
+                                type(SqlJsonPathType.NAME),
                                 typeVariable("T"),
                                 typeVariable("R"),
                                 type(TINYINT),

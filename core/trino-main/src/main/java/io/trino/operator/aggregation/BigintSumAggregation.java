@@ -21,6 +21,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
@@ -52,6 +53,7 @@ public final class BigintSumAggregation
         state.setValue(BigintOperators.add(state.getValue(), otherState.getValue()));
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.BIGINT)
     public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
@@ -90,7 +92,7 @@ public final class BigintSumAggregation
         {
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum += index.getLong(0, i);
+                    sum = BigintOperators.add(sum, index.getLong(0, i));
                     count++;
                 }
             }
@@ -101,7 +103,7 @@ public final class BigintSumAggregation
         {
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum -= index.getLong(0, i);
+                    sum = BigintOperators.subtract(sum, index.getLong(0, i));
                     count--;
                 }
             }

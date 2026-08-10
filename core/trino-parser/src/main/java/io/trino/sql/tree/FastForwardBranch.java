@@ -36,7 +36,7 @@ public final class FastForwardBranch
         this.targetBranchName = requireNonNull(targetBranchName, "targetBranchName is null");
     }
 
-    public QualifiedName geTableName()
+    public QualifiedName getTableName()
     {
         return tableName;
     }

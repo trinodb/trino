@@ -16,24 +16,21 @@ package io.trino.parquet.reader.flat;
 import io.airlift.slice.Slice;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
-import java.util.Arrays;
-
 import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
 import static io.trino.parquet.ParquetReaderUtils.readUleb128Int;
 import static io.trino.parquet.reader.flat.BitPackingUtils.bitCount;
 import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
-import static io.trino.parquet.reader.flat.VectorBitPackingUtils.vectorUnpackAndInvert8;
+import static io.trino.spi.block.Bitmap.orPackedBits;
+import static io.trino.spi.block.Bitmap.setBits;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-/**
- * The hybrid RLE/bit-packing encoding consists of multiple groups.
- * Each group is either encoded as RLE or bit-packed
- * <p>
- * For a primitive column, the definition level is always either 0 (null) or 1 (non-null).
- * Therefore, every value is decoded from a single bit and stored into a boolean array
- * which stores false for non-null and true for null.
- */
+/// The hybrid RLE/bit-packing encoding consists of multiple groups.
+/// Each group is either encoded as RLE or bit-packed.
+///
+/// For a primitive column, the definition level is always either 0 (null) or 1 (non-null). Therefore, every value is
+/// decoded from a single bit and stored into a validity bitmap using the [io.trino.spi.block.Bitmap] encoding. Parquet
+/// stores set bits for non-null values, matching block validity bitmaps.
 public class NullsDecoders
 {
     private NullsDecoders() {}
@@ -64,6 +61,41 @@ public class NullsDecoders
             this.input = new SimpleSliceInputStream(requireNonNull(input, "input is null"));
         }
 
+        @Override
+        public final int readNext(long[] values, int offset, int length)
+        {
+            int initialOffset = offset;
+            int nonNullCount = 0;
+            while (length > 0) {
+                if (valuesLeftInGroup == 0) {
+                    readGroupHeader();
+                }
+
+                if (!isRle) {
+                    setBits(values, 0, initialOffset, offset - initialOffset);
+                    return nonNullCount + readNextMaterialized(values, offset, length);
+                }
+
+                if (rleValue) {
+                    setBits(values, 0, initialOffset, offset - initialOffset);
+                    int chunkSize = min(length, valuesLeftInGroup);
+                    valuesLeftInGroup -= chunkSize;
+                    length -= chunkSize;
+                    offset += chunkSize;
+                    return length == 0 ? nonNullCount : nonNullCount + readNextMaterialized(values, offset, length);
+                }
+
+                int chunkSize = min(length, valuesLeftInGroup);
+                nonNullCount += chunkSize;
+                valuesLeftInGroup -= chunkSize;
+                length -= chunkSize;
+                offset += chunkSize;
+            }
+            return nonNullCount;
+        }
+
+        protected abstract int readNextMaterialized(long[] values, int offset, int length);
+
         /**
          * Skip 'length' values and return the number of non-nulls encountered
          */
@@ -87,9 +119,7 @@ public class NullsDecoders
                     int remainingBits = Byte.SIZE - bitPackedValueOffset;
                     int chunkSize = min(remainingBits, length);
                     int remainingPackedValue = (bitPackedValue & 0xFF) >>> bitPackedValueOffset;
-                    // In bitPackedValue 1's are nulls, so the number of non-nulls is
-                    // chunkSize - bitCount(remainingBits up to chunkSize)
-                    nonNullCount += chunkSize - bitCount((byte) (remainingPackedValue & ((1 << chunkSize) - 1)));
+                    nonNullCount += bitCount((byte) (remainingPackedValue & ((1 << chunkSize) - 1)));
                     valuesLeftInGroup -= chunkSize;
                     bitPackedValueOffset = (bitPackedValueOffset + chunkSize) % Byte.SIZE;
 
@@ -112,8 +142,7 @@ public class NullsDecoders
                         byte packedValue = input.readByte();
                         nonNullCount += bitCount((byte) (packedValue & ((1 << leftToRead) - 1)));
 
-                        // Inverting packedValue as readNext expects 1 for null
-                        bitPackedValue = (byte) ~packedValue;
+                        bitPackedValue = packedValue;
                         bitPackedValueOffset += leftToRead;
                     }
                     valuesLeftInGroup -= chunkSize;
@@ -143,10 +172,10 @@ public class NullsDecoders
             extends AbstractNullsDecoder
     {
         /**
-         * 'values' array needs to be empty, i.e. contain only false values.
+         * 'values' array needs to be empty, i.e. contain only unset bits.
          */
         @Override
-        public int readNext(boolean[] values, int offset, int length)
+        protected int readNextMaterialized(long[] values, int offset, int length)
         {
             int nonNullCount = 0;
             while (length > 0) {
@@ -156,10 +185,9 @@ public class NullsDecoders
 
                 if (isRle) {
                     int chunkSize = min(length, valuesLeftInGroup);
-                    // The contract of the method requires values array to be empty (i.e. filled with false)
-                    // so action is required only if the value is equal to true
-                    if (rleValue) {
-                        Arrays.fill(values, offset, offset + chunkSize, true);
+                    // The contract of the method requires values array to be empty, so action is required only for non-null values.
+                    if (!rleValue) {
+                        setBits(values, 0, offset, chunkSize);
                     }
                     nonNullCount += castToByteNegate(rleValue) * chunkSize;
                     valuesLeftInGroup -= chunkSize;
@@ -181,14 +209,20 @@ public class NullsDecoders
                     // At this point we have only full bytes to read and valuesLeft is a multiplication of 8
                     int chunkSize = min(length, valuesLeftInGroup);
                     int leftToRead = chunkSize;
-                    // All values read from input are inverted as Trino uses 1 for null but Parquet uses 1 for non-null value
+                    while (leftToRead >= Long.SIZE) {
+                        long packedValue = input.readLong();
+                        nonNullCount += Long.bitCount(packedValue);
+                        orPackedBits(values, 0, offset, packedValue, Long.SIZE);
+                        offset += Long.SIZE;
+                        leftToRead -= Long.SIZE;
+                    }
                     while (leftToRead >= Byte.SIZE) {
-                        nonNullCount += unpack(values, offset, (byte) ~input.readByte());
+                        nonNullCount += unpack(values, offset, input.readByte());
                         offset += Byte.SIZE;
                         leftToRead -= Byte.SIZE;
                     }
                     if (leftToRead > 0) {
-                        bitPackedValue = (byte) ~input.readByte();
+                        bitPackedValue = input.readByte();
                         nonNullCount += unpack(values, offset, bitPackedValue, 0, leftToRead);
                         bitPackedValueOffset += leftToRead;
                         offset += leftToRead;
@@ -205,10 +239,10 @@ public class NullsDecoders
             extends AbstractNullsDecoder
     {
         /**
-         * 'values' array needs to be empty, i.e. contain only false values.
+         * 'values' array needs to be empty, i.e. contain only unset bits.
          */
         @Override
-        public int readNext(boolean[] values, int offset, int length)
+        protected int readNextMaterialized(long[] values, int offset, int length)
         {
             int nonNullCount = 0;
             while (length > 0) {
@@ -218,10 +252,9 @@ public class NullsDecoders
 
                 if (isRle) {
                     int chunkSize = min(length, valuesLeftInGroup);
-                    // The contract of the method requires values array to be empty (i.e. filled with false)
-                    // so action is required only if the value is equal to true
-                    if (rleValue) {
-                        Arrays.fill(values, offset, offset + chunkSize, true);
+                    // The contract of the method requires values array to be empty, so action is required only for non-null values.
+                    if (!rleValue) {
+                        setBits(values, 0, offset, chunkSize);
                     }
                     nonNullCount += castToByteNegate(rleValue) * chunkSize;
                     valuesLeftInGroup -= chunkSize;
@@ -243,12 +276,20 @@ public class NullsDecoders
                     // At this point we have only full bytes to read and valuesLeft is a multiplication of 8
                     int chunkSize = min(length, valuesLeftInGroup);
                     int leftToRead = chunkSize;
-                    // All values read from input are inverted as Trino uses 1 for null but Parquet uses 1 for non-null value
+                    while (leftToRead >= Long.SIZE) {
+                        long value = input.readLong();
+                        nonNullCount += Long.bitCount(value);
+                        orPackedBits(values, 0, offset, value, Long.SIZE);
+                        offset += Long.SIZE;
+                        leftToRead -= Long.SIZE;
+                    }
                     byte[] inputArray = input.getByteArray();
                     int inputOffset = input.getByteArrayOffset();
                     int inputBytesRead = 0;
                     while (leftToRead >= Byte.SIZE) {
-                        nonNullCount += vectorUnpackAndInvert8(values, offset, inputArray[inputOffset + inputBytesRead]);
+                        byte value = inputArray[inputOffset + inputBytesRead];
+                        nonNullCount += bitCount(value);
+                        orPackedBits(values, 0, offset, value & 0xFF, Byte.SIZE);
                         offset += Byte.SIZE;
                         leftToRead -= Byte.SIZE;
                         inputBytesRead++;
@@ -256,7 +297,7 @@ public class NullsDecoders
                     input.skip(inputBytesRead);
 
                     if (leftToRead > 0) {
-                        bitPackedValue = (byte) ~input.readByte();
+                        bitPackedValue = input.readByte();
                         nonNullCount += unpack(values, offset, bitPackedValue, 0, leftToRead);
                         bitPackedValueOffset += leftToRead;
                         offset += leftToRead;

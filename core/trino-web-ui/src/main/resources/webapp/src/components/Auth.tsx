@@ -21,11 +21,13 @@ export const Auth = () => {
 
     if (!authInfo) {
         return (
-            <Box sx={{ p: 10 }} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+            <Box
+                sx={{ p: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+            >
                 {loading ? (
                     <>
                         <CircularProgress />
-                        <Typography mt={2}>{Texts.Auth.Authenticating}</Typography>
+                        <Typography sx={{ mt: 2 }}>{Texts.Auth.Authenticating}</Typography>
                     </>
                 ) : (
                     error && <Alert severity="error">{error}</Alert>

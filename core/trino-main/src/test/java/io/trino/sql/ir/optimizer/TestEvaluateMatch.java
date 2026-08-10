@@ -27,7 +27,6 @@ import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.EvaluateMatch;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -39,6 +38,7 @@ import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -87,6 +87,21 @@ public class TestEvaluateMatch
                         ImmutableList.of(clauseWithCapture),
                         new Reference(VARCHAR, "b"))))
                 .describedAs("non-constant capture")
+                .isEqualTo(Optional.empty());
+
+        // A clause whose lambda body references an outer symbol directly (no Bind) must not be
+        // evaluated: the evaluator would silently resolve the free reference to null.
+        MatchClause clauseWithFreeReference = new MatchClause(
+                new Lambda(
+                        ImmutableList.of(parameter),
+                        comparison(EQUAL, new Reference(BIGINT, parameter.name()), new Reference(BIGINT, "x"))),
+                new Reference(VARCHAR, "a"));
+        assertThat(optimize(
+                new Match(
+                        new Constant(BIGINT, 1L),
+                        ImmutableList.of(clauseWithFreeReference),
+                        new Reference(VARCHAR, "b"))))
+                .describedAs("free reference in predicate body")
                 .isEqualTo(Optional.empty());
     }
 
@@ -143,7 +158,7 @@ public class TestEvaluateMatch
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateMatch(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new EvaluateMatch(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 
     private static MatchClause equalityClause(Expression value, Expression result)

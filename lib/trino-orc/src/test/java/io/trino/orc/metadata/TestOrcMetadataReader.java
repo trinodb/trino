@@ -45,6 +45,7 @@ import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Character.MIN_SURROGATE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOrcMetadataReader
 {
@@ -147,6 +148,26 @@ public class TestOrcMetadataReader
         OrcMetadataReader orcMetadataReader = new OrcMetadataReader(new OrcReaderOptions());
         Footer actualFooter = orcMetadataReader.readFooter(ORIGINAL, input);
         assertThat(actualFooter.getStripes().getFirst().getNumberOfRows()).isEqualTo(stripe.getNumberOfRows());
+    }
+
+    @Test
+    void testGeospatialTypesAreNotSupported()
+    {
+        OrcMetadataReader orcMetadataReader = new OrcMetadataReader(new OrcReaderOptions());
+
+        for (OrcProto.Type.Kind kind : List.of(OrcProto.Type.Kind.GEOMETRY, OrcProto.Type.Kind.GEOGRAPHY)) {
+            OrcProto.Footer footer = OrcProto.Footer.newBuilder()
+                    .addTypes(OrcProto.Type.newBuilder()
+                            .setKind(OrcProto.Type.Kind.STRUCT)
+                            .addSubtypes(1)
+                            .addFieldNames("geom"))
+                    .addTypes(OrcProto.Type.newBuilder().setKind(kind))
+                    .build();
+
+            assertThatThrownBy(() -> orcMetadataReader.readFooter(ORIGINAL, new ByteArrayInputStream(footer.toByteArray())))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessage("ORC type " + kind + " is not supported");
+        }
     }
 
     private static final Slice STRING_APPLE = utf8Slice("apple");

@@ -63,6 +63,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrUtils.or;
@@ -299,7 +300,7 @@ public class PreAggregateCaseAggregations
                             Type preProjectionType = getType(preProjection);
                             Type aggregationInputType = getOnlyElement(key.getFunction().signature().getArgumentTypes());
                             if (!preProjectionType.equals(aggregationInputType)) {
-                                preProjection = new Cast(preProjection, aggregationInputType);
+                                preProjection = cast(plannerContext.getTypeManager(), preProjection, aggregationInputType);
                             }
 
                             // Wrap the preProjection with IF to retain the conditional nature on the CASE aggregation(s) during pre-aggregation
@@ -416,7 +417,7 @@ public class PreAggregateCaseAggregations
                     name,
                     caseExpression.whenClauses().get(0).getOperand(),
                     caseExpression.whenClauses().get(0).getResult(),
-                    new Cast(caseExpression.defaultValue(), aggregationType)));
+                    cast(plannerContext.getTypeManager(), caseExpression.defaultValue(), aggregationType)));
         }
 
         return Optional.empty();

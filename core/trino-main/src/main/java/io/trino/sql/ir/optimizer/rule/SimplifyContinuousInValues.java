@@ -30,9 +30,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -44,6 +42,7 @@ import java.util.Optional;
 
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
@@ -106,17 +105,15 @@ public class SimplifyContinuousInValues
             return Optional.empty();
         }
 
-        // Trivial values can be duplicated freely; non-trivial values are bound once via Let so
-        // the operand is evaluated exactly once across the IS NULL check and both comparisons.
-        if (value instanceof Reference || value instanceof Constant) {
-            Expression rangeFilter = rangeFilter(value, valueType, min, max);
-            return Optional.of(nullMatch ? or(new IsNull(value), rangeFilter) : rangeFilter);
-        }
-        Symbol bound = symbolAllocator.newSymbol("range", value.type());
-        Reference reference = new Reference(value.type(), bound.name());
-        Expression rangeFilter = rangeFilter(reference, valueType, min, max);
-        Expression body = nullMatch ? or(new IsNull(reference), rangeFilter) : rangeFilter;
-        return Optional.of(new Let(bound, value, body));
+        // Bind a non-trivial value once so it is evaluated exactly once across the IS NULL check and both
+        // comparisons; trivial values are used inline.
+        long lowerBound = min;
+        long upperBound = max;
+        boolean includesNull = nullMatch;
+        return Optional.of(bindIfNecessary(symbolAllocator, "range", value, operand -> {
+            Expression rangeFilter = rangeFilter(operand, valueType, lowerBound, upperBound);
+            return includesNull ? or(new IsNull(operand), rangeFilter) : rangeFilter;
+        }));
     }
 
     private Expression rangeFilter(Expression value, Type valueType, long min, long max)

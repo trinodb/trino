@@ -96,7 +96,7 @@ public final class CompositeIntervalQualifier
         builder.append(from.name());
         if (precision.isPresent()) {
             builder.append('(')
-                    .append(precision.getAsInt())
+                    .append(precision.orElseThrow())
                     .append(')');
         }
         builder.append(" TO ")
@@ -104,7 +104,7 @@ public final class CompositeIntervalQualifier
 
         if (to instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
             builder.append("(")
-                    .append(fractionalPrecision.getAsInt())
+                    .append(fractionalPrecision.orElseThrow())
                     .append(")");
         }
 

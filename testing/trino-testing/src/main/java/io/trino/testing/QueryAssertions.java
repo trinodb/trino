@@ -93,11 +93,11 @@ public final class QueryAssertions
 
         if (results.getUpdateCount().isPresent()) {
             if (count.isEmpty()) {
-                fail("expected no update count, but got " + results.getUpdateCount().getAsLong());
+                fail("expected no update count, but got " + results.getUpdateCount().orElseThrow());
             }
-            assertThat(results.getUpdateCount().getAsLong())
+            assertThat(results.getUpdateCount().orElseThrow())
                     .describedAs("update count")
-                    .isEqualTo(count.getAsLong());
+                    .isEqualTo(count.orElseThrow());
         }
         else if (count.isPresent()) {
             fail("update count is not present");
@@ -140,11 +140,11 @@ public final class QueryAssertions
 
         if (results.getUpdateCount().isPresent()) {
             if (count.isEmpty()) {
-                fail("expected no update count, but got " + results.getUpdateCount().getAsLong() + " for query " + queryId);
+                fail("expected no update count, but got " + results.getUpdateCount().orElseThrow() + " for query " + queryId);
             }
-            assertThat(results.getUpdateCount().getAsLong())
+            assertThat(results.getUpdateCount().orElseThrow())
                     .describedAs("update count for query " + queryId)
-                    .isEqualTo(count.getAsLong());
+                    .isEqualTo(count.orElseThrow());
         }
         else if (count.isPresent()) {
             fail("update count is not present for query " + queryId);
@@ -261,7 +261,7 @@ public final class QueryAssertions
                     .isEqualTo(1);
             assertThat(row.getField(0))
                     .describedAs("For query: \n " + actual + "\n:")
-                    .isEqualTo(actualResults.getUpdateCount().getAsLong());
+                    .isEqualTo(actualResults.getUpdateCount().orElseThrow());
         }
 
         if (ensureOrdering) {
@@ -360,7 +360,7 @@ public final class QueryAssertions
                     .isEqualTo(1);
             assertThat(row.getField(0))
                     .describedAs("For query " + queryId + ": \n " + actual + "\n:")
-                    .isEqualTo(actualResults.getUpdateCount().getAsLong());
+                    .isEqualTo(actualResults.getUpdateCount().orElseThrow());
         }
 
         if (ensureOrdering) {

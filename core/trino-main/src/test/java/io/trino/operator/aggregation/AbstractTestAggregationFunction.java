@@ -102,6 +102,22 @@ public abstract class AbstractTestAggregationFunction
     }
 
     @Test
+    public void testNonNullableDeclarationHoldsOnEmptyInput()
+    {
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(getFunctionName(), fromTypes(getFunctionParameterTypes()));
+        if (resolvedFunction.functionNullability().isReturnNullable()) {
+            // A nullable result declaration is always sound; only a non-null declaration must be verified.
+            return;
+        }
+        // A function that declares a non-nullable result must never produce NULL, even on empty input,
+        // which is the case in which aggregates most commonly return NULL.
+        TestingAggregationFunction function = functionResolution.getAggregateFunction(getFunctionName(), fromTypes(getFunctionParameterTypes()));
+        assertThat(AggregationTestUtils.aggregation(function))
+                .describedAs("%s declares a non-nullable result but returned NULL on empty input", getFunctionName())
+                .isNotNull();
+    }
+
+    @Test
     public void testMixedNullAndNonNullPositions()
     {
         // if there are no parameters skip this test

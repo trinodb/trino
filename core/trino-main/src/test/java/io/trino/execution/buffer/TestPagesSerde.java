@@ -180,6 +180,30 @@ public class TestPagesSerde
     }
 
     @Test
+    public void testSmallPageWithEncryption()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/23531
+        // Small pages that fit within a single encrypted block caused IndexOutOfBoundsException
+        // because decrypt() unconditionally read the next block header after all blocks were consumed.
+        SecretKey encryptionKey = createRandomAesEncryptionKey();
+        for (CompressionCodec compressionCodec : CompressionCodec.values()) {
+            // Use a large block size so the page fits in a single encrypted block
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, compressionCodec, 64 * 1024);
+            PageSerializer serializer = serdeFactory.createSerializer(Optional.of(encryptionKey));
+            PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.of(encryptionKey));
+
+            // Single-row page is small enough to fit in one encrypted block
+            BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(1);
+            BIGINT.writeLong(builder, 42);
+            Page page = new Page(builder.build());
+
+            Slice serialized = serializer.serialize(page);
+            Page deserialized = deserializer.deserialize(serialized);
+            assertPageEquals(ImmutableList.of(BIGINT), deserialized, page);
+        }
+    }
+
+    @Test
     public void testBigintSerializedSize()
     {
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(5);

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>483-SNAPSHOT</version>
+        <version>484-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -40,12 +40,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.ishugaliy</groupId>
-            <artifactId>allgood-consistent-hash</artifactId>
-            <version>1.0.0</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
         </dependency>
@@ -72,25 +66,8 @@
         </dependency>
 
         <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>info.debatty</groupId>
-            <artifactId>java-string-similarity</artifactId>
-            <version>2.0.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>net.jcip</groupId>
-                    <artifactId>jcip-annotations</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -351,7 +328,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>10.4.0</version>
+            <version>10.5.0</version>
         </dependency>
 
         <dependency>
@@ -562,7 +539,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
                         <!-- Ensure incubator Vector API is on the module path for javac -->
-                        <compilerArgs combine.self="merge">
+                        <compilerArgs combine.children="append">
                             <arg>${extraJavaVectorArgs}</arg>
                         </compilerArgs>
                     </configuration>

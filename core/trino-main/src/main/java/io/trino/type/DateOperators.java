@@ -62,7 +62,7 @@ public final class DateOperators
         // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
 
         try {
-            return parseDate(trim(value).toStringUtf8());
+            return parseDate(trim(value));
         }
         catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
@@ -76,7 +76,7 @@ public final class DateOperators
     public static long castFromChar(@SqlType("char(x)") Slice value)
     {
         try {
-            return parseDate(trim(value).toStringUtf8());
+            return parseDate(trim(value));
         }
         catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);

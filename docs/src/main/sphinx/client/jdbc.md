@@ -55,7 +55,8 @@ may need to manually register and configure the driver.
 ## Registering and configuring the driver
 
 Drivers are commonly loaded automatically by applications once they are added to
-its classpath. If your application does not, such as is the case for some
+the application classpath. If your application does not, such as is the case
+for some
 GUI-based SQL editors, read this section. The steps to register the JDBC driver
 in a UI or on the command line depend upon the specific application you are
 using. Please check your application's documentation.

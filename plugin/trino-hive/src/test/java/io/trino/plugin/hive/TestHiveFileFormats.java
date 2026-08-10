@@ -118,6 +118,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1560,7 +1561,7 @@ public final class TestHiveFileFormats
         JobConf jobConf = new JobConf(false);
         configureCompression(jobConf, compressionCodec);
 
-        File file = File.createTempFile("trino_test", "data");
+        File file = Files.createTempFile("trino_test", "data").toFile();
         verify(file.delete());
         try {
             FileSinkOperator.RecordWriter recordWriter = outputFormat.getHiveRecordWriter(

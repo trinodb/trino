@@ -18,7 +18,6 @@ import org.testng.ITestClass;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
-import static io.trino.testng.services.ReportBadTestAnnotations.isTemptoClass;
 
 public class ReportIllNamedTest
         implements IClassListener
@@ -49,10 +48,6 @@ public class ReportIllNamedTest
             // integration test
             return;
         }
-        if (isTemptoClass(realClass)) {
-            return;
-        }
-
         reportListenerFailure(
                 ReportIllNamedTest.class,
                 "Test class %s's name should start with Test",

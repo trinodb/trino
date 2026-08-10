@@ -56,9 +56,9 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.MetricsUtil.createNanValueCounts;
 import static org.apache.iceberg.parquet.ParquetUtil.extractTimestampInt96;
 
@@ -94,7 +94,7 @@ public final class ParquetUtil
         MessageType parquetTypeWithIds = getParquetTypeWithIds(metadata, nameMapping);
         Schema fileSchema = ParquetSchemaUtil.convertAndPrune(parquetTypeWithIds);
 
-        Map<Integer, FieldMetrics<?>> fieldMetricsMap = fieldMetrics.collect(toMap(FieldMetrics::id, identity()));
+        Map<Integer, FieldMetrics<?>> fieldMetricsMap = fieldMetrics.collect(toImmutableMap(FieldMetrics::id, identity()));
 
         List<BlockMetadata> blocks = metadata.getBlocks();
         for (BlockMetadata block : blocks) {

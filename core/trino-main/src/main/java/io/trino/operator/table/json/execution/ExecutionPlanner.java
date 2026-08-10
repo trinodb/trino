@@ -14,7 +14,7 @@
 package io.trino.operator.table.json.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.json.JsonPathInvocationContext;
+import io.trino.jsonpath.JsonPathInvocationContext;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.project.PageProjection;

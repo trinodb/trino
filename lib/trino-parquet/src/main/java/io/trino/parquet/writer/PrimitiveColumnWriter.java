@@ -15,7 +15,6 @@ package io.trino.parquet.writer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetMetadataConverter;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
@@ -27,7 +26,9 @@ import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
 import jakarta.annotation.Nullable;
+import org.apache.parquet.bytes.ByteBufferReleaser;
 import org.apache.parquet.bytes.BytesInput;
+import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
@@ -61,6 +62,7 @@ import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.getRootDefinitionLevelWriter;
 import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.getRootRepetitionLevelWriter;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.format.Util.writePageHeader;
 
@@ -228,15 +230,14 @@ public class PrimitiveColumnWriter
     private void flushCurrentPageToBuffer()
             throws IOException
     {
-        byte[] pageDataBytes = BytesInput.concat(
-                        repetitionLevelWriter.getBytes(),
-                        definitionLevelWriter.getBytes(),
-                        primitiveValueWriter.getBytes())
-                .toByteArray();
-        int uncompressedSize = pageDataBytes.length;
-        ParquetDataOutput pageData = (compressor != null)
-                ? compressor.compress(pageDataBytes)
-                : createDataOutput(Slices.wrappedBuffer(pageDataBytes));
+        BytesInput bytesInput = BytesInput.concat(
+                repetitionLevelWriter.getBytes(),
+                definitionLevelWriter.getBytes(),
+                primitiveValueWriter.getBytes());
+        int uncompressedSize = toIntExact(bytesInput.size());
+        ParquetDataOutput pageData = compressor != null
+                ? compress(bytesInput)
+                : createDataOutput(bytesInput);
         int compressedSize = pageData.size();
 
         Statistics<?> statistics = primitiveValueWriter.getStatistics();
@@ -291,10 +292,10 @@ public class PrimitiveColumnWriter
         OptionalInt dictionaryPageSize = OptionalInt.empty();
         if (dictionaryPage != null) {
             int uncompressedSize = dictionaryPage.getUncompressedSize();
-            byte[] pageBytes = dictionaryPage.getBytes().toByteArray();
+            BytesInput dictionaryBytes = dictionaryPage.getBytes();
             ParquetDataOutput pageData = compressor != null
-                    ? compressor.compress(pageBytes)
-                    : createDataOutput(Slices.wrappedBuffer(pageBytes));
+                    ? compress(dictionaryBytes)
+                    : createDataOutput(dictionaryBytes);
             int compressedSize = pageData.size();
 
             ByteArrayOutputStream dictStream = new ByteArrayOutputStream();
@@ -318,6 +319,16 @@ public class PrimitiveColumnWriter
 
         outputs.add(createDataOutput(compressedOutputStream));
         return new DataStreams(outputs.build(), dictionaryPageSize, bloomFilter);
+    }
+
+    private ParquetDataOutput compress(BytesInput bytesInput)
+            throws IOException
+    {
+        // toByteBuffer references the input data without copying when it is backed by a single buffer; the releaser frees
+        // the temporary buffer that is allocated only when the input has to be materialized (e.g. concatenated pages)
+        try (ByteBufferReleaser releaser = new ByteBufferReleaser(HeapByteBufferAllocator.getInstance())) {
+            return compressor.compress(bytesInput.toByteBuffer(releaser));
+        }
     }
 
     @Override

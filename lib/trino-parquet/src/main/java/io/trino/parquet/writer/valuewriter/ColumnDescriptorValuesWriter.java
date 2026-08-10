@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.Bitmap;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -34,6 +35,29 @@ public interface ColumnDescriptorValuesWriter
      * @param valueRepetitions number of times the input value is repeated in the input stream
      */
     void writeRepeatInteger(int value, int valueRepetitions);
+
+    default int writeBitmap(Bitmap bitmap, int offset, int positionCount, int setValue, int unsetValue)
+    {
+        int setCount = 0;
+        int position = 0;
+        while (position < positionCount) {
+            int bitsInWord = Math.min(Long.SIZE, positionCount - position);
+            long bits = Bitmap.getBits(bitmap.getRawWords(), bitmap.getRawBitOffset(), offset + position, bitsInWord);
+            int positionInWord = 0;
+            while (positionInWord < bitsInWord) {
+                boolean set = (bits & 1) != 0;
+                int runLength = Math.min(Long.numberOfTrailingZeros(set ? ~bits : bits), bitsInWord - positionInWord);
+                writeRepeatInteger(set ? setValue : unsetValue, runLength);
+                if (set) {
+                    setCount += runLength;
+                }
+                bits >>>= runLength;
+                positionInWord += runLength;
+            }
+            position += bitsInWord;
+        }
+        return setCount;
+    }
 
     /**
      * used to decide if we want to work to the next page

@@ -17,12 +17,10 @@ import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.Optional;
 
 import static java.lang.Math.ceil;
 import static java.lang.Math.clamp;
 import static java.lang.String.format;
-import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.requireNonNull;
 
 final class BlockUtil
@@ -37,14 +35,6 @@ final class BlockUtil
     private BlockUtil() {}
 
     static void checkArrayRange(int[] array, int offset, int length)
-    {
-        requireNonNull(array, "array is null");
-        if (offset < 0 || length < 0 || offset + length > array.length) {
-            throw new IndexOutOfBoundsException(format("Invalid offset %s and length %s in array with %s elements", offset, length, array.length));
-        }
-    }
-
-    static void checkArrayRange(boolean[] array, int offset, int length)
     {
         requireNonNull(array, "array is null");
         if (offset < 0 || length < 0 || offset + length > array.length) {
@@ -105,31 +95,6 @@ final class BlockUtil
     }
 
     /**
-     * Returns an array containing elements in the specified range of the specified <code>isNull</code> array.
-     * If the input array is null, null is returned. If the range matches the entire array, the input array
-     * will be returned. Otherwise, a copy will be returned.
-     */
-    static boolean[] compactIsNull(@Nullable boolean[] isNull, int index, int length)
-    {
-        if (isNull == null) {
-            return null;
-        }
-        checkArrayRange(isNull, index, length);
-        if (index == 0 && length == isNull.length) {
-            return isNull;
-        }
-        for (int i = 0; i < length; i++) {
-            if (isNull[i + index]) {
-                boolean[] result = new boolean[length];
-                System.arraycopy(isNull, i + index, result, i, length - i);
-                return result;
-            }
-        }
-        // No nulls encountered, return null as the result
-        return null;
-    }
-
-    /**
      * Recalculate the <code>offsets</code> array for the specified range.
      * The returned <code>offsets</code> array contains <code>length + 1</code> integers
      * with the first value set to 0.
@@ -166,14 +131,6 @@ final class BlockUtil
      * If the range matches the entire array, the input array will be returned.
      * Otherwise, a copy will be returned.
      */
-    static boolean[] compactArray(boolean[] array, int index, int length)
-    {
-        if (index == 0 && length == array.length) {
-            return array;
-        }
-        return Arrays.copyOfRange(array, index, index + length);
-    }
-
     static byte[] compactArray(byte[] array, int index, int length)
     {
         if (index == 0 && length == array.length) {
@@ -222,19 +179,6 @@ final class BlockUtil
             }
         }
         return true;
-    }
-
-    static boolean[] copyIsNullAndAppendNull(@Nullable boolean[] isNull, int offsetBase, int positionCount)
-    {
-        int desiredLength = offsetBase + positionCount + 1;
-        boolean[] newIsNull = new boolean[desiredLength];
-        if (isNull != null) {
-            checkArrayRange(isNull, offsetBase, positionCount);
-            System.arraycopy(isNull, 0, newIsNull, 0, desiredLength - 1);
-        }
-        // mark the last element to append null
-        newIsNull[desiredLength - 1] = true;
-        return newIsNull;
     }
 
     static int[] copyOffsetsAndAppendNull(int[] offsets, int offsetBase, int positionCount)
@@ -313,46 +257,5 @@ final class BlockUtil
         }
 
         return buffer;
-    }
-
-    /**
-     * Consolidated implementation of {@link Block#hasNull()}, returning <code>true</code> if a null value exists
-     * and <code>false</code> otherwise
-     */
-    static boolean hasNullValue(@Nullable boolean[] valueIsNull, int arrayOffset, int positionCount)
-    {
-        if (valueIsNull == null) {
-            return false;
-        }
-
-        int toIndex = arrayOffset + positionCount;
-        checkFromToIndex(arrayOffset, toIndex, valueIsNull.length);
-        for (int i = arrayOffset; i < toIndex; i++) {
-            if (valueIsNull[i]) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Ideally, the underlying nulls array in Block implementations should be a byte array instead of a boolean array.
-     * This method is used to perform that conversion until the Block implementations are changed.
-     */
-    static Optional<ByteArrayBlock> getNulls(@Nullable boolean[] valueIsNull, int arrayOffset, int positionCount)
-    {
-        if (valueIsNull == null) {
-            return Optional.empty();
-        }
-        byte[] booleansAsBytes = new byte[positionCount];
-        boolean foundAnyNull = false;
-        for (int i = 0; i < positionCount; i++) {
-            booleansAsBytes[i] = (byte) (valueIsNull[arrayOffset + i] ? 1 : 0);
-            foundAnyNull = foundAnyNull || valueIsNull[arrayOffset + i];
-        }
-        if (!foundAnyNull) {
-            return Optional.empty();
-        }
-        return Optional.of(new ByteArrayBlock(booleansAsBytes.length, Optional.empty(), booleansAsBytes));
     }
 }

@@ -47,6 +47,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.preferPartialAggregation;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.iterative.rule.PushProjectionThroughExchange.isSymbolToSymbolProjection;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -54,12 +56,14 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.exchange;
+import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughExchange
-        implements Rule<AggregationNode>
 {
+    private static final Capture<ExchangeNode> EXCHANGE_NODE = Capture.newCapture();
+
     private final PlannerContext plannerContext;
 
     public PushPartialAggregationThroughExchange(PlannerContext plannerContext)
@@ -67,25 +71,70 @@ public class PushPartialAggregationThroughExchange
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
-    private static final Capture<ExchangeNode> EXCHANGE_NODE = Capture.newCapture();
-
-    private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .with(source().matching(
-                    exchange()
-                            .matching(node -> node.getOrderingScheme().isEmpty())
-                            .capturedAs(EXCHANGE_NODE)));
-
-    @Override
-    public Pattern<AggregationNode> getPattern()
+    public Iterable<Rule<?>> rules()
     {
-        return PATTERN;
+        return ImmutableList.of(
+                pushPartialAggregationThroughExchangeWithoutProjection(),
+                pushPartialAggregationThroughExchangeWithProjection());
     }
 
-    @Override
-    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
+    public Rule<AggregationNode> pushPartialAggregationThroughExchangeWithoutProjection()
     {
-        ExchangeNode exchangeNode = captures.get(EXCHANGE_NODE);
+        return new PushPartialAggregationThroughExchangeWithoutProjection();
+    }
 
+    public Rule<AggregationNode> pushPartialAggregationThroughExchangeWithProjection()
+    {
+        return new PushPartialAggregationThroughExchangeWithProjection();
+    }
+
+    public class PushPartialAggregationThroughExchangeWithoutProjection
+            implements Rule<AggregationNode>
+    {
+        @Override
+        public Pattern<AggregationNode> getPattern()
+        {
+            return aggregation()
+                    .with(source().matching(
+                            exchange()
+                                    .matching(node -> node.getOrderingScheme().isEmpty())
+                                    .capturedAs(EXCHANGE_NODE)));
+        }
+
+        @Override
+        public Result apply(AggregationNode node, Captures captures, Context context)
+        {
+            return applyPushdown(node, captures.get(EXCHANGE_NODE), context).map(Result::ofPlanNode).orElseGet(Result::empty);
+        }
+    }
+
+    public class PushPartialAggregationThroughExchangeWithProjection
+            implements Rule<AggregationNode>
+    {
+        private static final Capture<ExchangeNode> CHILD = newCapture();
+
+        private static final Pattern<AggregationNode> PATTERN_WITH_PROJECTION = aggregation()
+                .with(source().matching(project()
+                        .matching(project -> !isSymbolToSymbolProjection(project))
+                        .with(source().matching(exchange().capturedAs(CHILD)))));
+
+        @Override
+        public Pattern<AggregationNode> getPattern()
+        {
+            return PATTERN_WITH_PROJECTION;
+        }
+
+        @Override
+        public Result apply(AggregationNode node, Captures captures, Context context)
+        {
+            ProjectNode projectNode = (ProjectNode) context.getLookup().resolve(node.getSource());
+            ExchangeNode exchange = PushProjectionThroughExchange.pushProjectThroughExchange(projectNode, captures.get(CHILD), context);
+            return applyPushdown(node, exchange, context).map(Result::ofPlanNode).orElseGet(Result::empty);
+        }
+    }
+
+    public Optional<PlanNode> applyPushdown(AggregationNode aggregationNode, ExchangeNode exchangeNode, Rule.Context context)
+    {
         boolean decomposable = aggregationNode.isDecomposable(context.getSession(), plannerContext.getMetadata());
 
         if (aggregationNode.getStep() == SINGLE &&
@@ -98,18 +147,18 @@ public class PushPartialAggregationThroughExchange
             checkState(
                     decomposable,
                     "Distributed aggregation with empty grouping set requires partial but functions are not decomposable");
-            return Result.ofPlanNode(split(aggregationNode, context));
+            return Optional.of(split(aggregationNode, context));
         }
 
         if (!decomposable || !preferPartialAggregation(context.getSession())) {
-            return Result.empty();
+            return Optional.empty();
         }
 
         // partial aggregation can only be pushed through exchange that doesn't change
         // the cardinality of the stream (i.e., gather or repartition)
         if ((exchangeNode.getType() != GATHER && exchangeNode.getType() != REPARTITION) ||
                 exchangeNode.getPartitioningScheme().isReplicateNullsAndAny()) {
-            return Result.empty();
+            return Optional.empty();
         }
 
         if (exchangeNode.getType() == REPARTITION) {
@@ -124,18 +173,18 @@ public class PushPartialAggregationThroughExchange
                     .collect(Collectors.toList());
 
             if (!aggregationNode.getGroupingKeys().containsAll(partitioningColumns)) {
-                return Result.empty();
+                return Optional.empty();
             }
         }
 
         return switch (aggregationNode.getStep()) {
-            case SINGLE -> Result.ofPlanNode(split(aggregationNode, context)); // Split it into a FINAL on top of a PARTIAL and
-            case PARTIAL -> Result.ofPlanNode(pushPartial(aggregationNode, exchangeNode, context)); // Push it underneath each branch of the exchange
-            default -> Result.empty();
+            case SINGLE -> Optional.of(split(aggregationNode, context)); // Split it into a FINAL on top of a PARTIAL and
+            case PARTIAL -> Optional.of(pushPartial(aggregationNode, exchangeNode, context)); // Push it underneath each branch of the exchange
+            default -> Optional.empty();
         };
     }
 
-    private PlanNode pushPartial(AggregationNode aggregation, ExchangeNode exchange, Context context)
+    private PlanNode pushPartial(AggregationNode aggregation, ExchangeNode exchange, Rule.Context context)
     {
         List<PlanNode> partials = new ArrayList<>();
         for (int i = 0; i < exchange.getSources().size(); i++) {
@@ -189,7 +238,7 @@ public class PushPartialAggregationThroughExchange
                 Optional.empty());
     }
 
-    private PlanNode split(AggregationNode node, Context context)
+    private PlanNode split(AggregationNode node, Rule.Context context)
     {
         // otherwise, add a partial and final with an exchange in between
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> intermediateAggregation = ImmutableMap.builder();

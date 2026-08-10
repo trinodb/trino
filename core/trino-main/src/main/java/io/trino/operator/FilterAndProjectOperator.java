@@ -53,12 +53,10 @@ public class FilterAndProjectOperator
         AggregatedMemoryContext localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
         LocalMemoryContext outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(FilterAndProjectOperator.class.getSimpleName());
         ConnectorSession connectorSession = operatorContext.getSession().toConnectorSession();
-        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
 
         this.pages = sourcePages
                 .flatMap(page -> pageProcessor.createWorkProcessor(
                         connectorSession,
-                        yieldSignal,
                         outputMemoryContext,
                         metrics,
                         SourcePage.create(page)))

@@ -14,7 +14,6 @@
 package io.trino.plugin.sqlserver;
 
 import com.google.common.base.Enums;
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -237,8 +236,6 @@ public class SqlServerClient
     public static final JdbcTypeHandle BIGINT_TYPE = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
-
-    private static final Joiner DOT_JOINER = Joiner.on(".");
 
     private final boolean statisticsEnabled;
 
@@ -517,7 +514,8 @@ public class SqlServerClient
         if (!remoteSchemaName.equals(newRemoteSchemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
-        String fullTableFromName = DOT_JOINER.join(
+        String fullTableFromName = String.join(
+                ".",
                 quoted(catalogName),
                 quoted(remoteSchemaName),
                 quoted(remoteTableName));
@@ -535,7 +533,8 @@ public class SqlServerClient
     {
         // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
         // The second argument is treated literally.
-        String columnFrom = DOT_JOINER.join(
+        String columnFrom = String.join(
+                ".",
                 quoted(remoteTableName.getCatalogName().orElseThrow()),
                 quoted(remoteTableName.getSchemaName().orElseThrow()),
                 quoted(remoteTableName.getTableName()),

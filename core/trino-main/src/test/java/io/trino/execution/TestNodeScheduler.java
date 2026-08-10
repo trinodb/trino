@@ -22,8 +22,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
-import io.trino.execution.scheduler.ConsistentHashingAddressProviderConfig;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.execution.scheduler.NetworkLocation;
 import io.trino.execution.scheduler.NetworkTopology;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -31,6 +30,8 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.NodeSelector;
 import io.trino.execution.scheduler.NodeSelectorFactory;
 import io.trino.execution.scheduler.SplitPlacementResult;
+import io.trino.execution.scheduler.StableHostAddressProvider;
+import io.trino.execution.scheduler.StableHostAddressProviderConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
@@ -117,7 +118,7 @@ public class TestNodeScheduler
                 .setMaxAdjustedPendingSplitsWeightPerTask(100)
                 .setIncludeCoordinator(false);
 
-        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig())));
+        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig())));
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(session);
@@ -193,7 +194,7 @@ public class TestNodeScheduler
                 nodeSchedulerConfig,
                 nodeTaskMap,
                 getNetworkTopologyConfig(),
-                new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()));
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig()));
         NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
 
@@ -613,7 +614,7 @@ public class TestNodeScheduler
                 nodeSchedulerConfig,
                 nodeTaskMap,
                 getNetworkTopologyConfig(),
-                new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()));
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig()));
         NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
 

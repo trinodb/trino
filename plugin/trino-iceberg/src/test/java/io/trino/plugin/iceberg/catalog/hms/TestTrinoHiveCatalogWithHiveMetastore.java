@@ -72,6 +72,7 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetast
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -181,7 +182,8 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                                 return thriftMetastore;
                             }
                         },
-                        new IcebergHiveCatalogConfig()),
+                        new IcebergHiveCatalogConfig(),
+                        ENCRYPTION_MANAGER_FACTORY),
                 useUniqueTableLocations,
                 false,
                 false,

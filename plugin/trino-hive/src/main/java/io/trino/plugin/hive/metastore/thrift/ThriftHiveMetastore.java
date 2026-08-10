@@ -433,7 +433,7 @@ public final class ThriftHiveMetastore
         Table modifiedTable = originalTable.deepCopy();
         modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.basicStatistics()));
         if (acidWriteId.isPresent()) {
-            modifiedTable.setWriteId(acidWriteId.getAsLong());
+            modifiedTable.setWriteId(acidWriteId.orElseThrow());
         }
         alterTable(databaseName, tableName, modifiedTable, ImmutableMap.of());
 

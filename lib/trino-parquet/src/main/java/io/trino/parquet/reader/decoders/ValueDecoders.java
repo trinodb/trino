@@ -43,6 +43,7 @@ import io.trino.parquet.reader.decoders.PlainValueDecoders.LongPlainValueDecoder
 import io.trino.parquet.reader.decoders.PlainValueDecoders.ShortDecimalFixedLengthByteArrayDecoder;
 import io.trino.parquet.reader.decoders.PlainValueDecoders.UuidPlainValueDecoder;
 import io.trino.parquet.reader.flat.BinaryBuffer;
+import io.trino.parquet.reader.flat.BitBuffer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
@@ -210,7 +211,7 @@ public final class ValueDecoders
         };
     }
 
-    public ValueDecoder<byte[]> getBooleanDecoder(ParquetEncoding encoding)
+    public ValueDecoder<BitBuffer> getBooleanDecoder(ParquetEncoding encoding)
     {
         return switch (encoding) {
             case PLAIN -> createBooleanPlainValueDecoder(vectorizedDecodingEnabled);

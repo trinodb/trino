@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,7 +26,6 @@ final class TestEncoderUtil
 {
     private static final int[] TEST_LENGTHS = {0, 3, 255, 257, 512, 530, 1024, 2048, 8192};
     private static final int[] TEST_OFFSETS = {0, 2, 256};
-    private static final long RANDOM_SEED = 42;
 
     private TestEncoderUtil() {}
 
@@ -41,44 +39,79 @@ final class TestEncoderUtil
         return TEST_OFFSETS.clone();
     }
 
-    @Test
-    void testEncodeNullBitsScalarEqualsVectorized()
+    static long[][] getValidityArrays(int length)
     {
-        for (int offset : getTestOffsets()) {
-            for (int length : getTestLengths()) {
-                for (boolean[] isNull : getIsNullArray(offset + length)) {
-                    DynamicSliceOutput scalarOutput = new DynamicSliceOutput((length / 8) + 2);
-                    EncoderUtil.encodeNullsAsBitsScalar(scalarOutput, isNull, offset, length);
-                    DynamicSliceOutput vectorOutput = new DynamicSliceOutput((length / 8) + 2);
-                    EncoderUtil.encodeNullsAsBitsVectorized(vectorOutput, isNull, offset, length);
-                    Slice scalarSlice = scalarOutput.slice();
-                    Slice vectorSlice = vectorOutput.slice();
-                    assertThat(scalarSlice).as("scalar and vector encode results differ").isEqualTo(vectorSlice);
-                    boolean[] scalarDecode = EncoderUtil.decodeNullBitsScalar(scalarSlice.getInput(), length).orElseThrow();
-                    boolean[] vectorDecode = EncoderUtil.decodeNullBitsVectorized(scalarSlice.getInput(), length).orElseThrow();
-                    assertThat(scalarDecode).as("scalar and vector decode results differ").isEqualTo(vectorDecode);
-                    assertThat(scalarDecode).as("decode boolean[] differs from input value").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
-                }
-            }
-        }
-    }
-
-    static boolean[][] getIsNullArray(int length)
-    {
-        return new boolean[][] {
-                all(false, length),
-                all(true, length),
-                alternating(length),
-                randomBooleans(length),
+        return new long[][] {
+                allValid(length),
+                allNull(length),
+                alternatingValidity(length),
+                randomValidity(length),
         };
     }
 
-    static byte[] getEncodedNullsAsBits(boolean[] isNull, int offset, int length)
+    private static long[] allValid(int length)
     {
-        DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput((length / 8) + 2);
-        EncoderUtil.encodeNullsAsBitsScalar(dynamicSliceOutput, isNull, offset, length);
-        Slice encodedSlice = dynamicSliceOutput.slice();
-        return EncoderUtil.retrieveNullBits(encodedSlice.getInput(), length);
+        long[] validity = new long[Bitmap.wordsForBits(length)];
+        Bitmap.setBits(validity, 0, 0, length);
+        return validity;
+    }
+
+    private static long[] allNull(int length)
+    {
+        return new long[Bitmap.wordsForBits(length)];
+    }
+
+    private static long[] alternatingValidity(int length)
+    {
+        long[] validity = new long[Bitmap.wordsForBits(length)];
+        for (int position = 1; position < length; position += 2) {
+            Bitmap.set(validity, 0, position);
+        }
+        return validity;
+    }
+
+    private static long[] randomValidity(int length)
+    {
+        long[] validity = new long[Bitmap.wordsForBits(length)];
+        Random random = new Random(42);
+        for (int position = 0; position < length; position++) {
+            if (random.nextDouble() >= 0.3) {
+                Bitmap.set(validity, 0, position);
+            }
+        }
+        return validity;
+    }
+
+    @Test
+    void testEncodeValidityAsLongsRoundTrip()
+    {
+        for (int offset : getTestOffsets()) {
+            for (int length : getTestLengths()) {
+                long[] valueIsValid = new long[Bitmap.wordsForBits(offset + length)];
+                for (int position = 0; position < offset + length; position++) {
+                    if (position % 3 != 0) {
+                        Bitmap.set(valueIsValid, 0, position);
+                    }
+                }
+
+                DynamicSliceOutput output = new DynamicSliceOutput(Long.BYTES * Bitmap.wordsForBits(length) + 1);
+                EncoderUtil.encodeValidityAsLongs(output, valueIsValid, offset, length);
+                Slice slice = output.slice();
+                long[] decoded = EncoderUtil.decodeValidityAsLongs(slice.getInput(), length);
+
+                assertThat(decoded).isNotNull();
+                for (int position = 0; position < length; position += Long.SIZE) {
+                    int remaining = Math.min(Long.SIZE, length - position);
+                    long mask = Bitmap.lowBitsMask(remaining);
+                    assertThat(Bitmap.getAlignedWord(decoded, 0, position) & mask)
+                            .isEqualTo(Bitmap.getAlignedWord(valueIsValid, offset, position) & mask);
+                }
+            }
+        }
+
+        DynamicSliceOutput output = new DynamicSliceOutput(1);
+        EncoderUtil.encodeValidityAsLongs(output, null, 0, 10);
+        assertThat(EncoderUtil.decodeValidityAsLongs(output.slice().getInput(), 10)).isNull();
     }
 
     public static void assertBlockEquals(Type type, Block actual, Block expected)
@@ -89,31 +122,5 @@ final class TestEncoderUtil
                     .describedAs("position " + position)
                     .isEqualTo(type.getObjectValue(expected, position));
         }
-    }
-
-    private static boolean[] all(boolean value, int size)
-    {
-        boolean[] out = new boolean[size];
-        Arrays.fill(out, value);
-        return out;
-    }
-
-    private static boolean[] alternating(int size)
-    {
-        boolean[] out = new boolean[size];
-        for (int i = 0; i < size; i++) {
-            out[i] = (i % 2) == 0;
-        }
-        return out;
-    }
-
-    private static boolean[] randomBooleans(int size)
-    {
-        boolean[] out = new boolean[size];
-        Random r = new Random(RANDOM_SEED);
-        for (int i = 0; i < size; i++) {
-            out[i] = r.nextDouble() < 0.3;
-        }
-        return out;
     }
 }

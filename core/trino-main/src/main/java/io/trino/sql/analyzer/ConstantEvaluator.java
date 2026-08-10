@@ -20,7 +20,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.Expression;
@@ -34,6 +33,7 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.ir.IrExpressions.cast;
 
 public final class ConstantEvaluator
 {
@@ -61,7 +61,7 @@ public final class ConstantEvaluator
                 WarningCollector.NOOP,
                 CorrelationSupport.DISALLOWED);
 
-        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext, new SymbolAllocator());
+        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext, new SymbolAllocator(ImmutableList.of()));
         io.trino.sql.ir.Expression rewritten = translationMap.rewrite(expression);
 
         Type actualType = rewritten.type();
@@ -70,7 +70,7 @@ public final class ConstantEvaluator
         }
 
         if (!actualType.equals(expectedType)) {
-            rewritten = new Cast(rewritten, expectedType);
+            rewritten = cast(plannerContext.getTypeManager(), rewritten, expectedType);
         }
 
         return plannerContext.getExpressionEvaluator().evaluate(rewritten, session, ImmutableMap.of());

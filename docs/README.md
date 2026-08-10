@@ -32,7 +32,7 @@ new documentation:
 - [Present tense](https://developers.google.com/style/tense)
 
 The Google guidelines include more material than listed here, and are used as a
-guide that enable easy decision-making about proposed doc changes. Changes to
+guide that enables easy decision-making about proposed doc changes. Changes to
 existing documentation to follow these guidelines are underway.
 
 As a specific style note, because different readers may perceive the phrases "a
@@ -50,7 +50,7 @@ Other useful resources:
 ## Tools
 
 Documentation source files can be found in [Myst Markdown](https://mystmd.org/)
-(`.md`) format in `src/main/sphinx` and sub-folders. Refer to the [Myst
+(`.md`) format in `src/main/sphinx` and subdirectories. Refer to the [Myst
 guide](https://mystmd.org/guide) and the existing documentation for more
 information about how to write and format the documentation source.
 
@@ -146,8 +146,8 @@ re-run the ``build`` command and refresh the browser.
 
 ## Versioning
 
-The version displayed in the resulting HTML is read by default from the top level Maven
-`pom.xml` file `version` field.
+The version displayed in the resulting HTML is read by default from the top-level Maven
+`pom.xml` file's `version` field.
 
 To deploy a specific documentation set (such as a SNAPSHOT version) as the release
 version you must override the pom version with the `TRINO_VERSION`
@@ -157,7 +157,7 @@ environment variable.
 TRINO_VERSION=355 docs/build
 ```
 
-If you work on the docs for more than one invocation, you can export the
+If you work on the docs across multiple builds, you can export the
 variable and use it with Sphinx.
 
 ```bash
@@ -170,11 +170,11 @@ Maven pom has already moved to the next SNAPSHOT version.
 
 ## Style check
 
-The project contains a configured setup for [Vale](https://vale.sh) and the
+The project contains a configuration for [Vale](https://vale.sh) and the
 Google developer documentation style. Vale is a command-line tool to check for
 editorial style issues of a document or a set of documents.
 
-Install vale with brew on macOS or follow the instructions on the website.
+Install Vale with Homebrew on macOS or follow the instructions on the website.
 
 ```
 brew install vale
@@ -184,28 +184,30 @@ The `docs` folder contains the necessary configuration to use vale for any
 document in the repository:
 
 * `.vale` directory with Google style setup
-* `.vale/Vocab/Base/accept.txt` file for additional approved words and spelling
-* `.vale.ini` configuration file configured for rst and md files
+* `.vale/config/vocabularies/Base/accept.txt` file for additional approved
+  words and spelling
+* `.vale.ini` configuration file configured for Markdown and reStructuredText
+  files
 
-With this setup you can validate an individual file from the root by specifying
-the path:
+With this setup you can validate an individual file from the repository root by
+specifying the path:
 
 ```
-vale src/main/sphinx/overview/use-cases.md
+vale docs/src/main/sphinx/overview/use-cases.md
 ```
 
 You can also use directory paths and all files within.
 
-Treat all output from vale as another help towards better docs. Fixing any
-issues is not required, but can help with learning more about the [Google style
+Treat all output from Vale as another aid for improving the docs. Fixing any
+issues is not required, but it can help you learn more about the [Google style
 guide](https://developers.google.com/style) that we try to follow.
 
 ## Contribution requirements
 
 
-To contribute corrections or new explanations to the Trino documentation requires
-only a willingness to help and submission of your [Contributor License
-Agreement](https://github.com/trinodb/cla) (CLA).
+Contributing corrections or new explanations to the Trino documentation
+requires only a willingness to help and submission of your [Contributor
+License Agreement](https://github.com/trinodb/cla) (CLA).
 
 ## Workflow
 
@@ -287,5 +289,3 @@ Example PRs:
 
 * https://github.com/trinodb/trino/pull/17778
 * https://github.com/trinodb/trino/pull/13225
-
-

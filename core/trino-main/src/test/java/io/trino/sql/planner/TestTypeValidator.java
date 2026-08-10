@@ -50,6 +50,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
@@ -63,7 +64,7 @@ public class TestTypeValidator
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private final SymbolAllocator symbolAllocator = new SymbolAllocator();
+    private final SymbolAllocator symbolAllocator = emptySymbolAllocator();
     private final Symbol columnA = symbolAllocator.newSymbol("a", BIGINT);
     private final Symbol columnB = symbolAllocator.newSymbol("b", INTEGER);
     private final Symbol columnC = symbolAllocator.newSymbol("c", DOUBLE);

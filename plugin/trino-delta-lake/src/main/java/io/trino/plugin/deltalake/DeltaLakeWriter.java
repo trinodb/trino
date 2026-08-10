@@ -29,6 +29,7 @@ import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
@@ -51,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.IntPredicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -288,13 +290,11 @@ public final class DeltaLakeWriter
         {
             ColumnarArray arrayBlock = toColumnarArray(block);
             Block elementsBlock = elementCoercer.apply(arrayBlock.getElementsBlock());
-            boolean[] valueIsNull = new boolean[arrayBlock.getPositionCount()];
             int[] offsets = new int[arrayBlock.getPositionCount() + 1];
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                valueIsNull[i] = arrayBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
             }
-            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), Optional.of(valueIsNull), offsets, elementsBlock);
+            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), getValidityBitmap(arrayBlock.getPositionCount(), arrayBlock::isNull), offsets, elementsBlock);
         }
     }
 
@@ -318,13 +318,11 @@ public final class DeltaLakeWriter
             ColumnarMap mapBlock = toColumnarMap(block);
             Block keysBlock = keyCoercer.isEmpty() ? mapBlock.getKeysBlock() : keyCoercer.get().apply(mapBlock.getKeysBlock());
             Block valuesBlock = valueCoercer.isEmpty() ? mapBlock.getValuesBlock() : valueCoercer.get().apply(mapBlock.getValuesBlock());
-            boolean[] valueIsNull = new boolean[mapBlock.getPositionCount()];
             int[] offsets = new int[mapBlock.getPositionCount() + 1];
             for (int i = 0; i < mapBlock.getPositionCount(); i++) {
-                valueIsNull[i] = mapBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
-            return mapType.createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+            return mapType.createBlockFromKeyValue(getValidityBitmap(mapBlock.getPositionCount(), mapBlock::isNull), offsets, keysBlock, valuesBlock);
         }
     }
 
@@ -347,7 +345,7 @@ public final class DeltaLakeWriter
                 RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
                 RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
                         1,
-                        rowBlock.isNull(0) ? Optional.of(new boolean[] {true}) : Optional.empty(),
+                        DeltaLakeWriter.getValidityBitmap(1, rowBlock::isNull),
                         coerceFields(rowBlock.getFieldBlocks()));
                 return RunLengthEncodedBlock.create(newRowBlock, runLengthEncodedBlock.getPositionCount());
             }
@@ -368,17 +366,13 @@ public final class DeltaLakeWriter
                     coerceFields(rowBlock.getFieldBlocks()));
         }
 
-        private static Optional<boolean[]> getNulls(Block rowBlock)
+        private static Optional<long[]> getNulls(Block rowBlock)
         {
             if (!rowBlock.mayHaveNull()) {
                 return Optional.empty();
             }
 
-            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                valueIsNull[i] = rowBlock.isNull(i);
-            }
-            return Optional.of(valueIsNull);
+            return DeltaLakeWriter.getValidityBitmap(rowBlock.getPositionCount(), rowBlock::isNull);
         }
 
         private Block[] coerceFields(List<Block> fields)
@@ -408,16 +402,38 @@ public final class DeltaLakeWriter
             int positionCount = block.getPositionCount();
             long[] values = new long[positionCount];
             boolean mayHaveNulls = block.mayHaveNull();
-            boolean[] valueIsNull = mayHaveNulls ? new boolean[positionCount] : null;
+            long[] valueIsValid = mayHaveNulls ? new long[Bitmap.wordsForBits(positionCount)] : null;
+            boolean foundNull = false;
 
             for (int position = 0; position < positionCount; position++) {
                 if (mayHaveNulls && block.isNull(position)) {
-                    valueIsNull[position] = true;
+                    foundNull = true;
                     continue;
+                }
+                if (mayHaveNulls) {
+                    Bitmap.set(valueIsValid, 0, position);
                 }
                 values[position] = MILLISECONDS.toMicros(unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, position)));
             }
-            return new LongArrayBlock(positionCount, Optional.ofNullable(valueIsNull), values);
+            return new LongArrayBlock(positionCount, foundNull ? Optional.of(valueIsValid) : Optional.empty(), values);
         }
+    }
+
+    private static Optional<long[]> getValidityBitmap(int positionCount, IntPredicate isNull)
+    {
+        long[] valueIsValid = new long[Bitmap.wordsForBits(positionCount)];
+        boolean foundNull = false;
+        for (int position = 0; position < positionCount; position++) {
+            if (isNull.test(position)) {
+                foundNull = true;
+            }
+            else {
+                Bitmap.set(valueIsValid, 0, position);
+            }
+        }
+        if (!foundNull) {
+            return Optional.empty();
+        }
+        return Optional.of(valueIsValid);
     }
 }

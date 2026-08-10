@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.PositionDeleteWriter;
 import io.trino.spi.Page;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
@@ -32,7 +33,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 
@@ -172,7 +172,7 @@ public class IcebergMergeSink
                         fileFormat,
                         0, // size of the v2 delete file
                         new MetricsWrapper(new Metrics(deletionVector.cardinality())),
-                        PartitionSpecParser.toJson(partitionSpec),
+                        partitionSpec.specId(),
                         partitionData.map(PartitionData::toJson),
                         FileContent.POSITION_DELETES,
                         Optional.of(dataFilePath.toStringUtf8()),
@@ -246,7 +246,8 @@ public class IcebergMergeSink
         Block sourceRowIdBlock = mergeRowIdFields.get(4);
 
         long[] rowIdValues = new long[additionCount];
-        boolean[] rowIdNulls = new boolean[additionCount];
+        long[] rowIdValidity = new long[Bitmap.wordsForBits(additionCount)];
+        boolean foundNull = false;
 
         int additionIndex = 0;
         for (int position = 0; position < inputPage.getPositionCount(); position++) {
@@ -254,17 +255,17 @@ public class IcebergMergeSink
             switch (operation) {
                 case INSERT_OPERATION_NUMBER -> {
                     verify(additionIndex < additionCount, "INSERT row must be selected as an addition");
-                    rowIdNulls[additionIndex] = true;
+                    foundNull = true;
                     additionIndex++;
                 }
                 case UPDATE_INSERT_OPERATION_NUMBER -> {
                     verify(additionIndex < additionCount, "UPDATE_INSERT row must be selected as an addition");
                     if (sourceRowIdBlock.isNull(position)) {
-                        rowIdNulls[additionIndex] = true;
+                        foundNull = true;
                     }
                     else {
                         rowIdValues[additionIndex] = BIGINT.getLong(sourceRowIdBlock, position);
-                        rowIdNulls[additionIndex] = false;
+                        Bitmap.set(rowIdValidity, 0, additionIndex);
                     }
                     additionIndex++;
                 }
@@ -278,7 +279,7 @@ public class IcebergMergeSink
         }
         verify(additionIndex == additionCount, "Additions produced did not match planned additions");
 
-        return new LongArrayBlock(additionCount, Optional.of(rowIdNulls), rowIdValues);
+        return new LongArrayBlock(additionCount, foundNull ? Optional.of(rowIdValidity) : Optional.empty(), rowIdValues);
     }
 
     private static class FileDeletion

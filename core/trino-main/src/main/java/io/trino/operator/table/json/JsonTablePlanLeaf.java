@@ -14,7 +14,7 @@
 package io.trino.operator.table.json;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 
 import java.util.List;
 

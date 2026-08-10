@@ -102,7 +102,6 @@ public class TestDruidConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                  SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_SCHEMA,
@@ -110,6 +109,9 @@ public class TestDruidConnectorTest
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_INSERT,
+                 // Connector expression pushdown rewrites numeric comparisons only; it rewrites neither arithmetic operators nor LIKE
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_ROW_TYPE,
@@ -370,6 +372,29 @@ public class TestDruidConnectorTest
     }
 
     @Test
+    public void testPredicateExpressionPushdown()
+    {
+        // Numeric column-to-column comparisons cannot be expressed as a TupleDomain, so they are
+        // pushed down only through connector expression pushdown (convertPredicate). Exercise every mapped
+        // comparison operator (=, <>, <, <=, >, >=).
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey = regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey <> regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey < regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey <= regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey > regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey >= regionkey"))
+                .isFullyPushedDown();
+        // A column-to-column expression combines with a TupleDomain predicate into a single pushed-down filter.
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey > regionkey AND regionkey > 1"))
+                .isFullyPushedDown();
+    }
+
+    @Test
     public void testPredicatePushdownForTimestampWithSecondsPrecision()
     {
         // timestamp equality
@@ -586,7 +611,7 @@ public class TestDruidConnectorTest
         assertThat(query("SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey")).isNotFullyPushedDown(project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
         // GROUP BY with WHERE on neither grouping nor aggregation column
         assertThat(query("SELECT nationkey, min(regionkey) FROM nation WHERE name = 'ARGENTINA' GROUP BY nationkey")).isFullyPushedDown();
-        // GROUP BY with WHERE LIKE predicate: not pushed down because the connector does not push down predicate expressions
+        // GROUP BY with WHERE LIKE predicate: not pushed down because the standard expression rules do not include a LIKE rewrite
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE name LIKE '%N%' GROUP BY regionkey"))
                 .isNotFullyPushedDown(FilterNode.class);
         // aggregation on varchar column

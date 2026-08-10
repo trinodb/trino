@@ -21,7 +21,6 @@ import io.trino.sql.ir.IrExpressions.Between;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrExpressions.NullIf;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -53,6 +52,7 @@ import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.JsonType.JSON;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -120,7 +120,7 @@ public class TestIrExpressions
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Reference(INTEGER, "x"), BIGINT))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, nullIf(emptySymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
     }
 
@@ -185,12 +185,12 @@ public class TestIrExpressions
     public void testAsNullIf()
     {
         // Round-trips the factory's trivial-value form
-        assertThat(matchNullIf(nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))))
+        assertThat(matchNullIf(nullIf(emptySymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))))
                 .isEqualTo(new NullIf(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)));
 
         // Round-trips the factory's Let-wrapped form
         Expression first = new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "x")));
-        assertThat(matchNullIf(nullIf(new SymbolAllocator(), first, new Constant(BIGINT, 1L))))
+        assertThat(matchNullIf(nullIf(emptySymbolAllocator(), first, new Constant(BIGINT, 1L))))
                 .isEqualTo(new NullIf(first, new Constant(BIGINT, 1L)));
 
         // The bound symbol must not escape through second

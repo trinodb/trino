@@ -35,6 +35,12 @@
       "group": "guests",
       "schema": "bobschema",
       "table": "bobtable",
+      "columns" : [
+        {
+          "name": "private",
+          "allow": false
+        }
+      ],
       "privileges": ["SELECT", "INSERT"]
     },
     {

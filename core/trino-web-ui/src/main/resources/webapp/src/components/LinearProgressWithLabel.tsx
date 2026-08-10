@@ -24,13 +24,13 @@ export const LinearProgressWithLabel = (props: LinearProgressWithLabelProps) => 
     const { value, title, color } = props
 
     return (
-        <Box display="flex" alignItems="center">
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Box sx={{ pr: 2 }}>
                 <Chip size="small" label={title} color={color} />
             </Box>
             <>
                 <Box sx={{ width: '100%', mr: 1 }}>
-                    <LinearProgress variant="determinate" color="info" value={value} />
+                    <LinearProgress variant="determinate" color="secondary" value={value} />
                 </Box>
                 <Box sx={{ minWidth: 35 }}>
                     <Typography

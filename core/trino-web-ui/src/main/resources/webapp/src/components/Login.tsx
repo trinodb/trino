@@ -74,11 +74,11 @@ export const Login = (props: ILoginProps) => {
 
     return (
         <Box sx={{ p: 10, display: 'flex', justifyContent: 'center' }}>
-            <Grid size={{ xs: 12 }} justifyContent="center" container>
+            <Grid size={{ xs: 12 }} sx={{ justifyContent: 'center' }} container>
                 <form onSubmit={handleSubmit}>
                     <Card sx={{ px: 2, minWidth: 350 }}>
                         <CardContent sx={{ alignItems: 'center', textAlign: 'center' }}>
-                            <Grid justifyContent="center">
+                            <Grid sx={{ justifyContent: 'center' }}>
                                 <Box component="img" sx={{ height: 80 }} alt="logo" src={trinoLogo} />
                                 <Typography component="h1" variant="h5">
                                     {Texts.Auth.LoginForm.LogIn}
@@ -111,9 +111,9 @@ export const Login = (props: ILoginProps) => {
                                 </Box>
                             </Grid>
                         </CardContent>
-                        <Grid sx={{ py: 2, px: 2 }} justifyContent="space-between" container>
+                        <Grid sx={{ py: 2, px: 2, justifyContent: 'space-between' }} container>
                             {loading ? (
-                                <Grid container spacing={2} alignItems="center">
+                                <Grid container spacing={2} sx={{ alignItems: 'center' }}>
                                     <Grid>
                                         <CircularProgress size={28} />
                                     </Grid>

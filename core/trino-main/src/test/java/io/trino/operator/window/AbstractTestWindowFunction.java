@@ -14,17 +14,23 @@
 package io.trino.operator.window;
 
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -45,6 +51,43 @@ public abstract class AbstractTestWindowFunction
     {
         closeAllRuntimeException(queryRunner);
         queryRunner = null;
+    }
+
+    /// The window function exercised by {@link #testNonNullResultHoldsWithNullInput}: its name (for
+    /// resolving the declared result nullability) and an invocation without the OVER clause, e.g.
+    /// {@code new WindowFunctionUnderTest("ntile", "ntile(4)")}. Overridden by subclasses whose
+    /// function declares a non-null result; the default skips the check.
+    protected Optional<WindowFunctionUnderTest> windowFunctionUnderTest()
+    {
+        return Optional.empty();
+    }
+
+    protected record WindowFunctionUnderTest(String name, @Language("SQL") String invocation) {}
+
+    @Test
+    public void testNonNullResultHoldsWithNullInput()
+    {
+        Optional<WindowFunctionUnderTest> function = windowFunctionUnderTest();
+        if (function.isEmpty()) {
+            return;
+        }
+        boolean nullable = queryRunner.inTransaction(session -> queryRunner.getPlannerContext().getMetadata()
+                .getFunctions(session, builtinFunctionName(function.get().name())).stream()
+                .anyMatch(candidate -> candidate.functionMetadata().getFunctionNullability().isReturnNullable()));
+        if (nullable) {
+            // A nullable result declaration is always sound; only a non-null declaration must be verified.
+            return;
+        }
+        // A function that declares a non-null result must not produce NULL, even over input with nulls.
+        MaterializedResult result = executeWindowQueryWithNulls(function.get().invocation() + " OVER (ORDER BY orderkey)");
+        assertThat(result.getMaterializedRows())
+                .as("%s produced no rows; nullability cannot be verified", function.get().name())
+                .isNotEmpty();
+        for (MaterializedRow row : result.getMaterializedRows()) {
+            assertThat(row.getField(row.getFieldCount() - 1))
+                    .describedAs("%s declares a non-null result but produced NULL over input containing nulls", function.get().name())
+                    .isNotNull();
+        }
     }
 
     protected void assertWindowQuery(@Language("SQL") String sql, MaterializedResult expected)

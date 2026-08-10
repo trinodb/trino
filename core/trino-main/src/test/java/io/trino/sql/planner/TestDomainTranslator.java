@@ -873,7 +873,7 @@ public class TestDomainTranslator
     {
         // =
         assertPredicateDerives(
-                equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-9-10"))),
+                equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-10"), true, utf8Slice("2005-09-11"), false),
@@ -882,7 +882,7 @@ public class TestDomainTranslator
                         false)));
         // = with day ending with 9
         assertPredicateDerives(
-                equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-09-09"))),
+                equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-09")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-09"), true, utf8Slice("2005-09-0:"), false),
@@ -892,7 +892,7 @@ public class TestDomainTranslator
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
                         false)));
         assertPredicateDerives(
-                equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-09-19"))),
+                equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-19")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-19"), true, utf8Slice("2005-09-1:"), false),
@@ -902,7 +902,7 @@ public class TestDomainTranslator
 
         // !=
         assertPredicateDerives(
-                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-9-10"))),
+                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2005-09-10")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-11"), true, utf8Slice("2005-9-10"), false),
@@ -911,12 +911,12 @@ public class TestDomainTranslator
 
         // != with single-digit day
         assertUnsupportedPredicate(
-                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-9-2"))));
+                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-2")))));
         // != with day ending with 9
         assertUnsupportedPredicate(
-                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-09-09"))));
+                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-09")))));
         assertPredicateDerives(
-                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-09-19"))),
+                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-19")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2005-09-19")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-1:"), true, utf8Slice("2005-9-19"), false),
@@ -925,7 +925,7 @@ public class TestDomainTranslator
 
         // <
         assertPredicateDerives(
-                lessThan(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-9-10"))),
+                lessThan(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2006")),
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
@@ -933,7 +933,7 @@ public class TestDomainTranslator
 
         // >
         assertPredicateDerives(
-                greaterThan(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-9-10"))),
+                greaterThan(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.greaterThan(VARCHAR, utf8Slice("2004"))),
@@ -941,30 +941,30 @@ public class TestDomainTranslator
 
         // Regression test for https://github.com/trinodb/trino/issues/14954
         assertPredicateTranslates(
-                greaterThan(new Constant(DATE, (long) DateTimeUtils.parseDate("2001-01-31")), cast(C_VARCHAR, DATE)),
+                greaterThan(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE)),
                 tupleDomain(
                         C_VARCHAR,
                         Domain.create(ValueSet.ofRanges(
                                         Range.lessThan(VARCHAR, utf8Slice("2002")),
                                         Range.greaterThan(VARCHAR, utf8Slice("9"))),
                                 false)),
-                greaterThan(new Constant(DATE, (long) DateTimeUtils.parseDate("2001-01-31")), cast(C_VARCHAR, DATE)));
+                greaterThan(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE)));
 
         // BETWEEN
         assertPredicateTranslates(
-                between(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2001-01-31")), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-09-10"))),
+                between(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2000"), false, utf8Slice("2006"), false),
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
                         false)),
                 and(
-                        greaterThanOrEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2001-01-31"))),
-                        lessThanOrEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2005-09-10")))));
+                        greaterThanOrEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31")))),
+                        lessThanOrEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-10"))))));
 
         // Regression test for https://github.com/trinodb/trino/issues/14954
         assertPredicateTranslates(
-                between(new Constant(DATE, (long) DateTimeUtils.parseDate("2001-01-31")), cast(C_VARCHAR, DATE), cast(C_VARCHAR_1, DATE)),
+                between(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE), cast(C_VARCHAR_1, DATE)),
                 tupleDomain(
                         C_VARCHAR,
                         Domain.create(ValueSet.ofRanges(
@@ -977,8 +977,8 @@ public class TestDomainTranslator
                                         Range.greaterThan(VARCHAR, utf8Slice("2000"))),
                                 false)),
                 and(
-                        greaterThanOrEqual(new Constant(DATE, (long) DateTimeUtils.parseDate("2001-01-31")), cast(C_VARCHAR, DATE)),
-                        lessThanOrEqual(new Constant(DATE, (long) DateTimeUtils.parseDate("2001-01-31")), cast(C_VARCHAR_1, DATE))));
+                        greaterThanOrEqual(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE)),
+                        lessThanOrEqual(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR_1, DATE))));
     }
 
     @Test

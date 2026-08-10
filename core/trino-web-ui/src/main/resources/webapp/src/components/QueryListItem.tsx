@@ -101,9 +101,9 @@ const TextWithIcon = React.memo(function TextWithIcon(props: {
 }) {
     const { Icon, title, tooltip, spacing = 0, color = 'inherit' } = props
     return (
-        <Box display="flex" alignItems="center" title={tooltip} aria-label={`${tooltip}: ${title}`}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }} title={tooltip} aria-label={`${tooltip}: ${title}`}>
             <Icon fontSize="small" color={color} />
-            <Typography variant="body2" ml={spacing}>
+            <Typography variant="body2" sx={{ ml: spacing }}>
                 {title}
             </Typography>
         </Box>
@@ -355,15 +355,15 @@ export const QueryListItem = React.memo(function QueryListItem(props: IQueryList
                 />
             </Grid>
             <Grid size={{ xs: 12, lg: 8 }}>
-                <Stack flex={1} spacing={1}>
+                <Stack spacing={1} sx={{ flex: 1 }}>
                     <QueryProgressBar queryInfoBase={queryInfo} />
                     <Grid container>
                         <Grid
                             key={queryInfo.queryId}
-                            display="flex"
-                            flexGrow={1}
-                            alignItems="flex-start"
                             sx={{
+                                display: 'flex',
+                                flexGrow: 1,
+                                alignItems: 'flex-start',
                                 width: '100%',
                             }}
                         >

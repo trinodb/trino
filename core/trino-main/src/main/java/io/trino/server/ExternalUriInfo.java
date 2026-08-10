@@ -97,9 +97,9 @@ public class ExternalUriInfo
             return this;
         }
 
-        public ExternalUriBuilder replaceQuery(String query)
+        public ExternalUriBuilder fragment(String fragment)
         {
-            uriBuilder.replaceQuery(query);
+            uriBuilder.fragment(fragment);
             return this;
         }
 

@@ -217,6 +217,7 @@ import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
 import io.trino.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.trino.sql.planner.iterative.rule.ReorderJoins;
+import io.trino.sql.planner.iterative.rule.ReplaceDecimalSumAndAvgWithSumAndCount;
 import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
@@ -242,6 +243,7 @@ import io.trino.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
 import io.trino.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
+import io.trino.sql.planner.iterative.rule.UnwrapAtTimeZoneInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapRowSubscript;
@@ -373,9 +375,10 @@ public class PlanOptimizers
         Set<Rule<?>> simplifyOptimizerRules = ImmutableSet.<Rule<?>>builder()
                 .addAll(new SimplifyExpressions(plannerContext).rules())
                 .addAll(new UnwrapRowSubscript(plannerContext).rules())
-                .addAll(new PushCastIntoRow().rules())
+                .addAll(new PushCastIntoRow(plannerContext).rules())
                 .addAll(new UnwrapCastInComparison(plannerContext).rules())
                 .addAll(new UnwrapDateTruncInComparison(plannerContext).rules())
+                .addAll(new UnwrapAtTimeZoneInComparison(plannerContext).rules())
                 .addAll(new UnwrapYearInComparison(plannerContext).rules())
                 .addAll(new RemoveDuplicateConditions().rules())
                 .addAll(new CanonicalizeExpressions(plannerContext).rules())
@@ -421,7 +424,7 @@ public class PlanOptimizers
                                 .addAll(projectionPushdownRules)
                                 .addAll(simplifyOptimizerRules)
                                 .addAll(new UnwrapRowSubscript(plannerContext).rules())
-                                .addAll(new PushCastIntoRow().rules())
+                                .addAll(new PushCastIntoRow(plannerContext).rules())
                                 .add(new OptimizeRowPattern())
                                 .addAll(ImmutableSet.of(
                                         new ImplementTableFunctionSource(metadata),
@@ -835,6 +838,7 @@ public class PlanOptimizers
                         .add(new InlineProjections())
                         .add(new PushFilterIntoValues(plannerContext))
                         .add(new ReplaceJoinOverConstantWithProject())
+                        .add(new ReplaceDecimalSumAndAvgWithSumAndCount(plannerContext)) // must run after unreferenced columns are pruned
                         .build()));
 
         builder.add(new IterativeOptimizer(
@@ -1014,8 +1018,8 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(new PushPartialAggregationThroughJoin().rules())
-                        .add(new PushPartialAggregationThroughExchange(plannerContext),
-                                new PruneJoinColumns(),
+                        .addAll(new PushPartialAggregationThroughExchange(plannerContext).rules())
+                        .add(new PruneJoinColumns(),
                                 new PruneJoinChildrenColumns(),
                                 new RemoveRedundantIdentityProjections())
                         .build()));

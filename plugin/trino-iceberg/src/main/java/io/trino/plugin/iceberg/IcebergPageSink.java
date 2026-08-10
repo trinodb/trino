@@ -53,7 +53,6 @@ import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.transforms.Transform;
@@ -601,7 +600,7 @@ public class IcebergPageSink
                 fileFormat,
                 writer.getWrittenBytes(),
                 new MetricsWrapper(writer.getFileMetrics().metrics()),
-                PartitionSpecParser.toJson(partitionSpec),
+                partitionSpec.specId(),
                 writeContext.getPartitionData().map(PartitionData::toJson),
                 DATA,
                 Optional.empty(),

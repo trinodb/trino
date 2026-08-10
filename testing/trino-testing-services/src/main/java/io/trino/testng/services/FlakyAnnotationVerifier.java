@@ -58,12 +58,6 @@ public class FlakyAnnotationVerifier
     {
         Class<?> realClass = testClass.getRealClass();
 
-        if (realClass.getSuperclass() != null &&
-                "io.trino.tempto.internal.convention.ConventionBasedTestProxyGenerator$ConventionBasedTestProxy".equals(realClass.getSuperclass().getName())) {
-            // Ignore tempto generated convention tests.
-            return;
-        }
-
         if (realClass.getName().startsWith("io.trino.testng.services.TestFlakyAnnotationVerifier")) {
             // ignore test of FlakyAnnotationVerifier and internal classes
             return;

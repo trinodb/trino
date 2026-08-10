@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
@@ -55,6 +55,8 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -79,6 +81,7 @@ public class BenchmarkColumnarFilter
     private static final Map<Symbol, Integer> LAYOUT_BIGINT = ImmutableMap.of(new Symbol(BIGINT, COL_0), 0);
     private static final Map<Symbol, Integer> LAYOUT_INTEGER = ImmutableMap.of(new Symbol(INTEGER, COL_0), 0);
     private static final Map<Symbol, Integer> LAYOUT_SMALLINT = ImmutableMap.of(new Symbol(SMALLINT, COL_0), 0);
+    private static final Map<Symbol, Integer> LAYOUT_BOOLEAN = ImmutableMap.of(new Symbol(BOOLEAN, COL_0), 0);
 
     private PageProcessor compiledProcessor;
     private final List<Page> inputPages = new ArrayList<>();
@@ -126,6 +129,22 @@ public class BenchmarkColumnarFilter
                         FUNCTION_RESOLUTION.resolveFunction("$not", fromTypes(BOOLEAN)),
                         new IsNull(new Reference(type, COL_0)));
             }
+        },
+        BOOLEAN_VALUE {
+            @Override
+            Expression getExpression(Type type)
+            {
+                return new Reference(type, COL_0);
+            }
+        },
+        NOT_BOOLEAN_VALUE {
+            @Override
+            Expression getExpression(Type type)
+            {
+                return call(
+                        FUNCTION_RESOLUTION.resolveFunction("$not", fromTypes(BOOLEAN)),
+                        new Reference(type, COL_0));
+            }
         }
         /**/;
 
@@ -135,26 +154,33 @@ public class BenchmarkColumnarFilter
     @Setup
     public void setup()
     {
+        String benchmarkDataType = switch (filterProvider) {
+            case BOOLEAN_VALUE, NOT_BOOLEAN_VALUE -> StandardTypes.BOOLEAN;
+            default -> dataType;
+        };
         for (int pageCount = 0; pageCount < 20; pageCount++) {
-            Block block = switch (dataType) {
+            Block block = switch (benchmarkDataType) {
                 case StandardTypes.BIGINT -> createLongsBlock(8192, nullsPercentage);
                 case StandardTypes.INTEGER -> createIntsBlock(8192, nullsPercentage);
                 case StandardTypes.SMALLINT -> createShortsBlock(8192, nullsPercentage);
+                case StandardTypes.BOOLEAN -> createBooleansBlock(8192, nullsPercentage);
                 default -> throw new UnsupportedOperationException();
             };
             inputPages.add(new Page(block.getPositionCount(), block));
         }
 
-        Type type = switch (dataType) {
+        Type type = switch (benchmarkDataType) {
             case StandardTypes.BIGINT -> BIGINT;
             case StandardTypes.INTEGER -> INTEGER;
             case StandardTypes.SMALLINT -> SMALLINT;
+            case StandardTypes.BOOLEAN -> BOOLEAN;
             default -> throw new UnsupportedOperationException();
         };
-        Map<Symbol, Integer> layout = switch (dataType) {
+        Map<Symbol, Integer> layout = switch (benchmarkDataType) {
             case StandardTypes.BIGINT -> LAYOUT_BIGINT;
             case StandardTypes.INTEGER -> LAYOUT_INTEGER;
             case StandardTypes.SMALLINT -> LAYOUT_SMALLINT;
+            case StandardTypes.BOOLEAN -> LAYOUT_BOOLEAN;
             default -> throw new UnsupportedOperationException();
         };
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
@@ -178,7 +204,6 @@ public class BenchmarkColumnarFilter
         for (Page inputPage : inputPages) {
             WorkProcessor<Page> workProcessor = compiledProcessor.createWorkProcessor(
                     null,
-                    new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
                     SourcePage.create(inputPage));
@@ -211,46 +236,55 @@ public class BenchmarkColumnarFilter
     private static Block createShortsBlock(int positionsCount, int nullsPercentage)
     {
         short[] values = new short[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        long[] validity = new long[wordsForBits(positionsCount)];
         for (int i = 0; i < positionsCount; i++) {
-            if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
-            }
-            else {
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
                 values[i] = (short) RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
+                set(validity, 0, i);
             }
         }
-        return new ShortArrayBlock(positionsCount, Optional.of(isNull), values);
+        return new ShortArrayBlock(positionsCount, Optional.of(validity), values);
     }
 
     private static Block createIntsBlock(int positionsCount, int nullsPercentage)
     {
         int[] values = new int[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        long[] validity = new long[wordsForBits(positionsCount)];
         for (int i = 0; i < positionsCount; i++) {
-            if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
-            }
-            else {
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
                 values[i] = RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
+                set(validity, 0, i);
             }
         }
-        return new IntArrayBlock(positionsCount, Optional.of(isNull), values);
+        return new IntArrayBlock(positionsCount, Optional.of(validity), values);
     }
 
     private static Block createLongsBlock(int positionsCount, int nullsPercentage)
     {
         long[] values = new long[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        long[] validity = new long[wordsForBits(positionsCount)];
         for (int i = 0; i < positionsCount; i++) {
-            if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
-            }
-            else {
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
                 values[i] = RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
+                set(validity, 0, i);
             }
         }
-        return new LongArrayBlock(positionsCount, Optional.of(isNull), values);
+        return new LongArrayBlock(positionsCount, Optional.of(validity), values);
+    }
+
+    private static Block createBooleansBlock(int positionsCount, int nullsPercentage)
+    {
+        long[] values = new long[wordsForBits(positionsCount)];
+        long[] validity = new long[wordsForBits(positionsCount)];
+        for (int position = 0; position < positionsCount; position++) {
+            if (RANDOM.nextBoolean()) {
+                set(values, 0, position);
+            }
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
+                set(validity, 0, position);
+            }
+        }
+        return new BitArrayBlock(positionsCount, nullsPercentage == 0 ? Optional.empty() : Optional.of(validity), values);
     }
 
     static {

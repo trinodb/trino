@@ -49,7 +49,28 @@ const ERROR_TYPE = {
     EXTERNAL: (queryInfo: QueryInfo) => queryInfo.state === 'FAILED' && queryInfo.errorType === 'EXTERNAL',
 } as const
 
+const ACTIVE_QUERY_STATES = [
+    'QUEUED',
+    'WAITING_FOR_RESOURCES',
+    'DISPATCHING',
+    'PLANNING',
+    'STARTING',
+    'RUNNING',
+    'FINISHING',
+] as const
+
 const SORT_TYPE = {
+    PROGRESS: (queryInfo: QueryInfo) => {
+        const index = ACTIVE_QUERY_STATES.findIndex((state) => state === queryInfo.state)
+        if (index !== -1) {
+            return (
+                (ACTIVE_QUERY_STATES.length - index) * 1e15 +
+                (100 - (queryInfo.queryStats.progressPercentage ?? 100)) * 1e12 +
+                Date.parse(queryInfo.queryStats.createTime)
+            )
+        }
+        return Date.parse(queryInfo.queryStats.endTime)
+    },
     CREATED: (queryInfo: QueryInfo) => Date.parse(queryInfo.queryStats.createTime),
     ELAPSED: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.elapsedTime),
     EXECUTION: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.executionTime),
@@ -96,7 +117,7 @@ export const QueryList = () => {
         'INSUFFICIENT_RESOURCES',
         'EXTERNAL',
     ] as (keyof typeof ERROR_TYPE)[])
-    const [sortType, setSortType] = useLocalStorageState('sortType', 'CREATED' as keyof typeof SORT_TYPE)
+    const [sortType, setSortType] = useLocalStorageState('sortType', 'PROGRESS' as keyof typeof SORT_TYPE)
     const [sortOrder, setSortOrder] = useLocalStorageState('sortOrder', 'DESCENDING' as keyof typeof SORT_ORDER)
     const [reorderInterval, setReorderInterval] = useLocalStorageState('reorderInterval', 5000 as number)
     const [maxQueries, setMaxQueries] = useLocalStorageState('maxQueries', 100 as number)
@@ -234,9 +255,11 @@ export const QueryList = () => {
     }
 
     const smallDropdownMenuPropsSx = {
-        PaperProps: {
-            sx: {
-                '& .MuiMenuItem-root': smallFormControlSx,
+        slotProps: {
+            paper: {
+                sx: {
+                    '& .MuiMenuItem-root': smallFormControlSx,
+                },
             },
         },
     }
@@ -389,7 +412,9 @@ export const QueryList = () => {
 
     if (loading || error) {
         return (
-            <Box sx={{ p: 2 }} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+            <Box
+                sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+            >
                 {loading ? (
                     <CircularProgress />
                 ) : (
@@ -405,7 +430,7 @@ export const QueryList = () => {
 
     return (
         <>
-            <Grid spacing={2} sx={{ py: 2 }} justifyContent="space-between" alignItems="center" container>
+            <Grid spacing={2} sx={{ py: 2, justifyContent: 'space-between', alignItems: 'center' }} container>
                 <Grid size={{ xs: 12, lg: 4 }}>
                     <Box>{renderSearchStringTextField()}</Box>
                 </Grid>
@@ -445,6 +470,7 @@ export const QueryList = () => {
                                 MenuProps={smallDropdownMenuPropsSx}
                                 value={sortType}
                             >
+                                {renderSortTypeSelectItem('PROGRESS', 'Progress')}
                                 {renderSortTypeSelectItem('CREATED', 'Creation time')}
                                 {renderSortTypeSelectItem('ELAPSED', 'Elapsed time')}
                                 {renderSortTypeSelectItem('CPU', 'CPU time')}

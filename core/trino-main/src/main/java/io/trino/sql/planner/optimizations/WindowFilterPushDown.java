@@ -160,10 +160,10 @@ public class WindowFilterPushDown
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
 
                 if (upperBound.isPresent()) {
-                    if (upperBound.getAsInt() <= 0) {
+                    if (upperBound.orElseThrow() <= 0) {
                         return new ValuesNode(node.getId(), node.getOutputSymbols());
                     }
-                    source = mergeLimit((RowNumberNode) source, upperBound.getAsInt());
+                    source = mergeLimit((RowNumberNode) source, upperBound.orElseThrow());
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
                 }
             }
@@ -174,11 +174,11 @@ public class WindowFilterPushDown
                     OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
 
                     if (upperBound.isPresent()) {
-                        if (upperBound.getAsInt() <= 0) {
+                        if (upperBound.orElseThrow() <= 0) {
                             return new ValuesNode(node.getId(), node.getOutputSymbols());
                         }
-                        source = convertToTopNRanking(windowNode, rankingType.get(), upperBound.getAsInt());
-                        return rewriteFilterSource(node, source, rankingSymbol, upperBound.getAsInt());
+                        source = convertToTopNRanking(windowNode, rankingType.get(), upperBound.orElseThrow());
+                        return rewriteFilterSource(node, source, rankingSymbol, upperBound.orElseThrow());
                     }
                 }
             }

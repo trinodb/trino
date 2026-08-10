@@ -75,27 +75,71 @@ public class TestSpatialPartitioningInternalAggregation
                 .getAggregateFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER));
 
         List<Point> geometries = makeGeometries();
+        String aggregation = aggregate(function, geometries, partitionCount);
+
+        Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
+        Slice expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
+        assertThat(aggregation).isEqualTo(expectedValue.toStringUtf8());
+
+        String groupedAggregation = groupedAggregate(function, geometries, partitionCount);
+        assertThat(groupedAggregation).isEqualTo(expectedValue.toStringUtf8());
+    }
+
+    @Test
+    public void testUsesPlanarEnvelopeForSridAndZ()
+    {
+        QueryRunner runner = new StandaloneQueryRunner(testSessionBuilder().build());
+        runner.installPlugin(new GeoPlugin());
+
+        TestingAggregationFunction function = new TestingFunctionResolution(runner)
+                .getAggregateFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER));
+
+        List<Point> twoDimensionalGeometries = ImmutableList.of(
+                point(0, 0),
+                point(10, 5),
+                point(5, 10));
+        List<Point> geometriesWithMetadata = ImmutableList.of(
+                pointWithSridAndZ(0, 0, 100),
+                pointWithSridAndZ(10, 5, -100),
+                pointWithSridAndZ(5, 10, 50));
+
+        String aggregation = aggregate(function, geometriesWithMetadata, 2);
+
+        Rectangle expectedExtent = new Rectangle(0, 0, Math.nextUp(10.0), Math.nextUp(10.0));
+        Slice expectedValue = getSpatialPartitioning(expectedExtent, twoDimensionalGeometries, 2);
+        assertThat(aggregation).isEqualTo(expectedValue.toStringUtf8());
+    }
+
+    private String aggregate(TestingAggregationFunction function, List<Point> geometries, int partitionCount)
+    {
         Block geometryBlock = makeGeometryBlock(geometries);
 
         BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
         INTEGER.writeInt(blockBuilder, partitionCount);
         Block partitionCountBlock = RunLengthEncodedBlock.create(blockBuilder.build(), geometries.size());
 
-        Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
-        Slice expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
-
         AggregatorFactory aggregatorFactory = function.createAggregatorFactory(SINGLE, Ints.asList(0, 1), OptionalInt.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
         Aggregator aggregator = aggregatorFactory.createAggregator(new AggregationMetrics());
         aggregator.processPage(page);
-        String aggregation = (String) BlockAssertions.getOnlyValue(function.getFinalType(), getFinalBlock(function.getFinalType(), aggregator));
-        assertThat(aggregation).isEqualTo(expectedValue.toStringUtf8());
+        return (String) BlockAssertions.getOnlyValue(function.getFinalType(), getFinalBlock(function.getFinalType(), aggregator));
+    }
+
+    private String groupedAggregate(TestingAggregationFunction function, List<Point> geometries, int partitionCount)
+    {
+        Block geometryBlock = makeGeometryBlock(geometries);
+
+        BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
+        INTEGER.writeInt(blockBuilder, partitionCount);
+        Block partitionCountBlock = RunLengthEncodedBlock.create(blockBuilder.build(), geometries.size());
+
+        AggregatorFactory aggregatorFactory = function.createAggregatorFactory(SINGLE, Ints.asList(0, 1), OptionalInt.empty());
+        Page page = new Page(geometryBlock, partitionCountBlock);
 
         GroupedAggregator groupedAggregator = aggregatorFactory.createGroupedAggregator(new AggregationMetrics());
         groupedAggregator.processPage(0, createGroupByIdBlock(0, page.getPositionCount()), page);
-        String groupValue = (String) getGroupValue(function.getFinalType(), groupedAggregator, 0);
-        assertThat(groupValue).isEqualTo(expectedValue.toStringUtf8());
+        return (String) getGroupValue(function.getFinalType(), groupedAggregator, 0);
     }
 
     private List<Point> makeGeometries()
@@ -126,6 +170,18 @@ public class TestSpatialPartitioningInternalAggregation
         }
 
         return geometries.build();
+    }
+
+    private Point point(double x, double y)
+    {
+        return GEOMETRY_FACTORY.createPoint(new Coordinate(x, y));
+    }
+
+    private Point pointWithSridAndZ(double x, double y, double z)
+    {
+        Point point = GEOMETRY_FACTORY.createPoint(new Coordinate(x, y, z));
+        point.setSRID(4326);
+        return point;
     }
 
     private Block makeGeometryBlock(List<Point> geometries)

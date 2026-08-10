@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.stream.Collectors.toMap;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public final class HdfsFileSystemManager
 {
@@ -65,7 +65,7 @@ public final class HdfsFileSystemManager
     {
         return bootstrap.configure()
                 .stream()
-                .collect(toMap(ConfigPropertyMetadata::name, ConfigPropertyMetadata::securitySensitive));
+                .collect(toImmutableMap(ConfigPropertyMetadata::name, ConfigPropertyMetadata::securitySensitive));
     }
 
     public TrinoFileSystemFactory create()

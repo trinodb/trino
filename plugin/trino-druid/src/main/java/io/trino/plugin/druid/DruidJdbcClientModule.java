@@ -32,6 +32,7 @@ import org.apache.calcite.avatica.remote.Driver;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DruidJdbcClientModule
         implements Module
@@ -40,19 +41,28 @@ public class DruidJdbcClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DruidJdbcClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(DruidConfig.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, DruidConfig druidConfig, OpenTelemetry openTelemetry)
     {
         Properties connectionProperties = new Properties();
 
         // Druid can be configured to approximate `count_distinct()` function calls.
         // This behavior could be confusing - we can force Druid to never approximate.
         connectionProperties.setProperty("useApproximateCountDistinct", "false");
+        // According to Druid documentation, Druid does not support passing connection context parameters from the
+        // JDBC connection string to Druid. These context parameters must be passed using a Properties object instead
+        // https://druid.apache.org/docs/latest/api-reference/sql-jdbc/
+        if (druidConfig.getExecutionTimeout().isPresent()) {
+            // Query timeout in millis, beyond which unfinished queries will be cancelled
+            // https://druid.apache.org/docs/latest/querying/query-context-reference/
+            connectionProperties.setProperty("timeout", String.valueOf(druidConfig.getExecutionTimeout().get().toMillis()));
+        }
         return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
                 .setOpenTelemetry(openTelemetry)
                 .setConnectionProperties(connectionProperties)

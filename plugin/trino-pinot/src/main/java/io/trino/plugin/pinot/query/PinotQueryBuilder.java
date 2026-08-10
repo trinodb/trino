@@ -79,7 +79,7 @@ public final class PinotQueryBuilder
         OptionalLong appliedLimit = tableHandle.limit();
         long limit = limitForSegmentQueries + 1;
         if (appliedLimit.isPresent()) {
-            limit = Math.min(limit, appliedLimit.getAsLong());
+            limit = Math.min(limit, appliedLimit.orElseThrow());
         }
         pqlBuilder.append(" LIMIT ")
                 .append(limit);

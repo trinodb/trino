@@ -28,13 +28,13 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 
 /**
  * Extracts sort expression to be used for creating {@link SortedPositionLinks} from join filter expression.
@@ -68,7 +68,7 @@ public final class SortExpressionExtractor
                 .filter(DeterminismEvaluator::isDeterministic)
                 .map(visitor::process)
                 .flatMap(List::stream)
-                .collect(toMap(SortExpressionContext::getSortExpression, identity(), SortExpressionExtractor::merge))
+                .collect(toImmutableMap(SortExpressionContext::getSortExpression, identity(), SortExpressionExtractor::merge))
                 .values());
 
         // For now heuristically pick sort expression which has most search expressions assigned to it.

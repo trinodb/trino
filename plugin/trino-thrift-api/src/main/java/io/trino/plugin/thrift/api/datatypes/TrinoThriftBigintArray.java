@@ -37,6 +37,7 @@ import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.bigintArrayData;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.calculateOffsets;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.sameSizeIfPresent;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.toValidityBitmap;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.totalSize;
 import static io.trino.spi.type.BigintType.BIGINT;
 
@@ -98,7 +99,7 @@ public final class TrinoThriftBigintArray
         int numberOfRecords = numberOfRecords();
         return ArrayBlock.fromElementBlock(
                 numberOfRecords,
-                Optional.of(nulls == null ? new boolean[numberOfRecords] : nulls),
+                toValidityBitmap(nulls),
                 calculateOffsets(sizes, nulls, numberOfRecords),
                 values != null ? values.toBlock(BIGINT) : new LongArrayBlock(0, Optional.empty(), new long[] {}));
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader;
 
-import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -40,6 +39,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -160,7 +162,7 @@ public class NestedColumnReader<BufferType>
     {
         log.debug("readNullable field %s, nextBatchSize %d", field, nextBatchSize);
         NullableValuesBuffer<BufferType> data = createNullableValuesBuffer();
-        BooleansBuffer isNull = new BooleansBuffer();
+        ValidityBuffer valueIsValid = new ValidityBuffer();
         IntegersBuffer outputRepetitionLevels = new IntegersBuffer();
         IntegersBuffer outputDefinitionLevels = new IntegersBuffer();
         int remainingInBatch = nextBatchSize;
@@ -187,7 +189,7 @@ public class NestedColumnReader<BufferType>
                         if (pageIndex > 0) {
                             int[] definitionLevels = new int[pageIndex];
                             int existingValueCount = readDefinitionLevels(outputDefinitionLevels, definitionLevels);
-                            readNullableValues(data, isNull, outputRepetitionLevels, 0, pageIndex, definitionLevels, existingValueCount);
+                            readNullableValues(data, valueIsValid, outputRepetitionLevels, 0, pageIndex, definitionLevels, existingValueCount);
                         }
                         if (pageIndex == pageValueCount) { // Current row spans more than two Parquet pages
                             checkState(pageLastRowUnfinished, "pageLastRowUnfinished not set when run out of values to read");
@@ -207,12 +209,12 @@ public class NestedColumnReader<BufferType>
 
             int[] definitionLevels = new int[valueCount.values];
             int existingValueCount = readDefinitionLevels(outputDefinitionLevels, definitionLevels);
-            readNullableValues(data, isNull, outputRepetitionLevels, pageValuesIndex, valueCount.values, definitionLevels, existingValueCount);
+            readNullableValues(data, valueIsValid, outputRepetitionLevels, pageValuesIndex, valueCount.values, definitionLevels, existingValueCount);
 
             remainingInBatch -= valueCount.rows;
         }
 
-        return data.createNullableBlock(isNull, outputDefinitionLevels.getMergedBuffer(), outputRepetitionLevels.getMergedBuffer());
+        return data.createNullableBlock(valueIsValid, outputDefinitionLevels.getMergedBuffer(), outputRepetitionLevels.getMergedBuffer());
     }
 
     private ColumnChunk readNonNull()
@@ -313,16 +315,16 @@ public class NestedColumnReader<BufferType>
 
     private void readNullableValues(
             NullableValuesBuffer<BufferType> data,
-            BooleansBuffer isNull,
+            ValidityBuffer valueIsValid,
             IntegersBuffer outputRepetitionLevels,
             int pageValuesIndex,
             int valueCount,
             int[] definitionLevels,
             int existingValueCount)
     {
-        boolean[] isNullChunk = new boolean[existingValueCount];
-        isNull.add(isNullChunk);
-        int nonNullCount = getNulls(definitionLevels, field.getDefinitionLevel(), isNullChunk);
+        long[] valueIsValidChunk = new long[wordsForBits(existingValueCount)];
+        valueIsValid.add(valueIsValidChunk, existingValueCount);
+        int nonNullCount = getValidities(definitionLevels, field.getDefinitionLevel(), valueIsValidChunk);
         checkState(
                 nonNullCount <= existingValueCount,
                 "nonNullCount %s cannot be greater than existingValueCount %s, field %s",
@@ -332,7 +334,7 @@ public class NestedColumnReader<BufferType>
 
         outputRepetitionLevels.add(Arrays.copyOfRange(repetitionBuffer, pageValuesIndex, pageValuesIndex + valueCount));
 
-        data.readNullableValues(valueDecoder, isNullChunk, nonNullCount, existingValueCount);
+        data.readNullableValues(valueDecoder, valueIsValidChunk, nonNullCount, existingValueCount);
         remainingPageValueCount -= valueCount;
     }
 
@@ -379,7 +381,7 @@ public class NestedColumnReader<BufferType>
         return false;
     }
 
-    private int getNulls(int[] definitionLevels, int maxDefinitionLevel, boolean[] localIsNull)
+    private int getValidities(int[] definitionLevels, int maxDefinitionLevel, long[] localValueIsValid)
     {
         // Value is null if its definition level is equal to (max def level - 1)
         int outputIndex = 0;
@@ -387,8 +389,8 @@ public class NestedColumnReader<BufferType>
         for (int definitionLevel : definitionLevels) {
             boolean isValueNull = definitionLevel == maxDefinitionLevel - 1;
             boolean isValueNonNull = definitionLevel == maxDefinitionLevel;
-            if (isValueNull) {
-                localIsNull[outputIndex] = true;
+            if (isValueNonNull) {
+                set(localValueIsValid, 0, outputIndex);
             }
             outputIndex += castToByte(isValueNull | isValueNonNull);
             nonNullCount += castToByte(isValueNonNull);
@@ -570,9 +572,9 @@ public class NestedColumnReader<BufferType>
 
     private interface NullableValuesBuffer<T>
     {
-        void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int nonNullCount, int existingValueCount);
+        void readNullableValues(ValueDecoder<T> valueDecoder, long[] valueIsValid, int nonNullCount, int existingValueCount);
 
-        ColumnChunk createNullableBlock(BooleansBuffer isNull, int[] definitions, int[] repetitions);
+        ColumnChunk createNullableBlock(ValidityBuffer valueIsValid, int[] definitions, int[] repetitions);
     }
 
     private static final class DataValuesBuffer<T>
@@ -601,7 +603,7 @@ public class NestedColumnReader<BufferType>
         }
 
         @Override
-        public void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int nonNullCount, int existingValueCount)
+        public void readNullableValues(ValueDecoder<T> valueDecoder, long[] valueIsValid, int nonNullCount, int existingValueCount)
         {
             // No nulls
             if (nonNullCount > 0 && nonNullCount == existingValueCount) {
@@ -618,7 +620,7 @@ public class NestedColumnReader<BufferType>
                 T outBuffer = columnAdapter.createBuffer(existingValueCount);
                 T tmpBuffer = columnAdapter.createTemporaryBuffer(0, nonNullCount, outBuffer);
                 valueDecoder.read(tmpBuffer, 0, nonNullCount);
-                columnAdapter.unpackNullValues(tmpBuffer, outBuffer, isNull, 0, nonNullCount, existingValueCount);
+                columnAdapter.unpackNullValues(tmpBuffer, outBuffer, valueIsValid, 0, nonNullCount, existingValueCount);
                 valueBuffers.add(outBuffer);
             }
             totalNonNullsCount += nonNullCount;
@@ -638,7 +640,7 @@ public class NestedColumnReader<BufferType>
         }
 
         @Override
-        public ColumnChunk createNullableBlock(BooleansBuffer isNull, int[] definitions, int[] repetitions)
+        public ColumnChunk createNullableBlock(ValidityBuffer valueIsValid, int[] definitions, int[] repetitions)
         {
             log.debug("DataValuesBuffer createNullableBlock field %s, totalNonNullsCount %d, totalExistingValueCount %d", field, totalNonNullsCount, totalExistingValueCount);
             if (totalNonNullsCount == 0) {
@@ -647,7 +649,7 @@ public class NestedColumnReader<BufferType>
             if (totalNonNullsCount == totalExistingValueCount) {
                 return new ColumnChunk(columnAdapter.createNonNullBlock(getMergedValues()), definitions, repetitions);
             }
-            return new ColumnChunk(columnAdapter.createNullableBlock(isNull.getMergedBuffer(), getMergedValues()), definitions, repetitions);
+            return new ColumnChunk(columnAdapter.createNullableBlock(valueIsValid.getMergedBuffer(), getMergedValues()), definitions, repetitions);
         }
 
         private T getMergedValues()
@@ -686,7 +688,7 @@ public class NestedColumnReader<BufferType>
         }
 
         @Override
-        public void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int nonNullCount, int existingValueCount)
+        public void readNullableValues(ValueDecoder<T> valueDecoder, long[] valueIsValid, int nonNullCount, int existingValueCount)
         {
             // No nulls
             if (nonNullCount > 0 && nonNullCount == existingValueCount) {
@@ -707,7 +709,7 @@ public class NestedColumnReader<BufferType>
                 int[] tmpBuffer = new int[nonNullCount];
                 dictionaryDecoder.readDictionaryIds(tmpBuffer, 0, nonNullCount);
                 int[] positionsBuffer = new int[existingValueCount];
-                unpackDictionaryNullId(tmpBuffer, positionsBuffer, isNull, 0, existingValueCount, dictionaryDecoder.getDictionarySize());
+                unpackDictionaryNullId(tmpBuffer, positionsBuffer, valueIsValid, 0, existingValueCount, dictionaryDecoder.getDictionarySize());
                 ids.add(positionsBuffer);
             }
             totalNonNullsCount += nonNullCount;
@@ -730,7 +732,7 @@ public class NestedColumnReader<BufferType>
         }
 
         @Override
-        public ColumnChunk createNullableBlock(BooleansBuffer isNull, int[] definitions, int[] repetitions)
+        public ColumnChunk createNullableBlock(ValidityBuffer valueIsValid, int[] definitions, int[] repetitions)
         {
             log.debug("DictionaryValuesBuffer createNullableBlock field %s, totalNonNullsCount %d, totalExistingValueCount %d", field, totalNonNullsCount, totalExistingValueCount);
             if (totalNonNullsCount == 0) {
@@ -740,23 +742,37 @@ public class NestedColumnReader<BufferType>
         }
     }
 
-    private static class BooleansBuffer
+    private static class ValidityBuffer
     {
-        private final List<boolean[]> buffers = new ArrayList<>();
+        private final List<ValidityChunk> buffers = new ArrayList<>();
+        private int bitCount;
 
-        private void add(boolean[] buffer)
+        private void add(long[] buffer, int chunkBitCount)
         {
-            buffers.add(buffer);
+            buffers.add(new ValidityChunk(buffer, chunkBitCount));
+            bitCount += chunkBitCount;
         }
 
-        private boolean[] getMergedBuffer()
+        private long[] getMergedBuffer()
         {
             if (buffers.size() == 1) {
-                return buffers.get(0);
+                return buffers.get(0).bitmap();
             }
-            return Booleans.concat(buffers.toArray(boolean[][]::new));
+            long[] merged = new long[wordsForBits(bitCount)];
+            int offset = 0;
+            for (ValidityChunk buffer : buffers) {
+                for (int position = 0; position < buffer.bitCount(); position++) {
+                    if (isSet(buffer.bitmap(), 0, position)) {
+                        set(merged, 0, offset + position);
+                    }
+                }
+                offset += buffer.bitCount();
+            }
+            return merged;
         }
     }
+
+    private record ValidityChunk(long[] bitmap, int bitCount) {}
 
     private static class IntegersBuffer
     {

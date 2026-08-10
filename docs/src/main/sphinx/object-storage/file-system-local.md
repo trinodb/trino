@@ -30,7 +30,7 @@ support:
 
 The following example displays the related section from a
 `etc/catalog/example.properties` catalog configuration using the Hive connector.
-The coordinator and all workers nodes have an external storage mounted at
+The coordinator and all worker nodes have an external storage mounted at
 `/storage/datalake`, resulting in the location `local:///storage/datalake`.
 
 ```properties

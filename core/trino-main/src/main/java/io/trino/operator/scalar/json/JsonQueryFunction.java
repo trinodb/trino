@@ -19,11 +19,11 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.json.JsonPathEvaluator;
-import io.trino.json.JsonPathInvocationContext;
-import io.trino.json.PathEvaluationException;
-import io.trino.json.ir.IrJsonPath;
-import io.trino.json.ir.TypedValue;
+import io.trino.jsonpath.JsonPathEvaluator;
+import io.trino.jsonpath.JsonPathInvocationContext;
+import io.trino.jsonpath.PathEvaluationException;
+import io.trino.jsonpath.ir.IrJsonPath;
+import io.trino.jsonpath.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SqlScalarFunction;
@@ -39,15 +39,15 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
+import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -81,7 +81,7 @@ public class JsonQueryFunction
                         .returnType(type(JSON_2016))
                         .argumentTypes(
                                 type(JSON_2016),
-                                type(JsonPath2016Type.NAME),
+                                type(SqlJsonPathType.NAME),
                                 typeVariable("T"),
                                 type(TINYINT),
                                 type(TINYINT),

@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.util.NumberParser;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -26,7 +27,10 @@ import java.math.BigDecimal;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.type.Reals.toReal;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class VarcharOperators
 {
@@ -82,7 +86,7 @@ public final class VarcharOperators
     public static double castToDouble(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Double.parseDouble(slice.toStringUtf8().trim());
+            return NumberParser.parseDouble(slice, 0, slice.length());
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DOUBLE", slice.toStringUtf8()));
@@ -96,7 +100,7 @@ public final class VarcharOperators
     public static long castToReal(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return toReal(Float.parseFloat(slice.toStringUtf8().trim()));
+            return toReal(NumberParser.parseFloat(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to REAL", slice.toStringUtf8()));
@@ -110,7 +114,7 @@ public final class VarcharOperators
     public static long castToBigint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Long.parseLong(slice.toStringUtf8().trim());
+            return NumberParser.parseTrimmedLong(slice, 0, slice.length());
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", slice.toStringUtf8()));
@@ -124,7 +128,7 @@ public final class VarcharOperators
     public static long castToInteger(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Integer.parseInt(slice.toStringUtf8().trim());
+            return toIntExact(NumberParser.parseTrimmedLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INT", slice.toStringUtf8()));
@@ -138,7 +142,7 @@ public final class VarcharOperators
     public static long castToSmallint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Short.parseShort(slice.toStringUtf8().trim());
+            return toShortExact(NumberParser.parseTrimmedLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", slice.toStringUtf8()));
@@ -152,7 +156,7 @@ public final class VarcharOperators
     public static long castToTinyint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Byte.parseByte(slice.toStringUtf8().trim());
+            return toByteExact(NumberParser.parseTrimmedLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));
@@ -186,5 +190,21 @@ public final class VarcharOperators
     public static Slice castToBinary(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
+    }
+
+    private static long toShortExact(long value)
+    {
+        if (!isLongToShortExact(value)) {
+            throw new ArithmeticException("short overflow");
+        }
+        return value;
+    }
+
+    private static long toByteExact(long value)
+    {
+        if (!isLongToByteExact(value)) {
+            throw new ArithmeticException("byte overflow");
+        }
+        return value;
     }
 }

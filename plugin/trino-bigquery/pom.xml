@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>483-SNAPSHOT</version>
+        <version>484-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -31,12 +31,6 @@
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
                 <version>4.4.16</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.conscrypt</groupId>
-                <artifactId>conscrypt-openjdk-uber</artifactId>
-                <version>2.5.2</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -321,7 +315,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20260522</version>
+            <version>20260719</version>
         </dependency>
 
         <dependency>

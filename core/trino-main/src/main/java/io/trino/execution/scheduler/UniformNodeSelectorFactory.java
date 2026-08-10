@@ -56,7 +56,7 @@ public class UniformNodeSelectorFactory
 
     private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
-    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
+    private final StableHostAddressProvider stableHostAddressProvider;
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
@@ -73,9 +73,9 @@ public class UniformNodeSelectorFactory
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
-            ConsistentHashingAddressProvider consistentHashingAddressProvider)
+            StableHostAddressProvider stableHostAddressProvider)
     {
-        this(currentNode, nodeManager, config, nodeTaskMap, consistentHashingAddressProvider, new Duration(5, SECONDS));
+        this(currentNode, nodeManager, config, nodeTaskMap, stableHostAddressProvider, new Duration(5, SECONDS));
     }
 
     @VisibleForTesting
@@ -84,12 +84,12 @@ public class UniformNodeSelectorFactory
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
-            ConsistentHashingAddressProvider consistentHashingAddressProvider,
+            StableHostAddressProvider stableHostAddressProvider,
             Duration nodeMapMemoizationDuration)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
+        this.stableHostAddressProvider = requireNonNull(stableHostAddressProvider, "stableHostAddressProvider is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.splitsBalancingPolicy = config.getSplitsBalancingPolicy();
@@ -134,7 +134,7 @@ public class UniformNodeSelectorFactory
                 getMaxUnacknowledgedSplitsPerTask(session),
                 splitsBalancingPolicy,
                 optimizedLocalScheduling,
-                consistentHashingAddressProvider);
+                stableHostAddressProvider);
     }
 
     private NodeMap createNodeMap()

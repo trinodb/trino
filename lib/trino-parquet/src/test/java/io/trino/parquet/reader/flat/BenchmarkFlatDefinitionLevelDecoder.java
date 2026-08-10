@@ -33,6 +33,8 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.parquet.reader.TestData.generateMixedData;
 import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
+import static io.trino.spi.block.Bitmap.setBits;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -61,14 +63,14 @@ public class BenchmarkFlatDefinitionLevelDecoder
 
     private byte[] data;
     // Dummy output array
-    private boolean[] output;
+    private long[] output;
 
     @Setup
     public void setup()
             throws IOException
     {
         data = dataGenerator.getData(size);
-        output = new boolean[size];
+        output = new long[wordsForBits(size)];
     }
 
     @Benchmark
@@ -78,8 +80,18 @@ public class BenchmarkFlatDefinitionLevelDecoder
         FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
         decoder.init(Slices.wrappedBuffer(data));
         int nonNullCount = 0;
+        boolean validityMaterialized = false;
         for (int i = 0; i < size; i += BATCH_SIZE) {
-            nonNullCount += decoder.readNext(output, i, Math.min(BATCH_SIZE, size - i));
+            int chunkSize = Math.min(BATCH_SIZE, size - i);
+            int chunkNonNullCount = decoder.readNext(output, i, chunkSize);
+            if (chunkNonNullCount == chunkSize && validityMaterialized) {
+                setBits(output, 0, i, chunkSize);
+            }
+            else if (chunkNonNullCount < chunkSize && !validityMaterialized) {
+                setBits(output, 0, 0, i);
+                validityMaterialized = true;
+            }
+            nonNullCount += chunkNonNullCount;
         }
         return nonNullCount;
     }

@@ -76,9 +76,11 @@ export const QueryStagePerformance = () => {
     }
 
     const smallDropdownMenuPropsSx = {
-        PaperProps: {
-            sx: {
-                '& .MuiMenuItem-root': smallFormControlSx,
+        slotProps: {
+            paper: {
+                sx: {
+                    '& .MuiMenuItem-root': smallFormControlSx,
+                },
             },
         },
     }

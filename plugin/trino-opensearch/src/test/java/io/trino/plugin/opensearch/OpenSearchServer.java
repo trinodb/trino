@@ -49,6 +49,9 @@ public class OpenSearchServer
     {
         container = new OpenSearchContainer<>(image);
         container.withNetwork(network);
+        // When the Docker filesystem crosses the flood-stage watermark, the disk threshold monitor applies a
+        // cluster-wide create-index block, and every test that creates an index fails with a 403.
+        container.withEnv("cluster.routing.allocation.disk.threshold_enabled", "false");
         if (secured) {
             container.withSecurityEnabled();
         }

@@ -19,6 +19,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.RowType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -28,6 +29,15 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.clearBits;
+import static io.trino.spi.block.Bitmap.copyBits;
+import static io.trino.spi.block.Bitmap.hasSetBit;
+import static io.trino.spi.block.Bitmap.hasUnsetBit;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.setBits;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.block.RowBlock.fromNotNullSuppressedFieldBlocks;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +53,9 @@ public final class RowPositionsAppender
     private int positionCount;
     private boolean hasNullRow;
     private boolean hasNonNullRow;
-    private boolean[] rowIsNull = new boolean[0];
+    private int positionCapacity;
+    @Nullable
+    private long[] valueIsValid;
     private long retainedSizeInBytes = -1;
     private long sizeInBytes = -1;
 
@@ -99,16 +111,19 @@ public final class RowPositionsAppender
             }
         }
 
-        if (sourceRowBlock.mayHaveNull()) {
-            for (int i = 0; i < positions.size(); i++) {
-                boolean positionIsNull = sourceRowBlock.isNull(positions.getInt(i));
-                rowIsNull[positionCount + i] = positionIsNull;
-                hasNullRow |= positionIsNull;
-                hasNonNullRow |= !positionIsNull;
+        long[] rawValueIsValid = sourceRowBlock.getRawValueIsValid();
+        int[] rawPositions = positions.elements();
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, startOffset, rawPositions, 0, positions.size())) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, positions.size());
             }
+            hasNonNullRow = true;
         }
         else {
-            hasNonNullRow = true;
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, startOffset, rawPositions, 0, valueIsValid, positionCount, positions.size());
+            hasNullRow = true;
+            hasNonNullRow |= hasSetBit(rawValueIsValid, startOffset, rawPositions, 0, positions.size());
         }
 
         positionCount += positions.size();
@@ -133,23 +148,18 @@ public final class RowPositionsAppender
             fieldAppenders[i].appendRange(rawFieldBlocks[i], startOffset + offset, length);
         }
 
-        boolean[] rawRowIsNull = sourceRowBlock.getRawRowIsNull();
-        if (rawRowIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                boolean isNull = rawRowIsNull[startOffset + offset + i];
-                hasNullRow |= isNull;
-                hasNonNullRow |= !isNull;
-                if (hasNullRow & hasNonNullRow) {
-                    System.arraycopy(rawRowIsNull, startOffset + offset + i, rowIsNull, positionCount + i, length - i);
-                    break;
-                }
-                else {
-                    rowIsNull[positionCount + i] = isNull;
-                }
+        long[] rawValueIsValid = sourceRowBlock.getRawValueIsValid();
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, startOffset + offset, length)) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, length);
             }
+            hasNonNullRow = true;
         }
         else {
-            hasNonNullRow = true;
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, startOffset + offset, valueIsValid, positionCount, length);
+            hasNullRow = true;
+            hasNonNullRow |= hasSetBit(rawValueIsValid, startOffset + offset, length);
         }
 
         positionCount += length;
@@ -173,11 +183,15 @@ public final class RowPositionsAppender
 
         if (sourceRowBlock.isNull(0)) {
             // append rlePositionCount nulls
-            Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
+            initializeValidityForFirstNull();
+            clearBits(valueIsValid, 0, positionCount, rlePositionCount);
             hasNullRow = true;
         }
         else {
             // append not null row value
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, rlePositionCount);
+            }
             hasNonNullRow = true;
         }
         positionCount += rlePositionCount;
@@ -200,11 +214,15 @@ public final class RowPositionsAppender
         }
 
         if (sourceRowBlock.isNull(position)) {
-            rowIsNull[positionCount] = true;
+            initializeValidityForFirstNull();
+            clear(valueIsValid, 0, positionCount);
             hasNullRow = true;
         }
         else {
             // append not null row value
+            if (valueIsValid != null) {
+                set(valueIsValid, 0, positionCount);
+            }
             hasNonNullRow = true;
         }
         positionCount++;
@@ -220,7 +238,7 @@ public final class RowPositionsAppender
             for (int i = 0; i < fieldAppenders.length; i++) {
                 fieldBlocks[i] = fieldAppenders[i].build();
             }
-            result = fromNotNullSuppressedFieldBlocks(positionCount, hasNullRow ? Optional.of(rowIsNull) : Optional.empty(), fieldBlocks);
+            result = fromNotNullSuppressedFieldBlocks(positionCount, hasNullRow ? Optional.of(valueIsValid) : Optional.empty(), fieldBlocks);
         }
         else if (hasNullRow) {
             Block nullRowBlock = type.createNullBlock();
@@ -241,7 +259,7 @@ public final class RowPositionsAppender
             return retainedSizeInBytes;
         }
 
-        long size = INSTANCE_SIZE + sizeOf(rowIsNull);
+        long size = INSTANCE_SIZE + sizeOf(valueIsValid);
         for (UnnestingPositionsAppender field : fieldAppenders) {
             size += field.getRetainedSizeInBytes();
         }
@@ -274,7 +292,8 @@ public final class RowPositionsAppender
         }
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialized = false;
-        rowIsNull = new boolean[0];
+        positionCapacity = 0;
+        valueIsValid = null;
         positionCount = 0;
         hasNonNullRow = false;
         hasNullRow = false;
@@ -283,10 +302,10 @@ public final class RowPositionsAppender
 
     private void ensureCapacity(int additionalCapacity)
     {
-        if (rowIsNull.length <= positionCount + additionalCapacity) {
+        if (positionCapacity <= positionCount + additionalCapacity) {
             int newSize;
             if (initialized) {
-                newSize = calculateNewArraySize(rowIsNull.length);
+                newSize = calculateNewArraySize(positionCapacity);
             }
             else {
                 newSize = initialEntryCount;
@@ -294,9 +313,23 @@ public final class RowPositionsAppender
             }
 
             int newCapacity = Math.max(newSize, positionCount + additionalCapacity);
-            rowIsNull = Arrays.copyOf(rowIsNull, newCapacity);
+            positionCapacity = newCapacity;
+            if (valueIsValid != null) {
+                valueIsValid = Arrays.copyOf(valueIsValid, wordsForBits(newCapacity));
+            }
             resetSize();
         }
+    }
+
+    private boolean initializeValidityForFirstNull()
+    {
+        if (valueIsValid != null) {
+            return false;
+        }
+        valueIsValid = allocateWords(positionCapacity, false);
+        setBits(valueIsValid, 0, 0, positionCount);
+        resetSize();
+        return true;
     }
 
     private void resetSize()

@@ -146,6 +146,9 @@ public final class SessionPropertyManager
         }
 
         for (CatalogInfo catalogInfo : catalogInfos) {
+            if (!catalogInfo.isOperational()) {
+                continue;
+            }
             CatalogHandle catalogHandle = catalogInfo.catalogHandle();
             String catalogName = catalogInfo.catalogName();
             Map<String, String> connectorProperties = session.getCatalogProperties(catalogName);

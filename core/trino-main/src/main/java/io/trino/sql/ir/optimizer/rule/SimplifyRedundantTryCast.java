@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -30,6 +31,7 @@ import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST_FUNCTION_NAME;
+import static io.trino.sql.ir.IrExpressions.cast;
 
 /// Replace a `$try_cast` with a plain [Cast] when the underlying coercion can never fail. E.g,
 ///
@@ -43,10 +45,12 @@ public class SimplifyRedundantTryCast
         implements IrOptimizerRule
 {
     private final Metadata metadata;
+    private final TypeManager typeManager;
 
     public SimplifyRedundantTryCast(PlannerContext context)
     {
         this.metadata = context.getMetadata();
+        this.typeManager = context.getTypeManager();
     }
 
     @Override
@@ -63,6 +67,6 @@ public class SimplifyRedundantTryCast
             return Optional.empty();
         }
 
-        return Optional.of(new Cast(value, targetType));
+        return Optional.of(cast(typeManager, value, targetType));
     }
 }

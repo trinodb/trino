@@ -14,7 +14,6 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
@@ -75,6 +74,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Comparators.min;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.hash.Hashing.sha256;
 import static com.nimbusds.oauth2.sdk.ResponseType.CODE;
@@ -96,6 +96,7 @@ public class NimbusOAuth2Client
     private final Set<String> accessTokenAudiences;
     private final Duration maxClockSkew;
     private final Optional<String> jwtType;
+    private final Optional<String> domainHint;
     private final NimbusHttpClient httpClient;
     private final OAuth2ServerConfigProvider serverConfigurationProvider;
     private volatile boolean loaded;
@@ -117,6 +118,7 @@ public class NimbusOAuth2Client
         principalField = oauthConfig.getPrincipalField();
         maxClockSkew = oauthConfig.getMaxClockSkew();
         jwtType = oauthConfig.getJwtType();
+        domainHint = oauthConfig.getDomainHint();
 
         accessTokenAudiences = new HashSet<>(oauthConfig.getAdditionalAudiences());
         accessTokenAudiences.add(clientId.getValue());
@@ -221,15 +223,16 @@ public class NimbusOAuth2Client
         @Override
         public Request createAuthorizationRequest(String state, URI callbackUri)
         {
-            return new Request(
-                    new AuthorizationRequest.Builder(CODE, clientId)
-                            .redirectionURI(callbackUri)
-                            .scope(scope)
-                            .endpointURI(authUrl)
-                            .state(new State(state))
-                            .build()
-                            .toURI(),
-                    Optional.empty());
+            AuthorizationRequest.Builder builder = new AuthorizationRequest.Builder(CODE, clientId)
+                    .redirectionURI(callbackUri)
+                    .scope(scope)
+                    .endpointURI(authUrl)
+                    .state(new State(state));
+            domainHint.ifPresent(hint -> {
+                builder.customParameter("domain_hint", hint);
+                builder.customParameter("prompt", "select_account");
+            });
+            return new Request(builder.build().toURI(), Optional.empty());
         }
 
         @Override
@@ -290,14 +293,15 @@ public class NimbusOAuth2Client
         public Request createAuthorizationRequest(String state, URI callbackUri)
         {
             String nonce = new Nonce().getValue();
-            return new Request(
-                    new AuthenticationRequest.Builder(CODE, scope, clientId, callbackUri)
-                            .endpointURI(authUrl)
-                            .state(new State(state))
-                            .nonce(new Nonce(hashNonce(nonce)))
-                            .build()
-                            .toURI(),
-                    Optional.of(nonce));
+            AuthenticationRequest.Builder builder = new AuthenticationRequest.Builder(CODE, scope, clientId, callbackUri)
+                    .endpointURI(authUrl)
+                    .state(new State(state))
+                    .nonce(new Nonce(hashNonce(nonce)));
+            domainHint.ifPresent(hint -> {
+                builder.customParameter("domain_hint", hint);
+                builder.customParameter("prompt", "select_account");
+            });
+            return new Request(builder.build().toURI(), Optional.of(nonce));
         }
 
         @Override
@@ -434,7 +438,7 @@ public class NimbusOAuth2Client
     {
         if (validUntil.isPresent()) {
             if (expiration != null) {
-                return Ordering.natural().min(validUntil.get(), expiration.toInstant());
+                return min(validUntil.get(), expiration.toInstant());
             }
 
             return validUntil.get();

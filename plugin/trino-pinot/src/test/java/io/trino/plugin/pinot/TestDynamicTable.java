@@ -66,7 +66,7 @@ public class TestDynamicTable
                 .collect(toImmutableList())).isEqualTo(columnNames);
         orderByExpressions.add(new OrderByExpression(quoteIdentifier(orderByColumns.get(4)), false));
         assertThat(dynamicTable.orderBy()).isEqualTo(orderByExpressions);
-        assertThat(dynamicTable.limit().getAsLong()).isEqualTo(limit);
+        assertThat(dynamicTable.limit().orElseThrow()).isEqualTo(limit);
     }
 
     @Test
@@ -82,7 +82,7 @@ public class TestDynamicTable
                 .add("Origin")
                 .add("AirlineID")
                 .build());
-        assertThat(dynamicTable.limit().getAsLong()).isEqualTo(limit);
+        assertThat(dynamicTable.limit().orElseThrow()).isEqualTo(limit);
     }
 
     @Test

@@ -27,6 +27,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
@@ -76,6 +77,7 @@ public final class MinAggregationFunction
         }
     }
 
+    @SqlNullable
     @OutputFunction("T")
     public static void output(@AggregationState("T") InOut state, BlockBuilder out)
     {

@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 
 import static io.trino.parquet.ParquetMetadataConverter.convertToLogicalType;
+import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
 import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
 import static io.trino.parquet.ParquetMetadataConverter.isMinMaxStatsSupported;
 import static io.trino.parquet.ParquetMetadataConverter.toParquetStatistics;
@@ -206,10 +207,7 @@ class TestParquetMetadataConverter
 
         Statistics parquetStatistics = toParquetStatistics(statistics, TRUNCATE_LENGTH);
 
-        assertThat(parquetStatistics.isSetMin()).isFalse();
-        assertThat(parquetStatistics.isSetMax()).isFalse();
-        assertThat(parquetStatistics.isSetMin_value()).isFalse();
-        assertThat(parquetStatistics.isSetMax_value()).isFalse();
+        assertNoMinMax(parquetStatistics);
     }
 
     @Test
@@ -227,9 +225,49 @@ class TestParquetMetadataConverter
 
         Statistics parquetStatistics = toParquetStatistics(statistics, TRUNCATE_LENGTH);
 
-        assertThat(parquetStatistics.isSetMin()).isFalse();
-        assertThat(parquetStatistics.isSetMax()).isFalse();
-        assertThat(parquetStatistics.isSetMin_value()).isFalse();
-        assertThat(parquetStatistics.isSetMax_value()).isFalse();
+        assertNoMinMax(parquetStatistics);
+    }
+
+    @Test
+    void testGeospatialStatisticsOmitExactSingleValue()
+    {
+        PrimitiveType geometry = Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+                .as(geometryType("EPSG:3857"))
+                .named("geom");
+        PrimitiveType geography = Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+                .as(geographyType("OGC:CRS84", DEFAULT_ALGO))
+                .named("geog");
+
+        assertGeospatialStatisticsOmitExactSingleValue(geometry);
+        assertGeospatialStatisticsOmitExactSingleValue(geography);
+    }
+
+    private static void assertGeospatialStatisticsOmitExactSingleValue(PrimitiveType type)
+    {
+        Binary value = Binary.fromString("same");
+        org.apache.parquet.column.statistics.Statistics<?> statistics = org.apache.parquet.column.statistics.Statistics.createStats(type);
+        statistics.updateStats(value);
+        statistics.updateStats(value);
+
+        Statistics parquetStatistics = toParquetStatistics(statistics, TRUNCATE_LENGTH);
+
+        assertThat(parquetStatistics.isSetNull_count()).isTrue();
+        assertNoMinMax(parquetStatistics);
+
+        parquetStatistics.setMin_value(value.getBytes());
+        parquetStatistics.setMax_value(value.getBytes());
+        org.apache.parquet.column.statistics.Statistics<?> readStatistics = fromParquetStatistics(null, parquetStatistics, type);
+
+        assertThat(readStatistics.getNumNulls()).isEqualTo(0);
+        assertThat(readStatistics.getMinBytes()).isNull();
+        assertThat(readStatistics.getMaxBytes()).isNull();
+    }
+
+    private static void assertNoMinMax(Statistics statistics)
+    {
+        assertThat(statistics.isSetMin()).isFalse();
+        assertThat(statistics.isSetMax()).isFalse();
+        assertThat(statistics.isSetMin_value()).isFalse();
+        assertThat(statistics.isSetMax_value()).isFalse();
     }
 }

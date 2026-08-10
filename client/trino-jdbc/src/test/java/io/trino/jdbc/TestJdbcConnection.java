@@ -13,7 +13,6 @@
  */
 package io.trino.jdbc;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -804,7 +803,8 @@ public class TestJdbcConnection
         try (Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery("SHOW SESSION")) {
             while (rs.next()) {
-                set.add(Joiner.on('|').join(
+                set.add(String.join(
+                        "|",
                         rs.getString(1),
                         rs.getString(2),
                         rs.getString(3)));

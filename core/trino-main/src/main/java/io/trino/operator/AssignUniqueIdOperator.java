@@ -48,12 +48,18 @@ public class AssignUniqueIdOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private boolean closed;
-        private final AtomicLong valuePool = new AtomicLong();
+        private final AtomicLong valuePool;
 
         private Factory(int operatorId, PlanNodeId planNodeId)
         {
+            this(operatorId, planNodeId, new AtomicLong());
+        }
+
+        private Factory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool)
+        {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.valuePool = requireNonNull(valuePool, "valuePool is null");
         }
 
         @Override
@@ -90,7 +96,7 @@ public class AssignUniqueIdOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId);
+            return new Factory(operatorId, planNodeId, valuePool);
         }
     }
 

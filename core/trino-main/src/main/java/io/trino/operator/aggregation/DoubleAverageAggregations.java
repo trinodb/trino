@@ -21,6 +21,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
@@ -47,6 +48,7 @@ public final class DoubleAverageAggregations
         state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {

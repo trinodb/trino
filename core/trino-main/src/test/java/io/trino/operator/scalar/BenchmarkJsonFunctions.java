@@ -19,12 +19,11 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.FullConnectorSession;
 import io.trino.jmh.Benchmarks;
-import io.trino.json.ir.IrContextVariable;
-import io.trino.json.ir.IrJsonPath;
-import io.trino.json.ir.IrMemberAccessor;
-import io.trino.json.ir.IrPathNode;
+import io.trino.jsonpath.ir.IrContextVariable;
+import io.trino.jsonpath.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrMemberAccessor;
+import io.trino.jsonpath.ir.IrPathNode;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -41,7 +40,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -110,7 +109,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonValuePageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -122,7 +120,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonExtractScalarPageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -134,7 +131,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonQueryPageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -146,7 +142,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonExtractPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -170,7 +165,7 @@ public class BenchmarkJsonFunctions
             page = new Page(createChannel(POSITION_COUNT, depth));
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-            Type jsonPath2016Type = PLANNER_CONTEXT.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME));
+            Type jsonPath2016Type = PLANNER_CONTEXT.getTypeManager().getType(TypeId.of(SqlJsonPathType.NAME));
 
             jsonValuePageProcessor = createJsonValuePageProcessor(depth, functionResolution, jsonPath2016Type);
             jsonExtractScalarPageProcessor = createJsonExtractScalarPageProcessor(depth, functionResolution);

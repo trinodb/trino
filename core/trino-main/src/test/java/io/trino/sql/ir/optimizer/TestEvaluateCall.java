@@ -26,7 +26,6 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.EvaluateCall;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -41,6 +40,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -93,6 +93,6 @@ public class TestEvaluateCall
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateCall(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new EvaluateCall(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

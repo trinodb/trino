@@ -63,6 +63,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.Duration.ZERO;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_ACCESS_KEY;
@@ -184,7 +185,7 @@ public class TestTrinoSnowflakeCatalog
         SnowflakeCatalog snowflakeCatalog = new SnowflakeCatalog();
         snowflakeCatalog.initialize(catalogName.toString(), snowflakeClient, catalogFileIOFactory, properties);
 
-        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(s3FileSystemFactory, FILE_IO_FACTORY, CATALOG_CONFIG);
+        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(s3FileSystemFactory, FILE_IO_FACTORY, CATALOG_CONFIG, ENCRYPTION_MANAGER_FACTORY);
 
         return new TrinoSnowflakeCatalog(
                 snowflakeCatalog,
@@ -364,6 +365,22 @@ public class TestTrinoSnowflakeCatalog
         TrinoCatalog catalog = createTrinoCatalog(false);
         assertThatThrownBy(() -> catalog.createView(SESSION, SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName()), viewDefinition, ImmutableMap.of(), true))
                 .hasMessageContaining("Views are not supported for the Snowflake Iceberg catalog");
+    }
+
+    @Test
+    @Override
+    public void testTableNamespaceFilter()
+    {
+        assertThatThrownBy(super::testTableNamespaceFilter)
+                .hasMessageContaining("Iceberg Snowflake catalog schemas do not support modifications");
+    }
+
+    @Test
+    @Override
+    public void testViewNamespaceFilter()
+    {
+        assertThatThrownBy(super::testViewNamespaceFilter)
+                .hasMessageContaining("Iceberg Snowflake catalog schemas do not support modifications");
     }
 
     @Test

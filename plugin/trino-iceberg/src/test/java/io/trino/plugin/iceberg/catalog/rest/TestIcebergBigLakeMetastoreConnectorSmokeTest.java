@@ -38,7 +38,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -92,6 +91,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                 .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
+                .addIcebergProperty("iceberg.rest-catalog.server-assigned-table-location-enabled", "true")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("fs.gcs.enabled", "true")
@@ -144,12 +144,6 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
-    }
-
-    @Override
     protected void deleteDirectory(String location)
     {
         try {
@@ -177,6 +171,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                         "   comment varchar\n" +
                         "\\)\n" +
                         "WITH \\(\n" +
+                        "(   compression_codec = 'ZSTD',\n)?" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = 'gs://.*'\n" +
@@ -251,6 +246,57 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }
 
+    // TODO: https://github.com/trinodb/trino/issues/30440
+    // Enable the register table tests below once BigLake metastore accepts registering metadata under the suffixed table locations it assigns at creation
+    @Test
+    @Override
+    public void testRegisterTableWithTableLocation()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithComments()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithShowCreateTable()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithReInsert()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithMetadataFile()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testUnregisterTable()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRepeatUnregisterTable()
+    {
+        abort("skipped");
+    }
+
     @Test
     @Override // BigLake metastore requires table location to start with the prefix with the table name
     public void testRegisterTableWithDifferentTableName()
@@ -306,5 +352,26 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .isFalse();
 
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceTable()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceWithTableChangesFunction()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
+    {
+        abort("skipped");
     }
 }

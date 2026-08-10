@@ -20,7 +20,6 @@ import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.cache.NonEvictableLoadingCache;
@@ -80,7 +79,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Long.parseLong;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
 
@@ -89,6 +87,9 @@ public final class TableStatisticsReader
     private static final Logger log = Logger.get(TableStatisticsReader.class);
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
+
+    @VisibleForTesting
+    static final int INLINE_MANIFEST_DECODE_THRESHOLD = 4;
 
     private final TypeManager typeManager;
     private final ExecutorService icebergPlanningExecutor;
@@ -133,7 +134,7 @@ public final class TableStatisticsReader
                     .setRowCount(Estimate.of(0))
                     .build();
         }
-        long snapshotId = snapshot.getAsLong();
+        long snapshotId = snapshot.orElseThrow();
 
         // Including both enforced and unenforced constraint matches how Splits will eventually be generated and allows
         // us to provide more accurate estimates. Stats will be estimated again by FilterStatsCalculator based on the
@@ -178,7 +179,15 @@ public final class TableStatisticsReader
                 .filter(column -> columnIds.contains(column.fieldId()))
                 .collect(toImmutableList());
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
-        try (CloseableIterable<DataFile> dataFiles = new ParallelIterable<>(dataFileIterables, icebergPlanningExecutor)) {
+        // Decode small manifest sets inline to avoid bottlenecking small scans on resource contention in the shared planning pool
+        CloseableIterable<DataFile> dataFileSource;
+        if (filteredManifests.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
+            dataFileSource = CloseableIterable.concat(dataFileIterables);
+        }
+        else {
+            dataFileSource = new ParallelIterable<>(dataFileIterables, icebergPlanningExecutor);
+        }
+        try (CloseableIterable<DataFile> dataFiles = dataFileSource) {
             dataFiles.forEach(dataFile -> {
                 PartitionSpec spec = icebergTable.specs().get(dataFile.specId());
                 if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(spec.partitionToPath(dataFile.partition())))) {
@@ -210,7 +219,7 @@ public final class TableStatisticsReader
                 columnIds);
 
         Map<Integer, org.apache.iceberg.types.Type> idToType = columns.stream()
-                .map(column -> Maps.immutableEntry(column.fieldId(), column.type()))
+                .map(column -> Map.entry(column.fieldId(), column.type()))
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
@@ -303,7 +312,7 @@ public final class TableStatisticsReader
         }
 
         Map<Long, StatisticsFile> statsFileBySnapshot = icebergTable.statisticsFiles().stream()
-                .collect(toMap(
+                .collect(toImmutableMap(
                         StatisticsFile::snapshotId,
                         identity(),
                         (file1, file2) -> {

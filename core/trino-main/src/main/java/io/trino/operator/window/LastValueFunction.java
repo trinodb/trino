@@ -14,6 +14,7 @@
 package io.trino.operator.window;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.ValueWindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
 
@@ -50,6 +51,7 @@ public class LastValueFunction
         recordedNullPosition = -1;
     }
 
+    @SqlNullable
     @Override
     public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {

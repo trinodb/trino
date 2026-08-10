@@ -13,18 +13,12 @@
  */
 package io.trino.testng.services;
 
-import io.trino.tempto.Requirement;
-import io.trino.tempto.Requirements;
-import io.trino.tempto.RequirementsProvider;
-import io.trino.tempto.configuration.Configuration;
-import io.trino.tempto.testmarkers.WithName;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
 
 import static io.trino.testng.services.ReportBadTestAnnotations.classWithMeaninglessTestAnnotation;
 import static io.trino.testng.services.ReportBadTestAnnotations.findUnannotatedTestMethods;
-import static io.trino.testng.services.ReportBadTestAnnotations.isTemptoClass;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReportBadTestAnnotations
@@ -44,25 +38,6 @@ public class TestReportBadTestAnnotations
         assertThat(findUnannotatedTestMethods(TestingTestWithoutTestAnnotation.class))
                 .extracting(Method::getName)
                 .containsExactly("testWithMissingTestAnnotation", "methodInInterface");
-    }
-
-    @Test
-    public void testTemptoRequirementsProvider()
-    {
-        assertThat(findUnannotatedTestMethods(TestingRequirementsProvider.class))
-                .extracting(Method::getName)
-                .containsExactly("testWithMissingTestAnnotation");
-        assertThat(findUnannotatedTestMethods(TestingRequirementsProviderWithProxyClass.class))
-                .extracting(Method::getName)
-                .containsExactly("testWithMissingTestAnnotation", "testWithMissingTestAnnotationInProxy");
-    }
-
-    @Test
-    public void testTemptoPackage()
-    {
-        assertThat(isTemptoClass(RequirementsProvider.class)).isTrue();
-        assertThat(isTemptoClass(WithName.class)).isTrue();
-        assertThat(isTemptoClass(getClass())).isFalse();
     }
 
     @Test
@@ -109,36 +84,6 @@ public class TestReportBadTestAnnotations
         {
             return "test override";
         }
-    }
-
-    private static class TestingRequirementsProvider
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return Requirements.allOf();
-        }
-
-        public void testWithMissingTestAnnotation() {}
-    }
-
-    private static class TestingRequirementsProviderWithProxyClass
-            extends RequirementsProviderProxy
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return Requirements.allOf();
-        }
-
-        public void testWithMissingTestAnnotation() {}
-    }
-
-    private abstract static class RequirementsProviderProxy
-            implements RequirementsProvider
-    {
-        public void testWithMissingTestAnnotationInProxy() {}
     }
 
     private static class TestingInterfaceWithTestProxy

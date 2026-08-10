@@ -13,6 +13,7 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.type.RowType;
@@ -25,10 +26,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
@@ -37,6 +41,10 @@ import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.util.JaroWinkler.similarity;
+import static java.util.Comparator.comparingDouble;
+import static java.util.Locale.ENGLISH;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -222,9 +230,19 @@ public class Scope
         return findLocally(scope -> scope.getRelationId().equals(other.getRelationId())).isPresent();
     }
 
-    public ResolvedField resolveField(Expression expression, QualifiedName name)
+    public ResolvedField resolveField(Expression expression, QualifiedName name, Supplier<Set<Field>> accessibleFields)
     {
-        return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name));
+        return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name, trySuggestFieldNames(name, accessibleFields)));
+    }
+
+    private Optional<String> trySuggestFieldNames(QualifiedName name, Supplier<Set<Field>> accessibleFields)
+    {
+        try {
+            return suggestFieldNames(name.getSuffix(), accessibleFields.get());
+        }
+        catch (RuntimeException _) {
+            return Optional.empty();
+        }
     }
 
     public Optional<ResolvedField> tryResolveField(Expression expression)
@@ -265,6 +283,55 @@ public class Scope
             return parent.get().resolveField(node, name, local);
         }
         return Optional.empty();
+    }
+
+    List<Field> collectSuggestionFields()
+    {
+        ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        Scope scope = this;
+        while (scope != null) {
+            scope.relation.getVisibleFields().stream()
+                    .filter(field -> field.getName().isPresent())
+                    .forEach(fields::add);
+            scope = scope.parent.orElse(null);
+        }
+        return fields.build();
+    }
+
+    private Optional<String> suggestFieldNames(String columnName, Set<Field> accessibleFields)
+    {
+        if (accessibleFields.isEmpty()) {
+            return Optional.empty();
+        }
+
+        String lowercaseName = columnName.toLowerCase(ROOT);
+
+        List<String> suggestions = accessibleFields.stream()
+                .map(Field::getName)
+                .filter(Optional::isPresent)
+                .map(Optional::orElseThrow)
+                .distinct()
+                .map(candidate -> new Match(candidate, similarity(candidate.toLowerCase(ENGLISH), lowercaseName)))
+                .filter(match -> match.similarity() > 0.85)
+                .sorted(comparingDouble(Match::similarity).reversed())
+                .limit(3)
+                .map(Match::candidate)
+                .collect(toImmutableList());
+
+        return switch (suggestions.size()) {
+            case 0 -> Optional.empty();
+            case 1 -> Optional.of(quote(suggestions.getFirst()));
+            case 2 -> Optional.of(quote(suggestions.getFirst()) + " or " + quote(suggestions.get(1)));
+            default -> Optional.of(quote(suggestions.getFirst()) + ", " + quote(suggestions.get(1)) + " or " + quote(suggestions.get(2)));
+        };
+    }
+
+    private record Match(String candidate, double similarity)
+    {
+        public Match
+        {
+            requireNonNull(candidate, "candidate is null");
+        }
     }
 
     public ResolvedField getField(int index)
@@ -421,5 +488,10 @@ public class Scope
     {
         TABLE,
         FIELD,
+    }
+
+    private static String quote(String name)
+    {
+        return "'" + name.replace("'", "''") + "'";
     }
 }

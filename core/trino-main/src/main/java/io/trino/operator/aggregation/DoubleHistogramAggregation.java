@@ -23,6 +23,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.DoubleType;
 
@@ -84,6 +85,7 @@ public final class DoubleHistogramAggregation
         }
     }
 
+    @SqlNullable
     @OutputFunction("map(double,double)")
     public static void output(@AggregationState State state, BlockBuilder out)
     {

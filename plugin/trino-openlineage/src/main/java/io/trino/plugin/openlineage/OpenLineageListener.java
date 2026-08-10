@@ -291,7 +291,11 @@ public class OpenLineageListener
                 .namespace(this.jobNamespace)
                 .name(interpolator.interpolate(new OpenLineageJobContext(queryContext, queryMetadata)))
                 .facets(openLineage.newJobFacetsBuilder()
-                        .jobType(openLineage.newJobTypeJobFacet("BATCH", "TRINO", "QUERY"))
+                        .jobType(openLineage.newJobTypeJobFacetBuilder()
+                                .processingType("BATCH")
+                                .integration("TRINO")
+                                .jobType("QUERY")
+                                .build())
                         .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery(), "trino"))
                         .build());
     }

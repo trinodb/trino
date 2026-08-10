@@ -57,7 +57,7 @@ export const OperatorNode = (props: IOperatorNodeProps) => {
                     <Tooltip
                         placement="top"
                         title={
-                            <Grid container spacing={0.5} textAlign="center" justifyContent="center">
+                            <Grid container spacing={0.5} sx={{ textAlign: 'center', justifyContent: 'center' }}>
                                 <Grid size={{ xs: 12 }}>
                                     <Typography variant="subtitle2">{label}</Typography>
                                 </Grid>

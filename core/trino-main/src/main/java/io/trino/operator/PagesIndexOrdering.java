@@ -17,8 +17,8 @@ import static java.util.Objects.requireNonNull;
 
 public class PagesIndexOrdering
 {
-    private static final int SMALL = 7;
-    private static final int MEDIUM = 40;
+    private static final int SMALL = 16;
+    private static final int MEDIUM = 128;
 
     private final PagesIndexComparator comparator;
 

@@ -35,7 +35,7 @@ import trinoLogo from './assets/trino.svg'
 import { QueryDetails } from './components/QueryDetails'
 import { WorkerStatus } from './components/WorkerStatus'
 import { loader } from '@monaco-editor/react'
-import * as monaco from 'monaco-editor'
+import * as monaco from './monaco'
 
 const App = () => {
     const config = useConfigStore()
@@ -97,7 +97,7 @@ const NotFound = () => {
                 </Grid>
                 <Grid size={12} spacing={{ md: 10 }}>
                     <Typography variant="h3">404</Typography>
-                    <Typography paragraph>The page you’re looking for doesn’t exist.</Typography>
+                    <Typography sx={{ mb: 2 }}>The page you’re looking for doesn’t exist.</Typography>
                     <Button variant="contained" component={Link} href="/">
                         Back home
                     </Button>

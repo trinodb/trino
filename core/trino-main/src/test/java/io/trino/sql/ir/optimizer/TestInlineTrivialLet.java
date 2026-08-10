@@ -22,7 +22,6 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.InlineTrivialLet;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -37,6 +36,7 @@ import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -103,13 +103,13 @@ public class TestInlineTrivialLet
                                 comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 0L)),
                                 comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 5L))))),
                 testSession(),
-                new SymbolAllocator(),
+                emptySymbolAllocator(),
                 ImmutableMap.of()))
                 .isEqualTo(Optional.of(TRUE));
     }
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new InlineTrivialLet().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new InlineTrivialLet().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

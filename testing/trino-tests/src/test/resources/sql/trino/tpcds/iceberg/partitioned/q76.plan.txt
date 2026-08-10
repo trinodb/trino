@@ -20,12 +20,13 @@ local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [expr_148, expr_149, d_year_51, d_qoy_55, i_category_32])
                             intermediate aggregation over (expr_148, expr_149, d_year_51, d_qoy_55, i_category_32)
                                 join (INNER, PARTITIONED):
-                                    partial aggregation over (expr_148, expr_149, i_category_32, ws_sold_date_sk)
-                                        remote exchange (REPARTITION, HASH, [ws_sold_date_sk])
+                                    remote exchange (REPARTITION, HASH, [ws_sold_date_sk])
+                                        intermediate aggregation over (expr_156, expr_157, i_category_158, ws_sold_date_sk)
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [ws_item_sk])
-                                                    dynamic filter (ws_sold_date_sk::EQUAL, ws_item_sk::EQUAL)
-                                                        scan web_sales
+                                                    partial aggregation over (expr_161, expr_162, ws_sold_date_sk_160, ws_item_sk)
+                                                        dynamic filter (ws_sold_date_sk::EQUAL, ws_item_sk::EQUAL)
+                                                            scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [i_item_sk_20])
                                                         scan item

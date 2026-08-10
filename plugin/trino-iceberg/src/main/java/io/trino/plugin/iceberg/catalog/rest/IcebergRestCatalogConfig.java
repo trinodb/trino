@@ -63,6 +63,7 @@ public class IcebergRestCatalogConfig
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
+    private boolean serverAssignedTableLocationEnabled;
     private boolean caseInsensitiveNameMatching;
     private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
@@ -214,6 +215,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setViewEndpointsEnabled(boolean viewEndpointsEnabled)
     {
         this.viewEndpointsEnabled = viewEndpointsEnabled;
+        return this;
+    }
+
+    public boolean isServerAssignedTableLocationEnabled()
+    {
+        return serverAssignedTableLocationEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.server-assigned-table-location-enabled")
+    @ConfigDescription("Let the REST catalog server assign locations for created tables instead of computing a default location from the namespace location")
+    public IcebergRestCatalogConfig setServerAssignedTableLocationEnabled(boolean serverAssignedTableLocationEnabled)
+    {
+        this.serverAssignedTableLocationEnabled = serverAssignedTableLocationEnabled;
         return this;
     }
 

@@ -48,6 +48,10 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.SliceColumnReader.computeTruncatedLength;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
@@ -79,7 +83,7 @@ public class SliceDictionaryColumnReader
     private byte[] dictionaryData = EMPTY_DICTIONARY_DATA;
     private int[] dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
 
-    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
+    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new long[] {0}));
     private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
 
     private InputStreamSource<LongInputStream> dictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
@@ -144,13 +148,14 @@ public class SliceDictionaryColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
             if (nullCount == 0) {
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
+                block = readNullBlock(valueIsValid, nonNullCount);
             }
             else {
                 block = readAllNullsBlock();
@@ -164,7 +169,7 @@ public class SliceDictionaryColumnReader
 
     private Block readAllNullsBlock()
     {
-        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new long[] {0})), nextBatchSize);
     }
 
     private Block readNonNullBlock()
@@ -176,7 +181,7 @@ public class SliceDictionaryColumnReader
         return DictionaryBlock.create(nextBatchSize, dictionaryBlock, values);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -190,14 +195,14 @@ public class SliceDictionaryColumnReader
         dataStream.next(nonNullValueTemp, nonNullCount);
 
         int nonNullPosition = 0;
-        for (int i = 0; i < isNull.length; i++) {
-            nonNullPositionList[nonNullPosition] = i;
-            if (!isNull[i]) {
+        for (int i = 0; i < nextBatchSize; i++) {
+            if (isSet(valueIsValid, 0, i)) {
+                nonNullPositionList[nonNullPosition] = i;
                 nonNullPosition++;
             }
         }
 
-        int[] result = new int[isNull.length];
+        int[] result = new int[nextBatchSize];
         fill(result, dictionarySize);
 
         for (int i = 0; i < nonNullPosition; i++) {
@@ -213,10 +218,10 @@ public class SliceDictionaryColumnReader
         // only update the block if the array changed to prevent creation of new Block objects, since
         // the engine currently uses identity equality to test if dictionaries are the same
         if (currentDictionaryData != dictionaryData) {
-            boolean[] isNullVector = new boolean[positionCount];
-            isNullVector[positionCount - 1] = true;
+            long[] valueIsValid = allocateWords(positionCount, true);
+            clear(valueIsValid, 0, positionCount - 1);
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
-            dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
+            dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(valueIsValid));
             currentDictionaryData = dictionaryData;
             memoryContext.setBytes(getRetainedSizeInBytes());
         }

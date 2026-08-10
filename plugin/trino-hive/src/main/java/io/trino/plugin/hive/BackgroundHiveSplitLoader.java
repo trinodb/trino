@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
-import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.FileEntry;
@@ -868,7 +867,7 @@ public class BackgroundHiveSplitLoader
                 }
 
                 try (Reader reader = new InputStreamReader(fileSystem.newInputFile(location).newStream(), UTF_8)) {
-                    CharStreams.readLines(reader).stream()
+                    reader.readAllLines().stream()
                             .map(Location::of)
                             .forEach(target -> targets.put(target.parentDirectory(), target));
                 }

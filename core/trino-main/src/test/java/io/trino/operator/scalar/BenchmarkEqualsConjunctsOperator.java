@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -70,7 +69,6 @@ public class BenchmarkEqualsConjunctsOperator
     private static final int COMPARISONS_COUNT = 100;
     private static final double NULLS_FRACTION = 0.05;
 
-    private static final DriverYieldSignal SIGNAL = new DriverYieldSignal();
     private static final ConnectorSession SESSION = TEST_SESSION.toConnectorSession();
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
@@ -121,7 +119,6 @@ public class BenchmarkEqualsConjunctsOperator
         List<Page> output = new ArrayList<>();
         Iterator<Optional<Page>> pageProcessorOutput = compiledProcessor.process(
                 SESSION,
-                SIGNAL,
                 newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                 SourcePage.create(data.page));
         while (pageProcessorOutput.hasNext()) {

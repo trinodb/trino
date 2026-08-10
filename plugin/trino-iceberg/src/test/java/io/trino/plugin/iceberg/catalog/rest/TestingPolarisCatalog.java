@@ -21,12 +21,13 @@ import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonMapperProvider;
+import io.trino.plugin.base.util.AutoCloseableCloser;
+import io.trino.testing.containers.Minio;
 import org.intellij.lang.annotations.Language;
-import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -37,11 +38,16 @@ import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static io.trino.testing.containers.Minio.DEFAULT_HOST_NAME;
+import static io.trino.testing.containers.Minio.MINIO_API_PORT;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingPolarisCatalog
-        implements Closeable
+        implements AutoCloseable
 {
     public static final String WAREHOUSE = "polaris";
     private static final int POLARIS_PORT = 8181;
@@ -52,27 +58,38 @@ public final class TestingPolarisCatalog
     public static final HeaderName POLARIS_REALM_HEADER = HeaderName.of("Polaris-Realm");
     public static final String POLARIS_REALM_NAME = "default-realm";
 
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
+    private final Minio minio;
     private final GenericContainer<?> polarisCatalog;
     private final String token;
     private final String warehouseLocation;
 
-    public TestingPolarisCatalog(String warehouseLocation)
+    public TestingPolarisCatalog(String warehouseLocation, String bucketName)
     {
-        this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
+        requireNonNull(warehouseLocation, "warehouseLocation is null");
+        requireNonNull(bucketName, "bucketName is null");
 
-        // TODO: Use the official docker image https://hub.docker.com/r/apache/polaris
-        polarisCatalog = new GenericContainer<>("ghcr.io/trinodb/testing/polaris-catalog:116");
+        Network network = closer.register(Network.newNetwork());
+        minio = closer.register(Minio.builder().withNetwork(network).build());
+        minio.start();
+        minio.createBucket(bucketName);
+
+        this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
+        polarisCatalog = closer.register(new GenericContainer<>("apache/polaris:1.5.0"));
         polarisCatalog.addExposedPort(POLARIS_PORT);
-        polarisCatalog.withFileSystemBind(warehouseLocation, warehouseLocation, BindMode.READ_WRITE);
-        polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
+        polarisCatalog.withNetwork(network);
+        polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*polaris-server.* started in.*"));
         polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", POLARIS_REALM_NAME.concat(",root,s3cr3t"));
         polarisCatalog.withEnv("polaris.realm-context.realms", POLARIS_REALM_NAME);
         polarisCatalog.withEnv("polaris.realm-context.header-name", POLARIS_REALM_HEADER.toString());
         polarisCatalog.withEnv("polaris.realm-context.require-header", "true");
         polarisCatalog.withEnv("polaris.readiness.ignore-severe-issues", "true");
-        polarisCatalog.withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"FILE\"]");
+        polarisCatalog.withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"S3\"]");
         polarisCatalog.withEnv("polaris.features.\"ALLOW_INSECURE_STORAGE_TYPES\"", "true");
         polarisCatalog.withEnv("polaris.features.\"DROP_WITH_PURGE_ENABLED\"", "true");
+        polarisCatalog.withEnv("AWS_ACCESS_KEY_ID", MINIO_ROOT_USER);
+        polarisCatalog.withEnv("AWS_SECRET_ACCESS_KEY", MINIO_ROOT_PASSWORD);
+        polarisCatalog.withEnv("AWS_REGION", MINIO_REGION);
 
         polarisCatalog.start();
 
@@ -101,15 +118,25 @@ public final class TestingPolarisCatalog
 
     private void createCatalog()
     {
-        @Language("JSON")
-        String body = "{" +
-                "\"name\": \"polaris\"," +
-                "\"id\": 1," +
-                "\"type\": \"INTERNAL\"," +
-                "\"readOnly\": false, " +
-                "\"storageConfigInfo\": {\"storageType\": \"FILE\", \"allowedLocations\":[\"" + warehouseLocation + "\"]}, " +
-                "\"properties\": {\"default-base-location\": \"file://" + warehouseLocation + "\"}" +
-                "}";
+        String minioInternalAddress = "http://%s:%s".formatted(DEFAULT_HOST_NAME, MINIO_API_PORT);
+        String body =
+                """
+                {
+                    "catalog": {
+                        "name": "polaris",
+                        "type": "INTERNAL",
+                        "readOnly": false,
+                        "storageConfigInfo": {
+                            "storageType": "S3",
+                            "endpoint": "%s",
+                            "pathStyleAccess": true,
+                            "region": "%s"
+                        },
+                        "properties": {
+                            "default-base-location": "%s"
+                        }
+                    }
+                }""".formatted(minioInternalAddress, MINIO_REGION, warehouseLocation);
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs"))
                 .setHeader(AUTHORIZATION, "Bearer " + token)
@@ -151,9 +178,15 @@ public final class TestingPolarisCatalog
         return "http://%s:%s".formatted(polarisCatalog.getHost(), polarisCatalog.getMappedPort(POLARIS_PORT));
     }
 
+    public Minio minio()
+    {
+        return minio;
+    }
+
     @Override
     public void close()
+            throws Exception
     {
-        polarisCatalog.close();
+        closer.close();
     }
 }

@@ -5,6 +5,8 @@ In this document you can find information about developing Trino.
 * [Trino organization](#trino-organization)
 * [Trino developer guide](#trino-developer-guide)
 * [Code style](#code-style)
+* [Building](#building)
+* [Branch-scoped local repository](#branch-scoped-local-repository)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building docs](#building-docs)
 * [Building the Web UI](#building-the-web-ui)
@@ -187,6 +189,43 @@ Your build may fail if:
 Many such errors may be fixed automatically by running the following:
 `./mvnw sortpom:sort`
 
+## Building
+
+The fastest way to build and install the whole project:
+
+```bash
+./mvnw clean install -T 2C -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
+```
+
+This builds with two threads per core, skips snapshot update checks, tests, Javadoc, and the
+airbase checks (checkstyle, modernizer, dependency analysis). Run `./mvnw validate` separately
+before opening a PR to get those checks back.
+
+## Branch-scoped local repository
+
+Builds from different branches share `~/.m2/repository` and overwrite each other's installed
+SNAPSHOTs, so a build can silently use jars from another branch. The
+[`branch-scoped-local-repository`](https://github.com/lenaschoenburg/branch-scoped-local-repository)
+extension in [`.mvn/extensions.xml`](../.mvn/extensions.xml) keeps installed artifacts separate per
+branch, so several checkouts or [git worktrees](https://git-scm.com/docs/git-worktree) can build
+and install in parallel without interfering.
+
+It is off by default; enable it per build:
+
+```bash
+./mvnw install -DskipTests -DbranchScopedLocalRepo.enabled=true
+```
+
+Before turning it on:
+
+* Pass the flag on the command line of every build in that checkout. Builds without it see the
+  unscoped artifacts instead.
+* The first build on a branch must be a full `install`, and third-party dependencies are
+  downloaded once more.
+* Worktrees on the same branch are still not isolated from each other.
+* Nothing prunes these artifacts, so delete `~/.m2/repository/installed/<branch>/` once the work on
+  a branch is finished.
+
 ## Additional IDE configuration
 
 When using IntelliJ to develop Trino, we recommend starting with all of the
@@ -260,28 +299,37 @@ the [docs module](../docs).
 
 ## Building the Web UI
 
-The Trino Web UI is composed of several React components and is written in JSX
-and ES6. This source code is compiled and packaged into browser-compatible
-Javascript, which is then checked in to the Trino source code (in the `dist`
-folder). You must have [Node.js](https://nodejs.org/en/download/) and
-[Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update
-this folder after making changes, simply run:
+The Trino Web UI is a React and Vite project located in
+`core/trino-web-ui/src/main/resources/webapp`. You must have
+[Bun](https://bun.sh/docs/installation) installed to execute these
+commands. (Maven builds download Bun automatically, so a local install is only
+needed to run these commands by hand.) Install dependencies with:
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src install
+    cd core/trino-web-ui/src/main/resources/webapp
+    bun install
 
-If no Javascript dependencies have changed (i.e., no changes to `package.json`),
-it is faster to run:
+For fast local development, run the `WebUiQueryRunner` class. This starts a
+minimal Trino development server configured with the Web UI. Then start the Vite
+development server:
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run package
+    bun run dev
 
-To simplify iteration, you can also run in `watch` mode, which automatically
-re-compiles when changes to source files are detected:
+Open `http://localhost:5173/ui` in your browser. The Vite development server
+provides Hot Module Replacement for quick iteration. By default, requests to
+`/ui/auth` and `/ui/api` are proxied to `http://127.0.0.1:8080/`. To use a
+different backend, update `VITE_BASE_URL` in
+`core/trino-web-ui/src/main/resources/webapp/.env.development`.
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run watch
+To build the Web UI locally, run:
 
-To iterate quickly, simply re-build the project in IntelliJ after packaging is
-complete. Project resources will be hot-reloaded and changes are reflected on
-browser refresh.
+    bun run build
+
+To run frontend checks, run:
+
+    bun run check
+
+Maven builds package the Web UI automatically, and Maven verification runs the
+frontend checks.
 
 ## Releases
 

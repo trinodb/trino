@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
-import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
+import io.trino.execution.scheduler.StableHostAddressProvider;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
@@ -60,7 +60,7 @@ class ArbitraryDistributionSplitAssigner
     private final long maxTargetPartitionSizeInBytes;
     private final long standardSplitSizeInBytes;
     private final int maxTaskSplitCount;
-    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
+    private final StableHostAddressProvider stableHostAddressProvider;
 
     private int nextPartitionId;
     private int adaptiveCounter;
@@ -84,7 +84,7 @@ class ArbitraryDistributionSplitAssigner
             long maxTargetPartitionSizeInBytes,
             long standardSplitSizeInBytes,
             int maxTaskSplitCount,
-            ConsistentHashingAddressProvider consistentHashingAddressProvider)
+            StableHostAddressProvider stableHostAddressProvider)
     {
         this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
         this.partitionedSources = ImmutableSet.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
@@ -99,7 +99,7 @@ class ArbitraryDistributionSplitAssigner
         this.maxTargetPartitionSizeInBytes = maxTargetPartitionSizeInBytes;
         this.standardSplitSizeInBytes = standardSplitSizeInBytes;
         this.maxTaskSplitCount = maxTaskSplitCount;
-        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
+        this.stableHostAddressProvider = requireNonNull(stableHostAddressProvider, "stableHostAddressProvider is null");
 
         this.targetPartitionSizeInBytes = minTargetPartitionSizeInBytes;
         this.roundedTargetPartitionSizeInBytes = minTargetPartitionSizeInBytes;
@@ -370,7 +370,7 @@ class ArbitraryDistributionSplitAssigner
     private NodeRequirements getNodeRequirements(Split split)
     {
         List<HostAddress> preferredAddresses = split.getConnectorSplit().getAffinityKey()
-                .map(consistentHashingAddressProvider::getHosts)
+                .map(stableHostAddressProvider::getHosts)
                 .orElseGet(split::getAddresses);
         if (preferredAddresses.isEmpty()) {
             checkArgument(split.isRemotelyAccessible(), "split is not remotely accessible but the list of hosts is empty: %s", split);

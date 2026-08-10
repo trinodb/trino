@@ -52,6 +52,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.Duration.ZERO;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
@@ -122,7 +123,7 @@ public class TestTrinoNessieCatalog
                 TESTING_TYPE_MANAGER,
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient),
+                new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient, ENCRYPTION_MANAGER_FACTORY),
                 nessieClient,
                 tmpDirectory.toAbsolutePath().toString(),
                 useUniqueTableLocations);
@@ -147,7 +148,7 @@ public class TestTrinoNessieCatalog
                 TESTING_TYPE_MANAGER,
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient),
+                new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient, ENCRYPTION_MANAGER_FACTORY),
                 nessieClient,
                 icebergNessieCatalogConfig.getDefaultWarehouseDir(),
                 false);
@@ -176,6 +177,14 @@ public class TestTrinoNessieCatalog
     public void testView()
     {
         assertThatThrownBy(super::testView)
+                .hasMessageContaining("createView is not supported for Iceberg Nessie catalogs");
+    }
+
+    @Test
+    @Override
+    public void testViewNamespaceFilter()
+    {
+        assertThatThrownBy(super::testViewNamespaceFilter)
                 .hasMessageContaining("createView is not supported for Iceberg Nessie catalogs");
     }
 

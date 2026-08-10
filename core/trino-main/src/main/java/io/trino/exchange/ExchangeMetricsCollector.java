@@ -15,7 +15,6 @@ package io.trino.exchange;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.execution.QueryManager;
@@ -37,10 +36,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 public class ExchangeMetricsCollector
@@ -79,7 +78,7 @@ public class ExchangeMetricsCollector
 
     public void register(QueryId queryId, Exchange exchange)
     {
-        registry.computeIfAbsent(queryId, _ -> Sets.newConcurrentHashSet())
+        registry.computeIfAbsent(queryId, _ -> ConcurrentHashMap.newKeySet())
                 .add(exchange);
     }
 
@@ -90,7 +89,7 @@ public class ExchangeMetricsCollector
             return ImmutableMap.of();
         }
         return exchanges.stream()
-                .collect(toMap(
+                .collect(toImmutableMap(
                         Exchange::getId,
                         Exchange::getMetrics));
     }

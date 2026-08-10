@@ -110,7 +110,7 @@ public final class TypeDescriptorTranslator
     public static TypeDescriptor parseTypeDescriptor(String signature)
     {
         try {
-            return toTypeDescriptor(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)));
+            return toTypeDescriptor(DATA_TYPE_CACHE.get(signature, () -> parseDataType(signature)));
         }
         catch (Exception e) {
             if (e.getCause() != null) {

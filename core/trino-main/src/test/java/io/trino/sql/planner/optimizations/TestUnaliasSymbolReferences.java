@@ -48,6 +48,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -148,7 +149,7 @@ public class TestUnaliasSymbolReferences
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
             PlanBuilder planBuilder = new PlanBuilder(idAllocator, planTester.getPlannerContext(), session);
 
-            SymbolAllocator symbolAllocator = new SymbolAllocator();
+            SymbolAllocator symbolAllocator = emptySymbolAllocator();
             PlanNode plan = planCreator.create(planBuilder, session, metadata);
             PlanNode optimized = optimizer.optimize(
                     plan,

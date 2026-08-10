@@ -100,10 +100,10 @@ export const CodeBlock = (props: ICodeBlockProps) => {
 
     return (
         <Box
-            display="flex"
-            flexDirection="column"
-            flexGrow={1}
             sx={(theme) => ({
+                display: 'flex',
+                flexDirection: 'column',
+                flexGrow: 1,
                 padding: 0,
                 borderRadius: 0,
                 border: `1px solid ${theme.palette.mode === 'dark' ? '#3f3f3f' : '#ddd'}`,

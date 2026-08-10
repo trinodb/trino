@@ -54,7 +54,7 @@ public class SpecializeCastWithJsonParse
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Cast(Call call, Type type) &&
+        if (expression instanceof Cast(Call call, Type type, _) &&
                 call.function().name().equals(builtinFunctionName("json_parse"))) {
             Expression string = call.arguments().getFirst();
             return switch (type) {

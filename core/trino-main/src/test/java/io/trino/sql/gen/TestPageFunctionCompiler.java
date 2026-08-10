@@ -78,6 +78,7 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.slice.Slices.allocate;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -85,7 +86,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.gen.RowConstructorCodeGenerator.MEGAMORPHIC_FIELD_COUNT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -287,6 +290,66 @@ public class TestPageFunctionCompiler
         Page page = createLongBlockPage(0);
         Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
         assertThat(hiddenType.getObjectValue(result, 0)).isEqualTo(42);
+    }
+
+    @Test
+    void testFilterWithLargeInputBackedRow()
+    {
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT + 1;
+        Reference input = new Reference(BIGINT, "$col_0");
+        Row row = new Row(nCopies(fieldCount, input), RowType.anonymous(nCopies(fieldCount, BIGINT)));
+        Expression filter = comparison(GREATER_THAN, new FieldReference(row, fieldCount - 1), new Constant(BIGINT, 2L));
+
+        PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileFilter(filter, ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0), Optional.empty())
+                .get();
+
+        Page page = createLongBlockPage(0, 1, 2, 3, 4);
+        SourcePage inputPage = compiled.getInputChannels().getInputChannels(SourcePage.create(page));
+        assertThat(compiled.filter(SESSION, inputPage).size()).isEqualTo(2);
+    }
+
+    @Test
+    public void testLargeRowConstructorWithBulkyFields()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/30311: partial row constructor
+        // methods were packed by a fixed field count, so a batch of fields with bulky initialization
+        // bytecode (e.g. nested rows over varchar values) exceeded the 64KB JVM method size limit
+        int fieldCount = 120;
+        RowType nestedRowType = RowType.anonymous(nCopies(8, VARCHAR));
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, nestedRowType));
+
+        Expression nestedRow = new Row(nCopies(8, new Reference(VARCHAR, "$col_0")), nestedRowType);
+        Expression row = new Row(nCopies(fieldCount, nestedRow), rowType);
+
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0), Optional.empty())
+                .get();
+
+        Page page = new Page(createStringsBlock("abc", "xyz"));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(result.getPositionCount()).isEqualTo(2);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(nCopies(fieldCount, nCopies(8, "abc")));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(nCopies(fieldCount, nCopies(8, "xyz")));
+    }
+
+    @Test
+    public void testCompiledClassesAreHidden()
+            throws ReflectiveOperationException
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
+
+        PageProjection projection = compiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty()).get();
+        Field workFactoryField = projection.getClass().getDeclaredField("pageProjectionWorkFactory");
+        workFactoryField.setAccessible(true);
+        Class<?> workClass = ((MethodHandle) workFactoryField.get(projection)).type().returnType();
+        assertThat(workClass.isHidden()).isTrue();
+        // names are stable unless class dumping is enabled; the JVM appends the unique suffix
+        assertThat(workClass.getName()).matches("io\\.trino\\.\\$gen\\.PageProjectionWork/0x[0-9a-f]+");
+
+        Expression filter = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
+        PageFilter pageFilter = compiler.compileFilter(filter, LAYOUT, Optional.empty()).get();
+        assertThat(pageFilter.getClass().isHidden()).isTrue();
     }
 
     @Test

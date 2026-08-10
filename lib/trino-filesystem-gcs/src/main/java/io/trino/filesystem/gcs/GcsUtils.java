@@ -78,7 +78,7 @@ public class GcsUtils
         readChannel.setChunkSize(readBlockSize);
         readChannel.seek(position);
         if (limit.isPresent()) {
-            return readChannel.limit(limit.getAsLong());
+            return readChannel.limit(limit.orElseThrow());
         }
         return readChannel;
     }

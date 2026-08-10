@@ -29,7 +29,8 @@ public record FilesTableSplit(
         String metadataTableJson,
         Map<Integer, String> partitionSpecsByIdJson,
         Optional<Type> partitionColumnType,
-        Optional<Type> boundsColumnType)
+        Optional<Type> boundsColumnType,
+        Optional<String> encryptionKeyId)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(FilesTableSplit.class);

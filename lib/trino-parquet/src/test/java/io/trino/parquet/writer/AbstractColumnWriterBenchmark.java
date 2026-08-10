@@ -13,12 +13,15 @@
  */
 package io.trino.parquet.writer;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
+import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.values.bloomfilter.AdaptiveBlockSplitBloomFilter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.schema.PrimitiveType;
@@ -34,12 +37,12 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.parquet.writer.ParquetWriters.getValueWriter;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -81,10 +84,10 @@ public abstract class AbstractColumnWriterBenchmark
         abstract Optional<BloomFilter> getBloomFilter(ColumnDescriptor columnDescriptor);
     }
 
-    // Parquet pages are usually about 1MB
-    private static final int DATA_GENERATION_BATCH_SIZE = 16384;
+    private static final DataSize MAX_PAGE_SIZE = DataSize.of(1, MEGABYTE);
+    private static final int DATA_GENERATION_BATCH_SIZE = 8192;
+    private static final int BLOCK_COUNT = 32;
 
-    private PrimitiveValueWriter writer;
     private List<Block> blocks;
 
     protected abstract Type getTrinoType();
@@ -97,7 +100,7 @@ public abstract class AbstractColumnWriterBenchmark
     {
         TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(
                 ParquetWriterOptions.builder()
-                        .setMaxPageSize(DataSize.ofBytes(1024 * 1024))
+                        .setMaxPageSize(MAX_PAGE_SIZE)
                         .setUseDeltaLengthByteArrayEncoding(false)
                         .build(),
                 maxDictionaryPageSize);
@@ -107,20 +110,39 @@ public abstract class AbstractColumnWriterBenchmark
 
     @Setup
     public void setup()
-            throws IOException
     {
-        this.blocks = IntStream.range(0, 2).boxed().map(_ -> generateBlock(DATA_GENERATION_BATCH_SIZE)).collect(Collectors.toList());
-        this.writer = createValuesWriter();
+        this.blocks = IntStream.range(0, BLOCK_COUNT).boxed()
+                .map(_ -> generateBlock(DATA_GENERATION_BATCH_SIZE))
+                .collect(toImmutableList());
     }
 
     @Benchmark
-    public void write()
-            throws IOException
+    public List<BytesInput> write()
     {
-        for (Block block : blocks) {
-            writer.write(block);
+        ImmutableList.Builder<BytesInput> output = ImmutableList.builder();
+        try (PrimitiveValueWriter writer = createValuesWriter()) {
+            for (Block block : blocks) {
+                writer.write(block);
+                if (writer.getEstimatedBufferedSize() >= MAX_PAGE_SIZE.toBytes()) {
+                    output.add(flushPage(writer));
+                }
+            }
+            output.add(flushPage(writer));
+            DictionaryPage dictionaryPage = writer.toDictPageAndClose();
+            if (dictionaryPage != null) {
+                output.add(dictionaryPage.getBytes());
+            }
         }
+        return output.build();
+    }
+
+    private static BytesInput flushPage(PrimitiveValueWriter writer)
+    {
+        BytesInput pageBytes = writer.getBytes();
+        // getEncoding records whether the page used the dictionary and has to be called between getBytes and reset
+        writer.getEncoding();
         writer.reset();
+        return pageBytes;
     }
 
     protected static void run(Class<?> clazz)

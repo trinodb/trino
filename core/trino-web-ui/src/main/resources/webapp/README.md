@@ -12,7 +12,7 @@ from `webapp-legacy` and remains available at `/ui/legacy`.
 
 ```
 $ cd core/trino-web-ui/src/main/resources/webapp
-$ npm install
+$ bun install
 ```
 
 3. Run the frontend in development mode. This enables Hot Module Replacement,
@@ -20,7 +20,7 @@ $ npm install
    state.
 
 ```
-$ npm run dev
+$ bun run dev
 
 VITE v7.1.7  ready in 100 ms
 

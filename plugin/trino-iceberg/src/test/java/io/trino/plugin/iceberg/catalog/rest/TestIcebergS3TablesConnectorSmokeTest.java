@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergConnector;
@@ -100,12 +99,6 @@ final class TestIcebergS3TablesConnectorSmokeTest
 
     @Override
     protected boolean locationExists(String location)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
     {
         throw new UnsupportedOperationException();
     }
@@ -234,14 +227,6 @@ final class TestIcebergS3TablesConnectorSmokeTest
     @Test
     @Override // The TrinoFileSystem.deleteDirectory is unsupported
     public void testDropTableWithNonExistentTableLocation() {}
-
-    @Test
-    @Override // BaseIcebergConnectorSmokeTest.isFileSorted method is unsupported
-    public void testSortedNationTable() {}
-
-    @Test
-    @Override // The TrinoFileSystem.deleteFile is unsupported
-    public void testFileSortingWithLargerTable() {}
 
     @Test
     @Override // The procedure is unsupported in S3 Tables

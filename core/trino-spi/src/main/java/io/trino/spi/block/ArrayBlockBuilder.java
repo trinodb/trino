@@ -21,6 +21,12 @@ import java.util.Arrays;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.copyBits;
+import static io.trino.spi.block.Bitmap.hasSetBit;
+import static io.trino.spi.block.Bitmap.hasUnsetBit;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.setBits;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
 import static java.util.Objects.checkIndex;
@@ -40,7 +46,8 @@ public class ArrayBlockBuilder
     private final int initialEntryCount;
 
     private int[] offsets = new int[1];
-    private boolean[] valueIsNull = new boolean[0];
+    @Nullable
+    private long[] valueIsValid;
     private boolean hasNullValue;
     private boolean hasNonNullValue;
 
@@ -212,23 +219,18 @@ public class ArrayBlockBuilder
             offsets[positionCount + i + 1] = offsets[positionCount + i] + entrySize;
         }
 
-        boolean[] rawValueIsNull = arrayBlock.getRawValueIsNull();
-        if (rawValueIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                boolean isNull = rawValueIsNull[rawOffsetBase + offset + i];
-                hasNullValue |= isNull;
-                hasNonNullValue |= !isNull;
-                if (hasNullValue & hasNonNullValue) {
-                    System.arraycopy(rawValueIsNull, rawOffsetBase + offset + i, valueIsNull, positionCount + i, length - i);
-                    break;
-                }
-                else {
-                    valueIsNull[positionCount + i] = isNull;
-                }
+        long[] rawValueIsValid = arrayBlock.getRawValueIsValid();
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, rawOffsetBase + offset, length)) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, length);
             }
+            hasNonNullValue = true;
         }
         else {
-            hasNonNullValue = true;
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, rawOffsetBase + offset, valueIsValid, positionCount, length);
+            hasNullValue = true;
+            hasNonNullValue |= hasSetBit(rawValueIsValid, rawOffsetBase + offset, length);
         }
 
         positionCount += length;
@@ -274,7 +276,13 @@ public class ArrayBlockBuilder
         ensureCapacity(positionCount + 1);
 
         offsets[positionCount + 1] = values.getPositionCount();
-        valueIsNull[positionCount] = isNull;
+        if (isNull) {
+            initializeValidityForFirstNull();
+            clear(valueIsValid, 0, positionCount);
+        }
+        else if (valueIsValid != null) {
+            set(valueIsValid, 0, positionCount);
+        }
         hasNullValue |= isNull;
         hasNonNullValue |= !isNull;
         positionCount++;
@@ -286,7 +294,7 @@ public class ArrayBlockBuilder
 
     private void ensureCapacity(int capacity)
     {
-        if (valueIsNull.length >= capacity) {
+        if (offsets.length > capacity) {
             return;
         }
 
@@ -300,14 +308,27 @@ public class ArrayBlockBuilder
         }
         newSize = max(newSize, capacity);
 
-        valueIsNull = Arrays.copyOf(valueIsNull, newSize);
+        if (valueIsValid != null) {
+            valueIsValid = Bitmap.ensureCapacity(valueIsValid, newSize);
+        }
         offsets = Arrays.copyOf(offsets, newSize + 1);
         updateRetainedSize();
     }
 
+    private boolean initializeValidityForFirstNull()
+    {
+        if (valueIsValid != null) {
+            return false;
+        }
+        valueIsValid = Bitmap.allocateWords(offsets.length - 1, false);
+        setBits(valueIsValid, 0, 0, positionCount);
+        updateRetainedSize();
+        return true;
+    }
+
     private void updateRetainedSize()
     {
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsValid) + sizeOf(offsets);
         if (blockBuilderStatus != null) {
             retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -331,7 +352,7 @@ public class ArrayBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return createArrayBlockInternal(0, positionCount, hasNullValue ? valueIsNull : null, offsets, values.build());
+        return createArrayBlockInternal(0, positionCount, hasNullValue ? valueIsValid : null, offsets, values.build());
     }
 
     @Override
@@ -350,7 +371,7 @@ public class ArrayBlockBuilder
 
     private Block nullRle(int positionCount)
     {
-        ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, values.newBlockBuilderLike(null).build());
+        ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new long[] {0}, new int[] {0, 0}, values.newBlockBuilderLike(null).build());
         return RunLengthEncodedBlock.create(nullValueBlock, positionCount);
     }
 }

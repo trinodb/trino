@@ -356,8 +356,9 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanAlterColumn(BOB, bobTable));
         assertDenied(() -> accessControl.checkCanSetTableProperties(BOB, bobTable, ImmutableMap.of()));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(BOB, testTable, Optional.empty()));
-        assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), Optional.empty(), ImmutableSet.of()));
-        assertDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("secret", "secret"), Optional.empty(), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), Optional.empty(), ImmutableSet.of()), "Cannot select from table secret.secret");
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("secret", "secret"), Optional.empty(), ImmutableSet.of()), "Cannot select from table secret.secret");
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, Optional.empty(), ImmutableSet.of("private", "public")), "Cannot select from columns [private] in table or view bobschema.bobtable");
         assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(JOE, bobTable, ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanRenameView(BOB, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
@@ -900,6 +901,13 @@ public abstract class BaseFileBasedConnectorAccessControlTest
                 .isInstanceOf(AccessDeniedException.class)
                 // TODO test expected message precisely, as in TestFileBasedSystemAccessControl
                 .hasMessageStartingWith("Access Denied");
+    }
+
+    private static void assertDenied(ThrowingRunnable runnable, String expectedMessage)
+    {
+        assertThatThrownBy(runnable::run)
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: " + expectedMessage);
     }
 
     interface ThrowingRunnable

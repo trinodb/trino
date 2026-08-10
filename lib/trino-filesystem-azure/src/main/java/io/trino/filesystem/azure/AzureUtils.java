@@ -51,7 +51,7 @@ final class AzureUtils
     private static boolean isRetryable(Throwable exception)
     {
         OptionalInt statusCode = statusCode(exception);
-        return statusCode.isPresent() && isRetryableStatusCode(statusCode.getAsInt());
+        return statusCode.isPresent() && isRetryableStatusCode(statusCode.orElseThrow());
     }
 
     private static boolean isRetryableStatusCode(int statusCode)

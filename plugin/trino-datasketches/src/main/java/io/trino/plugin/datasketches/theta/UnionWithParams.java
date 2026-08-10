@@ -22,8 +22,11 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("theta_sketch_union")
 public final class UnionWithParams
@@ -31,9 +34,9 @@ public final class UnionWithParams
     private UnionWithParams() {}
 
     @InputFunction
-    public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) Integer nominalEntries, @SqlType(StandardTypes.BIGINT) Long seed)
+    public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) long nominalEntries, @SqlType(StandardTypes.BIGINT) long seed)
     {
-        state.setNominalEntries(nominalEntries);
+        state.setNominalEntries(toIntExact(nominalEntries));
         state.setSeed(seed);
         state.addSketch(inputValue);
     }
@@ -55,6 +58,7 @@ public final class UnionWithParams
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.VARBINARY)
     public static void output(@AggregationState SketchState state, BlockBuilder out)
     {

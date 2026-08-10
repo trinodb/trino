@@ -24,11 +24,13 @@ import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.checkBitRange;
+import static io.trino.spi.block.Bitmap.compactBitmap;
+import static io.trino.spi.block.Bitmap.copyBitmapAndAppendUnset;
+import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.hasNullValue;
 import static java.util.Objects.requireNonNull;
 
 public final class VariantBlock
@@ -39,7 +41,7 @@ public final class VariantBlock
     private final int startOffset;
     private final int positionCount;
     @Nullable
-    private final boolean[] isNull;
+    private final long[] valueIsValid;
     /**
      * Metadata and value blocks have the same position count as this variant block. The field value of a null variant must be null.
      */
@@ -52,38 +54,38 @@ public final class VariantBlock
     /**
      * Creates a variant block directly from metadata and value blocks.
      */
-    public static VariantBlock create(int positionCount, Block metadata, Block values, Optional<boolean[]> isNullOptional)
+    public static VariantBlock create(int positionCount, Block metadata, Block values, Optional<long[]> valueIsValidOptional)
     {
         // verify that field values for null variants are null
-        if (isNullOptional.isPresent()) {
-            boolean[] isNull = isNullOptional.get();
-            checkArrayRange(isNull, 0, positionCount);
-            verifyPositionsAreNull(metadata, isNull, positionCount, "Metadata");
-            verifyPositionsAreNull(values, isNull, positionCount, "Values");
+        if (valueIsValidOptional.isPresent()) {
+            long[] valueIsValid = valueIsValidOptional.get();
+            checkBitRange(valueIsValid, 0, positionCount);
+            verifyPositionsAreNull(metadata, valueIsValid, positionCount, "Metadata");
+            verifyPositionsAreNull(values, valueIsValid, positionCount, "Values");
         }
 
-        return createInternal(0, positionCount, isNullOptional.orElse(null), metadata, values);
+        return createInternal(0, positionCount, valueIsValidOptional.orElse(null), metadata, values);
     }
 
-    private static void verifyPositionsAreNull(Block block, boolean[] isNull, int positionCount, String name)
+    private static void verifyPositionsAreNull(Block block, long[] valueIsValid, int positionCount, String name)
     {
         for (int position = 0; position < positionCount; position++) {
-            if (isNull[position] && !block.isNull(position)) {
+            if (!Bitmap.isSet(valueIsValid, 0, position) && !block.isNull(position)) {
                 throw new IllegalArgumentException("%s for null variant must be null: position %d".formatted(name, position));
             }
         }
     }
 
-    static VariantBlock createInternal(int startOffset, int positionCount, @Nullable boolean[] isNull, Block metadata, Block values)
+    static VariantBlock createInternal(int startOffset, int positionCount, @Nullable long[] valueIsValid, Block metadata, Block values)
     {
-        return new VariantBlock(startOffset, positionCount, isNull, metadata, values);
+        return new VariantBlock(startOffset, positionCount, valueIsValid, metadata, values);
     }
 
     /**
      * Use createInternal or fromMetadataValuesBlocks instead of this method. The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private VariantBlock(int startOffset, int positionCount, @Nullable boolean[] isNull, Block metadata, Block values)
+    private VariantBlock(int startOffset, int positionCount, @Nullable long[] valueIsValid, Block metadata, Block values)
     {
         if (startOffset < 0) {
             throw new IllegalArgumentException("startOffset is negative");
@@ -93,9 +95,7 @@ public final class VariantBlock
             throw new IllegalArgumentException("positionCount is negative");
         }
 
-        if (isNull != null && isNull.length - startOffset < positionCount) {
-            throw new IllegalArgumentException("isNull length is less than positionCount");
-        }
+        checkBitRange(valueIsValid, startOffset, positionCount);
 
         requireNonNull(metadata, "metadata is null");
         requireNonNull(values, "values is null");
@@ -108,7 +108,7 @@ public final class VariantBlock
 
         this.startOffset = startOffset;
         this.positionCount = positionCount;
-        this.isNull = positionCount == 0 ? null : isNull;
+        this.valueIsValid = positionCount == 0 ? null : valueIsValid;
         this.metadata = metadata;
         this.values = values;
     }
@@ -162,19 +162,23 @@ public final class VariantBlock
     @Override
     public boolean mayHaveNull()
     {
-        return isNull != null;
+        return valueIsValid != null;
     }
 
     @Override
     public boolean hasNull()
     {
-        return hasNullValue(isNull, startOffset, positionCount);
+        return Bitmap.hasUnsetBit(valueIsValid, startOffset, positionCount);
     }
 
+    /// Returns raw validity bitmap words using the [Bitmap] encoding, or null if all positions are valid.
+    ///
+    /// The returned array is raw block storage. Use [getValidityBitmap()] unless the caller already has the matching
+    /// raw bit offset.
     @Nullable
-    public boolean[] getRawIsNull()
+    public long[] getRawValueIsValid()
     {
-        return isNull;
+        return valueIsValid;
     }
 
     @Override
@@ -202,7 +206,7 @@ public final class VariantBlock
     {
         long retainedSizeInBytes = this.retainedSizeInBytes;
         if (retainedSizeInBytes < 0) {
-            retainedSizeInBytes = INSTANCE_SIZE + sizeOf(isNull);
+            retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsValid);
             retainedSizeInBytes += metadata.getRetainedSizeInBytes();
             retainedSizeInBytes += values.getRetainedSizeInBytes();
             this.retainedSizeInBytes = retainedSizeInBytes;
@@ -215,8 +219,8 @@ public final class VariantBlock
     {
         consumer.accept(metadata, metadata.getRetainedSizeInBytes());
         consumer.accept(values, values.getRetainedSizeInBytes());
-        if (isNull != null) {
-            consumer.accept(isNull, sizeOf(isNull));
+        if (valueIsValid != null) {
+            consumer.accept(valueIsValid, sizeOf(valueIsValid));
         }
         consumer.accept(this, INSTANCE_SIZE);
     }
@@ -230,16 +234,10 @@ public final class VariantBlock
     @Override
     public VariantBlock copyWithAppendedNull()
     {
-        boolean[] newIsNull = new boolean[positionCount + 1];
-        if (isNull != null) {
-            checkArrayRange(isNull, startOffset, positionCount);
-            System.arraycopy(isNull, startOffset, newIsNull, 0, positionCount);
-        }
-        newIsNull[positionCount] = true;
-
+        long[] newValueIsValid = compactBitmap(copyBitmapAndAppendUnset(valueIsValid, startOffset, positionCount), startOffset, positionCount + 1);
         Block newMetadata = getMetadata().copyWithAppendedNull();
         Block newValues = getValues().copyWithAppendedNull();
-        return new VariantBlock(0, positionCount + 1, newIsNull, newMetadata, newValues);
+        return new VariantBlock(0, positionCount + 1, newValueIsValid, newMetadata, newValues);
     }
 
     @Override
@@ -250,21 +248,20 @@ public final class VariantBlock
         Block newMetadata = copyBlockPositions(positions, offset, length, metadata, startOffset, positionCount);
         Block newValues = copyBlockPositions(positions, offset, length, values, startOffset, positionCount);
 
-        boolean[] newIsNull = null;
-        if (isNull != null) {
-            boolean hasNull = false;
-            newIsNull = new boolean[length];
+        long[] newValueIsValid = null;
+        if (valueIsValid != null) {
+            newValueIsValid = new long[Bitmap.wordsForBits(length)];
             for (int i = 0; i < length; i++) {
-                boolean isNull = this.isNull[startOffset + positions[offset + i]];
-                newIsNull[i] = isNull;
-                hasNull |= isNull;
+                if (Bitmap.isSet(valueIsValid, startOffset, positions[offset + i])) {
+                    set(newValueIsValid, 0, i);
+                }
             }
-            if (!hasNull) {
-                newIsNull = null;
+            if (!Bitmap.hasUnsetBit(newValueIsValid, 0, length)) {
+                newValueIsValid = null;
             }
         }
 
-        return new VariantBlock(0, length, newIsNull, newMetadata, newValues);
+        return new VariantBlock(0, length, newValueIsValid, newMetadata, newValues);
     }
 
     private static Block copyBlockPositions(int[] positions, int offset, int length, Block block, int blockOffset, int blockLength)
@@ -282,7 +279,7 @@ public final class VariantBlock
     {
         checkValidRegion(positionCount, positionOffset, length);
 
-        return new VariantBlock(startOffset + positionOffset, length, isNull, metadata, values);
+        return new VariantBlock(startOffset + positionOffset, length, valueIsValid, metadata, values);
     }
 
     @Override
@@ -304,11 +301,11 @@ public final class VariantBlock
         Block newMetadata = metadata.copyRegion(startOffset + positionOffset, length);
         Block newValues = values.copyRegion(startOffset + positionOffset, length);
 
-        boolean[] newIsNull = isNull == null ? null : compactArray(isNull, startOffset + positionOffset, length);
-        if (startOffset == 0 && newIsNull == isNull && metadata == newMetadata && values == newValues) {
+        long[] newValueIsValid = compactBitmap(valueIsValid, startOffset + positionOffset, length);
+        if (startOffset == 0 && newValueIsValid == valueIsValid && metadata == newMetadata && values == newValues) {
             return this;
         }
-        return new VariantBlock(0, length, newIsNull, newMetadata, newValues);
+        return new VariantBlock(0, length, newValueIsValid, newMetadata, newValues);
     }
 
     public Variant getVariant(int position)
@@ -334,8 +331,8 @@ public final class VariantBlock
 
         Block newMetadata = metadata.getSingleValueBlock(startOffset + position);
         Block newValues = values.getSingleValueBlock(startOffset + position);
-        boolean[] newIsNull = isNull(position) ? new boolean[] {true} : null;
-        return new VariantBlock(0, 1, newIsNull, newMetadata, newValues);
+        long[] newValueIsValid = isNull(position) ? new long[] {0} : null;
+        return new VariantBlock(0, 1, newValueIsValid, newMetadata, newValues);
     }
 
     @Override
@@ -358,7 +355,7 @@ public final class VariantBlock
             return false;
         }
         checkValidPosition(position, positionCount);
-        return isNull[startOffset + position];
+        return !Bitmap.isSet(valueIsValid, startOffset, position);
     }
 
     public record VariantNestedBlocks(Block metadataBlock, Block valueBlock)
@@ -459,8 +456,11 @@ public final class VariantBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(isNull, startOffset, positionCount);
+        if (valueIsValid == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new Bitmap(valueIsValid, startOffset, positionCount));
     }
 }

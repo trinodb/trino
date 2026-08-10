@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.trino.operator.ParametricImplementation;
 import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
@@ -98,7 +99,8 @@ public class ParametricAggregationImplementation
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
-            List<AggregationParameterKind> inputParameterKinds)
+            List<AggregationParameterKind> inputParameterKinds,
+            boolean returnNullable)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
@@ -112,7 +114,7 @@ public class ParametricAggregationImplementation
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
         this.inputParameterKinds = requireNonNull(inputParameterKinds, "inputParameterKinds cannot be null");
         this.functionNullability = new FunctionNullability(
-                true,
+                returnNullable,
                 inputParameterKinds.stream()
                         .filter(parameterType -> parameterType != BLOCK_INDEX && parameterType != STATE)
                         .map(NULLABLE_BLOCK_INPUT_CHANNEL::equals)
@@ -219,6 +221,7 @@ public class ParametricAggregationImplementation
         private final List<ImplementationDependency> combineDependencies;
         private final List<ImplementationDependency> outputDependencies;
         private final List<AggregationParameterKind> inputParameterKinds;
+        private final boolean returnNullable;
 
         private final Signature.Builder signatureBuilder = Signature.builder();
 
@@ -277,6 +280,8 @@ public class ParametricAggregationImplementation
             inputHandle = methodHandle(inputFunction);
             combineHandle = combineFunction.map(Reflection::methodHandle);
             outputHandle = methodHandle(outputFunction);
+            // Follows the scalar convention: the result is non-null unless the output method is annotated @SqlNullable
+            returnNullable = outputFunction.isAnnotationPresent(SqlNullable.class);
 
             this.windowAccumulator = windowAccumulator;
         }
@@ -294,7 +299,8 @@ public class ParametricAggregationImplementation
                     inputDependencies,
                     combineDependencies,
                     outputDependencies,
-                    inputParameterKinds);
+                    inputParameterKinds,
+                    returnNullable);
         }
 
         public static ParametricAggregationImplementation parseImplementation(
@@ -337,6 +343,14 @@ public class ParametricAggregationImplementation
                 else if (baseTypeAnnotation instanceof SqlType) {
                     boolean isParameterBlock = isParameterBlock(annotations[i]);
                     boolean isParameterNullable = isParameterNullable(annotations[i]);
+                    if (!isParameterBlock && !isParameterNullable) {
+                        Class<?> parameterType = method.getParameterTypes()[i];
+                        checkArgument(
+                                parameterType == Void.class || !Primitives.isWrapperType(parameterType),
+                                "%s contains an input parameter with boxed primitive type %s; a non-nullable aggregation input parameter must use the corresponding primitive type",
+                                methodName,
+                                parameterType.getSimpleName());
+                    }
                     builder.add(getInputParameterKind(isParameterNullable, isParameterBlock, methodName));
                 }
                 else if (baseTypeAnnotation instanceof BlockIndex) {

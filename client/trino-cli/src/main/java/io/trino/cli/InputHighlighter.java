@@ -21,7 +21,6 @@ import org.jline.reader.Highlighter;
 import org.jline.reader.LineReader;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStringBuilder;
-import org.jline.utils.AttributedStyle;
 
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -30,25 +29,21 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cli.Console.STATEMENT_DELIMITERS;
 import static io.trino.grammar.sql.SqlKeywords.sqlKeywords;
 import static java.util.Locale.ENGLISH;
-import static org.jline.utils.AttributedStyle.BOLD;
-import static org.jline.utils.AttributedStyle.BRIGHT;
-import static org.jline.utils.AttributedStyle.CYAN;
-import static org.jline.utils.AttributedStyle.DEFAULT;
-import static org.jline.utils.AttributedStyle.GREEN;
-import static org.jline.utils.AttributedStyle.RED;
+import static java.util.Objects.requireNonNull;
 
 public class InputHighlighter
         implements Highlighter
 {
-    private static final AttributedStyle KEYWORD_STYLE = BOLD;
-    private static final AttributedStyle STRING_STYLE = DEFAULT.foreground(GREEN);
-    private static final AttributedStyle NUMBER_STYLE = DEFAULT.foreground(CYAN);
-    private static final AttributedStyle COMMENT_STYLE = DEFAULT.foreground(BRIGHT).italic();
-    private static final AttributedStyle ERROR_STYLE = DEFAULT.foreground(RED);
-
     private static final Set<String> KEYWORDS = sqlKeywords().stream()
             .map(keyword -> keyword.toLowerCase(ENGLISH))
             .collect(toImmutableSet());
+
+    private final Theme theme;
+
+    public InputHighlighter(Theme theme)
+    {
+        this.theme = requireNonNull(theme, "theme is null");
+    }
 
     @Override
     public AttributedString highlight(LineReader reader, String buffer)
@@ -67,19 +62,19 @@ public class InputHighlighter
 
             if (error || (type == SqlBaseLexer.UNRECOGNIZED)) {
                 error = true;
-                builder.styled(ERROR_STYLE, text);
+                builder.styled(theme.error(), text);
             }
             else if (isKeyword(text)) {
-                builder.styled(KEYWORD_STYLE, text);
+                builder.styled(theme.keyword(), text);
             }
             else if (isString(type)) {
-                builder.styled(STRING_STYLE, text);
+                builder.styled(theme.string(), text);
             }
             else if (isNumber(type)) {
-                builder.styled(NUMBER_STYLE, text);
+                builder.styled(theme.number(), text);
             }
             else if (isComment(type)) {
-                builder.styled(COMMENT_STYLE, text);
+                builder.styled(theme.comment(), text);
             }
             else {
                 builder.append(text);

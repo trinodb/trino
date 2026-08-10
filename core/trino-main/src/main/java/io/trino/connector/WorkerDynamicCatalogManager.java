@@ -20,6 +20,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -63,6 +64,7 @@ public class WorkerDynamicCatalogManager
     private static final Logger log = Logger.get(WorkerDynamicCatalogManager.class);
 
     private final CatalogFactory catalogFactory;
+    private final CacheManagerRegistry cacheManagerRegistry;
 
     private final ReadWriteLock catalogsLock = new ReentrantReadWriteLock();
     private final Lock catalogLoadingLock = catalogsLock.readLock();
@@ -74,9 +76,10 @@ public class WorkerDynamicCatalogManager
     private boolean stopped;
 
     @Inject
-    public WorkerDynamicCatalogManager(CatalogFactory catalogFactory)
+    public WorkerDynamicCatalogManager(CatalogFactory catalogFactory, CacheManagerRegistry cacheManagerRegistry)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
     }
 
     @PreDestroy
@@ -198,6 +201,11 @@ public class WorkerDynamicCatalogManager
         finally {
             catalogRemovingLock.unlock();
         }
+
+        // A catalog is pruned only once it is no longer reachable from the coordinator, so this is
+        // the worker-side equivalent of dropCatalog: drop its cached blobs so a later catalog reusing
+        // the same name (a rewritten table under an identical location) cannot read stale bytes.
+        removedCatalogs.forEach(removedCatalog -> cacheManagerRegistry.drop(removedCatalog.getCatalogHandle().getCatalogName()));
 
         removedCatalogs.forEach(removedCatalog -> Futures.submit(
                 () -> {

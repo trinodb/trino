@@ -23,15 +23,16 @@ import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.checkBitRange;
+import static io.trino.spi.block.Bitmap.compactBitmap;
+import static io.trino.spi.block.Bitmap.copyBitmapAndAppendUnset;
+import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
-import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
-import static io.trino.spi.block.BlockUtil.hasNullValue;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
 import static java.lang.String.format;
@@ -48,7 +49,7 @@ public final class MapBlock
     private final int positionCount;
 
     @Nullable
-    private final boolean[] mapIsNull;
+    private final long[] valueIsValid;
     private final int[] offsets;
     private final Block keyBlock;
     private final Block valueBlock;
@@ -63,30 +64,30 @@ public final class MapBlock
      * A null map must have no entries.
      */
     public static MapBlock fromKeyValueBlock(
-            Optional<boolean[]> mapIsNull,
+            Optional<long[]> valueIsValid,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
             MapType mapType)
     {
-        return fromKeyValueBlock(mapIsNull, offsets, offsets.length - 1, keyBlock, valueBlock, mapType);
+        return fromKeyValueBlock(valueIsValid, offsets, offsets.length - 1, keyBlock, valueBlock, mapType);
     }
 
     public static MapBlock fromKeyValueBlock(
-            Optional<boolean[]> mapIsNull,
+            Optional<long[]> valueIsValid,
             int[] offsets,
             int mapCount,
             Block keyBlock,
             Block valueBlock,
             MapType mapType)
     {
-        validateConstructorArguments(mapType, 0, mapCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
+        validateConstructorArguments(mapType, 0, mapCount, valueIsValid.orElse(null), offsets, keyBlock, valueBlock);
 
         return createMapBlockInternal(
                 mapType,
                 0,
                 mapCount,
-                mapIsNull,
+                valueIsValid,
                 offsets,
                 keyBlock,
                 valueBlock,
@@ -102,22 +103,22 @@ public final class MapBlock
             MapType mapType,
             int startOffset,
             int positionCount,
-            Optional<boolean[]> mapIsNull,
+            Optional<long[]> valueIsValid,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
             MapHashTables hashTables)
     {
-        validateConstructorArguments(mapType, startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
+        validateConstructorArguments(mapType, startOffset, positionCount, valueIsValid.orElse(null), offsets, keyBlock, valueBlock);
         requireNonNull(hashTables, "hashTables is null");
-        return new MapBlock(mapType, startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, hashTables);
+        return new MapBlock(mapType, startOffset, positionCount, valueIsValid.orElse(null), offsets, keyBlock, valueBlock, hashTables);
     }
 
     private static void validateConstructorArguments(
             MapType mapType,
             int startOffset,
             int positionCount,
-            @Nullable boolean[] mapIsNull,
+            @Nullable long[] valueIsValid,
             int[] offsets,
             Block keyBlock,
             Block valueBlock)
@@ -130,9 +131,7 @@ public final class MapBlock
             throw new IllegalArgumentException("positionCount is negative");
         }
 
-        if (mapIsNull != null && mapIsNull.length - startOffset < positionCount) {
-            throw new IllegalArgumentException("isNull length is less than positionCount");
-        }
+        checkBitRange(valueIsValid, startOffset, positionCount);
 
         requireNonNull(offsets, "offsets is null");
         if (offsets.length - startOffset < positionCount + 1) {
@@ -156,7 +155,7 @@ public final class MapBlock
             MapType mapType,
             int startOffset,
             int positionCount,
-            @Nullable boolean[] mapIsNull,
+            @Nullable long[] valueIsValid,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
@@ -171,7 +170,7 @@ public final class MapBlock
 
         this.startOffset = startOffset;
         this.positionCount = positionCount;
-        this.mapIsNull = mapIsNull;
+        this.valueIsValid = valueIsValid;
         this.offsets = offsets;
         this.keyBlock = keyBlock;
         this.valueBlock = valueBlock;
@@ -182,7 +181,7 @@ public final class MapBlock
                 (Integer.BYTES + Byte.BYTES) * (long) this.positionCount +
                 calculateSize(keyBlock);
 
-        this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(offsets) + sizeOf(mapIsNull);
+        this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(offsets) + sizeOf(valueIsValid);
     }
 
     public Block getKeyBlock()
@@ -209,10 +208,14 @@ public final class MapBlock
         return valueBlock;
     }
 
+    /// Returns raw validity bitmap words using the [Bitmap] encoding, or null if all positions are valid.
+    ///
+    /// The returned array is raw block storage. Use [getValidityBitmap()] unless the caller already has the matching
+    /// raw bit offset.
     @Nullable
-    public boolean[] getRawMapIsNull()
+    public long[] getRawValueIsValid()
     {
-        return mapIsNull;
+        return valueIsValid;
     }
 
     MapHashTables getHashTables()
@@ -233,13 +236,13 @@ public final class MapBlock
     @Override
     public boolean mayHaveNull()
     {
-        return mapIsNull != null;
+        return valueIsValid != null;
     }
 
     @Override
     public boolean hasNull()
     {
-        return hasNullValue(mapIsNull, startOffset, positionCount);
+        return Bitmap.hasUnsetBit(valueIsValid, startOffset, positionCount);
     }
 
     @Override
@@ -278,8 +281,8 @@ public final class MapBlock
         consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
         consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
-        if (mapIsNull != null) {
-            consumer.accept(mapIsNull, sizeOf(mapIsNull));
+        if (valueIsValid != null) {
+            consumer.accept(valueIsValid, sizeOf(valueIsValid));
         }
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
         consumer.accept(this, INSTANCE_SIZE);
@@ -293,20 +296,20 @@ public final class MapBlock
 
     void ensureHashTableLoaded()
     {
-        hashTables.buildAllHashTablesIfNecessary(keyBlock, offsets, mapIsNull);
+        hashTables.buildAllHashTablesIfNecessary(keyBlock, offsets, valueIsValid);
     }
 
     @Override
     public MapBlock copyWithAppendedNull()
     {
-        boolean[] newMapIsNull = copyIsNullAndAppendNull(mapIsNull, startOffset, getPositionCount());
+        long[] newValueIsValid = copyBitmapAndAppendUnset(valueIsValid, startOffset, getPositionCount());
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, startOffset, getPositionCount());
 
         return createMapBlockInternal(
                 getMapType(),
                 startOffset,
                 getPositionCount() + 1,
-                Optional.of(newMapIsNull),
+                Optional.of(newValueIsValid),
                 newOffsets,
                 keyBlock,
                 valueBlock,
@@ -329,22 +332,22 @@ public final class MapBlock
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean hasNull = false;
-        boolean[] newMapIsNull = null;
-        if (mapIsNull != null) {
-            newMapIsNull = new boolean[length];
+        long[] newValueIsValid = null;
+        if (valueIsValid != null) {
+            newValueIsValid = new long[Bitmap.wordsForBits(length)];
         }
 
         IntArrayList entriesPositions = new IntArrayList();
         int newPosition = 0;
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
-            if (mapIsNull != null && mapIsNull[position + startOffset]) {
-                hasNull = true;
-                newMapIsNull[newPosition] = true;
+            if (valueIsValid != null && !Bitmap.isSet(valueIsValid, startOffset, position)) {
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
             }
             else {
+                if (newValueIsValid != null) {
+                    set(newValueIsValid, 0, newPosition);
+                }
                 int entriesStartOffset = getOffset(position);
                 int entriesEndOffset = getOffset(position + 1);
                 int entryCount = entriesEndOffset - entriesStartOffset;
@@ -356,9 +359,6 @@ public final class MapBlock
                 }
             }
             newPosition++;
-        }
-        if (!hasNull) {
-            newMapIsNull = null;
         }
 
         int[] rawHashTables = hashTables.tryGet().orElse(null);
@@ -384,7 +384,7 @@ public final class MapBlock
                 mapType,
                 0,
                 length,
-                Optional.ofNullable(newMapIsNull),
+                Optional.ofNullable(Bitmap.hasUnsetBit(newValueIsValid, 0, length) ? newValueIsValid : null),
                 newOffsets,
                 newKeys,
                 newValues,
@@ -401,7 +401,7 @@ public final class MapBlock
                 mapType,
                 position + startOffset,
                 length,
-                Optional.ofNullable(mapIsNull),
+                Optional.ofNullable(valueIsValid),
                 offsets,
                 keyBlock,
                 valueBlock,
@@ -436,7 +436,7 @@ public final class MapBlock
         Block newValues = valueBlock.copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(offsets, position + startOffset, length);
-        boolean[] newMapIsNull = compactIsNull(mapIsNull, position + startOffset, length);
+        long[] newValueIsValid = compactBitmap(valueIsValid, position + startOffset, length);
         int[] rawHashTables = hashTables.tryGet().orElse(null);
         int[] newRawHashTables = null;
         int expectedNewHashTableEntries = (endValueOffset - startValueOffset) * HASH_MULTIPLIER;
@@ -444,14 +444,14 @@ public final class MapBlock
             newRawHashTables = compactArray(rawHashTables, startValueOffset * HASH_MULTIPLIER, expectedNewHashTableEntries);
         }
 
-        if (newKeys == keyBlock && newValues == valueBlock && newOffsets == offsets && newMapIsNull == mapIsNull && newRawHashTables == rawHashTables) {
+        if (newKeys == keyBlock && newValues == valueBlock && newOffsets == offsets && newValueIsValid == valueIsValid && newRawHashTables == rawHashTables) {
             return this;
         }
         return createMapBlockInternal(
                 mapType,
                 0,
                 length,
-                Optional.ofNullable(newMapIsNull),
+                Optional.ofNullable(newValueIsValid),
                 newOffsets,
                 newKeys,
                 newValues,
@@ -492,7 +492,7 @@ public final class MapBlock
                 mapType,
                 0,
                 1,
-                Optional.of(new boolean[] {isNull(position)}),
+                Optional.ofNullable(isNull(position) ? new long[] {0} : null),
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
@@ -528,7 +528,7 @@ public final class MapBlock
             return false;
         }
         checkValidPosition(position, positionCount);
-        return mapIsNull[position + startOffset];
+        return !Bitmap.isSet(valueIsValid, startOffset, position);
     }
 
     @Override
@@ -538,9 +538,12 @@ public final class MapBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(mapIsNull, startOffset, positionCount);
+        if (valueIsValid == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new Bitmap(valueIsValid, startOffset, positionCount));
     }
 
     // only visible for testing

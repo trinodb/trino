@@ -16,7 +16,6 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -24,15 +23,12 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.cost.StatsAndCosts;
-import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
-import io.trino.execution.QueryManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.metrics.DistributionSnapshot;
 import io.trino.plugin.base.metrics.LongCount;
-import io.trino.server.BasicQueryInfo;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
@@ -78,7 +74,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -88,9 +83,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
@@ -180,7 +173,6 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static java.lang.Thread.currentThread;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -4222,31 +4214,41 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_TABLE));
 
-        String sourceTableName = "test_rename_source_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-
-        String baseTableName = "test_rename_target_" + randomNameSuffix();
-
         int maxLength = maxTableRenameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
+        String baseTableName = "test_rename_target_" + randomNameSuffix();
         String validTargetTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
-        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
-        assertThat(getQueryRunner().tableExists(getSession(), validTargetTableName)).isTrue();
-        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
-        assertUpdate("DROP TABLE " + validTargetTableName);
+        String invalidTargetTableName = validTargetTableName + "z";
+
+        String sourceTableName1 = "test_rename_source_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName1 + " AS SELECT 123 x", 1);
+        try {
+            assertUpdate("ALTER TABLE " + sourceTableName1 + " RENAME TO " + validTargetTableName);
+            assertThat(getQueryRunner().tableExists(getSession(), validTargetTableName)).isTrue();
+            assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + validTargetTableName);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTableName1);
+        }
 
         if (maxTableRenameLength().isEmpty()) {
             return;
         }
 
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-        String invalidTargetTableName = validTargetTableName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
-                .satisfies(this::verifyTableNameLengthFailurePermissible);
-        assertThat(getQueryRunner().tableExists(getSession(), invalidTargetTableName)).isFalse();
-        assertUpdate("DROP TABLE " + sourceTableName);
+        String sourceTableName2 = "test_rename_source_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName2 + " AS SELECT 123 x", 1);
+        try {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName2 + " RENAME TO " + invalidTargetTableName))
+                    .satisfies(this::verifyTableNameLengthFailurePermissible);
+            assertThat(getQueryRunner().tableExists(getSession(), invalidTargetTableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + invalidTargetTableName);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTableName2);
+        }
     }
 
     protected OptionalInt maxTableNameLength()
@@ -6015,66 +6017,6 @@ public abstract class BaseConnectorTest
             assertUpdate("TRUNCATE TABLE " + table.getName());
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
         }
-    }
-
-    @Test
-    public void testQueryLoggingCount()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-
-        QueryManager queryManager = getDistributedQueryRunner().getCoordinator().getQueryManager();
-        executeExclusively(() -> {
-            assertEventually(
-                    new Duration(1, MINUTES),
-                    () -> assertThat(queryManager.getQueries().stream()
-                            .map(BasicQueryInfo::getQueryId)
-                            .map(queryManager::getFullQueryInfo)
-                            .filter(info -> !info.isFinalQueryInfo())
-                            .collect(toList())).isEqualTo(ImmutableList.of()));
-
-            // We cannot simply get the number of completed queries as soon as all the queries are completed, because this counter may not be up-to-date at that point.
-            // The completed queries counter is updated in a final query info listener, which is called eventually.
-            // Therefore, here we wait until the value of this counter gets stable.
-
-            DispatchManager dispatchManager = getQueryRunner().getCoordinator().getDispatchManager();
-            long beforeCompletedQueriesCount = waitUntilStable(() -> dispatchManager.getStats().getCompletedQueries().getTotalCount(), new Duration(5, SECONDS));
-            long beforeSubmittedQueriesCount = dispatchManager.getStats().getSubmittedQueries().getTotalCount();
-            String tableName = "test_logging_count" + randomNameSuffix();
-            assertUpdate("CREATE TABLE " + tableName + tableDefinitionForQueryLoggingCount());
-            assertQueryReturnsEmptyResult("SELECT foo_1, foo_2_4 FROM " + tableName);
-            assertUpdate("DROP TABLE " + tableName);
-            assertQueryFails("SELECT * FROM " + tableName, ".*Table .* does not exist");
-
-            // TODO: Figure out a better way of synchronization
-            assertEventually(
-                    new Duration(1, MINUTES),
-                    () -> assertThat(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount).isEqualTo(4));
-            assertThat(dispatchManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmittedQueriesCount).isEqualTo(4);
-        });
-    }
-
-    /**
-     * The table must have two columns foo_1 and foo_2_4 of any type.
-     */
-    @Language("SQL")
-    protected String tableDefinitionForQueryLoggingCount()
-    {
-        return "(foo_1 int, foo_2_4 int)";
-    }
-
-    private <T> T waitUntilStable(Supplier<T> computation, Duration timeout)
-    {
-        T lastValue = computation.get();
-        long start = System.nanoTime();
-        while (!currentThread().isInterrupted() && nanosSince(start).compareTo(timeout) < 0) {
-            sleepUninterruptibly(100, MILLISECONDS);
-            T currentValue = computation.get();
-            if (currentValue.equals(lastValue)) {
-                return currentValue;
-            }
-            lastValue = currentValue;
-        }
-        throw new UncheckedTimeoutException();
     }
 
     @Test

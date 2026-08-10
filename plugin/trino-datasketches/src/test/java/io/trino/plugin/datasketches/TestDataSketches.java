@@ -197,6 +197,39 @@ public class TestDataSketches
         assertThat(estimate).isEqualTo(3d);
     }
 
+    @Test
+    public void testCardinalityExactWithLargeNominalEntries()
+    {
+        int nominalEntries = 2 * DEFAULT_NOMINAL_ENTRIES;
+        String hexSketch = toHexSketch(0, nominalEntries, nominalEntries);
+
+        double estimate = (double) computeScalar(
+                """
+                SELECT theta_sketch_cardinality(theta_sketch_union(sketch, %d, CAST(%d AS BIGINT)))
+                FROM (VALUES (X'%s')) t(sketch)
+                """.formatted(nominalEntries, DEFAULT_UPDATE_SEED, hexSketch));
+
+        assertThat(estimate).isEqualTo(nominalEntries);
+    }
+
+    @Test
+    public void testUnionExactWithLargeNominalEntries()
+    {
+        // Two disjoint sketches, each with DEFAULT_NOMINAL_ENTRIES elements; unioning with K=2*DEFAULT_NOMINAL_ENTRIES
+        // gives enough capacity to retain all values without sampling
+        int unionNominalEntries = 2 * DEFAULT_NOMINAL_ENTRIES;
+        String sketchA = toHexSketch(0, DEFAULT_NOMINAL_ENTRIES, DEFAULT_NOMINAL_ENTRIES);
+        String sketchB = toHexSketch(DEFAULT_NOMINAL_ENTRIES, unionNominalEntries, DEFAULT_NOMINAL_ENTRIES);
+
+        double estimate = (double) computeScalar(
+                """
+                SELECT theta_sketch_cardinality(theta_sketch_union(sketch, %d, CAST(%d AS BIGINT)))
+                FROM (VALUES (X'%s'), (X'%s')) t(sketch)
+                """.formatted(unionNominalEntries, DEFAULT_UPDATE_SEED, sketchA, sketchB));
+
+        assertThat(estimate).isEqualTo(unionNominalEntries);
+    }
+
     private String toHexSketch(int[] data)
     {
         UpdatableThetaSketch sketch = UpdatableThetaSketch.builder()
@@ -205,6 +238,18 @@ public class TestDataSketches
                 .build();
         Arrays.stream(data).forEach(sketch::update);
 
+        return base16().lowerCase().encode(sketch.compact().toByteArray());
+    }
+
+    private static String toHexSketch(int from, int to, int nominalEntries)
+    {
+        UpdatableThetaSketch sketch = UpdatableThetaSketch.builder()
+                .setNominalEntries(nominalEntries)
+                .setSeed(DEFAULT_UPDATE_SEED)
+                .build();
+        for (int i = from; i < to; i++) {
+            sketch.update(i);
+        }
         return base16().lowerCase().encode(sketch.compact().toByteArray());
     }
 

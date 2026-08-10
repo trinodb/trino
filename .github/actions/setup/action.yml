@@ -3,7 +3,7 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 25.0.3
+    default: 25.0.4
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: restore
@@ -48,64 +48,64 @@ runs:
       - name: Configure Docker Hub mirror
         shell: bash
         run: ./.github/bin/configure-docker-hub-mirror.sh
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5.6.0
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
-      - name: Get NodeJS version from parent pom
+      - name: Get Bun version from parent pom
         shell: bash
         run: |
-          node_version=$(grep -m 1 '<dep.frontend-node.version>' "pom.xml" | sed -n 's/.*<dep.frontend-node.version>\(.*\)<\/dep.frontend-node.version>.*/\1/p')
-          if [ -n "$node_version" ]; then
-            echo "node version is $node_version"
-            echo "NODE_VERSION=$node_version" >>${GITHUB_ENV}
+          bun_version=$(grep -m 1 '<dep.frontend-bun.version>' "pom.xml" | sed -n 's/.*<dep.frontend-bun.version>\(.*\)<\/dep.frontend-bun.version>.*/\1/p')
+          if [ -n "$bun_version" ]; then
+            echo "bun version is ${bun_version}"
+            echo "BUN_VERSION=$bun_version" >>${GITHUB_ENV}
             exit 0
           fi
-      - name: Cache and Restore local NodeJS
-        id: cache-nodejs
-        if: ${{ format('{0}', inputs.cache) == 'true' && env.NODE_VERSION != '' }}
-        uses: actions/cache@v5
+      - name: Cache and Restore local Bun
+        id: cache-bun
+        if: ${{ format('{0}', inputs.cache) == 'true' && env.BUN_VERSION != '' }}
+        uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
-          path: .node
-          key: ${{ runner.os }}-nodejs-${{ env.NODE_VERSION }}
+          path: .bun
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}
           restore-keys: |
-            ${{ runner.os }}-nodejs-
-      - name: Restore local NodeJS
-        id: cache_restore-nodejs
-        if: ${{ format('{0}', inputs.cache) == 'restore' && env.NODE_VERSION != '' }}
-        uses: actions/cache/restore@v5
+            ${{ runner.os }}-${{ runner.arch }}-bun-
+      - name: Restore local Bun
+        id: cache_restore-bun
+        if: ${{ format('{0}', inputs.cache) == 'restore' && env.BUN_VERSION != '' }}
+        uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
-          path: .node
-          key: ${{ runner.os }}-nodejs-${{ env.NODE_VERSION }}
+          path: .bun
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}
           restore-keys: |
-            ${{ runner.os }}-nodejs-
-      - name: Cache and Restore npm packages
-        id: cache-npm
-        if: ${{ format('{0}', inputs.cache) == 'true' && env.NODE_VERSION != '' }}
-        uses: actions/cache@v5
+            ${{ runner.os }}-${{ runner.arch }}-bun-
+      - name: Cache and Restore bun packages
+        id: cache-bun-packages
+        if: ${{ format('{0}', inputs.cache) == 'true' && env.BUN_VERSION != '' }}
+        uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.bun
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-
-      - name: Restore npm packages
-        id: cache-restore-npm
-        if: ${{ format('{0}', inputs.cache) == 'restore' && env.NODE_VERSION != '' }}
-        uses: actions/cache/restore@v5
+            ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-
+      - name: Restore bun packages
+        id: cache-restore-bun-packages
+        if: ${{ format('{0}', inputs.cache) == 'restore' && env.BUN_VERSION != '' }}
+        uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.bun
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-
+            ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: ~/.m2/repository
@@ -115,7 +115,7 @@ runs:
       - name: Restore local Maven repo
         id: cache_restore
         if: ${{ format('{0}', inputs.cache) == 'restore' }}
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
           path: ~/.m2/repository
@@ -128,7 +128,7 @@ runs:
       - name: Cache and Restore Maven wrapper
         id: cache-maven-wrapper
         if: ${{ format('{0}', inputs.cache) == 'true' }}
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: ~/.m2/wrapper/dists
@@ -138,7 +138,7 @@ runs:
       - name: Restore Maven wrapper
         id: cache_restore-maven-wrapper
         if: ${{ format('{0}', inputs.cache) == 'restore' }}
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
           path: ~/.m2/wrapper/dists
