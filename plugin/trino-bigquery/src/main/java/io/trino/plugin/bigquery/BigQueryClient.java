@@ -322,7 +322,7 @@ public class BigQueryClient
             return Optional.ofNullable(bigQuery.getTable(remoteTableId));
         }
         catch (BigQueryException e) {
-            log.debug(e, "Failed to get table '%s'", remoteTableId);
+            log.error(e, "Failed to get table '%s'", remoteTableId);
             // getTable method throws an exception in some situations, e.g. wild card tables
             return Optional.empty();
         }
