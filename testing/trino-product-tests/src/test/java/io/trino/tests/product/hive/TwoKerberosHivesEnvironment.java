@@ -20,6 +20,7 @@ import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.trino.TrinoContainer;
 
@@ -29,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -85,6 +87,7 @@ public class TwoKerberosHivesEnvironment
     private static final Logger log = Logger.get(TwoKerberosHivesEnvironment.class);
     private static final Logger hadoop1Log = Logger.get("Hadoop1");
     private static final Logger hadoop2Log = Logger.get("Hadoop2");
+    private static final Duration KERBEROS_HADOOP_STARTUP_TIMEOUT = Duration.ofMinutes(5);
 
     // Hostnames for the two Hadoop clusters
     private static final String HADOOP1_HOST = HadoopContainer.HOST_NAME;  // "hadoop-master"
@@ -239,6 +242,8 @@ public class TwoKerberosHivesEnvironment
         HadoopContainer container = HadoopContainer.withHostName(hostName)
                 .withNetwork(network)
                 .withNetworkAliases(hostName);
+        container.waitingFor(Wait.forLogMessage(".*success: socks-proxy entered RUNNING state.*", 1)
+                .withStartupTimeout(KERBEROS_HADOOP_STARTUP_TIMEOUT));
 
         // Set JAVA_TOOL_OPTIONS so all JVM processes can find krb5.conf
         container.withEnv("JAVA_TOOL_OPTIONS", "-Djava.security.krb5.conf=/etc/krb5.conf");

@@ -21,6 +21,7 @@ import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.trino.TrinoContainer;
 
 import java.io.IOException;
@@ -105,6 +106,7 @@ public class HiveKerberosEnvironment
 {
     private static final Logger log = Logger.get(HiveKerberosEnvironment.class);
     private static final Logger hadoopLog = Logger.get("Hadoop");
+    protected static final Duration KERBEROS_HADOOP_STARTUP_TIMEOUT = Duration.ofMinutes(5);
     private static final Duration HIVE_METASTORE_STARTUP_TIMEOUT = Duration.ofMinutes(2);
     private static final Duration HIVE_METASTORE_STARTUP_POLL_INTERVAL = Duration.ofSeconds(2);
     private static final int HIVE_METASTORE_STABLE_SUCCESS_POLL_COUNT = 3;
@@ -485,6 +487,8 @@ public class HiveKerberosEnvironment
         HadoopContainer container = createKerberosBaseHadoopContainer()
                 .withNetwork(network)
                 .withNetworkAliases(HadoopContainer.HOST_NAME);
+        container.waitingFor(Wait.forLogMessage(".*success: socks-proxy entered RUNNING state.*", 1)
+                .withStartupTimeout(KERBEROS_HADOOP_STARTUP_TIMEOUT));
 
         // Set JAVA_TOOL_OPTIONS so all JVM processes can find krb5.conf
         // This is necessary because supervisord-started services don't inherit
