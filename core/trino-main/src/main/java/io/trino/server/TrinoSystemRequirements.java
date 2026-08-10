@@ -35,6 +35,7 @@ import java.util.Locale;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 final class TrinoSystemRequirements
 {
