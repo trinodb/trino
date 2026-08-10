@@ -36,7 +36,7 @@ public class NessieContainer
         extends GenericContainer<NessieContainer>
 {
     private static final String IMAGE = "ghcr.io/projectnessie/nessie";
-    private static final String VERSION = "0.108.2";
+    private static final String VERSION = "0.108.4";
 
     public static final String HOST_NAME = "nessie-server";
     public static final int NESSIE_PORT = 19120;
