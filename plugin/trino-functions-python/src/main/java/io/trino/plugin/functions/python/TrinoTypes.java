@@ -17,6 +17,8 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
@@ -55,7 +57,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.functions.python.TimeZoneOffset.zoneOffsetMinutes;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -266,8 +267,8 @@ final class TrinoTypes
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> output.writeBytes((Slice) value);
             case StandardTypes.VARCHAR,
-                 StandardTypes.VARBINARY,
-                 StandardTypes.JSON -> writeVariableSlice((Slice) value, output);
+                 StandardTypes.VARBINARY -> writeVariableSlice((Slice) value, output);
+            case StandardTypes.JSON -> writeVariableSlice(JsonItems.toText((Json) value), output);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
         }
     }
@@ -544,10 +545,10 @@ final class TrinoTypes
         return micros;
     }
 
-    private static Slice toJson(Slice value)
+    private static Json toJson(Slice value)
     {
         try {
-            return jsonParse(value);
+            return JsonItems.fromText(value);
         }
         catch (TrinoException e) {
             throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Python function returned invalid JSON value", e);

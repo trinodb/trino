@@ -156,6 +156,7 @@ import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JoinUsing;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
@@ -163,6 +164,7 @@ import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTableColumnDefinition;
 import io.trino.sql.tree.JsonTableDefaultPlan;
@@ -2901,6 +2903,22 @@ class AstBuilder
     }
 
     @Override
+    public Node visitJsonConstructor(SqlBaseParser.JsonConstructorContext context)
+    {
+        Expression jsonInput = (Expression) visit(context.jsonValueExpression().expression());
+
+        JsonFormat inputFormat;
+        if (context.jsonValueExpression().FORMAT() == null) {
+            inputFormat = JSON;
+        }
+        else {
+            inputFormat = getJsonFormat(context.jsonValueExpression().jsonRepresentation());
+        }
+
+        return new JsonConstructor(getLocation(context), jsonInput, inputFormat);
+    }
+
+    @Override
     public Node visitJsonQuery(SqlBaseParser.JsonQueryContext context)
     {
         JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
@@ -3022,6 +3040,39 @@ class AstBuilder
                 (Expression) visit(context.jsonValueExpression().expression()),
                 Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
                         .map(AstBuilder::getJsonFormat));
+    }
+
+    @Override
+    public Node visitJsonSerialize(SqlBaseParser.JsonSerializeContext context)
+    {
+        Expression jsonInput = (Expression) visit(context.jsonValueExpression().expression());
+
+        JsonFormat inputFormat;
+        if (context.jsonValueExpression().FORMAT() == null) {
+            inputFormat = JSON;
+        }
+        else {
+            inputFormat = getJsonFormat(context.jsonValueExpression().jsonRepresentation());
+        }
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        Optional<JsonFormat> jsonOutputFormat = Optional.empty();
+        if (context.FORMAT() != null) {
+            jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
+        }
+
+        JsonSerialize.OnErrorBehavior errorBehavior = (context.errorBehavior != null && context.errorBehavior.NULL() != null)
+                ? JsonSerialize.OnErrorBehavior.NULL
+                : JsonSerialize.OnErrorBehavior.ERROR;
+
+        return new JsonSerialize(
+                getLocation(context),
+                jsonInput,
+                inputFormat,
+                returnedType,
+                jsonOutputFormat,
+                errorBehavior);
     }
 
     @Override

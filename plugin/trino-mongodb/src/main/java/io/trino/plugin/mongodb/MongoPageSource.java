@@ -236,7 +236,7 @@ public class MongoPageSource
                     type.writeObject(output, Decimals.encodeScaledValue(result, decimalType.getScale()));
                 }
             }
-            else if (javaType == Slice.class) {
+            else if (javaType == Slice.class || isJsonType(type)) {
                 writeSlice(output, type, value);
             }
             else if (javaType == Block.class || javaType == SqlMap.class || javaType == SqlRow.class) {

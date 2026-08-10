@@ -19,6 +19,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -33,7 +34,6 @@ import java.util.Optional;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME;
-import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 
 /**
@@ -58,8 +58,8 @@ public class SpecializeTransformWithJsonParse
     {
         if (expression instanceof Call(ResolvedFunction function, List<Expression> arguments)
                 && function.name().functionName().equals(ARRAY_TRANSFORM_NAME)) {
-            if (!(arguments.getFirst() instanceof Call(ResolvedFunction innerFunction, List<Expression> innerArguments)
-                    && innerFunction.name().equals(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME)))) {
+            if (!(arguments.getFirst() instanceof Cast(Call(ResolvedFunction innerFunction, List<Expression> innerArguments), _, _)
+                    && innerFunction.name().equals(builtinFunctionName("json_parse")))) {
                 return Optional.empty();
             }
 

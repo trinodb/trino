@@ -28,7 +28,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -142,7 +141,5 @@ public class TestTryFunction
                 .hasErrorCode(GENERIC_INTERNAL_ERROR);
         assertTrinoExceptionThrownBy(assertions.expression("try(fail('boom'))")::evaluate)
                 .hasErrorCode(GENERIC_USER_ERROR);
-        assertTrinoExceptionThrownBy(assertions.expression("try(json_object('a' : 1, 'a' : 2))")::evaluate)
-                .hasErrorCode(NOT_SUPPORTED);
     }
 }

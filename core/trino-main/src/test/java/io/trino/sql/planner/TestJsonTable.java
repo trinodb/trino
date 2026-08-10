@@ -72,7 +72,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictOutput;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.TableFunctionMatcher.TableArgumentValue.Builder.tableArgument;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static io.trino.type.TestSqlJsonPathTypeSerialization.JSON_PATH_2016;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -85,9 +85,9 @@ public class TestJsonTable
 
     private static final ResolvedFunction JSON_QUERY_FUNCTION = FUNCTIONS.resolveFunction(
             JSON_QUERY_FUNCTION_NAME,
-            fromTypes(JSON_2016, JSON_PATH_2016, JSON_NO_PARAMETERS_ROW_TYPE, TINYINT, TINYINT, TINYINT));
+            fromTypes(JSON, JSON_PATH_2016, JSON_NO_PARAMETERS_ROW_TYPE, TINYINT, TINYINT, TINYINT));
 
-    private static final ResolvedFunction JSON_TO_VARCHAR = FUNCTIONS.resolveFunction("$json_to_varchar", fromTypes(JSON_2016, TINYINT, BOOLEAN));
+    private static final ResolvedFunction JSON_TO_VARCHAR = FUNCTIONS.resolveFunction("$json_to_varchar", fromTypes(JSON, TINYINT, BOOLEAN));
     private static final ResolvedFunction VARCHAR_TO_JSON = FUNCTIONS.resolveFunction("$varchar_to_json", fromTypes(VARCHAR, BOOLEAN));
 
     @Test
@@ -110,7 +110,7 @@ public class TestJsonTable
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
-                                        ImmutableMap.of("formatted_varchar_col", expression(new Call(JSON_TO_VARCHAR, ImmutableList.of(new Reference(JSON_2016, "varchar_col"), new Constant(TINYINT, 1L), FALSE)))),
+                                        ImmutableMap.of("formatted_varchar_col", expression(new Call(JSON_TO_VARCHAR, ImmutableList.of(new Reference(JSON, "varchar_col"), new Constant(TINYINT, 1L), FALSE)))),
                                         tableFunction(
                                                 builder -> builder
                                                         .name("$json_table")
@@ -124,7 +124,7 @@ public class TestJsonTable
                                                 project(
                                                         ImmutableMap.of(
                                                                 "context_item", expression(new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "json_col_coerced"), FALSE))), // apply input function to context item
-                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new Reference(INTEGER, "int_col"), new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "name_coerced"), FALSE)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
+                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new Reference(INTEGER, "int_col"), new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "name_coerced"), FALSE)))), rowType(field("id", INTEGER), field("name", JSON))))), // apply input function to formatted path parameter and gather path parameters in a row
                                                         project(
                                                                 // coerce context item and path parameters (default expressions are evaluated lazily inside $json_value)
                                                                 ImmutableMap.of(
@@ -558,7 +558,7 @@ public class TestJsonTable
         return FUNCTIONS.resolveFunction(
                 JSON_VALUE_FUNCTION_NAME,
                 fromTypes(
-                        JSON_2016,
+                        JSON,
                         JSON_PATH_2016,
                         JSON_NO_PARAMETERS_ROW_TYPE,
                         returnType,
