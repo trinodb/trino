@@ -80,6 +80,7 @@ public class TestQueryManagerConfig
                 .setRequiredWorkersMaxWait(new Duration(5, MINUTES))
                 .setRetryPolicy(RetryPolicy.NONE)
                 .setAllowedRetryPolicies(EnumSet.allOf(RetryPolicy.class))
+                .setRetryPolicyExcludeMetadataOnlyQueries(true)
                 .setQueryRetryAttempts(4)
                 .setTaskRetryAttemptsPerTask(4)
                 .setRetryInitialDelay(new Duration(10, SECONDS))
@@ -166,6 +167,7 @@ public class TestQueryManagerConfig
                 .put("query-manager.required-workers-max-wait", "33m")
                 .put("retry-policy", "QUERY")
                 .put("retry-policy.allowed", "QUERY,TASK")
+                .put("retry-policy.exclude-metadata-only-queries", "false")
                 .put("query-retry-attempts", "0")
                 .put("task-retry-attempts-per-task", "9")
                 .put("retry-initial-delay", "1m")
@@ -249,6 +251,7 @@ public class TestQueryManagerConfig
                 .setRequiredWorkersMaxWait(new Duration(33, MINUTES))
                 .setRetryPolicy(RetryPolicy.QUERY)
                 .setAllowedRetryPolicies(EnumSet.of(RetryPolicy.QUERY, RetryPolicy.TASK))
+                .setRetryPolicyExcludeMetadataOnlyQueries(false)
                 .setQueryRetryAttempts(0)
                 .setTaskRetryAttemptsPerTask(9)
                 .setRetryInitialDelay(new Duration(1, MINUTES))
@@ -309,6 +312,19 @@ public class TestQueryManagerConfig
                         .setRetryPolicy(RetryPolicy.QUERY),
                 "retryPolicyAllowed",
                 "Selected retry policy not present in retry-policy.allowed list",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testMetadataOnlyQueryRetryPolicyValidation()
+    {
+        assertFailsValidation(
+                new QueryManagerConfig()
+                        .setAllowedRetryPolicies(EnumSet.of(RetryPolicy.TASK))
+                        .setRetryPolicy(RetryPolicy.TASK)
+                        .setRetryPolicyExcludeMetadataOnlyQueries(true),
+                "metadataOnlyQueryRetryPolicyAllowed",
+                "retry-policy.exclude-metadata-only-queries requires retry-policy.allowed to contain QUERY or NONE",
                 AssertTrue.class);
     }
 }

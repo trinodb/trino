@@ -76,6 +76,19 @@ execution on a Trino cluster:
     This property is used to prevent a user from configuring a retry policy that
     is not meant to be used on the given cluster.
   - `NONE`, `QUERY`, `TASK` 
+* - `retry-policy.exclude-metadata-only-queries`
+  - When `true`, metadata-only queries submitted with `retry_policy` `TASK` run
+    with `retry_policy` `QUERY` instead, so that they do not pay the overhead of
+    fault-tolerant execution while remaining resilient to network and connector
+    failures. They run with `NONE` when `retry-policy.allowed` does not include
+    `QUERY`. A query is metadata-only when it reads no table at all, or when
+    every table it reads is in the `information_schema` schema of any catalog, or
+    in the `system.jdbc` or `system.metadata` schema, and it invokes no table
+    function and no `UNNEST`. Tables that a connector exposes within its own
+    catalog, such as `example.default."example_table$files"`, are not
+    metadata-only and keep the configured retry policy. Requires
+    `retry-policy.allowed` to include `QUERY` or `NONE`.
+  - `true`
 * - `exchange.deduplication-buffer-size`
   - [Data size](prop-type-data-size) of the coordinator's in-memory buffer used
     by fault-tolerant execution to store output of query

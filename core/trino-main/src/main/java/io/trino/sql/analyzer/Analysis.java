@@ -689,6 +689,13 @@ public class Analysis
                 .collect(toImmutableList());
     }
 
+    public Collection<QualifiedObjectName> getTableNames()
+    {
+        return tables.values().stream()
+                .map(TableEntry::getName)
+                .collect(toImmutableList());
+    }
+
     public void registerTable(
             Table table,
             Optional<TableHandle> handle,
@@ -1075,6 +1082,11 @@ public class Analysis
     public UnnestAnalysis getUnnest(Unnest node)
     {
         return unnestAnalysis.get(NodeRef.of(node));
+    }
+
+    public boolean hasUnnest()
+    {
+        return !unnestAnalysis.isEmpty();
     }
 
     public void setNearest(Nearest node, NearestAnalysis analysis)
@@ -1508,6 +1520,11 @@ public class Analysis
     public TableFunctionInvocationAnalysis getTableFunctionAnalysis(TableFunctionInvocation node)
     {
         return tableFunctionAnalyses.get(NodeRef.of(node));
+    }
+
+    public boolean hasTableFunctions()
+    {
+        return !tableFunctionAnalyses.isEmpty();
     }
 
     public Set<NodeRef<TableFunctionInvocation>> getPolymorphicTableFunctions()

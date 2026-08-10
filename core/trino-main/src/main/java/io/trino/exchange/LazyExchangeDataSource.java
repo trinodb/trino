@@ -31,6 +31,7 @@ import io.trino.spi.metrics.Metrics;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -46,7 +47,7 @@ public class LazyExchangeDataSource
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final LocalMemoryContext memoryContext;
     private final TaskFailureListener taskFailureListener;
-    private final RetryPolicy retryPolicy;
+    private final Supplier<RetryPolicy> retryPolicySupplier;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
 
     private final SettableFuture<Void> initializationFuture = SettableFuture.create();
@@ -60,7 +61,7 @@ public class LazyExchangeDataSource
             DirectExchangeClientSupplier directExchangeClientSupplier,
             LocalMemoryContext memoryContext,
             TaskFailureListener taskFailureListener,
-            RetryPolicy retryPolicy,
+            Supplier<RetryPolicy> retryPolicySupplier,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -69,7 +70,7 @@ public class LazyExchangeDataSource
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
-        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+        this.retryPolicySupplier = requireNonNull(retryPolicySupplier, "retryPolicySupplier is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
@@ -131,7 +132,7 @@ public class LazyExchangeDataSource
             ExchangeDataSource dataSource = delegate.get();
             if (dataSource == null) {
                 if (input instanceof DirectExchangeInput) {
-                    DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, querySpan, memoryContext, taskFailureListener, retryPolicy);
+                    DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, querySpan, memoryContext, taskFailureListener, retryPolicySupplier.get());
                     dataSource = new DirectExchangeDataSource(client);
                 }
                 else if (input instanceof SpoolingExchangeInput) {

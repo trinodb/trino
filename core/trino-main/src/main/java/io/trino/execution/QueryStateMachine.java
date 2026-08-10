@@ -90,6 +90,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -135,7 +136,8 @@ public class QueryStateMachine
     private final QueryId queryId;
     private final String query;
     private final Optional<String> preparedQuery;
-    private final Session session;
+    // effectively final except for replaceSession
+    private volatile Session session;
     private final URI self;
     private final ResourceGroupId resourceGroup;
     private final TransactionManager transactionManager;
@@ -459,6 +461,17 @@ public class QueryStateMachine
     public Session getSession()
     {
         return session;
+    }
+
+    /**
+     * Replaces the session of a query that has not finished yet. Intended for adjustments made once the analysis is
+     * known, such as downgrading the retry policy of a metadata-only query, and not for general session mutation:
+     * anything that already read the session keeps the old value.
+     */
+    public void replaceSession(UnaryOperator<Session> transform)
+    {
+        checkState(!isDone(), "query is already done");
+        session = requireNonNull(transform.apply(session), "transformed session is null");
     }
 
     public Executor getStateMachineExecutor()

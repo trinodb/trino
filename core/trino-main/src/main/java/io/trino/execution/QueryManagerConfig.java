@@ -110,6 +110,7 @@ public class QueryManagerConfig
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private Set<RetryPolicy> allowedRetryPolicies = EnumSet.allOf(RetryPolicy.class);
+    private boolean retryPolicyExcludeMetadataOnlyQueries = true;
 
     private int queryRetryAttempts = 4;
     private int taskRetryAttemptsPerTask = 4;
@@ -634,10 +635,31 @@ public class QueryManagerConfig
         return this;
     }
 
+    public boolean isRetryPolicyExcludeMetadataOnlyQueries()
+    {
+        return retryPolicyExcludeMetadataOnlyQueries;
+    }
+
+    @Config("retry-policy.exclude-metadata-only-queries")
+    @ConfigDescription("Run queries that only access information_schema, system.metadata or system.jdbc tables without task retries even when the TASK retry policy is configured")
+    public QueryManagerConfig setRetryPolicyExcludeMetadataOnlyQueries(boolean retryPolicyExcludeMetadataOnlyQueries)
+    {
+        this.retryPolicyExcludeMetadataOnlyQueries = retryPolicyExcludeMetadataOnlyQueries;
+        return this;
+    }
+
     @AssertTrue(message = "Selected retry policy not present in retry-policy.allowed list")
     public boolean isRetryPolicyAllowed()
     {
         return allowedRetryPolicies.contains(retryPolicy);
+    }
+
+    @AssertTrue(message = "retry-policy.exclude-metadata-only-queries requires retry-policy.allowed to contain QUERY or NONE")
+    public boolean isMetadataOnlyQueryRetryPolicyAllowed()
+    {
+        return !retryPolicyExcludeMetadataOnlyQueries
+                || allowedRetryPolicies.contains(RetryPolicy.QUERY)
+                || allowedRetryPolicies.contains(RetryPolicy.NONE);
     }
 
     @Min(0)

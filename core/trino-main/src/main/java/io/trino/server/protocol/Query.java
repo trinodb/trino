@@ -213,14 +213,17 @@ class Query
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
+        QueryId queryId = session.getQueryId();
         ExchangeDataSource exchangeDataSource = new LazyExchangeDataSource(
-                session.getQueryId(),
-                new ExchangeId("query-results-exchange-" + session.getQueryId()),
+                queryId,
+                new ExchangeId("query-results-exchange-" + queryId),
                 session.getQuerySpan(),
                 directExchangeClientSupplier,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
-                getRetryPolicy(session),
+                // the retry policy of a metadata query is downgraded during planning, which happens after this point,
+                // so it has to be read from the query session on every use rather than captured here
+                () -> getRetryPolicy(queryManager.getQuerySession(queryId)),
                 exchangeManagerRegistry);
 
         Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
