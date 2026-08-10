@@ -22,6 +22,7 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.StandardTypes;
 
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.Decimals.overflows;
@@ -50,6 +51,9 @@ public final class DivideRoundToScale
     {
         if (divisor < 0) {
             throw new TrinoException(NOT_SUPPORTED, "Negative divisor is not supported");
+        }
+        if (divisor == 0) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         Int128 result = Int128Math.divideRoundUp(dividend.getHigh(), dividend.getLow(), 0, 0, divisor, 0);
         if (overflows(result)) {
