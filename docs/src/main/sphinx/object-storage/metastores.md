@@ -589,6 +589,29 @@ Credentials](https://cloud.google.com/docs/authentication/application-default-cr
 (ADC) are used, which supports GKE Workload Identity and other
 environment-based credential sources.
 
+`iceberg.rest-catalog.security` must be `SIGV4` when connecting to a
+[SeaweedFS](https://github.com/seaweedfs/seaweedfs) table bucket, which serves
+the Iceberg REST catalog for table metadata and stores the table data as
+Parquet files behind the same S3 gateway:
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.rest-catalog.uri=http://seaweedfs:8181
+iceberg.rest-catalog.warehouse=s3://example-table-bucket
+iceberg.rest-catalog.security=SIGV4
+fs.native-s3.enabled=true
+s3.endpoint=http://seaweedfs:8333
+s3.path-style-access=true
+s3.aws-access-key=***
+s3.aws-secret-key=***
+s3.region=us-east-1
+```
+
+The SigV4 signing credentials for the REST catalog are resolved from the AWS
+default credentials chain. Set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+and `AWS_REGION` to the same values as the S3 file system configuration.
+
 The REST catalog supports [view management](sql-view-management) 
 using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
 
