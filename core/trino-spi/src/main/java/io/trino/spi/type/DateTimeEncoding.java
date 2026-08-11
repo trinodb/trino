@@ -72,8 +72,13 @@ public final class DateTimeEncoding
         return pack(newMillsUtc, (short) (dateTimeWithTimeZone & TIME_ZONE_MASK));
     }
 
+    /**
+     * @throws io.trino.spi.TrinoException when {@code offsetMinutes} is outside the range supported by {@code time with time zone}
+     */
     public static long packTimeWithTimeZone(long nanos, int offsetMinutes)
     {
+        // validate offset is supported
+        getTimeZoneKeyForOffset(offsetMinutes);
         // offset is encoded as a 2s complement 11-bit number
         return (nanos << 11) | (offsetMinutes & 0b111_1111_1111);
     }
