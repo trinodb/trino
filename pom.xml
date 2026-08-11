@@ -418,7 +418,7 @@
             <dependency>
                 <groupId>com.fasterxml.woodstox</groupId>
                 <artifactId>woodstox-core</artifactId>
-                <version>7.2.1</version>
+                <version>7.2.2</version>
             </dependency>
 
             <dependency>
