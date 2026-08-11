@@ -368,6 +368,17 @@ public class TestTrinoSnowflakeCatalog
                 .hasMessageContaining("Views are not supported for the Snowflake Iceberg catalog");
     }
 
+    // Overridden to assert correct method calls as the tested feature is not supported
+    @Test
+    @Override
+    public void testRegisterView()
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        SchemaTableName viewName = SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName());
+        assertThatThrownBy(() -> catalog.registerView(SESSION, viewName, null))
+                .hasMessageContaining("Views are not supported for the Snowflake Iceberg catalog");
+    }
+
     @Test
     @Override
     public void testTableNamespaceFilter()

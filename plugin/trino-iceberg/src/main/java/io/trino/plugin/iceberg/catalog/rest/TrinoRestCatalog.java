@@ -76,6 +76,7 @@ import org.apache.iceberg.view.SQLViewRepresentation;
 import org.apache.iceberg.view.UpdateViewProperties;
 import org.apache.iceberg.view.View;
 import org.apache.iceberg.view.ViewBuilder;
+import org.apache.iceberg.view.ViewMetadata;
 import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
@@ -735,6 +736,22 @@ public class TrinoRestCatalog
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop view '%s'".formatted(schemaViewName.getTableName()), e);
+        }
+        invalidateTableMappingCache(schemaViewName);
+    }
+
+    @Override
+    public void registerView(ConnectorSession session, SchemaTableName schemaViewName, ViewMetadata viewMetadata)
+    {
+        TableIdentifier viewIdentifier = TableIdentifier.of(toRemoteNamespace(session, toNamespace(schemaViewName.getSchemaName())), schemaViewName.getTableName());
+        try {
+            restSessionCatalog.registerView(convert(session), viewIdentifier, viewMetadata.metadataFileLocation());
+        }
+        catch (UnsupportedOperationException e) {
+            throw new TrinoException(NOT_SUPPORTED, "The REST catalog server does not support registering Iceberg views", e);
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to register view '%s'".formatted(schemaViewName.getTableName()), e);
         }
         invalidateTableMappingCache(schemaViewName);
     }
