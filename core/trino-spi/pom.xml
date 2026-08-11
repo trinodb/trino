@@ -715,6 +715,14 @@
                                     <newVisibility>public</newVisibility>
                                     <justification>New Slice methods</justification>
                                 </item>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>class io.trino.spi.expression.ConnectorExpression</old>
+                                    <new>class io.trino.spi.expression.ConnectorExpression</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <justification>Lambda was missing a JSON subtype registration; adding it is backwards compatible</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
@@ -733,6 +741,15 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Run tests on the class path despite module-info.java, so that class path scanning sees SPI classes -->
+                    <useModulePath>false</useModulePath>
+                </configuration>
             </plugin>
 
             <plugin>
