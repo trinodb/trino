@@ -17,7 +17,7 @@ import io.trino.operator.aggregation.state.RegressionState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -37,15 +37,9 @@ public final class DoubleRegressionAggregation
         state.update(independentValue, dependentValue);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState RegressionState state, @AggregationState RegressionState otherState)
-    {
-        state.merge(otherState);
-    }
-
     @AggregationFunction("regr_slope")
     @SqlNullable
-    @OutputFunction(StandardTypes.DOUBLE)
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "regression$intermediate", output = "regr_slope$final"))
     public static void regrSlope(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = state.getRegressionSlope();
@@ -59,7 +53,7 @@ public final class DoubleRegressionAggregation
 
     @AggregationFunction("regr_intercept")
     @SqlNullable
-    @OutputFunction(StandardTypes.DOUBLE)
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "regression$intermediate", output = "regr_intercept$final"))
     public static void regrIntercept(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = state.getRegressionIntercept();

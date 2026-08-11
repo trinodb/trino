@@ -13,7 +13,9 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.tpch.TpchPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -22,7 +24,9 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
+import static io.trino.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
+import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -141,6 +145,83 @@ public class TestAggregation
                             (2, DECIMAL '44444444444444444444.2469135780', DECIMAL '22222222222222222222.1234567890'),
                             (3, DECIMAL '130303030303030303029.6666666633', DECIMAL '21717171717171717171.6111111106')) t(i, s, v)
                         """);
+    }
+
+    @Test
+    public void testDecomposedPartialAggregationPushedThroughJoin()
+    {
+        Session session = Session.builder(assertions.getDefaultSession())
+                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
+                .build();
+        // variance uses a declared decomposition with a row-typed intermediate state, so the
+        // intermediate aggregation kept above the join must be re-resolved over the intermediate type
+        assertThat(assertions.query(session,
+                """
+                SELECT d.year, variance(f.amount), var_pop(f.amount), count(f.amount), sum(f.amount), avg(f.amount)
+                FROM (VALUES
+                    (1, 1e0),
+                    (1, 1e0),
+                    (1, 1e0),
+                    (1, 5e0),
+                    (2, 2e0),
+                    (2, 2e0),
+                    (2, 2e0),
+                    (2, 10e0)) f(id, amount)
+                JOIN (VALUES
+                    (1, 10),
+                    (2, 20)) d(id, year) ON f.id = d.id
+                GROUP BY d.year
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (10, 4e0, 3e0, BIGINT '4', 8e0, 2e0),
+                            (20, 16e0, 12e0, BIGINT '4', 16e0, 4e0)
+                        """);
+    }
+
+    @Test
+    public void testDecomposedIntermediateAggregation()
+            throws Exception
+    {
+        try (QueryAssertions tpchAssertions = new QueryAssertions()) {
+            tpchAssertions.getQueryRunner().installPlugin(new TpchPlugin());
+            tpchAssertions.getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "4"));
+            Session session = Session.builder(tpchAssertions.getDefaultSession())
+                    .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
+                    .setSystemProperty(TASK_CONCURRENCY, "4")
+                    .build();
+            // INTERMEDIATE aggregations consume and produce the intermediate type, so functions with a
+            // declared decomposition must be re-resolved over the intermediate type
+            assertThat(tpchAssertions.query(session,
+                    """
+                    SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0), round(geometric_mean(orderkey), 6), round(skewness(orderkey), 6), round(kurtosis(orderkey), 6), bitwise_xor_agg(orderkey), checksum(orderkey), checksum(orderstatus),
+                        cardinality(approx_set(orderkey)),
+                        cardinality(make_set_digest(orderkey)), tdigest_agg(orderkey) IS NOT NULL, qdigest_agg(orderkey) IS NOT NULL,
+                        round(corr(orderkey, custkey), 6), round(covar_samp(orderkey, custkey), 0), round(covar_pop(orderkey, custkey), 0),
+                        round(regr_slope(orderkey, custkey), 6), round(regr_intercept(orderkey, custkey), 0),
+                        approx_distinct(orderkey), approx_distinct(orderkey, 0.01e0), approx_distinct(orderkey > 100),
+                        approx_percentile(orderkey, 0.5e0) IS NOT NULL, cardinality(approx_percentile(orderkey, ARRAY[0.1e0, 0.9e0])),
+                        histogram(orderstatus), cardinality(numeric_histogram(10, orderkey * 1e0)), approx_most_frequent(3, orderstatus, 100), approx_most_frequent(3, orderkey, 100) IS NOT NULL,
+                        cardinality(map_agg(orderkey, orderstatus)), cardinality(map_union(map(ARRAY[orderstatus], ARRAY[1]))), cardinality(multimap_agg(orderstatus, orderkey)), cardinality(array_agg(orderstatus)), round(avg(CAST(totalprice AS real)), 0), round(geometric_mean(CAST(orderkey AS real)), 0), min_by(orderstatus, orderkey), max_by(orderstatus, orderkey),
+                        min_by(orderstatus, orderkey, 3), max_by(orderstatus, orderkey, 3), min(orderkey, 5), max(orderkey, 5)
+                    FROM tpch.tiny.orders
+                    """))
+                    .matches(
+                            """
+                            SELECT count(orderkey), sum(orderkey), avg(orderkey), round(variance(orderkey), 0), round(var_pop(orderkey), 0), round(geometric_mean(orderkey), 6), round(skewness(orderkey), 6), round(kurtosis(orderkey), 6), bitwise_xor_agg(orderkey), checksum(orderkey), checksum(orderstatus),
+                                cardinality(approx_set(orderkey)),
+                                cardinality(make_set_digest(orderkey)), tdigest_agg(orderkey) IS NOT NULL, qdigest_agg(orderkey) IS NOT NULL,
+                                round(corr(orderkey, custkey), 6), round(covar_samp(orderkey, custkey), 0), round(covar_pop(orderkey, custkey), 0),
+                                round(regr_slope(orderkey, custkey), 6), round(regr_intercept(orderkey, custkey), 0),
+                                approx_distinct(orderkey), approx_distinct(orderkey, 0.01e0), approx_distinct(orderkey > 100),
+                                approx_percentile(orderkey, 0.5e0) IS NOT NULL, cardinality(approx_percentile(orderkey, ARRAY[0.1e0, 0.9e0])),
+                                histogram(orderstatus), cardinality(numeric_histogram(10, orderkey * 1e0)), approx_most_frequent(3, orderstatus, 100), approx_most_frequent(3, orderkey, 100) IS NOT NULL,
+                                cardinality(map_agg(orderkey, orderstatus)), cardinality(map_union(map(ARRAY[orderstatus], ARRAY[1]))), cardinality(multimap_agg(orderstatus, orderkey)), cardinality(array_agg(orderstatus)), round(avg(CAST(totalprice AS real)), 0), round(geometric_mean(CAST(orderkey AS real)), 0), min_by(orderstatus, orderkey), max_by(orderstatus, orderkey),
+                                min_by(orderstatus, orderkey, 3), max_by(orderstatus, orderkey, 3), min(orderkey, 5), max(orderkey, 5)
+                            FROM tpch.tiny.orders
+                            """);
+        }
     }
 
     @Test

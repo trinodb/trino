@@ -16,11 +16,12 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.BigintType;
 import io.trino.type.BigintOperators;
 
 import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
@@ -38,19 +39,16 @@ public final class IntervalYearToMonthSumAggregation
         state.setValue(BigintOperators.add(state.getValue(), value));
     }
 
-    @CombineFunction
-    public static void combine(NullableLongState state, NullableLongState otherState)
+    @AggregationFunction(value = "sum_interval_year_to_month$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "BIGINT", decomposition = @Decomposition(partial = "sum_interval_year_to_month$partial", output = "sum_interval$merge"))
+    public static void intermediateOutput(NullableLongState state, BlockBuilder out)
     {
-        if (state.isNull()) {
-            state.set(otherState);
-            return;
-        }
-
-        state.setValue(BigintOperators.add(state.getValue(), otherState.getValue()));
+        NullableLongState.write(BigintType.BIGINT, state, out);
     }
 
     @SqlNullable
-    @OutputFunction(INTERVAL_YEAR_TO_MONTH)
+    @OutputFunction(value = INTERVAL_YEAR_TO_MONTH, decomposition = @Decomposition(partial = "sum_interval_year_to_month$partial", output = "sum_interval_year_to_month$final"))
     public static void output(NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(INTERVAL_YEAR_MONTH, state, out);

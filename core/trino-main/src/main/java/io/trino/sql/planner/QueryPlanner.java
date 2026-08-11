@@ -595,8 +595,9 @@ class QueryPlanner
             Map<NodeRef<FunctionCall>, Symbol> groupPredicates = predicateSymbols.get(NodeRef.of(valueGroup));
             for (FunctionCall function : aggregateCalls) {
                 Symbol output = symbolAllocator.newSymbol(function.getName().toString(), analysis.getType(function));
+                ResolvedFunction pivotResolvedFunction = analysis.getResolvedFunction(function).orElseThrow();
                 Aggregation aggregation = new Aggregation(
-                        analysis.getResolvedFunction(function).orElseThrow(),
+                        pivotResolvedFunction,
                         argumentsInSignatureOrder(function).stream()
                                 .map(argument -> {
                                     if (argument instanceof LambdaExpression) {
@@ -608,7 +609,8 @@ class QueryPlanner
                         function.isDistinct(),
                         Optional.of(groupPredicates.get(NodeRef.of(function))),
                         function.getOrderBy().map(orderBy -> translateOrderingScheme(orderBy.getSortItems(), coercions::get)),
-                        Optional.empty());
+                        Optional.empty(),
+                        plannerContext.getMetadata().getAggregationFunctionMetadata(session, pivotResolvedFunction).decomposition().isEmpty());
                 aggregations.put(output, aggregation);
                 perGroup.put(NodeRef.of(function), output);
             }
@@ -1502,8 +1504,9 @@ class QueryPlanner
             // TODO: for ORDER BY arguments, rewrite them such that they match the actual arguments to the function. This is necessary to maintain the semantics of DISTINCT + ORDER BY,
             //   which requires that ORDER BY be a subset of arguments
             //   What can happen currently is that if the argument requires a coercion, the argument will take a different input that the ORDER BY clause, which is undefined behavior
+            ResolvedFunction resolvedFunction = analysis.getResolvedFunction(function).get();
             Aggregation aggregation = new Aggregation(
-                    analysis.getResolvedFunction(function).get(),
+                    resolvedFunction,
                     argumentsInSignatureOrder(function).stream()
                             .map(argument -> {
                                 if (argument instanceof LambdaExpression) {
@@ -1515,7 +1518,8 @@ class QueryPlanner
                     function.isDistinct(),
                     function.getFilter().map(coercions),
                     function.getOrderBy().map(orderBy -> translateOrderingScheme(orderBy.getSortItems(), coercions)),
-                    Optional.empty());
+                    Optional.empty(),
+                    plannerContext.getMetadata().getAggregationFunctionMetadata(session, resolvedFunction).decomposition().isEmpty());
 
             aggregateMappingBuilder.add(new AggregationAssignment(symbol, function, aggregation));
         }

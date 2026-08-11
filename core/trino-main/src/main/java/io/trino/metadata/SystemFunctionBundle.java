@@ -16,15 +16,20 @@ package io.trino.metadata;
 import io.trino.FeaturesConfig;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.ApproximateCountDistinctDecomposedAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateLongPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateLongPercentileArrayAggregations;
+import io.trino.operator.aggregation.ApproximateMostFrequentDecomposedAggregations;
+import io.trino.operator.aggregation.ApproximatePercentileArrayDecomposedAggregation;
+import io.trino.operator.aggregation.ApproximatePercentileDecomposedAggregation;
 import io.trino.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateSetAggregation;
 import io.trino.operator.aggregation.ApproximateSetGenericAggregation;
 import io.trino.operator.aggregation.ArbitraryAggregationFunction;
+import io.trino.operator.aggregation.AverageDecomposedAggregation;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BigintAverageAggregations;
 import io.trino.operator.aggregation.BigintSumAggregation;
@@ -33,13 +38,17 @@ import io.trino.operator.aggregation.BitwiseOrAggregation;
 import io.trino.operator.aggregation.BitwiseXorAggregation;
 import io.trino.operator.aggregation.BooleanAndAggregation;
 import io.trino.operator.aggregation.BooleanApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.BooleanApproximateCountDistinctDecomposedAggregation;
 import io.trino.operator.aggregation.BooleanDefaultApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
 import io.trino.operator.aggregation.ChecksumAggregationFunction;
+import io.trino.operator.aggregation.ChecksumDecomposedAggregation;
+import io.trino.operator.aggregation.CorrelationDecomposedAggregation;
 import io.trino.operator.aggregation.CountAggregation;
 import io.trino.operator.aggregation.CountColumn;
 import io.trino.operator.aggregation.CountIfAggregation;
+import io.trino.operator.aggregation.CovarianceDecomposedAggregation;
 import io.trino.operator.aggregation.DecimalAverageAggregation;
 import io.trino.operator.aggregation.DecimalSumAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
@@ -50,25 +59,33 @@ import io.trino.operator.aggregation.DoubleHistogramAggregation;
 import io.trino.operator.aggregation.DoubleRegressionAggregation;
 import io.trino.operator.aggregation.DoubleSumAggregation;
 import io.trino.operator.aggregation.GeometricMeanAggregations;
+import io.trino.operator.aggregation.GeometricMeanDecomposedAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondSumAggregation;
+import io.trino.operator.aggregation.IntervalSumDecomposedAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthSumAggregation;
 import io.trino.operator.aggregation.LegacyApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.LegacyApproximateLongPercentileAggregations;
+import io.trino.operator.aggregation.LegacyApproximatePercentileDecomposedAggregation;
 import io.trino.operator.aggregation.LegacyApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
 import io.trino.operator.aggregation.MaxAggregationFunction;
 import io.trino.operator.aggregation.MaxByAggregationFunction;
+import io.trino.operator.aggregation.MaxByDecomposedAggregation;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
+import io.trino.operator.aggregation.MaxDataSizeForStatsMergeAggregation;
 import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
 import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
 import io.trino.operator.aggregation.MinAggregationFunction;
 import io.trino.operator.aggregation.MinByAggregationFunction;
+import io.trino.operator.aggregation.MinByDecomposedAggregation;
 import io.trino.operator.aggregation.NumberAverageAggregation;
+import io.trino.operator.aggregation.NumberAverageDecomposedAggregation;
 import io.trino.operator.aggregation.NumberSumAggregation;
+import io.trino.operator.aggregation.NumericHistogramDecomposedAggregation;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
@@ -79,18 +96,27 @@ import io.trino.operator.aggregation.RealGeometricMeanAggregations;
 import io.trino.operator.aggregation.RealHistogramAggregation;
 import io.trino.operator.aggregation.RealRegressionAggregation;
 import io.trino.operator.aggregation.RealSumAggregation;
+import io.trino.operator.aggregation.RegressionDecomposedAggregation;
+import io.trino.operator.aggregation.Sum0Aggregation;
 import io.trino.operator.aggregation.SumDataSizeForStats;
 import io.trino.operator.aggregation.TDigestAggregationFunction;
 import io.trino.operator.aggregation.VarcharApproximateMostFrequent;
 import io.trino.operator.aggregation.VarianceAggregation;
 import io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction;
+import io.trino.operator.aggregation.arrayagg.ArrayAggregationMergeFunction;
 import io.trino.operator.aggregation.histogram.Histogram;
+import io.trino.operator.aggregation.histogram.HistogramMergeAggregation;
 import io.trino.operator.aggregation.listagg.ListaggAggregationFunction;
 import io.trino.operator.aggregation.minmaxbyn.MaxByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxbyn.MaxByNDecomposedAggregation;
 import io.trino.operator.aggregation.minmaxbyn.MinByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxbyn.MinByNDecomposedAggregation;
 import io.trino.operator.aggregation.minmaxn.MaxNAggregationFunction;
+import io.trino.operator.aggregation.minmaxn.MaxNDecomposedAggregation;
 import io.trino.operator.aggregation.minmaxn.MinNAggregationFunction;
+import io.trino.operator.aggregation.minmaxn.MinNDecomposedAggregation;
 import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import io.trino.operator.aggregation.multimapagg.MultimapMergeAggregation;
 import io.trino.operator.scalar.ArrayAllMatchFunction;
 import io.trino.operator.scalar.ArrayAnyMatchFunction;
 import io.trino.operator.scalar.ArrayCardinalityFunction;
@@ -401,12 +427,19 @@ public final class SystemFunctionBundle
                 .window(LagFunction.class)
                 .window(LeadFunction.class)
                 .aggregates(ApproximateCountDistinctAggregation.class)
+                .aggregates(ApproximateCountDistinctDecomposedAggregation.class)
+                .aggregates(ApproximatePercentileDecomposedAggregation.class)
+                .aggregates(ApproximatePercentileArrayDecomposedAggregation.class)
+                .aggregates(LegacyApproximatePercentileDecomposedAggregation.class)
+                .aggregates(BooleanApproximateCountDistinctDecomposedAggregation.class)
                 .aggregates(DefaultApproximateCountDistinctAggregation.class)
                 .aggregates(BooleanApproximateCountDistinctAggregation.class)
                 .aggregates(BooleanDefaultApproximateCountDistinctAggregation.class)
                 .aggregates(SumDataSizeForStats.class)
                 .aggregates(MaxDataSizeForStats.class)
+                .aggregates(MaxDataSizeForStatsMergeAggregation.class)
                 .aggregates(CountAggregation.class)
+                .aggregates(Sum0Aggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
@@ -423,16 +456,21 @@ public final class SystemFunctionBundle
                 .aggregates(BooleanOrAggregation.class)
                 .aggregates(DoubleSumAggregation.class)
                 .aggregates(RealSumAggregation.class)
+                .aggregates(RealSumAggregation.RealSumDecomposedAggregation.class)
                 .aggregates(BigintSumAggregation.class)
                 .aggregates(NumberSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
+                .aggregates(IntervalSumDecomposedAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
+                .aggregates(AverageDecomposedAggregation.class)
                 .aggregates(BigintAverageAggregations.class)
                 .aggregates(DoubleAverageAggregations.class)
                 .aggregates(RealAverageAggregation.class)
                 .aggregates(NumberAverageAggregation.class)
+                .aggregates(NumberAverageDecomposedAggregation.class)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
+                .aggregates(GeometricMeanDecomposedAggregation.class)
                 .aggregates(GeometricMeanAggregations.class)
                 .aggregates(RealGeometricMeanAggregations.class)
                 .aggregates(MergeHyperLogLogAggregation.class)
@@ -445,11 +483,15 @@ public final class SystemFunctionBundle
                 .aggregates(MergeQuantileDigestFunction.class)
                 .aggregates(MergeTDigestAggregation.class)
                 .aggregates(DoubleHistogramAggregation.class)
+                .aggregates(NumericHistogramDecomposedAggregation.class)
                 .aggregates(RealHistogramAggregation.class)
                 .aggregates(DoubleCovarianceAggregation.class)
                 .aggregates(RealCovarianceAggregation.class)
                 .aggregates(DoubleRegressionAggregation.class)
                 .aggregates(RealRegressionAggregation.class)
+                .aggregates(CorrelationDecomposedAggregation.class)
+                .aggregates(CovarianceDecomposedAggregation.class)
+                .aggregates(RegressionDecomposedAggregation.class)
                 .aggregates(DoubleCorrelationAggregation.class)
                 .aggregates(RealCorrelationAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)
@@ -586,6 +628,7 @@ public final class SystemFunctionBundle
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_SUBSCRIPT, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY, JSON_STRING_ARRAY_EXTRACT_SCALAR)
                 .aggregates(ArrayAggregationFunction.class)
+                .aggregates(ArrayAggregationMergeFunction.class)
                 .aggregates(ListaggAggregationFunction.class)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, JSON_TO_MAP, JSON_STRING_TO_MAP)
@@ -593,6 +636,7 @@ public final class SystemFunctionBundle
                 .aggregates(MapUnionAggregation.class)
                 .function(REDUCE_AGG)
                 .aggregates(MultimapAggregationFunction.class)
+                .aggregates(MultimapMergeAggregation.class)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(NUMBER_TO_DECIMAL_CAST, DECIMAL_TO_NUMBER_CAST)
@@ -609,17 +653,25 @@ public final class SystemFunctionBundle
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .aggregates(Histogram.class)
+                .aggregates(HistogramMergeAggregation.class)
                 .aggregates(ChecksumAggregationFunction.class)
+                .aggregates(ChecksumDecomposedAggregation.class)
                 .aggregates(ArbitraryAggregationFunction.class)
                 .functions(GREATEST, LEAST)
                 .aggregates(MinAggregationFunction.class)
                 .aggregates(MaxAggregationFunction.class)
                 .aggregates(MinByAggregationFunction.class)
+                .aggregates(MinByDecomposedAggregation.class)
                 .aggregates(MaxByAggregationFunction.class)
+                .aggregates(MaxByDecomposedAggregation.class)
                 .aggregates(MaxNAggregationFunction.class)
+                .aggregates(MaxNDecomposedAggregation.class)
                 .aggregates(MinNAggregationFunction.class)
+                .aggregates(MinNDecomposedAggregation.class)
                 .aggregates(MinByNAggregationFunction.class)
+                .aggregates(MinByNDecomposedAggregation.class)
                 .aggregates(MaxByNAggregationFunction.class)
+                .aggregates(MaxByNDecomposedAggregation.class)
                 .aggregates(CountColumn.class)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(ROW_TO_JSON, ARRAY_TO_JSON, MAP_TO_JSON)
@@ -653,6 +705,8 @@ public final class SystemFunctionBundle
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class)
                 .aggregates(BigintApproximateMostFrequent.class)
+                .aggregates(ApproximateMostFrequentDecomposedAggregations.BigintDecomposed.class)
+                .aggregates(ApproximateMostFrequentDecomposedAggregations.VarcharDecomposed.class)
                 .aggregates(VarcharApproximateMostFrequent.class)
                 .scalar(ArrayHistogramFunction.class);
 

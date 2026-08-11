@@ -19,6 +19,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 
@@ -34,6 +35,7 @@ public class AggregatorFactory
     private final List<Integer> inputChannels;
     private final OptionalInt maskChannel;
     private final boolean spillable;
+    private final Optional<AccumulatorFactory> unspillAccumulatorFactory;
     private final List<Supplier<Object>> lambdaProviders;
 
     public AggregatorFactory(
@@ -44,6 +46,7 @@ public class AggregatorFactory
             List<Integer> inputChannels,
             OptionalInt maskChannel,
             boolean spillable,
+            Optional<AccumulatorFactory> unspillAccumulatorFactory,
             List<Supplier<Object>> lambdaProviders)
     {
         this.accumulatorFactory = requireNonNull(accumulatorFactory, "accumulatorFactory is null");
@@ -53,9 +56,12 @@ public class AggregatorFactory
         this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.spillable = spillable;
+        this.unspillAccumulatorFactory = requireNonNull(unspillAccumulatorFactory, "unspillAccumulatorFactory is null");
         this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
 
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
+        checkArgument(accumulatorFactory.isLegacyDecomposition() || !spillable || unspillAccumulatorFactory.isPresent(),
+                "unspillAccumulatorFactory is required for a spillable aggregation with declared decomposition");
     }
 
     public Type getOutputType()
@@ -90,6 +96,25 @@ public class AggregatorFactory
 
     public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel, AggregationMetrics metrics)
     {
+        if (!accumulatorFactory.isLegacyDecomposition()) {
+            // With a declared decomposition there is no combine to merge serialized states. Instead, the
+            // spilled intermediate state is consumed as raw input by the function resolved over the
+            // intermediate type, which shares the state representation with this aggregation.
+            AccumulatorFactory unspillFactory = unspillAccumulatorFactory.orElseThrow();
+            // The requested step consumes intermediate input; the unspill accumulator consumes it as raw
+            // input instead, while producing the same intermediate or final output
+            Step rawInputStep = step.isOutputPartial() ? Step.PARTIAL : Step.SINGLE;
+            return new GroupedAggregator(
+                    unspillFactory.createGroupedAccumulator(lambdaProviders),
+                    rawInputStep,
+                    intermediateType,
+                    finalType,
+                    ImmutableList.of(inputChannel),
+                    OptionalInt.empty(),
+                    unspillFactory.createAggregationMaskBuilder(),
+                    metrics);
+        }
+
         GroupedAccumulator accumulator;
         if (step.isInputRaw()) {
             accumulator = accumulatorFactory.createGroupedAccumulator(lambdaProviders);

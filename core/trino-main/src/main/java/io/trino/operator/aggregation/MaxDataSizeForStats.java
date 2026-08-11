@@ -20,7 +20,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -45,18 +45,12 @@ public final class MaxDataSizeForStats
         update(state, block.getEstimatedDataSizeForStats(index));
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState LongState state, @AggregationState LongState otherState)
-    {
-        update(state, otherState.getValue());
-    }
-
     private static void update(LongState state, long size)
     {
         state.setValue(max(state.getValue(), size));
     }
 
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = MaxDataSizeForStats.NAME, output = "$internal$max_data_size_for_stats$merge"))
     public static void output(@AggregationState LongState state, BlockBuilder out)
     {
         BigintType.BIGINT.writeLong(out, state.getValue());

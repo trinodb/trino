@@ -23,6 +23,7 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.planner.Symbol;
@@ -49,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.SystemSessionProperties.isPushPartialAggregationThroughJoin;
+import static io.trino.sql.planner.AggregationDecompositions.resolveIntermediateFromPartial;
 import static io.trino.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
@@ -59,9 +61,17 @@ import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static java.lang.Double.isNaN;
+import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughJoin
 {
+    private final PlannerContext plannerContext;
+
+    public PushPartialAggregationThroughJoin(PlannerContext plannerContext)
+    {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+    }
+
     private static boolean isSupportedAggregationNode(AggregationNode aggregationNode)
     {
         // Don't split streaming aggregations
@@ -326,11 +336,19 @@ public class PushPartialAggregationThroughJoin
             AggregationNode.Aggregation aggregation = entry.getValue();
             ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
 
+            ResolvedFunction intermediateFunction;
+            if (aggregation.isLegacyDecomposition()) {
+                intermediateFunction = resolvedFunction;
+            }
+            else {
+                intermediateFunction = resolveIntermediateFromPartial(plannerContext.getMetadata(), context.getSession(), resolvedFunction);
+            }
+
             // rewrite partial aggregation in terms of intermediate function
             intermediateAggregation.put(
                     entry.getKey(),
                     new AggregationNode.Aggregation(
-                            resolvedFunction,
+                            intermediateFunction,
                             ImmutableList.<Expression>builder()
                                     .add(entry.getKey().toSymbolReference())
                                     .addAll(aggregation.getArguments().stream()
@@ -340,7 +358,8 @@ public class PushPartialAggregationThroughJoin
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));
+                            Optional.empty(),
+                            aggregation.isLegacyDecomposition()));
         }
 
         return new AggregationNode(

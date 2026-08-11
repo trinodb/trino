@@ -48,19 +48,24 @@ public interface CovarianceState
 
     default void merge(CovarianceState otherState)
     {
-        if (otherState.getCount() == 0) {
+        merge(otherState.getCount(), otherState.getMeanX(), otherState.getMeanY(), otherState.getC2());
+    }
+
+    default void merge(long count, double otherMeanX, double otherMeanY, double c2)
+    {
+        if (count == 0) {
             return;
         }
 
         long na = getCount();
-        long nb = otherState.getCount();
+        long nb = count;
         long n = na + nb;
         setCount(n);
         double meanX = getMeanX();
         double meanY = getMeanY();
-        double deltaX = otherState.getMeanX() - meanX;
-        double deltaY = otherState.getMeanY() - meanY;
-        setC2(getC2() + otherState.getC2() + deltaX * deltaY * na * nb / (double) n);
+        double deltaX = otherMeanX - meanX;
+        double deltaY = otherMeanY - meanY;
+        setC2(getC2() + c2 + deltaX * deltaY * na * nb / (double) n);
         setMeanX(meanX + deltaX * nb / (double) n);
         setMeanY(meanY + deltaY * nb / (double) n);
     }

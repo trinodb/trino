@@ -20,7 +20,7 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -54,16 +54,8 @@ public final class MapUnionAggregation
         }
     }
 
-    @CombineFunction
-    public static void combine(
-            @AggregationState({"K", "V"}) MapAggregationState state,
-            @AggregationState({"K", "V"}) MapAggregationState otherState)
-    {
-        state.merge(otherState);
-    }
-
     @SqlNullable
-    @OutputFunction("map(K, V)")
+    @OutputFunction(value = "map(K, V)", decomposition = @Decomposition(partial = "map_union"))
     public static void output(@AggregationState({"K", "V"}) MapAggregationState state, BlockBuilder out)
     {
         state.writeAll((MapBlockBuilder) out);

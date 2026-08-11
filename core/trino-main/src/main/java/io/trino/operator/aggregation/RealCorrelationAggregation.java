@@ -17,7 +17,7 @@ import io.trino.operator.aggregation.state.CorrelationState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
@@ -39,14 +39,8 @@ public final class RealCorrelationAggregation
         DoubleCorrelationAggregation.input(state, intBitsToFloat((int) dependentValue), intBitsToFloat((int) independentValue));
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState CorrelationState state, @AggregationState CorrelationState otherState)
-    {
-        DoubleCorrelationAggregation.combine(state, otherState);
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.REAL)
+    @OutputFunction(value = StandardTypes.REAL, decomposition = @Decomposition(partial = "corr$intermediate", output = "corr_real$final"))
     public static void corr(@AggregationState CorrelationState state, BlockBuilder out)
     {
         double result = state.getCorrelation();

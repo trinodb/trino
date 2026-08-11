@@ -19,7 +19,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -48,16 +48,16 @@ public final class MaxByNAggregationFunction
         state.add(keyBlock, keyPosition, valueBlock, valuePosition);
     }
 
-    @CombineFunction
-    public static void combine(
-            @AggregationState({"K", "V"}) MaxByNState state,
-            @AggregationState({"K", "V"}) MaxByNState otherState)
+    @AggregationFunction(value = "max_by_n$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "row(bigint, array(K), array(V))", decomposition = @Decomposition(partial = "max_by_n$partial", output = "max_by_n$merge"))
+    public static void intermediateOutput(@AggregationState({"K", "V"}) MaxByNState state, BlockBuilder out)
     {
-        state.merge(otherState);
+        state.serialize(out);
     }
 
     @SqlNullable
-    @OutputFunction("array(V)")
+    @OutputFunction(value = "array(V)", decomposition = @Decomposition(partial = "max_by_n$partial", output = "max_by_n$final"))
     public static void output(@AggregationState({"K", "V"}) MaxByNState state, BlockBuilder out)
     {
         state.popAll(out);

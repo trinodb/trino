@@ -28,17 +28,26 @@ public class CompiledAccumulatorFactory
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
     private final List<Class<?>> lambdaInterfaces;
     private final Constructor<? extends AggregationMaskBuilder> maskBuilderConstructor;
+    private final boolean legacyDecomposition;
 
     public CompiledAccumulatorFactory(
             Constructor<? extends Accumulator> accumulatorConstructor,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
             List<Class<?>> lambdaInterfaces,
-            Constructor<? extends AggregationMaskBuilder> maskBuilderConstructor)
+            Constructor<? extends AggregationMaskBuilder> maskBuilderConstructor,
+            boolean legacyDecomposition)
     {
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
         this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
         this.maskBuilderConstructor = requireNonNull(maskBuilderConstructor, "maskBuilderConstructor is null");
+        this.legacyDecomposition = legacyDecomposition;
+    }
+
+    @Override
+    public boolean isLegacyDecomposition()
+    {
+        return legacyDecomposition;
     }
 
     @Override

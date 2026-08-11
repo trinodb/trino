@@ -2796,7 +2796,7 @@ public final class MetadataManager
                     .collect(toImmutableList());
         }
 
-        return new ResolvedAggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
+        return new ResolvedAggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes, aggregationFunctionMetadata.getDecomposition());
     }
 
     @Override

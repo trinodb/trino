@@ -257,7 +257,8 @@ public class TransformCorrelatedInPredicateToJoin
                 false,
                 Optional.of(filter),
                 Optional.empty(),
-                Optional.empty()); /* mask */
+                Optional.empty(), /* mask */
+                false);
     }
 
     private static Expression isGreaterThan(Metadata metadata, Symbol symbol, long value)

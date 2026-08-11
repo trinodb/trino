@@ -21,7 +21,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -52,12 +52,6 @@ public final class MergeQuantileDigestFunction
         merge(state, new QuantileDigest(type.getSlice(value, index)));
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState QuantileDigestState state, @AggregationState QuantileDigestState otherState)
-    {
-        merge(state, otherState.getQuantileDigest());
-    }
-
     private static void merge(QuantileDigestState state, QuantileDigest input)
     {
         if (input == null) {
@@ -84,7 +78,7 @@ public final class MergeQuantileDigestFunction
     }
 
     @SqlNullable
-    @OutputFunction("qdigest(V)")
+    @OutputFunction(value = "qdigest(V)", decomposition = @Decomposition(partial = "merge"))
     public static void output(
             @TypeParameter("qdigest(V)") Type type,
             @AggregationState QuantileDigestState state,

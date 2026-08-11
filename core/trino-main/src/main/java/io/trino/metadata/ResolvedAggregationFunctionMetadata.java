@@ -13,18 +13,23 @@
  */
 package io.trino.metadata;
 
+import io.trino.spi.function.AggregationDecomposition;
 import io.trino.spi.type.TypeDescriptor;
 
 import java.util.List;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 /// Aggregation-specific metadata of a resolved function: whether it is order sensitive, and its ground
 /// intermediate (serialized state) types. The declared, possibly variable-bearing form is
 /// [io.trino.spi.function.AggregationFunctionMetadata].
-public record ResolvedAggregationFunctionMetadata(boolean orderSensitive, List<TypeDescriptor> intermediateTypes)
+public record ResolvedAggregationFunctionMetadata(boolean orderSensitive, List<TypeDescriptor> intermediateTypes, Optional<AggregationDecomposition> decomposition)
 {
     public ResolvedAggregationFunctionMetadata
     {
         intermediateTypes = List.copyOf(intermediateTypes);
+        requireNonNull(decomposition, "decomposition is null");
     }
 
     /// A decomposable aggregation can run as a partial step followed by a final step, exchanging its

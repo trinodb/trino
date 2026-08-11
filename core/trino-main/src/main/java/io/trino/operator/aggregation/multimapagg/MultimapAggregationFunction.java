@@ -20,7 +20,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -47,16 +47,8 @@ public final class MultimapAggregationFunction
         state.add(key, keyPosition, value, valuePosition);
     }
 
-    @CombineFunction
-    public static void combine(
-            @AggregationState({"K", "V"}) MultimapAggregationState state,
-            @AggregationState({"K", "V"}) MultimapAggregationState otherState)
-    {
-        state.merge(otherState);
-    }
-
     @SqlNullable
-    @OutputFunction("map(K, array(V))")
+    @OutputFunction(value = "map(K, array(V))", decomposition = @Decomposition(partial = "multimap_agg", output = "multimap_agg$merge"))
     public static void output(@AggregationState({"K", "V"}) MultimapAggregationState state, BlockBuilder out)
     {
         state.writeAll((MapBlockBuilder) out);

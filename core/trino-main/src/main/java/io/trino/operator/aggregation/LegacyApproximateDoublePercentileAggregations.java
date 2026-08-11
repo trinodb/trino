@@ -18,7 +18,7 @@ import io.trino.operator.aggregation.state.QuantileDigestAndPercentileState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -47,14 +47,8 @@ public final class LegacyApproximateDoublePercentileAggregations
         LegacyApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile, accuracy);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState QuantileDigestAndPercentileState state, QuantileDigestAndPercentileState otherState)
-    {
-        LegacyApproximateLongPercentileAggregations.combine(state, otherState);
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.DOUBLE)
+    @OutputFunction(value = StandardTypes.DOUBLE, decomposition = @Decomposition(partial = "approx_percentile_legacy$intermediate", output = "approx_percentile_legacy_double$final"))
     public static void output(@AggregationState QuantileDigestAndPercentileState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();

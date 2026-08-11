@@ -27,6 +27,7 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.Name;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
@@ -87,6 +88,7 @@ public class ParametricAggregationImplementation
     private final List<ImplementationDependency> outputDependencies;
     private final List<AggregationParameterKind> inputParameterKinds;
     private final FunctionNullability functionNullability;
+    private final boolean hidden;
 
     private ParametricAggregationImplementation(
             Signature signature,
@@ -100,7 +102,8 @@ public class ParametricAggregationImplementation
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
             List<AggregationParameterKind> inputParameterKinds,
-            boolean returnNullable)
+            boolean returnNullable,
+            boolean hidden)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
@@ -119,6 +122,7 @@ public class ParametricAggregationImplementation
                         .filter(parameterType -> parameterType != BLOCK_INDEX && parameterType != STATE)
                         .map(NULLABLE_BLOCK_INPUT_CHANNEL::equals)
                         .collect(toImmutableList()));
+        this.hidden = hidden;
     }
 
     @Override
@@ -184,6 +188,11 @@ public class ParametricAggregationImplementation
         return inputParameterKinds;
     }
 
+    public boolean isHidden()
+    {
+        return hidden;
+    }
+
     public boolean areTypesAssignable(BoundSignature boundSignature)
     {
         checkState(argumentNativeContainerTypes.size() == boundSignature.getArgumentTypes().size(), "Number of argument assigned to AggregationImplementation is different than number parsed from annotations.");
@@ -229,6 +238,8 @@ public class ParametricAggregationImplementation
         private final List<TypeParameter> typeParameters;
         private final Set<String> typeParameterNames;
 
+        private final boolean hidden;
+
         private Parser(
                 Class<?> aggregationDefinition,
                 List<AccumulatorStateDetails<?>> stateDetails,
@@ -240,6 +251,7 @@ public class ParametricAggregationImplementation
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
 
+            hidden = requireNonNull(inputFunction.getAnnotation(InputFunction.class), "InputFunction annotation is missing").hidden();
             // parse declared literal and type parameters
             // it is required to declare all literal and type parameters in input function
             literalParameters = parseLiteralParameters(inputFunction);
@@ -300,7 +312,8 @@ public class ParametricAggregationImplementation
                     combineDependencies,
                     outputDependencies,
                     inputParameterKinds,
-                    returnNullable);
+                    returnNullable,
+                    hidden);
         }
 
         public static ParametricAggregationImplementation parseImplementation(

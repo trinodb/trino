@@ -16,17 +16,20 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.operator.aggregation.state.HyperLogLogState;
+import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Convention;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
@@ -44,6 +47,8 @@ import static io.trino.util.Failures.internalError;
 @AggregationFunction("approx_distinct")
 public final class ApproximateCountDistinctAggregation
 {
+    private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = StateCompiler.generateStateSerializer(HyperLogLogState.class);
+
     private static final double LOWEST_MAX_STANDARD_ERROR = 0.0040625;
     private static final double HIGHEST_MAX_STANDARD_ERROR = 0.26000;
 
@@ -162,24 +167,15 @@ public final class ApproximateCountDistinctAggregation
         return Integer.highestOneBit(value - 1) << 1;
     }
 
-    @CombineFunction
-    public static void combineState(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
+    @AggregationFunction(value = "approx_distinct$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = StandardTypes.HYPER_LOG_LOG, decomposition = @Decomposition(partial = "approx_distinct$partial", output = "merge"))
+    public static void intermediateOutput(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
-        HyperLogLog input = otherState.getHyperLogLog();
-
-        HyperLogLog previous = state.getHyperLogLog();
-        if (previous == null) {
-            state.setHyperLogLog(input);
-            state.addMemoryUsage(input.estimatedInMemorySize());
-        }
-        else {
-            state.addMemoryUsage(-previous.estimatedInMemorySize());
-            previous.mergeWith(input);
-            state.addMemoryUsage(previous.estimatedInMemorySize());
-        }
+        SERIALIZER.serialize(state, out);
     }
 
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "approx_distinct$partial", output = "approx_distinct$final"))
     public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
         HyperLogLog hyperLogLog = state.getHyperLogLog();

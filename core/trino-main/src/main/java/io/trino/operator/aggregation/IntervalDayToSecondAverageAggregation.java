@@ -16,11 +16,12 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.LongAndDoubleState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -38,15 +39,8 @@ public final class IntervalDayToSecondAverageAggregation
         state.setDouble(state.getDouble() + value);
     }
 
-    @CombineFunction
-    public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
-    {
-        state.setLong(state.getLong() + otherState.getLong());
-        state.setDouble(state.getDouble() + otherState.getDouble());
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    @OutputFunction(value = StandardTypes.INTERVAL_DAY_TO_SECOND, decomposition = @Decomposition(partial = "avg$intermediate", output = "avg_interval_day_to_second$final", subsumes = @Subsumed(function = "count", output = "avg_count$final")))
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

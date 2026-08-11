@@ -19,7 +19,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -45,16 +45,16 @@ public final class MinNAggregationFunction
         state.add(block, blockIndex);
     }
 
-    @CombineFunction
-    public static void combine(
-            @AggregationState("E") MinNState state,
-            @AggregationState("E") MinNState otherState)
+    @AggregationFunction(value = "min_n$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "row(bigint, array(E))", decomposition = @Decomposition(partial = "min_n$partial", output = "min_n$merge"))
+    public static void intermediateOutput(@AggregationState("E") MinNState state, BlockBuilder out)
     {
-        state.merge(otherState);
+        state.serialize(out);
     }
 
     @SqlNullable
-    @OutputFunction("array(E)")
+    @OutputFunction(value = "array(E)", decomposition = @Decomposition(partial = "min_n$partial", output = "min_n$final"))
     public static void output(@AggregationState("E") MinNState state, BlockBuilder out)
     {
         state.writeAllSorted(out);

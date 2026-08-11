@@ -19,7 +19,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -66,26 +66,8 @@ public final class LegacyApproximateLongPercentileAggregations
         state.setPercentile(percentile);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState QuantileDigestAndPercentileState state, QuantileDigestAndPercentileState otherState)
-    {
-        QuantileDigest input = otherState.getDigest();
-
-        QuantileDigest previous = state.getDigest();
-        if (previous == null) {
-            state.setDigest(input);
-            state.addMemoryUsage(input.estimatedInMemorySizeInBytes());
-        }
-        else {
-            state.addMemoryUsage(-previous.estimatedInMemorySizeInBytes());
-            previous.merge(input);
-            state.addMemoryUsage(previous.estimatedInMemorySizeInBytes());
-        }
-        state.setPercentile(otherState.getPercentile());
-    }
-
     @SqlNullable
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "approx_percentile_legacy$intermediate", output = "approx_percentile_legacy_bigint$final"))
     public static void output(@AggregationState QuantileDigestAndPercentileState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();

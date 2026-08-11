@@ -205,8 +205,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     hashTypes,
                     hashChannels,
                     ImmutableList.of(
-                            COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
-                            LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(sumChannel), OptionalInt.empty())),
+                            COUNT.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty()),
+                            LONG_SUM.createSingleAggregatorFactory(ImmutableList.of(sumChannel), OptionalInt.empty())),
                     new JoinCompiler(TYPE_OPERATORS));
         }
 
@@ -227,8 +227,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     SINGLE,
                     false,
                     ImmutableList.of(
-                            COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
-                            LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(sumChannel), OptionalInt.empty())),
+                            COUNT.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty()),
+                            LONG_SUM.createSingleAggregatorFactory(ImmutableList.of(sumChannel), OptionalInt.empty())),
                     OptionalInt.empty(),
                     100_000,
                     Optional.of(DataSize.of(16, MEGABYTE)),

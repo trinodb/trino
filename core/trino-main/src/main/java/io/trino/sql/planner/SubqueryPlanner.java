@@ -404,7 +404,8 @@ class SubqueryPlanner
                         false,
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty())),
+                        Optional.empty(),
+                        true)),
                 singleGroupingSet(subqueryFields));
 
         // Keep only groups that have more than one row — those are duplicates.
@@ -580,7 +581,8 @@ class SubqueryPlanner
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty())),
+                            Optional.empty(),
+                            true)),
                     globalAggregation());
             PlanNode joined = new CorrelatedJoinNode(
                     idAllocator.getNextId(),

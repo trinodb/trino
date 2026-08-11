@@ -20,12 +20,13 @@ import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -78,22 +79,21 @@ public final class VarcharApproximateMostFrequent
         histogram.add(value);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState State state, @AggregationState State otherState)
+    @AggregationFunction(value = "approx_most_frequent_varchar$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "varbinary", decomposition = @Decomposition(partial = "approx_most_frequent_varchar$partial", output = "approx_most_frequent_varchar$merge"))
+    public static void intermediateOutput(@AggregationState State state, BlockBuilder out)
     {
-        ApproximateMostFrequentHistogram<Slice> otherHistogram = otherState.get();
-
-        ApproximateMostFrequentHistogram<Slice> histogram = state.get();
-        if (histogram == null) {
-            state.set(otherHistogram);
+        if (state.get() == null) {
+            out.appendNull();
         }
         else {
-            histogram.merge(otherHistogram);
+            VarbinaryType.VARBINARY.writeSlice(out, state.get().serialize());
         }
     }
 
     @SqlNullable
-    @OutputFunction("map(varchar,bigint)")
+    @OutputFunction(value = "map(varchar,bigint)", decomposition = @Decomposition(partial = "approx_most_frequent_varchar$partial", output = "approx_most_frequent_varchar$final"))
     public static void output(@AggregationState State state, BlockBuilder out)
     {
         if (state.get() == null) {
