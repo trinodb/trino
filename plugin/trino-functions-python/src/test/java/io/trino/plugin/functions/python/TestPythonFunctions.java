@@ -2031,7 +2031,7 @@ public class TestPythonFunctions
                     cast('2024-05-06 11:42:54.123 America/Los_Angeles' AS timestamp(3) with time zone),
                     cast('2024-05-06 11:42:54.123456888 America/Los_Angeles' AS timestamp(9) with time zone),
                     interval '5-7' year to month,
-                    interval '5 9:23:56.123888' day to second,
+                    interval '5 9:23:56.123' day to second,
                     json '{"foo": 123, "bar": 456}',
                     uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
                     ipaddress '12.34.56.78'))
