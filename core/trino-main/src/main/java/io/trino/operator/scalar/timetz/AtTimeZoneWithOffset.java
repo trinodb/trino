@@ -24,6 +24,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
@@ -56,12 +57,15 @@ public final class AtTimeZoneWithOffset
     {
         int offsetMinutes = getZoneOffsetMinutes(zoneOffset);
         long picos = time.getPicoseconds() - (time.getOffsetMinutes() - offsetMinutes) * PICOSECONDS_PER_MINUTE;
-        return new LongTimeWithTimeZone(floorMod(picos, PICOSECONDS_PER_DAY), getZoneOffsetMinutes(zoneOffset));
+        return new LongTimeWithTimeZone(floorMod(picos, PICOSECONDS_PER_DAY), offsetMinutes);
     }
 
     private static int getZoneOffsetMinutes(long interval)
     {
         checkCondition((interval % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
-        return toIntExact(interval / 60_000L);
+        long offsetMinutes = interval / 60_000L;
+        // validate offset is supported
+        getTimeZoneKeyForOffset(offsetMinutes);
+        return toIntExact(offsetMinutes);
     }
 }

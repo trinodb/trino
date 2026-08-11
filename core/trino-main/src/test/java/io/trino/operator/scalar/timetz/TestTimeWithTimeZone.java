@@ -2403,6 +2403,30 @@ public class TestTimeWithTimeZone
     }
 
     @Test
+    public void testAtTimeZoneWithOffsetOutOfRange()
+    {
+        // offsets outside [-14:00, 14:00] must be rejected, see https://github.com/trinodb/trino/issues/9288
+        assertThat(assertions.expression("TIME '01:23:45+00:00' AT TIME ZONE INTERVAL '840' MINUTE")).matches("TIME '15:23:45+14:00'");
+        assertThat(assertions.expression("TIME '01:23:45+00:00' AT TIME ZONE INTERVAL '-840' MINUTE")).matches("TIME '11:23:45-14:00'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '01:23:45' AT TIME ZONE INTERVAL '841' MINUTE")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid offset minutes 841");
+
+        // 134217728 days is 45 * 2^32 minutes, which would truncate to a valid-looking offset of 0;
+        // validating as a long reports it instead of failing in toIntExact with "integer overflow"
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '01:23:45' AT TIME ZONE INTERVAL '134217728' DAY")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid offset minutes 193273528320");
+
+        // long representation (precision > 9) stores the offset unpacked, so 2048 used to survive here and
+        // fail only when the value was rendered, unlike the packed path where it wrapped around to 0
+        assertTrinoExceptionThrownBy(assertions.expression("TIME '01:23:45.123456789123' AT TIME ZONE INTERVAL '2048' MINUTE")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid offset minutes 2048");
+    }
+
+    @Test
     public void testComparisonOperators()
     {
         // short (precision <= 9 → ShortTimeWithTimeZoneType)
