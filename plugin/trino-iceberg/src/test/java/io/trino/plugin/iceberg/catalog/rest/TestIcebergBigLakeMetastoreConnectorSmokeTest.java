@@ -246,57 +246,6 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }
 
-    // TODO: https://github.com/trinodb/trino/issues/30440
-    // Enable the register table tests below once BigLake metastore accepts registering metadata under the suffixed table locations it assigns at creation
-    @Test
-    @Override
-    public void testRegisterTableWithTableLocation()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRegisterTableWithComments()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRegisterTableWithShowCreateTable()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRegisterTableWithReInsert()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRegisterTableWithMetadataFile()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testUnregisterTable()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRepeatUnregisterTable()
-    {
-        abort("skipped");
-    }
-
     @Test
     @Override // BigLake metastore requires table location to start with the prefix with the table name
     public void testRegisterTableWithDifferentTableName()
