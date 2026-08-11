@@ -13,6 +13,8 @@
  */
 package io.trino.spi.expression;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 
@@ -33,7 +35,11 @@ public final class Lambda
     private final List<Variable> arguments;
     private final ConnectorExpression body;
 
-    public Lambda(Type type, List<Variable> arguments, ConnectorExpression body)
+    @JsonCreator
+    public Lambda(
+            @JsonProperty("type") Type type,
+            @JsonProperty("arguments") List<Variable> arguments,
+            @JsonProperty("body") ConnectorExpression body)
     {
         super(type);
         arguments = List.copyOf(requireNonNull(arguments, "arguments is null"));
@@ -92,11 +98,13 @@ public final class Lambda
         }
     }
 
+    @JsonProperty("arguments")
     public List<Variable> getArguments()
     {
         return arguments;
     }
 
+    @JsonProperty("body")
     public ConnectorExpression getBody()
     {
         return body;
