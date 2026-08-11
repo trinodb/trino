@@ -47,6 +47,7 @@ public class IcebergMetadataFactory
     private final TableStatisticsWriter tableStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
+    private final boolean tableStatisticsEnabled;
     private final Predicate<String> allowedExtraProperties;
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
@@ -86,6 +87,7 @@ public class IcebergMetadataFactory
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.addFilesProcedureEnabled = config.isAddFilesProcedureEnabled();
+        this.tableStatisticsEnabled = config.isTableStatisticsEnabled();
         if (config.getAllowedExtraProperties().equals(ImmutableList.of("*"))) {
             this.allowedExtraProperties = _ -> true;
         }
@@ -119,6 +121,7 @@ public class IcebergMetadataFactory
                 deletionVectorWriter,
                 metastoreFactory,
                 addFilesProcedureEnabled,
+                tableStatisticsEnabled,
                 allowedExtraProperties,
                 icebergScanExecutor,
                 metadataFetchingExecutor,

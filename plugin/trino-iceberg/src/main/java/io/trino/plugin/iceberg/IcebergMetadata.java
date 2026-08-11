@@ -335,6 +335,8 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTE
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_WRITER_ROW_GROUP_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.TABLE_STATISTICS_ENABLED_KEY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.TABLE_STATISTICS_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
@@ -460,6 +462,7 @@ import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.types.TypeUtil.indexParents;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
+import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 import static org.apache.iceberg.util.PropertyUtil.propertyAsInt;
 import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
@@ -487,6 +490,7 @@ public class IcebergMetadata
             .add(PARQUET_WRITER_ROW_GROUP_SIZE)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
+            .add(TABLE_STATISTICS_ENABLED_PROPERTY)
             .add(TARGET_MAX_FILE_SIZE)
             .build();
     private static final String SYSTEM_SCHEMA = "system";
@@ -512,6 +516,7 @@ public class IcebergMetadata
     private final TableStatisticsWriter tableStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
+    private final boolean tableStatisticsEnabled;
     private final Predicate<String> allowedExtraProperties;
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
@@ -538,6 +543,7 @@ public class IcebergMetadata
             DeletionVectorWriter deletionVectorWriter,
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
+            boolean tableStatisticsEnabled,
             Predicate<String> allowedExtraProperties,
             ExecutorService icebergScanExecutor,
             Executor metadataFetchingExecutor,
@@ -556,6 +562,7 @@ public class IcebergMetadata
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.addFilesProcedureEnabled = addFilesProcedureEnabled;
+        this.tableStatisticsEnabled = tableStatisticsEnabled;
         this.allowedExtraProperties = requireNonNull(allowedExtraProperties, "allowedExtraProperties is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
@@ -2638,6 +2645,12 @@ public class IcebergMetadata
             updateProperties.set(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(rowGroupSize.toBytes()));
         }
 
+        if (properties.containsKey(TABLE_STATISTICS_ENABLED_PROPERTY)) {
+            boolean tableStatisticsEnabled = (boolean) properties.get(TABLE_STATISTICS_ENABLED_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The %s property cannot be empty".formatted(TABLE_STATISTICS_ENABLED_PROPERTY)));
+            updateProperties.set(TABLE_STATISTICS_ENABLED_KEY, Boolean.toString(tableStatisticsEnabled));
+        }
+
         try {
             updateProperties.commit();
         }
@@ -3878,11 +3891,15 @@ public class IcebergMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (!isStatisticsEnabled(session)) {
+        IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
+
+        // An explicitly set statistics_enabled session property takes precedence over the
+        // table_statistics_enabled table property, which takes precedence over the catalog default
+        boolean statisticsEnabled = isStatisticsEnabled(session)
+                .orElseGet(() -> propertyAsBoolean(originalHandle.getStorageProperties(), TABLE_STATISTICS_ENABLED_KEY, tableStatisticsEnabled));
+        if (!statisticsEnabled) {
             return TableStatistics.empty();
         }
-
-        IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
 
         if (originalHandle.isRecordScannedFiles()) {
             return TableStatistics.empty();

@@ -173,6 +173,7 @@ public class TestTrinoGlueCatalog
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
+                    true,
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),

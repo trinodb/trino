@@ -144,12 +144,14 @@ implementation is used:
     aggregations or joins.
   - 0.05
 * - `iceberg.table-statistics-enabled`
-  - Enable [](/optimizer/statistics). The equivalent [catalog session
-    property](/sql/set-session) is `statistics_enabled` for session specific
-    use. Set to `false` to prevent statistics usage by the
-    [](/optimizer/cost-based-optimizations) to make better decisions about the
-    query plan and therefore improve query processing performance. Setting to
-    `false` is not recommended and does not disable statistics gathering.
+  - Enable [](/optimizer/statistics). Set to `false` to prevent statistics
+    usage by the [](/optimizer/cost-based-optimizations) to make better
+    decisions about the query plan and therefore improve query processing
+    performance. This does not disable statistics gathering. The catalog value
+    can be overridden for individual tables with the
+    `table_statistics_enabled` table property, and both are overridden by the
+    `statistics_enabled` [catalog session property](/sql/set-session) when it
+    is explicitly set.
   - `true`
 * - `iceberg.extended-statistics.collect-on-write`
   - Enable collection of extended statistics for write operations. The
@@ -1094,6 +1096,7 @@ The following table properties can be updated after a table is created:
 - `max_previous_versions`
 - `object_store_layout_enabled`
 - `data_location`
+- `table_statistics_enabled`
 
 For example, to update a table from v1 of the Iceberg specification to v2:
 
@@ -1191,6 +1194,15 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     written by this table.
     Defaults to the value of the `parquet.writer.row-group-size` Parquet
     writer configuration property.
+* - `table_statistics_enabled`
+  - Whether to expose table statistics from this table to the query optimizer.
+    When set, overrides the `iceberg.table-statistics-enabled` catalog
+    configuration property for this table: set to `false` to skip reading
+    statistics for tables where doing so is too expensive, for example very
+    wide tables with many data files, or to `true` to opt individual tables
+    in when the catalog disables statistics. Defaults to the catalog
+    configuration property value. An explicitly set `statistics_enabled`
+    session property takes precedence over both.
 * - `extra_properties`
   - Additional properties added to an Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.

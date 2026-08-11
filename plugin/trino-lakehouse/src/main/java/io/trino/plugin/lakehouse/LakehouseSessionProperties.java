@@ -46,6 +46,7 @@ public class LakehouseSessionProperties
             .add("compression_codec")
             .add("dynamic_filtering_wait_timeout")
             .add("max_split_size")
+            .add("statistics_enabled")
             .build();
 
     private final List<PropertyMetadata<?>> sessionProperties;

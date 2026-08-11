@@ -310,7 +310,7 @@ public final class IcebergSessionProperties
                 .add(booleanProperty(
                         STATISTICS_ENABLED,
                         "Expose table statistics",
-                        icebergConfig.isTableStatisticsEnabled(),
+                        null,
                         false))
                 .add(booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
@@ -574,9 +574,9 @@ public final class IcebergSessionProperties
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 
-    public static boolean isStatisticsEnabled(ConnectorSession session)
+    public static Optional<Boolean> isStatisticsEnabled(ConnectorSession session)
     {
-        return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+        return Optional.ofNullable(session.getProperty(STATISTICS_ENABLED, Boolean.class));
     }
 
     public static boolean isCollectExtendedStatisticsOnWrite(ConnectorSession session)

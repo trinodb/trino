@@ -159,11 +159,14 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.TABLE_STATISTICS_ENABLED_KEY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.TABLE_STATISTICS_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.isDeleteAfterCommitEnabled;
+import static io.trino.plugin.iceberg.IcebergTableProperties.isTableStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
@@ -417,6 +420,10 @@ public final class IcebergUtil
 
         Optional<String> dataLocation = Optional.ofNullable(icebergTable.properties().get(WRITE_DATA_LOCATION));
         dataLocation.ifPresent(location -> properties.put(DATA_LOCATION_PROPERTY, location));
+
+        if (icebergTable.properties().containsKey(TABLE_STATISTICS_ENABLED_KEY)) {
+            properties.put(TABLE_STATISTICS_ENABLED_PROPERTY, parseBoolean(icebergTable.properties().get(TABLE_STATISTICS_ENABLED_KEY)));
+        }
 
         return properties.buildOrThrow();
     }
@@ -1045,6 +1052,8 @@ public final class IcebergUtil
                 .ifPresent(value -> propertiesBuilder.put(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(value.toBytes())));
         IcebergTableProperties.getParquetWriterRowGroupSize(tableMetadata.getProperties())
                 .ifPresent(value -> propertiesBuilder.put(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(value.toBytes())));
+        isTableStatisticsEnabled(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(TABLE_STATISTICS_ENABLED_KEY, Boolean.toString(value)));
 
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());

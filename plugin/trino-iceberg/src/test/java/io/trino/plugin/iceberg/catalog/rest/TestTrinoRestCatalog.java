@@ -170,6 +170,7 @@ public class TestTrinoRestCatalog
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
+                    true,
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),

@@ -1275,6 +1275,55 @@ public class TestIcebergStatistics
                 """);
     }
 
+    @Test
+    public void testTableStatisticsEnabledTableProperty()
+    {
+        String tableName = "test_table_statistics_enabled_table_property";
+        assertUpdate("CREATE TABLE " + tableName + " WITH (table_statistics_enabled = false) AS SELECT * FROM tpch.sf1.nation", 25);
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("table_statistics_enabled = false");
+
+        String emptyStats =
+                """
+                VALUES
+                  ('nationkey', null, null, null, null, null, null),
+                  ('regionkey', null, null, null, null, null, null),
+                  ('comment', null, null, null, null, null, null),
+                  ('name', null, null, null, null, null, null),
+                  (null, null, null, null, null, null, null)""";
+        String goodStats =
+                """
+                VALUES
+                  ('nationkey', null, 25, 0, null, '0', '24'),
+                  ('regionkey', null, 5, 0, null, '0', '4'),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name', 513.0, 25, 0, null, null, null),
+                  (null, null, null, null, 25, null, null)""";
+        assertQuery("SHOW STATS FOR " + tableName, emptyStats);
+
+        // an explicitly set session property takes precedence over the table property
+        assertQuery(withStatisticsEnabled(getSession(), true), "SHOW STATS FOR " + tableName, goodStats);
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES table_statistics_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("table_statistics_enabled = true");
+        assertQuery("SHOW STATS FOR " + tableName, goodStats);
+        assertQuery(withStatisticsEnabled(getSession(), false), "SHOW STATS FOR " + tableName, emptyStats);
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES table_statistics_enabled = false");
+        assertQuery("SHOW STATS FOR " + tableName, emptyStats);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private static Session withStatisticsEnabled(Session session, boolean enabled)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, "statistics_enabled", Boolean.toString(enabled))
+                .build();
+    }
+
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName))
