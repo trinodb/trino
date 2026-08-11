@@ -33,26 +33,21 @@ import io.trino.spi.procedure.Procedure;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
-import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
-import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
-import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.trino.plugin.iceberg.procedure.RegisterProcedureUtils.getMetadataLocation;
+import static io.trino.plugin.iceberg.procedure.RegisterProcedureUtils.locationEquivalent;
+import static io.trino.plugin.iceberg.procedure.RegisterProcedureUtils.validateMetadataLocation;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
 public class RegisterTableProcedure
         implements Provider<Procedure>
@@ -66,7 +61,6 @@ public class RegisterTableProcedure
     private static final String TABLE_NAME = "TABLE_NAME";
     private static final String TABLE_LOCATION = "TABLE_LOCATION";
     private static final String METADATA_FILE_NAME = "METADATA_FILE_NAME";
-    private static final Pattern S3_SCHEMA_PATTERN = Pattern.compile("^s3[an]://");
 
     static {
         try {
@@ -142,7 +136,7 @@ public class RegisterTableProcedure
         checkProcedureArgument(schemaName != null && !schemaName.isEmpty(), "schema_name cannot be null or empty");
         checkProcedureArgument(tableName != null && !tableName.isEmpty(), "table_name cannot be null or empty");
         checkProcedureArgument(tableLocation != null && !tableLocation.isEmpty(), "table_location cannot be null or empty");
-        metadataFileName.ifPresent(RegisterTableProcedure::validateMetadataFileName);
+        metadataFileName.ifPresent(RegisterProcedureUtils::validateMetadataFileName);
 
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
         accessControl.checkCanCreateTable(null, schemaTableName, ImmutableMap.of());
@@ -172,49 +166,5 @@ public class RegisterTableProcedure
         }
 
         catalog.registerTable(clientSession, schemaTableName, tableMetadata);
-    }
-
-    private static void validateMetadataFileName(String fileName)
-    {
-        String metadataFileName = fileName.trim();
-        checkProcedureArgument(!metadataFileName.isEmpty(), "metadata_file_name cannot be empty when provided as an argument");
-        checkProcedureArgument(!metadataFileName.contains("/"), "%s is not a valid metadata file", metadataFileName);
-    }
-
-    /**
-     * Get the latest metadata file location present in location if metadataFileName is not provided, otherwise
-     * form the metadata file location using location and metadataFileName
-     */
-    private static String getMetadataLocation(TrinoFileSystem fileSystem, String location, Optional<String> metadataFileName)
-    {
-        return metadataFileName
-                .map(fileName -> format("%s/%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME, fileName))
-                .orElseGet(() -> getLatestMetadataLocation(fileSystem, location));
-    }
-
-    private static void validateMetadataLocation(TrinoFileSystem fileSystem, Location location)
-    {
-        try {
-            if (!fileSystem.newInputFile(location).exists()) {
-                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Metadata file does not exist: " + location);
-            }
-        }
-        catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Invalid metadata file location: " + location, e);
-        }
-    }
-
-    private static boolean locationEquivalent(String a, String b)
-    {
-        return normalizeS3Uri(a).equals(normalizeS3Uri(b));
-    }
-
-    private static String normalizeS3Uri(String tableLocation)
-    {
-        // Normalize e.g. s3a to s3, so that table can be registered using s3:// location
-        // even if internally it uses s3a:// paths.
-        String normalizedSchema = S3_SCHEMA_PATTERN.matcher(tableLocation).replaceFirst("s3://");
-        // Remove trailing slashes so that test_dir is equal to test_dir/
-        return stripTrailingSlash(normalizedSchema);
     }
 }
