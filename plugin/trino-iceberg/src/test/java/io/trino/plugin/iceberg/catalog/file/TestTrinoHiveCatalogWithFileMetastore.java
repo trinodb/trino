@@ -182,4 +182,14 @@ public class TestTrinoHiveCatalogWithFileMetastore
         // the test actually works but when cleanup up the materialized view the error is thrown
         assertThatThrownBy(super::testListTables).hasMessageMatching("Table 'ns2.*.mv' not found");
     }
+
+    @Test
+    @Override
+    public void testRegisterView()
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        SchemaTableName viewName = new SchemaTableName("hive_ns", "hive_view");
+        assertThatThrownBy(() -> catalog.registerView(SESSION, viewName, null))
+                .hasMessageContaining("Hive catalog does not support registering Iceberg views");
+    }
 }

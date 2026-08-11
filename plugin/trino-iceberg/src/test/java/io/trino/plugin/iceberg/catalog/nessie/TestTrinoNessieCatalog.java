@@ -183,6 +183,16 @@ public class TestTrinoNessieCatalog
 
     @Test
     @Override
+    public void testRegisterView()
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        SchemaTableName viewName = new SchemaTableName("nessie_ns", "nessie_view");
+        assertThatThrownBy(() -> catalog.registerView(SESSION, viewName, null))
+                .hasMessageContaining("registerView is not supported for Iceberg Nessie catalogs");
+    }
+
+    @Test
+    @Override
     public void testViewNamespaceFilter()
     {
         assertThatThrownBy(super::testViewNamespaceFilter)

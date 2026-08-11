@@ -86,6 +86,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -196,6 +197,16 @@ public class TestTrinoHiveCatalogWithHiveMetastore
     protected boolean isHideMaterializedViewStorageTable()
     {
         return true;
+    }
+
+    @Test
+    @Override
+    public void testRegisterView()
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        SchemaTableName viewName = new SchemaTableName("hive_ns", "hive_view");
+        assertThatThrownBy(() -> catalog.registerView(SESSION, viewName, null))
+                .hasMessageContaining("Hive catalog does not support registering Iceberg views");
     }
 
     @Test

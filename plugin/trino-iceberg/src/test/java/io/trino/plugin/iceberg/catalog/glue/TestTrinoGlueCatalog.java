@@ -70,6 +70,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -132,6 +133,16 @@ public class TestTrinoGlueCatalog
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor(),
                 newDirectExecutorService());
+    }
+
+    @Test
+    @Override
+    public void testRegisterView()
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        SchemaTableName viewName = new SchemaTableName("glue_ns", "glue_view");
+        assertThatThrownBy(() -> catalog.registerView(SESSION, viewName, null))
+                .hasMessageContaining("Glue catalog does not support registering Iceberg views");
     }
 
     /**

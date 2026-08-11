@@ -165,6 +165,9 @@ implementation is used:
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
+* - `iceberg.register-view-procedure.enabled`
+  - Enable to allow user to call [`register_view` procedure](iceberg-register-view).
+  - `false`
 * - `iceberg.add-files-procedure.enabled`
   - Enable to allow user to call [`add_files` procedure](iceberg-add-files).
   - `false`
@@ -642,6 +645,37 @@ existing Iceberg table from the metastores without deleting the data:
 CALL example.system.unregister_table(
   schema_name => 'testdb', 
   table_name => 'customer_orders');
+```
+
+(iceberg-register-view)=
+#### Register view
+
+The connector can register an existing Iceberg view into the catalog if
+`iceberg.register-view-procedure.enabled` is set to `true`. Registration is
+supported only for catalogs that store Iceberg views natively — currently the 
+REST catalog and the JDBC catalog. 
+
+The procedure `system.register_view` allows the caller to attach an existing
+Iceberg view metadata file to a catalog entry without going through
+`CREATE VIEW`:
+
+```sql
+CALL example.system.register_view(
+  schema_name => 'testdb',
+  view_name => 'customer_orders_view',
+  view_location => 's3://example-bucket/views/customer_orders_view');
+```
+
+You can provide a specific metadata file name to register a view with a
+particular version, or when the connector cannot automatically determine which
+metadata file to use:
+
+```sql
+CALL example.system.register_view(
+  schema_name => 'testdb',
+  view_name => 'customer_orders_view',
+  view_location => 's3://example-bucket/views/customer_orders_view',
+  metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json');
 ```
 
 #### Migrate table
