@@ -93,3 +93,32 @@ available at the configured path and `TRINO_KEYSTORE_PASSWORD` set in the Trino
 process environment. Restrict the file permissions to the account that runs
 Trino. Using the environment variable allows you to avoid storing the password
 directly in `secrets.toml`.
+
+(custom-secrets-provider)=
+## Custom secrets provider
+
+You can implement a custom secrets provider to retrieve values from another
+secrets management system. See [](/develop/secrets-provider) for implementation
+and installation instructions.
+
+Add a section to `secrets.toml` to create an instance of the provider:
+
+```toml
+[custom]
+secrets-provider.name = "example-secrets"
+endpoint = "https://secrets.example.com"
+region = "us-west-2"
+```
+
+The section name `custom` declares the provider namespace. The
+`secrets-provider.name` value selects the custom provider implementation. All
+remaining properties configure the provider.
+
+Reference a key from the custom provider with the namespace and key:
+
+```properties
+connection-password=${custom:database/password}
+```
+
+This retrieves the secret identified by `database/password` from the configured
+custom provider.
