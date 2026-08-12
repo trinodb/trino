@@ -24,21 +24,17 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.file.Path;
 import java.util.List;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 final class TestHudiSharedMetastore
         extends AbstractTestQueryFramework
 {
@@ -58,7 +54,7 @@ final class TestHudiSharedMetastore
         QueryRunner queryRunner = DistributedQueryRunner.builder(hudiSession).build();
 
         Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data");
-        verify(dataDirectory.toFile().mkdirs());
+        dataDirectory.toFile().deleteOnExit();
 
         queryRunner.installPlugin(new HudiPlugin());
         queryRunner.createCatalog(
@@ -66,7 +62,6 @@ final class TestHudiSharedMetastore
                 "hudi",
                 ImmutableMap.of(
                         "hive.metastore", "file",
-                        // Intentionally sharing the file metastore directory with Hive
                         "hive.metastore.catalog.dir", dataDirectory.toString(),
                         "fs.hadoop.enabled", "true"));
 
@@ -75,8 +70,8 @@ final class TestHudiSharedMetastore
                 "hive",
                 "hive",
                 ImmutableMap.of(
-                        "hive.metastore", "file",
                         // Intentionally sharing the file metastore directory with Hudi
+                        "hive.metastore", "file",
                         "hive.metastore.catalog.dir", dataDirectory.toString(),
                         "fs.hadoop.enabled", "true"));
 
