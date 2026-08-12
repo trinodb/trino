@@ -62,6 +62,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
@@ -77,6 +78,7 @@ import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LEGACY_CHAR_TO_VARCHAR_CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MODULO_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
@@ -91,6 +93,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -120,6 +123,7 @@ import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestConnectorExpressionTranslator
 {
@@ -142,6 +146,7 @@ public class TestConnectorExpressionTranslator
             .put(new Symbol(DOUBLE, "double_symbol_2"), DOUBLE)
             .put(new Symbol(ROW_TYPE, "row_symbol_1"), ROW_TYPE)
             .put(new Symbol(VARCHAR_TYPE, "varchar_symbol_1"), VARCHAR_TYPE)
+            .put(new Symbol(createCharType(5), "char_symbol_1"), createCharType(5))
             .put(new Symbol(BOOLEAN, "boolean_symbol_1"), BOOLEAN)
             .buildOrThrow();
 
@@ -470,6 +475,36 @@ public class TestConnectorExpressionTranslator
                         VARCHAR_TYPE,
                         CAST_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateLegacyCharToVarcharCast()
+    {
+        Cast cast = new Cast(new Reference(createCharType(5), "char_symbol_1"), VARCHAR_TYPE);
+
+        Session legacySession = Session.builder(TEST_SESSION)
+                .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
+                .build();
+
+        // Under the deprecated varchar-to-char coercion direction the char-to-varchar cast is exposed under a distinct
+        // name so connectors can handle it differently from the default $cast.
+        io.trino.spi.expression.Call legacyCall = new io.trino.spi.expression.Call(
+                VARCHAR_TYPE,
+                LEGACY_CHAR_TO_VARCHAR_CAST_FUNCTION_NAME,
+                List.of(new Variable("char_symbol_1", createCharType(5))));
+        assertThat(translate(legacySession, cast)).hasValue(legacyCall);
+        assertThat(ConnectorExpressionTranslator.translate(legacySession, legacyCall, PLANNER_CONTEXT, variableMappings, emptySymbolAllocator()))
+                .isEqualTo(cast);
+
+        // Under standard semantics, the same cast is a plain $cast
+        assertThat(translate(TEST_SESSION, cast)).hasValue(new io.trino.spi.expression.Call(
+                VARCHAR_TYPE,
+                CAST_FUNCTION_NAME,
+                List.of(new Variable("char_symbol_1", createCharType(5)))));
+        // Under standard semantics, the legacy call cannot be translated back (translating it to a plain Cast would
+        // resolve to the default trimming operator and change the semantics).
+        assertThatThrownBy(() -> ConnectorExpressionTranslator.translate(TEST_SESSION, legacyCall, PLANNER_CONTEXT, variableMappings, emptySymbolAllocator()))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
