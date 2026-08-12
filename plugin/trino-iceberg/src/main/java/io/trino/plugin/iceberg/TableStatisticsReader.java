@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.AbstractSequentialIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -32,6 +33,7 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.BlobMetadata;
@@ -74,6 +76,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Long.parseLong;
@@ -174,11 +177,16 @@ public final class TableStatisticsReader
                 .collect(toImmutableList());
         Iterable<CloseableIterable<DataFile>> dataFileIterables = Iterables.transform(filteredManifests, manifestFile -> readManifest(icebergTable, manifestFile, filter, columnIds));
 
-        List<Types.NestedField> columns = icebergTable.schema().columns()
-                .stream()
-                .filter(column -> columnIds.contains(column.fieldId()))
-                .collect(toImmutableList());
-        IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
+        ImmutableList.Builder<Types.NestedField> columnsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
+        for (Types.NestedField column : icebergTable.schema().columns()) {
+            if (columnIds.contains(column.fieldId())) {
+                columnsBuilder.add(column);
+                columnTypesBuilder.add(toTrinoType(column.type(), typeManager));
+            }
+        }
+        List<Types.NestedField> columns = columnsBuilder.build();
+        IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, columnTypesBuilder.build(), typeManager);
         // Decode small manifest sets inline to avoid bottlenecking small scans on resource contention in the shared planning pool
         CloseableIterable<DataFile> dataFileSource;
         if (filteredManifests.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
