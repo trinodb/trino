@@ -57,6 +57,7 @@ import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
@@ -1595,6 +1596,50 @@ public class TestIcebergV2
                     ".*?Cannot find snapshot with reference name: test-wrong-ref");
             assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 'TEST-TAG'",
                     ".*?Cannot find snapshot with reference name: TEST-TAG");
+        }
+    }
+
+    @Test
+    public void testReadingSnapshotReferenceAfterSchemaEvolution()
+    {
+        try (TestTable table = newTrinoTable("test_reading_snapshot_reference_schema_", "(id integer, data varchar)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+            Table icebergTable = loadTable(tableName);
+            long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
+            icebergTable.manageSnapshots()
+                    .createTag("test-tag", refSnapshotId)
+                    .createBranch("test-branch", refSnapshotId)
+                    .commit();
+
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN data TO payload");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN data varchar");
+
+            // Branch reads resolve names against the table's current schema and match data by field ID,
+            // so the renamed column keeps its values and the reused name is a distinct, empty column
+            assertThat(query("SELECT payload FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
+                    .matches("VALUES VARCHAR 'a'");
+            assertThat(query("SELECT data FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
+                    .matches("VALUES CAST(NULL AS varchar)");
+            assertThat(query("SELECT data FROM " + tableName + " FOR VERSION AS OF 'test-tag'"))
+                    .matches("VALUES VARCHAR 'a'");
+
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN payload");
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN data");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN extra double");
+
+            // Branches read with the table's current schema
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
+                    .matches("VALUES (1, CAST(NULL AS double))");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF '" + SnapshotRef.MAIN_BRANCH + "'"))
+                    .matches("VALUES (1, CAST(NULL AS double))");
+
+            // Tags and snapshot IDs read with the schema of the snapshot they point to
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-tag'"))
+                    .matches("VALUES (1, VARCHAR 'a')");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId))
+                    .matches("VALUES (1, VARCHAR 'a')");
         }
     }
 

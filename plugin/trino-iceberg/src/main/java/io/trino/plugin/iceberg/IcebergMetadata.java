@@ -108,6 +108,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -713,13 +714,14 @@ public class IcebergMetadata
         }
 
         if (endVersion.isPresent()) {
-            long snapshotId = getSnapshotIdFromVersion(session, table, endVersion.get());
+            ConnectorTableVersion version = endVersion.get();
+            long snapshotId = getSnapshotIdFromVersion(session, table, version);
             return tableHandleForSnapshot(
                     session,
                     tableName,
                     table,
                     OptionalLong.of(snapshotId),
-                    schemaFor(table, snapshotId),
+                    schemaForVersion(table, version, snapshotId),
                     Optional.empty());
         }
         return tableHandleForCurrentSnapshot(session, tableName, table);
@@ -820,6 +822,16 @@ public class IcebergMetadata
             case TEMPORAL -> getTemporalSnapshotIdFromVersion(session, table, version, versionType);
             case TARGET_ID -> getTargetSnapshotIdFromVersion(table, version, versionType);
         };
+    }
+
+    private static Schema schemaForVersion(Table table, ConnectorTableVersion version, long snapshotId)
+    {
+        if (version.getPointerType() == PointerType.TARGET_ID && version.getVersionType() instanceof VarcharType) {
+            // A branch is a mutable reference, so it reads with the table's current schema.
+            // A tag reads with the schema of the snapshot it points to.
+            return schemaFor(table, ((Slice) version.getVersion()).toStringUtf8());
+        }
+        return schemaFor(table, snapshotId);
     }
 
     private static long getTargetSnapshotIdFromVersion(Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
