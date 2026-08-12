@@ -85,6 +85,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -417,6 +418,44 @@ public abstract class BaseConnectorTest
             assertQuery(
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
                     "VALUES (4, 'x')");
+        }
+    }
+
+    @Test
+    public void testCharToVarcharCastCoercionAcrossPushdown()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = newTrinoTable(
+                "test_char_to_varchar_cast",
+                """
+                (k, v) AS VALUES
+                   (0, CAST(NULL AS char(5))),
+                   (1, CAST('' AS char(5))),
+                   (2, CAST('ab' AS char(5))),
+                   (3, CAST('abc' AS char(5))),
+                   (4, CAST('abcde' AS char(5)))
+                """)) {
+            for (boolean legacy : List.of(false, true)) {
+                try {
+                    Session session = Session.builder(getSession()).setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, Boolean.toString(legacy)).build();
+                    // Test potential CAST(char AS varchar) projection pushdown
+                    assertThat(query(session, "SELECT k, CAST(v AS varchar(1)) FROM " + table.getName())).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k, CAST(v AS varchar(3)) FROM " + table.getName())).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k, CAST(v AS varchar(6)) FROM " + table.getName())).hasCorrectResultsRegardlessOfPushdown();
+
+                    // Test potential CAST(char AS varchar) predicate pushdown
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(2)) = CAST('ab' AS varchar(3))")).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(6)) = CAST('abc' AS varchar(6))")).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(6)) = CAST('abc ' AS varchar(6))")).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(6)) = CAST('abc  ' AS varchar(6))")).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(6)) = CAST('abc   ' AS varchar(6))")).hasCorrectResultsRegardlessOfPushdown();
+                }
+                catch (Throwable t) {
+                    t.addSuppressed(new Exception("Using %s=%s".formatted(LEGACY_VARCHAR_TO_CHAR_COERCION, legacy)));
+                    throw t;
+                }
+            }
         }
     }
 

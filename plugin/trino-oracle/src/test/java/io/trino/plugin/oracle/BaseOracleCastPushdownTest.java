@@ -203,6 +203,20 @@ public abstract class BaseOracleCastPushdownTest
     }
 
     @Test
+    public void testCharToVarcharCastPushdownWithMultibyteData()
+    {
+        // char(10) uses Oracle's default BYTE length semantics, so 'éé' (4 bytes in AL32UTF8) is stored padded with
+        // 6 blanks to 10 bytes, i.e. 8 code points. Oracle's CAST(CHAR AS VARCHAR2) keeps that physical (byte) padding:
+        // it matches the engine's default char-to-varchar coercion (trailing spaces trimmed), but not the deprecated
+        // legacy coercion that re-pads to the char length in code points (so that cast is not pushed down). Verify the
+        // result matches the engine regardless of which coercion direction and pushdown are in effect.
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_multibyte_char_cast", "(c char(10))", List.of("UNISTR('\\00E9\\00E9')"))) {
+            assertThat(query("SELECT CAST(c AS varchar(20)) FROM " + table.getName()))
+                    .hasCorrectResultsRegardlessOfPushdown();
+        }
+    }
+
+    @Test
     public void testJoinPushdownWithNestedCast()
     {
         CastTestCase testCase = new CastTestCase("c_varchar_10", "varchar(100)", "c_varchar_50");
