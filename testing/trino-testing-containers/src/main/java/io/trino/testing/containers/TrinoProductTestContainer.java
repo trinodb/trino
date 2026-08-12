@@ -269,7 +269,7 @@ public final class TrinoProductTestContainer
          */
         public TrinoContainer build()
         {
-            TrinoContainer container = new TrinoContainer(DockerImageName.parse(imageName));
+            TrinoContainer container = new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino"));
 
             // Legacy product tests always ran Trino with Asia/Kathmandu timezone.
             // Keep that behavior for JUnit parity.
