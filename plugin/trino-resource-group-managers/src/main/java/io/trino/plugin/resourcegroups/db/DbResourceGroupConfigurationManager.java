@@ -379,8 +379,13 @@ public class DbResourceGroupConfigurationManager
         // Specs are built from db records, validate and return manager spec
         List<ResourceGroupSpec> rootGroups = rootGroupIds.stream().map(resourceGroupSpecMap::get).collect(Collectors.toList());
 
+        // The SQL query returns selectors for all groups matching this environment or having
+        // a NULL environment (wildcard). Filter out selectors whose resource group was not
+        // reachable from a root — e.g. a NULL-env child under an env-specific parent that
+        // belongs to a different environment.
         List<SelectorSpec> selectors = dao.getSelectors(environment)
                 .stream()
+                .filter(selectorRecord -> resourceGroupSpecMap.containsKey(selectorRecord.getResourceGroupId()))
                 .map(selectorRecord ->
                         new SelectorSpec(
                                 selectorRecord.getUserRegex(),
