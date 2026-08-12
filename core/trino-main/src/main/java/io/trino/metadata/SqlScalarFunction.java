@@ -15,8 +15,11 @@ package io.trino.metadata;
 
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunctionImplementation;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
+
+import java.util.Optional;
 
 public abstract class SqlScalarFunction
         implements SqlFunction
@@ -42,5 +45,10 @@ public abstract class SqlScalarFunction
     protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         throw new UnsupportedOperationException();
+    }
+
+    public Optional<ColumnarScalarFunctionImplementation> getColumnarScalarFunctionImplementation(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        return Optional.empty();
     }
 }

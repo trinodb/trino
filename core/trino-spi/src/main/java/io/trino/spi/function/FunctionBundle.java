@@ -16,6 +16,7 @@ package io.trino.spi.function;
 import io.trino.spi.Unstable;
 
 import java.util.Collection;
+import java.util.Optional;
 
 @Unstable
 public interface FunctionBundle
@@ -31,6 +32,14 @@ public interface FunctionBundle
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention);
+
+    default Optional<ColumnarScalarFunctionImplementation> getColumnarScalarFunctionImplementation(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies)
+    {
+        return Optional.empty();
+    }
 
     AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
 

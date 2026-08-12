@@ -25,8 +25,12 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.project.ColumnarScalarFunctionPageProjection;
+import io.trino.operator.project.GeneratedPageProjection;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
+import io.trino.operator.project.RowConstructorPageProjection;
+import io.trino.operator.project.RowFieldPageProjection;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
@@ -34,7 +38,9 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.SourcePage;
@@ -84,6 +90,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -115,6 +122,153 @@ public class TestPageFunctionCompiler
             FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
             new Reference(BIGINT, "$col_0"),
             new Constant(BIGINT, 10L));
+
+    @Test
+    public void testColumnarMapProjection()
+    {
+        MapType mapType = new MapType(BIGINT, BIGINT, TYPE_OPERATORS);
+        ArrayType arrayType = new ArrayType(BIGINT);
+        ResolvedFunction mapKeys = FUNCTION_RESOLUTION.resolveFunction("map_keys", fromTypes(mapType));
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(mapKeys, new Reference(mapType, "map")),
+                        ImmutableMap.of(new Symbol(mapType, "map"), 0),
+                        Optional.empty())
+                .get();
+
+        assertThat(projection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
+
+        PageProjection nestedProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(mapKeys, call(FUNCTION_RESOLUTION.getCoercion(mapType, mapType), new Reference(mapType, "map"))),
+                        ImmutableMap.of(new Symbol(mapType, "map"), 0),
+                        Optional.empty())
+                .get();
+        assertThat(nestedProjection).isInstanceOf(GeneratedPageProjection.class);
+
+        MapBlockBuilder builder = mapType.createBlockBuilder(null, 4);
+        builder.buildEntry((keyBuilder, valueBuilder) -> {
+            BIGINT.writeLong(keyBuilder, 11);
+            BIGINT.writeLong(valueBuilder, 101);
+            BIGINT.writeLong(keyBuilder, 12);
+            BIGINT.writeLong(valueBuilder, 102);
+        });
+        builder.appendNull();
+        builder.buildEntry((_, _) -> {});
+        builder.buildEntry((keyBuilder, valueBuilder) -> {
+            BIGINT.writeLong(keyBuilder, 41);
+            BIGINT.writeLong(valueBuilder, 401);
+        });
+        Page page = new Page(builder.build());
+
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, 4));
+        assertThat(arrayType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(11L, 12L));
+        assertThat(result.isNull(1)).isTrue();
+        assertThat(arrayType.getObjectValue(result, 2)).isEqualTo(ImmutableList.of());
+        assertThat(arrayType.getObjectValue(result, 3)).isEqualTo(ImmutableList.of(41L));
+
+        result = project(projection, page, SelectedPositions.positionsList(new int[] {3, 0}, 0, 2));
+        assertThat(arrayType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(41L));
+        assertThat(arrayType.getObjectValue(result, 1)).isEqualTo(ImmutableList.of(11L, 12L));
+    }
+
+    @Test
+    public void testColumnarRowProjections()
+    {
+        RowType inputRowType = RowType.anonymous(ImmutableList.of(BIGINT));
+        BlockBuilder fieldBuilder = BIGINT.createFixedSizeBlockBuilder(3);
+        BIGINT.writeLong(fieldBuilder, 11);
+        fieldBuilder.appendNull();
+        BIGINT.writeLong(fieldBuilder, 31);
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(3, Optional.of(new long[] {0b101}), new Block[] {fieldBuilder.build()});
+
+        FieldReference fieldReference = new FieldReference(new Reference(inputRowType, "row"), 0);
+        PageProjection fieldProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(fieldReference, ImmutableMap.of(new Symbol(inputRowType, "row"), 0), Optional.empty())
+                .get();
+        assertThat(fieldProjection).isInstanceOf(RowFieldPageProjection.class);
+
+        Block fieldResult = project(fieldProjection, new Page(rowBlock), SelectedPositions.positionsRange(0, 3));
+        assertThat(BIGINT.getLong(fieldResult, 0)).isEqualTo(11);
+        assertThat(fieldResult.isNull(1)).isTrue();
+        assertThat(BIGINT.getLong(fieldResult, 2)).isEqualTo(31);
+
+        fieldResult = project(fieldProjection, new Page(rowBlock), SelectedPositions.positionsList(new int[] {2, 0}, 0, 2));
+        assertThat(fieldResult).isInstanceOf(DictionaryBlock.class);
+        assertThat(BIGINT.getLong(fieldResult, 0)).isEqualTo(31);
+        assertThat(BIGINT.getLong(fieldResult, 1)).isEqualTo(11);
+
+        Row row = new Row(ImmutableList.of(new Reference(BIGINT, "value"), new Constant(BIGINT, 7L)));
+        PageProjection rowProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(new Symbol(BIGINT, "value"), 0), Optional.empty())
+                .get();
+        assertThat(rowProjection).isInstanceOf(RowConstructorPageProjection.class);
+
+        Block rowResult = project(rowProjection, createLongBlockPage(10, 20, 30), SelectedPositions.positionsList(new int[] {2, 0}, 0, 2));
+        assertThat(row.type().getObjectValue(rowResult, 0)).isEqualTo(ImmutableList.of(30L, 7L));
+        assertThat(row.type().getObjectValue(rowResult, 1)).isEqualTo(ImmutableList.of(10L, 7L));
+    }
+
+    @Test
+    public void testColumnarArrayProjections()
+    {
+        ArrayType arrayType = new ArrayType(BIGINT);
+        ArrayType nestedArrayType = new ArrayType(arrayType);
+
+        assertColumnarProjection(
+                call(FUNCTION_RESOLUTION.resolveFunction("reverse", fromTypes(arrayType)), new Reference(arrayType, "array")),
+                new Symbol(arrayType, "array"));
+        assertColumnarProjection(
+                call(FUNCTION_RESOLUTION.resolveFunction("trim_array", fromTypes(arrayType, BIGINT)), new Reference(arrayType, "array"), new Constant(BIGINT, 1L)),
+                new Symbol(arrayType, "array"));
+        assertColumnarProjection(
+                call(FUNCTION_RESOLUTION.resolveFunction("slice", fromTypes(arrayType, BIGINT, BIGINT)), new Reference(arrayType, "array"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)),
+                new Symbol(arrayType, "array"));
+        assertColumnarProjection(
+                call(FUNCTION_RESOLUTION.resolveFunction("flatten", fromTypes(nestedArrayType)), new Reference(nestedArrayType, "array")),
+                new Symbol(nestedArrayType, "array"));
+    }
+
+    private static void assertColumnarProjection(Expression expression, Symbol input)
+    {
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(expression, ImmutableMap.of(input, 0), Optional.empty())
+                .get();
+        assertThat(projection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
+    }
+
+    @Test
+    public void testColumnarArrayElementProjectionIsLimitedToNestedTypes()
+    {
+        ArrayType primitiveArrayType = new ArrayType(BIGINT);
+        ResolvedFunction primitiveArrayFirst = FUNCTION_RESOLUTION.resolveFunction("array_first", fromTypes(primitiveArrayType));
+        PageProjection primitiveProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(primitiveArrayFirst, new Reference(primitiveArrayType, "array")),
+                        ImmutableMap.of(new Symbol(primitiveArrayType, "array"), 0),
+                        Optional.empty())
+                .get();
+        assertThat(primitiveProjection).isInstanceOf(GeneratedPageProjection.class);
+
+        ArrayType nestedArrayType = new ArrayType(primitiveArrayType);
+        ResolvedFunction nestedArrayFirst = FUNCTION_RESOLUTION.resolveFunction("array_first", fromTypes(nestedArrayType));
+        PageProjection nestedProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(nestedArrayFirst, new Reference(nestedArrayType, "array")),
+                        ImmutableMap.of(new Symbol(nestedArrayType, "array"), 0),
+                        Optional.empty())
+                .get();
+        assertThat(nestedProjection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
+
+        ResolvedFunction nestedSubscript = FUNCTION_RESOLUTION.resolveOperator(SUBSCRIPT, ImmutableList.of(nestedArrayType, BIGINT));
+        PageProjection subscriptProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(nestedSubscript, new Reference(nestedArrayType, "array"), new Constant(BIGINT, 1L)),
+                        ImmutableMap.of(new Symbol(nestedArrayType, "array"), 0),
+                        Optional.empty())
+                .get();
+        assertThat(subscriptProjection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
+    }
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()
