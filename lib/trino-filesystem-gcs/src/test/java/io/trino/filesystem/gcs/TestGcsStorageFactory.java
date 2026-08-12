@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -22,6 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
@@ -184,5 +188,89 @@ final class TestGcsStorageFactory
         finally {
             storageFactory.stop();
         }
+    }
+
+    @Test
+    void testCustomAuditHeadersDisabledByDefault()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_id"))) {
+            assertThat(headers(storage)).doesNotContainKeys("x-goog-custom-audit-trino-query-id", "x-goog-custom-audit-trino-user");
+        }
+    }
+
+    @Test
+    void testCustomAuditHeadersIncludeQueryIdAndUser()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig()
+                .setAuthType(AuthType.APPLICATION_DEFAULT)
+                .setCustomAuditHeadersEnabled(true);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("alice"), Optional.of("query_id"))) {
+            assertThat(headers(storage))
+                    .containsEntry("x-goog-custom-audit-trino-query-id", "query_id")
+                    .containsEntry("x-goog-custom-audit-trino-user", "alice");
+        }
+    }
+
+    @Test
+    void testCustomAuditHeadersOmittedWithoutQueryId()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig()
+                .setAuthType(AuthType.APPLICATION_DEFAULT)
+                .setCustomAuditHeadersEnabled(true);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        try {
+            Storage storage = storageFactory.create(ConnectorIdentity.ofUser("alice"));
+            assertThat(headers(storage)).doesNotContainKeys("x-goog-custom-audit-trino-query-id", "x-goog-custom-audit-trino-user");
+        }
+        finally {
+            storageFactory.stop();
+        }
+    }
+
+    @Test
+    void testStorageWithAuditHeadersIsNotCached()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig()
+                .setAuthType(AuthType.APPLICATION_DEFAULT)
+                .setCustomAuditHeadersEnabled(true);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        try (Storage first = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_1"));
+                Storage second = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_2"))) {
+            assertThat(second).isNotSameAs(first);
+        }
+    }
+
+    @Test
+    void testStorageIsStillCachedWhenAuditHeadersDisabled()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        try {
+            Storage first = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_1"));
+            Storage second = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_2"));
+
+            assertThat(second).isSameAs(first);
+        }
+        finally {
+            storageFactory.stop();
+        }
+    }
+
+    private static Map<String, String> headers(Storage storage)
+    {
+        return storage.getOptions().getMergedHeaderProvider(FixedHeaderProvider.create(ImmutableMap.of())).getHeaders();
     }
 }

@@ -56,6 +56,7 @@ public class GcsFileSystemConfig
     // Note: there is no benefit to setting this much higher as the rpc quota is 1x per second: https://cloud.google.com/storage/docs/retry-strategy#java
     private Duration maxBackoffDelay = new Duration(2000, TimeUnit.MILLISECONDS);
     private String applicationId = "Trino";
+    private boolean customAuditHeadersEnabled;
 
     @NotNull
     public DataSize getReadBlockSize()
@@ -236,6 +237,19 @@ public class GcsFileSystemConfig
     public GcsFileSystemConfig setApplicationId(String applicationId)
     {
         this.applicationId = applicationId;
+        return this;
+    }
+
+    public boolean isCustomAuditHeadersEnabled()
+    {
+        return customAuditHeadersEnabled;
+    }
+
+    @Config("gcs.custom-audit-headers.enabled")
+    @ConfigDescription("Add the Trino query ID and user as x-goog-custom-audit-* headers on GCS requests, surfaced in GCS Cloud Audit Logs")
+    public GcsFileSystemConfig setCustomAuditHeadersEnabled(boolean customAuditHeadersEnabled)
+    {
+        this.customAuditHeadersEnabled = customAuditHeadersEnabled;
         return this;
     }
 

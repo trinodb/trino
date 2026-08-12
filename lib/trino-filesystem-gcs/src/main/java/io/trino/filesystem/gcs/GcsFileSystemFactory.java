@@ -13,10 +13,12 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.cloud.storage.Storage;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 
@@ -61,5 +63,12 @@ public class GcsFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint);
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorSession session)
+    {
+        Storage storage = storageFactory.create(session.getIdentity(), Optional.of(session.getQueryId()));
+        return new GcsFileSystem(executorService, storage, readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint);
     }
 }
