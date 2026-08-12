@@ -31,10 +31,10 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -64,6 +64,7 @@ public record IcebergStatistics(
     {
         private final TypeManager typeManager;
         private final List<Types.NestedField> columns;
+        private final List<io.trino.spi.type.Type> columnTypes;
 
         private long recordCount;
         private long fileCount;
@@ -75,10 +76,13 @@ public record IcebergStatistics(
 
         public Builder(
                 List<Types.NestedField> columns,
+                List<io.trino.spi.type.Type> columnTypes,
                 TypeManager typeManager)
         {
+            checkArgument(columns.size() == columnTypes.size(), "columns and columnTypes must have the same size");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.columns = ImmutableList.copyOf(columns);
+            this.columnTypes = ImmutableList.copyOf(columnTypes);
         }
 
         public void acceptDataFile(DataFile dataFile, PartitionSpec partitionSpec)
@@ -93,9 +97,10 @@ public record IcebergStatistics(
             mergeLongStatistics(nullCounts, nullValueCounts);
 
             Map<Integer, Optional<String>> identityPartitionValues = getPartitionKeys(dataFile.partition(), partitionSpec);
-            for (Types.NestedField column : columns) {
+            for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+                Types.NestedField column = columns.get(columnIndex);
                 int id = column.fieldId();
-                io.trino.spi.type.Type trinoType = toTrinoType(column.type(), typeManager);
+                io.trino.spi.type.Type trinoType = columnTypes.get(columnIndex);
                 Optional<String> partitionValue = identityPartitionValues.get(id);
                 if (partitionValue != null) {
                     if (partitionValue.isPresent()) {
