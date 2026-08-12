@@ -12,39 +12,28 @@
     <artifactId>trino-hudi</artifactId>
     <packaging>trino-plugin</packaging>
     <name>${project.artifactId}</name>
-    <description>Trino - Hudi connector</description>
+    <description>Trino - Hudi connector (depends on org.apache.hudi:hudi-trino, per RFC-105)</description>
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.hudi.version>1.2.0</dep.hudi.version>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
-            <optional>true</optional>
-        </dependency>
-
+        <!-- Main runtime: trino-hudi/src/main/java contains only HudiPlugin.java which wraps
+             HudiConnectorFactory from the Hudi-published artifact. Per RFC-105, hudi-trino is
+             a regular non-shaded jar; Trino's URLClassLoader isolates its transitives. -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
 
+        <!-- Test code uses these classes; declared here at compile scope to match the scope they
+             arrive at transitively through hudi-trino. trino-hive also gets used at compile by
+             tests as HivePartitionManager / HivePlugin / FileHiveMetastoreConfig references. -->
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
             <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>bootstrap</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
@@ -54,27 +43,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem-manager</artifactId>
+            <artifactId>log-manager</artifactId>
         </dependency>
 
         <dependency>
@@ -84,7 +53,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-memory-context</artifactId>
+            <artifactId>trino-hive-formats</artifactId>
         </dependency>
 
         <dependency>
@@ -94,27 +63,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-parquet</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>jakarta.validation</groupId>
-            <artifactId>jakarta.validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.avro</groupId>
-            <artifactId>avro</artifactId>
         </dependency>
 
         <dependency>
@@ -123,7 +72,31 @@
             <version>${dep.hudi.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>*</groupId>
+                    <groupId>io.dropwizard.metrics</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hbase</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.orc</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.lance</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.rocksdb</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -133,18 +106,41 @@
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-io</artifactId>
             <version>${dep.hudi.version}</version>
+            <classifier>shaded</classifier>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-column</artifactId>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-trino</artifactId>
+            <exclusions>
+                <!-- Defense in depth; the Hudi pom should already exclude these but explicit
+                     decls survive upstream churn. orc-core 1.6.0 ships a stale relocated copy
+                     of io.airlift.slice.XxHash64 lacking hash(long), shadowing slice 2.7 at
+                     runtime; Trino uses its own ORC reader. -->
+                <exclusion>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hudi</groupId>
+                    <artifactId>hudi-timeline-service</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.orc</groupId>
+                    <artifactId>orc-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.lance</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.rocksdb</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
-        </dependency>
-
+        <!-- Trino SPI: provided by Trino's runtime at plugin load. -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
@@ -193,6 +189,7 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Test-only scaffolding. -->
         <dependency>
             <groupId>com.esotericsoftware</groupId>
             <artifactId>kryo-shaded</artifactId>
@@ -234,6 +231,13 @@
             <!-- required by hudi-client-common's LockManager used when writing test tables -->
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -331,6 +335,9 @@
             </exclusions>
         </dependency>
 
+        <!-- hudi-common, hudi-io (shaded), hudi-java-client come transitively via hudi-trino
+             at compile; only the hudi-io tests-jar classifier and hudi-hadoop-common are
+             test-only test scaffolding. -->
         <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-hadoop-common</artifactId>
@@ -359,6 +366,8 @@
         </dependency>
 
         <dependency>
+            <!-- TPCH seeding in tests uses HoodieJavaWriteClient and HoodieJavaEngineContext.
+                 hudi-java-client is test-scope in hudi-trino's own pom, so does not propagate. -->
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-java-client</artifactId>
             <version>${dep.hudi.version}</version>
@@ -396,6 +405,13 @@
         </dependency>
 
         <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20251224</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
@@ -406,10 +422,93 @@
             <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <bannedDependencies>
+                            <includes combine.children="append">
+                                <!-- Legacy HDFS file system uses AWS S3 SDK v1 -->
+                                <include>com.amazonaws:*:*</include>
+                            </includes>
+                        </bannedDependencies>
+                    </rules>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- TODO: tactical bypass. The Hudi connector's main source is the HudiPlugin
+                     shim only; nearly every Trino/Airlift/Hudi lib trino-hudi depends on is
+                     used only by tests yet arrives transitively at compile via hudi-trino,
+                     which makes both "Used undeclared" and "Non-test scoped test only" fire
+                     on the same deps. The scope check is skipped here while we model the
+                     long-term pom shape (likely matching trino-iceberg's structure). -->
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>dependency-scope-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- Same rationale as dependency-scope above; the analyze step would flag
+                     deps that arrive transitively at the same scope they are used at. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>com.google.errorprone:error_prone_annotations</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>com.google.inject:guice</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.airlift:configuration</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.airlift:log</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.airlift:log-manager</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.airlift:units</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.opentelemetry:opentelemetry-sdk-trace</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.trino:trino-client</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.trino:trino-filesystem</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.trino:trino-hive</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.trino:trino-hive-formats</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.trino:trino-metastore</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.trino:trino-parquet</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>io.trino:trino-plugin-toolkit</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>joda-time:joda-time</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>org.apache.avro:avro</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>org.apache.hudi:hudi-common</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>org.apache.hudi:hudi-io</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>org.apache.parquet:parquet-column</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>org.jetbrains:annotations</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>com.google.errorprone:error_prone_annotations</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.google.inject:guice</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.airlift:configuration</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.airlift:log</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.airlift:log-manager</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.airlift:units</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.opentelemetry:opentelemetry-sdk-trace</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-filesystem</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-hive</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-hive-formats</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-metastore</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-parquet</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-plugin-toolkit</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>joda-time:joda-time</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.avro:avro</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.hudi:hudi-common</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.hudi:hudi-io</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.parquet:parquet-column</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
@@ -418,10 +517,28 @@
                         <!-- org.apache.hudi:hudi-client-common and org.apache.hudi:hudi-java-client log4j.properties duplicates -->
                         <ignoredResourcePattern>log4j.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>log4j-surefire.properties</ignoredResourcePattern>
+                        <!-- jersey + jetty servlet resources collide across multiple jars; standard webapp dup. -->
+                        <ignoredResourcePattern>META-INF/services/javax\.ws\.rs\..*</ignoredResourcePattern>
+                        <ignoredResourcePattern>about\.html</ignoredResourcePattern>
+                        <!-- protobuf .proto descriptors shaded into hudi-io duplicate the canonical ones. -->
+                        <ignoredResourcePattern>google/protobuf/.*</ignoredResourcePattern>
+                        <!-- Trino's lz4 (at.yawk.lz4) and Hudi's (org.lz4 via Avro) ship JNI native libs
+                             at the same paths. TODO exclude one to avoid runtime classloader confusion. -->
+                        <ignoredResourcePattern>net/jpountz/util/.*/lib.*\.(so|dylib|dll)</ignoredResourcePattern>
                     </ignoredResourcePatterns>
 
                     <ignoredClassPatterns>
                         <ignoredClassPattern>org.apache.parquet.conf.ParquetConfiguration</ignoredClassPattern>
+                        <!-- The Trino-side HudiPlugin is a copy of the Hudi-side one shipped in
+                             org.apache.hudi:hudi-trino. Both implement io.trino.spi.Plugin and
+                             register the same HudiConnectorFactory. The duplicate is intentional
+                             until we settle on one canonical Plugin entry point. -->
+                        <ignoredClassPattern>io.trino.plugin.hudi.HudiPlugin</ignoredClassPattern>
+                        <!-- Trino's lz4 (at.yawk.lz4) vs Hudi's (org.lz4). Different forks, same
+                             package layout for some classes. Hudi's lz4 came via Avro transitives. -->
+                        <ignoredClassPattern>net.jpountz.lz4\..*</ignoredClassPattern>
+                        <ignoredClassPattern>net.jpountz.util\..*</ignoredClassPattern>
+                        <ignoredClassPattern>net.jpountz.xxhash\..*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
