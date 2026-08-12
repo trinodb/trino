@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@types/lodash": "^4.17.24",
+    "@types/lodash": "^4.17.25",
     "@types/lodash.merge": "^4.6.9",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
