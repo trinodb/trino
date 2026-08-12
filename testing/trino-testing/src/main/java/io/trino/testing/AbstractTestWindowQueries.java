@@ -617,6 +617,142 @@ public abstract class AbstractTestWindowQueries
     }
 
     @Test
+    public void testBigintAverage()
+    {
+        assertThat(query(
+                """
+                SELECT k, avg(a) OVER (ORDER BY k)
+                FROM (VALUES
+                    (1, BIGINT '12'),
+                    (2, BIGINT '-24'),
+                    (3, BIGINT '36'),
+                    (4, BIGINT '-48'),
+                    (5, BIGINT '60'),
+                    (6, BIGINT '-72')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '12.0'),
+                            (2, DOUBLE '-6.0'),
+                            (3, DOUBLE '8.0'),
+                            (4, DOUBLE '-6.0'),
+                            (5, DOUBLE '7.2'),
+                            (6, DOUBLE '-6.0')
+                        """);
+
+        assertThat(query(
+                """
+                SELECT k, avg(v) OVER (ORDER BY k)
+                FROM (VALUES
+                    (1, BIGINT '9223372036854775807'),
+                    (2, BIGINT '1'),
+                    (3, BIGINT '1'),
+                    (4, BIGINT '1'),
+                    (5, BIGINT '1')) t(k, v)"""))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '9223372036854776000'),
+                            (2, DOUBLE '4611686018427388000'),
+                            (3, DOUBLE '3074457345618259000'),
+                            (4, DOUBLE '2305843009213694000'),
+                            (5, DOUBLE '1844674407370955300')""");
+
+        assertThat(query(
+                """
+                SELECT k, avg(v) OVER (ORDER BY k)
+                FROM (VALUES
+                    (1, BIGINT '9223372036854775807'),
+                    (2, BIGINT '1'),
+                    (3, BIGINT '-9223372036854775807'),
+                    (4, BIGINT '-1'),
+                    (5, BIGINT '1'),
+                    (6, BIGINT '1'),
+                    (7, BIGINT '1'),
+                    (8, BIGINT '1')) t(k, v)"""))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '9223372036854776000'),
+                            (2, DOUBLE '4611686018427388000'),
+                            (3, DOUBLE '0'),
+                            (4, DOUBLE '-0.25'),
+                            (5, DOUBLE '0'),
+                            (6, DOUBLE '0.16666666666666666'),
+                            (7, DOUBLE '0.2857142857142857'),
+                            (8, DOUBLE '0.375')""");
+    }
+
+    @Test
+    public void testBigintSlidingAverage()
+    {
+        assertThat(query(
+                """
+                SELECT k, avg(a) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, BIGINT '12'),
+                    (2, BIGINT '-24'),
+                    (3, BIGINT '36'),
+                    (4, BIGINT '-48'),
+                    (5, BIGINT '60'),
+                    (6, BIGINT '-72')) t(k, a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '12.0'),
+                            (2, DOUBLE '-6.0'),
+                            (3, DOUBLE '8.0'),
+                            (4, DOUBLE '-6.0'),
+                            (5, DOUBLE '6.0'),
+                            (6, DOUBLE '-6.0')
+                        """);
+
+        assertThat(query(
+                """
+                SELECT k, avg(v) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, BIGINT '9223372036854775807'),
+                    (2, BIGINT '1'),
+                    (3, BIGINT '1'),
+                    (4, BIGINT '1'),
+                    (5, BIGINT '1')) t(k, v)"""))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '9223372036854776000'),
+                            (2, DOUBLE '4611686018427388000'),
+                            (3, DOUBLE '3074457345618259000'),
+                            (4, DOUBLE '2305843009213694000'),
+                            (5, DOUBLE '1')""");
+
+        assertThat(query(
+                """
+                SELECT k, avg(v) OVER (ORDER BY k ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (1, BIGINT '9223372036854775807'),
+                    (2, BIGINT '1'),
+                    (3, BIGINT '-9223372036854775807'),
+                    (4, BIGINT '-1'),
+                    (5, BIGINT '1'),
+                    (6, BIGINT '1'),
+                    (7, BIGINT '1'),
+                    (8, BIGINT '1')) t(k, v)"""))
+                .matches(
+                        """
+                        VALUES
+                            (1, DOUBLE '9223372036854776000'),
+                            (2, DOUBLE '4611686018427388000'),
+                            (3, DOUBLE '0'),
+                            (4, DOUBLE '-0.25'),
+                            (5, DOUBLE '-2305843009213694000'),
+                            (6, DOUBLE '-2305843009213694000'),
+                            (7, DOUBLE '0.5'),
+                            (8, DOUBLE '1')""");
+    }
+
+    @Test
     public void testDuplicateColumnsInWindowOrderByClause()
     {
         MaterializedResult actual = computeActual("SELECT a, row_number() OVER (ORDER BY a ASC, a DESC) FROM (VALUES 3, 2, 1) t(a)");
