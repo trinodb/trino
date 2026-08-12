@@ -912,7 +912,7 @@ public class BinPackingNodeAllocatorService
                 InternalNode selectedNode = candidates.stream()
                         .min(comparing(node -> totalFulfilledAcquiresCountByNode.getOrDefault(node.getNodeIdentifier(), 0L)))
                         .orElseThrow();
-                subtractFromRemainingMemory(selectedNode.getNodeIdentifier(), 0);
+                recordReservation(selectedNode.getNodeIdentifier(), 0);
                 return ReserveResult.reserved(selectedNode);
             }
 
@@ -937,7 +937,7 @@ public class BinPackingNodeAllocatorService
                 // todo: currant logic does not handle heterogenous clusters best. There is a chance that there is a larger node in the cluster but
                 //       with less memory available right now, hence that one was not selected as a candidate.
                 // mark memory reservation
-                subtractFromRemainingMemory(selectedNode.getNodeIdentifier(), memoryRequirements);
+                recordReservation(selectedNode.getNodeIdentifier(), memoryRequirements);
                 return ReserveResult.reserved(selectedNode);
             }
 
@@ -951,7 +951,7 @@ public class BinPackingNodeAllocatorService
             InternalNode fallbackNode = candidates.stream()
                     .max(fallbackComparator)
                     .orElseThrow();
-            subtractFromRemainingMemory(fallbackNode.getNodeIdentifier(), memoryRequirements);
+            recordReservation(fallbackNode.getNodeIdentifier(), memoryRequirements);
             return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
         }
 
@@ -970,7 +970,7 @@ public class BinPackingNodeAllocatorService
             return comparator.thenComparing(node -> -speculativeMemoryReserved.getOrDefault(node.getNodeIdentifier(), 0L));
         }
 
-        private void subtractFromRemainingMemory(String nodeIdentifier, long memoryLease)
+        private void recordReservation(String nodeIdentifier, long memoryLease)
         {
             nodesRemainingMemoryRuntimeAdjusted.compute(
                     nodeIdentifier,
