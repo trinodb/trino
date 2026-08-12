@@ -54,7 +54,6 @@ public class GcsStorageFactory
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
     private final String applicationId;
-    private final boolean customAuditHeadersEnabled;
     private final GcsAuth gcsAuth;
     private volatile Storage cachedStorage;
 
@@ -71,7 +70,6 @@ public class GcsStorageFactory
         this.minBackoffDelay = config.getMinBackoffDelay().toJavaTime();
         this.maxBackoffDelay = config.getMaxBackoffDelay().toJavaTime();
         this.applicationId = config.getApplicationId();
-        this.customAuditHeadersEnabled = config.isCustomAuditHeadersEnabled();
     }
 
     public Storage create(ConnectorIdentity identity)
@@ -82,8 +80,7 @@ public class GcsStorageFactory
     public Storage create(ConnectorIdentity identity, Optional<String> queryId)
     {
         // A Storage instance carrying a per-query audit header must not be cached and reused across queries.
-        boolean carriesPerQueryAuditHeaders = customAuditHeadersEnabled && queryId.isPresent();
-        if (!carriesPerQueryAuditHeaders && isCacheable(identity)) {
+        if (queryId.isEmpty() && isCacheable(identity)) {
             Storage storage = cachedStorage;
             if (storage == null) {
                 synchronized (this) {
@@ -152,7 +149,7 @@ public class GcsStorageFactory
     private Map<String, String> buildHeaders(ConnectorIdentity identity, Optional<String> queryId)
     {
         String userAgent = StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId;
-        if (!customAuditHeadersEnabled || queryId.isEmpty()) {
+        if (queryId.isEmpty()) {
             return ImmutableMap.of(USER_AGENT, userAgent);
         }
         // Custom audit headers (x-goog-custom-audit-*) are surfaced in GCS Cloud Audit Logs.

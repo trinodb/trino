@@ -191,24 +191,10 @@ final class TestGcsStorageFactory
     }
 
     @Test
-    void testCustomAuditHeadersDisabledByDefault()
-            throws Exception
-    {
-        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
-
-        try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_id"))) {
-            assertThat(headers(storage)).doesNotContainKeys("x-goog-custom-audit-trino-query-id", "x-goog-custom-audit-trino-user");
-        }
-    }
-
-    @Test
     void testCustomAuditHeadersIncludeQueryIdAndUser()
             throws Exception
     {
-        GcsFileSystemConfig config = new GcsFileSystemConfig()
-                .setAuthType(AuthType.APPLICATION_DEFAULT)
-                .setCustomAuditHeadersEnabled(true);
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
         try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("alice"), Optional.of("query_id"))) {
@@ -222,9 +208,7 @@ final class TestGcsStorageFactory
     void testCustomAuditHeadersOmittedWithoutQueryId()
             throws Exception
     {
-        GcsFileSystemConfig config = new GcsFileSystemConfig()
-                .setAuthType(AuthType.APPLICATION_DEFAULT)
-                .setCustomAuditHeadersEnabled(true);
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
         try {
@@ -240,32 +224,12 @@ final class TestGcsStorageFactory
     void testStorageWithAuditHeadersIsNotCached()
             throws Exception
     {
-        GcsFileSystemConfig config = new GcsFileSystemConfig()
-                .setAuthType(AuthType.APPLICATION_DEFAULT)
-                .setCustomAuditHeadersEnabled(true);
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
         try (Storage first = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_1"));
                 Storage second = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_2"))) {
             assertThat(second).isNotSameAs(first);
-        }
-    }
-
-    @Test
-    void testStorageIsStillCachedWhenAuditHeadersDisabled()
-            throws Exception
-    {
-        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
-
-        try {
-            Storage first = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_1"));
-            Storage second = storageFactory.create(ConnectorIdentity.ofUser("test"), Optional.of("query_2"));
-
-            assertThat(second).isSameAs(first);
-        }
-        finally {
-            storageFactory.stop();
         }
     }
 

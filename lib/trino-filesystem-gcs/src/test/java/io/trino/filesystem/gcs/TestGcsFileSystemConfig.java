@@ -49,8 +49,7 @@ public class TestGcsFileSystemConfig
                 .setMaxRetryTime(new Duration(25, SECONDS))
                 .setMinBackoffDelay(new Duration(10, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(2000, MILLISECONDS))
-                .setApplicationId("Trino")
-                .setCustomAuditHeadersEnabled(false));
+                .setApplicationId("Trino"));
     }
 
     @Test
@@ -70,7 +69,6 @@ public class TestGcsFileSystemConfig
                 .put("gcs.client.min-backoff-delay", "20ms")
                 .put("gcs.client.max-backoff-delay", "20ms")
                 .put("gcs.application-id", "application id")
-                .put("gcs.custom-audit-headers.enabled", "true")
                 .buildOrThrow();
 
         GcsFileSystemConfig expected = new GcsFileSystemConfig()
@@ -86,8 +84,7 @@ public class TestGcsFileSystemConfig
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(20, MILLISECONDS))
-                .setApplicationId("application id")
-                .setCustomAuditHeadersEnabled(true);
+                .setApplicationId("application id");
         assertFullMapping(properties, expected);
     }
 
