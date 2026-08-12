@@ -159,10 +159,11 @@ fails at startup.
 
 ## Keystore credentials
 
-Use the following properties to load S3 credentials from a JCEKS keystore file
-instead of plaintext keys. This matches the Hadoop `secrets.jceks` pattern used
-on many CDP clusters. Configure either global aliases or a per-bucket alias
-prefix, but not both.
+Use the following properties to load S3 credentials from a Java KeyStore file
+instead of plaintext keys. This follows the same alias-based pattern as the JDBC
+KEYSTORE credential provider. The keystore is loaded once at startup; credentials
+cannot be combined with `s3.aws-access-key` and `s3.aws-secret-key`. Configure
+either global aliases or a per-bucket alias prefix, but not both.
 
 :::{list-table}
 :widths: 40, 60
@@ -170,16 +171,6 @@ prefix, but not both.
 
 * - Property
   - Description
-* - `s3.keystore.path`
-  - Path to the JCEKS keystore file containing credential aliases.
-* - `s3.keystore.type`
-  - Keystore type. Defaults to `JCEKS`.
-* - `s3.keystore.password`
-  - Password for the keystore file. Defaults to the
-    `HADOOP_CREDSTORE_PASSWORD` environment variable, then `none`.
-* - `s3.keystore.entry-password`
-  - Password protecting individual keystore entries. Defaults to
-    `s3.keystore.password`.
 * - `s3.aws-access-key-alias`
   - Keystore alias for the global S3 access key. Requires
     `s3.aws-secret-key-alias` and cannot be combined with
@@ -193,6 +184,16 @@ prefix, but not both.
     are resolved as `<prefix>my-bucket.access.key` and
     `<prefix>my-bucket.secret.key`. Requires `s3.keystore.path` and cannot be
     combined with global aliases or `s3.security-mapping.enabled`.
+* - `s3.keystore.entry-password`
+  - Password protecting individual keystore entries. Defaults to
+    `s3.keystore.password`.
+* - `s3.keystore.password`
+  - Password for the keystore file. Defaults to the
+    `HADOOP_CREDSTORE_PASSWORD` environment variable, then `none`.
+* - `s3.keystore.path`
+  - Path to the Java KeyStore file containing credential aliases.
+* - `s3.keystore.type`
+  - Keystore type. Defaults to `JCEKS`.
 :::
 
 ## Security mapping
