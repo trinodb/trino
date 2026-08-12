@@ -224,6 +224,25 @@ public class TestDomainCoercer
                 Domain.create(ValueSet.ofRanges(greaterThanOrEqual(createVarcharType(10), utf8Slice("123 "))), false),
                 createCharType(4)))
                 .isEqualTo(Domain.create(ValueSet.ofRanges(greaterThan(createCharType(4), utf8Slice("123"))), false));
+
+        // CAST(char AS varchar) is not monotone around code points below U+0020 (char comparison
+        // pads with spaces), so range bounds containing them cannot be translated and are widened
+        // to unbounded
+        assertThat(applySaturatedCasts(
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(createVarcharType(10), utf8Slice("123\0"))), false),
+                createCharType(4)))
+                .isEqualTo(Domain.notNull(createCharType(4)));
+        assertThat(applySaturatedCasts(
+                Domain.create(ValueSet.ofRanges(range(createVarcharType(10), utf8Slice("a\0"), true, utf8Slice("bcd"), true)), false),
+                createCharType(4)))
+                .isEqualTo(Domain.create(ValueSet.ofRanges(lessThanOrEqual(createCharType(4), utf8Slice("bcd"))), false));
+
+        // Single values do not rely on monotonicity: an exact char preimage exists, so the value
+        // is preserved even with code points below U+0020
+        assertThat(applySaturatedCasts(
+                multipleValues(createVarcharType(10), ImmutableList.of(utf8Slice("12\0"))),
+                createCharType(4)))
+                .isEqualTo(multipleValues(createCharType(4), ImmutableList.of(utf8Slice("12\0"))));
     }
 
     private static Domain applySaturatedCasts(Domain domain, Type coercedValueType)

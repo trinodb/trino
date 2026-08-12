@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -29,8 +30,10 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 
 import java.lang.invoke.MethodHandle;
@@ -135,7 +138,7 @@ public final class DomainCoercer
             }
 
             Range coercedLow;
-            if (range.isLowUnbounded()) {
+            if (range.isLowUnbounded() || !isBoundTranslationSound(range.getLowBoundedValue())) {
                 coercedLow = Range.all(coercedValueType);
             }
             else {
@@ -168,7 +171,7 @@ public final class DomainCoercer
             }
 
             Range coercedHigh;
-            if (range.isHighUnbounded()) {
+            if (range.isHighUnbounded() || !isBoundTranslationSound(range.getHighBoundedValue())) {
                 coercedHigh = Range.all(coercedValueType);
             }
             else {
@@ -202,6 +205,31 @@ public final class DomainCoercer
             }
 
             return coercedLow.intersect(coercedHigh);
+        }
+
+        /**
+         * Translating a range bound with the saturated floor cast assumes the cast back to the
+         * original type is monotone. {@code CAST(char AS varchar)} is not when code points below
+         * {@code U+0020} are involved: {@code char} values compare as if space-padded to their
+         * declared length, so e.g. {@code char '123' || chr(1)} sorts below {@code char '123'},
+         * while their varchar forms compare the other way around. Bounds whose value contains such
+         * a code point are widened to unbounded, which is always sound. Single values do not rely
+         * on monotonicity (they are kept only when the floor casts back equal) and are not
+         * affected. Code points below {@code U+0020} are single bytes in UTF-8, so a byte scan is
+         * exact.
+         */
+        private boolean isBoundTranslationSound(Object boundValue)
+        {
+            if (!(domain.getType() instanceof VarcharType) || !(coercedValueType instanceof CharType)) {
+                return true;
+            }
+            Slice slice = (Slice) boundValue;
+            for (int i = 0; i < slice.length(); i++) {
+                if ((slice.getByte(i) & 0xFF) < 0x20) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private Optional<Object> applySaturatedCast(Object originalValue)
