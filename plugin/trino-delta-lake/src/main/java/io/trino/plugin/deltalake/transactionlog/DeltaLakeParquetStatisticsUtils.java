@@ -213,15 +213,17 @@ public final class DeltaLakeParquetStatisticsUtils
         }
         if (type == TIMESTAMP_MICROS) {
             long epochMicros = (long) value;
-            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-            int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
-            return ISO_INSTANT.format(ZonedDateTime.ofInstant(instant.truncatedTo(MILLIS), UTC));
+            long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+            // ceil the max so the millisecond bound still covers the sub-millisecond value
+            if (roundUp && floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) > 0) {
+                epochMillis++;
+            }
+            return ISO_INSTANT.format(ZonedDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC));
         }
         if (type == TIMESTAMP_TZ_MICROS) {
             LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
             long epochMillis = timestamp.getEpochMillis();
-            // Delta statistics are millisecond-granular; ceil the max so a truncated upper bound still covers sub-millisecond values
+            // ceil the max so the millisecond bound still covers the sub-millisecond value
             if (roundUp && timestamp.getPicosOfMilli() > 0) {
                 epochMillis++;
             }

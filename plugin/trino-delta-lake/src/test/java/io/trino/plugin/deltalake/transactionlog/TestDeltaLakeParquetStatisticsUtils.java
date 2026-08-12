@@ -216,6 +216,17 @@ public class TestDeltaLakeParquetStatisticsUtils
         assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_TZ_MICROS, value, true)).isEqualTo("2024-01-15T10:30:00.124Z");
     }
 
+    @Test
+    public void testTimestampComputedStatisticsRoundsMaxUp()
+    {
+        long value = Instant.parse("2024-01-15T10:30:00Z").getEpochSecond() * MICROSECONDS_PER_SECOND + 123_456;
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, value, false)).isEqualTo("2024-01-15T10:30:00.123Z");
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, value, true)).isEqualTo("2024-01-15T10:30:00.124Z");
+
+        long exactMillis = Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, exactMillis, true)).isEqualTo("2024-01-15T10:30:00.123Z");
+    }
+
     private static byte[] toParquetEncoding(LocalDateTime time)
     {
         long timeOfDayNanos = (long) time.getNano() + (time.toEpochSecond(UTC) - time.toLocalDate().atStartOfDay().toEpochSecond(UTC)) * 1_000_000_000;
