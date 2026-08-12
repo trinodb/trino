@@ -17,6 +17,7 @@ import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobGetOption;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.encryption.EncryptionKey;
 
@@ -43,14 +44,16 @@ final class GcsInput
     private final Storage storage;
     private final OptionalLong length;
     private final Optional<EncryptionKey> key;
+    private final ImmutableMap<String, String> auditHeaders;
     private boolean closed;
 
-    public GcsInput(GcsLocation location, Storage storage, OptionalLong length, Optional<EncryptionKey> key)
+    public GcsInput(GcsLocation location, Storage storage, OptionalLong length, Optional<EncryptionKey> key, ImmutableMap<String, String> auditHeaders)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
         this.length = requireNonNull(length, "length is null");
         this.key = requireNonNull(key, "key is null");
+        this.auditHeaders = requireNonNull(auditHeaders, "auditHeaders is null");
     }
 
     @Override
@@ -66,9 +69,9 @@ final class GcsInput
             return;
         }
 
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        Blob blob = getBlobOrThrow(storage, location, auditHeaders, blobGetOptions());
         OptionalLong limit = readLimit(position, bufferLength, length);
-        try (ReadChannel readChannel = getReadChannel(blob, location, position, bufferLength, limit, key)) {
+        try (ReadChannel readChannel = getReadChannel(storage, blob, location, position, bufferLength, limit, key, auditHeaders)) {
             int readSize = readNBytes(readChannel, buffer, bufferOffset, bufferLength);
             if (readSize != bufferLength) {
                 throw new EOFException("End of file reached before reading fully: " + location);
@@ -89,10 +92,10 @@ final class GcsInput
             return 0;
         }
 
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        Blob blob = getBlobOrThrow(storage, location, auditHeaders, blobGetOptions());
         long offset = max(0, length.orElse(blob.getSize()) - bufferLength);
         OptionalLong limit = readLimit(offset, bufferLength, OptionalLong.of(blob.getSize()));
-        try (ReadChannel readChannel = getReadChannel(blob, location, offset, bufferLength, limit, key)) {
+        try (ReadChannel readChannel = getReadChannel(storage, blob, location, offset, bufferLength, limit, key, auditHeaders)) {
             return readNBytes(readChannel, buffer, bufferOffset, bufferLength);
         }
         catch (RuntimeException e) {

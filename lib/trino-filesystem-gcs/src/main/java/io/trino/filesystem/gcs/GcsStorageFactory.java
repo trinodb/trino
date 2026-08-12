@@ -28,7 +28,6 @@ import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
@@ -42,8 +41,6 @@ import static java.util.Objects.requireNonNull;
 public class GcsStorageFactory
 {
     public static final String GCS_OAUTH_KEY = "gcs.oauth";
-    private static final String AUDIT_QUERY_ID_HEADER = "x-goog-custom-audit-trino-query-id";
-    private static final String AUDIT_USER_HEADER = "x-goog-custom-audit-trino-user";
 
     private final GcsFileSystemConfig.AuthType authType;
     private final String projectId;
@@ -74,26 +71,20 @@ public class GcsStorageFactory
 
     public Storage create(ConnectorIdentity identity)
     {
-        return create(identity, Optional.empty());
-    }
-
-    public Storage create(ConnectorIdentity identity, Optional<String> queryId)
-    {
-        // A Storage instance carrying a per-query audit header must not be cached and reused across queries.
-        if (queryId.isEmpty() && isCacheable(identity)) {
+        if (isCacheable(identity)) {
             Storage storage = cachedStorage;
             if (storage == null) {
                 synchronized (this) {
                     storage = cachedStorage;
                     if (storage == null) {
-                        storage = createStorage(identity, queryId);
+                        storage = createStorage(identity);
                         cachedStorage = storage;
                     }
                 }
             }
             return storage;
         }
-        return createStorage(identity, queryId);
+        return createStorage(identity);
     }
 
     @PreDestroy
@@ -112,7 +103,7 @@ public class GcsStorageFactory
         return authType != ACCESS_TOKEN && !identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
     }
 
-    private Storage createStorage(ConnectorIdentity identity, Optional<String> queryId)
+    private Storage createStorage(ConnectorIdentity identity)
     {
         try {
             StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
@@ -137,27 +128,14 @@ public class GcsStorageFactory
                             .setInitialRetryDelayDuration(minBackoffDelay)
                             .setMaxRetryDelayDuration(maxBackoffDelay)
                             .build())
-                    .setHeaderProvider(() -> buildHeaders(identity, queryId))
+                    .setHeaderProvider(() -> ImmutableMap.of(
+                            USER_AGENT, StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId))
                     .build()
                     .getService();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    private Map<String, String> buildHeaders(ConnectorIdentity identity, Optional<String> queryId)
-    {
-        String userAgent = StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId;
-        if (queryId.isEmpty()) {
-            return ImmutableMap.of(USER_AGENT, userAgent);
-        }
-        // Custom audit headers (x-goog-custom-audit-*) are surfaced in GCS Cloud Audit Logs.
-        // See: https://cloud.google.com/storage/docs/audit-logging#custom-audit-info
-        return ImmutableMap.of(
-                USER_AGENT, userAgent,
-                AUDIT_QUERY_ID_HEADER, queryId.get(),
-                AUDIT_USER_HEADER, identity.getUser());
     }
 
     private boolean setOAuthCredentials(StorageOptions.Builder builder, ConnectorIdentity identity)
