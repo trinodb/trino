@@ -55,12 +55,6 @@ Storage file system support:
 * - `gcs.application-id`
   - Specify the application identifier appended to the `User-Agent` header
     for all requests sent to Google Cloud Storage. Defaults to `Trino`.
-* - `gcs.custom-audit-headers.enabled`
-  - Add the Trino query ID and user as `x-goog-custom-audit-*` headers on
-    requests sent to Google Cloud Storage. These are surfaced in [GCS Cloud
-    Audit Logs](https://cloud.google.com/storage/docs/audit-logging#custom-audit-info),
-    allowing GCS API activity to be traced back to the originating query.
-    Defaults to `false`.
 :::
 
 ## Authentication
