@@ -351,7 +351,7 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingMetadataFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageContaining("Failed to load table");
+                .hasMessageContaining("Cannot drop corrupted table");
     }
 
     @Test
@@ -370,7 +370,7 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageContaining("Failed to load table");
+                .hasMessageContaining("Cannot drop corrupted table");
     }
 
     @Test
