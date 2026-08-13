@@ -77,6 +77,7 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCheckpointWriter
 {
@@ -355,6 +356,59 @@ public class TestCheckpointWriter
         assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
         assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
         assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+    }
+
+    @Test
+    public void testSubMillisecondTimestampStatisticsRejected()
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+
+        LongTimestampWithTimeZone subMillisecondTimestamp = LongTimestampWithTimeZone.fromEpochMillisAndFraction(
+                unpackMillisUtc(DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 01:00:00")), 456_000_000, UTC_KEY);
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePathParquet",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.empty(),
+                Optional.of(new DeltaLakeParquetFileStatistics(
+                        Optional.of(5L),
+                        Optional.of(ImmutableMap.of("ts", subMillisecondTimestamp)),
+                        Optional.of(ImmutableMap.of("ts", subMillisecondTimestamp)),
+                        Optional.of(ImmutableMap.of("ts", 1L)))),
+                ImmutableMap.of(),
+                Optional.empty());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(addFileEntry),
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+
+        File targetFile = Files.createTempFile("testSubMillisecondTimestampStatisticsRejected-", ".checkpoint.parquet").toFile();
+        targetFile.deleteOnExit();
+        String targetPath = "file://" + targetFile.getAbsolutePath();
+        targetFile.delete(); // file must not exist when writer is called
+
+        // the checkpoint statistics field is millisecond-granular; writing anything finer must fail loudly instead of flooring the value
+        assertThatThrownBy(() -> writer.write(entries, createOutputFile(targetPath)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Unexpected sub-millisecond statistics value");
     }
 
     private static long convertToTimestamp(String value)

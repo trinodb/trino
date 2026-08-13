@@ -508,7 +508,10 @@ public class CheckpointWriter
                                         if (type == TIMESTAMP_MILLIS) {
                                             // We need to remap TIMESTAMP WITH TIME ZONE -> TIMESTAMP here because of
                                             // inconsistency in what type is used for DL "timestamp" type in data processing and in min/max statistics map.
-                                            value = multiplyExact(((LongTimestampWithTimeZone) value).getEpochMillis(), MICROSECONDS_PER_MILLISECOND);
+                                            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+                                            // this field is millisecond-granular, so dropping a non-zero fraction here would record a maximum below the real values
+                                            checkState(timestamp.getPicosOfMilli() == 0, "Unexpected sub-millisecond statistics value: %s", timestamp);
+                                            value = multiplyExact(timestamp.getEpochMillis(), MICROSECONDS_PER_MILLISECOND);
                                         }
                                         if (type == TIMESTAMP_MICROS) {
                                             // This is TIMESTAMP_NTZ type in Delta Lake
