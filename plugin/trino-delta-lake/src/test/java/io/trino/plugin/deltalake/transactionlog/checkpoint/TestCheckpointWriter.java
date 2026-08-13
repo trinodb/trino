@@ -276,7 +276,7 @@ public class TestCheckpointWriter
                         Optional.of(5L),
                         Optional.of(ImmutableMap.<String, Object>builder()
                                 .put("ts", convertToTimestampWithTimeZone("2060-10-31 01:00:00"))
-                                .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123"))
+                                .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123456"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 101L)
                                 .put("dec_long", Int128.valueOf(111111111111123L))
@@ -291,7 +291,7 @@ public class TestCheckpointWriter
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()
                                 .put("ts", convertToTimestampWithTimeZone("2060-10-31 02:00:00"))
-                                .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123"))
+                                .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123456"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 201L)
                                 .put("dec_long", Int128.valueOf(222222222222123L))
