@@ -100,6 +100,7 @@ import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
+import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.SUPPORTED_SCHEMA_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
@@ -586,7 +587,6 @@ public class TrinoRestCatalog
     @Override
     public BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        Namespace namespace = toNamespace(schemaTableName.getSchemaName());
         try {
             return uncheckedCacheGet(
                     tableCache,
@@ -607,7 +607,7 @@ public class TrinoRestCatalog
             if (e.getCause() instanceof NoSuchTableException) {
                 throw new TableNotFoundException(schemaTableName, e.getCause());
             }
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to load table: %s in %s namespace", schemaTableName.getTableName(), namespace), e.getCause());
+            throw translateMetadataException(e.getCause(), schemaTableName.toString());
         }
     }
 
