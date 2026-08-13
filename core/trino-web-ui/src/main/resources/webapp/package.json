@@ -40,7 +40,7 @@
     "@types/lodash": "^4.17.24",
     "@types/lodash.merge": "^4.6.9",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.3",
+    "@types/react-dom": "^19.2.4",
     "@typescript-eslint/eslint-plugin": "^8.66.0",
     "@typescript-eslint/parser": "^8.66.0",
     "@vitejs/plugin-react": "^5.2.0",
