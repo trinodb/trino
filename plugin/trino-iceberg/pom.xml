@@ -1028,6 +1028,10 @@
                                 <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestTrinoSnowflakeCatalog.java</include>
                             </includes>
+                            <systemPropertyVariables>
+                                <!-- Default pool size (available processors) is too small for the real cloud storage deletes these smoke tests share it for -->
+                                <iceberg.worker.num-threads>16</iceberg.worker.num-threads>
+                            </systemPropertyVariables>
                         </configuration>
                     </plugin>
                 </plugins>
