@@ -41,7 +41,6 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -315,11 +314,6 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
 
     @Test
     @Override
-    @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/issues/15760 is fixed bumped in Trino")
-    public void testDropTableWithMissingMetadataFile() {}
-
-    @Test
-    @Override
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
@@ -328,16 +322,6 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
                 .hasMessageContaining("Failed to drop table")
                 .hasNoCause();
     }
-
-    @Test
-    @Override
-    @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/issues/15760 is fixed and bumped in Trino")
-    public void testDropTableWithMissingDataFile() {}
-
-    @Test
-    @Override
-    @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/issues/15760 is fixed and bumped in Trino")
-    public void testDropTableWithNonExistentTableLocation() {}
 
     @Test
     @Override
