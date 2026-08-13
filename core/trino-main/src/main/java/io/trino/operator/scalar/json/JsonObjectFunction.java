@@ -27,6 +27,7 @@ import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.RowType;
@@ -78,7 +79,7 @@ public class JsonObjectFunction
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         RowType keysRowType = (RowType) boundSignature.getArgumentType(0);
         RowType valuesRowType = (RowType) boundSignature.getArgumentType(1);
