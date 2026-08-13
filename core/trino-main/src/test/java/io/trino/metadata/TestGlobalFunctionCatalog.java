@@ -21,6 +21,7 @@ import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionBundle;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionProvider;
@@ -427,7 +428,7 @@ public class TestGlobalFunctionCatalog
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+                    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
                     {
                         return new ChoicesSpecializedSqlScalarFunction(
                                 boundSignature,

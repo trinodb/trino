@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 
@@ -47,8 +48,8 @@ public final class JsonStringToMapCast
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return JSON_TO_MAP.specialize(boundSignature);
+        return JSON_TO_MAP.specialize(boundSignature, functionDependencies);
     }
 }
