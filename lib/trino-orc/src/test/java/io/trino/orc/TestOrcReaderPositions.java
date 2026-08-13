@@ -13,17 +13,24 @@
  */
 package io.trino.orc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
+import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.hive.orc.NullMemoryManager;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.OrcType;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -42,17 +49,24 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
+import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcTester.Format.ORC_12;
+import static io.trino.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.trino.orc.OrcTester.READER_OPTIONS;
 import static io.trino.orc.OrcTester.createCustomOrcRecordReader;
 import static io.trino.orc.OrcTester.createOrcRecordWriter;
 import static io.trino.orc.OrcTester.createSettableStructObjectInspector;
+import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
@@ -316,6 +330,92 @@ public class TestOrcReaderPositions
                 assertThat(block.getPositionCount()).isEqualTo(2);
                 assertThat(BIGINT.getLong(block, 0)).isEqualTo(3);
                 assertThat(BIGINT.getLong(block, 1)).isEqualTo(5);
+            }
+        }
+    }
+
+    @Test
+    public void testEmptyStringRowGroupAfterDirectFlush()
+            throws Exception
+    {
+        Slice largeValue = Slices.utf8Slice("x".repeat(64 * 1024));
+        assertRoundTripAfterDirectFlush(ImmutableList.of(Optional.of(largeValue), Optional.of(EMPTY_SLICE), Optional.of(EMPTY_SLICE), Optional.of(EMPTY_SLICE)));
+    }
+
+    @Test
+    public void testNullRowGroupAfterDirectFlush()
+            throws Exception
+    {
+        Slice largeValue = Slices.utf8Slice("x".repeat(64 * 1024));
+        assertRoundTripAfterDirectFlush(ImmutableList.of(Optional.of(largeValue), Optional.empty(), Optional.empty(), Optional.empty()));
+    }
+
+    @Test
+    public void testNullRowGroupsAroundDirectFlush()
+            throws Exception
+    {
+        Slice largeValue = Slices.utf8Slice("x".repeat(64 * 1024));
+        assertRoundTripAfterDirectFlush(ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(largeValue), Optional.empty(), Optional.empty(), Optional.empty()));
+    }
+
+    // values above the 32 KiB direct flush threshold leave the following row groups with no payload in the data stream
+    private static void assertRoundTripAfterDirectFlush(List<Optional<Slice>> expectedValues)
+            throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            List<String> columnNames = ImmutableList.of("test");
+            List<Type> types = ImmutableList.of(VARCHAR);
+            OrcWriter writer = new OrcWriter(
+                    OutputStreamOrcDataSink.create(new LocalOutputFile(tempFile.getFile())),
+                    columnNames,
+                    types,
+                    OrcType.createRootOrcType(columnNames, types),
+                    CompressionKind.LZ4,
+                    new OrcWriterOptions()
+                            .withRowGroupMaxRowCount(2)
+                            .withDictionaryMaxMemory(DataSize.ofBytes(0)),
+                    ImmutableMap.of(),
+                    true,
+                    BOTH,
+                    new OrcWriterStats());
+
+            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, expectedValues.size());
+            for (Optional<Slice> value : expectedValues) {
+                if (value.isPresent()) {
+                    VARCHAR.writeSlice(blockBuilder, value.get());
+                }
+                else {
+                    blockBuilder.appendNull();
+                }
+            }
+            writer.write(new Page(blockBuilder.build()));
+            writer.close();
+
+            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
+            OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+                    .orElseThrow(() -> new RuntimeException("File is empty"));
+            try (OrcRecordReader reader = orcReader.createRecordReader(
+                    orcReader.getRootColumn().getNestedColumns(),
+                    types,
+                    false,
+                    OrcPredicate.TRUE,
+                    HIVE_STORAGE_TIME_ZONE,
+                    newSimpleAggregatedMemoryContext(),
+                    MAX_BATCH_SIZE,
+                    RuntimeException::new)) {
+                List<Optional<Slice>> values = new ArrayList<>();
+                for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                    Block block = page.getBlock(0);
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        if (block.isNull(position)) {
+                            values.add(Optional.empty());
+                        }
+                        else {
+                            values.add(Optional.of(VARCHAR.getSlice(block, position)));
+                        }
+                    }
+                }
+                assertThat(values).isEqualTo(expectedValues);
             }
         }
     }
