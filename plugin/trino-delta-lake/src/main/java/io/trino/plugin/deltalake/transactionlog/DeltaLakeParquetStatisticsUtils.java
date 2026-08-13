@@ -302,16 +302,22 @@ public final class DeltaLakeParquetStatisticsUtils
         return nullCounts.buildOrThrow();
     }
 
-    private static Instant longStatisticToInstant(LongStatistics statistics, long value)
+    private static Optional<Instant> longStatisticToInstant(LongStatistics statistics, long value)
     {
         // INT64 timestamp-with-time-zone files written before the micros mapping carry MILLIS; new files carry MICROS
-        if (statistics.type().getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation timestampAnnotation
-                && timestampAnnotation.getUnit() == LogicalTypeAnnotation.TimeUnit.MICROS) {
-            long epochSeconds = floorDiv(value, MICROSECONDS_PER_SECOND);
-            int nanoAdjustment = floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            return Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
+        if (!(statistics.type().getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation timestampAnnotation)) {
+            return Optional.empty();
         }
-        return Instant.ofEpochMilli(value);
+        return switch (timestampAnnotation.getUnit()) {
+            case MILLIS -> Optional.of(Instant.ofEpochMilli(value));
+            case MICROS -> {
+                long epochSeconds = floorDiv(value, MICROSECONDS_PER_SECOND);
+                int nanoAdjustment = floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+                yield Optional.of(Instant.ofEpochSecond(epochSeconds, nanoAdjustment));
+            }
+            // NANOS is not a valid Delta timestamp encoding; skip the statistic rather than misread the value
+            case NANOS -> Optional.empty();
+        };
     }
 
     private static Optional<Object> getMin(Type type, Statistics<?> statistics)
@@ -345,8 +351,11 @@ public final class DeltaLakeParquetStatisticsUtils
 
         if (type instanceof TimestampWithTimeZoneType) {
             if (statistics instanceof LongStatistics longStatistics) {
-                Instant ts = longStatisticToInstant(longStatistics, longStatistics.genericGetMin());
-                return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC).truncatedTo(MILLIS)));
+                Optional<Instant> ts = longStatisticToInstant(longStatistics, longStatistics.genericGetMin());
+                if (ts.isEmpty()) {
+                    return Optional.empty();
+                }
+                return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts.get(), UTC).truncatedTo(MILLIS)));
             }
             if (statistics instanceof BinaryStatistics binaryStatistics) {
                 DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMin());
@@ -450,8 +459,11 @@ public final class DeltaLakeParquetStatisticsUtils
 
         if (type instanceof TimestampWithTimeZoneType) {
             if (statistics instanceof LongStatistics longStatistics) {
-                Instant ts = longStatisticToInstant(longStatistics, longStatistics.genericGetMax());
-                ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(ts, UTC);
+                Optional<Instant> ts = longStatisticToInstant(longStatistics, longStatistics.genericGetMax());
+                if (ts.isEmpty()) {
+                    return Optional.empty();
+                }
+                ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(ts.get(), UTC);
                 ZonedDateTime truncatedToMillis = zonedDateTime.truncatedTo(MILLIS);
                 if (truncatedToMillis.isBefore(zonedDateTime)) {
                     truncatedToMillis = truncatedToMillis.plus(1, MILLIS);
