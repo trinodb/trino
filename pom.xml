@@ -191,6 +191,7 @@
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.clickhouse.version>0.9.8</dep.clickhouse.version>
         <dep.confluent.version>8.1.1</dep.confluent.version>
+        <dep.datasketches.version>9.0.0</dep.datasketches.version>
         <dep.derby.version>10.17.1.0</dep.derby.version>
         <dep.docker.images.version>127</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
