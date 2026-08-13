@@ -711,6 +711,9 @@ jobs:
       - name: Iceberg Cloud Tests
         id: tests-iceberg
         env:
+          # Increase the size of the Iceberg worker pool to achieve a higher parallelism
+          # for storage operations
+          ICEBERG_WORKER_NUM_THREADS: "16"
           AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
