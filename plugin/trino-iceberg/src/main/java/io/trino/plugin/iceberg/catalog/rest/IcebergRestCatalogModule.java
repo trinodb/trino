@@ -48,5 +48,8 @@ public class IcebergRestCatalogModule
         if (restCatalogConfig.isVendedCredentialsEnabled() && icebergConfig.isRegisterTableProcedureEnabled()) {
             throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with vended credentials is currently not supported");
         }
+        if (restCatalogConfig.isVendedCredentialsEnabled() && icebergConfig.isRegisterViewProcedureEnabled()) {
+            throw new TrinoException(NOT_SUPPORTED, "Using the `register_view` procedure with vended credentials is currently not supported");
+        }
     }
 }
