@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.cache.CacheFileSystem;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
@@ -75,6 +76,7 @@ public class TestFuzzAlluxioCacheFileSystem
     }
 
     @Test
+    @Disabled // TODO: re-enable once the flaky issue is resolved https://github.com/trinodb/trino/issues/30571
     public void testFuzzTrinoInputStreamReadSkip()
             throws IOException
     {
