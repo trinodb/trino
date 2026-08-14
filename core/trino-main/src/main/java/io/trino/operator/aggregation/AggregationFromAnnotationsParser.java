@@ -100,12 +100,18 @@ public final class AggregationFromAnnotationsParser
                 .map(TypeParameter::value)
                 .collect(toImmutableSet());
 
+        // The function's literal parameters, taken from the input functions' @LiteralParameters annotations.
+        // A state's declared serialized type may reference them, e.g. the s of decimal(38, s).
+        Set<String> literalParameters = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(aggregationDefinition, InputFunction.class).stream()
+                .flatMap(inputFunction -> FunctionsParserHelper.parseLiteralParameters(inputFunction).stream())
+                .collect(toImmutableSet());
+
         // There must be a single set of state classes and a single combine function
-        List<AccumulatorStateDetails<?>> stateDetails = getStateDetails(aggregationDefinition, typeVariables);
-        Optional<Method> combineFunction = getCombineFunction(aggregationDefinition, stateDetails, typeVariables);
+        List<AccumulatorStateDetails<?>> stateDetails = getStateDetails(aggregationDefinition, typeVariables, literalParameters);
+        Optional<Method> combineFunction = getCombineFunction(aggregationDefinition, stateDetails, typeVariables, literalParameters);
 
         // Each output function defines a new aggregation function
-        for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateDetails, typeVariables)) {
+        for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateDetails, typeVariables, literalParameters)) {
             AggregationHeader header = parseHeader(aggregationDefinition, outputFunction);
             if (header.decomposable()) {
                 if (header.decomposition().isPresent()) {
@@ -123,7 +129,7 @@ public final class AggregationFromAnnotationsParser
             // Input functions can have either an exact signature, or generic/calculate signature
             List<ParametricAggregationImplementation> exactImplementations = new ArrayList<>();
             List<ParametricAggregationImplementation> nonExactImplementations = new ArrayList<>();
-            for (Method inputFunction : getInputFunctions(aggregationDefinition, stateDetails, typeVariables)) {
+            for (Method inputFunction : getInputFunctions(aggregationDefinition, stateDetails, typeVariables, literalParameters)) {
                 ParametricAggregationImplementation implementation = parseImplementation(
                         aggregationDefinition,
                         stateDetails,
@@ -252,7 +258,7 @@ public final class AggregationFromAnnotationsParser
         return Optional.of(windowAccumulator);
     }
 
-    private static Optional<Method> getCombineFunction(Class<?> clazz, List<AccumulatorStateDetails<?>> stateDetails, Set<String> typeVariables)
+    private static Optional<Method> getCombineFunction(Class<?> clazz, List<AccumulatorStateDetails<?>> stateDetails, Set<String> typeVariables, Set<String> literalParameters)
     {
         List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class);
         if (combineFunctions.isEmpty()) {
@@ -276,7 +282,7 @@ public final class AggregationFromAnnotationsParser
             List<List<Annotation>> parameterAnnotations = getNonDependencyParameterAnnotations(combineFunction);
             List<AccumulatorStateDetails<?>> actualStateDetails = new ArrayList<>();
             for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
-                actualStateDetails.add(toAccumulatorStateDetails(parameterTypes.get(parameterIndex).asSubclass(AccumulatorState.class), parameterAnnotations.get(parameterIndex), combineFunction, true, typeVariables));
+                actualStateDetails.add(toAccumulatorStateDetails(parameterTypes.get(parameterIndex).asSubclass(AccumulatorState.class), parameterAnnotations.get(parameterIndex), combineFunction, true, typeVariables, literalParameters));
             }
             List<AccumulatorStateDetails<?>> expectedStateDetails = ImmutableList.<AccumulatorStateDetails<?>>builder().addAll(stateDetails).addAll(stateDetails).build();
             checkArgument(actualStateDetails.equals(expectedStateDetails), "Expected combine function to have state parameters %s, but has %s", stateDetails, expectedStateDetails);
@@ -284,7 +290,7 @@ public final class AggregationFromAnnotationsParser
         return Optional.of(combineFunction);
     }
 
-    private static List<Method> getOutputFunctions(Class<?> clazz, List<AccumulatorStateDetails<?>> stateDetails, Set<String> typeVariables)
+    private static List<Method> getOutputFunctions(Class<?> clazz, List<AccumulatorStateDetails<?>> stateDetails, Set<String> typeVariables, Set<String> literalParameters)
     {
         List<Method> outputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class);
         for (Method outputFunction : outputFunctions) {
@@ -305,7 +311,7 @@ public final class AggregationFromAnnotationsParser
 
                 List<AccumulatorStateDetails<?>> actualStateDetails = new ArrayList<>();
                 for (int parameterIndex = 0; parameterIndex < stateDetails.size(); parameterIndex++) {
-                    actualStateDetails.add(toAccumulatorStateDetails(parameterTypes.get(parameterIndex).asSubclass(AccumulatorState.class), parameterAnnotations.get(parameterIndex), outputFunction, true, typeVariables));
+                    actualStateDetails.add(toAccumulatorStateDetails(parameterTypes.get(parameterIndex).asSubclass(AccumulatorState.class), parameterAnnotations.get(parameterIndex), outputFunction, true, typeVariables, literalParameters));
                 }
                 checkArgument(actualStateDetails.equals(stateDetails), "Expected output function to have state parameters %s, but has %s", stateDetails, actualStateDetails);
             }
@@ -314,7 +320,7 @@ public final class AggregationFromAnnotationsParser
         return outputFunctions;
     }
 
-    private static List<Method> getInputFunctions(Class<?> clazz, List<AccumulatorStateDetails<?>> stateDetails, Set<String> typeVariables)
+    private static List<Method> getInputFunctions(Class<?> clazz, List<AccumulatorStateDetails<?>> stateDetails, Set<String> typeVariables, Set<String> literalParameters)
     {
         List<Method> inputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class);
         for (Method inputFunction : inputFunctions) {
@@ -336,7 +342,7 @@ public final class AggregationFromAnnotationsParser
 
                 List<AccumulatorStateDetails<?>> actualStateDetails = new ArrayList<>();
                 for (int parameterIndex = 0; parameterIndex < stateDetails.size(); parameterIndex++) {
-                    actualStateDetails.add(toAccumulatorStateDetails(parameterTypes.get(parameterIndex).asSubclass(AccumulatorState.class), parameterAnnotations.get(parameterIndex), inputFunction, false, typeVariables));
+                    actualStateDetails.add(toAccumulatorStateDetails(parameterTypes.get(parameterIndex).asSubclass(AccumulatorState.class), parameterAnnotations.get(parameterIndex), inputFunction, false, typeVariables, literalParameters));
                 }
                 checkArgument(actualStateDetails.equals(stateDetails), "Expected input function to have state parameters %s, but has %s", stateDetails, actualStateDetails);
             }
@@ -369,7 +375,7 @@ public final class AggregationFromAnnotationsParser
                 .collect(toImmutableList());
     }
 
-    private static List<AccumulatorStateDetails<?>> getStateDetails(Class<?> clazz, Set<String> typeVariables)
+    private static List<AccumulatorStateDetails<?>> getStateDetails(Class<?> clazz, Set<String> typeVariables, Set<String> literalParameters)
     {
         ImmutableSet.Builder<List<AccumulatorStateDetails<?>>> builder = ImmutableSet.builder();
         for (Method inputFunction : FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
@@ -384,7 +390,7 @@ public final class AggregationFromAnnotationsParser
                     continue;
                 }
 
-                stateParameters.add(toAccumulatorStateDetails(parameterType.asSubclass(AccumulatorState.class), parameterAnnotations.get(parameterIndex), inputFunction, false, typeVariables));
+                stateParameters.add(toAccumulatorStateDetails(parameterType.asSubclass(AccumulatorState.class), parameterAnnotations.get(parameterIndex), inputFunction, false, typeVariables, literalParameters));
             }
             List<AccumulatorStateDetails<?>> states = stateParameters.build();
             checkArgument(!states.isEmpty(), "Input function must have at least one state parameter");
@@ -402,7 +408,8 @@ public final class AggregationFromAnnotationsParser
             List<Annotation> parameterAnnotations,
             Method method,
             boolean requireAnnotation,
-            Set<String> typeVariables)
+            Set<String> typeVariables,
+            Set<String> literalParameters)
     {
         Optional<AggregationState> state = parameterAnnotations.stream()
                 .filter(AggregationState.class::isInstance)
@@ -417,16 +424,16 @@ public final class AggregationFromAnnotationsParser
                 .map(ImmutableList::copyOf)
                 .orElse(ImmutableList.of());
 
-        return toAccumulatorStateDetails(stateClass, declaredTypeParameters, typeVariables);
+        return toAccumulatorStateDetails(stateClass, declaredTypeParameters, typeVariables, literalParameters);
     }
 
     @VisibleForTesting
     public static <T extends AccumulatorState> AccumulatorStateDetails<T> toAccumulatorStateDetails(Class<T> stateClass, List<String> declaredTypeParameters)
     {
-        return toAccumulatorStateDetails(stateClass, declaredTypeParameters, ImmutableSet.of());
+        return toAccumulatorStateDetails(stateClass, declaredTypeParameters, ImmutableSet.of(), ImmutableSet.of());
     }
 
-    private static <T extends AccumulatorState> AccumulatorStateDetails<T> toAccumulatorStateDetails(Class<T> stateClass, List<String> declaredTypeParameters, Set<String> typeVariables)
+    private static <T extends AccumulatorState> AccumulatorStateDetails<T> toAccumulatorStateDetails(Class<T> stateClass, List<String> declaredTypeParameters, Set<String> typeVariables, Set<String> literalParameters)
     {
         StateMetadata metadata = StateMetadata.create(getMetadataAnnotation(stateClass));
         // Generic state classes have their own type variables, that must be mapped to the aggregation's type variables
@@ -443,7 +450,7 @@ public final class AggregationFromAnnotationsParser
         BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateSerializer<T>> serializerGenerator;
         if (metadata.stateSerializerClass().isPresent()) {
             Constructor<?> constructor = getOnlyConstructor(metadata.stateSerializerClass().get());
-            List<ImplementationDependency> dependencies = parseImplementationDependencies(typeParameterMapping, constructor);
+            List<ImplementationDependency> dependencies = parseImplementationDependencies(typeParameterMapping, literalParameters, constructor);
             serializerGenerator = new TypedFactory<>(constructor, dependencies);
             allDependencies.addAll(dependencies);
         }
@@ -455,7 +462,7 @@ public final class AggregationFromAnnotationsParser
 
         TypeTemplate serializedType;
         if (metadata.serializedType().isPresent()) {
-            serializedType = typeParameterMapping.mapTypeTemplate(parseTypeTemplate(metadata.serializedType().get(), typeParameterMapping.getTypeParameters(), Set.of()));
+            serializedType = typeParameterMapping.mapTypeTemplate(parseTypeTemplate(metadata.serializedType().get(), typeParameterMapping.getTypeParameters(), literalParameters));
         }
         else {
             // serialized type is not explicit declared, so we must construct it to get the
@@ -470,7 +477,7 @@ public final class AggregationFromAnnotationsParser
         BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateFactory<T>> factoryGenerator;
         if (metadata.stateFactoryClass().isPresent()) {
             Constructor<?> constructor = getOnlyConstructor(metadata.stateFactoryClass().get());
-            List<ImplementationDependency> dependencies = parseImplementationDependencies(typeParameterMapping, constructor);
+            List<ImplementationDependency> dependencies = parseImplementationDependencies(typeParameterMapping, literalParameters, constructor);
             factoryGenerator = new TypedFactory<>(constructor, dependencies);
             allDependencies.addAll(dependencies);
         }
@@ -525,7 +532,7 @@ public final class AggregationFromAnnotationsParser
         return new TypeDescriptorMapping(mapping.buildOrThrow(), typeVariables);
     }
 
-    private static List<ImplementationDependency> parseImplementationDependencies(TypeDescriptorMapping typeDescriptorMapping, Executable inputFunction)
+    private static List<ImplementationDependency> parseImplementationDependencies(TypeDescriptorMapping typeDescriptorMapping, Set<String> literalParameters, Executable inputFunction)
     {
         ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
 
@@ -536,8 +543,8 @@ public final class AggregationFromAnnotationsParser
                         inputFunction,
                         annotation,
                         typeDescriptorMapping.getTypeParameters(),
-                        ImmutableSet.of());
-                ImplementationDependency dependency = createDependency(annotation, typeDescriptorMapping.getTypeParameters(), ImmutableSet.of(), parameter.getType());
+                        literalParameters);
+                ImplementationDependency dependency = createDependency(annotation, typeDescriptorMapping.getTypeParameters(), literalParameters, parameter.getType());
                 dependency = typeDescriptorMapping.mapTypes(dependency);
                 builder.add(dependency);
             });
