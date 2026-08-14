@@ -50,6 +50,7 @@ import io.trino.operator.aggregation.CountColumn;
 import io.trino.operator.aggregation.CountIfAggregation;
 import io.trino.operator.aggregation.CovarianceDecomposedAggregation;
 import io.trino.operator.aggregation.DecimalAverageAggregation;
+import io.trino.operator.aggregation.DecimalAverageDecomposedAggregation;
 import io.trino.operator.aggregation.DecimalSumAggregation;
 import io.trino.operator.aggregation.DecimalSumDecomposedAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
@@ -680,6 +681,7 @@ public final class SystemFunctionBundle
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .aggregates(DecimalAverageAggregation.class)
+                .aggregates(DecimalAverageDecomposedAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
                 .aggregates(DecimalSumDecomposedAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)

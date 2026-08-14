@@ -16,11 +16,14 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
+import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlock;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -29,7 +32,9 @@ import java.math.MathContext;
 import java.util.List;
 
 import static io.trino.operator.aggregation.DecimalAverageAggregation.average;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.RowType.field;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.TEN;
 import static java.math.BigInteger.ZERO;
@@ -118,7 +123,7 @@ public class TestDecimalAverageAggregation
         addToState(otherState, TWO.pow(126));
         addToState(otherState, TWO.pow(126));
 
-        DecimalAverageAggregation.combine(state, otherState);
+        merge(state, otherState);
         assertThat(state.getLong()).isEqualTo(4);
         assertThat(state.getOverflow()).isEqualTo(1);
         assertThat(getDecimal(state)).isEqualTo(Int128.ZERO);
@@ -146,7 +151,7 @@ public class TestDecimalAverageAggregation
         addToState(otherState, TWO.pow(125).negate());
         addToState(otherState, TWO.pow(126).negate());
 
-        DecimalAverageAggregation.combine(state, otherState);
+        merge(state, otherState);
         assertThat(state.getLong()).isEqualTo(4);
         assertThat(state.getOverflow()).isEqualTo(-1);
         assertThat(getDecimal(state)).isEqualTo(Int128.valueOf(1L << 62, 0));
@@ -218,6 +223,19 @@ public class TestDecimalAverageAggregation
     private void assertAverageEquals(LongDecimalWithOverflowAndLongState state, BigInteger expectedAverage)
     {
         assertThat(average(state, TYPE).toBigInteger()).isEqualTo(expectedAverage);
+    }
+
+    // merge through the serialized intermediate, the way a final aggregation consumes partials
+    private static void merge(LongDecimalWithOverflowAndLongState state, LongDecimalWithOverflowAndLongState otherState)
+    {
+        RowType serializedType = RowType.rowType(
+                field("sum", TYPE),
+                field("high", BIGINT),
+                field("overflow", BIGINT),
+                field("count", BIGINT));
+        RowBlockBuilder out = (RowBlockBuilder) serializedType.createBlockBuilder(null, 1);
+        new LongDecimalWithOverflowAndLongStateSerializer(serializedType).serialize(otherState, out);
+        DecimalAverageDecomposedAggregation.intermediateInput(state, out.buildValueBlock(), 0);
     }
 
     private static void addToState(LongDecimalWithOverflowAndLongState state, BigInteger value)

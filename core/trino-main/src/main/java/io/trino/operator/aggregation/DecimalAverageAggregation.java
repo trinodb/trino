@@ -15,19 +15,22 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
+import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlock;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.Subsumed;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -102,36 +105,39 @@ public final class DecimalAverageAggregation
         state.addOverflow(overflow);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState LongDecimalWithOverflowAndLongState state, @AggregationState LongDecimalWithOverflowAndLongState otherState)
+    // must write exactly the layout of LongDecimalWithOverflowAndLongStateSerializer
+    @AggregationFunction(value = "avg_decimal$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "row(sum decimal(p, s), high bigint, overflow bigint, count bigint)", decomposition = @Decomposition(partial = "avg_decimal$partial", output = "avg_decimal$merge"))
+    public static void intermediateOutput(
+            @TypeParameter("decimal(p, s)") Type type,
+            @AggregationState LongDecimalWithOverflowAndLongState state,
+            BlockBuilder out)
     {
+        long count = state.getLong();
+        if (count == 0) {
+            out.appendNull();
+            return;
+        }
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
-
-        long[] otherDecimal = otherState.getDecimalArray();
-        int otherOffset = otherState.getDecimalArrayOffset();
-
-        if (state.getLong() > 0) {
-            long overflow = addWithOverflow(
-                    decimal[offset],
-                    decimal[offset + 1],
-                    otherDecimal[otherOffset],
-                    otherDecimal[otherOffset + 1],
-                    decimal,
-                    offset);
-            state.addOverflow(overflow + otherState.getOverflow());
-        }
-        else {
-            decimal[offset] = otherDecimal[otherOffset];
-            decimal[offset + 1] = otherDecimal[otherOffset + 1];
-            state.setOverflow(otherState.getOverflow());
-        }
-
-        state.addLong(otherState.getLong()); // row counter
+        LongDecimalWithOverflowAndLongStateSerializer.write(
+                ((DecimalType) type).isShort(),
+                decimal[offset],
+                decimal[offset + 1],
+                state.getOverflow(),
+                count,
+                (RowBlockBuilder) out);
     }
 
     @SqlNullable
-    @OutputFunction("decimal(p,s)")
+    @OutputFunction(value = "decimal(p,s)", decomposition = @Decomposition(
+            partial = "avg_decimal$partial",
+            output = "avg_decimal$final",
+            subsumes = {
+                    @Subsumed(function = "sum", output = "avg_decimal_sum$final"),
+                    @Subsumed(function = "count", output = "avg_decimal_count$final"),
+            }))
     public static void outputDecimal(
             @TypeParameter("decimal(p,s)") Type type,
             @AggregationState LongDecimalWithOverflowAndLongState state,

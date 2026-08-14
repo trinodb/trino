@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -234,6 +235,48 @@ public class TestPushPartialAggregationThroughExchange
                                         ImmutableMap.of(
                                                 Optional.of("AVG_INTERMEDIATE"), aggregationFunction("avg$intermediate", ImmutableList.of("b")),
                                                 Optional.of("SUM_INTERMEDIATE"), aggregationFunction("sum", ImmutableList.of("b"))),
+                                        Optional.empty(),
+                                        PARTIAL,
+                                        exchange(values("a", "b")))));
+    }
+
+    @Test
+    public void testDecimalSumAndCountSubsumedByAverage()
+    {
+        // decimal avg keeps the exact 128-bit sum in its intermediate, so both sum and count are
+        // answered from it
+        tester().assertThat(new PushPartialAggregationThroughExchange(tester().getPlannerContext())
+                        .pushPartialAggregationThroughExchangeWithoutProjection())
+                .on(p -> {
+                    Symbol a = p.symbol("a", INTEGER);
+                    Symbol b = p.symbol("b", createDecimalType(12, 2));
+                    Symbol avg = p.symbol("avg", createDecimalType(12, 2));
+                    Symbol sum = p.symbol("sum", createDecimalType(38, 2));
+                    Symbol count = p.symbol("count", BIGINT);
+                    return p.aggregation(aggregationBuilder -> aggregationBuilder
+                            .singleGroupingSet(a)
+                            .step(SINGLE)
+                            .addAggregation(avg, PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(createDecimalType(12, 2), "b"))), ImmutableList.of(createDecimalType(12, 2)))
+                            .addAggregation(sum, PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(createDecimalType(12, 2), "b"))), ImmutableList.of(createDecimalType(12, 2)))
+                            .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of(new Reference(createDecimalType(12, 2), "b"))), ImmutableList.of(createDecimalType(12, 2)))
+                            .source(p.exchange(e -> e
+                                    .type(REPARTITION)
+                                    .addSource(p.values(a, b))
+                                    .addInputsSet(a, b)
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(a, b), ImmutableList.of(a)))));
+                })
+                .matches(
+                        aggregation(
+                                singleGroupingSet("a"),
+                                ImmutableMap.of(
+                                        Optional.of("avg"), aggregationFunction("avg_decimal$final", ImmutableList.of("INTERMEDIATE")),
+                                        Optional.of("sum"), aggregationFunction("avg_decimal_sum$final", ImmutableList.of("INTERMEDIATE")),
+                                        Optional.of("count"), aggregationFunction("avg_decimal_count$final", ImmutableList.of("INTERMEDIATE"))),
+                                Optional.empty(),
+                                FINAL,
+                                aggregation(
+                                        singleGroupingSet("a"),
+                                        ImmutableMap.of(Optional.of("INTERMEDIATE"), aggregationFunction("avg_decimal$partial", ImmutableList.of("b"))),
                                         Optional.empty(),
                                         PARTIAL,
                                         exchange(values("a", "b")))));

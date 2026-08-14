@@ -52,6 +52,49 @@ public abstract class AbstractTestAggregations
     }
 
     @Test
+    public void testDecimalAggregations()
+    {
+        // sum, avg, and count over the same decimal argument are answered from avg's intermediate
+        assertQuery(
+                "SELECT k, sum(v), avg(v), count(v) FROM (VALUES " +
+                        "(1, CAST('1.25' AS decimal(4,2)))," +
+                        "(1, CAST('2.50' AS decimal(4,2)))," +
+                        "(1, NULL)," +
+                        "(2, CAST('-3.75' AS decimal(4,2)))" +
+                        ") t(k, v) GROUP BY k",
+                "VALUES (1, 3.75, 1.88, 2), (2, -3.75, -3.75, 1)");
+
+        // a short decimal sum that does not fit in the input width rides in the intermediate's high word
+        assertQuery(
+                "SELECT sum(v), avg(v), count(v) FROM (SELECT CAST(999999999999999999 AS decimal(18,0)) AS v FROM UNNEST(sequence(1, 10)) t(i))",
+                "VALUES (CAST(9999999999999999990 AS decimal(38,0)), CAST(999999999999999999 AS decimal(18,0)), 10)");
+
+        // long decimals near the top of the decimal range
+        assertQuery(
+                "SELECT sum(v), avg(v) FROM (VALUES " +
+                        "CAST('49999999999999999999999999999999999.99' AS decimal(38,2))," +
+                        "CAST('39999999999999999999999999999999999.99' AS decimal(38,2))," +
+                        "CAST('-89999999999999999999999999999999999.99' AS decimal(38,2))" +
+                        ") t(v)",
+                "VALUES (CAST('-0.01' AS decimal(38,2)), CAST('-0.00' AS decimal(38,2)))");
+
+        // window aggregations use the plain accumulator, not the decomposition
+        assertQuery(
+                "SELECT v, sum(v) OVER (), avg(v) OVER () FROM (VALUES " +
+                        "CAST('1.25' AS decimal(4,2))," +
+                        "CAST('2.50' AS decimal(4,2))" +
+                        ") t(v)",
+                "VALUES (1.25, 3.75, 1.88), (2.50, 3.75, 1.88)");
+
+        assertQueryFails(
+                "SELECT sum(v) FROM (VALUES " +
+                        "CAST('99999999999999999999999999999999999999' AS decimal(38,0))," +
+                        "CAST('1' AS decimal(38,0))" +
+                        ") t(v)",
+                "Decimal overflow");
+    }
+
+    @Test
     public void testCountAllWithComparison()
     {
         assertQuery("SELECT COUNT(*) FROM lineitem WHERE tax < discount");
