@@ -49,7 +49,6 @@ import org.apache.iceberg.deletes.BaseDVFileWriter;
 import org.apache.iceberg.deletes.DVFileWriter;
 import org.apache.iceberg.deletes.PositionDeleteIndex;
 import org.apache.iceberg.expressions.Expressions;
-import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.io.OutputFileFactory;
 import org.apache.iceberg.parquet.Parquet;
@@ -89,12 +88,10 @@ public class TestIcebergV3
         extends AbstractTestQueryFramework
 {
     private static final List<String> ALL_FILE_FORMATS = List.of("PARQUET", "ORC", "AVRO");
-    private static final HadoopTables HADOOP_TABLES = new HadoopTables();
 
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
-    private Path dataDirectory;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -111,7 +108,7 @@ public class TestIcebergV3
         queryRunner.createCatalog("tpch", "tpch");
 
         queryRunner.installPlugin(new GeoPlugin());
-        dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         dataDirectory.toFile().mkdirs();
 
         queryRunner.installPlugin(new TestingIcebergPlugin(
@@ -1629,42 +1626,41 @@ public class TestIcebergV3
     @Test
     void testGeometryWithCustomSrid()
     {
-        String hadoopTableName = "hadoop_geometry_srid_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
-
         Schema schema = new Schema(
                 Types.NestedField.optional(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "geom", Types.GeometryType.of("EPSG:3857")));
 
-        HADOOP_TABLES.create(
-                schema,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "PARQUET"),
-                hadoopTableLocation.toString());
+        String tableName = "test_geom_srid_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
 
-        String registered = "registered_geom_srid_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schema,
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of(
+                                "format-version", "3",
+                                "write.format.default", "PARQUET"))
+                .commitTransaction();
 
-        assertThat(query("SELECT * FROM " + registered))
+        assertThat(query("SELECT * FROM " + tableName))
                 .returnsEmptyResult();
 
-        assertThat(query("DESCRIBE " + registered))
+        assertThat(query("DESCRIBE " + tableName))
                 .matches("VALUES (VARCHAR 'id', VARCHAR 'integer', VARCHAR '', VARCHAR ''), " +
                         "(VARCHAR 'geom', VARCHAR 'Geometry', VARCHAR '', VARCHAR '')");
 
-        assertUpdate("INSERT INTO " + registered + " VALUES (1, ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 3857))", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 3857))", 1);
 
-        assertThat(query("SELECT ST_AsEWKT(geom) FROM " + registered))
+        assertThat(query("SELECT ST_AsEWKT(geom) FROM " + tableName))
                 .matches("VALUES VARCHAR 'SRID=3857;POINT Z (1 2 3)'");
 
-        assertThat(getOnlyParquetDataFileMetadata(registered).getFileMetaData().getSchema().getType("geom").asPrimitiveType().getLogicalTypeAnnotation())
+        assertThat(getOnlyParquetDataFileMetadata(tableName).getFileMetaData().getSchema().getType("geom").asPrimitiveType().getLogicalTypeAnnotation())
                 .isEqualTo(geometryType("EPSG:3857"));
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1783,122 +1779,118 @@ public class TestIcebergV3
     @Test
     void testWriteSridZeroToCustomCrsFails()
     {
-        String hadoopTableName = "hadoop_geometry_custom_srid_zero_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+        String tableName = "test_geom_custom_srid_zero_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
 
         Schema schema = new Schema(
                 Types.NestedField.optional(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "geom", Types.GeometryType.of("EPSG:3857")));
 
-        HADOOP_TABLES.create(
-                schema,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "PARQUET"),
-                hadoopTableLocation.toString());
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schema,
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of(
+                                "format-version", "3",
+                                "write.format.default", "PARQUET"))
+                .commitTransaction();
 
-        String registered = "registered_geom_custom_srid_zero_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
-
-        assertThat(query("INSERT INTO " + registered + " VALUES (1, ST_Point(1, 2))"))
+        assertThat(query("INSERT INTO " + tableName + " VALUES (1, ST_Point(1, 2))"))
                 .failure()
                 .hasMessageContaining("unknown SRID");
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     void testWriteCustomSridAllowedWhenMatching()
     {
-        String hadoopTableName = "hadoop_geometry_custom_srid_match_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+        String tableName = "test_geom_custom_srid_match_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
 
         Schema schema = new Schema(
                 Types.NestedField.optional(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "geom", Types.GeometryType.of("EPSG:3857")));
 
-        HADOOP_TABLES.create(
-                schema,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "PARQUET"),
-                hadoopTableLocation.toString());
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schema,
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of(
+                                "format-version", "3",
+                                "write.format.default", "PARQUET"))
+                .commitTransaction();
 
-        String registered = "registered_geom_custom_srid_match_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 3857))", 1);
 
-        assertUpdate("INSERT INTO " + registered + " VALUES (1, ST_SetSRID(ST_GeometryFromText('POINT Z (1 2 3)'), 3857))", 1);
-
-        assertThat(query("SELECT ST_AsEWKT(geom) FROM " + registered))
+        assertThat(query("SELECT ST_AsEWKT(geom) FROM " + tableName))
                 .matches("VALUES VARCHAR 'SRID=3857;POINT Z (1 2 3)'");
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     void testUnsupportedGeographyAlgorithm()
     {
-        String hadoopTableName = "hadoop_unsupported_algo_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+        String tableName = "test_unsupported_algo_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
 
         Schema schema = new Schema(
                 Types.NestedField.optional(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "geog", Types.GeographyType.of("OGC:CRS84", EdgeAlgorithm.VINCENTY)));
 
-        HADOOP_TABLES.create(
-                schema,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "PARQUET"),
-                hadoopTableLocation.toString());
-
-        String registered = "registered_unsupported_algo_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schema,
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of(
+                                "format-version", "3",
+                                "write.format.default", "PARQUET"))
+                .commitTransaction();
 
         assertQueryFails(
-                "SELECT * FROM " + registered,
+                "SELECT * FROM " + tableName,
                 ".*Unsupported geography algorithm.*");
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     void testUnsupportedGeographyCrs()
     {
-        String hadoopTableName = "hadoop_unsupported_crs_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+        String tableName = "test_unsupported_crs_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
 
         Schema schema = new Schema(
                 Types.NestedField.optional(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "geog", Types.GeographyType.of("EPSG:3857", EdgeAlgorithm.SPHERICAL)));
 
-        HADOOP_TABLES.create(
-                schema,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "PARQUET"),
-                hadoopTableLocation.toString());
-
-        String registered = "registered_unsupported_crs_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schema,
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of(
+                                "format-version", "3",
+                                "write.format.default", "PARQUET"))
+                .commitTransaction();
 
         assertQueryFails(
-                "SELECT * FROM " + registered,
+                "SELECT * FROM " + tableName,
                 ".*Unsupported geography CRS.*");
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
