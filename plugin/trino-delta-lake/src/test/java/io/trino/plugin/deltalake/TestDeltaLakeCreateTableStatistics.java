@@ -130,9 +130,9 @@ public class TestDeltaLakeCreateTableStatistics
                 DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
                 assertThat(fileStatistics.getNumRecords()).isEqualTo(Optional.of(2L));
-                assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEqualTo(Optional.empty());
-                assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEqualTo(Optional.empty());
-                assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.empty());
+                assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEqualTo(Optional.of(0.0));
+                assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEqualTo(Optional.of(0.0));
+                assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.of(0L));
             }
         }
     }
@@ -178,9 +178,9 @@ public class TestDeltaLakeCreateTableStatistics
                 DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
                 assertThat(fileStatistics.getNumRecords()).isEqualTo(Optional.of(4L));
-                assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEqualTo(Optional.empty());
-                assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEqualTo(Optional.empty());
-                assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.empty());
+                assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEqualTo(Optional.of(NEGATIVE_INFINITY));
+                assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEqualTo(Optional.of(POSITIVE_INFINITY));
+                assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.of(0L));
             }
         }
     }
@@ -202,9 +202,9 @@ public class TestDeltaLakeCreateTableStatistics
                 DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
                 assertThat(fileStatistics.getNumRecords()).isEqualTo(Optional.of(4L));
-                assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEqualTo(Optional.empty());
-                assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEqualTo(Optional.empty());
-                assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.empty());
+                assertThat(fileStatistics.getMinColumnValue(columnHandle)).hasValue(0.0001d);
+                assertThat(fileStatistics.getMaxColumnValue(columnHandle)).hasValue(100.0d);
+                assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.of(0L));
             }
         }
     }
@@ -226,9 +226,9 @@ public class TestDeltaLakeCreateTableStatistics
                 DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
                 assertThat(fileStatistics.getNumRecords()).isEqualTo(Optional.of(4L));
-                assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEqualTo(Optional.empty());
-                assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEqualTo(Optional.empty());
-                assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.empty());
+                assertThat(fileStatistics.getMinColumnValue(columnHandle)).hasValue(-100.0d);
+                assertThat(fileStatistics.getMaxColumnValue(columnHandle)).hasValue(-0.0001d);
+                assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.of(0L));
             }
         }
     }
@@ -412,13 +412,13 @@ public class TestDeltaLakeCreateTableStatistics
             for (AddFileEntry addFileEntry : addFileEntries) {
                 assertThat(addFileEntry.getStats()).isPresent();
                 DeltaLakeFileStatistics fileStatistics = addFileEntry.getStats().get();
-                if (addFileEntry.getPartitionValues().get(partitionColumn).equals("1")) {
+                if (addFileEntry.getCanonicalPartitionValues().get(partitionColumn).orElseThrow().equals("1")) {
                     assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEqualTo(Optional.of(utf8Slice("a")));
                     assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEqualTo(Optional.of(utf8Slice("c")));
                     assertThat(fileStatistics.getNumRecords()).isEqualTo(Optional.of(4L));
                     assertThat(fileStatistics.getNullCount(columnName)).isEqualTo(Optional.of(1L));
                 }
-                else if (addFileEntry.getPartitionValues().get(partitionColumn).equals("2")) {
+                else if (addFileEntry.getCanonicalPartitionValues().get(partitionColumn).orElseThrow().equals("2")) {
                     assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEqualTo(Optional.of(utf8Slice("c")));
                     assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEqualTo(Optional.of(utf8Slice("e")));
                     assertThat(fileStatistics.getNumRecords()).isEqualTo(Optional.of(3L));
@@ -443,10 +443,9 @@ public class TestDeltaLakeCreateTableStatistics
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             assertThat(addFileEntries.size()).isGreaterThan(1);
 
-            List<DeltaLakeFileStatistics> statistics = addFileEntries.stream().map(entry -> entry.getStats().get()).collect(toImmutableList());
+            List<DeltaLakeFileStatistics> statistics = addFileEntries.stream().map(entry -> entry.getStats().orElseThrow()).collect(toImmutableList());
 
-            assertThat(statistics.stream().filter(stat -> stat.getMinColumnValue(columnHandle).isEmpty() && stat.getMaxColumnValue(columnHandle).isEmpty()).count()).isEqualTo(1);
-            assertThat(statistics.stream().filter(stat -> stat.getMinColumnValue(columnHandle).isPresent() && stat.getMaxColumnValue(columnHandle).isPresent()).count()).isEqualTo(statistics.size() - 1);
+            assertThat(statistics.stream().filter(stat -> stat.getMinColumnValue(columnHandle).isPresent() && stat.getMaxColumnValue(columnHandle).isPresent()).count()).isEqualTo(statistics.size());
         }
     }
 

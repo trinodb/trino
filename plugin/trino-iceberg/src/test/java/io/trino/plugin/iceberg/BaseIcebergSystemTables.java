@@ -205,18 +205,18 @@ public abstract class BaseIcebergSystemTables
         assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4)).isEqualTo(new MaterializedRow(
                 DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 2L, 2L, 0L, null),
-                new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L)),
+                new MaterializedRow(DEFAULT_PRECISION, value(Double.NaN, null), value(Double.NaN, null), 0L, nanCount(1L)),
                 new MaterializedRow(DEFAULT_PRECISION, 2.2f, 2.2f, 0L, null)));
         assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4)).isEqualTo(new MaterializedRow(
                 DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 3L, 3L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 3.3, 3.3d, 0L, null),
-                new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L))));
+                new MaterializedRow(DEFAULT_PRECISION, value(Float.NaN, null), value(Float.NaN, null), 0L, nanCount(1L))));
         assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4)).isEqualTo(new MaterializedRow(
                 DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 4L, 6L, 0L, null),
-                new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L)),
-                new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L))));
+                new MaterializedRow(DEFAULT_PRECISION, value(4.2d, null), value(4.2d, null), 0L, nanCount(2L)),
+                new MaterializedRow(DEFAULT_PRECISION, value(4.1f, null), value(4.1f, null), 0L, nanCount(2L))));
     }
 
     @Test
@@ -706,11 +706,11 @@ public abstract class BaseIcebergSystemTables
         testFilesTableReadableMetrics(
                 "real",
                 "VALUES -1.1, 1.1, nan()",
-                "{\"x\":{\"column_size\":" + columnSize(44) + ",\"value_count\":3,\"null_value_count\":0,\"nan_value_count\":" + nanCount(1) + ",\"lower_bound\":null,\"upper_bound\":null}}");
+                "{\"x\":{\"column_size\":" + columnSize(44) + ",\"value_count\":3,\"null_value_count\":0,\"nan_value_count\":" + nanCount(1) + ",\"lower_bound\":" + value(-1.1f, null) + ",\"upper_bound\":" + value(1.1f, null) + "}}");
         testFilesTableReadableMetrics(
                 "double",
                 "VALUES -1.1, 1.1, nan()",
-                "{\"x\":{\"column_size\":" + columnSize(53) + ",\"value_count\":3,\"null_value_count\":0,\"nan_value_count\":" + nanCount(1) + ",\"lower_bound\":null,\"upper_bound\":null}}");
+                "{\"x\":{\"column_size\":" + columnSize(53) + ",\"value_count\":3,\"null_value_count\":0,\"nan_value_count\":" + nanCount(1) + ",\"lower_bound\":" + value(-1.1d, null) + ",\"upper_bound\":" + value(1.1d, null) + "}}");
         testFilesTableReadableMetrics(
                 "decimal(3,1)",
                 "VALUES -3.14, 3.14",

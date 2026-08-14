@@ -206,7 +206,7 @@
         <dep.netty.version>4.2.17.Final</dep.netty.version>
         <dep.okhttp.version>5.4.0</dep.okhttp.version>
         <dep.okio.version>3.18.1</dep.okio.version>
-        <dep.parquet.version>1.17.1</dep.parquet.version>
+        <dep.parquet.version>1.18.0</dep.parquet.version>
         <dep.protobuf.version>4.35.1</dep.protobuf.version>
         <dep.sis.version>1.6</dep.sis.version>
         <dep.snowflake.version>4.3.2</dep.snowflake.version>

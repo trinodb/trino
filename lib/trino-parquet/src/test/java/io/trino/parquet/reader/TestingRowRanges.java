@@ -14,9 +14,10 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.reader.FilteredRowRanges.RowRange;
+import org.apache.parquet.filter2.columnindex.RowRanges;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
+import java.util.PrimitiveIterator;
 import java.util.stream.IntStream;
 
 import static java.util.Objects.requireNonNull;
@@ -32,7 +33,17 @@ public class TestingRowRanges
 
     public static RowRanges toRowRanges(RowRange... ranges)
     {
-        return RowRanges.create(-1, IntStream.range(0, ranges.length).iterator(), new MockOffsetIndex(ranges));
+        return create(-1, IntStream.range(0, ranges.length).iterator(), new MockOffsetIndex(ranges));
+    }
+
+    private static RowRanges create(long rowCount, PrimitiveIterator.OfInt pageIndexes, OffsetIndex offsetIndex)
+    {
+        RowRanges.Builder builder = RowRanges.builder();
+        while (pageIndexes.hasNext()) {
+            int pageIndex = pageIndexes.nextInt();
+            builder.addSelectedRange(offsetIndex.getFirstRowIndex(pageIndex), offsetIndex.getLastRowIndex(pageIndex, rowCount));
+        }
+        return builder.build();
     }
 
     private static class MockOffsetIndex
