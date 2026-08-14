@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -76,7 +77,7 @@ public class GcsFileSystemFactory
         return new GcsFileSystem(executorService, storage, readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint, auditHeaders(session.getQueryId(), session.getUser()));
     }
 
-    static ImmutableMap<String, String> auditHeaders(String queryId, String user)
+    static Map<String, String> auditHeaders(String queryId, String user)
     {
         // Custom audit headers (x-goog-custom-audit-*) are surfaced in GCS Cloud Audit Logs.
         // See: https://cloud.google.com/storage/docs/audit-logging#custom-audit-info

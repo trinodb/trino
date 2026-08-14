@@ -23,6 +23,7 @@ import io.trino.filesystem.encryption.EncryptionKey;
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -42,7 +43,7 @@ public class GcsInputStream
     private final long fileSize;
     private final OptionalLong predeclaredLength;
     private final Optional<EncryptionKey> key;
-    private final ImmutableMap<String, String> auditHeaders;
+    private final Map<String, String> auditHeaders;
     private ReadChannel readChannel;
     // Used for read(). Similar to sun.nio.ch.ChannelInputStream
     private final ByteBuffer readBuffer = ByteBuffer.allocate(1);
@@ -50,7 +51,7 @@ public class GcsInputStream
     private long nextPosition;
     private boolean closed;
 
-    public GcsInputStream(GcsLocation location, Storage storage, Blob blob, int readBlockSizeBytes, OptionalLong predeclaredLength, Optional<EncryptionKey> key, ImmutableMap<String, String> auditHeaders)
+    public GcsInputStream(GcsLocation location, Storage storage, Blob blob, int readBlockSizeBytes, OptionalLong predeclaredLength, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
             throws IOException
     {
         this.location = requireNonNull(location, "location is null");
@@ -60,7 +61,7 @@ public class GcsInputStream
         this.predeclaredLength = requireNonNull(predeclaredLength, "predeclaredLength is null");
         this.fileSize = predeclaredLength.orElse(blob.getSize());
         this.key = requireNonNull(key, "key is null");
-        this.auditHeaders = requireNonNull(auditHeaders, "auditHeaders is null");
+        this.auditHeaders = ImmutableMap.copyOf(auditHeaders);
         openStream();
     }
 

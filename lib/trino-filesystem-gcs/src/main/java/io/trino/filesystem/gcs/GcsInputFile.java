@@ -24,6 +24,7 @@ import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -42,11 +43,11 @@ public class GcsInputFile
     private final int readBlockSize;
     private final OptionalLong predeclaredLength;
     private final Optional<EncryptionKey> key;
-    private final ImmutableMap<String, String> auditHeaders;
+    private final Map<String, String> auditHeaders;
     private OptionalLong length;
     private Optional<Instant> lastModified;
 
-    public GcsInputFile(GcsLocation location, Storage storage, int readBockSize, OptionalLong predeclaredLength, Optional<Instant> lastModified, Optional<EncryptionKey> key, ImmutableMap<String, String> auditHeaders)
+    public GcsInputFile(GcsLocation location, Storage storage, int readBockSize, OptionalLong predeclaredLength, Optional<Instant> lastModified, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -55,7 +56,7 @@ public class GcsInputFile
         this.length = OptionalLong.empty();
         this.lastModified = requireNonNull(lastModified, "lastModified is null");
         this.key = requireNonNull(key, "key is null");
-        this.auditHeaders = requireNonNull(auditHeaders, "auditHeaders is null");
+        this.auditHeaders = ImmutableMap.copyOf(auditHeaders);
     }
 
     @Override

@@ -81,9 +81,9 @@ public class GcsFileSystem
     private final int pageSize;
     private final int batchSize;
     private final Optional<String> endpoint;
-    private final ImmutableMap<String, String> auditHeaders;
+    private final Map<String, String> auditHeaders;
 
-    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize, Optional<String> endpoint, ImmutableMap<String, String> auditHeaders)
+    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize, Optional<String> endpoint, Map<String, String> auditHeaders)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -92,7 +92,7 @@ public class GcsFileSystem
         this.pageSize = pageSize;
         this.batchSize = batchSize;
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
-        this.auditHeaders = requireNonNull(auditHeaders, "auditHeaders is null");
+        this.auditHeaders = ImmutableMap.copyOf(auditHeaders);
     }
 
     @Override
@@ -165,7 +165,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        storage.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()), Storage.BlobSourceOption.extraHeaders(auditHeaders));
+        storage.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()), Storage.BlobSourceOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
     }
 
     @Override
@@ -178,7 +178,7 @@ public class GcsFileSystem
                 StorageBatch batch = storage.batch();
                 for (Location location : locationBatch) {
                     GcsLocation gcsLocation = new GcsLocation(location);
-                    batch.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()), Storage.BlobSourceOption.extraHeaders(auditHeaders));
+                    batch.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()), Storage.BlobSourceOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
                 }
                 batchFutures.add(executorService.submit(batch::submit));
             }
@@ -200,7 +200,7 @@ public class GcsFileSystem
             for (List<Blob> blobBatch : partition(getPage(gcsLocation).iterateAll(), batchSize)) {
                 StorageBatch batch = storage.batch();
                 for (Blob blob : blobBatch) {
-                    batch.delete(blob.getBlobId(), Storage.BlobSourceOption.extraHeaders(auditHeaders));
+                    batch.delete(blob.getBlobId(), Storage.BlobSourceOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
                 }
                 batchFutures.add(executorService.submit(batch::submit));
             }
@@ -273,7 +273,7 @@ public class GcsFileSystem
         }
         optionsBuilder.addAll(Arrays.asList(blobListOptions));
         optionsBuilder.add(pageSize(this.pageSize));
-        optionsBuilder.add(BlobListOption.extraHeaders(auditHeaders));
+        optionsBuilder.add(BlobListOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
         return storage.list(location.bucket(), optionsBuilder.toArray(BlobListOption[]::new));
     }
 
@@ -311,7 +311,7 @@ public class GcsFileSystem
 
     private boolean bucketExists(String bucket)
     {
-        return storage.get(bucket, Storage.BucketGetOption.extraHeaders(auditHeaders)) != null;
+        return storage.get(bucket, Storage.BucketGetOption.extraHeaders(ImmutableMap.copyOf(auditHeaders))) != null;
     }
 
     @Override

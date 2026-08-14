@@ -30,6 +30,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -66,7 +67,7 @@ public class GcsUtils
         return new TrinoFileSystemException(message, exception);
     }
 
-    public static ReadChannel getReadChannel(Storage storage, Blob blob, GcsLocation location, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key, ImmutableMap<String, String> auditHeaders)
+    public static ReadChannel getReadChannel(Storage storage, Blob blob, GcsLocation location, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
             throws IOException
     {
         long fileSize = requireNonNull(blob.getSize(), "blob size is null");
@@ -84,29 +85,29 @@ public class GcsUtils
         return readChannel;
     }
 
-    private static Storage.BlobSourceOption[] blobSourceOptions(Optional<EncryptionKey> key, ImmutableMap<String, String> auditHeaders)
+    private static Storage.BlobSourceOption[] blobSourceOptions(Optional<EncryptionKey> key, Map<String, String> auditHeaders)
     {
         ImmutableList.Builder<Storage.BlobSourceOption> options = ImmutableList.builder();
         key.ifPresent(encryption -> options.add(Storage.BlobSourceOption.decryptionKey(encodedKey(encryption))));
         return options
                 .add(Storage.BlobSourceOption.shouldReturnRawInputStream(true))
-                .add(Storage.BlobSourceOption.extraHeaders(auditHeaders))
+                .add(Storage.BlobSourceOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)))
                 .build()
                 .toArray(Storage.BlobSourceOption[]::new);
     }
 
-    public static Optional<Blob> getBlob(Storage storage, GcsLocation location, ImmutableMap<String, String> auditHeaders, Storage.BlobGetOption... blobGetOptions)
+    public static Optional<Blob> getBlob(Storage storage, GcsLocation location, Map<String, String> auditHeaders, Storage.BlobGetOption... blobGetOptions)
     {
         checkArgument(!location.path().isEmpty(), "Path for location %s is empty", location);
         Storage.BlobGetOption[] options = ImmutableList.<Storage.BlobGetOption>builder()
                 .add(blobGetOptions)
-                .add(Storage.BlobGetOption.extraHeaders(auditHeaders))
+                .add(Storage.BlobGetOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)))
                 .build()
                 .toArray(Storage.BlobGetOption[]::new);
         return Optional.ofNullable(storage.get(BlobId.of(location.bucket(), location.path()), options));
     }
 
-    public static Blob getBlobOrThrow(Storage storage, GcsLocation location, ImmutableMap<String, String> auditHeaders, Storage.BlobGetOption... blobGetOptions)
+    public static Blob getBlobOrThrow(Storage storage, GcsLocation location, Map<String, String> auditHeaders, Storage.BlobGetOption... blobGetOptions)
             throws IOException
     {
         return getBlob(storage, location, auditHeaders, blobGetOptions).orElseThrow(() -> new FileNotFoundException("File %s not found".formatted(location)));
