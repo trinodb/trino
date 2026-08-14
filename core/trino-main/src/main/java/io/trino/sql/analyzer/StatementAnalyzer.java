@@ -2378,16 +2378,7 @@ class StatementAnalyzer
             // This can only be a table
             RedirectionAwareTableHandle redirection = getTableHandle(table, name, scope);
             Optional<TableHandle> tableHandle = redirection.tableHandle();
-            QualifiedObjectName targetTableName;
-            if (redirection.redirectedTableName().isPresent()) {
-                if (getBranchName(table).isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, table, "Table redirection is not supported for branch tables");
-                }
-                targetTableName = redirection.redirectedTableName().get();
-            }
-            else {
-                targetTableName = name;
-            }
+            QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(name);
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName, getBranchName(table));
 
             if (tableHandle.isEmpty()) {
