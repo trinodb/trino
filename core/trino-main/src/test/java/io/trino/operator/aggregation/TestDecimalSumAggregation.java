@@ -15,17 +15,22 @@ package io.trino.operator.aggregation;
 
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
+import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlock;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.RowType.field;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -99,7 +104,7 @@ public class TestDecimalSumAggregation
         addToState(otherState, TWO.pow(125));
         addToState(otherState, TWO.pow(126));
 
-        DecimalSumAggregation.combine(state, otherState);
+        merge(state, otherState);
         assertThat(state.getOverflow()).isEqualTo(1);
         assertThat(getDecimal(state)).isEqualTo(Int128.valueOf(0xC000000000000000L, 0));
     }
@@ -117,7 +122,7 @@ public class TestDecimalSumAggregation
         addToState(otherState, TWO.pow(125).negate());
         addToState(otherState, TWO.pow(126).negate());
 
-        DecimalSumAggregation.combine(state, otherState);
+        merge(state, otherState);
         assertThat(state.getOverflow()).isEqualTo(-1);
         assertThat(getDecimal(state)).isEqualTo(Int128.valueOf(0x4000000000000000L, 0));
     }
@@ -134,6 +139,15 @@ public class TestDecimalSumAggregation
         assertThatThrownBy(() -> DecimalSumAggregation.outputDecimal(state, new VariableWidthBlockBuilder(null, 10, 100)))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Decimal overflow");
+    }
+
+    // merge through the serialized intermediate, the way a final aggregation consumes partials
+    private static void merge(LongDecimalWithOverflowState state, LongDecimalWithOverflowState otherState)
+    {
+        RowType serializedType = RowType.rowType(field("sum", TYPE), field("overflow", BIGINT));
+        RowBlockBuilder out = (RowBlockBuilder) serializedType.createBlockBuilder(null, 1);
+        new LongDecimalWithOverflowStateSerializer(serializedType).serialize(otherState, out);
+        DecimalSumDecomposedAggregation.intermediateInput(state, out.buildValueBlock(), 0);
     }
 
     private static void addToState(LongDecimalWithOverflowState state, BigInteger value)

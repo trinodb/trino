@@ -51,6 +51,7 @@ import io.trino.operator.aggregation.CountIfAggregation;
 import io.trino.operator.aggregation.CovarianceDecomposedAggregation;
 import io.trino.operator.aggregation.DecimalAverageAggregation;
 import io.trino.operator.aggregation.DecimalSumAggregation;
+import io.trino.operator.aggregation.DecimalSumDecomposedAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.DoubleAverageAggregations;
 import io.trino.operator.aggregation.DoubleCorrelationAggregation;
@@ -680,6 +681,7 @@ public final class SystemFunctionBundle
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .aggregates(DecimalAverageAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
+                .aggregates(DecimalSumDecomposedAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)

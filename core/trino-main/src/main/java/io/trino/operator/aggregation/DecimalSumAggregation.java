@@ -14,15 +14,17 @@
 package io.trino.operator.aggregation;
 
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
+import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.Int128ArrayBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameters;
@@ -90,35 +92,23 @@ public final class DecimalSumAggregation
         state.addOverflow(overflow);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState LongDecimalWithOverflowState state, @AggregationState LongDecimalWithOverflowState otherState)
+    // must write exactly the layout of LongDecimalWithOverflowStateSerializer
+    @AggregationFunction(value = "sum_decimal$partial", hidden = true)
+    @SqlNullable
+    @OutputFunction(value = "row(sum decimal(38, s), overflow bigint)", decomposition = @Decomposition(partial = "sum_decimal$partial", output = "sum_decimal$merge"))
+    public static void intermediateOutput(@AggregationState LongDecimalWithOverflowState state, BlockBuilder out)
     {
+        if (!state.isNotNull()) {
+            out.appendNull();
+            return;
+        }
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
-
-        long[] otherDecimal = otherState.getDecimalArray();
-        int otherOffset = otherState.getDecimalArrayOffset();
-
-        if (state.isNotNull()) {
-            long overflow = addWithOverflow(
-                    decimal[offset],
-                    decimal[offset + 1],
-                    otherDecimal[otherOffset],
-                    otherDecimal[otherOffset + 1],
-                    decimal,
-                    offset);
-            state.addOverflow(Math.addExact(overflow, otherState.getOverflow()));
-        }
-        else {
-            state.setNotNull();
-            decimal[offset] = otherDecimal[otherOffset];
-            decimal[offset + 1] = otherDecimal[otherOffset + 1];
-            state.setOverflow(otherState.getOverflow());
-        }
+        LongDecimalWithOverflowStateSerializer.write(decimal[offset], decimal[offset + 1], state.getOverflow(), (RowBlockBuilder) out);
     }
 
     @SqlNullable
-    @OutputFunction("decimal(38,s)")
+    @OutputFunction(value = "decimal(38,s)", decomposition = @Decomposition(partial = "sum_decimal$partial", output = "sum_decimal$final"))
     public static void outputDecimal(@AggregationState LongDecimalWithOverflowState state, BlockBuilder out)
     {
         if (state.isNotNull()) {

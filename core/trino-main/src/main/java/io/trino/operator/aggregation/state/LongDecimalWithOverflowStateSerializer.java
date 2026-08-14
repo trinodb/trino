@@ -13,23 +13,37 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.Int128ArrayBlock;
+import io.trino.spi.block.Int128ArrayBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.BigintType.BIGINT;
 
+/// Serializes the decimal sum state as `row(sum decimal(38, s), overflow bigint)`. The sum field
+/// holds the raw 128-bit running sum, which may lie outside the valid decimal range; the overflow
+/// field counts the wraps around 2^128. Raw Int128 writes bypass decimal range validation on
+/// purpose — the range is only checked when the final output is produced.
 public class LongDecimalWithOverflowStateSerializer
         implements AccumulatorStateSerializer<LongDecimalWithOverflowState>
 {
+    private final RowType serializedType;
+
+    public LongDecimalWithOverflowStateSerializer(@TypeParameter("row(sum decimal(38, s), overflow bigint)") Type serializedType)
+    {
+        this.serializedType = (RowType) serializedType;
+    }
+
     @Override
     public Type getSerializedType()
     {
-        return VARBINARY;
+        return serializedType;
     }
 
     @Override
@@ -40,21 +54,17 @@ public class LongDecimalWithOverflowStateSerializer
             return;
         }
 
-        long overflow = state.getOverflow();
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
-        Slice buffer = Slices.allocate(Long.BYTES * 3);
-        long low = decimal[offset + 1];
-        long high = decimal[offset];
-        buffer.setLong(0, low);
-        buffer.setLong(Long.BYTES, high);
-        buffer.setLong(Long.BYTES * 2, overflow);
-        // if high == 0 and overflow == 0 we only write low (bufferLength = 1)
-        // if high != 0 and overflow == 0 we write both low and high (bufferLength = 2)
-        // if overflow != 0 we write all values (bufferLength = 3)
-        int decimalsCount = 1 + (high == 0 ? 0 : 1);
-        int bufferLength = overflow == 0 ? decimalsCount : 3;
-        VARBINARY.writeSlice(out, buffer, 0, bufferLength * Long.BYTES);
+        write(decimal[offset], decimal[offset + 1], state.getOverflow(), (RowBlockBuilder) out);
+    }
+
+    public static void write(long high, long low, long overflow, RowBlockBuilder out)
+    {
+        out.buildEntry(fieldBuilders -> {
+            ((Int128ArrayBlockBuilder) fieldBuilders.get(0)).writeInt128(high, low);
+            BIGINT.writeLong(fieldBuilders.get(1), overflow);
+        });
     }
 
     @Override
@@ -64,31 +74,18 @@ public class LongDecimalWithOverflowStateSerializer
             return;
         }
 
-        index = block.getUnderlyingValuePosition(index);
-        block = block.getUnderlyingValueBlock();
-        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
-        Slice slice = variableWidthBlock.getRawSlice();
-        int sliceOffset = variableWidthBlock.getRawSliceOffset(index);
-        int sliceLength = variableWidthBlock.getSliceLength(index);
+        SqlRow row = (SqlRow) serializedType.getObject(block, index);
+        int rawIndex = row.getRawIndex();
+
+        Block sumField = row.getRawFieldBlock(0);
+        Int128ArrayBlock sumBlock = (Int128ArrayBlock) sumField.getUnderlyingValueBlock();
+        int sumPosition = sumField.getUnderlyingValuePosition(rawIndex);
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
-
-        long low = slice.getLong(sliceOffset);
-        long high = 0;
-        long overflow = 0;
-
-        switch (sliceLength) {
-            case Long.BYTES * 3:
-                overflow = slice.getLong(sliceOffset + Long.BYTES * 2);
-                // fall through
-            case Long.BYTES * 2:
-                high = slice.getLong(sliceOffset + Long.BYTES);
-        }
-
-        decimal[offset + 1] = low;
-        decimal[offset] = high;
-        state.setOverflow(overflow);
+        decimal[offset] = sumBlock.getInt128High(sumPosition);
+        decimal[offset + 1] = sumBlock.getInt128Low(sumPosition);
+        state.setOverflow(BIGINT.getLong(row.getRawFieldBlock(1), rawIndex));
         state.setNotNull();
     }
 }
