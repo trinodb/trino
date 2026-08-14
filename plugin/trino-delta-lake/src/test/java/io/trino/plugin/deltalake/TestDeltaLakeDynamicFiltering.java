@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Resources;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
@@ -22,7 +23,6 @@ import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
@@ -48,7 +48,6 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
-import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -59,30 +58,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeDynamicFiltering
         extends AbstractTestQueryFramework
 {
-    private final String bucketName = "delta-lake-test-dynamic-filtering-" + randomNameSuffix();
-    private Hive3FlociDataLake hiveFlociDataLake;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
-        hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
-        hiveFlociDataLake.start();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
-                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
-                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
 
         ImmutableList.of(LINE_ITEM, ORDERS).forEach(table -> {
             String tableName = table.getTableName();
-            hiveFlociDataLake.floci().copyResources("io/trino/plugin/deltalake/testing/resources/databricks73/" + tableName, bucketName, tableName);
             queryRunner.execute(format(
-                    "CALL system.register_table(CURRENT_SCHEMA, '%1$s', 's3://%2$s/%1$s')",
+                    "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
                     tableName,
-                    bucketName));
+                    Resources.getResource("io/trino/plugin/deltalake/testing/resources/databricks73/" + tableName).toExternalForm()));
         });
         return queryRunner;
     }
