@@ -39,6 +39,7 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.Signature;
@@ -605,7 +606,7 @@ public class TestPageFunctionCompiler
         }
 
         @Override
-        protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+        public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
         {
             return new ChoicesSpecializedSqlScalarFunction(boundSignature, FAIL_ON_NULL, argumentConventions, methodHandle);
         }

@@ -212,7 +212,7 @@
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-java</artifactId>
-            <version>9.0.0</version>
+            <version>${dep.datasketches.version}</version>
         </dependency>
 
         <dependency>
@@ -445,13 +445,6 @@
                     <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.cloud.gcs.analytics</groupId>
-            <artifactId>gcs-analytics-core</artifactId>
-            <version>1.2.3</version>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>

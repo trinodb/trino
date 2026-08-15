@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>400</version>
+        <version>401</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -192,6 +192,7 @@
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.clickhouse.version>0.9.8</dep.clickhouse.version>
         <dep.confluent.version>8.1.1</dep.confluent.version>
+        <dep.datasketches.version>9.0.0</dep.datasketches.version>
         <dep.derby.version>10.17.1.0</dep.derby.version>
         <dep.docker.images.version>127</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
@@ -222,6 +223,8 @@
         Since 1.1.0, the default behaviour for such conflicts changed from overwriting the artifact to failing the build.
         -->
         <provisio.fallbackTargetFileNameMode>GA</provisio.fallbackTargetFileNameMode>
+        <!-- Enabled by the gib profile, see the gitflow-incremental-builder plugin declaration below. -->
+        <gib-extension.enabled>false</gib-extension.enabled>
     </properties>
 
     <dependencyManagement>
@@ -301,7 +304,7 @@
             <dependency>
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bc-jdk18on-bom</artifactId>
-                <version>1.85</version>
+                <version>1.85.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -325,7 +328,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.51.1</version>
+                <version>2.51.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -1852,7 +1855,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.6.3</version>
+                <version>5.6.4</version>
             </dependency>
 
             <dependency>
@@ -2156,7 +2159,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>4.2.1</version>
+                <version>4.2.2</version>
             </dependency>
 
             <dependency>
@@ -2783,6 +2786,34 @@
         </pluginManagement>
 
         <plugins>
+            <!-- Enabled by the gib profile, which sets gib-extension.enabled to true.
+            The extension is declared here rather than in the profile because Maven runs the lifecycle
+            participant of the extension declared last first, and GIB only picks up project mutations of
+            extensions that ran before it. Declaring GIB before provisio-maven-plugin makes GIB run after
+            it, so that GIB sees the reactor dependencies provisio derives from its descriptors and does
+            not prune the modules the server assemblies are built from.
+            See https://github.com/gitflow-incremental-builder/gitflow-incremental-builder/issues/1183 -->
+            <plugin>
+                <groupId>io.github.gitflow-incremental-builder</groupId>
+                <artifactId>gitflow-incremental-builder</artifactId>
+                <version>4.7.0</version>
+                <extensions>${gib-extension.enabled}</extensions>
+                <configuration>
+                    <compareToMergeBase>true</compareToMergeBase>
+                    <uncommitted>true</uncommitted>
+                    <untracked>true</untracked>
+                    <buildUpstreamMode>impacted</buildUpstreamMode>
+                    <!-- Skip tests and checks for upstream modules since they have not been modified but are still required to be built -->
+                    <skipTestsForUpstreamModules>true</skipTestsForUpstreamModules>
+                    <argsForUpstreamModules>-Dmaven.source.skip=true -Dair.check.skip-all</argsForUpstreamModules>
+                    <!-- Any modules selected with -pl will be built fully (with tests etc.) if the selected module itself is changed
+                    or one of its (non-selected) upstream modules -->
+                    <disableSelectedProjectsHandling>true</disableSelectedProjectsHandling>
+                    <failOnMissingGitDir>true</failOnMissingGitDir>
+                    <failOnError>true</failOnError>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
@@ -2904,6 +2935,8 @@
         <profile>
             <id>gib</id>
             <properties>
+                <!-- Loads the gitflow-incremental-builder extension declared in build/plugins, see the comment there. -->
+                <gib-extension.enabled>true</gib-extension.enabled>
                 <!-- the *local* master, not refs/remotes/... -->
                 <gib.referenceBranch>master</gib.referenceBranch>
                 <!-- set as properties, not configuration, to allow overriding them -->
@@ -2911,30 +2944,6 @@
                 <gib.buildUpstream>true</gib.buildUpstream>
                 <gib.disableIfBranchMatches>master</gib.disableIfBranchMatches>
             </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>io.github.gitflow-incremental-builder</groupId>
-                        <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>4.6.0</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <compareToMergeBase>true</compareToMergeBase>
-                            <uncommitted>true</uncommitted>
-                            <untracked>true</untracked>
-                            <buildUpstreamMode>impacted</buildUpstreamMode>
-                            <!-- Skip tests and checks for upstream modules since they have not been modified but are still required to be built -->
-                            <skipTestsForUpstreamModules>true</skipTestsForUpstreamModules>
-                            <argsForUpstreamModules>-Dmaven.source.skip=true -Dair.check.skip-all</argsForUpstreamModules>
-                            <!-- Any modules selected with -pl will be built fully (with tests etc.) if the selected module itself is changed
-                            or one of its (non-selected) upstream modules -->
-                            <disableSelectedProjectsHandling>true</disableSelectedProjectsHandling>
-                            <failOnMissingGitDir>true</failOnMissingGitDir>
-                            <failOnError>true</failOnError>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
     </profiles>
 </project>
