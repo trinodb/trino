@@ -731,6 +731,14 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+```text
+        metric_name         | metric_value
+----------------------------+--------------
+ rewritten_data_files_count |            1
+ removed_delete_files_count |            1
+ added_data_files_count     |            2
+```
+
 Use a `WHERE` clause with [metadata columns](delta-lake-special-columns) to filter
 which files are optimized.
 

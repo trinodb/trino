@@ -3152,15 +3152,12 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
         return switch (executeHandle.procedureId()) {
-            case OPTIMIZE -> {
-                finishOptimize(session, executeHandle, fragments, splitSourceInfo);
-                yield ImmutableMap.of();
-            }
+            case OPTIMIZE -> finishOptimize(session, executeHandle, fragments, splitSourceInfo);
             default -> throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
         };
     }
 
-    private void finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    private Map<String, Long> finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
         String tableLocation = executeHandle.tableLocation();
@@ -3214,6 +3211,17 @@ public class DeltaLakeMetadata
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
+
+        long removedDeleteFiles = scannedDataFiles.stream()
+                .map(file -> file.deletionVector().map(DeletionVectorEntry::uniqueId))
+                .flatMap(Optional::stream)
+                .collect(toImmutableSet())
+                .size();
+        return ImmutableMap.<String, Long>builder()
+                .put("rewritten_data_files_count", (long) scannedDataFiles.size())
+                .put("removed_delete_files_count", removedDeleteFiles)
+                .put("added_data_files_count", (long) dataFileInfos.size())
+                .buildOrThrow();
     }
 
     private long commitOptimizeOperation(
