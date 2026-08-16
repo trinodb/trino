@@ -269,6 +269,44 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertUpdate("DROP VIEW " + lowercaseViewName);
     }
 
+    @Test
+    void testViewPropertiesIgnoreStaleNameMapping()
+    {
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
+        String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
+        createDir(namespaceLocation);
+
+        String viewName = "MiXed_CaSe_ViEw_PrOpErTiEs_" + randomNameSuffix();
+        String lowercaseViewName = viewName.toLowerCase(ENGLISH);
+
+        // Creating the view resolves its name through the mapping cache (getCached=true) while it does
+        // not yet exist remotely, caching the name as-is. This entry is never invalidated.
+        assertUpdate("CREATE VIEW " + lowercaseViewName + " AS SELECT BIGINT '67' value");
+
+        // Drop it on the backend and recreate it under a mixed-case remote name, so the cached entry
+        // now points at a lowercase remote view that no longer exists.
+        backend.dropView(TableIdentifier.of(NAMESPACE, lowercaseViewName));
+
+        String recreatedLocation = namespaceLocation + "/" + lowercaseViewName + "_recreated";
+        createDir(recreatedLocation);
+        createDir(recreatedLocation + "/data");
+        createDir(recreatedLocation + "/metadata");
+        backend.buildView(TableIdentifier.of(NAMESPACE, viewName))
+                .withQuery("trino", "SELECT BIGINT '67' value")
+                .withSchema(new Schema(required(1, "value", Types.LongType.get())))
+                .withDefaultNamespace(NAMESPACE)
+                .withLocation(recreatedLocation)
+                .createOrReplace();
+
+        // getViewProperties must resolve the view name with getCached=false. If it trusted the cache,
+        // it would load the stale lowercase mapping, miss the recreated mixed-case view, and fail to
+        // report its location.
+        assertThat((String) computeScalar("SHOW CREATE VIEW " + lowercaseViewName))
+                .contains("location = '" + recreatedLocation + "'");
+
+        backend.dropView(TableIdentifier.of(NAMESPACE, viewName));
+    }
+
     private String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns " +
