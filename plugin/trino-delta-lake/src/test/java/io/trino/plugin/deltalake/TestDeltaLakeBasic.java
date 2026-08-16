@@ -1751,13 +1751,41 @@ public class TestDeltaLakeBasic
     public void testVacuumAfterDeleteWithDeletionVectors()
             throws Exception
     {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
         try (TestTable table = newTrinoTable("test_vacuum_dv_delete", "(x int) WITH (deletion_vectors_enabled = true)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
-            vacuumDeletionVectorTableAndAssertRetention(
-                    table.getName(),
-                    "VALUES 1, 3",
-                    2);
+            Set<String> filesAfterFirstDelete = dataAndDeletionVectorFiles(table.getName());
+            Set<String> firstDeletionVectors = deletionVectorFiles(filesAfterFirstDelete);
+            assertThat(firstDeletionVectors).hasSize(1);
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 1, 3");
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 3", 1);
+            Stopwatch timeSinceSecondDelete = Stopwatch.createStarted();
+            Set<String> filesAfterSecondDelete = dataAndDeletionVectorFiles(table.getName());
+            Set<String> secondDeletionVectors = deletionVectorFiles(filesAfterSecondDelete);
+            assertThat(secondDeletionVectors).hasSize(2).containsAll(firstDeletionVectors);
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 1");
+            assertThat(query("SELECT count(*) FROM " + table.getName())).matches("VALUES BIGINT '1'");
+
+            // High retention keeps the superseded DV so recent snapshots still apply it
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '10m')");
+            assertThat(dataAndDeletionVectorFiles(table.getName())).isEqualTo(filesAfterSecondDelete);
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 1");
+
+            MILLISECONDS.sleep(2_000 - timeSinceSecondDelete.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '1s')");
+
+            Set<String> filesAfterVacuum = dataAndDeletionVectorFiles(table.getName());
+            Set<String> activeFiles = activeDataFiles(table.getName());
+            assertThat(filesAfterVacuum).containsAll(activeFiles);
+            assertThat(filesAfterVacuum).doesNotContainAnyElementsOf(firstDeletionVectors);
+            assertThat(deletionVectorFiles(filesAfterVacuum)).hasSize(1);
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 1");
+            assertThat(query("SELECT count(*) FROM " + table.getName())).matches("VALUES BIGINT '1'");
         }
     }
 
@@ -1829,6 +1857,13 @@ public class TestDeltaLakeBasic
         return computeActual("SELECT DISTINCT \"$path\" FROM " + tableName).getOnlyColumnAsSet().stream()
                 .map(String.class::cast)
                 .map(path -> Path.of(URI.create(path)).toString())
+                .collect(toImmutableSet());
+    }
+
+    private static Set<String> deletionVectorFiles(Set<String> files)
+    {
+        return files.stream()
+                .filter(path -> path.matches(".*deletion_vector_[0-9a-f-]+\\.bin"))
                 .collect(toImmutableSet());
     }
 
