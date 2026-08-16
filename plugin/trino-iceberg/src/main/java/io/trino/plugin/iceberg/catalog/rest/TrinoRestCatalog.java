@@ -243,8 +243,10 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop namespace '%s'".formatted(namespace), e);
         }
-        if (caseInsensitiveNameMatching) {
-            remoteNamespaceMappingCache.invalidate(toNamespace(namespace));
+        finally {
+            if (caseInsensitiveNameMatching) {
+                remoteNamespaceMappingCache.invalidate(toNamespace(namespace));
+            }
         }
     }
 
@@ -496,21 +498,27 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to unregister table '%s'".formatted(tableName.getTableName()), e);
         }
-        invalidateTableCache(tableName);
-        invalidateTableMappingCache(tableName);
+        finally {
+            invalidateTableCache(tableName);
+            invalidateTableMappingCache(tableName);
+        }
     }
 
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        if (security == Security.GOOGLE) {
-            purgeBigLakeTable(session, schemaTableName);
+        try {
+            if (security == Security.GOOGLE) {
+                purgeBigLakeTable(session, schemaTableName);
+            }
+            else {
+                purgeTable(session, schemaTableName);
+            }
         }
-        else {
-            purgeTable(session, schemaTableName);
+        finally {
+            invalidateTableCache(schemaTableName);
+            invalidateTableMappingCache(schemaTableName);
         }
-        invalidateTableCache(schemaTableName);
-        invalidateTableMappingCache(schemaTableName);
     }
 
     private void purgeBigLakeTable(ConnectorSession session, SchemaTableName schemaTableName)
@@ -568,8 +576,10 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to rename table %s to %s", from, to), e);
         }
-        invalidateTableCache(from);
-        invalidateTableMappingCache(from);
+        finally {
+            invalidateTableCache(from);
+            invalidateTableMappingCache(from);
+        }
     }
 
     @Override
@@ -633,13 +643,17 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load table '%s'".formatted(schemaTableName.getTableName()), e);
         }
-        if (comment.isEmpty()) {
-            icebergTable.updateProperties().remove(TABLE_COMMENT).commit();
+        try {
+            if (comment.isEmpty()) {
+                icebergTable.updateProperties().remove(TABLE_COMMENT).commit();
+            }
+            else {
+                icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
+            }
         }
-        else {
-            icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
+        finally {
+            invalidateTableCache(schemaTableName);
         }
-        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -724,7 +738,9 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to rename view '%s' to '%s'".formatted(source, target), e);
         }
-        invalidateTableMappingCache(source);
+        finally {
+            invalidateTableMappingCache(source);
+        }
     }
 
     @Override
@@ -742,7 +758,9 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop view '%s'".formatted(schemaViewName.getTableName()), e);
         }
-        invalidateTableMappingCache(schemaViewName);
+        finally {
+            invalidateTableMappingCache(schemaViewName);
+        }
     }
 
     @Override
