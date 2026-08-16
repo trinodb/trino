@@ -577,6 +577,57 @@ public class TestIntervalDayTime
     }
 
     @Test
+    public void testCastFromVarchar()
+    {
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '12 10:45:32.123'"))
+                .matches("INTERVAL '12 10:45:32.123' DAY TO SECOND");
+
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '12 10:45:32'"))
+                .matches("INTERVAL '12 10:45:32' DAY TO SECOND");
+
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '12 10:45'"))
+                .matches("INTERVAL '12 10:45' DAY TO SECOND");
+
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '12 10'"))
+                .matches("INTERVAL '12 10' DAY TO SECOND");
+
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '12'"))
+                .matches("INTERVAL '12' DAY TO SECOND");
+
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '-12 10:45:32.123'"))
+                .matches("INTERVAL '-12 10:45:32.123' DAY TO SECOND");
+
+        // round trip
+        assertThat(assertions.expression("CAST(CAST(a AS varchar) AS INTERVAL DAY TO SECOND)")
+                .binding("a", "INTERVAL '12 10:45:32.123' DAY TO SECOND"))
+                .matches("INTERVAL '12 10:45:32.123' DAY TO SECOND");
+
+        // leading/trailing whitespace is trimmed, matching other varchar-to-X casts
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '  12 10:45:32.123  '"))
+                .matches("INTERVAL '12 10:45:32.123' DAY TO SECOND");
+
+        // CHAR source, not just VARCHAR
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "CAST('12 10:45:32.123' AS CHAR(20))"))
+                .matches("INTERVAL '12 10:45:32.123' DAY TO SECOND");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR 'not an interval'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '12 25:00'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
     public void testIndeterminate()
     {
         assertThat(assertions.operator(INDETERMINATE, "CAST(NULL AS INTERVAL DAY TO SECOND)"))
