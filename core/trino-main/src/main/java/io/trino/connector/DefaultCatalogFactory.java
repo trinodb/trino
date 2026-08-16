@@ -211,7 +211,8 @@ public class DefaultCatalogFactory
                 new InternalFunctionBundleFactory(),
                 blocksHashFactory,
                 evaluator,
-                cacheManagerRegistry.createConnectorCacheFactory(catalogName));
+                cacheManagerRegistry.createConnectorCacheFactory(catalogName),
+                Optional.of(secretsResolver::resolveSecret));
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName

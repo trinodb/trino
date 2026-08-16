@@ -44,6 +44,7 @@ import io.trino.filesystem.tracking.TrackingFileSystemFactory;
 import io.trino.spi.cache.BlobCache;
 import io.trino.spi.cache.CacheRequirements;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.secrets.RuntimeSecretResolver;
 
 import java.util.Map;
 import java.util.Optional;
@@ -106,6 +107,8 @@ public class FileSystemModule
         }
 
         if (config.isS3Enabled()) {
+            context.getRuntimeSecretResolver().ifPresent(resolver ->
+                    binder.bind(RuntimeSecretResolver.class).toInstance(resolver));
             install(new S3FileSystemModule());
             factories.addBinding("s3").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
             factories.addBinding("s3a").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
