@@ -71,6 +71,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -93,6 +94,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -116,6 +118,9 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoUnit.HOURS;
+import static java.util.UUID.randomUUID;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
@@ -2163,21 +2168,139 @@ public class TestDeltaLakeBasic
     }
 
     @Test
-    public void testUnsupportedVacuumDeletionVectors()
+    public void testVacuumKeepsDeletionVectorOfRecentSnapshot()
             throws Exception
     {
-        String tableName = "deletion_vectors" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
 
+        try (TestTable table = newTrinoTable("test_vacuum_dv_recent_snapshot", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+            Set<String> firstDeletionVectors = deletionVectorFiles(dataAndDeletionVectorFiles(table.getName()));
+            assertThat(firstDeletionVectors).hasSize(1);
+
+            // The first deletion vector file ages past the retention while the versions that still read it do not
+            MILLISECONDS.sleep(2_100);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 10", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 3", 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '2s')");
+
+            assertThat(dataAndDeletionVectorFiles(table.getName())).containsAll(firstDeletionVectors);
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3")).matches("VALUES 1, 3, 10");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 1, 10");
+        }
+    }
+
+    @Test
+    public void testVacuumKeepsDeletionVectorOfOptimizedFile()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_vacuum_dv_optimized_file", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+            Set<String> deletionVectors = deletionVectorFiles(dataAndDeletionVectorFiles(table.getName()));
+            assertThat(deletionVectors).hasSize(1);
+
+            // The deletion vector file ages past the retention while the versions that still read it do not
+            MILLISECONDS.sleep(2_100);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 10", 1);
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '2s')");
+
+            assertThat(dataAndDeletionVectorFiles(table.getName())).containsAll(deletionVectors);
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3")).matches("VALUES 1, 3, 10");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 1, 3, 10");
+        }
+    }
+
+    @Test
+    public void testVacuumKeepsSparkDeletionVector()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        String tableName = "test_vacuum_spark_dv_" + randomNameSuffix();
         Path tableLocation = catalogDir.resolve(tableName);
-        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors_empty").toURI()).toPath(), tableLocation);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
 
-        // TODO https://github.com/trinodb/trino/issues/22809 Add support for vacuuming tables with deletion vectors
-        assertQueryFails(
-                "CALL delta.system.vacuum('tpch', '" + tableName + "', '7d')",
-                "Cannot execute vacuum procedure with deletionVectors writer features");
+        Path deletionVector = tableLocation.resolve("deletion_vector_a52eda8c-0a57-4636-814b-9c165388f7ca.bin");
+        Files.setLastModifiedTime(deletionVector, FileTime.from(Instant.now().minus(1, HOURS)));
+        assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '10m')");
+
+        assertThat(deletionVector).exists();
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testVacuumRemovesUnreferencedDeletionVectors()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_vacuum_unreferenced_dv", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+            Set<String> activeFiles = dataAndDeletionVectorFiles(table.getName());
+
+            Path tablePath = Path.of(new URI(getTableLocation(table.getName())));
+            Instant expired = Instant.now().minus(1, HOURS);
+            Path expiredDeletionVector = createDeletionVectorFile(tablePath, expired);
+            Path expiredPrefixedDeletionVector = createDeletionVectorFile(tablePath.resolve("ab"), expired);
+            Path recentDeletionVector = createDeletionVectorFile(tablePath, Instant.now());
+            Path recentPrefixedDeletionVector = createDeletionVectorFile(tablePath.resolve("cd"), Instant.now());
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '10m')");
+
+            assertThat(expiredDeletionVector).doesNotExist();
+            assertThat(expiredPrefixedDeletionVector).doesNotExist();
+            assertThat(recentDeletionVector).exists();
+            assertThat(recentPrefixedDeletionVector).exists();
+            assertThat(dataAndDeletionVectorFiles(table.getName())).containsAll(activeFiles);
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 1, 3");
+        }
+    }
+
+    private static Path createDeletionVectorFile(Path directory, Instant lastModified)
+            throws IOException
+    {
+        Files.createDirectories(directory);
+        Path file = directory.resolve("deletion_vector_" + randomUUID() + ".bin");
+        Files.write(file, new byte[0]);
+        Files.setLastModifiedTime(file, FileTime.from(lastModified));
+        return file;
+    }
+
+    private Set<String> dataAndDeletionVectorFiles(String tableName)
+            throws Exception
+    {
+        Path tablePath = Path.of(new URI(getTableLocation(tableName)));
+        try (Stream<Path> walk = Files.walk(tablePath)) {
+            return walk
+                    .filter(Files::isRegularFile)
+                    .filter(path -> !path.toString().contains("/_delta_log/"))
+                    .filter(path -> !path.getFileName().toString().startsWith("."))
+                    .map(Path::toString)
+                    .collect(toImmutableSet());
+        }
+    }
+
+    private static Set<String> deletionVectorFiles(Set<String> files)
+    {
+        return files.stream()
+                .filter(path -> path.matches(".*deletion_vector_[0-9a-f-]+\\.bin"))
+                .collect(toImmutableSet());
     }
 
     @Test // regression test for https://github.com/trinodb/trino/issues/28885
