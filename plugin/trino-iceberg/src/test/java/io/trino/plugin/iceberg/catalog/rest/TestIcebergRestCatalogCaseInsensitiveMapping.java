@@ -243,6 +243,32 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertQueryFails("SELECT * FROM " + viewName2, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseViewName2));
     }
 
+    @Test
+    void testLoadTableProbeDoesNotPolluteViewMapping()
+    {
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
+        String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
+        createDir(namespaceLocation);
+
+        String viewName = "MiXed_CaSe_LoAd_TaBlE_PrObE_vIeW_" + randomNameSuffix();
+        String lowercaseViewName = viewName.toLowerCase(ENGLISH);
+        String viewLocation = namespaceLocation + "/" + lowercaseViewName;
+        createDir(viewLocation);
+        createDir(viewLocation + "/data");
+        createDir(viewLocation + "/metadata");
+        backend.buildView(TableIdentifier.of(NAMESPACE, viewName))
+                .withQuery("trino", "SELECT BIGINT '92' value")
+                .withSchema(new Schema(required(1, "value", Types.LongType.get())))
+                .withDefaultNamespace(NAMESPACE)
+                .withLocation(viewLocation)
+                .createOrReplace();
+
+        assertQueryFails("SELECT * FROM \"" + lowercaseViewName + "$history\"", ".*does not exist");
+        assertQuery("SELECT * FROM " + lowercaseViewName, "VALUES (92)");
+
+        assertUpdate("DROP VIEW " + lowercaseViewName);
+    }
+
     private String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns " +
