@@ -1824,6 +1824,101 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testVacuumAfterDeleteWithDeletionVectors()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String tableName = "test_vacuum_dv_delete_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
+                .build();
+        assertUpdate(
+                format("CREATE TABLE %s (x int) WITH (location = '%s', deletion_vectors_enabled = true)",
+                        tableName,
+                        getLocationForTable(bucketName, tableName)));
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + tableName + " WHERE x = 2", 1);
+            Set<String> filesAfterFirstDelete = getAllDataFilesFromTableDirectory(tableName);
+            Set<String> firstDeletionVectors = deletionVectorFiles(filesAfterFirstDelete);
+            assertThat(firstDeletionVectors).hasSize(1);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 3");
+
+            assertUpdate("DELETE FROM " + tableName + " WHERE x = 3", 1);
+            Stopwatch timeSinceSecondDelete = Stopwatch.createStarted();
+            Set<String> filesAfterSecondDelete = getAllDataFilesFromTableDirectory(tableName);
+            Set<String> secondDeletionVectors = deletionVectorFiles(filesAfterSecondDelete);
+            assertThat(secondDeletionVectors).hasSize(2).containsAll(firstDeletionVectors);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
+            assertThat(query("SELECT count(*) FROM " + tableName)).matches("VALUES BIGINT '1'");
+
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '10m')");
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(filesAfterSecondDelete);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
+
+            MILLISECONDS.sleep(2_000 - timeSinceSecondDelete.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
+
+            Set<String> filesAfterVacuum = getAllDataFilesFromTableDirectory(tableName);
+            Set<String> activeFiles = getActiveFiles(tableName);
+            assertThat(filesAfterVacuum).containsAll(activeFiles);
+            assertThat(filesAfterVacuum).doesNotContainAnyElementsOf(firstDeletionVectors);
+            assertThat(deletionVectorFiles(filesAfterVacuum)).hasSize(1);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
+            assertThat(query("SELECT count(*) FROM " + tableName)).matches("VALUES BIGINT '1'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testVacuumAfterMergeWithDeletionVectors()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String tableName = "test_vacuum_dv_merge_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
+                .build();
+        assertUpdate(
+                format("CREATE TABLE %s (id int, v varchar) WITH (location = '%s', deletion_vectors_enabled = true)",
+                        tableName,
+                        getLocationForTable(bucketName, tableName)));
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+            assertUpdate(
+                    "MERGE INTO " + tableName + " t USING (VALUES 2) AS s(id) ON (t.id = s.id) WHEN MATCHED THEN DELETE",
+                    1);
+            Stopwatch timeSinceMerge = Stopwatch.createStarted();
+            Set<String> filesAfterMerge = getAllDataFilesFromTableDirectory(tableName);
+            Set<String> activeFiles = getActiveFiles(tableName);
+            assertThat(activeFiles).isNotEmpty();
+            assertThat(filesAfterMerge).containsAll(activeFiles);
+            assertThat(deletionVectorFiles(filesAfterMerge)).hasSize(1);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, VARCHAR 'a'), (3, VARCHAR 'c')");
+            assertThat(query("SELECT count(*) FROM " + tableName)).matches("VALUES BIGINT '2'");
+
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '10m')");
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(filesAfterMerge);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, VARCHAR 'a'), (3, VARCHAR 'c')");
+
+            MILLISECONDS.sleep(2_000 - timeSinceMerge.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
+
+            Set<String> filesAfterVacuum = getAllDataFilesFromTableDirectory(tableName);
+            assertThat(filesAfterVacuum).isEqualTo(filesAfterMerge);
+            assertThat(filesAfterVacuum).containsAll(activeFiles);
+            assertThat(deletionVectorFiles(filesAfterVacuum)).hasSize(1);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, VARCHAR 'a'), (3, VARCHAR 'c')");
+            assertThat(query("SELECT count(*) FROM " + tableName)).matches("VALUES BIGINT '2'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testVacuumWithTrailingSlash()
             throws Exception
     {
@@ -2915,6 +3010,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         return getTableFiles(tableName).stream()
                 .filter(path -> !path.contains("/" + TRANSACTION_LOG_DIRECTORY))
+                .collect(toImmutableSet());
+    }
+
+    private static Set<String> deletionVectorFiles(Set<String> files)
+    {
+        return files.stream()
+                .filter(path -> path.matches(".*deletion_vector_[0-9a-f-]+\\.bin"))
                 .collect(toImmutableSet());
     }
 
