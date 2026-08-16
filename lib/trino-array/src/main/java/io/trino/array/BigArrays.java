@@ -20,9 +20,12 @@ public final class BigArrays
     private BigArrays() {}
 
     /**
-     * Initial number of segments to support in array.
+     * Initial number of segments to support in array. Kept small because a freshly created big array
+     * only ever populates its first segment; the outer segment-pointer array grows geometrically on
+     * demand (see each class's {@code grow}). A large initial value would charge several kilobytes of
+     * unused capacity to every instance (and to the query memory pool via {@code sizeOf}).
      */
-    static final int INITIAL_SEGMENTS = 1024;
+    static final int INITIAL_SEGMENTS = 4;
 
     /**
      * The shift used to compute the segment associated with an index (equivalently, the logarithm of the segment size).
