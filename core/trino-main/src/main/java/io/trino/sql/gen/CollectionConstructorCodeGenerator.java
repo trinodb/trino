@@ -21,8 +21,10 @@ import io.airlift.bytecode.control.IfStatement;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.SqlMultiset;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Array;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Expression;
 
 import java.util.List;
@@ -32,16 +34,18 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 
-public class ArrayConstructorCodeGenerator
+public class CollectionConstructorCodeGenerator
         implements BytecodeGenerator
 {
+    private final Type collectionType;
     private final Type elementType;
     private final List<Expression> elements;
 
-    public ArrayConstructorCodeGenerator(Array array)
+    public CollectionConstructorCodeGenerator(Collection collection)
     {
-        elementType = array.elementType();
-        elements = array.elements();
+        collectionType = collection.type();
+        elementType = collection.elementType();
+        elements = collection.elements();
     }
 
     @Override
@@ -50,7 +54,7 @@ public class ArrayConstructorCodeGenerator
         CallSiteBinder binder = context.getCallSiteBinder();
         Scope scope = context.getScope();
 
-        BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for array(%s)".formatted(elementType));
+        BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for %s".formatted(collectionType));
 
         Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         block.append(blockBuilder.set(constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(elements.size()))));
@@ -68,8 +72,19 @@ public class ArrayConstructorCodeGenerator
         }
         scope.releaseTempVariableForReuse(element);
 
-        block.append(blockBuilder.invoke("build", Block.class));
-        scope.releaseTempVariableForReuse(blockBuilder);
+        if (collectionType instanceof MultisetType) {
+            // the multiset native value is a SqlMultiset (carrying the lazy index), so wrap the built
+            // element block; the array constructor leaves the element block as-is
+            Variable elements = scope.getOrCreateTempVariable(Block.class);
+            block.append(elements.set(blockBuilder.invoke("build", Block.class)));
+            scope.releaseTempVariableForReuse(blockBuilder);
+            block.append(constantType(binder, collectionType).cast(MultisetType.class).invoke("toSqlMultiset", SqlMultiset.class, elements));
+            scope.releaseTempVariableForReuse(elements);
+        }
+        else {
+            block.append(blockBuilder.invoke("build", Block.class));
+            scope.releaseTempVariableForReuse(blockBuilder);
+        }
         block.append(context.wasNull().set(constantFalse()));
 
         return block;

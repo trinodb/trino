@@ -18,6 +18,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
@@ -472,13 +473,14 @@ public final class TypeCoercion
 
     public static boolean isCovariantTypeBase(String typeBase)
     {
-        return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
+        // must stay in sync with isCovariantParametrizedType: both views express the same element covariance
+        return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP) || typeBase.equals(StandardTypes.MULTISET);
     }
 
     private static boolean isCovariantParametrizedType(Type type)
     {
         // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
-        return type instanceof MapType || type instanceof ArrayType;
+        return type instanceof MapType || type instanceof ArrayType || type instanceof MultisetType;
     }
 
     public static class TypeCompatibility
