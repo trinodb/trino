@@ -271,10 +271,9 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
                 .createTransaction()
                 .commitTransaction();
 
-        // TODO: This asserts buggy behavior. The mapping cache retains the entry populated on the
-        //  earlier miss (lowercase name -> itself); it hides the externally recreated mixed-case
-        //  table, so the drop fails even though the table exists.
-        assertQueryFails("DROP TABLE " + lowercaseTableName, "Failed to drop table .*");
+        // A stale mapping would still point at the old lowercase remote name and hide the
+        // externally recreated table; resolution must find the mixed-case table instead.
+        assertUpdate("DROP TABLE " + lowercaseTableName);
     }
 
     @Test

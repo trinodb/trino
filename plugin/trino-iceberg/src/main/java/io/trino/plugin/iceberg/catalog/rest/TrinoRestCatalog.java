@@ -91,6 +91,7 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
@@ -612,19 +613,10 @@ public class TrinoRestCatalog
 
     private TableIdentifier toRemoteObject(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        TableIdentifier remoteTable = toRemoteTable(session, schemaTableName, false);
-        if (!remoteTable.name().equals(schemaTableName.getTableName())) {
-            return remoteTable;
-        }
-
-        TableIdentifier remoteView = toRemoteView(session, schemaTableName, false);
-        if (!remoteView.name().equals(schemaTableName.getTableName())) {
-            return remoteView;
-        }
-        if (remoteView.name().equals(schemaTableName.getTableName()) && remoteTable.name().equals(schemaTableName.getTableName())) {
-            return remoteTable;
-        }
-        throw new RuntimeException("Unable to find remote object");
+        TableIdentifier tableIdentifier = toIdentifier(schemaTableName);
+        return toRemoteTableIfExists(session, tableIdentifier, false)
+                .orElseGet(() -> toRemoteViewIfExists(session, tableIdentifier, false)
+                        .orElseGet(() -> toRemoteIdentifier(session, tableIdentifier)));
     }
 
     @Override
@@ -1024,6 +1016,12 @@ public class TrinoRestCatalog
     private TableIdentifier toRemoteTable(ConnectorSession session, SchemaTableName schemaTableName, boolean getCached)
     {
         TableIdentifier tableIdentifier = toIdentifier(schemaTableName);
+        return toRemoteTableIfExists(session, tableIdentifier, getCached)
+                .orElseGet(() -> toRemoteIdentifier(session, tableIdentifier));
+    }
+
+    private Optional<TableIdentifier> toRemoteTableIfExists(ConnectorSession session, TableIdentifier tableIdentifier, boolean getCached)
+    {
         return toRemoteObject(tableIdentifier, () -> findRemoteTable(session, tableIdentifier), getCached);
     }
 
@@ -1047,21 +1045,29 @@ public class TrinoRestCatalog
                 matchingTable = identifier;
             }
         }
-        return matchingTable == null ? TableIdentifier.of(remoteNamespace, tableIdentifier.name()) : matchingTable;
+        if (matchingTable == null) {
+            throw new RemoteObjectNotFoundException();
+        }
+        return matchingTable;
     }
 
     private TableIdentifier toRemoteView(ConnectorSession session, SchemaTableName schemaViewName, boolean getCached)
     {
         TableIdentifier tableIdentifier = toIdentifier(schemaViewName);
+        return toRemoteViewIfExists(session, tableIdentifier, getCached)
+                .orElseGet(() -> toRemoteIdentifier(session, tableIdentifier));
+    }
+
+    private Optional<TableIdentifier> toRemoteViewIfExists(ConnectorSession session, TableIdentifier tableIdentifier, boolean getCached)
+    {
+        if (!viewEndpointsEnabled) {
+            return Optional.empty();
+        }
         return toRemoteObject(tableIdentifier, () -> findRemoteView(session, tableIdentifier), getCached);
     }
 
     private TableIdentifier findRemoteView(ConnectorSession session, TableIdentifier tableIdentifier)
     {
-        if (!viewEndpointsEnabled) {
-            return tableIdentifier;
-        }
-
         Namespace remoteNamespace = toRemoteNamespace(session, tableIdentifier.namespace());
         List<TableIdentifier> tableIdentifiers;
         try {
@@ -1080,18 +1086,42 @@ public class TrinoRestCatalog
                 matchingView = identifier;
             }
         }
-        return matchingView == null ? TableIdentifier.of(remoteNamespace, tableIdentifier.name()) : matchingView;
+        if (matchingView == null) {
+            throw new RemoteObjectNotFoundException();
+        }
+        return matchingView;
     }
 
-    private TableIdentifier toRemoteObject(TableIdentifier tableIdentifier, Supplier<TableIdentifier> remoteObjectProvider, boolean getCached)
+    private Optional<TableIdentifier> toRemoteObject(TableIdentifier tableIdentifier, Supplier<TableIdentifier> remoteObjectProvider, boolean getCached)
     {
         if (caseInsensitiveNameMatching) {
-            if (getCached) {
-                return uncheckedCacheGet(remoteTableMappingCache, tableIdentifier, remoteObjectProvider);
+            try {
+                if (getCached) {
+                    return Optional.of(getAndCache(tableIdentifier, remoteObjectProvider));
+                }
+                return Optional.of(remoteObjectProvider.get());
             }
-            return remoteObjectProvider.get();
+            catch (RemoteObjectNotFoundException e) {
+                return Optional.empty();
+            }
         }
-        return tableIdentifier;
+        return Optional.of(tableIdentifier);
+    }
+
+    private TableIdentifier getAndCache(TableIdentifier tableIdentifier, Supplier<TableIdentifier> remoteObjectProvider)
+    {
+        try {
+            return uncheckedCacheGet(remoteTableMappingCache, tableIdentifier, remoteObjectProvider);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw e;
+        }
+    }
+
+    private TableIdentifier toRemoteIdentifier(ConnectorSession session, TableIdentifier tableIdentifier)
+    {
+        return TableIdentifier.of(toRemoteNamespace(session, tableIdentifier.namespace()), tableIdentifier.name());
     }
 
     private Namespace toRemoteNamespace(ConnectorSession session, Namespace trinoNamespace)
@@ -1143,5 +1173,16 @@ public class TrinoRestCatalog
     private static Namespace toTrinoNamespace(Namespace namespace)
     {
         return Namespace.of(Arrays.stream(namespace.levels()).map(level -> level.toLowerCase(ENGLISH)).toArray(String[]::new));
+    }
+
+    private static class RemoteObjectNotFoundException
+            extends RuntimeException
+    {
+        public RemoteObjectNotFoundException()
+        {
+            // This exception is a sentinel used only to signal a cache miss to the enclosing catch;
+            // it never escapes and is never logged, so the stack trace is pointless overhead and is suppressed.
+            super(null, null, false, false);
+        }
     }
 }
