@@ -56,8 +56,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
+import static io.trino.filesystem.s3.S3FileSystemUtils.createCredentialsProvider;
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
-import static io.trino.filesystem.s3.S3FileSystemUtils.createStaticCredentialsProvider;
 import static io.trino.filesystem.s3.S3FileSystemUtils.createStsClient;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -68,8 +68,10 @@ final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
 {
     private final Optional<S3SecurityMappingProvider> mappingProvider;
+    private final Optional<S3SecretsCredentialResolver> secretsCredentialResolver;
     private final SdkHttpClient httpClient;
-    private final S3ClientFactory clientFactory;
+    private final OpenTelemetry openTelemetry;
+    private final MetricPublisher metricPublisher;
     private final S3FileSystemConfig config;
     private final S3Context context;
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
@@ -79,23 +81,32 @@ final class S3FileSystemLoader
     @Inject
     public S3FileSystemLoader(S3SecurityMappingProvider mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
-        this(Optional.of(mappingProvider), openTelemetry, config, stats);
+        this(Optional.of(mappingProvider), openTelemetry, config, stats, Optional.empty());
     }
 
     S3FileSystemLoader(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
-        this(Optional.empty(), openTelemetry, config, stats);
+        this(Optional.empty(), openTelemetry, config, stats, Optional.empty());
     }
 
-    private S3FileSystemLoader(Optional<S3SecurityMappingProvider> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    S3FileSystemLoader(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats, S3SecretsCredentialResolver secretsCredentialResolver)
+    {
+        this(Optional.empty(), openTelemetry, config, stats, Optional.of(secretsCredentialResolver));
+    }
+
+    private S3FileSystemLoader(
+            Optional<S3SecurityMappingProvider> mappingProvider,
+            OpenTelemetry openTelemetry,
+            S3FileSystemConfig config,
+            S3FileSystemStats stats,
+            Optional<S3SecretsCredentialResolver> secretsCredentialResolver)
     {
         this.mappingProvider = requireNonNull(mappingProvider, "mappingProvider is null");
+        this.secretsCredentialResolver = requireNonNull(secretsCredentialResolver, "secretsCredentialResolver is null");
         this.httpClient = createHttpClient(config);
-
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         requireNonNull(stats, "stats is null");
-
-        MetricPublisher metricPublisher = stats.newMetricPublisher();
-        this.clientFactory = s3ClientFactory(httpClient, openTelemetry, config, metricPublisher);
+        this.metricPublisher = stats.newMetricPublisher();
         this.config = requireNonNull(config, "config is null");
         this.context = new S3Context(
                 toIntExact(config.getStreamingPartSize().toBytes()),
@@ -109,14 +120,19 @@ final class S3FileSystemLoader
                 config.getCannedAcl());
     }
 
+    private S3ClientFactory clientFactory(Optional<String> bucket)
+    {
+        return s3ClientFactory(httpClient, openTelemetry, config, metricPublisher, secretsCredentialResolver, bucket);
+    }
+
     @Override
     public TrinoFileSystemFactory apply(Location location)
     {
         return identity -> {
             Optional<S3SecurityMappingResult> mapping = mappingProvider.orElseThrow().getMapping(identity, location);
 
-            S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
-            S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(config, client));
+            S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory(Optional.empty()).create(mapping));
+            S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(config, client, secretsCredentialResolver, Optional.empty()));
             S3Context context = this.context.withCredentials(identity);
 
             if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
@@ -142,7 +158,15 @@ final class S3FileSystemLoader
 
     S3Client createClient()
     {
-        return clientFactory.create(Optional.empty());
+        return clientFactory(Optional.empty()).create(Optional.empty());
+    }
+
+    S3BucketCredentialFileSystemLoader.BucketFileSystemFactory createFactoryForBucket(String bucket)
+    {
+        Optional<String> bucketName = Optional.of(bucket);
+        S3Client client = clientFactory(bucketName).create(Optional.empty());
+        S3Presigner preSigner = createS3PreSigner(config, client, secretsCredentialResolver, bucketName);
+        return new S3BucketCredentialFileSystemLoader.BucketFileSystemFactory(client, preSigner, context, uploadExecutor);
     }
 
     S3Context context()
@@ -155,11 +179,17 @@ final class S3FileSystemLoader
         return uploadExecutor;
     }
 
-    private static S3ClientFactory s3ClientFactory(SdkHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
+    private static S3ClientFactory s3ClientFactory(
+            SdkHttpClient httpClient,
+            OpenTelemetry openTelemetry,
+            S3FileSystemConfig config,
+            MetricPublisher metricPublisher,
+            Optional<S3SecretsCredentialResolver> secretsCredentialResolver,
+            Optional<String> bucket)
     {
         ClientOverrideConfiguration overrideConfiguration = createOverrideConfiguration(openTelemetry, config, metricPublisher);
 
-        Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
+        Optional<AwsCredentialsProvider> staticCredentialsProvider = createCredentialsProvider(config, secretsCredentialResolver, bucket);
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();

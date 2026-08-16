@@ -46,8 +46,16 @@ public class S3FileSystemModule
     {
         configBinder(binder).bindConfig(S3FileSystemConfig.class);
 
+        S3FileSystemConfig config = buildConfigObject(S3FileSystemConfig.class);
+
         if (buildConfigObject(S3SecurityMappingEnabledConfig.class).isEnabled()) {
+            if (config.isSecretsBucketPrefixConfigured()) {
+                throw new VerifyException("s3.secrets.bucket-key-prefix cannot be used with s3.security-mapping.enabled");
+            }
             install(new S3SecurityMappingModule());
+        }
+        else if (config.isSecretsBucketPrefixConfigured()) {
+            install(new S3SecretsBucketCredentialModule());
         }
         else {
             binder.bind(TrinoFileSystemFactory.class).annotatedWith(FileSystemS3.class)
@@ -90,6 +98,25 @@ public class S3FileSystemModule
         @Singleton
         @FileSystemS3
         static TrinoFileSystemFactory createFileSystemFactory(S3FileSystemLoader loader)
+        {
+            return new SwitchingFileSystemFactory(loader);
+        }
+    }
+
+    public static class S3SecretsBucketCredentialModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            binder.bind(S3SecretsCredentialResolver.class).in(SINGLETON);
+            binder.bind(S3BucketCredentialFileSystemLoader.class).in(SINGLETON);
+        }
+
+        @Provides
+        @Singleton
+        @FileSystemS3
+        static TrinoFileSystemFactory createFileSystemFactory(S3BucketCredentialFileSystemLoader loader)
         {
             return new SwitchingFileSystemFactory(loader);
         }
