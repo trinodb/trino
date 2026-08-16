@@ -622,9 +622,12 @@ public class TestIntervalDayTime
                 .binding("a", "VARCHAR 'not an interval'")::evaluate)
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
-                .binding("a", "VARCHAR '12 25:00'")::evaluate)
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+        // field components beyond their nominal range (e.g. 25 hours) are normalized rather than
+        // rejected, since this reuses the same parser as the INTERVAL '...' DAY TO SECOND literal
+        // grammar, which already accepts the same input the same way
+        assertThat(assertions.expression("CAST(a AS INTERVAL DAY TO SECOND)")
+                .binding("a", "VARCHAR '12 25:00'"))
+                .matches("INTERVAL '12 25:00' DAY TO SECOND");
     }
 
     @Test
