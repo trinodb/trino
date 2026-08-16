@@ -1869,12 +1869,13 @@ public class IcebergMetadata
     private Optional<ConnectorTableExecuteHandle> getTableHandleForRemoveOrphanFiles(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
     {
         Duration retentionThreshold = (Duration) executeProperties.get(RETENTION_THRESHOLD);
+        boolean dryRun = (boolean) executeProperties.get("dry_run");
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 REMOVE_ORPHAN_FILES,
-                new IcebergRemoveOrphanFilesHandle(retentionThreshold),
+                new IcebergRemoveOrphanFilesHandle(retentionThreshold, dryRun),
                 icebergTable.location()));
     }
 
@@ -2416,7 +2417,8 @@ public class IcebergMetadata
                 icebergScanExecutor,
                 icebergFileDeleteExecutor,
                 executeHandle.schemaTableName(),
-                expiration);
+                expiration,
+                removeOrphanFilesHandle.dryRun());
     }
 
     public Map<String, Long> executeAddFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
