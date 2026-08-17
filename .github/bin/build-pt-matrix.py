@@ -93,6 +93,17 @@ BUCKETS = [
 ]
 
 ALL_SUITES = frozenset(suite for _, suites in BUCKETS for suite in suites)
+
+SUITES_REQUIRING_SECRETS = frozenset({
+    "SuiteAzure",
+    "SuiteDeltaLakeDatabricks133",
+    "SuiteDeltaLakeDatabricks143",
+    "SuiteDeltaLakeDatabricks154",
+    "SuiteDeltaLakeDatabricks164",
+    "SuiteDeltaLakeDatabricks173",
+    "SuiteGcs",
+    "SuiteSnowflake",
+})
 ALL_CONNECTORS_SMOKE = frozenset({"SuiteAllConnectorsSmoke"})
 DATABRICKS_SUITES = frozenset({
     "SuiteDeltaLakeDatabricks133",
@@ -266,9 +277,11 @@ def build_matrix(impacted_modules):
     for bucket, suites in BUCKETS:
         filtered_suites = [suite for suite in suites if suite in selected_suites]
         if filtered_suites:
+            requires_secrets = all(suite in SUITES_REQUIRING_SECRETS for suite in filtered_suites)
             include.append({
                 "bucket": bucket,
                 "suites": " ".join(filtered_suites),
+                "requires-secrets": requires_secrets,
             })
     return {"include": include} if include else {}
 
@@ -327,8 +340,8 @@ class TestBuildMatrix(unittest.TestCase):
             build_matrix({"plugin/trino-mysql"}),
             {
                 "include": [
-                    {"bucket": "jdbc-core", "suites": "SuiteMysql"},
-                    {"bucket": "connector-smoke", "suites": "SuiteAllConnectorsSmoke"},
+                    {"bucket": "jdbc-core", "suites": "SuiteMysql", "requires-secrets": False},
+                    {"bucket": "connector-smoke", "suites": "SuiteAllConnectorsSmoke", "requires-secrets": False},
                 ],
             },
         )
@@ -338,9 +351,9 @@ class TestBuildMatrix(unittest.TestCase):
             build_matrix({"plugin/trino-mariadb"}),
             {
                 "include": [
-                    {"bucket": "jdbc-core", "suites": "SuiteMysql"},
-                    {"bucket": "connector-smoke", "suites": "SuiteAllConnectorsSmoke"},
-                    {"bucket": "auth-and-clients", "suites": "SuiteRanger"},
+                    {"bucket": "jdbc-core", "suites": "SuiteMysql", "requires-secrets": False},
+                    {"bucket": "connector-smoke", "suites": "SuiteAllConnectorsSmoke", "requires-secrets": False},
+                    {"bucket": "auth-and-clients", "suites": "SuiteRanger", "requires-secrets": False},
                 ],
             },
         )

@@ -926,7 +926,9 @@ jobs:
   pt:
     runs-on: 'ubuntu-latest'
     name: pt (${{ matrix.bucket }})
-    if: needs.build-pt.outputs.matrix != '{}'
+    if: >-
+      needs.build-pt.outputs.matrix != '{}' &&
+      (!matrix.requires-secrets || github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-pt.outputs.matrix) }}
