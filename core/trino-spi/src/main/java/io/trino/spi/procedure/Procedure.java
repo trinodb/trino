@@ -21,6 +21,7 @@ import jakarta.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.lang.String.format;
@@ -61,7 +62,7 @@ public class Procedure
         }
 
         checkArgument(!methodHandle.isVarargsCollector(), "Method must have fixed arity");
-        checkArgument(methodHandle.type().returnType() == void.class, "Method must return void");
+        checkArgument(methodHandle.type().returnType() == void.class || methodHandle.type().returnType() == Map.class, "Method must return void or Map<String, Long>");
 
         long parameterCount = methodHandle.type().parameterList().stream()
                 .filter(type -> !ConnectorSession.class.equals(type))
