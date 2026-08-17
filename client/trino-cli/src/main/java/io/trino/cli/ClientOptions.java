@@ -227,7 +227,7 @@ public class ClientOptions
     public List<String> path = ImmutableList.of();
 
     @Option(names = {"-f", "--file"}, paramLabel = "<file>", description = "Execute statements from file and exit")
-    public String file;
+    public List<String> file = new ArrayList<>();
 
     @Option(names = DEBUG_OPTION_NAME, paramLabel = "<debug>", description = "Enable debug information")
     public boolean debug;

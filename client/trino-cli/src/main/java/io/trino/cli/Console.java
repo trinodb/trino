@@ -122,7 +122,7 @@ public class Console
         TrinoUri uri = clientOptions.getTrinoUri(restrictedOptions);
         ClientSession session = clientOptions.toClientSession(uri);
         boolean hasQuery = clientOptions.execute != null;
-        boolean isFromFile = !isNullOrEmpty(clientOptions.file);
+        boolean isFromFile = !clientOptions.file.isEmpty();
 
         String query = clientOptions.execute;
         if (hasQuery) {
@@ -134,11 +134,16 @@ public class Console
                 throw new RuntimeException("both --execute and --file specified");
             }
             try {
-                query = asCharSource(new File(clientOptions.file), UTF_8).read();
+                StringBuilder queryBuilder = new StringBuilder();
+                for (String fileName : clientOptions.file) {
+                    queryBuilder.append(asCharSource(new File(fileName), UTF_8).read());
+                    queryBuilder.append("\n");
+                }
+                query = queryBuilder.toString();
                 hasQuery = true;
             }
             catch (IOException e) {
-                throw new RuntimeException(format("Error reading from file %s: %s", clientOptions.file, e.getMessage()));
+                throw new RuntimeException(format("Error reading from file: %s", e.getMessage()));
             }
         }
 
