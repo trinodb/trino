@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.NotNull;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +40,9 @@ public class ThriftHttpMetastoreConfig
     private AuthenticationMode authenticationMode;
     private Optional<String> httpBearerToken = Optional.empty();
     private Map<String, String> additionalHeaders = ImmutableMap.of();
+    private File truststorePath;
+    private String truststorePassword;
+    private boolean verifyHostname = true;
 
     @NotNull
     public Duration getReadTimeout()
@@ -111,6 +116,47 @@ public class ThriftHttpMetastoreConfig
             throw new IllegalArgumentException(format("Invalid format for 'hive.metastore.http.client.additional-headers'. " +
                     "Value provided is %s", httpHeaders), e);
         }
+        return this;
+    }
+
+    @FileExists
+    public File getTruststorePath()
+    {
+        return truststorePath;
+    }
+
+    @Config("hive.metastore.http.client.ssl.trust-certificate")
+    @ConfigDescription("Path to the trust store for HTTPS metastore connections")
+    public ThriftHttpMetastoreConfig setTruststorePath(File truststorePath)
+    {
+        this.truststorePath = truststorePath;
+        return this;
+    }
+
+    public Optional<String> getTruststorePassword()
+    {
+        return Optional.ofNullable(truststorePassword);
+    }
+
+    @Config("hive.metastore.http.client.ssl.trust-certificate-password")
+    @ConfigDescription("Password for the HTTPS metastore trust store")
+    @ConfigSecuritySensitive
+    public ThriftHttpMetastoreConfig setTruststorePassword(String truststorePassword)
+    {
+        this.truststorePassword = truststorePassword;
+        return this;
+    }
+
+    public boolean isVerifyHostname()
+    {
+        return verifyHostname;
+    }
+
+    @Config("hive.metastore.http.client.ssl.verify-hostname")
+    @ConfigDescription("Verify that metastore server hostname matches the server certificate")
+    public ThriftHttpMetastoreConfig setVerifyHostname(boolean verifyHostname)
+    {
+        this.verifyHostname = verifyHostname;
         return this;
     }
 

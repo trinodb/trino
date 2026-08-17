@@ -265,6 +265,15 @@ when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
     `header1:value1,header2:value2` sends two headers `header1` and `header2`
     with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
     characters in a header name or value with a backslash (`\`).
+* - `hive.metastore.http.client.ssl.trust-certificate`
+  - Path to the server certificate chain (trust store) for HTTPS metastore
+    connections. When not set, the JVM default trust store is used.
+* - `hive.metastore.http.client.ssl.trust-certificate-password`
+  - Password for the HTTPS metastore trust store.
+* - `hive.metastore.http.client.ssl.verify-hostname`
+  - Verify that the metastore server hostname matches the server certificate
+    when using HTTPS transport mode.
+  - `true`
 :::
 
 (hive-thrift-metastore-authentication)=

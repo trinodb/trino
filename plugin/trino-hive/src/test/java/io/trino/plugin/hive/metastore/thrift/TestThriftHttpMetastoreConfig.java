@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 
@@ -36,25 +37,37 @@ public class TestThriftHttpMetastoreConfig
                 .setReadTimeout(new Duration(60, SECONDS))
                 .setHttpBearerToken(null)
                 .setAdditionalHeaders(null)
-                .setAuthenticationMode(null));
+                .setAuthenticationMode(null)
+                .setTruststorePath(null)
+                .setTruststorePassword(null)
+                .setVerifyHostname(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
             throws IOException
     {
+        File truststore = File.createTempFile("truststore", ".jks");
+        truststore.deleteOnExit();
+
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.http.client.bearer-token", "test-token")
                 .put("hive.metastore.http.client.additional-headers", "key\\:1:value\\,1, key\\,2:value\\:2")
                 .put("hive.metastore.http.client.authentication.type", "BEARER")
                 .put("hive.metastore.http.client.read-timeout", "1s")
+                .put("hive.metastore.http.client.ssl.trust-certificate", truststore.getPath())
+                .put("hive.metastore.http.client.ssl.trust-certificate-password", "changeit")
+                .put("hive.metastore.http.client.ssl.verify-hostname", "false")
                 .buildOrThrow();
 
         ThriftHttpMetastoreConfig expected = new ThriftHttpMetastoreConfig()
                 .setHttpBearerToken("test-token")
                 .setAdditionalHeaders("key\\:1:value\\,1, key\\,2:value\\:2")
                 .setReadTimeout(new Duration(1, SECONDS))
-                .setAuthenticationMode(BEARER);
+                .setAuthenticationMode(BEARER)
+                .setTruststorePath(truststore)
+                .setTruststorePassword("changeit")
+                .setVerifyHostname(false);
 
         assertFullMapping(properties, expected);
         assertThat(expected.getAdditionalHeaders())

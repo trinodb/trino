@@ -52,19 +52,6 @@ public class HttpsThriftHive4MetastoreEnvironment
     {
         Path truststore = HttpThriftHive4MetastoreResources.extractBinaryResource("nginx/truststore.jks");
         container.withCopyToContainer(MountableFile.forHostPath(truststore), CONTAINER_TRUSTSTORE);
-        String truststoreInitScript =
-                """
-                #!/bin/bash
-                if ! grep -qxF '-Djavax.net.ssl.trustStore=%1$s' /etc/trino/jvm.config; then
-                    echo '-Djavax.net.ssl.trustStore=%1$s' >> /etc/trino/jvm.config
-                fi
-                if ! grep -qxF '-Djavax.net.ssl.trustStorePassword=changeit' /etc/trino/jvm.config; then
-                    echo '-Djavax.net.ssl.trustStorePassword=changeit' >> /etc/trino/jvm.config
-                fi
-                """.formatted(CONTAINER_TRUSTSTORE);
-        container.withCopyToContainer(
-                Transferable.of(truststoreInitScript, 0755),
-                "/docker/trino-init.d/01-hive-metastore-thrift-https-truststore.sh");
         container.dependsOn(nginx);
     }
 
@@ -77,7 +64,11 @@ public class HttpsThriftHive4MetastoreEnvironment
     @Override
     protected Map<String, String> additionalHiveCatalogProperties()
     {
-        return Map.of("hive.metastore.http.client.bearer-token", "test-hms-bearer-token");
+        return Map.of(
+                "hive.metastore.http.client.bearer-token", "test-hms-bearer-token",
+                "hive.metastore.http.client.ssl.trust-certificate", CONTAINER_TRUSTSTORE,
+                "hive.metastore.http.client.ssl.trust-certificate-password", "changeit",
+                "hive.metastore.http.client.ssl.verify-hostname", "false");
     }
 
     @Override
