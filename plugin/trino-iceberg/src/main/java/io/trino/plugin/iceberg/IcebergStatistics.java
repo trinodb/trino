@@ -140,6 +140,27 @@ public record IcebergStatistics(
             }
         }
 
+        public void merge(Builder other)
+        {
+            checkArgument(columns.equals(other.columns), "Cannot merge statistics collected for different columns");
+            recordCount += other.recordCount;
+            fileCount += other.fileCount;
+            size += other.size;
+            mergeLongStatistics(nullCounts, other.nullCounts);
+            mergeLongStatistics(nanCounts, other.nanCounts);
+            mergeLongStatistics(columnSizes, other.columnSizes);
+            other.columnStatistics.forEach((fieldId, statistics) -> {
+                ColumnStatistics existing = columnStatistics.get(fieldId);
+                if (existing == null) {
+                    columnStatistics.put(fieldId, new ColumnStatistics(statistics));
+                }
+                else {
+                    // an absent bound means it was invalidated, which updateMinMax also represents as a null bound
+                    existing.updateMinMax(statistics.getMin().orElse(null), statistics.getMax().orElse(null));
+                }
+            });
+        }
+
         public IcebergStatistics build()
         {
             ImmutableMap.Builder<Integer, Object> minValues = ImmutableMap.builder();
@@ -210,6 +231,14 @@ public record IcebergStatistics(
             this.max = Optional.ofNullable(initialMax);
         }
 
+        public ColumnStatistics(ColumnStatistics other)
+        {
+            requireNonNull(other, "other is null");
+            this.comparisonHandle = other.comparisonHandle;
+            this.min = other.min;
+            this.max = other.max;
+        }
+
         /**
          * Gets the minimum value accumulated during stats collection.
          *
@@ -236,7 +265,7 @@ public record IcebergStatistics(
          * @param lowerBound Trino encoded lower bound value from a file
          * @param upperBound Trino encoded upper bound value from a file
          */
-        public void updateMinMax(Object lowerBound, Object upperBound)
+        public void updateMinMax(@Nullable Object lowerBound, @Nullable Object upperBound)
         {
             if (min.isPresent()) {
                 if (lowerBound == null) {
