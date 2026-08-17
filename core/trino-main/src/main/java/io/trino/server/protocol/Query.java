@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
@@ -156,6 +157,10 @@ class Query
 
     private volatile boolean resultsConsumed;
 
+    private final SettableFuture<Void> finalQueryInfoCollected = SettableFuture.create();
+    // Shared between concurrent pollers so it must not be cancellable
+    private final ListenableFuture<Void> finalQueryInfoFuture = ignoreCancellation(finalQueryInfoCollected);
+
     @GuardedBy("this")
     private List<Column> columns;
 
@@ -231,6 +236,8 @@ class Query
         Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
         result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
+
+        result.queryManager.addFinalQueryInfoListener(result.getQueryId(), _ -> result.finalQueryInfoCollected.set(null));
 
         result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
             // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
@@ -759,8 +766,13 @@ class Query
 
     private ListenableFuture<Void> queryDoneFuture(QueryState currentState)
     {
-        if (currentState.isDone()) {
+        if (currentState == FAILED) {
+            // A failed query drops nextUri immediately
             return immediateVoidFuture();
+        }
+        if (currentState.isDone()) {
+            // getNextResult keeps providing nextUri until the final query info is collected
+            return finalQueryInfoFuture;
         }
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
