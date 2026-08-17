@@ -19,10 +19,12 @@ import com.google.inject.Provider;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveInsertTableHandle;
+import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.LocationService;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.PartitionUpdate;
@@ -62,7 +64,7 @@ public class CreateEmptyPartitionProcedure
 
     static {
         try {
-            CREATE_EMPTY_PARTITION = lookup().unreflect(CreateEmptyPartitionProcedure.class.getMethod("createEmptyPartition", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class, List.class));
+            CREATE_EMPTY_PARTITION = lookup().unreflect(CreateEmptyPartitionProcedure.class.getMethod("createEmptyPartition", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class, List.class, String.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -91,18 +93,19 @@ public class CreateEmptyPartitionProcedure
                         new Argument("SCHEMA_NAME", VARCHAR),
                         new Argument("TABLE_NAME", VARCHAR),
                         new Argument("PARTITION_COLUMNS", new ArrayType(VARCHAR)),
-                        new Argument("PARTITION_VALUES", new ArrayType(VARCHAR))),
+                        new Argument("PARTITION_VALUES", new ArrayType(VARCHAR)),
+                        new Argument("LOCATION", VARCHAR, false, null)),
                 CREATE_EMPTY_PARTITION.bindTo(this));
     }
 
-    public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues)
+    public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues, String location)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doCreateEmptyPartition(session, accessControl, schema, table, partitionColumnNames, partitionValues);
+            doCreateEmptyPartition(session, accessControl, schema, table, partitionColumnNames, partitionValues, location);
         }
     }
 
-    private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
+    private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues, String location)
     {
         checkProcedureArgument(schemaName != null, "schema_name cannot be null");
         checkProcedureArgument(tableName != null, "table_name cannot be null");
@@ -136,7 +139,9 @@ public class CreateEmptyPartitionProcedure
             HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             String partitionName = makePartName(actualPartitionColumnNames, partitionValues);
 
-            WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
+            WriteInfo writeInfo = location == null
+                    ? locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName)
+                    : new WriteInfo(parseLocation(location), parseLocation(location), WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY);
             Slice serializedPartitionUpdate = Slices.wrappedBuffer(
                     partitionUpdateJsonCodec.toJsonBytes(
                             new PartitionUpdate(
@@ -156,6 +161,16 @@ public class CreateEmptyPartitionProcedure
                     ImmutableList.of(serializedPartitionUpdate),
                     ImmutableList.of());
             hiveMetadata.commit();
+        }
+    }
+
+    private static Location parseLocation(String location)
+    {
+        try {
+            return Location.of(location);
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Invalid partition location: " + location, e);
         }
     }
 }
