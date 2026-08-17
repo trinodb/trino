@@ -70,7 +70,7 @@ public class TestingThriftHttpMetastoreServer
         baseUri = httpServerInfo.getHttpUri();
     }
 
-    private static ThriftHiveMetastore.Iface proxyHandler(TestingThriftRequestsHandler handler)
+    static ThriftHiveMetastore.Iface proxyHandler(TestingThriftRequestsHandler handler)
     {
         return newProxy(ThriftHiveMetastore.Iface.class, (_, method, args) -> switch (method.getName()) {
             case "getAllDatabases" -> handler.getAllDatabases();
@@ -94,7 +94,7 @@ public class TestingThriftHttpMetastoreServer
         lifeCycleManager.stop();
     }
 
-    private static class TestingThriftHttpServlet
+    static class TestingThriftHttpServlet
             extends TServlet
     {
         private final Consumer<HttpServletRequest> requestInterceptor;

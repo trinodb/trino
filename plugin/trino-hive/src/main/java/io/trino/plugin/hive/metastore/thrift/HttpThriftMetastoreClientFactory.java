@@ -25,25 +25,34 @@ import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.io.BasicHttpClientConnectionManager;
 import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy;
 import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
+import org.apache.hc.client5.http.ssl.HostnameVerificationPolicy;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.client5.http.ssl.TlsSocketStrategy;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.config.Lookup;
 import org.apache.hc.core5.http.config.RegistryBuilder;
 import org.apache.hc.core5.io.CloseMode;
+import org.apache.hc.core5.reactor.ssl.SSLBufferMode;
+import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSocket;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.URI;
-import java.security.NoSuchAlgorithmException;
+import java.security.GeneralSecurityException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -56,6 +65,8 @@ public class HttpThriftMetastoreClientFactory
     private final Optional<ThriftHttpMetastoreConfig.AuthenticationMode> authenticationMode;
     private final Optional<String> token;
     private final Map<String, String> additionalHeaders;
+    private final Optional<SSLContext> sslContext;
+    private final boolean verifyHostname;
     private final OpenTelemetry openTelemetry;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -74,6 +85,10 @@ public class HttpThriftMetastoreClientFactory
         this.authenticationMode = httpMetastoreConfig.getAuthenticationMode();
         this.token = httpMetastoreConfig.getHttpBearerToken();
         this.additionalHeaders = ImmutableMap.copyOf(httpMetastoreConfig.getAdditionalHeaders());
+        this.sslContext = buildSslContext(
+                Optional.ofNullable(httpMetastoreConfig.getTruststorePath()),
+                httpMetastoreConfig.getTruststorePassword());
+        this.verifyHostname = httpMetastoreConfig.isVerifyHostname();
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
     }
 
@@ -99,13 +114,15 @@ public class HttpThriftMetastoreClientFactory
         if ("https".equals(uri.getScheme().toLowerCase(ENGLISH))) {
             checkArgument(token.isPresent(), "'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
             checkArgument(authenticationMode.isPresent(), "'hive.metastore.http.client.authentication.type' must be set while using http/https metastore URIs in 'hive.metastore.uri'");
-            TlsSocketStrategy tlsStrategy;
-            try {
-                tlsStrategy = new DefaultClientTlsStrategy(SSLContext.getDefault(), new DefaultHostnameVerifier());
-            }
-            catch (NoSuchAlgorithmException e) {
-                throw new TTransportException(e);
-            }
+            SSLContext context = sslContext.orElseGet(() -> {
+                try {
+                    return SSLContexts.createSystemDefault();
+                }
+                catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            TlsSocketStrategy tlsStrategy = createTlsStrategy(context);
             Lookup<TlsSocketStrategy> registry = RegistryBuilder.<TlsSocketStrategy>create().register("https", tlsStrategy).build();
             httpClientBuilder.setConnectionManager(BasicHttpClientConnectionManager.create(registry));
             httpClientBuilder.addRequestInterceptorFirst((httpRequest, _, _) -> httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.get()));
@@ -125,5 +142,48 @@ public class HttpThriftMetastoreClientFactory
                 httpClient.close(CloseMode.GRACEFUL);
             }
         };
+    }
+
+    private TlsSocketStrategy createTlsStrategy(SSLContext context)
+    {
+        if (verifyHostname) {
+            return new DefaultClientTlsStrategy(context, new DefaultHostnameVerifier());
+        }
+        return new DefaultClientTlsStrategy(
+                context,
+                null,
+                null,
+                SSLBufferMode.STATIC,
+                HostnameVerificationPolicy.CLIENT,
+                NoopHostnameVerifier.INSTANCE)
+        {
+            @Override
+            protected void initializeSocket(SSLSocket socket)
+            {
+                SSLParameters parameters = socket.getSSLParameters();
+                parameters.setEndpointIdentificationAlgorithm(null);
+                socket.setSSLParameters(parameters);
+            }
+        };
+    }
+
+    private static Optional<SSLContext> buildSslContext(
+            Optional<File> trustStorePath,
+            Optional<String> trustStorePassword)
+    {
+        if (trustStorePath.isEmpty()) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(createSSLContext(
+                    Optional.empty(),
+                    Optional.empty(),
+                    trustStorePath,
+                    trustStorePassword));
+        }
+        catch (GeneralSecurityException | IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
