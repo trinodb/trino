@@ -40,6 +40,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.ArrayType;
+import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -98,14 +99,14 @@ public class CreateEmptyPartitionProcedure
                 CREATE_EMPTY_PARTITION.bindTo(this));
     }
 
-    public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues, String location)
+    public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues, @Nullable String location)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doCreateEmptyPartition(session, accessControl, schema, table, partitionColumnNames, partitionValues, location);
         }
     }
 
-    private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues, String location)
+    private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues, @Nullable String location)
     {
         checkProcedureArgument(schemaName != null, "schema_name cannot be null");
         checkProcedureArgument(tableName != null, "table_name cannot be null");
