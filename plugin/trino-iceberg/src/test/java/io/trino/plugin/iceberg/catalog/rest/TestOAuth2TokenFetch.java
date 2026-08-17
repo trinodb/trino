@@ -79,7 +79,7 @@ final class TestOAuth2TokenFetch
             queryRunner.execute("DROP TABLE test_schema.test_table");
             queryRunner.execute("DROP SCHEMA test_schema");
 
-            assertThat(adapter.tokenFetchCount()).isEqualTo(19);
+            assertThat(adapter.tokenFetchCount()).isEqualTo(1);
         }
         finally {
             testServer.stop();
