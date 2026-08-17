@@ -14,6 +14,12 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.http.server.HttpConfig;
+import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.ServerFeature;
+import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
@@ -25,20 +31,23 @@ import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.containers.Floci;
-import io.trino.testing.containers.IcebergS3RestCatalogBackendContainer;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
-import org.apache.iceberg.catalog.SessionCatalog;
+import org.apache.iceberg.aws.AwsClientProperties;
+import org.apache.iceberg.aws.s3.S3FileIO;
+import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.jdbc.JdbcCatalog;
+import org.apache.iceberg.rest.QuotedETagRestCatalogServlet;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Network;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
-import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
+import software.amazon.awssdk.services.sts.model.Credentials;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -55,7 +64,7 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
 {
     private final String bucketName;
     private String warehouseLocation;
-    private IcebergS3RestCatalogBackendContainer restCatalogBackendContainer;
+    private JdbcCatalog backend;
     private Floci floci;
 
     public TestIcebergS3VendingRestCatalogConnectorSmokeTest()
@@ -79,38 +88,48 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Network network = closeAfterClass(Network.newNetwork());
-        floci = closeAfterClass(new Floci()
-                .withNetwork(network)
-                .withNetworkAliases("floci"));
+        floci = closeAfterClass(new Floci());
         floci.start();
         floci.createBucket(bucketName);
 
         this.warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
-        AssumeRoleResponse assumeRoleResponse;
-        try (StsClient stsClient = StsClient.builder().applyMutation(floci::updateClient).build()) {
-            assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder()
-                    .roleArn("arn:aws:iam::000000000000:role/test")
-                    .roleSessionName("test")
-                    .build());
-        }
-        restCatalogBackendContainer = closeAfterClass(new IcebergS3RestCatalogBackendContainer(
-                Optional.of(network),
-                warehouseLocation,
-                assumeRoleResponse.credentials().accessKeyId(),
-                assumeRoleResponse.credentials().secretAccessKey(),
-                assumeRoleResponse.credentials().sessionToken(),
-                "http://floci:4566",
-                FLOCI_REGION));
-        restCatalogBackendContainer.start();
+        backend = closeAfterClass(buildBackendCatalog());
+
+        Credentials sessionCredentials = getSessionCredentials();
+
+        VendedCredentialsRestCatalogAdapter adapter = new VendedCredentialsRestCatalogAdapter(backend)
+        {
+            @Override
+            public Map<String, String> getVendedCredentialsConfig(String restServerUri)
+            {
+                return ImmutableMap.<String, String>builder()
+                        .put(AwsClientProperties.CLIENT_REGION, FLOCI_REGION)
+                        .put(S3FileIOProperties.ACCESS_KEY_ID, sessionCredentials.accessKeyId())
+                        .put(S3FileIOProperties.SECRET_ACCESS_KEY, sessionCredentials.secretAccessKey())
+                        .put(S3FileIOProperties.SESSION_TOKEN, sessionCredentials.sessionToken())
+                        .buildOrThrow();
+            }
+        };
+
+        QuotedETagRestCatalogServlet servlet = new QuotedETagRestCatalogServlet(adapter);
+
+        NodeInfo nodeInfo = new NodeInfo("test");
+        HttpServerConfig config = new HttpServerConfig()
+                .setHttpEnabled(true);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
+        TestingHttpServer testServer = new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
+                .withLegacyUriCompliance(true)
+                .build());
+        testServer.start();
+        closeAfterClass(testServer::stop);
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "rest")
-                                .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
+                                .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("fs.s3.enabled", "true")
@@ -120,6 +139,36 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    private JdbcCatalog buildBackendCatalog()
+            throws IOException
+    {
+        JdbcCatalog catalog = new JdbcCatalog();
+        catalog.initialize("backend_jdbc", ImmutableMap.<String, String>builder()
+                .put(CatalogProperties.URI, "jdbc:h2:file:" + Files.createTempFile(null, null).toAbsolutePath())
+                .put(CatalogProperties.WAREHOUSE_LOCATION, warehouseLocation)
+                .put(CatalogProperties.FILE_IO_IMPL, S3FileIO.class.getName())
+                .put(JdbcCatalog.PROPERTY_PREFIX + "username", "user")
+                .put(JdbcCatalog.PROPERTY_PREFIX + "password", "password")
+                .put(JdbcCatalog.PROPERTY_PREFIX + "schema-version", "V1")
+                .put(S3FileIOProperties.PATH_STYLE_ACCESS, "true")
+                .put(S3FileIOProperties.ACCESS_KEY_ID, FLOCI_ACCESS_KEY)
+                .put(S3FileIOProperties.SECRET_ACCESS_KEY, FLOCI_SECRET_KEY)
+                .put(S3FileIOProperties.ENDPOINT, floci.endpoint().toString())
+                .put(AwsClientProperties.CLIENT_REGION, FLOCI_REGION)
+                .buildOrThrow());
+        return catalog;
+    }
+
+    private Credentials getSessionCredentials()
+    {
+        try (StsClient stsClient = StsClient.builder().applyMutation(floci::updateClient).build()) {
+            return stsClient.assumeRole(AssumeRoleRequest.builder()
+                    .roleArn("arn:aws:iam::000000000000:role/test")
+                    .roleSessionName("test")
+                    .build()).credentials();
+        }
     }
 
     @Override
@@ -162,19 +211,8 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        try (RESTSessionCatalog catalog = new RESTSessionCatalog()) {
-            catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, "http://" + restCatalogBackendContainer.getRestCatalogEndpoint()));
-            SessionCatalog.SessionContext context = new SessionCatalog.SessionContext(
-                    "user-default",
-                    "user",
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    SESSION.getIdentity());
-            return ((BaseTable) catalog.loadTable(context, toIdentifier(tableName))).operations().current().metadataFileLocation();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        TableIdentifier identifier = TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
+        return ((BaseTable) backend.loadTable(identifier)).operations().current().metadataFileLocation();
     }
 
     @Override
@@ -274,7 +312,7 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingMetadataFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageMatching("Failed to load table: (.*)");
+                .hasMessageContaining("Cannot drop corrupted table");
     }
 
     @Test
@@ -301,7 +339,7 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageMatching("Failed to load table: (.*)");
+                .hasMessageContaining("Cannot drop corrupted table");
     }
 
     @Override
