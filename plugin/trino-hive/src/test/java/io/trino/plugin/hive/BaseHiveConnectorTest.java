@@ -2991,6 +2991,42 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCreateEmptyPartitionWithCustomLocation()
+    {
+        String tableName = "test_create_empty_partition_with_custom_location" + randomNameSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  dummy_col bigint," +
+                "  part varchar)" +
+                "WITH (" +
+                "  format = 'ORC', " +
+                "  partitioned_by = ARRAY[ 'part' ] " +
+                ")");
+
+        // seed a partition with real data so the table's root location can be derived from a file path
+        assertUpdate("INSERT INTO " + tableName + " (dummy_col, part) VALUES (1, 'seed')", 1);
+        String seededPath = (String) computeScalar(format("SELECT \"$path\" FROM %s WHERE part = 'seed'", tableName));
+        // strip the file name and the "part=seed" partition directory to get the table's root location
+        String tableLocation = Location.of(seededPath).parentDirectory().parentDirectory().toString();
+        String customLocation = tableLocation + "/custom_location_for_empty";
+
+        // create an empty partition at an explicit, non-default location
+        assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'], '%s')", TPCH_SCHEMA, tableName, "empty", customLocation));
+        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
+
+        // data inserted into that partition afterwards should land under the custom location
+        assertUpdate(format("INSERT INTO %s (dummy_col, part) VALUES (2, 'empty')", tableName), 1);
+        assertThat((String) computeScalar(format("SELECT \"$path\" FROM %s WHERE part = 'empty'", tableName)))
+                .startsWith(customLocation);
+
+        assertQueryFails(
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'], '%s')", TPCH_SCHEMA, tableName, "empty", customLocation),
+                "Partition already exists.*");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testUnregisterRegisterPartition()
     {
         String tableName = "test_register_partition_for_table" + randomNameSuffix();
