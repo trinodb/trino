@@ -1543,9 +1543,10 @@ public class HiveMetadata
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(hiveTableHandle);
-        HiveColumnHandle columnHandle = (HiveColumnHandle) column;
 
-        metastore.dropColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), columnHandle.getName());
+        throw new TrinoException(NOT_SUPPORTED, "DROP COLUMN is not supported for Hive tables. "
+                + "Hive implements DROP COLUMN via REPLACE COLUMNS, which removes all existing columns "
+                + "and adds the new set of columns. This can lead to data loss.");
     }
 
     @Override
