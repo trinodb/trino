@@ -20,11 +20,9 @@ import com.google.common.net.HostAndPort;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.apache.hc.core5.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.opensearch.client.Request;
-import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
 
 import java.io.IOException;
@@ -35,6 +33,7 @@ import java.util.Map;
 import java.util.Random;
 
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
+import static io.trino.plugin.opensearch.RestClientUtils.createClient;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +52,7 @@ final class TestOpenSearchComplexTypePredicatePushDown
     {
         opensearch = closeAfterClass(new OpenSearchServer(OPENSEARCH_IMAGE, false, ImmutableMap.of()));
         HostAndPort address = opensearch.getAddress();
-        client = closeAfterClass(new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort()))));
+        client = closeAfterClass(createClient(address));
         return OpenSearchQueryRunner.builder(opensearch.getAddress()).build();
     }
 
