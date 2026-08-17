@@ -182,6 +182,7 @@ public class TestCreateViewTask
                 viewName,
                 query,
                 replace,
+                false,
                 Optional.empty(),
                 Optional.empty(),
                 viewProperties);

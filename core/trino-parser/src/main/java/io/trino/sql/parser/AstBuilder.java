@@ -1005,6 +1005,7 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.rootQuery()),
                 context.REPLACE() != null,
+                context.NOT() != null,
                 comment,
                 security,
                 properties);

@@ -395,7 +395,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -410,7 +410,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -1133,7 +1133,7 @@ public class TestSqlParser
                         createQuery(new Intersect(
                                 location(1, 42),
                                 ImmutableList.of(
-                                        new Intersect(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(31)), true, Optional.empty()),
+                                        new Intersect(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(31)), true, false, Optional.empty()),
                                         createSelect123(56)),
                                 false,
                                 Optional.empty())));
@@ -1143,7 +1143,7 @@ public class TestSqlParser
                         createQuery(new Intersect(
                                 location(1, 56),
                                 ImmutableList.of(
-                                        new Intersect(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(45)), true, Optional.of(new Corresponding(location(1, 31), List.of()))),
+                                        new Intersect(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(45)), true, false, Optional.of(new Corresponding(location(1, 31), List.of()))),
                                         createSelect123(84)),
                                 false,
                                 Optional.of(new Corresponding(location(1, 70), List.of())))));
@@ -1153,7 +1153,7 @@ public class TestSqlParser
                         createQuery(new Intersect(
                                 location(1, 63),
                                 ImmutableList.of(
-                                        new Intersect(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(52)), true, Optional.of(new Corresponding(location(1, 31), List.of(new Identifier(location(1, 49), "x", false))))),
+                                        new Intersect(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(52)), true, false, Optional.of(new Corresponding(location(1, 31), List.of(new Identifier(location(1, 49), "x", false))))),
                                         createSelect123(91)),
                                 false,
                                 Optional.of(new Corresponding(location(1, 77), List.of())))));
@@ -1167,7 +1167,7 @@ public class TestSqlParser
                         createQuery(new Union(
                                 location(1, 38),
                                 ImmutableList.of(
-                                        new Union(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(27)), true, Optional.empty()),
+                                        new Union(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(27)), true, false, Optional.empty()),
                                         createSelect123(48)),
                                 false,
                                 Optional.empty())));
@@ -1177,7 +1177,7 @@ public class TestSqlParser
                         createQuery(new Union(
                                 location(1, 52),
                                 ImmutableList.of(
-                                        new Union(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(41)), true, Optional.of(new Corresponding(location(1, 27), List.of()))),
+                                        new Union(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(41)), true, false, Optional.of(new Corresponding(location(1, 27), List.of()))),
                                         createSelect123(76)),
                                 false,
                                 Optional.of(new Corresponding(location(1, 62), List.of())))));
@@ -1187,7 +1187,7 @@ public class TestSqlParser
                         createQuery(new Union(
                                 location(1, 59),
                                 ImmutableList.of(
-                                        new Union(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(48)), true, Optional.of(new Corresponding(location(1, 27), List.of(new Identifier(location(1, 45), "x", false))))),
+                                        new Union(location(1, 12), ImmutableList.of(createSelect123(1), createSelect123(48)), true, false, Optional.of(new Corresponding(location(1, 27), List.of(new Identifier(location(1, 45), "x", false))))),
                                         createSelect123(83)),
                                 false,
                                 Optional.of(new Corresponding(location(1, 69), List.of())))));
@@ -1200,7 +1200,7 @@ public class TestSqlParser
                 .isEqualTo(
                         createQuery(new Except(
                                 location(1, 39),
-                                new Except(location(1, 12), createSelect123(1), createSelect123(28), true, Optional.empty()),
+                                new Except(location(1, 12), createSelect123(1), createSelect123(28), true, false, Optional.empty()),
                                 createSelect123(50),
                                 false,
                                 Optional.empty())));
@@ -1209,7 +1209,7 @@ public class TestSqlParser
                 .isEqualTo(
                         createQuery(new Except(
                                 location(1, 53),
-                                new Except(location(1, 12), createSelect123(1), createSelect123(42), true, Optional.of(new Corresponding(location(1, 28), List.of()))),
+                                new Except(location(1, 12), createSelect123(1), createSelect123(42), true, false, Optional.of(new Corresponding(location(1, 28), List.of()))),
                                 createSelect123(78),
                                 false,
                                 Optional.of(new Corresponding(location(1, 64), List.of())))));
@@ -1218,7 +1218,7 @@ public class TestSqlParser
                 .isEqualTo(
                         createQuery(new Except(
                                 location(1, 60),
-                                new Except(location(1, 12), createSelect123(1), createSelect123(49), true, Optional.of(new Corresponding(location(1, 28), List.of(new Identifier(location(1, 46), "x", false))))),
+                                new Except(location(1, 12), createSelect123(1), createSelect123(49), true, false, Optional.of(new Corresponding(location(1, 28), List.of(new Identifier(location(1, 46), "x", false))))),
                                 createSelect123(85),
                                 false,
                                 Optional.of(new Corresponding(location(1, 71), List.of())))));
@@ -1655,25 +1655,25 @@ public class TestSqlParser
                 .isEqualTo(new QuantifiedPattern(
                         location(1, 1),
                         new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
-                        new RangeQuantifier(location(1, 2), true, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.of(new LongLiteral(location(1, 3), "3")))));
+                        new RangeQuantifier(location(1, 2), true, false, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.of(new LongLiteral(location(1, 3), "3")))));
 
         assertThat(rowPattern("A{3,}"))
                 .isEqualTo(new QuantifiedPattern(
                         location(1, 1),
                         new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
-                        new RangeQuantifier(location(1, 2), true, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.empty())));
+                        new RangeQuantifier(location(1, 2), true, false, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.empty())));
 
         assertThat(rowPattern("A{,3}"))
                 .isEqualTo(new QuantifiedPattern(
                         location(1, 1),
                         new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
-                        new RangeQuantifier(location(1, 2), true, Optional.empty(), Optional.of(new LongLiteral(location(1, 4), "3")))));
+                        new RangeQuantifier(location(1, 2), true, false, Optional.empty(), Optional.of(new LongLiteral(location(1, 4), "3")))));
 
         assertThat(rowPattern("A{3,4}"))
                 .isEqualTo(new QuantifiedPattern(
                         location(1, 1),
                         new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
-                        new RangeQuantifier(location(1, 2), true, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.of(new LongLiteral(location(1, 5), "4")))));
+                        new RangeQuantifier(location(1, 2), true, false, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.of(new LongLiteral(location(1, 5), "4")))));
     }
 
     @Test
@@ -3596,7 +3596,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         FAIL,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -3625,7 +3625,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         FAIL,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
                         Optional.empty()));
 
@@ -3656,7 +3656,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         FAIL,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(
                                 new Identifier(location(1, 18), "x", false),
                                 new Identifier(location(1, 20), "y", false))),
@@ -3687,7 +3687,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         REPLACE,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -3716,7 +3716,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         REPLACE,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 29), "x", false))),
                         Optional.empty()));
 
@@ -3747,7 +3747,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         REPLACE,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(
                                 new Identifier(location(1, 29), "x", false),
                                 new Identifier(location(1, 31), "y", false))),
@@ -3778,7 +3778,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         IGNORE,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -3807,7 +3807,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         IGNORE,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 32), "x", false))),
                         Optional.empty()));
 
@@ -3838,7 +3838,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         IGNORE,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(
                                 new Identifier(location(1, 32), "x", false),
                                 new Identifier(location(1, 34), "y", false))),
@@ -3869,7 +3869,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         FAIL,
                         ImmutableList.of(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -3898,7 +3898,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         FAIL,
                         ImmutableList.of(),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
                         Optional.empty()));
 
@@ -3929,7 +3929,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         FAIL,
                         ImmutableList.of(),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of(
                                 new Identifier(location(1, 18), "x", false),
                                 new Identifier(location(1, 20), "y", false))),
@@ -3976,7 +3976,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        true,
+                        true, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -4018,7 +4018,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
                         Optional.empty()));
 
@@ -4060,7 +4060,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))),
                         Optional.empty()));
 
@@ -4106,7 +4106,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -4149,7 +4149,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
                         Optional.empty()));
 
@@ -4192,7 +4192,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))),
                         Optional.empty()));
 
@@ -4238,7 +4238,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.of("test")));
 
@@ -4281,7 +4281,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
                         Optional.of("test")));
 
@@ -4324,7 +4324,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 35), "computed", false),
                                         new FunctionCall(location(2, 52), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 46), "ban"), new StringLiteral(location(2, 55), "ana")))),
                                 new Property(location(2, 62), new Identifier(location(2, 62), "a", false), new Array(location(2, 67), ImmutableList.of(new StringLiteral(location(2, 74), "v1"), new StringLiteral(location(2, 80), "v2"))))),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))),
                         Optional.of("test")));
 
@@ -4367,7 +4367,7 @@ public class TestSqlParser
                                         new Identifier(location(2, 39), "computed", false),
                                         new FunctionCall(location(2, 56), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(2, 50), "ban"), new StringLiteral(location(2, 59), "ana")))),
                                 new Property(location(2, 66), new Identifier(location(2, 66), "a", false), new Array(location(2, 70), ImmutableList.of(new StringLiteral(location(2, 77), "v1"), new StringLiteral(location(2, 83), "v2"))))),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))),
                         Optional.of("test")));
     }
@@ -5580,24 +5580,24 @@ public class TestSqlParser
     public void testCreateView()
     {
         assertThat(statement("CREATE VIEW a AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(18), false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(18), false, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
         assertThat(statement("CREATE OR REPLACE VIEW a AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 24), "a"), selectAllFromT(29), true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 24), "a"), selectAllFromT(29), true, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a COMMENT 'comment' SECURITY DEFINER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(53), false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(53), false, false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a COMMENT '' SECURITY INVOKER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(46), false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(46), false, false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a COMMENT 'comment' AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(36), false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(36), false, false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a COMMENT '' AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(29), false, Optional.of(""), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(29), false, false, Optional.of(""), Optional.empty(), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a WITH (property_1 = 'value_1', property_2 = 2) AS SELECT * FROM t"))
                 .isEqualTo(
@@ -5605,8 +5605,8 @@ public class TestSqlParser
                                 location(1, 1),
                                 qualifiedName(location(1, 13), "a"),
                                 selectAllFromT(64),
-                                false,
-                                Optional.empty(),
+                                false, false,
+                        Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(
                                         new Property(location(1, 21), new Identifier(location(1, 21), "property_1", false), new StringLiteral(location(1, 34), "value_1")),
@@ -5617,7 +5617,7 @@ public class TestSqlParser
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "bar", false), new Identifier(location(1, 17), "foo", false))),
                         selectAllFromT(24),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -5626,7 +5626,7 @@ public class TestSqlParser
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "awesome view", true))),
                         selectAllFromT(31),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -5635,10 +5635,15 @@ public class TestSqlParser
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "awesome schema", true), new Identifier(location(1, 30), "awesome view", true))),
                         selectAllFromT(48),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
+
+        assertThat(statement("CREATE VIEW IF NOT EXISTS a AS SELECT * FROM t"))
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(32), false, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertThat(statement("CREATE OR REPLACE VIEW IF NOT EXISTS a AS SELECT * FROM t"))
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 24), "a"), selectAllFromT(43), true, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
     }
 
     private static Query selectAllFromT(int column)
@@ -5790,49 +5795,49 @@ public class TestSqlParser
         assertThat(statement("REVOKE INSERT, DELETE ON t FROM u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
                         new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 26), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 33), "u", false))));
         assertThat(statement("REVOKE UPDATE ON t FROM u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of("UPDATE")),
                         new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 25), "u", false))));
         assertThat(statement("REVOKE EXECUTE ON t FROM u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of("EXECUTE")),
                         new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 26), "u", false))));
         assertThat(statement("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC")).isEqualTo(
                 new Revoke(
                         location(1, 1),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of("SELECT")),
                         new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 47), "PUBLIC", false))));
         assertThat(statement("REVOKE ALL PRIVILEGES ON TABLE t FROM USER u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.empty(),
                         new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 32), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 44), "u", false))));
         assertThat(statement("REVOKE DELETE ON TABLE \"t\" FROM \"u\"")).isEqualTo(
                 new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of("DELETE")),
                         new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "t", true))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 33), "u", true))));
         assertThat(statement("REVOKE SELECT ON SCHEMA s FROM USER u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of("SELECT")),
                         new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "s", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 37), "u", false))));
@@ -5880,28 +5885,28 @@ public class TestSqlParser
         assertThat(statement("REVOKE ALL PRIVILEGES ON FUNKY_ENTITY t FROM u"))
                 .isEqualTo(new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.empty(),
                         new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 39), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 46), "u", false))));
         assertThat(statement("REVOKE AUTO_GYRATE ON FUNKY_ENTITY t FROM u"))
                 .isEqualTo(new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
                         new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 36), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 43), "u", false))));
         assertThat(statement("REVOKE GRANT OPTION FOR AUTO_GYRATE ON FUNKY_ENTITY t FROM u"))
                 .isEqualTo(new Revoke(
                         location(1, 1),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
                         new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 53), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 60), "u", false))));
         assertThat(statement("REVOKE AUTO_GYRATE ON t FROM u"))
                 .isEqualTo(new Revoke(
                         location(1, 1),
-                        false,
+                        false, false,
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
                         new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 30), "u", false))));
@@ -7491,7 +7496,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new OrderBy(location(1, 13), ImmutableList.of(new SortItem(location(1, 22), new Identifier(location(1, 22), "x", false), DESCENDING, UNDEFINED)))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(new Identifier(location(1, 11), "x", false))));
@@ -7643,7 +7648,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 16), "user1", false))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty()));
         assertThat(statement("GRANT role1, role2, role3 TO user1, USER user2, ROLE role4 WITH ADMIN OPTION")).isEqualTo(
@@ -7657,7 +7662,7 @@ public class TestSqlParser
                                 new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 30), "user1", false)),
                                 new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 42), "user2", false)),
                                 new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 54), "role4", false))),
-                        true,
+                        true, false,
                         Optional.empty(),
                         Optional.empty()));
         assertThat(statement("GRANT role1 TO user1 WITH ADMIN OPTION GRANTED BY admin")).isEqualTo(
@@ -7665,7 +7670,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 16), "user1", false))),
-                        true,
+                        true, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 51), "admin", false))))),
@@ -7675,7 +7680,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 21), "user1", false))),
-                        true,
+                        true, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 61), "admin", false))))),
@@ -7685,7 +7690,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 21), "role2", false))),
-                        true,
+                        true, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 61), "admin", false))))),
@@ -7695,7 +7700,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 21), "role2", false))),
-                        false,
+                        false, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 43), "admin", false))))),
@@ -7705,7 +7710,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 7), "role1", true)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 23), "role2", true))),
-                        false,
+                        false, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 47), "admin", true))))),
@@ -7715,7 +7720,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 16), "user1", false))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.of(new Identifier(location(1, 25), "my_catalog", false))));
     }
@@ -7728,7 +7733,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 8), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 19), "user1", false))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty()));
         assertThat(statement("REVOKE ADMIN OPTION FOR role1, role2, role3 FROM user1, USER user2, ROLE role4")).isEqualTo(
@@ -7739,7 +7744,7 @@ public class TestSqlParser
                                 new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 50), "user1", false)),
                                 new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 62), "user2", false)),
                                 new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 74), "role4", false))),
-                        true,
+                        true, false,
                         Optional.empty(),
                         Optional.empty()));
         assertThat(statement("REVOKE ADMIN OPTION FOR role1 FROM user1 GRANTED BY admin")).isEqualTo(
@@ -7747,7 +7752,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 25), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 36), "user1", false))),
-                        true,
+                        true, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 53), "admin", false))))),
@@ -7757,7 +7762,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 25), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 41), "user1", false))),
-                        true,
+                        true, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 63), "admin", false))))),
@@ -7767,7 +7772,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 8), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 24), "role2", false))),
-                        false,
+                        false, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 46), "admin", false))))),
@@ -7777,7 +7782,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 8), "role1", true)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 26), "role2", true))),
-                        false,
+                        false, false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
                                 Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 50), "admin", true))))),
@@ -7787,7 +7792,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableSet.of(new Identifier(location(1, 8), "role1", false)),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 19), "user1", false))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.of(new Identifier(location(1, 28), "my_catalog", false))));
     }
@@ -7835,7 +7840,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty()),
                         false,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(),
@@ -7878,7 +7883,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty()),
                         true,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(),
@@ -7914,7 +7919,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty()),
                         false,
-                        false,
+                        false, false,
                         Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 54), OptionalInt.empty(), new IntervalField.Day()))),
                         Optional.empty(),
                         ImmutableList.of(),
@@ -7950,7 +7955,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty()),
                         false,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.of(WhenStaleBehavior.FAIL),
                         ImmutableList.of(),
@@ -7986,7 +7991,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty()),
                         false,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.of(WhenStaleBehavior.INLINE),
                         ImmutableList.of(),
@@ -8033,7 +8038,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty()),
                         true,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(new Property(
@@ -8130,7 +8135,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty()),
                         true,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(new Property(
@@ -8271,7 +8276,7 @@ public class TestSqlParser
                         Optional.of(new WindowSpecification(location(1, 30), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.of(NullTreatment.IGNORE),
                         Optional.empty(),
                         ImmutableList.of(new Identifier(location(1, 6), "x", false), new LongLiteral(location(1, 9), "1"))));
@@ -8282,7 +8287,7 @@ public class TestSqlParser
                         Optional.of(new WindowSpecification(location(1, 31), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.of(NullTreatment.RESPECT),
                         Optional.empty(),
                         ImmutableList.of(new Identifier(location(1, 6), "x", false), new LongLiteral(location(1, 9), "1"))));
@@ -8298,7 +8303,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.of(new ProcessingMode(location(1, 1), RUNNING)),
                         ImmutableList.of(new Identifier(location(1, 14), "x", false), new LongLiteral(location(1, 17), "1"))));
@@ -8309,7 +8314,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.of(new ProcessingMode(location(1, 1), FINAL)),
                         ImmutableList.of(new Identifier(location(1, 13), "x", false), new LongLiteral(location(1, 16), "1"))));
@@ -8325,7 +8330,7 @@ public class TestSqlParser
                         Optional.of(new WindowReference(location(1, 8), new Identifier(location(1, 13), "someWindow", false))),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -8342,7 +8347,7 @@ public class TestSqlParser
                                 Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -8359,7 +8364,7 @@ public class TestSqlParser
                                 Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -8495,7 +8500,7 @@ public class TestSqlParser
                                                                 new ComparisonPredicate(location(14, 27), EQUAL, new StringLiteral(location(14, 29), "B"))))))))),
                         Optional.empty(),
                         Optional.empty(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -8700,7 +8705,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new OrderBy(location(1, 26), ImmutableList.of(new SortItem(location(1, 35), new Identifier(location(1, 35), "x", false), ASCENDING, UNDEFINED)))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -8717,7 +8722,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new OrderBy(location(1, 36), ImmutableList.of(new SortItem(location(1, 45), new Identifier(location(1, 45), "x", false), ASCENDING, UNDEFINED)))),
-                        true,
+                        true, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -8734,7 +8739,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new OrderBy(location(1, 31), ImmutableList.of(new SortItem(location(1, 40), new Identifier(location(1, 40), "y", false), ASCENDING, UNDEFINED)))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -8751,7 +8756,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new OrderBy(location(1, 49), ImmutableList.of(new SortItem(location(1, 58), new Identifier(location(1, 58), "x", false), ASCENDING, UNDEFINED)))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -8768,7 +8773,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new OrderBy(location(1, 63), ImmutableList.of(new SortItem(location(1, 72), new Identifier(location(1, 72), "x", false), ASCENDING, UNDEFINED)))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -8785,7 +8790,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new OrderBy(location(1, 75), ImmutableList.of(new SortItem(location(1, 84), new Identifier(location(1, 84), "x", false), ASCENDING, UNDEFINED)))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -8802,7 +8807,7 @@ public class TestSqlParser
                         Optional.of(new WindowReference(location(1, 38), new Identifier(location(1, 43), "someWindow", false))),
                         Optional.empty(),
                         Optional.of(new OrderBy(location(1, 26), ImmutableList.of(new SortItem(location(1, 35), new Identifier(location(1, 35), "x", false), ASCENDING, UNDEFINED)))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -9331,7 +9336,7 @@ public class TestSqlParser
                         location(1, 1),
                         ImmutableList.of(),
                         true,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -9345,7 +9350,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 26), "value_column", false),
                                 Optional.empty())),
                         true,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -9378,7 +9383,7 @@ public class TestSqlParser
                                         new NullLiteral(location(4, 21)),
                                         Optional.empty())),
                         false,
-                        true,
+                        true, false,
                         Optional.of(new GenericDataType(location(7, 16), new Identifier(location(7, 16), "varbinary", false), ImmutableList.of())),
                         Optional.of(UTF32)));
     }
@@ -9391,7 +9396,7 @@ public class TestSqlParser
                 .isEqualTo(new JsonArray(
                         location(1, 1),
                         ImmutableList.of(),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -9403,7 +9408,7 @@ public class TestSqlParser
                                 location(1, 12),
                                 new Identifier(location(1, 12), "value_column", false),
                                 Optional.empty())),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty()));
 
@@ -9430,7 +9435,7 @@ public class TestSqlParser
                                         location(3, 5),
                                         new NullLiteral(location(3, 5)),
                                         Optional.empty())),
-                        true,
+                        true, false,
                         Optional.of(new GenericDataType(location(5, 15), new Identifier(location(5, 15), "varbinary", false), ImmutableList.of())),
                         Optional.of(UTF32)));
     }

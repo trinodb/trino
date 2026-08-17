@@ -357,7 +357,7 @@ public class TestSqlFormatter
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         FAIL,
                         ImmutableList.of(),
-                        true,
+                        true, false,
                         Optional.of(ImmutableList.of(new Identifier("col", false))),
                         Optional.of("攻殻機動隊"))))
                 .isEqualTo("CREATE TABLE test( col )\n" +
@@ -374,7 +374,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of())))
@@ -387,7 +387,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
+                        false, false,
                         Optional.of("攻殻機動隊"),
                         Optional.empty(),
                         ImmutableList.of())))
@@ -402,7 +402,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -426,7 +426,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
+                        false, false,
                         Optional.of("攻殻機動隊"),
                         Optional.of(DEFINER),
                         ImmutableList.of(new Property(new Identifier("property"), new StringLiteral("property_value"))))))
@@ -451,7 +451,7 @@ public class TestSqlFormatter
                         QualifiedName.of("test_mv"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
                         false,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(),
@@ -466,7 +466,7 @@ public class TestSqlFormatter
                         QualifiedName.of("test_mv"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
                         false,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(),
@@ -482,7 +482,7 @@ public class TestSqlFormatter
                         QualifiedName.of("test_mv"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
                         false,
-                        false,
+                        false, false,
                         Optional.empty(),
                         Optional.of(WhenStaleBehavior.FAIL),
                         ImmutableList.of(),

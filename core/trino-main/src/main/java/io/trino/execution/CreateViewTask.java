@@ -100,6 +100,9 @@ public class CreateViewTask
         }
         if (metadata.isView(session, name)) {
             if (!statement.isReplace()) {
+                if (statement.isNotExists()) {
+                    return immediateVoidFuture();
+                }
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "View already exists: '%s'", name);
             }
         }
