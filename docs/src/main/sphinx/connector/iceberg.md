@@ -1077,6 +1077,18 @@ from the table.
 ALTER TABLE test_table EXECUTE drop_extended_stats;
 ```
 
+The output of the query has the following metrics:
+
+:::{list-table} Output
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `removed_statistics_count`
+  - The count of statistics files removed by drop_extended_stats.
+:::
+
 (iceberg-alter-table-set-properties)=
 #### ALTER TABLE SET PROPERTIES
 
