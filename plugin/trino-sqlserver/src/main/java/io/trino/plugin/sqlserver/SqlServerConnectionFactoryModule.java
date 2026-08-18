@@ -25,6 +25,10 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
+import java.util.Properties;
+
+import static java.lang.Math.toIntExact;
+
 public class SqlServerConnectionFactoryModule
         extends AbstractConfigurationAwareModule
 {
@@ -40,10 +44,16 @@ public class SqlServerConnectionFactoryModule
             CredentialProvider credentialProvider,
             OpenTelemetry openTelemetry)
     {
+        Properties connectionProperties = new Properties();
+        connectionProperties.setProperty("socketTimeout", String.valueOf(sqlServerConfig.getConnectSocketTimeout().toMillis()));
+        connectionProperties.setProperty("connectRetryCount", String.valueOf(sqlServerConfig.getConnectRetryCount()));
+        int socketTimeoutMillis = toIntExact(sqlServerConfig.getSocketTimeout().toMillis());
         return new SqlServerConnectionFactory(
                 DriverConnectionFactory.builder(new SQLServerDriver(), config.getConnectionUrl(), credentialProvider)
+                        .setConnectionProperties(connectionProperties)
                         .setOpenTelemetry(openTelemetry)
                         .build(),
-                sqlServerConfig.isSnapshotIsolationDisabled());
+                sqlServerConfig.isSnapshotIsolationDisabled(),
+                socketTimeoutMillis);
     }
 }

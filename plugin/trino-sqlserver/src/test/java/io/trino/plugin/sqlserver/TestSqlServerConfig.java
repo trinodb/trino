@@ -14,6 +14,7 @@
 package io.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestSqlServerConfig
 {
@@ -31,7 +34,10 @@ public class TestSqlServerConfig
                 .setBulkCopyForWrite(false)
                 .setBulkCopyForWriteLockDestinationTable(false)
                 .setSnapshotIsolationDisabled(false)
-                .setStoredProcedureTableFunctionEnabled(false));
+                .setStoredProcedureTableFunctionEnabled(false)
+                .setConnectSocketTimeout(new Duration(30, SECONDS))
+                .setSocketTimeout(new Duration(0, SECONDS))
+                .setConnectRetryCount(0));
     }
 
     @Test
@@ -42,13 +48,19 @@ public class TestSqlServerConfig
                 .put("sqlserver.bulk-copy-for-write.lock-destination-table", "true")
                 .put("sqlserver.snapshot-isolation.disabled", "true")
                 .put("sqlserver.stored-procedure-table-function-enabled", "true")
+                .put("sqlserver.connect-socket-timeout", "1m")
+                .put("sqlserver.socket-timeout", "10m")
+                .put("sqlserver.connect-retry-count", "3")
                 .buildOrThrow();
 
         SqlServerConfig expected = new SqlServerConfig()
                 .setBulkCopyForWrite(true)
                 .setBulkCopyForWriteLockDestinationTable(true)
                 .setStoredProcedureTableFunctionEnabled(true)
-                .setSnapshotIsolationDisabled(true);
+                .setSnapshotIsolationDisabled(true)
+                .setConnectSocketTimeout(new Duration(1, MINUTES))
+                .setSocketTimeout(new Duration(10, MINUTES))
+                .setConnectRetryCount(3);
 
         assertFullMapping(properties, expected);
     }
