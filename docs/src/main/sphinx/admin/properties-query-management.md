@@ -168,6 +168,20 @@ The maximum physical size of data that can be written by a query during its exec
 When this limit is reached, query processing is terminated to prevent excessive
 resource usage.
 
+## `query.target-result-size.default`
+
+- **Type:** {ref}`prop-type-data-size`
+- **Default value:** `1MB`
+- **Minimum value:** `1kB`
+- **Maximum value:** `128MB`
+- **Session property:** `query_target_result_size`
+
+The target size of a single batch of query results returned to the client. The
+coordinator accumulates result rows until this size is reached before responding,
+so a larger value returns more rows per request and reduces the number of client
+round trips when fetching large result sets, at the cost of more coordinator
+memory per in-flight request.
+
 ## `query.max-stage-count`
 
 - **Type:** {ref}`prop-type-integer`
