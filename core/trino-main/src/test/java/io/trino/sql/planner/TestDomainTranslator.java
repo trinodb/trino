@@ -23,6 +23,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -34,6 +35,7 @@ import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.ir.TestingIr;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
@@ -91,6 +93,7 @@ import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.Reals.toReal;
+import static io.trino.util.StructuralTestUtil.sqlRowOf;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
@@ -1050,6 +1053,140 @@ public class TestDomainTranslator
                 VARCHAR,
                 utf8Slice("first"),
                 utf8Slice("second"));
+    }
+
+    @Test
+    public void testRowComparison()
+    {
+        RowType rowType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE));
+        Expression row = new Row(ImmutableList.of(C_BIGINT.toSymbolReference(), C_DOUBLE.toSymbolReference()));
+        Expression rowConstant = new Constant(rowType, sqlRowOf(rowType, 1L, 10.0));
+        TupleDomain<Symbol> expectedDomain = tupleDomain(ImmutableMap.of(
+                C_BIGINT, Domain.singleValue(BIGINT, 1L),
+                C_DOUBLE, Domain.singleValue(DOUBLE, 10.0)));
+
+        // row equality with a folded row constant decomposes into per-field domains
+        assertPredicateTranslates(comparison(EQUAL, row, rowConstant), expectedDomain);
+
+        // flipped sides
+        assertPredicateTranslates(comparison(EQUAL, rowConstant, row), expectedDomain);
+
+        // row equality with a row constructor of constants
+        assertPredicateTranslates(
+                comparison(EQUAL, row, new Row(ImmutableList.of(bigintLiteral(1L), doubleLiteral(10.0)))),
+                expectedDomain);
+
+        // IDENTICAL decomposes the same way when no field is NULL
+        assertPredicateTranslates(comparison(IDENTICAL, row, rowConstant), expectedDomain);
+
+        // IDENTICAL is null-safe per field, so a NULL field constrains that column to NULL rather than to nothing
+        assertPredicateTranslates(
+                comparison(IDENTICAL, row, new Constant(rowType, sqlRowOf(rowType, 1L, null))),
+                tupleDomain(ImmutableMap.of(
+                        C_BIGINT, Domain.singleValue(BIGINT, 1L),
+                        C_DOUBLE, Domain.onlyNull(DOUBLE))));
+
+        // EQUAL against a NULL field evaluates to NULL rather than FALSE, which filters out every row all the same
+        assertPredicateIsAlwaysFalse(comparison(EQUAL, row, new Constant(rowType, sqlRowOf(rowType, 1L, null))));
+
+        // an entirely NULL row constant is not decomposable, because a comparison against a NULL row is not field-wise
+        assertUnsupportedPredicate(comparison(EQUAL, row, new Constant(rowType, null)));
+
+        // a field that cannot be translated is left in the remaining predicate, while the others still derive domains
+        Expression unprocessable = unprocessableExpression1(C_BIGINT_1);
+        assertPredicateTranslates(
+                comparison(
+                        EQUAL,
+                        new Row(ImmutableList.of(C_BIGINT.toSymbolReference(), unprocessable)),
+                        new Row(ImmutableList.of(bigintLiteral(1L), TRUE))),
+                tupleDomain(C_BIGINT, Domain.singleValue(BIGINT, 1L)),
+                comparison(EQUAL, unprocessable, TRUE));
+
+        // IDENTICAL against NaN has no Domain representation, so that field falls back to the remaining predicate
+        assertPredicateTranslates(
+                comparison(IDENTICAL, row, new Constant(rowType, sqlRowOf(rowType, 1L, Double.NaN))),
+                tupleDomain(C_BIGINT, Domain.singleValue(BIGINT, 1L)),
+                comparison(IDENTICAL, C_DOUBLE.toSymbolReference(), doubleLiteral(Double.NaN)));
+
+        // EQUAL against NaN never matches
+        assertPredicateIsAlwaysFalse(comparison(EQUAL, row, new Constant(rowType, sqlRowOf(rowType, 1L, Double.NaN))));
+
+        // a nested row field is read back as a row constant and yields a row-typed domain for that column
+        RowType nestedRowType = RowType.anonymous(ImmutableList.of(BIGINT, rowType));
+        Symbol nestedSymbol = new Symbol(rowType, "c_row");
+        assertPredicateTranslates(
+                comparison(
+                        EQUAL,
+                        new Row(ImmutableList.of(C_BIGINT.toSymbolReference(), nestedSymbol.toSymbolReference())),
+                        new Constant(nestedRowType, sqlRowOf(nestedRowType, 1L, sqlRowOf(rowType, 2L, 3.0)))),
+                tupleDomain(
+                        C_BIGINT,
+                        Domain.singleValue(BIGINT, 1L),
+                        nestedSymbol,
+                        Domain.singleValue(rowType, sqlRowOf(rowType, 2L, 3.0))));
+
+        // a cast around the row constructor is not decomposed
+        assertUnsupportedPredicate(comparison(EQUAL, cast(row, rowType), rowConstant));
+
+        // negating a multi-field row comparison decomposes into a disjunction over distinct columns, which unions to
+        // ALL. Decomposing would only inflate the predicate, so the compact form is kept instead
+        assertUnsupportedPredicate(comparison(NOT_EQUAL, row, rowConstant));
+        assertUnsupportedPredicate(not(comparison(EQUAL, row, rowConstant)));
+        assertUnsupportedPredicate(not(comparison(IDENTICAL, row, rowConstant)));
+
+        // a single-field row has nothing to union, so its negation still derives a domain
+        RowType singleFieldRowType = RowType.anonymous(ImmutableList.of(BIGINT));
+        Expression singleFieldRow = new Row(ImmutableList.of(C_BIGINT.toSymbolReference()));
+        assertPredicateTranslates(
+                comparison(NOT_EQUAL, singleFieldRow, new Constant(singleFieldRowType, sqlRowOf(singleFieldRowType, 1L))),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L), Range.greaterThan(BIGINT, 1L)), false)));
+
+        // ordering comparisons on rows are lexicographic and are not decomposed
+        assertUnsupportedPredicate(comparison(GREATER_THAN, row, rowConstant));
+    }
+
+    @Test
+    public void testRowInPredicate()
+    {
+        RowType rowType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE));
+        Expression row = new Row(ImmutableList.of(C_BIGINT.toSymbolReference(), C_DOUBLE.toSymbolReference()));
+        Expression firstTuple = new Constant(rowType, sqlRowOf(rowType, 1L, 10.0));
+        Expression secondTuple = new Constant(rowType, sqlRowOf(rowType, 3L, 30.0));
+
+        // multi-tuple IN derives per-column domains while keeping the original predicate as a filter
+        assertPredicateDerives(
+                new In(row, ImmutableList.of(firstTuple, secondTuple)),
+                tupleDomain(ImmutableMap.of(
+                        C_BIGINT, Domain.multipleValues(BIGINT, ImmutableList.of(1L, 3L)),
+                        C_DOUBLE, Domain.multipleValues(DOUBLE, ImmutableList.of(10.0, 30.0)))));
+
+        // single-tuple IN is equivalent to row equality and translates exactly
+        assertPredicateTranslates(
+                new In(row, ImmutableList.of(firstTuple)),
+                tupleDomain(ImmutableMap.of(
+                        C_BIGINT, Domain.singleValue(BIGINT, 1L),
+                        C_DOUBLE, Domain.singleValue(DOUBLE, 10.0))));
+
+        // a tuple containing a NULL field can never match, and does not widen the domains. The
+        // remaining tuple translates exactly, so no remaining predicate is needed
+        assertPredicateTranslates(
+                new In(row, ImmutableList.of(new Constant(rowType, sqlRowOf(rowType, 1L, null)), secondTuple)),
+                tupleDomain(ImmutableMap.of(
+                        C_BIGINT, Domain.singleValue(BIGINT, 3L),
+                        C_DOUBLE, Domain.singleValue(DOUBLE, 30.0))));
+
+        // when every tuple leaves the same remaining predicate, that tighter predicate is kept instead of the IN
+        Expression unprocessable = unprocessableExpression1(C_BIGINT_1);
+        assertPredicateTranslates(
+                new In(new Row(ImmutableList.of(C_BIGINT.toSymbolReference(), unprocessable)),
+                        ImmutableList.of(
+                                new Row(ImmutableList.of(bigintLiteral(1L), TRUE)),
+                                new Row(ImmutableList.of(bigintLiteral(3L), TRUE)))),
+                tupleDomain(C_BIGINT, Domain.multipleValues(BIGINT, ImmutableList.of(1L, 3L))),
+                comparison(EQUAL, unprocessable, TRUE));
+
+        // NOT IN produces no single-column domains, and keeps the compact form rather than the expansion
+        assertUnsupportedPredicate(not(new In(row, ImmutableList.of(firstTuple, secondTuple))));
     }
 
     private void testInPredicate(Symbol symbol, Symbol symbol2, Type type, Object one, Object two)
