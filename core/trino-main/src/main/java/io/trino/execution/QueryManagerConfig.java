@@ -20,6 +20,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
@@ -102,6 +103,7 @@ public class QueryManagerConfig
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
     private Optional<DataSize> queryMaxWritePhysicalSize = Optional.empty();
+    private DataSize targetResultSize = DataSize.of(1, MEGABYTE);
     private int queryReportedRuleStatsLimit = 10;
     private int dispatcherQueryPoolSize = DISPATCHER_THREADPOOL_MAX_SIZE;
 
@@ -337,6 +339,22 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryLength(int maxQueryLength)
     {
         this.maxQueryLength = maxQueryLength;
+        return this;
+    }
+
+    @NotNull
+    @MinDataSize("1kB")
+    @MaxDataSize("128MB")
+    public DataSize getTargetResultSize()
+    {
+        return targetResultSize;
+    }
+
+    @Config("query.target-result-size.default")
+    @ConfigDescription("Default target size of a single batch of query results returned to the client")
+    public QueryManagerConfig setTargetResultSize(DataSize targetResultSize)
+    {
+        this.targetResultSize = targetResultSize;
         return this;
     }
 
