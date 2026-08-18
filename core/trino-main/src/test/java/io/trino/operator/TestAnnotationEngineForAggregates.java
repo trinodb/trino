@@ -880,7 +880,7 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         @LiteralParameters("x")
         public static void input(
-                @LiteralParameter("x") Long varcharSize,
+                @LiteralParameter("x") long varcharSize,
                 @AggregationState LongState state,
                 @SqlType("varchar(x)") Slice slice)
         {
@@ -889,7 +889,7 @@ public class TestAnnotationEngineForAggregates
 
         @CombineFunction
         public static void combine(
-                @LiteralParameter("x") Long varcharSize,
+                @LiteralParameter("x") long varcharSize,
                 @AggregationState LongState combine1,
                 @AggregationState LongState combine2)
         {
@@ -898,7 +898,7 @@ public class TestAnnotationEngineForAggregates
 
         @OutputFunction("varchar(x)")
         public static void output(
-                @LiteralParameter("x") Long varcharSize,
+                @LiteralParameter("x") long varcharSize,
                 @AggregationState LongState state,
                 BlockBuilder out)
         {
