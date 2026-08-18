@@ -18,6 +18,7 @@ import io.trino.plugin.geospatial.aggregation.GeometryState;
 import io.trino.plugin.geospatial.aggregation.GeometryStateFactory;
 import io.trino.plugin.geospatial.aggregation.GeometryUnionAgg;
 import io.trino.spi.TrinoException;
+import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
@@ -82,6 +83,37 @@ final class StrictInvalidOverlayEnabledCase
         invalidConvexHullPartial.setGeometry(invalid);
         ConvexHullAggregation.combine(convexHullState, invalidConvexHullPartial);
         assertThat(convexHullState.getGeometry().isValid()).isTrue();
+
+        assertSqlPathRejectsInvalidGeometry();
+    }
+
+    /**
+     * The property is read once per JVM, so the SQL path can only be covered from a test that owns
+     * the JVM. Without this, the scalar and aggregation entry points are only reached through direct
+     * static calls, leaving the function implementations users actually invoke untested.
+     */
+    private static void assertSqlPathRejectsInvalidGeometry()
+    {
+        String invalidGeometry = "ST_GeometryFromText('POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))')";
+        String clippingGeometry = "ST_GeometryFromText('POLYGON ((0 0, 1 0, 1 2, 0 2, 0 0))')";
+
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            assertions.addPlugin(new GeoPlugin());
+
+            assertThat(assertions.query("SELECT ST_Intersection(%s, %s)".formatted(invalidGeometry, clippingGeometry)))
+                    .failure()
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessageContaining("Self-intersection at or near (1.0 1.0)");
+
+            assertThat(assertions.query("SELECT geometry_union_agg(geometry) FROM (VALUES %s) t(geometry)".formatted(invalidGeometry)))
+                    .failure()
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessageContaining("Self-intersection at or near (1.0 1.0)");
+
+            // Valid inputs keep working, so strict mode rejects rather than breaks the functions
+            assertThat(assertions.query("SELECT ST_AsText(ST_Intersection(%s, %s))".formatted(clippingGeometry, clippingGeometry)))
+                    .matches("VALUES VARCHAR 'POLYGON ((0 0, 0 2, 1 2, 1 0, 0 0))'");
+        }
     }
 
     private static GeometryState geometryState(Geometry geometry)

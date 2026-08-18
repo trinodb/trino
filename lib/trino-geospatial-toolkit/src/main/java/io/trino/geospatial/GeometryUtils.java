@@ -217,12 +217,11 @@ public final class GeometryUtils
     /**
      * Unions two geometries, handling GeometryCollection inputs that JTS's
      * standard union method doesn't support.
+     * <p>
+     * Callers pass {@code rejectInvalidInputs} explicitly, typically from
+     * {@link #strictInvalidOverlay()} for raw user input and {@code false} for values the engine
+     * produced itself, such as aggregation partial state.
      */
-    public static Geometry safeUnion(Geometry left, Geometry right)
-    {
-        return safeUnion(left, right, strictInvalidOverlay());
-    }
-
     public static Geometry safeUnion(Geometry left, Geometry right, boolean rejectInvalidInputs)
     {
         if (rejectInvalidInputs) {
@@ -253,9 +252,9 @@ public final class GeometryUtils
             if (leftValid && rightValid) {
                 throw failure;
             }
-            if (rejectInvalidInputs) {
-                throw invalidInputGeometryException(invalidInputs(left, right, leftValid, rightValid), failure);
-            }
+            // rejectInvalidInputs is not re-checked here: it made the entry validation above reject
+            // invalid inputs, so reaching this point means both inputs were valid and the branch
+            // above already rethrew.
 
             try {
                 // Repair the original inputs before flattening. An invalid MultiPolygon can consist
@@ -315,7 +314,7 @@ public final class GeometryUtils
         return new TrinoException(INVALID_FUNCTION_ARGUMENT, invalidInputGeometryMessage(invalidInputs));
     }
 
-    public static TrinoException invalidInputGeometryException(List<Geometry> invalidInputs, TopologyException failure)
+    private static TrinoException invalidInputGeometryException(List<Geometry> invalidInputs, TopologyException failure)
     {
         return new TrinoException(INVALID_FUNCTION_ARGUMENT, invalidInputGeometryMessage(invalidInputs), failure);
     }

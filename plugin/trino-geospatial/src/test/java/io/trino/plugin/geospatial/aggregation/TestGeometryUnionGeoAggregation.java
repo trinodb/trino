@@ -264,10 +264,12 @@ public class TestGeometryUnionGeoAggregation
                 "MULTIPOLYGON (((1 3, 1 4, 3 4, 3 3, 1 3)), ((3 3, 3 4, 4 4, 4 3, 3 3)), ((4 3, 4 4, 6 4, 6 3, 4 3)))",
                 "MULTIPOLYGON (((3 1, 4 1, 4 3, 3 3, 3 1)), ((3 4, 3 6, 4 6, 4 4, 3 4)))");
 
+        // The valid polygon is disjoint from the invalid one, so the expected result carries the
+        // repaired bow-tie's own coordinates and a result that dropped it would not match.
         test("self-intersecting polygon is repaired after union failure",
-                "POLYGON ((-1 -1, 3 -1, 3 3, -1 3, -1 -1))",
+                "MULTIPOLYGON (((0 0, 1 1, 2 0, 0 0)), ((0 2, 2 2, 1 1, 0 2)), ((10 10, 10 12, 12 12, 12 10, 10 10)))",
                 "POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))",
-                "POLYGON ((-1 -1, 3 -1, 3 3, -1 3, -1 -1))");
+                "POLYGON ((10 10, 12 10, 12 12, 10 12, 10 10))");
     }
 
     @Test

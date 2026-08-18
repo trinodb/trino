@@ -36,6 +36,10 @@ final class TestInvalidGeometryOverlayFallback
     private static final String INVALID_BOW_TIE = "POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))";
     private static final String LEFT_HALF = "POLYGON ((0 0, 1 0, 1 2, 0 2, 0 0))";
     private static final String OUTER = "POLYGON ((-1 -1, 3 -1, 3 3, -1 3, -1 -1))";
+    private static final String DISJOINT_SQUARE = "POLYGON ((10 10, 12 10, 12 12, 10 12, 10 10))";
+    private static final String REPAIRED_BOW_TIE_WITH_DISJOINT_SQUARE =
+            "MULTIPOLYGON (((0 0, 1 1, 2 0, 0 0)), ((0 2, 2 2, 1 1, 0 2)), ((10 10, 10 12, 12 12, 12 10, 10 10)))";
+    private static final String HULL_OVER_BOTH = "POLYGON ((0 0, 2 0, 12 10, 12 12, 10 12, 0 2, 0 0))";
 
     @Test
     void testScalarOverlayFallback()
@@ -129,13 +133,15 @@ final class TestInvalidGeometryOverlayFallback
     @Test
     void testAggregationFallbackInBothInputOrders()
     {
-        assertUnionAggregation(INVALID_BOW_TIE, OUTER);
-        assertUnionAggregation(OUTER, INVALID_BOW_TIE);
+        // The valid square is disjoint from the bow-tie, so both the union and the hull need the
+        // repaired bow-tie's own coordinates and would not match if it had been dropped instead.
+        assertUnionAggregation(INVALID_BOW_TIE, DISJOINT_SQUARE);
+        assertUnionAggregation(DISJOINT_SQUARE, INVALID_BOW_TIE);
 
         GeometryState convexHullState = new GeometryStateFactory.SingleGeometryState();
-        ConvexHullAggregation.input(convexHullState, geometry(OUTER));
+        ConvexHullAggregation.input(convexHullState, geometry(DISJOINT_SQUARE));
         ConvexHullAggregation.input(convexHullState, geometry(INVALID_BOW_TIE));
-        assertGeometry(convexHullState.getGeometry(), OUTER);
+        assertGeometry(convexHullState.getGeometry(), HULL_OVER_BOTH);
     }
 
     private static void assertUnionAggregation(String first, String second)
@@ -143,7 +149,9 @@ final class TestInvalidGeometryOverlayFallback
         GeometryState state = new GeometryStateFactory.SingleGeometryState();
         GeometryUnionAgg.input(state, geometry(first));
         GeometryUnionAgg.input(state, geometry(second));
-        assertGeometry(state.getGeometry(), OUTER);
+        assertGeometry(state.getGeometry(), REPAIRED_BOW_TIE_WITH_DISJOINT_SQUARE);
+        // 2 for the repaired bow-tie plus 4 for the disjoint square
+        assertThat(state.getGeometry().getArea()).isEqualTo(6.0);
     }
 
     private static Geometry geometry(String wkt)

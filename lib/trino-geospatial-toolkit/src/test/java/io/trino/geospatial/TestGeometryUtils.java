@@ -28,6 +28,7 @@ import static io.trino.geospatial.GeometryUtils.invalidInputGeometryException;
 import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
 import static io.trino.geospatial.GeometryUtils.parseStrictInvalidOverlay;
 import static io.trino.geospatial.GeometryUtils.safeUnion;
+import static io.trino.geospatial.GeometryUtils.verifyValidInputGeometries;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -144,15 +145,41 @@ final class TestGeometryUtils
             throws ParseException
     {
         WKTReader reader = new WKTReader();
+        // The invalid input lies outside the valid polygon, so dropping it instead of repairing it
+        // would lose the two triangles and change both the area and the components asserted below.
         Geometry invalid = reader.read("POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))");
-        Geometry valid = reader.read("GEOMETRYCOLLECTION (POINT (12 12), LINESTRING (10 10, 11 11), POLYGON ((-1 -1, 3 -1, 3 3, -1 3, -1 -1)))");
-        Geometry expected = reader.read("GEOMETRYCOLLECTION (POINT (12 12), LINESTRING (10 10, 11 11), POLYGON ((-1 -1, 3 -1, 3 3, -1 3, -1 -1)))");
+        Geometry valid = reader.read("GEOMETRYCOLLECTION (POINT (20 20), LINESTRING (20 10, 21 11), POLYGON ((10 10, 12 10, 12 12, 10 12, 10 10)))");
+        Geometry expected = reader.read("GEOMETRYCOLLECTION (POINT (20 20), LINESTRING (20 10, 21 11), POLYGON ((0 0, 1 1, 2 0, 0 0)), POLYGON ((0 2, 2 2, 1 1, 0 2)), POLYGON ((10 10, 10 12, 12 12, 12 10, 10 10)))");
 
         assertThat(invalid.isValid()).isFalse();
 
-        Geometry result = safeUnion(invalid, valid);
+        Geometry result = safeUnion(invalid, valid, false);
 
         assertThat(result.isValid()).isTrue();
+        // 2 for the repaired bow-tie plus 4 for the disjoint square
+        assertThat(result.getArea()).isEqualTo(6.0);
         assertThat(result.norm()).isEqualTo(expected.norm());
+    }
+
+    @Test
+    void testInvalidInputGeometryMessageTruncatesAfterThreeInputs()
+            throws ParseException
+    {
+        WKTReader reader = new WKTReader();
+        List<Geometry> invalidInputs = List.of(
+                reader.read("POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))"),
+                reader.read("POLYGON ((10 0, 12 2, 10 2, 12 0, 10 0))"),
+                reader.read("POLYGON ((20 0, 22 2, 20 2, 22 0, 20 0))"),
+                reader.read("POLYGON ((30 0, 32 2, 30 2, 32 0, 30 0))"));
+
+        assertThatThrownBy(() -> verifyValidInputGeometries(invalidInputs))
+                .isInstanceOfSatisfying(TrinoException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(INVALID_FUNCTION_ARGUMENT.toErrorCode()))
+                .hasMessageContaining("Self-intersection at or near (1.0 1.0)")
+                .hasMessageContaining("Self-intersection at or near (11.0 1.0)")
+                .hasMessageContaining("Self-intersection at or near (21.0 1.0)")
+                // The fourth input is summarised rather than described, keeping the message bounded
+                .hasMessageNotContaining("31.0")
+                .hasMessageEndingWith("(and 1 more invalid inputs)");
     }
 }
