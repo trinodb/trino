@@ -57,7 +57,7 @@ runs:
         shell: bash
         id: bun-version
         run: |
-          bun_version=$(./mvnw -f pom.xml --quiet help:evaluate -Dexpression=dep.frontend-bun.version -DforceStdout --raw-streams)
+          bun_version=$(grep -m 1 '<dep.frontend-bun.version>' "pom.xml" | sed -n 's/.*<dep.frontend-bun.version>\(.*\)<\/dep.frontend-bun.version>.*/\1/p')
           echo "version=$bun_version" >> "${GITHUB_OUTPUT}"
       - name: Cache and Restore local Bun
         id: cache-bun
