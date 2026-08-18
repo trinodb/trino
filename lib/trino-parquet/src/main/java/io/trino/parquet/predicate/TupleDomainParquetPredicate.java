@@ -701,11 +701,6 @@ public class TupleDomainParquetPredicate
         throw new IllegalArgumentException("Can't convert value to long: " + value.getClass().getName());
     }
 
-    public static double asDouble(Object value)
-    {
-        return toExactDouble(value).orElseThrow(() -> new IllegalArgumentException("Can't convert value to double: " + value.getClass().getName()));
-    }
-
     /**
      * Convert a Parquet statistics value to {@code double} when the conversion is exact and order-preserving.
      * FLOAT and INT32 always convert; INT64 converts only when the value fits in a double mantissa.

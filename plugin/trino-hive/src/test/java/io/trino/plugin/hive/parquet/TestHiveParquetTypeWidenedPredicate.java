@@ -60,7 +60,7 @@ public class TestHiveParquetTypeWidenedPredicate
     {
         String source = "source_int_double_" + randomNameSuffix();
         String widened = "widened_int_double_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + source + " (c integer) WITH (format = 'PARQUET')");
+        assertUpdate("CREATE TABLE " + source + " (c integer) WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['c'])");
         try {
             assertUpdate("INSERT INTO " + source + " VALUES 1, 2", 2);
             String location = (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + source);

@@ -558,6 +558,13 @@ public class TestTupleDomainParquetPredicate
         assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 123.0d, DOUBLE, intPrimitive)).isTrue();
         assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 123.5d, DOUBLE, intPrimitive)).isFalse();
         assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 456.0d, DOUBLE, intPrimitive)).isFalse();
+
+        BlockSplitBloomFilter longBloomFilter = new BlockSplitBloomFilter(1024);
+        longBloomFilter.insertHash(longBloomFilter.hash(123L));
+        PrimitiveType longPrimitive = Types.optional(INT64).named("long_col");
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(longBloomFilter, 123.0d, DOUBLE, longPrimitive)).isTrue();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(longBloomFilter, 123.5d, DOUBLE, longPrimitive)).isFalse();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(longBloomFilter, 456.0d, DOUBLE, longPrimitive)).isFalse();
     }
 
     @Test
