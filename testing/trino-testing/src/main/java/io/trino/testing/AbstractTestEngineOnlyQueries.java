@@ -71,6 +71,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -422,6 +423,32 @@ public abstract class AbstractTestEngineOnlyQueries
                 "   CAST('  ' AS varchar(3)), " +
                 "   CAST('   ' AS varchar(3))) t(x) " +
                 "WHERE CAST(x AS char(2)) = CAST('  ' AS char(2))");
+    }
+
+    @Test
+    public void testCharVarcharCoercionSessionProperty()
+    {
+        Session standard = Session.builder(getSession()).setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "false").build();
+        Session legacy = Session.builder(getSession()).setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true").build();
+
+        // CAST(char AS varchar) semantics: standard yields the unpadded value, legacy re-pads to the CHAR length
+        assertThat(query(standard, "SELECT CAST(CAST('abc' AS char(5)) AS varchar(10))"))
+                .matches("VALUES CAST('abc' AS varchar(10))");
+        assertThat(query(legacy, "SELECT CAST(CAST('abc' AS char(5)) AS varchar(10))"))
+                .matches("VALUES CAST('abc  ' AS varchar(10))");
+
+        // implicit coercion direction: standard coerces char to varchar (trailing spaces trimmed), legacy coerces varchar to char (blank-padded)
+        assertThat(query(standard, "SELECT CAST('   ' AS char(3)) = CAST('  ' AS varchar(2))"))
+                .matches("VALUES false");
+        assertThat(query(legacy, "SELECT CAST('   ' AS char(3)) = CAST('  ' AS varchar(2))"))
+                .matches("VALUES true");
+
+        // implicit coercion direction: standard coerces char to varchar
+        assertThat(query(standard, "SELECT CHAR 'abc' a, CHAR 'abcde' UNION ALL SELECT CAST('abcde' AS varchar(5)), CAST('abc' AS varchar(3))"))
+                .matches("VALUES (CAST('abc' AS varchar(5)), CAST('abcde' AS varchar(5))), (CAST('abcde' AS varchar(5)), CAST('abc' AS varchar(5)))");
+        // implicit coercion direction: legacy coerces char to varchar
+        assertThat(query(legacy, "SELECT CHAR 'abc' a, CHAR 'abcde' UNION ALL SELECT CAST('abcde' AS varchar(5)), CAST('abc' AS varchar(3))"))
+                .matches("VALUES (CAST('abc' AS char(5)), CAST('abcde' AS char(5))), (CAST('abcde' AS char(5)), CAST('abc' AS char(5)))");
     }
 
     @Test
