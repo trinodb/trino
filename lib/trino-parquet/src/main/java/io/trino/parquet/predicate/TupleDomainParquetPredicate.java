@@ -434,12 +434,14 @@ public class TupleDomainParquetPredicate
                     // Ignore statistics that cannot be converted exactly to DOUBLE
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
+                double minValue = min.orElseThrow();
+                double maxValue = max.orElseThrow();
 
-                if (Double.isNaN(min.getAsDouble()) || Double.isNaN(max.getAsDouble())) {
+                if (Double.isNaN(minValue) || Double.isNaN(maxValue)) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                rangesBuilder.addRangeInclusive(min.getAsDouble(), max.getAsDouble());
+                rangesBuilder.addRangeInclusive(minValue, maxValue);
             }
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
