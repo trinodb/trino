@@ -587,7 +587,7 @@ fs.gcs.enabled=true
 gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
-`gcs.json-key-file-path` is optional. When omitted, [Application Default
+`gcs.json-key` and `gcs.json-key-file-path` are optional. When omitted, [Application Default
 Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
 (ADC) are used, which supports GKE Workload Identity and other
 environment-based credential sources.
