@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
@@ -34,8 +35,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Base64;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
@@ -76,10 +75,8 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
-        gcpCredentialsFile.toFile().deleteOnExit();
-        Files.write(gcpCredentialsFile, GCS_JSON_KEY_BYTES);
-        String projectId = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES).get("project_id").asText();
+        JsonNode gcsJson = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES);
+        String projectId = gcsJson.get("project_id").asText();
 
         return IcebergQueryRunner.builder(SCHEMA)
                 .addIcebergProperty("iceberg.file-format", format.name())
@@ -95,7 +92,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("fs.gcs.enabled", "true")
-                .addIcebergProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())
+                .addIcebergProperty("gcs.json-key", gcsJson.toString())
                 .setSchemaInitializer(SchemaInitializer.builder()
                         .withSchemaName(SCHEMA)
                         .withClonedTpchTables(REQUIRED_TPCH_TABLES)
