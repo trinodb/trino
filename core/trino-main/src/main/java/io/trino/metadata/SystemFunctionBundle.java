@@ -153,7 +153,6 @@ import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonOperators;
-import io.trino.operator.scalar.LegacyVarcharToCharSaturatedFloorCast;
 import io.trino.operator.scalar.LuhnCheckFunction;
 import io.trino.operator.scalar.MapCardinalityFunction;
 import io.trino.operator.scalar.MapConcatFunction;
@@ -656,9 +655,10 @@ public final class SystemFunctionBundle
                 .aggregates(VarcharApproximateMostFrequent.class)
                 .scalar(ArrayHistogramFunction.class);
 
-        if (featuresConfig.isLegacyVarcharToCharCoercion()) {
-            builder.scalars(LegacyVarcharToCharSaturatedFloorCast.class);
-        }
+        // TODO (https://github.com/trinodb/trino/issues/30778) Restore char/varchar dynamic filtering domain coercion
+//        if (featuresConfig.isLegacyVarcharToCharCoercion()) {
+//            builder.scalars(LegacyVarcharToCharSaturatedFloorCast.class);
+//        }
 
         // timestamp operators and functions
         builder
