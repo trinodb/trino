@@ -101,4 +101,28 @@ public class TestHiveParquetTypeWidenedPredicate
             assertUpdate("DROP TABLE IF EXISTS " + source);
         }
     }
+
+    @Test
+    public void testPredicateOnBigintColumnWidenedToDouble()
+    {
+        String source = "source_bigint_double_" + randomNameSuffix();
+        String widened = "widened_bigint_double_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + source + " (c bigint) WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['c'])");
+        try {
+            assertUpdate("INSERT INTO " + source + " VALUES BIGINT '1', BIGINT '2'", 2);
+            String location = (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + source);
+            assertUpdate(format("CREATE TABLE %s (c double) WITH (format = 'PARQUET', external_location = '%s')", widened, location));
+            try {
+                assertQuery("SELECT count(*) FROM " + widened, "VALUES 2");
+                assertQuery("SELECT count(*) FROM " + widened + " WHERE c = DOUBLE '1'", "VALUES 1");
+                assertQuery("SELECT count(*) FROM " + widened + " WHERE c = DOUBLE '9'", "VALUES 0");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS " + widened);
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + source);
+        }
+    }
 }
