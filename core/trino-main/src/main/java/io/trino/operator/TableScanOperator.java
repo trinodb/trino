@@ -20,12 +20,14 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.plugin.base.util.UncheckedCloser;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
@@ -124,8 +126,7 @@ public class TableScanOperator
     private final TableHandle table;
     private final Optional<ConnectorTableCredentials> tableCredentials;
     private final List<ColumnHandle> columns;
-    private final PageSourceProvider.MemoryUsageTracker pageSourceProviderMemoryTracker;
-    private final LocalMemoryContext pageSourceProviderMemoryContext;
+    private final MemoryContext pageSourceProviderMemoryContext;
     private final LocalMemoryContext pageSourceMemoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
 
@@ -154,9 +155,9 @@ public class TableScanOperator
         this.table = requireNonNull(table, "table is null");
         this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.pageSourceProviderMemoryTracker = pageSourceProvider.createMemoryUsageTracker();
-        this.pageSourceProviderMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-PageSourceProvider");
+        this.pageSourceProviderMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-PageSourceProvider")::setBytes;
         this.pageSourceMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-ConnectorPageSource");
+        pageSourceProvider.trackMemoryUsage(pageSourceProviderMemoryContext);
     }
 
     @Override
@@ -210,18 +211,18 @@ public class TableScanOperator
         finished = true;
         blocked.set(null);
 
-        if (source != null) {
-            try {
-                source.close();
+        try (var closer = UncheckedCloser.create()) {
+            closer.register(() -> pageSourceProvider.untrackMemoryUsage(pageSourceProviderMemoryContext));
+            if (source != null) {
+                try {
+                    source.close();
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                operatorContext.setLatestConnectorMetrics(source.getMetrics());
             }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-            operatorContext.setLatestConnectorMetrics(source.getMetrics());
         }
-        // this operator is done; pass the shared memory usage reporting role to a live operator, if any
-        pageSourceProviderMemoryTracker.close();
-        pageSourceProviderMemoryContext.setBytes(0);
     }
 
     @Override
@@ -230,7 +231,7 @@ public class TableScanOperator
         if (!finished) {
             finished = (source != null) && source.isFinished();
             if (source != null) {
-                pageSourceProviderMemoryContext.setBytes(pageSourceProviderMemoryTracker.getMemoryUsage());
+                pageSourceProvider.updateMemoryUsage(pageSourceProviderMemoryContext);
             }
         }
 
@@ -299,7 +300,7 @@ public class TableScanOperator
         readTimeNanos = endReadTimeNanos;
 
         // updating memory usage should happen after page is loaded.
-        pageSourceProviderMemoryContext.setBytes(pageSourceProviderMemoryTracker.getMemoryUsage());
+        pageSourceProvider.updateMemoryUsage(pageSourceProviderMemoryContext);
         operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }

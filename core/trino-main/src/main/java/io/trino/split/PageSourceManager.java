@@ -13,6 +13,7 @@
  */
 package io.trino.split;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
@@ -31,6 +32,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -60,9 +62,12 @@ public class PageSourceManager
     {
         private final ConnectorPageSourceProvider pageSourceProvider;
         // Shared provider state (e.g. loaded Iceberg equality delete filters) exists once per provider
-        // instance but is polled by every driver of the pipeline. At most one live tracker reports it,
-        // so that it is not counted once per driver.
-        private final AtomicReference<MemoryUsageTracker> memoryUsageReporter = new AtomicReference<>();
+        // instance. Each driver registers its own memory context, but only the active driver polls and
+        // reports the usage, so that it is not counted once per driver.
+        private final ConcurrentHashMap<MemoryContext, MemoryUsageReporter> memoryUsageReporters = new ConcurrentHashMap<>();
+        private final AtomicReference<MemoryUsageReporter> activeMemoryUsageReporter = new AtomicReference<>();
+        // Prevent an old registration's reset from racing with re-registration of the same context.
+        private final Object memoryUsageReportersLock = new Object();
 
         private PageSourceProviderInstance(ConnectorPageSourceProvider pageSourceProvider)
         {
@@ -101,40 +106,86 @@ public class PageSourceManager
         }
 
         @Override
-        public long getMemoryUsage()
+        public void trackMemoryUsage(MemoryContext memoryContext)
         {
-            return pageSourceProvider.getMemoryUsage();
+            synchronized (memoryUsageReportersLock) {
+                memoryUsageReporters.putIfAbsent(memoryContext, new MemoryUsageReporter(memoryContext));
+            }
         }
 
         @Override
-        public MemoryUsageTracker createMemoryUsageTracker()
+        public void untrackMemoryUsage(MemoryContext memoryContext)
         {
-            return new ClaimingMemoryUsageTracker();
+            synchronized (memoryUsageReportersLock) {
+                MemoryUsageReporter reporter = memoryUsageReporters.remove(memoryContext);
+                if (reporter != null) {
+                    try {
+                        reporter.close();
+                    }
+                    finally {
+                        activeMemoryUsageReporter.compareAndSet(reporter, null);
+                    }
+                }
+            }
         }
 
-        private class ClaimingMemoryUsageTracker
-                implements MemoryUsageTracker
+        @Override
+        public void updateMemoryUsage(MemoryContext memoryContext)
         {
-            private volatile boolean closed;
-
-            @Override
-            public long getMemoryUsage()
-            {
-                if (closed) {
-                    return 0;
-                }
-                MemoryUsageTracker reporter = memoryUsageReporter.get();
-                if (reporter == this || (reporter == null && memoryUsageReporter.compareAndSet(null, this))) {
-                    return pageSourceProvider.getMemoryUsage();
-                }
-                return 0;
+            MemoryUsageReporter reporter = memoryUsageReporters.get(memoryContext);
+            if (reporter == null) {
+                return;
             }
 
-            @Override
-            public void close()
+            while (true) {
+                MemoryUsageReporter activeReporter = activeMemoryUsageReporter.get();
+                if (activeReporter == null) {
+                    if (!activeMemoryUsageReporter.compareAndSet(null, reporter)) {
+                        continue;
+                    }
+                    activeReporter = reporter;
+                }
+
+                if (activeReporter != reporter) {
+                    return;
+                }
+
+                if (reporter.report(pageSourceProvider)) {
+                    return;
+                }
+                // this context was untracked concurrently
+                activeMemoryUsageReporter.compareAndSet(reporter, null);
+                return;
+            }
+        }
+
+        private static class MemoryUsageReporter
+        {
+            private final MemoryContext memoryContext;
+            @GuardedBy("this")
+            private boolean closed;
+
+            private MemoryUsageReporter(MemoryContext memoryContext)
             {
+                this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+            }
+
+            private synchronized boolean report(ConnectorPageSourceProvider pageSourceProvider)
+            {
+                if (closed) {
+                    return false;
+                }
+                memoryContext.setBytes(pageSourceProvider.getMemoryUsage());
+                return true;
+            }
+
+            private synchronized void close()
+            {
+                if (closed) {
+                    return;
+                }
                 closed = true;
-                memoryUsageReporter.compareAndSet(this, null);
+                memoryContext.setBytes(0);
             }
         }
     }

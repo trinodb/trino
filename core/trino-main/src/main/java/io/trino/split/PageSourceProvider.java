@@ -36,31 +36,28 @@ public interface PageSourceProvider
             DynamicFilter dynamicFilter,
             MemoryContext memoryContext);
 
-    // TODO (https://github.com/trinodb/trino/issues/29955) replace with MemoryContext
-    default long getMemoryUsage()
-    {
-        return 0;
-    }
+    /**
+     * Registers a memory context as a candidate target for reporting usage of memory owned by this
+     * page source provider and shared across all its page sources (e.g. loaded Iceberg equality
+     * delete filters). A provider instance is shared by all drivers of a pipeline, so the shared
+     * usage is reported into at most one of the tracked contexts at a time, instead of being
+     * counted once per driver. A tracked context claims the reporting role when it first calls
+     * {@link #updateMemoryUsage(MemoryContext)} while there is no active reporter.
+     */
+    default void trackMemoryUsage(MemoryContext memoryContext) {}
 
     /**
-     * Creates a tracker for reporting {@link #getMemoryUsage()} into an operator-local memory context.
-     * A provider instance is shared by all drivers of a pipeline, and each driver polls the provider
-     * memory usage into its own memory context. Trackers coordinate so that shared provider state
-     * (e.g. loaded Iceberg equality delete filters) is reported by at most one live tracker at a time
-     * instead of being counted once per driver. When the reporting tracker is closed, the role passes
-     * to the next tracker that polls.
+     * Stops reporting into a context previously registered with {@link #trackMemoryUsage} and
+     * resets it to zero. If the context was the current reporting target, another tracked context
+     * takes over on a subsequent {@link #updateMemoryUsage(MemoryContext)}. Must be called before the
+     * underlying memory context is released.
      */
-    default MemoryUsageTracker createMemoryUsageTracker()
-    {
-        return this::getMemoryUsage;
-    }
+    default void untrackMemoryUsage(MemoryContext memoryContext) {}
 
-    interface MemoryUsageTracker
-            extends AutoCloseable
-    {
-        long getMemoryUsage();
-
-        @Override
-        default void close() {}
-    }
+    /**
+     * Reports the current shared memory usage of this provider into the supplied context when it
+     * is the active reporting context, or claims the reporting role for it when there is no active
+     * reporter. Calls for other tracked contexts do not poll or report the shared usage.
+     */
+    default void updateMemoryUsage(MemoryContext memoryContext) {}
 }
