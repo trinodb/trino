@@ -21,7 +21,7 @@ import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;

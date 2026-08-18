@@ -15,8 +15,8 @@ package io.trino.jdbc;
 
 import io.airlift.log.Logging;
 import io.trino.server.testing.TestingTrinoServer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -32,7 +32,7 @@ public class TestJdbcResultSet
 {
     private TestingTrinoServer server;
 
-    @BeforeClass
+    @BeforeAll
     public void setupServer()
     {
         Logging.initialize();
@@ -44,7 +44,7 @@ public class TestJdbcResultSet
         return TestingTrinoServer.create();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownServer()
             throws Exception
     {
