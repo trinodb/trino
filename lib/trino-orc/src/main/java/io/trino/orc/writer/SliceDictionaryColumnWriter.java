@@ -540,6 +540,7 @@ public class SliceDictionaryColumnWriter
                 (directColumnWriter == null ? 0 : directColumnWriter.getRetainedBytes());
 
         for (DictionaryRowGroup rowGroup : rowGroups) {
+            retainedBytes += rowGroup.getDictionaryIndexes().sizeOf();
             retainedBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
         }
         return retainedBytes;
