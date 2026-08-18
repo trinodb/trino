@@ -15,8 +15,8 @@ package io.trino.tests.product.mysql;
 
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
-import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.trino.TrinoContainer;
 
 import java.sql.Connection;
@@ -41,7 +41,7 @@ public class MySqlEnvironment
         extends ProductTestEnvironment
 {
     private Network network;
-    private MySQLContainer<?> mysql;
+    private MySQLContainer mysql;
     private TrinoContainer trino;
 
     @Override
@@ -54,7 +54,7 @@ public class MySqlEnvironment
 
         network = Network.newNetwork();
 
-        mysql = new MySQLContainer<>("mysql:8.0")
+        mysql = new MySQLContainer("mysql:8.0")
                 .withNetwork(network)
                 .withNetworkAliases("mysql")
                 .withDatabaseName("test")

@@ -15,7 +15,7 @@ package io.trino.tests.product.postgresql;
 
 import io.trino.testing.containers.TrinoProductTestContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -27,7 +27,7 @@ public class PostgresqlPostgisEnvironment
         extends PostgresqlEnvironment
 {
     private Network network;
-    private PostgreSQLContainer<?> postgresql;
+    private PostgreSQLContainer postgresql;
     private TrinoContainer trino;
 
     @Override
@@ -39,7 +39,7 @@ public class PostgresqlPostgisEnvironment
 
         network = Network.newNetwork();
 
-        postgresql = new PostgreSQLContainer<>(DockerImageName.parse("postgis/postgis:11-3.2").asCompatibleSubstituteFor("postgres"))
+        postgresql = new PostgreSQLContainer(DockerImageName.parse("postgis/postgis:11-3.2").asCompatibleSubstituteFor("postgres"))
                 .withNetwork(network)
                 .withNetworkAliases("postgresql")
                 .withDatabaseName("test")
