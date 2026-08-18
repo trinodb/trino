@@ -106,7 +106,7 @@ public class TestFilterAndProjectOperator
                 new Constant(BIGINT, 5L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5), layout);
+        Supplier<PageProcessor> processor = compiler.compilePageProcessor(TEST_SESSION, Optional.of(filter), ImmutableList.of(field0, add5), layout);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,
@@ -155,7 +155,7 @@ public class TestFilterAndProjectOperator
                 new Constant(BIGINT, 10L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(col1), layout);
+        Supplier<PageProcessor> processor = compiler.compilePageProcessor(TEST_SESSION, Optional.of(filter), ImmutableList.of(col1), layout);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,

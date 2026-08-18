@@ -74,6 +74,7 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTransactionHandle;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -92,6 +93,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
@@ -132,21 +134,21 @@ public class TestEffectivePredicateExtractor
         private final Metadata delegate = functionResolution.getMetadata();
 
         @Override
-        public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
+        public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
         {
-            return delegate.resolveBuiltinFunction(name, parameterTypes);
+            return delegate.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
         }
 
         @Override
-        public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+        public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
         {
-            return delegate.resolveOperator(operatorType, argumentTypes);
+            return delegate.resolveOperator(charVarcharCoercion, operatorType, argumentTypes);
         }
 
         @Override
-        public ResolvedFunction getCoercion(Type fromType, Type toType)
+        public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
         {
-            return delegate.getCoercion(fromType, toType);
+            return delegate.getCoercion(charVarcharCoercion, fromType, toType);
         }
 
         @Override
@@ -604,7 +606,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(DOUBLE, "c")),
-                        ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "c"))));
+                        ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), getCharVarcharCoercion(SESSION), new IsNull(new Reference(DOUBLE, "c"))));
 
         // NaN and NULL
         assertThat(effectivePredicateExtractor.extract(
@@ -626,7 +628,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(DOUBLE, "x")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(doubleLiteral(42.))),
-                                new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "x"))));
+                                new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), getCharVarcharCoercion(SESSION), new IsNull(new Reference(DOUBLE, "x"))));
 
         // Real NaN
         assertThat(effectivePredicateExtractor.extract(
@@ -636,7 +638,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(REAL, "d")),
                         ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), REAL)))))))
-                .isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(REAL, "d"))));
+                .isEqualTo(not(functionResolution.getMetadata(), getCharVarcharCoercion(SESSION), new IsNull(new Reference(REAL, "d"))));
 
         // multiple columns
         assertThat(effectivePredicateExtractor.extract(
@@ -1126,10 +1128,10 @@ public class TestEffectivePredicateExtractor
         predicate = expressionNormalizer.normalize(predicate);
 
         // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
-        EqualityInference inference = new EqualityInference(plannerContext, predicate);
+        EqualityInference inference = new EqualityInference(plannerContext, getCharVarcharCoercion(SESSION), predicate);
 
         Set<Symbol> scope = SymbolsExtractor.extractUnique(predicate);
-        Set<Expression> rewrittenSet = EqualityInference.nonInferrableConjuncts(plannerContext, predicate)
+        Set<Expression> rewrittenSet = EqualityInference.nonInferrableConjuncts(plannerContext, getCharVarcharCoercion(SESSION), predicate)
                 .map(expression -> inference.rewrite(expression, scope))
                 .peek(rewritten -> checkState(rewritten != null, "Rewrite with full symbol scope should always be possible"))
                 .collect(Collectors.toSet());

@@ -23,6 +23,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -50,13 +51,14 @@ public class CachingResolver
 {
     private static final int MAX_CACHE_SIZE = 1000;
 
+    private final CharVarcharCoercion charVarcharCoercion;
     private final Metadata metadata;
     private final NonEvictableCache<NodeAndTypes, ResolvedOperatorAndCoercions> operators = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
 
-    public CachingResolver(Metadata metadata)
+    public CachingResolver(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
     {
-        requireNonNull(metadata, "metadata is null");
-        this.metadata = metadata;
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
     }
 
     public ResolvedOperatorAndCoercions getOperators(IrPathNode node, OperatorType operatorType, Type leftType, Type rightType)
@@ -74,7 +76,7 @@ public class CachingResolver
     {
         ResolvedFunction operator;
         try {
-            operator = metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
+            operator = metadata.resolveOperator(charVarcharCoercion, operatorType, ImmutableList.of(leftType, rightType));
         }
         catch (OperatorNotFoundException e) {
             return RESOLUTION_ERROR;
@@ -85,7 +87,7 @@ public class CachingResolver
         Optional<ResolvedFunction> leftCast = Optional.empty();
         if (!signature.getArgumentTypes().get(0).equals(leftType)) {
             try {
-                leftCast = Optional.of(metadata.getCoercion(leftType, signature.getArgumentTypes().get(0)));
+                leftCast = Optional.of(metadata.getCoercion(charVarcharCoercion, leftType, signature.getArgumentTypes().get(0)));
             }
             catch (OperatorNotFoundException e) {
                 return RESOLUTION_ERROR;
@@ -95,7 +97,7 @@ public class CachingResolver
         Optional<ResolvedFunction> rightCast = Optional.empty();
         if (!signature.getArgumentTypes().get(1).equals(rightType)) {
             try {
-                rightCast = Optional.of(metadata.getCoercion(rightType, signature.getArgumentTypes().get(1)));
+                rightCast = Optional.of(metadata.getCoercion(charVarcharCoercion, rightType, signature.getArgumentTypes().get(1)));
             }
             catch (OperatorNotFoundException e) {
                 return RESOLUTION_ERROR;

@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -102,7 +103,7 @@ public class PushdownFilterIntoRowNumber
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                domainTranslator.toPredicate(newTupleDomain));
+                domainTranslator.toPredicate(getCharVarcharCoercion(session), newTupleDomain));
 
         if (newPredicate.equals(Booleans.TRUE)) {
             return Result.ofPlanNode(source);

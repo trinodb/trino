@@ -26,6 +26,7 @@ import io.trino.sql.planner.iterative.Rule;
 
 import java.util.Set;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
 import static io.trino.sql.planner.iterative.rule.NormalizeOrExpressionRewriter.normalizeOrExpression;
 import static io.trino.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
@@ -39,7 +40,7 @@ public class SimplifyExpressions
         if (expression instanceof Reference) {
             return expression;
         }
-        expression = pushDownNegations(metadata, expression);
+        expression = pushDownNegations(metadata, getCharVarcharCoercion(session), expression);
         expression = extractCommonPredicates(expression);
         expression = normalizeOrExpression(expression);
         return optimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);

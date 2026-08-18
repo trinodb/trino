@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -79,7 +80,7 @@ public class RemoveRedundantMatchClauses
         List<MatchClause> newClauses = new ArrayList<>();
         Expression newDefault = defaultValue;
 
-        ResolvedFunction equals = metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(operand.type(), operand.type()));
+        ResolvedFunction equals = metadata.resolveOperator(getCharVarcharCoercion(session), OperatorType.EQUAL, ImmutableList.of(operand.type(), operand.type()));
 
         Set<Expression> seen = new HashSet<>();
         boolean changed = false;

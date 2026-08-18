@@ -28,6 +28,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -87,6 +88,7 @@ public class ImplementOffset
                 rowNumberNode,
                 comparison(
                         metadata,
+                        getCharVarcharCoercion(context.getSession()),
                         GREATER_THAN,
                         rowNumberSymbol.toSymbolReference(),
                         new Constant(BIGINT, parent.getCount())));

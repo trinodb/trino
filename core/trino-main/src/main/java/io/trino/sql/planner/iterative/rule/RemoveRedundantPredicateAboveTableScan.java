@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.TupleDomain.intersect;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
@@ -137,7 +138,7 @@ public class RemoveRedundantPredicateAboveTableScan
                 session,
                 context.getSymbolAllocator(),
                 Booleans.TRUE, // Dynamic filters are included in decomposedPredicate.getRemainingExpression()
-                domainTranslator.toPredicate(unenforcedDomain.transformKeys(assignments::get)),
+                domainTranslator.toPredicate(getCharVarcharCoercion(session), unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 

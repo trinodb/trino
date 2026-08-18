@@ -55,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -190,8 +191,8 @@ public class ImplementTableFunctionSource
         }
         Map<String, SourceWithProperties> sources = mapSourcesByName(node.getSources(), node.getTableArgumentProperties());
         ImmutableList.Builder<NodeWithSymbols> intermediateResultsBuilder = ImmutableList.builder();
-        ResolvedFunction rowNumberFunction = metadata.resolveBuiltinFunction("row_number", ImmutableList.of());
-        ResolvedFunction countFunction = metadata.resolveBuiltinFunction("count", ImmutableList.of());
+        ResolvedFunction rowNumberFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "row_number", ImmutableList.of());
+        ResolvedFunction countFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "count", ImmutableList.of());
 
         // handle co-partitioned sources
         for (List<String> copartitioningList : node.getCopartitioningLists()) {
@@ -372,7 +373,7 @@ public class ImplementTableFunctionSource
         List<Expression> copartitionConjuncts = Streams.zip(
                         leftPartitionBy.stream(),
                         rightPartitionBy.stream(),
-                        (leftColumn, rightColumn) -> comparison(metadata, IDENTICAL, leftColumn, rightColumn))
+                        (leftColumn, rightColumn) -> comparison(metadata, getCharVarcharCoercion(context.getSession()), IDENTICAL, leftColumn, rightColumn))
                 .collect(toImmutableList());
 
         // Align matching partitions (co-partitions) from left and right source, according to row number.
@@ -393,13 +394,13 @@ public class ImplementTableFunctionSource
                 ImmutableList.<Expression>builder()
                         .addAll(copartitionConjuncts)
                         .add(new Logical(OR, ImmutableList.of(
-                                comparison(metadata, EQUAL, leftRowNumber, rightRowNumber),
+                                comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, leftRowNumber, rightRowNumber),
                                 new Logical(AND, ImmutableList.of(
-                                        comparison(metadata, GREATER_THAN, leftRowNumber, rightPartitionSize),
-                                        comparison(metadata, EQUAL, rightRowNumber, new Constant(BIGINT, 1L)))),
+                                        comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN, leftRowNumber, rightPartitionSize),
+                                        comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, rightRowNumber, new Constant(BIGINT, 1L)))),
                                 new Logical(AND, ImmutableList.of(
-                                        comparison(metadata, GREATER_THAN, rightRowNumber, leftPartitionSize),
-                                        comparison(metadata, EQUAL, leftRowNumber, new Constant(BIGINT, 1L)))))))
+                                        comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN, rightRowNumber, leftPartitionSize),
+                                        comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, leftRowNumber, new Constant(BIGINT, 1L)))))))
                         .build());
 
         // The join type depends on the prune when empty property of the sources.
@@ -495,6 +496,7 @@ public class ImplementTableFunctionSource
         Expression rowNumberExpression = ifExpression(
                 comparison(
                         metadata,
+                        getCharVarcharCoercion(context.getSession()),
                         GREATER_THAN,
                         new Coalesce(leftRowNumber, new Constant(BIGINT, -1L)),
                         new Coalesce(rightRowNumber, new Constant(BIGINT, -1L))),
@@ -506,6 +508,7 @@ public class ImplementTableFunctionSource
         Expression partitionSizeExpression = ifExpression(
                 comparison(
                         metadata,
+                        getCharVarcharCoercion(context.getSession()),
                         GREATER_THAN,
                         new Coalesce(leftPartitionSize, new Constant(BIGINT, -1L)),
                         new Coalesce(rightPartitionSize, new Constant(BIGINT, -1L))),
@@ -565,13 +568,13 @@ public class ImplementTableFunctionSource
         // OR
         // (R2 > S1 AND R1 = 1)
         Expression joinCondition = new Logical(OR, ImmutableList.of(
-                comparison(metadata, EQUAL, leftRowNumber, rightRowNumber),
+                comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, leftRowNumber, rightRowNumber),
                 new Logical(AND, ImmutableList.of(
-                        comparison(metadata, GREATER_THAN, leftRowNumber, rightPartitionSize),
-                        comparison(metadata, EQUAL, rightRowNumber, new Constant(BIGINT, 1L)))),
+                        comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN, leftRowNumber, rightPartitionSize),
+                        comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, rightRowNumber, new Constant(BIGINT, 1L)))),
                 new Logical(AND, ImmutableList.of(
-                        comparison(metadata, GREATER_THAN, rightRowNumber, leftPartitionSize),
-                        comparison(metadata, EQUAL, leftRowNumber, new Constant(BIGINT, 1L))))));
+                        comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN, rightRowNumber, leftPartitionSize),
+                        comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, leftRowNumber, new Constant(BIGINT, 1L))))));
 
         JoinType joinType;
         if (left.pruneWhenEmpty() && right.pruneWhenEmpty()) {
@@ -626,6 +629,7 @@ public class ImplementTableFunctionSource
         Expression rowNumberExpression = ifExpression(
                 comparison(
                         metadata,
+                        getCharVarcharCoercion(context.getSession()),
                         GREATER_THAN,
                         new Coalesce(leftRowNumber, new Constant(BIGINT, -1L)),
                         new Coalesce(rightRowNumber, new Constant(BIGINT, -1L))),
@@ -637,6 +641,7 @@ public class ImplementTableFunctionSource
         Expression partitionSizeExpression = ifExpression(
                 comparison(
                         metadata,
+                        getCharVarcharCoercion(context.getSession()),
                         GREATER_THAN,
                         new Coalesce(leftPartitionSize, new Constant(BIGINT, -1L)),
                         new Coalesce(rightPartitionSize, new Constant(BIGINT, -1L))),
@@ -679,7 +684,7 @@ public class ImplementTableFunctionSource
             symbolsToMarkers.put(symbol, marker);
             Expression actual = symbol.toSymbolReference();
             Expression reference = referenceSymbol.toSymbolReference();
-            assignments.put(marker, ifExpression(comparison(metadata, EQUAL, actual, reference), actual, new Constant(BIGINT, null)));
+            assignments.put(marker, ifExpression(comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, actual, reference), actual, new Constant(BIGINT, null)));
         }
 
         PlanNode project = new ProjectNode(
