@@ -50,18 +50,22 @@ public class TestParquetTypeWidenedPredicate
             throws IOException
     {
         List<String> columnNames = ImmutableList.of("c");
-        BlockBuilder realValues = REAL.createFixedSizeBlockBuilder(2);
-        REAL.writeLong(realValues, floatToRawIntBits(1.5f));
-        REAL.writeLong(realValues, floatToRawIntBits(2.5f));
+        BlockBuilder first = REAL.createFixedSizeBlockBuilder(1);
+        REAL.writeLong(first, floatToRawIntBits(1.5f));
+        BlockBuilder second = REAL.createFixedSizeBlockBuilder(1);
+        REAL.writeLong(second, floatToRawIntBits(2.5f));
 
         ParquetDataSource dataSource = new TestingParquetDataSource(
                 writeParquetFile(
-                        ParquetWriterOptions.builder().build(),
+                        ParquetWriterOptions.builder()
+                                .setMaxRowGroupRowCount(1)
+                                .build(),
                         ImmutableList.of(REAL),
                         columnNames,
-                        ImmutableList.of(new Page(2, realValues.build()))),
+                        ImmutableList.of(new Page(1, first.build()), new Page(1, second.build()))),
                 ParquetReaderOptions.defaultOptions());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks()).hasSize(2);
 
         assertThat(readMatchingRows(dataSource, parquetMetadata, DOUBLE, columnNames, Domain.singleValue(DOUBLE, 1.5d)))
                 .containsExactly(1.5d);
@@ -74,18 +78,22 @@ public class TestParquetTypeWidenedPredicate
             throws IOException
     {
         List<String> columnNames = ImmutableList.of("c");
-        BlockBuilder intValues = INTEGER.createFixedSizeBlockBuilder(2);
-        INTEGER.writeLong(intValues, 123);
-        INTEGER.writeLong(intValues, 456);
+        BlockBuilder first = INTEGER.createFixedSizeBlockBuilder(1);
+        INTEGER.writeLong(first, 123);
+        BlockBuilder second = INTEGER.createFixedSizeBlockBuilder(1);
+        INTEGER.writeLong(second, 456);
 
         ParquetDataSource dataSource = new TestingParquetDataSource(
                 writeParquetFile(
-                        ParquetWriterOptions.builder().build(),
+                        ParquetWriterOptions.builder()
+                                .setMaxRowGroupRowCount(1)
+                                .build(),
                         ImmutableList.of(INTEGER),
                         columnNames,
-                        ImmutableList.of(new Page(2, intValues.build()))),
+                        ImmutableList.of(new Page(1, first.build()), new Page(1, second.build()))),
                 ParquetReaderOptions.defaultOptions());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks()).hasSize(2);
 
         assertThat(readMatchingLongs(dataSource, parquetMetadata, BIGINT, columnNames, Domain.singleValue(BIGINT, 123L)))
                 .containsExactly(123L);
