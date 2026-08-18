@@ -463,7 +463,7 @@ public final class DomainTranslator
                         return result.get();
                     }
                 }
-                if (!isImplicitCoercion(castExpression)) {
+                if (!isOrderPreserving(castExpression)) {
                     //
                     // we cannot use non-coercion cast to literal_type on symbol side to build tuple domain
                     //
@@ -519,7 +519,7 @@ public final class DomainTranslator
             }
         }
 
-        private boolean isImplicitCoercion(Cast cast)
+        private boolean isOrderPreserving(Cast cast)
         {
             if (cast.expression().type() instanceof CharType && cast.type() instanceof VarcharType) {
                 // CHAR -> VARCHAR trims trailing spaces, so it has no inverse on the value side: a VARCHAR constant
@@ -528,6 +528,11 @@ public final class DomainTranslator
                 // (e.g. CAST(c AS varchar) = 'a ' is unsatisfiable, but would be rewritten to c = CHAR 'a'). Leave it.
                 return false;
             }
+            // Implicit coercions are typically order-preserving and injective.
+            // TODO this, like UnwrapCastInComparison, should determine whether cast is injective.
+            //  For example, bigint -> double is implicit coercion and injective for values up to 2^53.
+            //  For injective and order-preserving cast we can convert equality comparison on cast values into equality comparison on source type values
+            //  For non-injective but still order-preserving cast, we can create a wider domain to capture the range of all the source type values that produce given target type value.
             return typeCoercion.canCoerce(cast.expression().type(), cast.type());
         }
 
