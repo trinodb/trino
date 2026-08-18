@@ -17,16 +17,19 @@ import io.airlift.log.Logging;
 import io.trino.server.testing.TestingTrinoServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /**
  * An integration test for JDBC client interacting with Trino server.
  */
+@TestInstance(PER_CLASS)
 public class TestJdbcResultSet
         extends BaseTestJdbcResultSet
 {

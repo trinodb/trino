@@ -16,34 +16,34 @@ package io.trino;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.jdbc.BaseTestJdbcResultSet;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.AfterParameterizedClassInvocation;
+import org.junit.jupiter.params.BeforeParameterizedClassInvocation;
+import org.junit.jupiter.params.Parameter;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Factory;
-import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Optional;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.getStackTraceAsString;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@ParameterizedClass
+@MethodSource("testedTrinoVersions")
+@TestInstance(PER_CLASS)
 public class TestJdbcResultSetCompatibilityOldServer
         extends BaseTestJdbcResultSet
 {
@@ -51,20 +51,11 @@ public class TestJdbcResultSetCompatibilityOldServer
     private static final int NUMBER_OF_TESTED_VERSIONS = 5;
     private static final int TESTED_VERSIONS_GRANULARITY = 3;
 
-    /**
-     * Empty means that we could not obtain current Trino version and tests defined here will be marked as failed.
-     */
-    private final Optional<String> testedTrinoVersion;
-    private TrinoContainer trinoContainer;
+    @Parameter
+    String testedTrinoVersion;
+    private static TrinoContainer trinoContainer;
 
-    @Factory(dataProvider = "testedTrinoVersions")
-    public TestJdbcResultSetCompatibilityOldServer(Optional<String> testedTrinoVersion)
-    {
-        this.testedTrinoVersion = requireNonNull(testedTrinoVersion, "testedTrinoVersion is null");
-    }
-
-    @DataProvider
-    public static Object[][] testedTrinoVersions()
+    public static List<String> testedTrinoVersions()
     {
         try {
             String currentVersionString = Resources.toString(Resources.getResource("trino-test-jdbc-compatibility-old-server-version.txt"), UTF_8).trim();
@@ -85,24 +76,17 @@ public class TestJdbcResultSetCompatibilityOldServer
                 testVersion -= TESTED_VERSIONS_GRANULARITY;
             }
 
-            return testedTrinoVersions.build().stream()
-                    .map(Optional::of)
-                    .collect(toDataProvider());
+            return testedTrinoVersions.build();
         }
         catch (Throwable e) {
-            // We cannot throw here because TestNG does not handle exceptions coming out from @DataProvider used with @Factory well.
-            // Instead we return marker Option.empty() as only parameterization. Then we will fail test run in setupTrinoContainer().
-            System.err.println("Could not determine Trino versions to test; " + e.getMessage() + "\n" + getStackTraceAsString(e));
-            return new Object[][] {
-                    {Optional.empty()},
-            };
+            throw new RuntimeException("Could not determine Trino versions to test", e);
         }
     }
 
-    @BeforeClass
+    @BeforeParameterizedClassInvocation
     public void setupTrinoContainer()
     {
-        DockerImageName image = DockerImageName.parse("trinodb/trino").withTag(getTestedTrinoVersion());
+        DockerImageName image = DockerImageName.parse("trinodb/trino").withTag(testedTrinoVersion);
         trinoContainer = new TrinoContainer(image);
         trinoContainer.start();
 
@@ -113,7 +97,7 @@ public class TestJdbcResultSetCompatibilityOldServer
                 String actualTrinoVersion = rs.getString(1);
                 assertThat(actualTrinoVersion)
                         .describedAs("Trino server version reported by container does not match expected one")
-                        .isEqualTo(getTestedTrinoVersion());
+                        .isEqualTo(testedTrinoVersion);
             }
         }
         catch (SQLException e) {
@@ -121,7 +105,7 @@ public class TestJdbcResultSetCompatibilityOldServer
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterParameterizedClassInvocation
     public void tearDownTrinoContainer()
     {
         if (trinoContainer != null) {
@@ -137,7 +121,7 @@ public class TestJdbcResultSetCompatibilityOldServer
     public void testNumber()
             throws Exception
     {
-        if (parseInt(getTestedTrinoVersion()) < 480) {
+        if (parseInt(testedTrinoVersion) < 480) {
             try (ConnectedStatement statementWrapper = newStatement()) {
                 assertThatThrownBy(() -> statementWrapper.getStatement().executeUpdate("SELECT NUMBER '1'"))
                         .hasMessageMatching(".*(Unknown resolvedType: NUMBER|Unknown type: number).*");
@@ -151,7 +135,7 @@ public class TestJdbcResultSetCompatibilityOldServer
     public void testVariant()
             throws Exception
     {
-        if (parseInt(getTestedTrinoVersion()) < 481) {
+        if (parseInt(testedTrinoVersion) < 481) {
             try (ConnectedStatement statementWrapper = newStatement()) {
                 assertThatThrownBy(() -> statementWrapper.getStatement().executeQuery("SELECT CAST(NULL AS variant)"))
                         .hasMessageMatching(".*Unknown type: variant.*");
@@ -166,19 +150,6 @@ public class TestJdbcResultSetCompatibilityOldServer
             throws SQLException
     {
         return DriverManager.getConnection(trinoContainer.getJdbcUrl(), "test", null);
-    }
-
-    @Override
-    public String toString()
-    {
-        // This allows distinguishing tests run against different Trino server version from each other.
-        // It is included in tests report and maven output.
-        return format("TestJdbcResultSetCompatibility[%s]", testedTrinoVersion.orElse("unknown"));
-    }
-
-    protected String getTestedTrinoVersion()
-    {
-        return testedTrinoVersion.orElseThrow(() -> new IllegalStateException("Trino version not set"));
     }
 
     private static void removeDockerImage(String imageName)
