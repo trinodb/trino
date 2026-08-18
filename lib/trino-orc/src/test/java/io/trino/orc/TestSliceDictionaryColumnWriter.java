@@ -45,6 +45,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static io.trino.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Character.MAX_CODE_POINT;
@@ -74,6 +75,29 @@ public class TestSliceDictionaryColumnWriter
         writer.finishRowGroup();
 
         assertThat(writer.tryConvertToDirect(megabytes(64))).isEmpty();
+    }
+
+    @Test
+    public void testDirectConversionWithEmptyRowGroup()
+    {
+        SliceDictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
+                ROOT_COLUMN,
+                VARCHAR,
+                CompressionKind.NONE,
+                toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()),
+                () -> new StringStatisticsBuilder(toIntExact(DEFAULT_MAX_STRING_STATISTICS_LIMIT.toBytes()), new NoOpBloomFilterBuilder()));
+
+        writer.beginRowGroup();
+        writer.finishRowGroup();
+
+        writer.beginRowGroup();
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 2, 16);
+        blockBuilder.writeEntry(utf8Slice("a"));
+        blockBuilder.writeEntry(utf8Slice("b"));
+        writer.writeBlock(blockBuilder.build());
+        writer.finishRowGroup();
+
+        assertThat(writer.tryConvertToDirect(megabytes(64))).isPresent();
     }
 
     @Test
@@ -123,6 +147,55 @@ public class TestSliceDictionaryColumnWriter
             hits += contains ? 1 : 0;
         }
         assertThat((double) hits / valuesCount).isBetween(0.1, 0.115);
+    }
+
+    @Test
+    public void testHighCardinalityDictionaryRoundTrip()
+            throws Exception
+    {
+        // over 65536 dictionary entries exercises multi-byte packed row group indexes
+        // four copies per value keeps the compression ratio above the dictionary conversion threshold
+        List<String> values = new ArrayList<>();
+        for (int i = 0; i < 70_000; i++) {
+            String value = "value_" + i;
+            for (int copy = 0; copy < 4; copy++) {
+                values.add(value);
+            }
+        }
+        OrcTester.quickOrcTester().testRoundTrip(VARCHAR, values);
+    }
+
+    @Test
+    public void testPackedRowGroupIndexWidths()
+    {
+        SliceDictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
+                ROOT_COLUMN,
+                VARCHAR,
+                CompressionKind.NONE,
+                toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()),
+                () -> new StringStatisticsBuilder(toIntExact(DEFAULT_MAX_STRING_STATISTICS_LIMIT.toBytes()), new NoOpBloomFilterBuilder()));
+
+        // dictionary reserves entry 0 for null, so 255 values seal exactly at the 256 entry boundary
+        writeDistinctValues(writer, 0, 255, 1);
+        writeDistinctValues(writer, 255, 65_280, 2);
+        writeDistinctValues(writer, 65_535, 10_000, 3);
+
+        writer.close();
+        assertThat(writer.getColumnEncodings().get(ROOT_COLUMN).getColumnEncodingKind()).isEqualTo(DICTIONARY_V2);
+    }
+
+    private static void writeDistinctValues(SliceDictionaryColumnWriter writer, int firstValue, int count, int expectedIndexBytesPerValue)
+    {
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, count, count * 16);
+        for (int i = firstValue; i < firstValue + count; i++) {
+            blockBuilder.writeEntry(utf8Slice("value_" + i));
+        }
+        writer.beginRowGroup();
+        writer.writeBlock(blockBuilder.build());
+        long retainedBeforeSeal = writer.getRetainedBytes();
+        writer.finishRowGroup();
+        assertThat(writer.getRetainedBytes() - retainedBeforeSeal)
+                .isGreaterThanOrEqualTo((long) count * expectedIndexBytesPerValue);
     }
 
     public static Slice createRandomUtf8Slice(int[] codePointSet, int lengthInBytes)
