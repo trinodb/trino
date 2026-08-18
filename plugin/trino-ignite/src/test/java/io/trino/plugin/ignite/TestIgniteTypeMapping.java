@@ -264,9 +264,9 @@ public class TestIgniteTypeMapping
         // Ignite supports decimal with negative scale internally, but the JDBC driver
         // reports the scale as 0, so Trino sees decimal(p, 0) for decimal(p, -s).
         SqlDataTypeTest.create()
-                .addRoundTrip("decimal(3, -1)", "CAST('10' AS decimal(3, -1))", createDecimalType(3, 0), "CAST('10' AS decimal(3, 0))")
-                .addRoundTrip("decimal(3, -1)", "CAST('0' AS decimal(3, -1))", createDecimalType(3, 0), "CAST('0' AS decimal(3, 0))")
-                .addRoundTrip("decimal(3, -2)", "CAST('100' AS decimal(3, -2))", createDecimalType(3, 0), "CAST('100' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, -1)", "CAST('10' AS decimal(3, -1))", createDecimalType(4, 0), "CAST('10' AS decimal(4, 0))")
+                .addRoundTrip("decimal(3, -1)", "CAST('0' AS decimal(3, -1))", createDecimalType(4, 0), "CAST('0' AS decimal(4, 0))")
+                .addRoundTrip("decimal(3, -2)", "CAST('100' AS decimal(3, -2))", createDecimalType(5, 0), "CAST('100' AS decimal(5, 0))")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_decimal_negative_scale"));
     }
 
