@@ -81,6 +81,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_SCAN_PHYSICAL_BYTES = "query_max_scan_physical_bytes";
     public static final String QUERY_MAX_WRITE_PHYSICAL_SIZE = "query_max_write_physical_size";
+    public static final String QUERY_TARGET_RESULT_SIZE = "query_target_result_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
@@ -416,6 +417,11 @@ public final class SystemSessionProperties
                         QUERY_MAX_WRITE_PHYSICAL_SIZE,
                         "Maximum write physical size of a query",
                         queryManagerConfig.getQueryMaxWritePhysicalSize().orElse(null),
+                        false),
+                dataSizeProperty(
+                        QUERY_TARGET_RESULT_SIZE,
+                        "Target size of a single batch of query results returned to the client",
+                        queryManagerConfig.getTargetResultSize(),
                         false),
                 booleanProperty(
                         RESOURCE_OVERCOMMIT,
@@ -1391,6 +1397,11 @@ public final class SystemSessionProperties
     public static Optional<DataSize> getQueryMaxWritePhysicalSize(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(QUERY_MAX_WRITE_PHYSICAL_SIZE, DataSize.class));
+    }
+
+    public static DataSize getQueryTargetResultSize(Session session)
+    {
+        return session.getSystemProperty(QUERY_TARGET_RESULT_SIZE, DataSize.class);
     }
 
     public static boolean isSpillEnabled(Session session)
