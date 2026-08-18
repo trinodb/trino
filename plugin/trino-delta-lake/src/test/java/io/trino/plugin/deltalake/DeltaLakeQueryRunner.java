@@ -195,6 +195,7 @@ public final class DeltaLakeQueryRunner
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                     .addDeltaProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
+                    .addDeltaProperty("fs.hadoop.enabled", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
