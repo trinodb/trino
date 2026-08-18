@@ -269,7 +269,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
             BloomFilter bloomFilter = bloomFilterOptional.get();
-            if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, effectivePredicateDomain.getType()))) {
+            if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, effectivePredicateDomain.getType(), column.getPrimitiveType()))) {
                 return false;
             }
         }
@@ -421,10 +421,10 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE)) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Double min = (Double) minimums.get(i);
-                Double max = (Double) maximums.get(i);
+                double min = asDouble(minimums.get(i));
+                double max = asDouble(maximums.get(i));
 
-                if (min.isNaN() || max.isNaN()) {
+                if (Double.isNaN(min) || Double.isNaN(max)) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
@@ -690,6 +690,15 @@ public class TupleDomainParquetPredicate
         throw new IllegalArgumentException("Can't convert value to long: " + value.getClass().getName());
     }
 
+    public static double asDouble(Object value)
+    {
+        if (value instanceof Float || value instanceof Double) {
+            return ((Number) value).doubleValue();
+        }
+
+        throw new IllegalArgumentException("Can't convert value to double: " + value.getClass().getName());
+    }
+
     /**
      * Check if the predicateValue might be in the bloomfilter
      *
@@ -701,20 +710,71 @@ public class TupleDomainParquetPredicate
     @VisibleForTesting
     public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
     {
+        return checkInBloomFilter(bloomFilter, predicateValue, sqlType, null);
+    }
+
+    @VisibleForTesting
+    public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType, PrimitiveType primitiveType)
+    {
         // TODO: Support TIMESTAMP, CHAR and DECIMAL
-        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == DATE) {
-            return bloomFilter.findHash(bloomFilter.hash(toIntExact(((Number) predicateValue).longValue())));
+        PrimitiveType.PrimitiveTypeName primitiveTypeName = primitiveType != null ? primitiveType.getPrimitiveTypeName() : null;
+
+        if (primitiveTypeName == PrimitiveType.PrimitiveTypeName.FLOAT) {
+            if (sqlType == REAL) {
+                return bloomFilter.findHash(bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).longValue()))));
+            }
+            if (sqlType == DOUBLE) {
+                double doubleValue = ((Double) predicateValue).doubleValue();
+                float floatValue = (float) doubleValue;
+                if ((double) floatValue == doubleValue) {
+                    return bloomFilter.findHash(bloomFilter.hash(floatValue));
+                }
+                return false;
+            }
         }
-        if (sqlType == BIGINT) {
-            return bloomFilter.findHash(bloomFilter.hash(((Number) predicateValue).longValue()));
+        else if (primitiveTypeName == PrimitiveType.PrimitiveTypeName.DOUBLE) {
+            if (sqlType == DOUBLE) {
+                return bloomFilter.findHash(bloomFilter.hash(((Double) predicateValue).doubleValue()));
+            }
+            if (sqlType == REAL) {
+                float floatValue = intBitsToFloat(toIntExact(((Number) predicateValue).longValue()));
+                return bloomFilter.findHash(bloomFilter.hash((double) floatValue));
+            }
         }
-        else if (sqlType == DOUBLE) {
-            return bloomFilter.findHash(bloomFilter.hash(((Double) predicateValue).doubleValue()));
+        else if (primitiveTypeName == PrimitiveType.PrimitiveTypeName.INT32) {
+            if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == DATE) {
+                return bloomFilter.findHash(bloomFilter.hash(toIntExact(((Number) predicateValue).longValue())));
+            }
+            if (sqlType == BIGINT) {
+                long longValue = ((Number) predicateValue).longValue();
+                int intValue = (int) longValue;
+                if ((long) intValue == longValue) {
+                    return bloomFilter.findHash(bloomFilter.hash(intValue));
+                }
+                return false;
+            }
         }
-        else if (sqlType == REAL) {
-            return bloomFilter.findHash(bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).longValue()))));
+        else if (primitiveTypeName == PrimitiveType.PrimitiveTypeName.INT64) {
+            if (sqlType == BIGINT || sqlType == INTEGER || sqlType == SMALLINT || sqlType == TINYINT || sqlType == DATE) {
+                return bloomFilter.findHash(bloomFilter.hash(((Number) predicateValue).longValue()));
+            }
         }
-        else if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
+        else {
+            if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == DATE) {
+                return bloomFilter.findHash(bloomFilter.hash(toIntExact(((Number) predicateValue).longValue())));
+            }
+            if (sqlType == BIGINT) {
+                return bloomFilter.findHash(bloomFilter.hash(((Number) predicateValue).longValue()));
+            }
+            else if (sqlType == DOUBLE) {
+                return bloomFilter.findHash(bloomFilter.hash(((Double) predicateValue).doubleValue()));
+            }
+            else if (sqlType == REAL) {
+                return bloomFilter.findHash(bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).longValue()))));
+            }
+        }
+
+        if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
             return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) predicateValue).toByteBuffer())));
         }
         else if (sqlType instanceof UuidType) {

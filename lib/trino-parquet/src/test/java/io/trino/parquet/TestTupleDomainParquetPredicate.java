@@ -40,6 +40,7 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
@@ -495,6 +496,63 @@ public class TestTupleDomainParquetPredicate
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, REAL, 10, floatColumnStats(maximum, minimum), ID, UTC))
                 .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required float FloatColumn\": [min: 40.3, max: 4.3, num_nulls: 0] [testFile]");
+    }
+
+    @Test
+    public void testFloatWidenedToDouble()
+            throws Exception
+    {
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(FLOAT, "FloatColumn");
+        assertThat(getDomain(columnDescriptor, DOUBLE, 0, null, ID, UTC)).isEqualTo(all(DOUBLE));
+
+        float minimum = 4.3f;
+        float maximum = 40.3f;
+
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(minimum, minimum), ID, UTC))
+                .isEqualTo(singleValue(DOUBLE, (double) minimum));
+
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(minimum, maximum), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(NaN, NaN), ID, UTC)).isEqualTo(notNull(DOUBLE));
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(NaN, NaN, true), ID, UTC)).isEqualTo(all(DOUBLE));
+        assertThat(getDomain(DOUBLE, floatDictionaryDescriptor(NaN))).isEqualTo(all(DOUBLE));
+        assertThat(getDomain(DOUBLE, floatDictionaryDescriptor(minimum, NaN))).isEqualTo(all(DOUBLE));
+
+        // fail on corrupted statistics
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(maximum, minimum), ID, UTC))
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required float FloatColumn\": [min: 40.3, max: 4.3, num_nulls: 0] [testFile]");
+    }
+
+    @Test
+    public void testBloomFilterTypeWidening()
+    {
+        BlockSplitBloomFilter floatBloomFilter = new BlockSplitBloomFilter(1024);
+        floatBloomFilter.insertHash(floatBloomFilter.hash(1.5f));
+        floatBloomFilter.insertHash(floatBloomFilter.hash(42.0f));
+
+        PrimitiveType floatPrimitive = Types.optional(FLOAT).named("col");
+
+        // When queried as DOUBLE
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(floatBloomFilter, 1.5d, DOUBLE, floatPrimitive)).isTrue();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(floatBloomFilter, 42.0d, DOUBLE, floatPrimitive)).isTrue();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(floatBloomFilter, 100.0d, DOUBLE, floatPrimitive)).isFalse();
+        // A double value not representable as float exactly
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(floatBloomFilter, 1.50000000001d, DOUBLE, floatPrimitive)).isFalse();
+
+        // When queried as REAL
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(floatBloomFilter, (long) floatToRawIntBits(1.5f), REAL, floatPrimitive)).isTrue();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(floatBloomFilter, (long) floatToRawIntBits(99.0f), REAL, floatPrimitive)).isFalse();
+
+        // INT32 widened to BIGINT
+        BlockSplitBloomFilter intBloomFilter = new BlockSplitBloomFilter(1024);
+        intBloomFilter.insertHash(intBloomFilter.hash(123));
+
+        PrimitiveType intPrimitive = Types.optional(INT32).named("int_col");
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 123L, BIGINT, intPrimitive)).isTrue();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 456L, BIGINT, intPrimitive)).isFalse();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 1000000000000L, BIGINT, intPrimitive)).isFalse();
     }
 
     @Test
