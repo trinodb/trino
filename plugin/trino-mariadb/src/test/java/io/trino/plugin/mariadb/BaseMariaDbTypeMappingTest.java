@@ -262,6 +262,13 @@ public abstract class BaseMariaDbTypeMappingTest
     }
 
     @Test
+    public void testDecimalNegativeScale()
+    {
+        // MariaDB does not support decimal with negative scale
+        testUnsupportedDataType("decimal(10, -2)");
+    }
+
+    @Test
     public void testDecimalExceedingPrecisionMax()
     {
         // Test that DECIMAL types with precision > 38 map to NUMBER type

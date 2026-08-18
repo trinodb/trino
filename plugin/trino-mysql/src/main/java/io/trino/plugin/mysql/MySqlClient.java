@@ -612,17 +612,15 @@ public class MySqlClient
             case Types.NUMERIC, Types.DECIMAL -> {
                 int decimalDigits = typeHandle.decimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 int precision = typeHandle.requiredColumnSize();
-                // TODO does mysql support negative scale?
-                precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision <= Decimals.MAX_PRECISION) {
-                    yield Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                    yield Optional.of(decimalColumnMapping(createDecimalType(precision, decimalDigits)));
                 }
                 // precision > MAX_PRECISION
                 yield switch (getDecimalRounding(session)) {
                     case MAP_TO_NUMBER -> Optional.of(numberColumnMapping());
                     case STRICT -> Optional.empty();
                     case ALLOW_OVERFLOW -> {
-                        int scale = min(max(decimalDigits, 0), getDecimalDefaultScale(session));
+                        int scale = min(decimalDigits, getDecimalDefaultScale(session));
                         yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
                 };
