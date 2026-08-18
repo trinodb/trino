@@ -82,7 +82,7 @@ public class SliceDictionaryColumnWriter
     private final ByteArrayOutputStream dictionaryDataStream;
     private final LongOutputStream dictionaryLengthStream;
 
-    private final DictionaryBuilder dictionary = new DictionaryBuilder(10000);
+    private final DictionaryBuilder dictionary = new DictionaryBuilder(1024);
 
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
 
