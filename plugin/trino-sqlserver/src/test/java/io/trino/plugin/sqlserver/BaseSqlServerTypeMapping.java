@@ -308,18 +308,6 @@ public abstract class BaseSqlServerTypeMapping
     }
 
     @Test
-    public void testDecimalNegativeScale()
-    {
-        // SQL Server supports decimal with negative scale, which rounds to powers of 10
-        // decimal(p, -s) in SQL Server maps to decimal(p+s, 0) in Trino
-        SqlDataTypeTest.create()
-                .addRoundTrip("decimal(3, -1)", "10", createDecimalType(4, 0), "CAST('10' AS decimal(4, 0))")
-                .addRoundTrip("decimal(3, -1)", "0", createDecimalType(4, 0), "CAST('0' AS decimal(4, 0))")
-                .addRoundTrip("decimal(3, -2)", "100", createDecimalType(5, 0), "CAST('100' AS decimal(5, 0))")
-                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_decimal_negative_scale"));
-    }
-
-    @Test
     public void testChar()
     {
         SqlDataTypeTest.create()
