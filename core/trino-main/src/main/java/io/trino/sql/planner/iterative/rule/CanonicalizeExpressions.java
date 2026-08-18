@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.sql.PlannerContext;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 
 public class CanonicalizeExpressions
@@ -22,6 +23,6 @@ public class CanonicalizeExpressions
 {
     public CanonicalizeExpressions(PlannerContext plannerContext)
     {
-        super((expression, _) -> rewrite(expression, plannerContext));
+        super((expression, context) -> rewrite(expression, plannerContext, getCharVarcharCoercion(context.getSession())));
     }
 }

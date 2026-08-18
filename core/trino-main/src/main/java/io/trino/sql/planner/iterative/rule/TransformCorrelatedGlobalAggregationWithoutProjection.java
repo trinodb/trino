@@ -40,6 +40,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.empty;
 import static io.trino.matching.Pattern.nonEmpty;
@@ -154,7 +155,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
         AggregationNode distinct = null;
 
         // decorrelate nested plan
-        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, getCharVarcharCoercion(context.getSession()), context.getSymbolAllocator(), context.getLookup());
         Optional<PlanNodeDecorrelator.DecorrelatedNode> decorrelatedSource = decorrelator.decorrelateFilters(source, correlatedJoinNode.getCorrelation());
         if (decorrelatedSource.isEmpty()) {
             // we failed to decorrelate the nested plan, so check if we can extract a distinct operator from the nested plan

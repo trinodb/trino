@@ -73,6 +73,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -160,7 +161,7 @@ public class BenchmarkScanFilterAndProjectOperator
 
             PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), 0);
             ColumnarFilterCompiler compiler = new ColumnarFilterCompiler(PLANNER_CONTEXT, 0);
-            PageProcessor pageProcessor = new ExpressionCompiler(pageFunctionCompiler, compiler).compilePageProcessor(true, true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty()).apply(DynamicFilter.EMPTY);
+            PageProcessor pageProcessor = new ExpressionCompiler(pageFunctionCompiler, compiler).compilePageProcessor(getCharVarcharCoercion(TEST_SESSION), true, true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty()).apply(DynamicFilter.EMPTY);
 
             createTaskContext();
             createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, columnHandles, types);

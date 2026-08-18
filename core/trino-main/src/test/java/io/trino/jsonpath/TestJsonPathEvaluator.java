@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.jsonpath.ir.IrDatetimeMethod;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.jsonpath.ir.IrPathNode;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.jsonpath.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
@@ -1663,20 +1665,22 @@ public class TestJsonPathEvaluator
 
     private static PathEvaluationVisitor createPathVisitor(JsonNode input, boolean lax)
     {
+        Session session = testSessionBuilder().build();
         return new PathEvaluationVisitor(
                 lax,
                 input,
                 PARAMETERS.values().toArray(),
-                new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
-                new CachingResolver(createTestingMetadataManager()));
+                new JsonPathEvaluator.Invoker(session.toConnectorSession(), createTestingFunctionManager()),
+                new CachingResolver(createTestingMetadataManager(), getCharVarcharCoercion(session)));
     }
 
     private static PathPredicateEvaluationVisitor createPredicateVisitor(JsonNode input, boolean lax)
     {
+        Session session = testSessionBuilder().build();
         return new PathPredicateEvaluationVisitor(
                 lax,
                 createPathVisitor(input, lax),
-                new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
-                new CachingResolver(createTestingMetadataManager()));
+                new JsonPathEvaluator.Invoker(session.toConnectorSession(), createTestingFunctionManager()),
+                new CachingResolver(createTestingMetadataManager(), getCharVarcharCoercion(session)));
     }
 }

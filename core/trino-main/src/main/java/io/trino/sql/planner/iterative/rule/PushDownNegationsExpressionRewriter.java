@@ -24,6 +24,7 @@ import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 
@@ -40,9 +41,9 @@ import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 
 public final class PushDownNegationsExpressionRewriter
 {
-    public static Expression pushDownNegations(Metadata metadata, Expression expression)
+    public static Expression pushDownNegations(Metadata metadata, CharVarcharCoercion charVarcharCoercion, Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, charVarcharCoercion), expression);
     }
 
     private PushDownNegationsExpressionRewriter() {}
@@ -51,10 +52,12 @@ public final class PushDownNegationsExpressionRewriter
             extends ExpressionRewriter<Void>
     {
         private final Metadata metadata;
+        private final CharVarcharCoercion charVarcharCoercion;
 
-        public Visitor(Metadata metadata)
+        public Visitor(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
         {
             this.metadata = metadata;
+            this.charVarcharCoercion = charVarcharCoercion;
         }
 
         @Override
@@ -73,9 +76,9 @@ public final class PushDownNegationsExpressionRewriter
                     if ((typeHasNaN(leftType) || typeHasNaN(rightType)) && (
                             operator == LESS_THAN_OR_EQUAL ||
                                     operator == LESS_THAN)) {
-                        return new Call(function, ImmutableList.of(comparison(metadata, operator, treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context))));
+                        return new Call(function, ImmutableList.of(comparison(metadata, charVarcharCoercion, operator, treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context))));
                     }
-                    return comparison(metadata, operator.negate(), treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context));
+                    return comparison(metadata, charVarcharCoercion, operator.negate(), treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context));
                 }
 
                 if (argument instanceof Logical child) {

@@ -74,6 +74,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
@@ -312,7 +313,7 @@ public final class ConnectorExpressionTranslator
                 return translate(call.getArguments().get(0), lambdaArguments).flatMap(value ->
                         translate(call.getArguments().get(1), lambdaArguments).flatMap(min ->
                                 translate(call.getArguments().get(2), lambdaArguments).map(max ->
-                                        IrExpressions.between(plannerContext.getMetadata(), symbolAllocator, value, min, max))));
+                                        IrExpressions.between(plannerContext.getMetadata(), getCharVarcharCoercion(session), symbolAllocator, value, min, max))));
             }
             if (NOT_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression expression = getOnlyElement(call.getArguments());
@@ -362,7 +363,7 @@ public final class ConnectorExpressionTranslator
             // arithmetic unary
             if (NEGATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression argument = getOnlyElement(call.getArguments());
-                ResolvedFunction function = plannerContext.getMetadata().resolveOperator(NEGATION, ImmutableList.of(argument.getType()));
+                ResolvedFunction function = plannerContext.getMetadata().resolveOperator(getCharVarcharCoercion(session), NEGATION, ImmutableList.of(argument.getType()));
                 return translate(argument, lambdaArguments).map(value -> new Call(function, ImmutableList.of(value)));
             }
 
@@ -383,10 +384,11 @@ public final class ConnectorExpressionTranslator
                     JSON_STRING_TO_ARRAY_NAME.equals(call.getFunctionName().getName()) ||
                     JSON_STRING_TO_ROW_NAME.equals(call.getFunctionName().getName())) {
                 // These are special functions that currently need to be resolved via getCoercion() -- TODO: fix this
-                resolved = plannerContext.getMetadata().getCoercion(builtinFunctionName(call.getFunctionName().getName()), call.getArguments().get(0).getType(), call.getType());
+                resolved = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), builtinFunctionName(call.getFunctionName().getName()), call.getArguments().get(0).getType(), call.getType());
             }
             else {
                 resolved = plannerContext.getMetadata().resolveBuiltinFunction(
+                        getCharVarcharCoercion(session),
                         call.getFunctionName().getName(),
                         fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
             }
@@ -403,6 +405,7 @@ public final class ConnectorExpressionTranslator
 
             return Optional.of(new Call(
                     plannerContext.getMetadata().getCoercion(
+                            getCharVarcharCoercion(session),
                             builtinFunctionName(TryCastFunction.TRY_CAST_FUNCTION_NAME),
                             argument.getType(),
                             type),
@@ -424,7 +427,7 @@ public final class ConnectorExpressionTranslator
                 if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType || formalType instanceof JsonPathType)
                         && argumentType instanceof VarcharType) {
                     // These types are not used in connector expressions, so require special handling when translating back to expressions.
-                    expression = cast(plannerContext.getTypeManager(), expression, formalType);
+                    expression = cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), expression, formalType);
                 }
                 else if (!argumentType.equals(formalType)) {
                     // There are no implicit coercions in connector expressions except for engine types that are not exposed in connector expressions.
@@ -439,7 +442,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument, lambdaArguments);
             if (translatedArgument.isPresent()) {
-                return Optional.of(not(plannerContext.getMetadata(), new IsNull(translatedArgument.get())));
+                return Optional.of(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(translatedArgument.get())));
             }
 
             return Optional.empty();
@@ -459,7 +462,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument, lambdaArguments);
             if (argument.getType().equals(BOOLEAN) && translatedArgument.isPresent()) {
-                return Optional.of(not(plannerContext.getMetadata(), translatedArgument.get()));
+                return Optional.of(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), translatedArgument.get()));
             }
             return Optional.empty();
         }
@@ -469,7 +472,7 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> translatedExpression = translate(expression, lambdaArguments);
 
             if (translatedExpression.isPresent()) {
-                return Optional.of(cast(plannerContext.getTypeManager(), translatedExpression.get(), type));
+                return Optional.of(cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), translatedExpression.get(), type));
             }
 
             return Optional.empty();
@@ -485,7 +488,7 @@ public final class ConnectorExpressionTranslator
         {
             return translate(left, lambdaArguments).flatMap(leftTranslated ->
                     translate(right, lambdaArguments).map(rightTranslated ->
-                            comparison(plannerContext.getMetadata(), operator, leftTranslated, rightTranslated)));
+                            comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), operator, leftTranslated, rightTranslated)));
         }
 
         private Optional<Expression> translateNullIf(ConnectorExpression first, ConnectorExpression second, Map<String, Symbol> lambdaArguments)
@@ -493,7 +496,7 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> firstExpression = translate(first, lambdaArguments);
             Optional<Expression> secondExpression = translate(second, lambdaArguments);
             if (firstExpression.isPresent() && secondExpression.isPresent()) {
-                return Optional.of(IrExpressions.nullIf(plannerContext.getMetadata(), plannerContext.getTypeManager(), symbolAllocator, firstExpression.get(), secondExpression.get()));
+                return Optional.of(IrExpressions.nullIf(plannerContext.getMetadata(), plannerContext.getTypeManager(), getCharVarcharCoercion(session), symbolAllocator, firstExpression.get(), secondExpression.get()));
             }
 
             return Optional.empty();
@@ -533,7 +536,7 @@ public final class ConnectorExpressionTranslator
 
         private Optional<Expression> translateArithmeticBinary(OperatorType operator, ConnectorExpression left, ConnectorExpression right, Map<String, Symbol> lambdaArguments)
         {
-            ResolvedFunction function = plannerContext.getMetadata().resolveOperator(operator, ImmutableList.of(left.getType(), right.getType()));
+            ResolvedFunction function = plannerContext.getMetadata().resolveOperator(getCharVarcharCoercion(session), operator, ImmutableList.of(left.getType(), right.getType()));
 
             return translate(left, lambdaArguments).flatMap(leftTranslated ->
                     translate(right, lambdaArguments).map(rightTranslated ->
@@ -573,20 +576,20 @@ public final class ConnectorExpressionTranslator
                         return Optional.empty();
                     }
 
-                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(session))
                             .setName(LIKE_PATTERN_FUNCTION_NAME)
                             .addArgument(VARCHAR, castIfNecessary(translatedPattern.get(), VARCHAR))
                             .addArgument(VARCHAR, castIfNecessary(translatedEscape.get(), VARCHAR))
                             .build();
                 }
                 else {
-                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(session))
                             .setName(LIKE_PATTERN_FUNCTION_NAME)
                             .addArgument(VARCHAR, castIfNecessary(translatedPattern.get(), VARCHAR))
                             .build();
                 }
 
-                Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(session))
                         .setName(LIKE_FUNCTION_NAME)
                         .addArgument(value.getType(), translatedValue.get())
                         .addArgument(LIKE_PATTERN, patternCall)
@@ -643,7 +646,7 @@ public final class ConnectorExpressionTranslator
                 return expression;
             }
 
-            return cast(plannerContext.getTypeManager(), expression, type);
+            return cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), expression, type);
         }
     }
 

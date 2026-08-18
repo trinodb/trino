@@ -24,6 +24,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 
 import java.util.List;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -75,6 +77,6 @@ public abstract class AbstractTestExtractSpatial
 
     private Call functionCall(String name, List<Type> types, List<Expression> arguments)
     {
-        return new Call(tester().getMetadata().resolveBuiltinFunction(name, fromTypes(types)), arguments);
+        return new Call(tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, fromTypes(types)), arguments);
     }
 }

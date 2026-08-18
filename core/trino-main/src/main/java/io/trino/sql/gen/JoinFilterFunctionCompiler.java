@@ -45,6 +45,7 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -98,25 +99,25 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
         try {
             return joinFilterFunctionFactories.get(
-                    new JoinFilterCacheKey(canonicalizeReferences(filter, layout), leftBlocksSize),
-                    () -> internalCompileFilterFunctionFactory(filter, layout, leftBlocksSize));
+                    new JoinFilterCacheKey(canonicalizeReferences(filter, layout), leftBlocksSize, charVarcharCoercion),
+                    () -> internalCompileFilterFunctionFactory(filter, layout, leftBlocksSize, charVarcharCoercion));
         }
         catch (ExecutionException e) {
             throw new UncheckedExecutionException(e);
         }
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
-        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, layout, leftBlocksSize);
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, layout, leftBlocksSize, charVarcharCoercion);
         return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize)
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -127,7 +128,7 @@ public class JoinFilterFunctionCompiler
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         new JoinFilterFunctionCompiler(functionManager, metadata, typeManager)
-                .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize);
+                .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize, charVarcharCoercion);
 
         //
         // toString method
@@ -143,14 +144,14 @@ public class JoinFilterFunctionCompiler
         return defineHiddenClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getClassData());
     }
 
-    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize)
+    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, functionManager, metadata, typeManager);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, layout, leftBlocksSize, sessionField);
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, functionManager, metadata, typeManager, charVarcharCoercion);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, layout, leftBlocksSize, charVarcharCoercion, sessionField);
 
         generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
@@ -183,6 +184,7 @@ public class JoinFilterFunctionCompiler
             Expression filter,
             Map<Symbol, Integer> layout,
             int leftBlocksSize,
+            CharVarcharCoercion charVarcharCoercion,
             FieldDefinition sessionField)
     {
         // int leftPosition, Page leftPage, int rightPosition, Page rightPage
@@ -219,6 +221,7 @@ public class JoinFilterFunctionCompiler
                 functionManager,
                 metadata,
                 typeManager,
+                charVarcharCoercion,
                 compiledLambdaMap,
                 ImmutableList.of(leftPage, leftPosition, rightPage, rightPosition));
 
@@ -300,11 +303,12 @@ public class JoinFilterFunctionCompiler
         }, expression);
     }
 
-    private record JoinFilterCacheKey(Expression filter, int leftBlocksSize)
+    private record JoinFilterCacheKey(Expression filter, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
         JoinFilterCacheKey
         {
             requireNonNull(filter, "filter is null");
+            requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
         }
     }
 

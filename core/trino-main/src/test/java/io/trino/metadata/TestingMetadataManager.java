@@ -114,8 +114,7 @@ public final class TestingMetadataManager
                     languageFunctionManager,
                     tableFunctionRegistry,
                     typeManager,
-                    NO_CATALOGS,
-                    new FeaturesConfig());
+                    NO_CATALOGS);
         }
     }
 

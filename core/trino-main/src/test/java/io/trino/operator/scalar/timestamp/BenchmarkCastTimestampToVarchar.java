@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
@@ -127,7 +128,7 @@ public class BenchmarkCastTimestampToVarchar
                     functionResolution.getCoercion(sourceType, VarcharType.createUnboundedVarcharType()),
                     new Reference(sourceType, "$col_0")));
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), timestampProjections, ImmutableMap.of(new Symbol(sourceType, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), timestampProjections, ImmutableMap.of(new Symbol(sourceType, "$col_0"), 0))
                     .get();
         }
 

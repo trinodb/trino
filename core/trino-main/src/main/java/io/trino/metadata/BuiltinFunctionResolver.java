@@ -27,6 +27,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Collection;
 import java.util.List;
@@ -59,25 +60,25 @@ class BuiltinFunctionResolver
     private final NonEvictableCache<CoercionCacheKey, ResolvedFunction> coercionCache;
     private final NonEvictableCache<FunctionCacheKey, ResolvedFunction> functionCache;
 
-    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog, boolean legacyVarcharToCharCoercion)
+    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        this.functionBinder = new FunctionBinder(metadata, typeManager, legacyVarcharToCharCoercion);
+        this.functionBinder = new FunctionBinder(metadata, typeManager);
 
         operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         coercionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         functionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
     }
 
-    ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
+    ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
     {
         try {
-            return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
+            return uncheckedCacheGet(functionCache, FunctionCacheKey.from(charVarcharCoercion, name, parameterTypes),
                     () -> {
-                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
-                        return resolveBuiltin(functionBinding);
+                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(charVarcharCoercion, parameterTypes, getBuiltinFunctions(name), name);
+                        return resolveBuiltin(functionBinding, charVarcharCoercion);
                     });
         }
         catch (UncheckedExecutionException e) {
@@ -88,12 +89,13 @@ class BuiltinFunctionResolver
         }
     }
 
-    ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         try {
-            return uncheckedCacheGet(operatorCache, new OperatorCacheKey(operatorType, argumentTypes),
+            return uncheckedCacheGet(operatorCache, new OperatorCacheKey(charVarcharCoercion, operatorType, argumentTypes),
                     () -> resolveBuiltinFunction(
+                            charVarcharCoercion,
                             mangleOperatorName(operatorType),
                             argumentTypes.stream()
                                     .map(Type::getTypeDescriptor)
@@ -111,14 +113,14 @@ class BuiltinFunctionResolver
         }
     }
 
-    ResolvedFunction resolveCoercion(OperatorType operatorType, Type fromType, Type toType)
+    ResolvedFunction resolveCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
     {
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
             return uncheckedCacheGet(
                     coercionCache,
-                    new CoercionCacheKey(operatorType, fromType, toType),
-                    () -> resolveCoercion(mangleOperatorName(operatorType), fromType, toType));
+                    new CoercionCacheKey(charVarcharCoercion, operatorType, fromType, toType),
+                    () -> resolveCoercion(charVarcharCoercion, mangleOperatorName(operatorType), fromType, toType));
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
@@ -131,15 +133,16 @@ class BuiltinFunctionResolver
         }
     }
 
-    ResolvedFunction resolveCoercion(String functionName, Type fromType, Type toType)
+    ResolvedFunction resolveCoercion(CharVarcharCoercion charVarcharCoercion, String functionName, Type fromType, Type toType)
     {
         CatalogFunctionBinding functionBinding = functionBinder.bindCoercion(
+                charVarcharCoercion,
                 new GroundSignature(toType.getTypeDescriptor(), ImmutableList.of(fromType.getTypeDescriptor())),
                 getBuiltinFunctions(functionName));
-        return resolveBuiltin(functionBinding);
+        return resolveBuiltin(functionBinding, charVarcharCoercion);
     }
 
-    private ResolvedFunction resolveBuiltin(CatalogFunctionBinding functionBinding)
+    private ResolvedFunction resolveBuiltin(CatalogFunctionBinding functionBinding, CharVarcharCoercion charVarcharCoercion)
     {
         FunctionBinding binding = functionBinding.functionBinding();
         FunctionDependencyDeclaration dependencies = globalFunctionCatalog.getFunctionDependencies(binding.getFunctionId(), binding.getBoundSignature());
@@ -148,6 +151,7 @@ class BuiltinFunctionResolver
                 metadata,
                 typeManager,
                 functionBinder,
+                charVarcharCoercion,
                 GlobalSystemConnector.CATALOG_HANDLE,
                 functionBinding.functionBinding(),
                 functionBinding.boundFunctionMetadata(),
@@ -161,7 +165,7 @@ class BuiltinFunctionResolver
                     }
                     return getBuiltinFunctions(catalogSchemaFunctionName.functionName());
                 },
-                this::resolveBuiltin);
+                nestedBinding -> resolveBuiltin(nestedBinding, charVarcharCoercion));
     }
 
     private Collection<CatalogFunctionMetadata> getBuiltinFunctions(String functionName)
@@ -172,36 +176,39 @@ class BuiltinFunctionResolver
                 .collect(toImmutableList());
     }
 
-    private record OperatorCacheKey(OperatorType operatorType, List<? extends Type> argumentTypes)
+    private record OperatorCacheKey(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         private OperatorCacheKey
         {
+            requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
             requireNonNull(operatorType, "operatorType is null");
             argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         }
     }
 
-    private record CoercionCacheKey(OperatorType operatorType, Type fromType, Type toType)
+    private record CoercionCacheKey(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
     {
         private CoercionCacheKey
         {
+            requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
             requireNonNull(operatorType, "operatorType is null");
             requireNonNull(fromType, "fromType is null");
             requireNonNull(toType, "toType is null");
         }
     }
 
-    private record FunctionCacheKey(String name, List<? extends TypeDescriptor> types)
+    private record FunctionCacheKey(CharVarcharCoercion charVarcharCoercion, String name, List<? extends TypeDescriptor> types)
     {
         private FunctionCacheKey
         {
+            requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
             requireNonNull(name, "name is null");
             requireNonNull(types, "types is null");
         }
 
-        public static FunctionCacheKey from(String name, List<TypeDescriptorProvider> parameterTypes)
+        public static FunctionCacheKey from(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
         {
-            return new FunctionCacheKey(name, parameterTypes.stream()
+            return new FunctionCacheKey(charVarcharCoercion, name, parameterTypes.stream()
                     .map(TypeDescriptorProvider::getTypeDescriptor)
                     .collect(toImmutableList()));
         }
