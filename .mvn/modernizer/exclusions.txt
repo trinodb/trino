@@ -1,0 +1,75 @@
+# getOnlyElement is more readable than the stream analogue
+com/google/common/collect/Iterables.getOnlyElement:(Ljava/lang/Iterable;)Ljava/lang/Object;
+com/google/common/collect/Iterables.getOnlyElement:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;
+# getLast has lower complexity for array based lists than the stream analogue (O(1) vs O(log(N))
+com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;)Ljava/lang/Object;
+com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;
+# TODO: requires getting to common understanding which of those we want to enable
+com/google/common/collect/Iterables.transform:(Ljava/lang/Iterable;Lcom/google/common/base/Function;)Ljava/lang/Iterable;
+com/google/common/collect/Lists.transform:(Ljava/util/List;Lcom/google/common/base/Function;)Ljava/util/List;
+com/google/common/collect/Iterables.isEmpty:(Ljava/lang/Iterable;)Z
+com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/lang/Iterable;
+com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/lang/Iterable;
+com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/lang/Iterable;
+com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;)Ljava/lang/Iterable;
+com/google/common/collect/Iterables.all:(Ljava/lang/Iterable;Lcom/google/common/base/Predicate;)Z
+com/google/common/collect/Iterables.any:(Ljava/lang/Iterable;Lcom/google/common/base/Predicate;)Z
+com/google/common/collect/Iterables.skip:(Ljava/lang/Iterable;I)Ljava/lang/Iterable;
+com/google/common/collect/Iterables.limit:(Ljava/lang/Iterable;I)Ljava/lang/Iterable;
+com/google/common/collect/Iterables.get:(Ljava/lang/Iterable;I)Ljava/lang/Object;
+com/google/common/collect/Iterables.getFirst:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;
+com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;)Ljava/lang/Object;
+com/google/common/collect/Iterables.cycle:(Ljava/lang/Iterable;)Ljava/lang/Iterable;
+com/google/common/collect/Iterables.cycle:([Ljava/lang/Object;)Ljava/lang/Iterable;
+# com.google.common.io.BaseEncoding.base64 provides more reach interfaces than java.util.Base64
+com/google/common/io/BaseEncoding.base64:()Lcom/google/common/io/BaseEncoding;
+
+# disable default modernizer violation
+com/google/inject/Provider
+
+# disable recommendations to move to NIO2: https://github.com/gaul/modernizer-maven-plugin/pull/301
+java/io/File."<init>":(Ljava/lang/String;)V
+java/io/FileInputStream."<init>":(Ljava/io/File;)V
+java/io/FileInputStream."<init>":(Ljava/lang/String;)V
+java/io/FileOutputStream."<init>":(Ljava/io/File;)V
+java/io/FileOutputStream."<init>":(Ljava/lang/String;)V
+java/io/File."<init>":(Ljava/net/URI;)V
+java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+
+# Modernizer emits false-positive warnings even when presence is guaranteed
+java/util/Optional.get:()Ljava/lang/Object;
+
+# Trino's code style mandates the static format() over String.formatted(); see .github/DEVELOPMENT.md
+java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+
+# Collections.singletonList/emptyList/singleton/emptySet/emptyMap are allowed; the List/Set/Map.of() analogues have different semantics (e.g. null handling)
+java/util/Collections.singletonList:(Ljava/lang/Object;)Ljava/util/List;
+java/util/Collections.emptyList:()Ljava/util/List;
+java/util/Collections.singleton:(Ljava/lang/Object;)Ljava/util/Set;
+java/util/Collections.emptySet:()Ljava/util/Set;
+java/util/Collections.emptyMap:()Ljava/util/Map;
+java/util/Collections.singletonMap:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+
+# toUnmodifiableList() rejects nulls whereas Stream.toList() permits them; they are not interchangeable
+java/util/stream/Collectors.toUnmodifiableList:()Ljava/util/stream/Collector;
+
+# Guava's Joiner is more flexible than String.join (skipNulls, useForNull, etc.)
+com/google/common/base/Joiner.join:(Ljava/lang/Iterable;)Ljava/lang/String;
+
+# Lists.newArrayList(...) is more readable than new ArrayList<>(Arrays.asList(...))
+com/google/common/collect/Lists.newArrayList:([Ljava/lang/Object;)Ljava/util/ArrayList;
+
+# Guava's Strings.repeat is allowed alongside String.repeat(int)
+com/google/common/base/Strings.repeat:(Ljava/lang/String;I)Ljava/lang/String;
+
+# Guava's CharStreams.copy is allowed alongside Reader.transferTo(Writer)
+com/google/common/io/CharStreams.copy:(Ljava/lang/Readable;Ljava/lang/Appendable;)J
+
+# Guava's Files.copy is allowed alongside java.nio.file.Files.copy
+com/google/common/io/Files.copy:(Ljava/io/File;Ljava/io/File;)V
+
+# Guava's Files.createParentDirs is allowed alongside java.nio.file.Files.createDirectories
+com/google/common/io/Files.createParentDirs:(Ljava/io/File;)V
+
+# Collections.sort(List) is allowed alongside List.sort(Comparator.naturalOrder())
+java/util/Collections.sort:(Ljava/util/List;)V
