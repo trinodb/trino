@@ -23,7 +23,6 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
@@ -86,7 +85,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.SystemSessionProperties.getQueryTargetResultSize;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHING;
@@ -108,8 +107,6 @@ import static java.util.Objects.requireNonNullElse;
 class Query
 {
     private static final Logger log = Logger.get(Query.class);
-
-    private static final DataSize TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
 
     private final QueryManager queryManager;
     private final QueryId queryId;
@@ -591,7 +588,7 @@ class Query
         QueryResultRows.Builder resultBuilder = queryResultRowsBuilder()
                 .withTypes(types);
 
-        long targetResultBytes = TARGET_RESULT_SIZE.toBytes();
+        long targetResultBytes = getQueryTargetResultSize(session).toBytes();
         try {
             long bytes = 0;
             while (bytes < targetResultBytes) {
