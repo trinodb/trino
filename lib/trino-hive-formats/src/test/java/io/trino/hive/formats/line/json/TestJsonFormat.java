@@ -145,6 +145,51 @@ public class TestJsonFormat
     }
 
     @Test
+    public void testTopLevelDuplicateKeys()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.of(
+                new Column("a", BIGINT, 0),
+                new Column("b", BIGINT, 1),
+                new Column("c", BIGINT, 2));
+
+        // last value wins for duplicate top-level keys
+        assertLineMatches(columns, "{\"a\": 1, \"a\": 2}", Arrays.asList(2L, null, null));
+        assertLineMatches(columns, "{\"a\": 1, \"b\": 2, \"a\": 3}", Arrays.asList(3L, 2L, null));
+        assertLineMatches(columns, "{\"a\": 1, \"b\": 2, \"a\": 3, \"b\": 4}", Arrays.asList(3L, 4L, null));
+        assertLineMatches(columns, "{\"a\": 1, \"a\": 2, \"a\": 3}", Arrays.asList(3L, null, null));
+
+        // duplicate of non-first column
+        assertLineMatches(columns, "{\"b\": 1, \"b\": 2}", Arrays.asList(null, 2L, null));
+
+        // duplicate with unknown fields skipped
+        assertLineMatches(columns, "{\"x\": 99, \"a\": 1, \"a\": 2}", Arrays.asList(2L, null, null));
+
+        // last value wins even when the last value is null
+        assertLineMatches(columns, "{\"a\": 1, \"a\": null}", Arrays.asList(null, null, null));
+
+        // multiple rows into the same PageBuilder
+        LineDeserializer deserializer = new JsonDeserializerFactory().create(columns, createJsonProperties(ImmutableList.of()));
+        PageBuilder pageBuilder = new PageBuilder(3, deserializer.getTypes());
+        deserializer.deserialize(createLineBuffer("{\"a\": 1, \"b\": 2}"), pageBuilder);
+        deserializer.deserialize(createLineBuffer("{\"a\": 10, \"a\": 20}"), pageBuilder);
+        deserializer.deserialize(createLineBuffer("{\"a\": 100, \"b\": 200, \"c\": 300}"), pageBuilder);
+        Page page = pageBuilder.build();
+        assertThat(readTrinoValues(columns, page, 0)).isEqualTo(Arrays.asList(1L, 2L, null));
+        assertThat(readTrinoValues(columns, page, 1)).isEqualTo(Arrays.asList(20L, null, null));
+        assertThat(readTrinoValues(columns, page, 2)).isEqualTo(ImmutableList.of(100L, 200L, 300L));
+    }
+
+    private static void assertLineMatches(List<Column> columns, String jsonLine, List<Object> expectedValues)
+            throws IOException
+    {
+        List<Object> actualValues = readTrinoLine(jsonLine, columns, ImmutableList.of());
+        for (int i = 0; i < columns.size(); i++) {
+            assertColumnValueEquals(columns.get(i).type(), actualValues.get(i), expectedValues.get(i));
+        }
+    }
+
+    @Test
     public void testMap()
             throws Exception
     {
