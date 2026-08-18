@@ -553,6 +553,57 @@ public class TestTupleDomainParquetPredicate
         assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 123L, BIGINT, intPrimitive)).isTrue();
         assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 456L, BIGINT, intPrimitive)).isFalse();
         assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 1000000000000L, BIGINT, intPrimitive)).isFalse();
+
+        // INT32 widened to DOUBLE (Hive integer → double coercion)
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 123.0d, DOUBLE, intPrimitive)).isTrue();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 123.5d, DOUBLE, intPrimitive)).isFalse();
+        assertThat(TupleDomainParquetPredicate.checkInBloomFilter(intBloomFilter, 456.0d, DOUBLE, intPrimitive)).isFalse();
+    }
+
+    @Test
+    public void testIntegerWidenedToDouble()
+            throws Exception
+    {
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "IntColumn");
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, intColumnStats(1, 100), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, 1.0d, true, 100.0d, true)), false));
+
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(INT32).named("test_int32"),
+                BoundaryOrder.UNORDERED,
+                asList(false),
+                asList(0L),
+                toIntByteBufferList(1),
+                toIntByteBufferList(100));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"c"}, Types.optional(INT32).named("c"), 0, 0);
+        assertThat(getDomain(DOUBLE, 10, columnIndex, ID, column, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, 1.0d, true, 100.0d, true)), false));
+    }
+
+    @Test
+    public void testFloatColumnIndexWidenedToDouble()
+            throws Exception
+    {
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(FLOAT).named("test_float"),
+                BoundaryOrder.UNORDERED,
+                asList(false),
+                asList(0L),
+                toFloatByteBufferList(1.5f),
+                toFloatByteBufferList(2.5f));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"c"}, Types.optional(FLOAT).named("c"), 0, 0);
+        assertThat(getDomain(DOUBLE, 10, columnIndex, ID, column, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) 1.5f, true, (double) 2.5f, true)), false));
+    }
+
+    @Test
+    public void testInexactLongStatisticsIgnoredForDouble()
+            throws Exception
+    {
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT64, "LongColumn");
+        long inexact = (1L << 53) + 1;
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, longColumnStats(inexact, inexact), ID, UTC))
+                .isEqualTo(notNull(DOUBLE));
     }
 
     @Test
@@ -1009,6 +1060,24 @@ public class TestTupleDomainParquetPredicate
             else {
                 buffers.add(ByteBuffer.wrap(BytesUtils.longToBytes(value)));
             }
+        }
+        return buffers;
+    }
+
+    private static List<ByteBuffer> toIntByteBufferList(Integer... values)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>(values.length);
+        for (Integer value : values) {
+            buffers.add(ByteBuffer.wrap(BytesUtils.intToBytes(value)));
+        }
+        return buffers;
+    }
+
+    private static List<ByteBuffer> toFloatByteBufferList(Float... values)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>(values.length);
+        for (Float value : values) {
+            buffers.add(ByteBuffer.wrap(BytesUtils.intToBytes(Float.floatToIntBits(value))));
         }
         return buffers;
     }

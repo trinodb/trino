@@ -62,6 +62,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -406,14 +407,20 @@ public class TupleDomainParquetPredicate
         if (type.equals(REAL)) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Float min = (Float) minimums.get(i);
-                Float max = (Float) maximums.get(i);
+                Optional<Float> min = toExactFloat(minimums.get(i));
+                Optional<Float> max = toExactFloat(maximums.get(i));
+                if (min.isEmpty() || max.isEmpty()) {
+                    // Ignore statistics that cannot be converted exactly to REAL
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+                float minValue = min.orElseThrow();
+                float maxValue = max.orElseThrow();
 
-                if (min.isNaN() || max.isNaN()) {
+                if (Float.isNaN(minValue) || Float.isNaN(maxValue)) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                rangesBuilder.addRangeInclusive((long) floatToRawIntBits(min), (long) floatToRawIntBits(max));
+                rangesBuilder.addRangeInclusive((long) floatToRawIntBits(minValue), (long) floatToRawIntBits(maxValue));
             }
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
@@ -421,14 +428,18 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE)) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                double min = asDouble(minimums.get(i));
-                double max = asDouble(maximums.get(i));
-
-                if (Double.isNaN(min) || Double.isNaN(max)) {
+                OptionalDouble min = toExactDouble(minimums.get(i));
+                OptionalDouble max = toExactDouble(maximums.get(i));
+                if (min.isEmpty() || max.isEmpty()) {
+                    // Ignore statistics that cannot be converted exactly to DOUBLE
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                rangesBuilder.addRangeInclusive(min, max);
+                if (Double.isNaN(min.getAsDouble()) || Double.isNaN(max.getAsDouble())) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+
+                rangesBuilder.addRangeInclusive(min.getAsDouble(), max.getAsDouble());
             }
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
@@ -692,11 +703,51 @@ public class TupleDomainParquetPredicate
 
     public static double asDouble(Object value)
     {
-        if (value instanceof Float || value instanceof Double) {
-            return ((Number) value).doubleValue();
-        }
+        return toExactDouble(value).orElseThrow(() -> new IllegalArgumentException("Can't convert value to double: " + value.getClass().getName()));
+    }
 
-        throw new IllegalArgumentException("Can't convert value to double: " + value.getClass().getName());
+    /**
+     * Convert a Parquet statistics value to {@code double} when the conversion is exact and order-preserving.
+     * FLOAT and INT32 always convert; INT64 converts only when the value fits in a double mantissa.
+     */
+    private static OptionalDouble toExactDouble(Object value)
+    {
+        if (value instanceof Double doubleValue) {
+            return OptionalDouble.of(doubleValue);
+        }
+        if (value instanceof Float floatValue) {
+            return OptionalDouble.of(floatValue.doubleValue());
+        }
+        if (value instanceof Byte || value instanceof Short || value instanceof Integer) {
+            return OptionalDouble.of(((Number) value).doubleValue());
+        }
+        if (value instanceof Long longValue) {
+            double converted = longValue.doubleValue();
+            if ((long) converted == longValue) {
+                return OptionalDouble.of(converted);
+            }
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.empty();
+    }
+
+    /**
+     * Convert a Parquet statistics value to {@code float} when the conversion is exact.
+     * FLOAT converts directly; DOUBLE converts only when the value is representable in float.
+     */
+    private static Optional<Float> toExactFloat(Object value)
+    {
+        if (value instanceof Float floatValue) {
+            return Optional.of(floatValue);
+        }
+        if (value instanceof Double doubleValue) {
+            float converted = doubleValue.floatValue();
+            if (Double.isNaN(doubleValue) || (double) converted == doubleValue) {
+                return Optional.of(converted);
+            }
+            return Optional.empty();
+        }
+        return Optional.empty();
     }
 
     /**
@@ -753,10 +804,21 @@ public class TupleDomainParquetPredicate
                 }
                 return false;
             }
+            if (sqlType == DOUBLE) {
+                return checkIntegerBloomFilter(((Double) predicateValue).doubleValue(), bloomFilter);
+            }
         }
         else if (primitiveTypeName == PrimitiveType.PrimitiveTypeName.INT64) {
             if (sqlType == BIGINT || sqlType == INTEGER || sqlType == SMALLINT || sqlType == TINYINT || sqlType == DATE) {
                 return bloomFilter.findHash(bloomFilter.hash(((Number) predicateValue).longValue()));
+            }
+            if (sqlType == DOUBLE) {
+                double doubleValue = ((Double) predicateValue).doubleValue();
+                long longValue = (long) doubleValue;
+                if ((double) longValue == doubleValue) {
+                    return bloomFilter.findHash(bloomFilter.hash(longValue));
+                }
+                return false;
             }
         }
         else {
@@ -782,6 +844,15 @@ public class TupleDomainParquetPredicate
         }
 
         return true;
+    }
+
+    private static boolean checkIntegerBloomFilter(double doubleValue, BloomFilter bloomFilter)
+    {
+        long longValue = (long) doubleValue;
+        if ((double) longValue != doubleValue || longValue < Integer.MIN_VALUE || longValue > Integer.MAX_VALUE) {
+            return false;
+        }
+        return bloomFilter.findHash(bloomFilter.hash((int) longValue));
     }
 
     private static Optional<Collection<Object>> extractDiscreteValues(int domainCompactionThreshold, ValueSet valueSet)
