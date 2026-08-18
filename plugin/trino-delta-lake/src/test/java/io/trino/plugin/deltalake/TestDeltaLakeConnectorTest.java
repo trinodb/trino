@@ -5547,6 +5547,13 @@ public class TestDeltaLakeConnectorTest
     public void testMissingFieldName()
     {
         assertQueryFails("CREATE TABLE test_missing_field_name(a row(int, int))", "\\QRow type field does not have a name: row(integer, integer)");
+
+        String tableName = "test_missing_field_name_" + randomNameSuffix();
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT row(123) AS c1", "\\QRow type field does not have a name: row(integer)");
+
+        try (TestTable table = newTrinoTable("test_missing_field_name_", "(id int)")) {
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(int, int)", ".*Row type field does not have a name: row(integer, integer)");
+        }
     }
 
     @Test
