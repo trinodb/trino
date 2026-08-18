@@ -189,7 +189,7 @@
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.2</dep.avro.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
-        <dep.clickhouse.version>0.9.8</dep.clickhouse.version>
+        <dep.clickhouse.version>0.10.0</dep.clickhouse.version>
         <dep.confluent.version>8.1.1</dep.confluent.version>
         <dep.datasketches.version>9.0.0</dep.datasketches.version>
         <dep.derby.version>10.17.1.0</dep.derby.version>
