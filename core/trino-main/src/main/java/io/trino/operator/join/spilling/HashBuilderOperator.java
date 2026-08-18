@@ -498,10 +498,13 @@ public class HashBuilderOperator
             return;
         }
 
+        long outerPositionTrackerSizeInBytes = lookupSourceFactory.getOuterPositionTrackerSizeInBytes(index.getPositionCount());
+        // Outer join does not support spill, so the tracker bytes never land in revocable memory
+        verify(outerPositionTrackerSizeInBytes == 0 || !spillEnabled);
         long memoryRequired = index.getEstimatedMemoryRequiredToCreateLookupSource(
                 hashArraySizeSupplier,
                 sortChannel,
-                hashChannels);
+                hashChannels) + outerPositionTrackerSizeInBytes;
 
         ListenableFuture<Void> reserved;
         if (spillEnabled) {
@@ -518,10 +521,10 @@ public class HashBuilderOperator
 
         LookupSourceSupplier partition = buildLookupSource();
         if (spillEnabled) {
-            localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes() + index.getExtraPagesIndexMemoryWithLookupSourceBuild());
+            localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes() + index.getExtraPagesIndexMemoryWithLookupSourceBuild() + outerPositionTrackerSizeInBytes);
         }
         else {
-            localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes() + index.getExtraPagesIndexMemoryWithLookupSourceBuild());
+            localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes() + index.getExtraPagesIndexMemoryWithLookupSourceBuild() + outerPositionTrackerSizeInBytes);
         }
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
 
