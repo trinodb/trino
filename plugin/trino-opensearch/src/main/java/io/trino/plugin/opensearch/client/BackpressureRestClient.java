@@ -51,12 +51,13 @@ public class BackpressureRestClient
 {
     private static final Logger log = Logger.get(BackpressureRestClient.class);
 
+    @SuppressWarnings("deprecation")
     private final RestClient delegate;
     private final RetryPolicy<Response> retryPolicy;
     private final TimeStat backpressureStats;
     private final ThreadLocal<Stopwatch> stopwatch = ThreadLocal.withInitial(Stopwatch::createUnstarted);
 
-    public BackpressureRestClient(RestClient delegate, OpenSearchConfig config, TimeStat backpressureStats)
+    public BackpressureRestClient(@SuppressWarnings("deprecation") RestClient delegate, OpenSearchConfig config, TimeStat backpressureStats)
     {
         this.delegate = requireNonNull(delegate, "restClient is null");
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
