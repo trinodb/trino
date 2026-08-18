@@ -25,6 +25,10 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
+import java.util.Properties;
+
+import static java.lang.Math.toIntExact;
+
 public class SqlServerConnectionFactoryModule
         extends AbstractConfigurationAwareModule
 {
@@ -40,10 +44,28 @@ public class SqlServerConnectionFactoryModule
             CredentialProvider credentialProvider,
             OpenTelemetry openTelemetry)
     {
+        Properties connectionProperties = new Properties();
+        // Applies SO_TIMEOUT to every socket read of the TCP/prelogin/TLS/login handshake. The driver defaults
+        // to an infinite timeout, and its loginTimeout does not cover a read blocked on an unresponsive server,
+        // so without this a hung handshake parks the split thread forever. SqlServerConnectionFactory replaces
+        // it with the steady-state socket timeout once the connection is established.
+        connectionProperties.setProperty("socketTimeout", String.valueOf(sqlServerConfig.getConnectSocketTimeout().toMillis()));
+        // Defaults to 0 to disable idle connection resiliency. It transparently reconnects only a connection
+        // that broke while idle (a connection that breaks mid-query always fails), and reconnecting re-runs
+        // the login sequence, which resets SO_TIMEOUT back to the socketTimeout property above and silently
+        // discards the steady-state timeout that SqlServerConnectionFactory establishes. Trino connections
+        // spend nearly all their life executing statements, so recovery is better left to Trino's own retry
+        // mechanisms.
+        connectionProperties.setProperty("connectRetryCount", String.valueOf(sqlServerConfig.getConnectRetryCount()));
+        int socketTimeoutMillis = sqlServerConfig.getSocketTimeout()
+                .map(timeout -> toIntExact(timeout.toMillis()))
+                .orElse(0);
         return new SqlServerConnectionFactory(
                 DriverConnectionFactory.builder(new SQLServerDriver(), config.getConnectionUrl(), credentialProvider)
+                        .setConnectionProperties(connectionProperties)
                         .setOpenTelemetry(openTelemetry)
                         .build(),
-                sqlServerConfig.isSnapshotIsolationDisabled());
+                sqlServerConfig.isSnapshotIsolationDisabled(),
+                socketTimeoutMillis);
     }
 }
