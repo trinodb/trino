@@ -3369,7 +3369,10 @@ public class ExpressionAnalyzer
                 default -> throw new UnsupportedOperationException("Unknown field: " + field);
             }
 
-            return setExpressionType(node, BIGINT);
+            return setExpressionType(node, switch (field) {
+                case YEAR, YEAR_OF_WEEK, YOW, DAY_OF_YEAR, DOY -> SMALLINT;
+                case MONTH, DAY, DAY_OF_MONTH, DAY_OF_WEEK, DOW, WEEK, QUARTER, HOUR, MINUTE, SECOND, TIMEZONE_HOUR, TIMEZONE_MINUTE -> TINYINT;
+            });
         }
 
         private static boolean isDateTimeType(Type type)
