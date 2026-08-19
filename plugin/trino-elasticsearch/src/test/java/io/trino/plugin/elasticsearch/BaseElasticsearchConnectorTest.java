@@ -265,6 +265,39 @@ public abstract class BaseElasticsearchConnectorTest
         deleteIndex(indexName);
     }
 
+    @Test
+    public void testRegexpLikeIsNotPushedDown()
+            throws IOException
+    {
+        String indexName = "regexp_like_no_pushdown";
+        @Language("JSON")
+        String properties =
+                """
+                {
+                  "properties": {
+                    "value": { "type": "keyword" },
+                    "id": { "type": "keyword" }
+                  }
+                }
+                """;
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.of("value", "123", "id", "1"));
+        index(indexName, ImmutableMap.of("value", "abc", "id", "2"));
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        Session unsafe = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, "full_text_pushdown_mode", "UNSAFE")
+                .build();
+
+        // regexp_like follows Trino/Java regex semantics while Elasticsearch uses Lucene regex syntax. Even in UNSAFE
+        // full-text mode, do not translate SQL regexp_like into a Lucene regexp query.
+        assertThat(query(unsafe, "SELECT id FROM " + indexName + " WHERE regexp_like(value, '[0-9]+')"))
+                .matches("VALUES VARCHAR '1'")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        deleteIndex(indexName);
+    }
+
     /**
      * This method overrides the default values used for the data provider
      * of the test {@link AbstractTestQueries#testLargeIn()} by taking
@@ -1342,6 +1375,9 @@ public abstract class BaseElasticsearchConnectorTest
                 .isFullyPushedDown();
         assertThat(query(safeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, 'soome')"))
                 .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, '\\d+')"))
+                .isFullyPushedDown();
 
         // A multi-token LIKE prefix is pushed as a match_phrase_prefix pre-filter; the engine keeps the exact prefix
         // range as a residual, so the result stays correct (only "soome tex\t" starts with "soome te")

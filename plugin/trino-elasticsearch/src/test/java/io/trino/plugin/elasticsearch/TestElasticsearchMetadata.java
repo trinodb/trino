@@ -30,6 +30,8 @@ public class TestElasticsearchMetadata
         assertThat(likeToRegexp("a%b_c", Optional.empty())).isEqualTo("a.*b.c");
         assertThat(likeToRegexp("a[b", Optional.empty())).isEqualTo("a\\[b");
         assertThat(likeToRegexp("a_\\_b", Optional.of("\\"))).isEqualTo("a._b");
+        assertThat(likeToRegexp("a\\\\%", Optional.of("\\"))).isEqualTo("a\\\\.*");
+        assertThat(likeToRegexp("a\\\\_", Optional.of("\\"))).isEqualTo("a\\\\.");
         assertThat(likeToRegexp("a$_b", Optional.of("$"))).isEqualTo("a_b");
         assertThat(likeToRegexp("s_.m%ex\\t", Optional.of("$"))).isEqualTo("s.\\.m.*ex\\\\t");
         assertThat(likeToRegexp("\000%", Optional.empty())).isEqualTo("\000.*");

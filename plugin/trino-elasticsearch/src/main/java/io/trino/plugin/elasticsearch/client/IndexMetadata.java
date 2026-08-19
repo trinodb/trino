@@ -54,9 +54,14 @@ public record IndexMetadata(ObjectType schema)
     })
     public interface Type {}
 
-    public record PrimitiveType(String name, Optional<String> keyword)
+    public record PrimitiveType(String name, Optional<String> keyword, boolean aggregatable)
             implements Type
     {
+        public PrimitiveType(String name, Optional<String> keyword)
+        {
+            this(name, keyword, isDocValueType(name) || keyword.isPresent());
+        }
+
         public PrimitiveType(String name)
         {
             this(name, Optional.empty());
@@ -67,11 +72,24 @@ public record IndexMetadata(ObjectType schema)
             requireNonNull(name, "name is null");
             requireNonNull(keyword, "keyword is null");
         }
+
+        public static boolean isDocValueType(String name)
+        {
+            return switch (name) {
+                case "byte", "short", "integer", "long", "float", "double", "keyword", "boolean", "ip" -> true;
+                default -> false;
+            };
+        }
     }
 
-    public record DateTimeType(List<String> formats)
+    public record DateTimeType(List<String> formats, boolean aggregatable)
             implements Type
     {
+        public DateTimeType(List<String> formats)
+        {
+            this(formats, true);
+        }
+
         public DateTimeType
         {
             requireNonNull(formats, "formats is null");
@@ -89,6 +107,12 @@ public record IndexMetadata(ObjectType schema)
         }
     }
 
-    public record ScaledFloatType(double scale)
-            implements Type {}
+    public record ScaledFloatType(double scale, boolean aggregatable)
+            implements Type
+    {
+        public ScaledFloatType(double scale)
+        {
+            this(scale, true);
+        }
+    }
 }
