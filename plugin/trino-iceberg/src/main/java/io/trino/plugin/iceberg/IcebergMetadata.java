@@ -2249,10 +2249,7 @@ public class IcebergMetadata
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         return switch (executeHandle.procedureId()) {
             case OPTIMIZE_MANIFESTS -> executeOptimizeManifests(session, executeHandle);
-            case DROP_EXTENDED_STATS -> {
-                executeDropExtendedStats(session, executeHandle);
-                yield ImmutableMap.of();
-            }
+            case DROP_EXTENDED_STATS -> executeDropExtendedStats(session, executeHandle);
             case ROLLBACK_TO_SNAPSHOT -> {
                 executeRollbackToSnapshot(session, executeHandle);
                 yield ImmutableMap.of();
@@ -2282,7 +2279,7 @@ public class IcebergMetadata
         return optimizeManifests(icebergTable, icebergScanExecutor);
     }
 
-    private void executeDropExtendedStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    private Map<String, Long> executeDropExtendedStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         checkArgument(executeHandle.procedureHandle() instanceof IcebergDropExtendedStatsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
 
@@ -2290,17 +2287,18 @@ public class IcebergMetadata
             Table icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
             beginTransaction(icebergTable);
             UpdateStatistics updateStatistics = transaction.updateStatistics();
-            for (StatisticsFile statisticsFile : icebergTable.statisticsFiles()) {
+            List<StatisticsFile> statisticsFiles = icebergTable.statisticsFiles();
+            for (StatisticsFile statisticsFile : statisticsFiles) {
                 updateStatistics.removeStatistics(statisticsFile.snapshotId());
             }
             updateStatistics.commit();
             commitTransaction(transaction, "drop extended stats");
+            transaction = null;
+            return ImmutableMap.of("removed_statistics_count", (long) statisticsFiles.size());
         }
         catch (NotFoundException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, e);
         }
-
-        transaction = null;
     }
 
     private void executeRollbackToSnapshot(ConnectorSession session, IcebergTableExecuteHandle executeHandle)

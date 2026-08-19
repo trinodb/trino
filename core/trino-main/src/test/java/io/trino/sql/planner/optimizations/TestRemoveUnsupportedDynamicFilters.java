@@ -59,8 +59,10 @@ import java.util.Optional;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
@@ -330,6 +332,37 @@ public class TestRemoveUnsupportedDynamicFilters
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_DOUBLE_OK", "ORDERS_OK")
                                 .left(tableScan("lineitem", ImmutableMap.of("LINEITEM_DOUBLE_OK", "orderkey")))
+                                .right(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
+    }
+
+    @Test
+    public void testRemoveCharToVarcharCast()
+    {
+        // Dynamic filter is removed because there is no varchar to char saturated floor cast:
+        // CAST(char AS varchar) is not monotone, so dynamic filter domains cannot be translated
+        // onto the char column
+        Symbol lineitemCharOrderKeySymbol = builder.symbol("LINEITEM_CHAR_OK", createCharType(10));
+        PlanNode root = builder.output(ImmutableList.of(), ImmutableList.of(),
+                builder.join(
+                        INNER,
+                        builder.filter(
+                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), createVarcharType(10), new Cast(new Reference(createCharType(10), "LINEITEM_CHAR_OK"), createVarcharType(10))),
+                                builder.tableScan(
+                                        lineitemTableHandle,
+                                        ImmutableList.of(lineitemCharOrderKeySymbol),
+                                        ImmutableMap.of(lineitemCharOrderKeySymbol, new TpchColumnHandle("orderkey", createCharType(10))))),
+                        ordersTableScanNode,
+                        ImmutableList.of(new JoinNode.EquiJoinClause(lineitemCharOrderKeySymbol, ordersOrderKeySymbol)),
+                        ImmutableList.of(lineitemCharOrderKeySymbol),
+                        ImmutableList.of(ordersOrderKeySymbol),
+                        Optional.empty(),
+                        ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("LINEITEM_CHAR_OK", "ORDERS_OK")
+                                .left(tableScan("lineitem", ImmutableMap.of("LINEITEM_CHAR_OK", "orderkey")))
                                 .right(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 

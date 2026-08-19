@@ -15,8 +15,8 @@ package io.trino.tests.product.sqlserver;
 
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
-import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.mssqlserver.MSSQLServerContainer;
 import org.testcontainers.trino.TrinoContainer;
 
 import java.sql.Connection;
@@ -30,7 +30,7 @@ public class SqlServerEnvironment
         extends ProductTestEnvironment
 {
     private Network network;
-    private MSSQLServerContainer<?> sqlserver;
+    private MSSQLServerContainer sqlserver;
     private TrinoContainer trino;
 
     @Override
@@ -42,7 +42,7 @@ public class SqlServerEnvironment
 
         network = Network.newNetwork();
 
-        sqlserver = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
+        sqlserver = new MSSQLServerContainer("mcr.microsoft.com/mssql/server:2022-latest")
                 .withNetwork(network)
                 .withNetworkAliases("sqlserver")
                 .acceptLicense();

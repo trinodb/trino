@@ -18,9 +18,11 @@ import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -37,9 +39,11 @@ import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
@@ -495,6 +499,41 @@ public class TestSqlFormatter
                         FROM
                           test_base
                         """);
+    }
+
+    @Test
+    public void testMaterializedViewExecute()
+    {
+        Table mv = new Table(QualifiedName.of("test_mv"));
+        Identifier procedure = new Identifier("optimize", false);
+
+        assertThat(formatSql(
+                new MaterializedViewExecute(new NodeLocation(1, 1), mv, procedure, ImmutableList.of(), Optional.empty())))
+                .isEqualTo("ALTER MATERIALIZED VIEW test_mv EXECUTE optimize");
+
+        assertThat(formatSql(
+                new MaterializedViewExecute(
+                        new NodeLocation(1, 1),
+                        mv,
+                        procedure,
+                        ImmutableList.of(new CallArgument(new NodeLocation(1, 1), Optional.of(new Identifier("file_size_threshold", false)), new StringLiteral("10MB"))),
+                        Optional.empty())))
+                .isEqualTo("ALTER MATERIALIZED VIEW test_mv EXECUTE optimize(file_size_threshold => '10MB')");
+
+        assertThat(formatSql(
+                new MaterializedViewExecute(
+                        new NodeLocation(1, 1),
+                        mv,
+                        procedure,
+                        ImmutableList.of(),
+                        Optional.of(new Predicated(
+                                new NodeLocation(1, 1),
+                                new Identifier("age", false),
+                                new ComparisonPredicate(new NodeLocation(1, 1), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral("17")))))))
+                .isEqualTo(
+                        """
+                        ALTER MATERIALIZED VIEW test_mv EXECUTE optimize
+                        WHERE (age > 17)""");
     }
 
     @Test

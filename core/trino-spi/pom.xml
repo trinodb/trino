@@ -231,6 +231,18 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.block.DictionaryBlock io.trino.spi.block.DictionaryBlock::compact()</old>
+                                    <new>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::compact()</new>
+                                    <justification>Dictionary compaction can produce a simpler block representation.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.DictionaryBlock&gt; io.trino.spi.block.DictionaryBlock::compactRelatedBlocks(java.util.List&lt;io.trino.spi.block.DictionaryBlock&gt;)</old>
+                                    <new>method java.util.List&lt;? extends io.trino.spi.block.Block&gt; io.trino.spi.block.DictionaryBlock::compactRelatedBlocks(java.util.List&lt;io.trino.spi.block.DictionaryBlock&gt;)</new>
+                                    <justification>Related dictionary compaction can produce simpler block representations.</justification>
+                                </item>
+                                <item>
                                     <code>java.method.visibilityIncreased</code>
                                     <old>method int io.trino.spi.block.ArrayBlock::getOffsetBase()</old>
                                 </item>
