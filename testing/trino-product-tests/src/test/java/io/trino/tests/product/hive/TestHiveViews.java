@@ -595,13 +595,25 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testMapConstructionInView(HiveBasicEnvironment env)
     {
+        // Hive 3.1's Parquet reader returns NULL from a MAP() built over a Parquet column (fixed in Hive 4); use ORC here
+        env.executeTrinoUpdate("DROP TABLE IF EXISTS test_map_construction_orders");
+        env.executeTrinoUpdate(
+                """
+                CREATE TABLE test_map_construction_orders WITH (format = 'ORC') AS
+                SELECT
+                    CAST(orderkey AS BIGINT) AS o_orderkey,
+                    CAST(clerk AS VARCHAR(15)) AS o_clerk,
+                    CAST(orderpriority AS VARCHAR(15)) AS o_orderpriority,
+                    CAST(shippriority AS INTEGER) AS o_shippriority
+                FROM tpch.tiny.orders
+                """);
         env.executeHiveUpdate(
                 "CREATE OR REPLACE VIEW test_map_construction_view AS " +
                         "SELECT" +
                         "  o_orderkey" +
                         ", MAP(o_clerk, o_orderpriority) AS simple_map" +
                         ", MAP(o_clerk, MAP(o_orderpriority, o_shippriority)) AS nested_map" +
-                        " FROM orders");
+                        " FROM test_map_construction_orders");
 
         assertViewQuery(
                 env,
@@ -613,6 +625,7 @@ class TestHiveViews
                 queryAssert -> queryAssert.containsOnly(row(0)));
 
         env.executeHiveUpdate("DROP VIEW test_map_construction_view");
+        env.executeTrinoUpdate("DROP TABLE test_map_construction_orders");
     }
 
     @Test

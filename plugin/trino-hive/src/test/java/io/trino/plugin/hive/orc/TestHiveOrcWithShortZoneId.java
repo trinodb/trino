@@ -41,6 +41,7 @@ public class TestHiveOrcWithShortZoneId
             throws Exception
     {
         QueryRunner queryRunner = HiveQueryRunner.builder()
+                .addHiveProperty("hive.storage-format", "ORC")
                 .addHiveProperty("hive.orc.read-legacy-short-zone-id", "true")
                 .build();
 

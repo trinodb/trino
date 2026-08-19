@@ -146,7 +146,7 @@ public class TestHiveMetastoreCatalogs
                            data integer
                         )
                         WITH (
-                           format = 'ORC'
+                           format = 'PARQUET'
                         )\
                         """);
 

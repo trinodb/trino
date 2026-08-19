@@ -102,6 +102,8 @@ public class HiveTransactionalEnvironment
                         .withHadoopFileSystem()
                         .withCommonProperties()
                         .withPartitionProcedures()
+                        // Transactional (ACID) tables require ORC
+                        .withOrcStorageFormat()
                         .put("hive.insert-existing-partitions-behavior", "APPEND")
                         .build())
                 .withCatalog("tpch", Map.of("connector.name", "tpch"))
