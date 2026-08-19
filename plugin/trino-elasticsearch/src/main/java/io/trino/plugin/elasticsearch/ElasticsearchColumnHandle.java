@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public record ElasticsearchColumnHandle(
@@ -40,28 +41,51 @@ public record ElasticsearchColumnHandle(
         requireNonNull(decoderDescriptor, "decoderDescriptor is null");
     }
 
+    /**
+     * Trino-facing identifier. Trino metadata exposes identifiers case-insensitively, so this is the normalized lookup
+     * name used to resolve SQL such as {@code WHERE ho_ten = ...}.
+     */
     @JsonIgnore
-    public String name()
+    public String logicalName()
+    {
+        return remoteName().toLowerCase(ENGLISH);
+    }
+
+    /**
+     * Exact case-sensitive Elasticsearch field path discovered from the index mapping.
+     */
+    @JsonIgnore
+    public String remoteName()
     {
         return Joiner.on('.').join(path);
     }
 
     /**
+     * Backwards-compatible alias for the remote field name. Existing scan/decoder code relies on this method referring
+     * to the physical Elasticsearch field, not the Trino-normalized identifier.
+     */
+    @JsonIgnore
+    public String name()
+    {
+        return remoteName();
+    }
+
+    /**
      * Field name to use when pushing predicates into Elasticsearch. For a {@code text} field that has an
-     * exact-match {@code keyword} sub-field, this targets the sub-field; otherwise it is the same as {@link #name()}.
+     * exact-match {@code keyword} sub-field, this targets the sub-field; otherwise it is the exact remote field name.
      */
     @JsonIgnore
     public String predicateName()
     {
         if (elasticsearchType instanceof IndexMetadata.PrimitiveType primitiveType && primitiveType.keyword().isPresent()) {
-            return name() + "." + primitiveType.keyword().get();
+            return remoteName() + "." + primitiveType.keyword().get();
         }
-        return name();
+        return remoteName();
     }
 
     @Override
     public String toString()
     {
-        return name() + "::" + type();
+        return remoteName() + "::" + type();
     }
 }

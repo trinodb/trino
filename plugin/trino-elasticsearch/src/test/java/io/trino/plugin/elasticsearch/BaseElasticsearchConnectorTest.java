@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -129,10 +132,10 @@ public abstract class BaseElasticsearchConnectorTest
         // sum/min/max/avg on a 64-bit bigint column are NOT pushed down: Elasticsearch metric aggregations are computed
         // in double precision and lose accuracy above 2^53
         assertThat(query("SELECT sum(nationkey), min(nationkey), max(nationkey), avg(nationkey) FROM nation"))
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
+                .isNotFullyPushedDown(AggregationNode.class);
 
         // count(DISTINCT) is exact and must NOT be pushed down as an approximate cardinality
-        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
+        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
     }
 
     @Test
@@ -174,9 +177,9 @@ public abstract class BaseElasticsearchConnectorTest
         // count/approx_distinct over an array column are NOT pushed down (they would aggregate array elements, not rows)
         assertThat(query("SELECT count(tags) FROM " + indexName))
                 .matches("VALUES BIGINT '2'")
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
+                .isNotFullyPushedDown(AggregationNode.class);
         assertThat(query("SELECT approx_distinct(tags) FROM " + indexName))
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
+                .isNotFullyPushedDown(AggregationNode.class);
 
         // Statistics on a scalar-typed column that actually holds arrays must not fail planning (nullsFraction is clamped)
         assertQuerySucceeds("SHOW STATS FOR " + indexName);
@@ -215,13 +218,13 @@ public abstract class BaseElasticsearchConnectorTest
         // An exact predicate on a normalized keyword must be evaluated by the engine: a pushed term query would
         // lowercase-match and wrongly return the row for 'paris'
         assertThat(query("SELECT id FROM " + indexName + " WHERE city = 'paris'"))
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+                .isNotFullyPushedDown(FilterNode.class);
         assertQueryReturnsEmptyResult("SELECT id FROM " + indexName + " WHERE city = 'paris'");
         assertThat(query("SELECT id FROM " + indexName + " WHERE city = 'Paris'")).matches("VALUES VARCHAR '1'");
 
         // ORDER BY on a normalized keyword must not be pushed (Elasticsearch would sort by the lowercased value)
         assertThat(query("SELECT id FROM " + indexName + " ORDER BY city LIMIT 1"))
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.TopNNode.class);
+                .isNotFullyPushedDown(TopNNode.class);
 
         deleteIndex(indexName);
     }
@@ -253,11 +256,44 @@ public abstract class BaseElasticsearchConnectorTest
         // Default off: a keyword sub-field with ignore_above is not used, so the text predicate is left to the engine
         assertThat(query(withoutBounded, "SELECT id FROM " + indexName + " WHERE text_bounded = 'hello'"))
                 .matches("VALUES VARCHAR '1'")
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+                .isNotFullyPushedDown(FilterNode.class);
         // Session opt-in: the predicate is pushed down exactly on the keyword sub-field
         assertThat(query(withBounded, "SELECT id FROM " + indexName + " WHERE text_bounded = 'hello'"))
                 .matches("VALUES VARCHAR '1'")
                 .isFullyPushedDown();
+
+        deleteIndex(indexName);
+    }
+
+    @Test
+    public void testRegexpLikeIsNotPushedDown()
+            throws IOException
+    {
+        String indexName = "regexp_like_no_pushdown";
+        @Language("JSON")
+        String properties =
+                """
+                {
+                  "properties": {
+                    "value": { "type": "keyword" },
+                    "id": { "type": "keyword" }
+                  }
+                }
+                """;
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.of("value", "123", "id", "1"));
+        index(indexName, ImmutableMap.of("value", "abc", "id", "2"));
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        Session unsafe = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, "full_text_pushdown_mode", "UNSAFE")
+                .build();
+
+        // regexp_like follows Trino/Java regex semantics while Elasticsearch uses Lucene regex syntax. Even in UNSAFE
+        // full-text mode, do not translate SQL regexp_like into a Lucene regexp query.
+        assertThat(query(unsafe, "SELECT id FROM " + indexName + " WHERE regexp_like(value, '[0-9]+')"))
+                .matches("VALUES VARCHAR '1'")
+                .isNotFullyPushedDown(FilterNode.class);
 
         deleteIndex(indexName);
     }
@@ -1328,7 +1364,7 @@ public abstract class BaseElasticsearchConnectorTest
         // SAFE pushes a match_phrase pre-filter but keeps the exact predicate as a residual (not fully pushed)
         assertThat(query(safeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column = 'soome%text'"))
                 .matches("VALUES VARCHAR 'soome%text'")
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+                .isNotFullyPushedDown(FilterNode.class);
 
         // LIKE on an analyzed text column is pushed as a regexp query when the full-text mode is on
         assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column LIKE '%soome%'"))
@@ -1338,7 +1374,10 @@ public abstract class BaseElasticsearchConnectorTest
         assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, 'soome')"))
                 .isFullyPushedDown();
         assertThat(query(safeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, 'soome')"))
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, '\\d+')"))
+                .isFullyPushedDown();
 
         // A multi-token LIKE prefix is pushed as a match_phrase_prefix pre-filter; the engine keeps the exact prefix
         // range as a residual, so the result stays correct (only "soome tex\t" starts with "soome te")
@@ -1346,7 +1385,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .matches("VALUES VARCHAR 'soome tex\\t'");
         // A multi-token contains pattern has no usable prefix and would match nothing per token, so it is left to the engine
         assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column LIKE '%soo me%'"))
-                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+                .isNotFullyPushedDown(FilterNode.class);
 
         assertThat(query(
                 """

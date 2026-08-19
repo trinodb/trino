@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
+import static io.trino.plugin.elasticsearch.client.ElasticsearchClient.hasDocValues;
 import static io.trino.plugin.elasticsearch.client.ElasticsearchClient.keywordSubfield;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,6 +51,7 @@ public class TestKeywordSubfield
                 """);
         assertThat(keywordSubfield(field, false)).contains("raw");
         assertThat(keywordSubfield(field, true)).contains("raw");
+        assertThat(hasDocValues(field.path("fields").path("raw"))).isTrue();
     }
 
     @Test
@@ -69,14 +71,12 @@ public class TestKeywordSubfield
     public void testPrefersUnboundedOverBounded()
             throws IOException
     {
-        // With the flag off a bounded sub-field is skipped, but an unbounded one is still found
         JsonNode field = field(
                 """
                 { "type": "text", "fields": {
                     "bounded": { "type": "keyword", "ignore_above": 256 },
                     "raw": { "type": "keyword" } } }
                 """);
-        // An unbounded keyword sub-field is preferred over a bounded one regardless of the flag
         assertThat(keywordSubfield(field, false)).contains("raw");
         assertThat(keywordSubfield(field, true)).contains("raw");
     }
@@ -85,13 +85,63 @@ public class TestKeywordSubfield
     public void testNonKeywordSubfieldsIgnored()
             throws IOException
     {
-        // Sub-fields that are not keyword (for example a different analyzer) cannot be used for exact-match pushdown
         JsonNode field = field(
                 """
                 { "type": "text", "fields": { "english": { "type": "text", "analyzer": "english" } } }
                 """);
         assertThat(keywordSubfield(field, false)).isEmpty();
         assertThat(keywordSubfield(field, true)).isEmpty();
+    }
+
+    @Test
+    public void testKeywordSubfieldWithoutDocValuesStillSupportsExactPredicates()
+            throws IOException
+    {
+        JsonNode field = field(
+                """
+                { "type": "text", "fields": { "raw": { "type": "keyword", "doc_values": false } } }
+                """);
+        assertThat(keywordSubfield(field, false)).contains("raw");
+        assertThat(keywordSubfield(field, true)).contains("raw");
+        assertThat(hasDocValues(field.path("fields").path("raw"))).isFalse();
+    }
+
+    @Test
+    public void testUnboundedExactPredicateSubfieldPreferredEvenWithoutDocValues()
+            throws IOException
+    {
+        JsonNode field = field(
+                """
+                { "type": "text", "fields": {
+                    "unbounded_no_doc_values": { "type": "keyword", "doc_values": false },
+                    "bounded": { "type": "keyword", "ignore_above": 256 } } }
+                """);
+        assertThat(keywordSubfield(field, false)).contains("unbounded_no_doc_values");
+        assertThat(keywordSubfield(field, true)).contains("unbounded_no_doc_values");
+    }
+
+    @Test
+    public void testKeywordSubfieldWithoutIndexOrDocValuesIsIgnored()
+            throws IOException
+    {
+        JsonNode field = field(
+                """
+                { "type": "text", "fields": { "raw": { "type": "keyword", "index": false, "doc_values": false } } }
+                """);
+        assertThat(keywordSubfield(field, false)).isEmpty();
+        assertThat(keywordSubfield(field, true)).isEmpty();
+    }
+
+    @Test
+    public void testKeywordSubfieldWithDocValuesButNoIndexIsUsable()
+            throws IOException
+    {
+        JsonNode field = field(
+                """
+                { "type": "text", "fields": { "raw": { "type": "keyword", "index": false } } }
+                """);
+        assertThat(keywordSubfield(field, false)).contains("raw");
+        assertThat(hasDocValues(field.path("fields").path("raw"))).isTrue();
     }
 
     private static JsonNode field(String mapping)

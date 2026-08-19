@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.Traverser;
 import com.google.common.net.HostAndPort;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.Session;
@@ -30,14 +31,15 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.PlanTester;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
@@ -54,20 +56,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -222,37 +222,50 @@ final class TestElasticsearchProjectionPushdownPlans
                                 TupleDomain.all(),
                                 ImmutableMap.of("col0", equalTo(column0Handle), "y", equalTo(columnY)))));
 
-        // Projection and predicate pushdown with joins
-        assertPlan(
-                "SELECT T.col0.x, T.col0, T.col0.y FROM " + tableName + " T join " + tableName + " S on T.col1 = S.col1 WHERE T.col0.x = 2",
-                anyTree(
-                        project(
-                                ImmutableMap.of(
-                                        "expr_0_x", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER), "expr_0"), 0)),
-                                        "expr_0", expression(new Reference(RowType.anonymousRow(INTEGER), "expr_0")),
-                                        "expr_0_y", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER, INTEGER), "expr_0"), 1))),
-                                PlanMatchPattern.join(INNER, builder -> builder
-                                        .equiCriteria("t_expr_1", "s_expr_1")
-                                        .left(
-                                                anyTree(
-                                                        tableScan(
-                                                                table -> {
-                                                                    ElasticsearchTableHandle actualTableHandle = (ElasticsearchTableHandle) table;
-                                                                    TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
-                                                                    Set<ElasticsearchColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle);
-                                                                    TupleDomain<ElasticsearchColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
-                                                                            ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
-                                                                    return actualTableHandle.columns().equals(expectedProjections)
-                                                                            && constraint.equals(expectedConstraint);
-                                                                },
-                                                                TupleDomain.all(),
-                                                                ImmutableMap.of("expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle)))))
-                                        .right(
-                                                anyTree(
-                                                        tableScan(
-                                                                equalTo(elasticsearchTableHandle.withColumns(Set.of(column1Handle))),
-                                                                TupleDomain.all(),
-                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))))));
+        // Projection and predicate pushdown with joins. INNER JOIN inputs may be reordered by the optimizer,
+        // so validate both source scans by semantics rather than by physical left/right position.
+        String joinQuery = "SELECT T.col0.x, T.col0, T.col0.y FROM " + tableName + " T join " + tableName + " S on T.col1 = S.col1 WHERE T.col0.x = 2";
+        Plan joinPlan = plan(joinQuery);
+        List<PlanNode> planNodes = StreamSupport.stream(
+                        Traverser.forTree(PlanNode::getSources).depthFirstPreOrder(joinPlan.getRoot()).spliterator(),
+                        false)
+                .toList();
+
+        List<JoinNode> joins = planNodes.stream()
+                .filter(JoinNode.class::isInstance)
+                .map(JoinNode.class::cast)
+                .toList();
+        assertThat(joins).hasSize(1);
+        JoinNode join = joins.getFirst();
+        assertThat(join.getType()).isEqualTo(INNER);
+        assertThat(join.getCriteria()).hasSize(1);
+
+        List<TableScanNode> scans = planNodes.stream()
+                .filter(TableScanNode.class::isInstance)
+                .map(TableScanNode.class::cast)
+                .toList();
+        assertThat(scans).hasSize(2);
+
+        TupleDomain<ColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
+                ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
+        long projectedAndFilteredScans = scans.stream()
+                .map(scan -> (ElasticsearchTableHandle) scan.getTable().connectorHandle())
+                .filter(handle -> handle.columns().equals(ImmutableSet.of(column0Handle, column1Handle)))
+                .filter(handle -> handle.constraint().equals(expectedConstraint))
+                .count();
+        assertThat(projectedAndFilteredScans).isEqualTo(1);
+
+        long joinKeyOnlyScans = scans.stream()
+                .map(scan -> (ElasticsearchTableHandle) scan.getTable().connectorHandle())
+                .filter(handle -> handle.columns().equals(ImmutableSet.of(column1Handle)))
+                .filter(handle -> handle.constraint().equals(TupleDomain.all()))
+                .count();
+        assertThat(joinKeyOnlyScans).isEqualTo(1);
+
+        JoinNode.EquiJoinClause criterion = join.getCriteria().getFirst();
+        assertThat(scans.stream().anyMatch(scan -> column1Handle.equals(scan.getAssignments().get(criterion.getLeft())))).isTrue();
+        assertThat(scans.stream().anyMatch(scan -> column1Handle.equals(scan.getAssignments().get(criterion.getRight())))).isTrue();
+
         deleteIndex(tableName);
     }
 

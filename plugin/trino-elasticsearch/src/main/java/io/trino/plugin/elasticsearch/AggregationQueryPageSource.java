@@ -14,9 +14,11 @@
 package io.trino.plugin.elasticsearch;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -32,6 +34,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchAggregate.Function.COUN
 import static io.trino.plugin.elasticsearch.ElasticsearchAggregate.Function.SUM;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildAggregationQuery;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -40,6 +43,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -109,6 +113,9 @@ class AggregationQueryPageSource
     @Override
     public SourcePage getNextSourcePage()
     {
+        if (finished) {
+            return null;
+        }
         long start = System.nanoTime();
         SourcePage page = groupingColumns.isEmpty() ? globalPage() : groupedPage();
         readTimeNanos += System.nanoTime() - start;
@@ -179,7 +186,8 @@ class AggregationQueryPageSource
         appendValue(builder, output.type(), metrics.path(output.key()).path("value"));
     }
 
-    private static void appendValue(BlockBuilder builder, Type type, JsonNode value)
+    @VisibleForTesting
+    static void appendValue(BlockBuilder builder, Type type, JsonNode value)
     {
         if (value == null || value.isNull() || value.isMissingNode()) {
             builder.appendNull();
@@ -195,7 +203,36 @@ class AggregationQueryPageSource
             type.writeLong(builder, floatToRawIntBits((float) value.asDouble()));
         }
         else if (type.equals(BOOLEAN)) {
-            type.writeBoolean(builder, value.isBoolean() ? value.asBoolean() : value.asInt() != 0);
+            if (value.isBoolean()) {
+                type.writeBoolean(builder, value.asBoolean());
+            }
+            else if (value.isNumber()) {
+                double numeric = value.asDouble();
+                if (numeric == 1.0) {
+                    type.writeBoolean(builder, true);
+                }
+                else if (numeric == 0.0) {
+                    type.writeBoolean(builder, false);
+                }
+                else {
+                    throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field as BOOLEAN: %s", value));
+                }
+            }
+            else if (value.isTextual()) {
+                String text = value.asText().trim();
+                if ("true".equalsIgnoreCase(text) || "1".equals(text)) {
+                    type.writeBoolean(builder, true);
+                }
+                else if ("false".equalsIgnoreCase(text) || "0".equals(text) || "".equals(text)) {
+                    type.writeBoolean(builder, false);
+                }
+                else {
+                    throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field as BOOLEAN: %s", text));
+                }
+            }
+            else {
+                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field as BOOLEAN: %s", value));
+            }
         }
         else if (type instanceof VarcharType) {
             type.writeSlice(builder, utf8Slice(value.asText()));
