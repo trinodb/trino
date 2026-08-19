@@ -4988,13 +4988,8 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
 
-        // disable writes redistribution to have predictable number of files written per partition (one).
-        Session noRedistributeWrites = Session.builder(getSession())
-                .setSystemProperty("redistribute_writes", "false")
-                .build();
-
         assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, zone VARCHAR, ts TIMESTAMP(6) WITH TIME ZONE) WITH (partitioning = ARRAY['month(ts)'])");
-        assertUpdate(noRedistributeWrites, "INSERT INTO " + tableName + " VALUES " +
+        assertUpdate("INSERT INTO " + tableName + " VALUES " +
                 "(1, 'UTC', TIMESTAMP '2025-01-15 10:00:00.000000 UTC'), " +
                 "(2, 'Asia/Jerusalem', TIMESTAMP '2025-02-15 10:00:00.000000 UTC'), " +
                 "(3, 'America/New_York', TIMESTAMP '2025-03-15 10:00:00.000000 UTC')", 3);
@@ -5012,6 +5007,25 @@ public abstract class BaseIcebergConnectorTest
         verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) = TIMESTAMP '2025-01-15 10:00:00.000000 UTC'", 1);
         verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) BETWEEN TIMESTAMP '2025-02-01 00:00:00.000000 UTC' AND TIMESTAMP '2025-02-28 00:00:00.000000 UTC'", 1);
         verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) < TIMESTAMP '2020-01-01 00:00:00.000000 UTC'", 0);
+
+        // A row with an invalid zone pins the pruning boundary. It is inserted after the checks
+        // above because verifySplitCount cross-checks against a pushdown-disabled run, which would
+        // evaluate the invalid zone on every row.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'bogus_zone', TIMESTAMP '2025-04-15 10:00:00.000000 UTC')", 1);
+
+        // the invalid-zone row's partition is outside the derived instant range, so it is pruned
+        // and never evaluated: the query succeeds
+        MaterializedResultWithPlan pruned = getDistributedQueryRunner().executeWithPlan(
+                getSession(),
+                "SELECT id FROM " + tableName + " WHERE at_timezone(ts, zone) < TIMESTAMP '2025-02-01 00:00:00.000000 UTC'");
+        assertThat(pruned.result().getOnlyValue()).isEqualTo(1L);
+        verifySplitCount(pruned.queryId(), 1);
+
+        // a non-deterministic disjunct prevents domain derivation: no pruning, the row is
+        // evaluated, and the invalid zone fails the query
+        assertQueryFails(
+                "SELECT id FROM " + tableName + " WHERE at_timezone(ts, zone) < TIMESTAMP '2025-02-01 00:00:00.000000 UTC' OR rand() < 42",
+                "'bogus_zone' is not a valid time zone");
 
         assertUpdate("DROP TABLE " + tableName);
     }
