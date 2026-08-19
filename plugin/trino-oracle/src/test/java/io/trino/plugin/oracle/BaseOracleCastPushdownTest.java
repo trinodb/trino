@@ -14,12 +14,10 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcCastPushdownTest;
 import io.trino.plugin.jdbc.CastDataTypeTestTable;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,25 +34,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class BaseOracleCastPushdownTest
+public abstract class BaseOracleCastPushdownTest
         extends BaseJdbcCastPushdownTest
 {
     private CastDataTypeTestTable left;
     private CastDataTypeTestTable right;
-    private TestingOracleServer oracleServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        oracleServer = closeAfterClass(new TestingOracleServer());
-        return OracleQueryRunner.builder(oracleServer)
-                .addConnectorProperties(ImmutableMap.<String, String>builder()
-                        .put("jdbc-types-mapped-to-varchar", "interval year(2) to month, timestamp(6) with local time zone")
-                        .put("join-pushdown.enabled", "true")
-                        .buildOrThrow())
-                .build();
-    }
+    protected TestingOracleServer oracleServer;
 
     @Override
     protected SqlExecutor onRemoteDatabase()
