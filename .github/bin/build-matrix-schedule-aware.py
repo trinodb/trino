@@ -384,8 +384,13 @@ def build_matrix_json(
     github_context: dict[str, Any],
 ) -> dict[str, Any]:
     includes = []
+    # merge_group builds run GIB (incremental) just like pull_request builds, so the matrix must be
+    # impact-filtered to stay consistent with the per-job builds: scheduling a non-impacted module
+    # would make its `install` a GIB no-op and leave its dependencies uninstalled (see #30812). Other
+    # "run all" triggers (pushes, dispatches, schedule, labels) still run the full set.
+    impact_detection_ran = github_context.get("event_name") == "merge_group"
     for config_item in configs:
-        if config_item.matches_event(github_context):
+        if config_item.matches_event(github_context) and not impact_detection_ran:
             # If the schedule says these tests should run, run all of them
             includes.extend(config_item.build_matrix_includes())
         else:
@@ -569,7 +574,6 @@ class TestBuild(unittest.TestCase):
 
         for event_name in [
             "push",
-            "merge_group",
             "workflow_dispatch",
             "repository_dispatch",
         ]:
@@ -584,6 +588,25 @@ class TestBuild(unittest.TestCase):
                 {"include": [{"modules": "a", "name": "test (a)"}]},
                 f"default runs on {event_name} with impact",
             )
+
+        # merge_group runs GIB, so it is impact-filtered like a pull request: only impacted
+        # modules run, and nothing runs when nothing is impacted.
+        merge_group = {"event_name": "merge_group"}
+        self.assertEqual(
+            build_matrix_json(configs, set(), merge_group),
+            {},
+            "default doesn't run on merge_group without impact",
+        )
+        self.assertEqual(
+            build_matrix_json(configs, {"a"}, merge_group),
+            {"include": [{"modules": "a", "name": "test (a)"}]},
+            "default runs on merge_group with impact",
+        )
+        self.assertEqual(
+            build_matrix_json(configs, {"b"}, merge_group),
+            {},
+            "default doesn't run on merge_group when another module is impacted",
+        )
 
         context = {"event_name": "schedule", "event": {"schedule": "0 0 * * *"}}
         self.assertEqual(
