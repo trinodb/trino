@@ -38,11 +38,11 @@ public class TestExtract
     @Test
     public void testYear()
     {
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42' YEAR)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '7' MONTH)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '20' MONTH)")).matches("BIGINT '1'");
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42-07' YEAR TO MONTH)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42-20' YEAR TO MONTH)")).matches("BIGINT '43'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42' YEAR)")).matches("INTEGER '42'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '7' MONTH)")).matches("INTEGER '0'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '20' MONTH)")).matches("INTEGER '1'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42-07' YEAR TO MONTH)")).matches("INTEGER '42'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42-20' YEAR TO MONTH)")).matches("INTEGER '43'");
 
         assertThat(assertions.expression("YEAR(INTERVAL '42' YEAR)")).matches("BIGINT '42'");
         assertThat(assertions.expression("YEAR(INTERVAL '7' MONTH)")).matches("BIGINT '0'");
@@ -54,9 +54,9 @@ public class TestExtract
     @Test
     public void testMonth()
     {
-        assertThat(assertions.expression("EXTRACT(MONTH FROM INTERVAL '42' YEAR)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(MONTH FROM INTERVAL '7' MONTH)")).matches("BIGINT '7'");
-        assertThat(assertions.expression("EXTRACT(MONTH FROM INTERVAL '42-07' YEAR TO MONTH)")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM INTERVAL '42' YEAR)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM INTERVAL '7' MONTH)")).matches("TINYINT '7'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM INTERVAL '42-07' YEAR TO MONTH)")).matches("TINYINT '7'");
 
         assertThat(assertions.expression("MONTH(INTERVAL '42' YEAR)")).matches("BIGINT '0'");
         assertThat(assertions.expression("MONTH(INTERVAL '7' MONTH)")).matches("BIGINT '7'");
@@ -66,25 +66,25 @@ public class TestExtract
     @Test
     public void testDay()
     {
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42' DAY)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '12' HOUR)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '30' HOUR)")).matches("BIGINT '1'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42' MINUTE)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '2000' MINUTE)")).matches("BIGINT '1'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42' SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '99999' SECOND)")).matches("BIGINT '1'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12' DAY TO HOUR)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 30' DAY TO HOUR)")).matches("BIGINT '43'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34' DAY TO MINUTE)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56' DAY TO SECOND)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.1' DAY TO SECOND)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.12' DAY TO SECOND)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.123' DAY TO SECOND)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.1234' DAY TO SECOND)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.12345' DAY TO SECOND)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.123456' DAY TO SECOND)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.1234567' DAY TO SECOND)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.12345678' DAY TO SECOND)")).matches("BIGINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42' DAY)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '12' HOUR)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '30' HOUR)")).matches("TINYINT '1'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42' MINUTE)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '2000' MINUTE)")).matches("TINYINT '1'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42' SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '99999' SECOND)")).matches("TINYINT '1'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12' DAY TO HOUR)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 30' DAY TO HOUR)")).matches("TINYINT '43'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34' DAY TO MINUTE)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56' DAY TO SECOND)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.1' DAY TO SECOND)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.12' DAY TO SECOND)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.123' DAY TO SECOND)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.1234' DAY TO SECOND)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.12345' DAY TO SECOND)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.123456' DAY TO SECOND)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.1234567' DAY TO SECOND)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.12345678' DAY TO SECOND)")).matches("TINYINT '42'");
 
         assertThat(assertions.expression("DAY(INTERVAL '42' DAY)")).matches("BIGINT '42'");
         assertThat(assertions.expression("DAY(INTERVAL '12' HOUR)")).matches("BIGINT '0'");
@@ -110,26 +110,26 @@ public class TestExtract
     @Test
     public void testHour()
     {
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '42' DAY)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '6' HOUR)")).matches("BIGINT '6'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '28' HOUR)")).matches("BIGINT '4'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '60' MINUTE)")).matches("BIGINT '1'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '180' MINUTE)")).matches("BIGINT '3'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '60' SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '1 12' DAY TO HOUR)")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '1 12:34' DAY TO MINUTE)")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '1 12:34:56' DAY TO SECOND)")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '12:34' HOUR TO MINUTE)")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '12:34:56' HOUR TO SECOND)")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56' MINUTE TO SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.1' MINUTE TO SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.12' MINUTE TO SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.123' MINUTE TO SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.1234' MINUTE TO SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.12345' MINUTE TO SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.123456' MINUTE TO SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.1234567' MINUTE TO SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.12345678' MINUTE TO SECOND)")).matches("BIGINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '42' DAY)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '6' HOUR)")).matches("TINYINT '6'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '28' HOUR)")).matches("TINYINT '4'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '60' MINUTE)")).matches("TINYINT '1'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '180' MINUTE)")).matches("TINYINT '3'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '60' SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '1 12' DAY TO HOUR)")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '1 12:34' DAY TO MINUTE)")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '1 12:34:56' DAY TO SECOND)")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '12:34' HOUR TO MINUTE)")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '12:34:56' HOUR TO SECOND)")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56' MINUTE TO SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.1' MINUTE TO SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.12' MINUTE TO SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.123' MINUTE TO SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.1234' MINUTE TO SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.12345' MINUTE TO SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.123456' MINUTE TO SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.1234567' MINUTE TO SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM INTERVAL '34:56.12345678' MINUTE TO SECOND)")).matches("TINYINT '0'");
 
         assertThat(assertions.expression("HOUR(INTERVAL '42' DAY)")).matches("BIGINT '0'");
         assertThat(assertions.expression("HOUR(INTERVAL '6' HOUR)")).matches("BIGINT '6'");
@@ -156,27 +156,27 @@ public class TestExtract
     @Test
     public void testMinute()
     {
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '1' DAY)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '6' HOUR)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '28' HOUR)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '42' MINUTE)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '182' MINUTE)")).matches("BIGINT '2'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '10' SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '120' SECOND)")).matches("BIGINT '2'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '1 12' DAY TO HOUR)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '1 12:34' DAY TO MINUTE)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '1 12:34:56' DAY TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '12:34' HOUR TO MINUTE)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '12:34:56' HOUR TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56' MINUTE TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.1' MINUTE TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.12' MINUTE TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.123' MINUTE TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.1234' MINUTE TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.12345' MINUTE TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.123456' MINUTE TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.1234567' MINUTE TO SECOND)")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.12345678' MINUTE TO SECOND)")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '1' DAY)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '6' HOUR)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '28' HOUR)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '42' MINUTE)")).matches("TINYINT '42'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '182' MINUTE)")).matches("TINYINT '2'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '10' SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '120' SECOND)")).matches("TINYINT '2'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '1 12' DAY TO HOUR)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '1 12:34' DAY TO MINUTE)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '1 12:34:56' DAY TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '12:34' HOUR TO MINUTE)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '12:34:56' HOUR TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56' MINUTE TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.1' MINUTE TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.12' MINUTE TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.123' MINUTE TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.1234' MINUTE TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.12345' MINUTE TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.123456' MINUTE TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.1234567' MINUTE TO SECOND)")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM INTERVAL '34:56.12345678' MINUTE TO SECOND)")).matches("TINYINT '34'");
 
         assertThat(assertions.expression("MINUTE(INTERVAL '1' DAY)")).matches("BIGINT '0'");
         assertThat(assertions.expression("MINUTE(INTERVAL '6' HOUR)")).matches("BIGINT '0'");
@@ -203,28 +203,28 @@ public class TestExtract
     @Test
     public void testSecond()
     {
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1' DAY)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '6' HOUR)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '28' HOUR)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '42' MINUTE)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '182' MINUTE)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '10' SECOND)")).matches("BIGINT '10'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '120' SECOND)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1 12' DAY TO HOUR)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1 12:34' DAY TO MINUTE)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1 12:34:56' DAY TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1 12:34:56.1' DAY TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '12:34' HOUR TO MINUTE)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '12:34:56' HOUR TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56' MINUTE TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.1' MINUTE TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.12' MINUTE TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.123' MINUTE TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.1234' MINUTE TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.12345' MINUTE TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.123456' MINUTE TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.1234567' MINUTE TO SECOND)")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.12345678' MINUTE TO SECOND)")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1' DAY)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '6' HOUR)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '28' HOUR)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '42' MINUTE)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '182' MINUTE)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '10' SECOND)")).matches("TINYINT '10'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '120' SECOND)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1 12' DAY TO HOUR)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1 12:34' DAY TO MINUTE)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1 12:34:56' DAY TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '1 12:34:56.1' DAY TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '12:34' HOUR TO MINUTE)")).matches("TINYINT '0'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '12:34:56' HOUR TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56' MINUTE TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.1' MINUTE TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.12' MINUTE TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.123' MINUTE TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.1234' MINUTE TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.12345' MINUTE TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.123456' MINUTE TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.1234567' MINUTE TO SECOND)")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM INTERVAL '34:56.12345678' MINUTE TO SECOND)")).matches("TINYINT '56'");
 
         assertThat(assertions.expression("SECOND(INTERVAL '1' DAY)")).matches("BIGINT '0'");
         assertThat(assertions.expression("SECOND(INTERVAL '6' HOUR)")).matches("BIGINT '0'");

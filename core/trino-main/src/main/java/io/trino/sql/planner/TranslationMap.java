@@ -1139,7 +1139,7 @@ public class TranslationMap
         io.trino.sql.ir.Expression value = translateExpression(node.getExpression());
         Type type = analysis.getType(node.getExpression());
 
-        return switch (node.getField()) {
+        io.trino.sql.ir.Expression result = switch (node.getField()) {
             case YEAR -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("year")
                     .addArgument(type, value)
@@ -1193,6 +1193,11 @@ public class TranslationMap
                     .addArgument(type, value)
                     .build();
         };
+        Type returnType = analysis.getType(node);
+        if (!result.type().equals(returnType)) {
+            result = cast(plannerContext.getTypeManager(), result, returnType);
+        }
+        return result;
     }
 
     private io.trino.sql.ir.Expression translate(AtTimeZone node)
