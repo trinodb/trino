@@ -26,7 +26,6 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
-import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -37,6 +36,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
@@ -48,6 +48,8 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.WhenClause;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -76,13 +78,18 @@ import static io.trino.spi.expression.StandardFunctions.BETWEEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MODULO_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -204,15 +211,15 @@ public class TestConnectorExpressionTranslator
                                     comparison(ComparisonOperator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
                     new io.trino.spi.expression.Call(
                             BOOLEAN,
-                            operator == Logical.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
+                            operator == Logical.Operator.AND ? AND_FUNCTION_NAME : OR_FUNCTION_NAME,
                             List.of(
                                     new io.trino.spi.expression.Call(
                                             BOOLEAN,
-                                            StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME,
+                                            LESS_THAN_OPERATOR_FUNCTION_NAME,
                                             List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))),
                                     new io.trino.spi.expression.Call(
                                             BOOLEAN,
-                                            StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
+                                            EQUAL_OPERATOR_FUNCTION_NAME,
                                             List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))))));
         }
     }
@@ -229,11 +236,11 @@ public class TestConnectorExpressionTranslator
                                 comparison(ComparisonOperator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
                 new io.trino.spi.expression.Call(
                         BOOLEAN,
-                        StandardFunctions.AND_FUNCTION_NAME,
+                        AND_FUNCTION_NAME,
                         List.of(
                                 new io.trino.spi.expression.Call(
                                         BOOLEAN,
-                                        StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
+                                        EQUAL_OPERATOR_FUNCTION_NAME,
                                         List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))))));
     }
 
@@ -483,7 +490,7 @@ public class TestConnectorExpressionTranslator
                     String pattern = "%pattern%";
                     io.trino.spi.expression.Call translated = new io.trino.spi.expression.Call(
                             BOOLEAN,
-                            StandardFunctions.LIKE_FUNCTION_NAME,
+                            LIKE_FUNCTION_NAME,
                             List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                     new io.trino.spi.expression.Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))));
 
@@ -510,7 +517,7 @@ public class TestConnectorExpressionTranslator
                     String escape = "\\";
                     translated = new io.trino.spi.expression.Call(
                             BOOLEAN,
-                            StandardFunctions.LIKE_FUNCTION_NAME,
+                            LIKE_FUNCTION_NAME,
                             List.of(
                                     new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                     new io.trino.spi.expression.Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
@@ -569,6 +576,58 @@ public class TestConnectorExpressionTranslator
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new io.trino.spi.expression.Constant(null, VARCHAR_TYPE),
                                 new io.trino.spi.expression.Constant(utf8Slice("fallback"), VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateCase()
+    {
+        assertTranslationRoundTrips(
+                new Case(
+                        ImmutableList.of(new WhenClause(
+                                new Reference(BOOLEAN, "boolean_symbol_1"),
+                                new Reference(VARCHAR, "varchar_symbol_1"))),
+                        new Constant(VARCHAR_TYPE, utf8Slice("fallback"))),
+                new io.trino.spi.expression.Case(
+                        VARCHAR_TYPE,
+                        ImmutableList.of(new io.trino.spi.expression.Case.WhenClause(
+                                new Variable("boolean_symbol_1", BOOLEAN),
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE))),
+                        new io.trino.spi.expression.Constant(utf8Slice("fallback"), VARCHAR_TYPE)));
+
+        assertTranslationRoundTrips(
+                new Case(
+                        ImmutableList.of(
+                                new WhenClause(
+                                        comparison(ComparisonOperator.LESS_THAN, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
+                                        new Reference(DOUBLE, "double_symbol_1")),
+                                new WhenClause(
+                                        comparison(ComparisonOperator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")),
+                                        new Constant(DOUBLE, 42.0))),
+                        new Constant(DOUBLE, null)),
+                new io.trino.spi.expression.Case(
+                        DOUBLE,
+                        ImmutableList.of(
+                                new io.trino.spi.expression.Case.WhenClause(
+                                        new io.trino.spi.expression.Call(
+                                                BOOLEAN,
+                                                LESS_THAN_OPERATOR_FUNCTION_NAME,
+                                                ImmutableList.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))),
+                                        new Variable("double_symbol_1", DOUBLE)),
+                                new io.trino.spi.expression.Case.WhenClause(
+                                        new io.trino.spi.expression.Call(
+                                                BOOLEAN,
+                                                EQUAL_OPERATOR_FUNCTION_NAME,
+                                                ImmutableList.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))),
+                                        new io.trino.spi.expression.Constant(42.0, DOUBLE))),
+                        new io.trino.spi.expression.Constant(null, DOUBLE)));
+
+        Row untranslatable = new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(createVarcharType(5), utf8Slice("a"))));
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new Case(
+                        ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "boolean_symbol_1"), untranslatable)),
+                        untranslatable),
+                Optional.empty());
     }
 
     @Test
@@ -680,7 +739,7 @@ public class TestConnectorExpressionTranslator
                         List.of(new Reference(VARCHAR, "varchar_symbol_1"), new Constant(VARCHAR, utf8Slice(value)))),
                 new io.trino.spi.expression.Call(
                         BOOLEAN,
-                        StandardFunctions.IN_PREDICATE_FUNCTION_NAME,
+                        IN_PREDICATE_FUNCTION_NAME,
                         List.of(
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new io.trino.spi.expression.Call(VARCHAR_ARRAY_TYPE, ARRAY_CONSTRUCTOR_FUNCTION_NAME,
