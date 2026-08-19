@@ -210,18 +210,14 @@ extension in [`.mvn/extensions.xml`](../.mvn/extensions.xml) keeps installed art
 branch, so several checkouts or [git worktrees](https://git-scm.com/docs/git-worktree) can build
 and install in parallel without interfering.
 
-It is off by default; enable it per build:
+It is on by default via `-DbranchScopedLocalRepo.enabled=true` in
+[`.mvn/maven.config`](../.mvn/maven.config). Disable it for a single build with
+`-DbranchScopedLocalRepo.enabled=false`.
 
-```bash
-./mvnw install -DskipTests -DbranchScopedLocalRepo.enabled=true
-```
+Things to know:
 
-Before turning it on:
-
-* Pass the flag on the command line of every build in that checkout. Builds without it see the
-  unscoped artifacts instead.
 * The first build on a branch must be a full `install`, and third-party dependencies are
-  downloaded once more.
+  downloaded once more (into `~/.m2/repository/cached/`).
 * Worktrees on the same branch are still not isolated from each other.
 * Nothing prunes these artifacts, so delete `~/.m2/repository/installed/<branch>/` once the work on
   a branch is finished.
