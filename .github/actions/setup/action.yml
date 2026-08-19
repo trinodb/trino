@@ -146,6 +146,11 @@ runs:
         if: ${{ inputs.java-version != '' }}
         shell: bash
         run: .github/bin/retry ./mvnw -v
+      - name: Preload Maven core extensions
+        # Load maven core extensions with retry.
+        if: ${{ inputs.java-version != '' }}
+        shell: bash
+        run: .github/bin/retry ./mvnw -N -B -U -e --no-transfer-progress help:evaluate -Dexpression=maven.version -DforceStdout
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash
