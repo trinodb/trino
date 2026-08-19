@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -118,6 +119,7 @@ public class TestBigQuerySplitManager
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) table;
         return splitSource.createReadSession(
                 session,
+                TableDefinition.Type.MATERIALIZED_VIEW,
                 bigQueryTable.asPlainTable().getRemoteTableName().toTableId(),
                 bigQueryTable.projectedColumns().orElseThrow(),
                 buildFilter(bigQueryTable.constraint()));
