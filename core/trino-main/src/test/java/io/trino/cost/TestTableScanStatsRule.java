@@ -24,6 +24,8 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.cost.EstimateConfidence.HIGH;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
 public class TestTableScanStatsRule
@@ -71,6 +73,7 @@ public class TestTableScanStatsRule
                         .build())
                 .check(check -> check
                         .outputRowsCount(33)
+                        .confidence(HIGH)
                         .symbolStats("a", assertion -> assertion
                                 .distinctValuesCount(20)
                                 // UNKNOWN_NULLS_FRACTION populated to allow CBO to use NDV for estimation
@@ -116,5 +119,26 @@ public class TestTableScanStatsRule
                 .check(check -> check
                         .outputRowsCount(0)
                         .symbolStats("zero", assertion -> assertion.isEqualTo(SymbolStatsEstimate.zero())));
+    }
+
+    @Test
+    public void testUnknownRowCountIsNotTrusted()
+    {
+        ColumnHandle columnHandle = new TestingColumnHandle("a");
+        tester()
+                .assertStatsFor(pb -> {
+                    Symbol column = pb.symbol("a", DOUBLE);
+                    return pb.tableScan(
+                            ImmutableList.of(column),
+                            ImmutableMap.of(column, columnHandle));
+                })
+                .withTableStatisticsProvider(_ -> TableStatistics.builder()
+                        .setColumnStatistics(
+                                columnHandle,
+                                ColumnStatistics.builder().setDistinctValuesCount(Estimate.of(10)).build())
+                        .build())
+                .check(check -> check
+                        .outputRowsCountUnknown()
+                        .confidence(LOW));
     }
 }

@@ -167,6 +167,7 @@ public class PushProjectionIntoTableScan
         Optional<PlanNodeStatsEstimate> newStatistics = tableScan.getStatistics().map(statistics -> {
             PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder();
             builder.setOutputRowCount(statistics.getOutputRowCount());
+            builder.setConfidence(statistics.getConfidence());
 
             for (int i = 0; i < connectorPartialProjections.size(); i++) {
                 ConnectorExpression inputConnectorExpression = connectorPartialProjections.get(i);

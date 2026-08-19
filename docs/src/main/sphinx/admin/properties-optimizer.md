@@ -102,6 +102,17 @@ original table order as much as possible. `AUTOMATIC` enumerates possible orders
 statistics-based cost estimation to determine the least cost order. If stats are not available, or if
 for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strategy is used.
 
+## `optimizer.max-enumerated-join-orders`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `10000`
+- **Session property:** `max_enumerated_join_orders`
+
+The maximum number of join orders that cost-based join reordering evaluates for one group of
+joins. When the query graph would require more, pairs of relations are pre-joined along a greedy
+join order until the enumeration fits, so that planning time is bounded by this budget rather
+than by the shape of the query.
+
 ## `optimizer.max-reordered-joins`
 
 - **Type:** {ref}`prop-type-integer`
@@ -205,6 +216,24 @@ conservative estimates by assuming a greater degree of correlation between the
 columns of the clauses in a join. A value of `0` results in the optimizer
 assuming that the columns of the join clauses are fully correlated and only
 the most selective clause drives the selectivity of the join.
+
+## `optimizer.low-confidence-cost-margin`
+
+- **Type:** {ref}`prop-type-double`
+- **Default value:** `1`
+- **Min allowed value:** `1`
+- **Session property:** `low_confidence_cost_margin`
+
+How much cheaper a plan whose cost was derived from guessed statistics must be
+before the optimizer prefers it to a plan derived from statistics the connector
+reported. An estimate is treated as guessed when a rule fell back on a default
+selectivity, joined on a column with no distinct value count, or read a table
+with no reported row count.
+
+Costs derived from guesses can be wrong by an unbounded factor, so a value
+above `1` keeps the optimizer from acting on a large apparent saving that the
+statistics do not actually support. A value of `1`, the default, compares all
+costs alike regardless of where they came from.
 
 ## `optimizer.non-estimatable-predicate-approximation.enabled`
 

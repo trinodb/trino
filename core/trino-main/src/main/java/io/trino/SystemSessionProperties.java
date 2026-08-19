@@ -64,6 +64,7 @@ public final class SystemSessionProperties
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
+    public static final String LOW_CONFIDENCE_COST_MARGIN = "low_confidence_cost_margin";
     public static final String DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED = "determine_partition_count_for_write_enabled";
     public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
@@ -101,6 +102,8 @@ public final class SystemSessionProperties
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
+    public static final String MAX_ENUMERATED_JOIN_ORDERS = "max_enumerated_join_orders";
+    public static final String USE_PARTITIONING_IN_JOIN_COST = "use_partitioning_in_join_cost";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -275,6 +278,15 @@ public final class SystemSessionProperties
                         optimizerConfig.getJoinMultiClauseIndependenceFactor(),
                         false,
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
+                        value -> value),
+                new PropertyMetadata<>(
+                        LOW_CONFIDENCE_COST_MARGIN,
+                        "How much cheaper a plan derived from guessed statistics must be before it is preferred to one derived from reported statistics",
+                        DOUBLE,
+                        Double.class,
+                        optimizerConfig.getLowConfidenceCostMargin(),
+                        false,
+                        value -> validateDoubleRange(value, LOW_CONFIDENCE_COST_MARGIN, 1.0, Double.MAX_VALUE),
                         value -> value),
                 booleanProperty(
                         DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED,
@@ -483,6 +495,17 @@ public final class SystemSessionProperties
                             return intValue;
                         },
                         value -> value),
+                booleanProperty(
+                        USE_PARTITIONING_IN_JOIN_COST,
+                        "Do not charge a partitioned join for repartitioning an input that is already partitioned on its join keys",
+                        optimizerConfig.isUsePartitioningInJoinCost(),
+                        false),
+                integerProperty(
+                        MAX_ENUMERATED_JOIN_ORDERS,
+                        "The maximum number of join orders to enumerate before simplifying the query graph in cost-based join reordering",
+                        optimizerConfig.getMaxEnumeratedJoinOrders(),
+                        value -> validateIntegerValue(value, MAX_ENUMERATED_JOIN_ORDERS, 1, false),
+                        false),
                 booleanProperty(
                         COLOCATED_JOIN,
                         "Use a colocated join when possible",
@@ -1191,6 +1214,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
     }
 
+    public static double getLowConfidenceCostMargin(Session session)
+    {
+        return session.getSystemProperty(LOW_CONFIDENCE_COST_MARGIN, Double.class);
+    }
+
     public static boolean isDeterminePartitionCountForWriteEnabled(Session session)
     {
         return session.getSystemProperty(DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED, Boolean.class);
@@ -1344,6 +1372,16 @@ public final class SystemSessionProperties
     public static int getMaxReorderedJoins(Session session)
     {
         return session.getSystemProperty(MAX_REORDERED_JOINS, Integer.class);
+    }
+
+    public static int getMaxEnumeratedJoinOrders(Session session)
+    {
+        return session.getSystemProperty(MAX_ENUMERATED_JOIN_ORDERS, Integer.class);
+    }
+
+    public static boolean isUsePartitioningInJoinCost(Session session)
+    {
+        return session.getSystemProperty(USE_PARTITIONING_IN_JOIN_COST, Boolean.class);
     }
 
     public static boolean isColocatedJoinEnabled(Session session)
