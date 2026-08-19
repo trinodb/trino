@@ -25,10 +25,12 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.tracing.TrinoAttributes;
 
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
@@ -45,13 +47,17 @@ class SplitProcessor
     private final int splitId;
     private final SplitRunner split;
     private final Tracer tracer;
+    private final Collection<RunningSplitInfo> runningSplitInfos;
+    private final Ticker ticker;
 
-    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer)
+    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer, Collection<RunningSplitInfo> runningSplitInfos, Ticker ticker)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.splitId = splitId;
         this.split = requireNonNull(split, "split is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.runningSplitInfos = requireNonNull(runningSplitInfos, "runningSplitInfos is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
     }
 
     @Override
@@ -71,10 +77,23 @@ class SplitProcessor
         CpuTimer timer = new CpuTimer(Ticker.systemTicker(), false);
         long previousCpuNanos = 0;
         long previousScheduledNanos = 0;
-        try (SetThreadName _ = new SetThreadName("SplitRunner-" + taskId + "-" + splitId)) {
+        String splitName = taskId + "-" + splitId;
+        try (SetThreadName _ = new SetThreadName("SplitRunner-" + splitName)) {
             while (!split.isFinished()) {
                 try (var ignored2 = processSpan.makeCurrent()) {
-                    ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
+                    // Publish the split for the duration of the call that owns the thread, so a
+                    // split that never returns can be spotted and its stack sampled
+                    RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), splitName, Thread.currentThread(), taskId, split::getInfo);
+                    runningSplitInfos.add(splitInfo);
+
+                    ListenableFuture<Void> blocked;
+                    try {
+                        blocked = split.processFor(SPLIT_RUN_QUANTA);
+                    }
+                    finally {
+                        runningSplitInfos.remove(splitInfo);
+                    }
+
                     CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
                     long scheduledNanos = elapsed.wall().roundTo(NANOSECONDS);
