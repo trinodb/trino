@@ -124,7 +124,7 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections, layout);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -169,7 +169,7 @@ public class TestScanFilterAndProjectOperator
                 col0,
                 new Constant(BIGINT, 10L));
         List<Expression> projections = ImmutableList.of(col0);
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections, layout);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION, Optional.of(filter), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -249,7 +249,7 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections, layout);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,

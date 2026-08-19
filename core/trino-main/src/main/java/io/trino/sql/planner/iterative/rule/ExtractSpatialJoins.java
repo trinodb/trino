@@ -79,6 +79,7 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getSpatialPartitioningTableName;
 import static io.trino.SystemSessionProperties.isSpatialJoinEnabled;
 import static io.trino.matching.Capture.newCapture;
@@ -312,7 +313,7 @@ public class ExtractSpatialJoins
 
         Optional<Symbol> newRadiusSymbol = newRadiusSymbol(context, radius);
         Expression newRadius = toExpression(newRadiusSymbol, radius);
-        Expression newComparison = comparison(plannerContext.getMetadata(), comparison.operator(), distance, newRadius);
+        Expression newComparison = comparison(plannerContext.getMetadata(), getCharVarcharCoercion(context.getSession()), comparison.operator(), distance, newRadius);
 
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
         PlanNode newRightNode = newRadiusSymbol.map(symbol -> addProjection(context, rightNode, symbol, radius)).orElse(rightNode);
@@ -576,7 +577,7 @@ public class ExtractSpatialJoins
         }
 
         TypeDescriptor typeDescriptor = new TypeDescriptor(KDB_TREE_TYPENAME);
-        BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(context.getSession()))
                 .setName("spatial_partitions")
                 .addArgument(typeDescriptor, new Cast(new Constant(VARCHAR, KdbTreeUtils.toJson(kdbTree)), plannerContext.getTypeManager().getType(typeDescriptor)))
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);

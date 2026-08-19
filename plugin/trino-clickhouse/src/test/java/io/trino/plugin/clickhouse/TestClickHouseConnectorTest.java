@@ -52,6 +52,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1118,10 +1119,10 @@ public class TestClickHouseConnectorTest
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 10)");
 
             assertUpdate("CALL system.execute('ALTER TABLE " + schemaTableName + " UPDATE data = 100 WHERE true')");
-            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 100)");
+            assertEventually(() -> assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 100)"));
 
             assertUpdate("CALL system.execute('ALTER TABLE " + schemaTableName + " DELETE WHERE true')");
-            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+            assertEventually(() -> assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName));
 
             assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();

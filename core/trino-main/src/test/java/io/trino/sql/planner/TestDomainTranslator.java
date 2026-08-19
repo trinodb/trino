@@ -55,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -1601,7 +1602,7 @@ public class TestDomainTranslator
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return domainTranslator.toPredicate(tupleDomain);
+        return domainTranslator.toPredicate(getCharVarcharCoercion(TEST_SESSION), tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -1764,7 +1765,7 @@ public class TestDomainTranslator
 
     private static Expression not(Expression expression)
     {
-        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), expression);
+        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), expression);
     }
 
     private static Expression comparison(ComparisonOperator operator, Expression expression1, Expression expression2)

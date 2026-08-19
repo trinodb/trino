@@ -47,6 +47,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
 
 import java.util.List;
@@ -77,11 +78,11 @@ public class PlanNodeDecorrelator
     private final Lookup lookup;
     private final TypeCoercion typeCoercion;
 
-    public PlanNodeDecorrelator(PlannerContext plannerContext, SymbolAllocator symbolAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, SymbolAllocator symbolAllocator, Lookup lookup)
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
     }
 
     public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<Symbol> correlation)

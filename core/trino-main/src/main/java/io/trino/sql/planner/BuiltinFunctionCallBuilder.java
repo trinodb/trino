@@ -21,6 +21,7 @@ import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,18 +32,20 @@ import static java.util.Objects.requireNonNull;
 public class BuiltinFunctionCallBuilder
 {
     private final Metadata metadata;
+    private final CharVarcharCoercion charVarcharCoercion;
     private String name;
     private List<TypeDescriptor> argumentTypes = new ArrayList<>();
     private List<Expression> argumentValues = new ArrayList<>();
 
-    public static BuiltinFunctionCallBuilder resolve(Metadata metadata)
+    public static BuiltinFunctionCallBuilder resolve(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
     {
-        return new BuiltinFunctionCallBuilder(metadata);
+        return new BuiltinFunctionCallBuilder(metadata, charVarcharCoercion);
     }
 
-    private BuiltinFunctionCallBuilder(Metadata metadata)
+    private BuiltinFunctionCallBuilder(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
     }
 
     public BuiltinFunctionCallBuilder setName(String name)
@@ -85,7 +88,7 @@ public class BuiltinFunctionCallBuilder
 
     public Call build()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeDescriptorProvider.fromTypeDescriptors(argumentTypes));
+        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(charVarcharCoercion, name, TypeDescriptorProvider.fromTypeDescriptors(argumentTypes));
         return new Call(resolvedFunction, argumentValues);
     }
 }

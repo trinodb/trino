@@ -28,6 +28,7 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -60,21 +61,19 @@ class FunctionBinder
 {
     private final Metadata metadata;
     private final TypeManager typeManager;
-    private final boolean legacyVarcharToCharCoercion;
 
-    public FunctionBinder(Metadata metadata, TypeManager typeManager, boolean legacyVarcharToCharCoercion)
+    public FunctionBinder(Metadata metadata, TypeManager typeManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.legacyVarcharToCharCoercion = legacyVarcharToCharCoercion;
     }
 
-    CatalogFunctionBinding bindFunction(List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates, String displayName)
+    CatalogFunctionBinding bindFunction(CharVarcharCoercion charVarcharCoercion, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates, String displayName)
     {
-        return tryBindFunction(parameterTypes, candidates).orElseThrow(() -> functionNotFound(displayName, parameterTypes, candidates));
+        return tryBindFunction(charVarcharCoercion, parameterTypes, candidates).orElseThrow(() -> functionNotFound(displayName, parameterTypes, candidates));
     }
 
-    Optional<CatalogFunctionBinding> tryBindFunction(List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
+    Optional<CatalogFunctionBinding> tryBindFunction(CharVarcharCoercion charVarcharCoercion, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
         if (candidates.isEmpty()) {
             return Optional.empty();
@@ -84,7 +83,7 @@ class FunctionBinder
                 .filter(function -> !function.functionMetadata().getSignature().isGeneric())
                 .collect(toImmutableList());
 
-        Optional<CatalogFunctionBinding> match = matchFunctionExact(exactCandidates, parameterTypes);
+        Optional<CatalogFunctionBinding> match = matchFunctionExact(charVarcharCoercion, exactCandidates, parameterTypes);
         if (match.isPresent()) {
             return match;
         }
@@ -93,22 +92,22 @@ class FunctionBinder
                 .filter(function -> function.functionMetadata().getSignature().isGeneric())
                 .collect(toImmutableList());
 
-        match = matchFunctionExact(genericCandidates, parameterTypes);
+        match = matchFunctionExact(charVarcharCoercion, genericCandidates, parameterTypes);
         if (match.isPresent()) {
             return match;
         }
 
-        return matchFunctionWithCoercion(candidates, parameterTypes);
+        return matchFunctionWithCoercion(charVarcharCoercion, candidates, parameterTypes);
     }
 
-    CatalogFunctionBinding bindCoercion(GroundSignature signature, Collection<CatalogFunctionMetadata> candidates)
+    CatalogFunctionBinding bindCoercion(CharVarcharCoercion charVarcharCoercion, GroundSignature signature, Collection<CatalogFunctionMetadata> candidates)
     {
         // coercions are much more common and much simpler than function calls, so we use a custom algorithm
         List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
                 .filter(function -> possibleExactCastMatch(signature, function.functionMetadata().getSignature()))
                 .collect(toImmutableList());
         for (CatalogFunctionMetadata candidate : exactCandidates) {
-            if (canBindSignature(candidate.functionMetadata().getSignature(), signature)) {
+            if (canBindSignature(charVarcharCoercion, candidate.functionMetadata().getSignature(), signature)) {
                 return toFunctionBinding(candidate, signature);
             }
         }
@@ -118,7 +117,7 @@ class FunctionBinder
                 .filter(function -> function.functionMetadata().getSignature().isGeneric())
                 .collect(toImmutableList());
         for (CatalogFunctionMetadata candidate : genericCandidates) {
-            if (canBindSignature(candidate.functionMetadata().getSignature(), signature)) {
+            if (canBindSignature(charVarcharCoercion, candidate.functionMetadata().getSignature(), signature)) {
                 return toFunctionBinding(candidate, signature);
             }
         }
@@ -126,9 +125,9 @@ class FunctionBinder
         throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
     }
 
-    private boolean canBindSignature(Signature declaredSignature, GroundSignature actualSignature)
+    private boolean canBindSignature(CharVarcharCoercion charVarcharCoercion, Signature declaredSignature, GroundSignature actualSignature)
     {
-        return new SignatureBinder(metadata, typeManager, declaredSignature, false, legacyVarcharToCharCoercion)
+        return new SignatureBinder(metadata, typeManager, declaredSignature, false, charVarcharCoercion)
                 .canBind(fromTypeDescriptors(actualSignature.argumentTypes()), actualSignature.returnType());
     }
 
@@ -143,25 +142,25 @@ class FunctionBinder
         return declaredSignature.getArgumentTypes().getFirst().baseName().equalsIgnoreCase(signature.argumentTypes().getFirst().getBase());
     }
 
-    private Optional<CatalogFunctionBinding> matchFunctionExact(List<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters)
+    private Optional<CatalogFunctionBinding> matchFunctionExact(CharVarcharCoercion charVarcharCoercion, List<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters)
     {
-        return matchFunction(candidates, actualParameters, false);
+        return matchFunction(charVarcharCoercion, candidates, actualParameters, false);
     }
 
-    private Optional<CatalogFunctionBinding> matchFunctionWithCoercion(Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters)
+    private Optional<CatalogFunctionBinding> matchFunctionWithCoercion(CharVarcharCoercion charVarcharCoercion, Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters)
     {
-        return matchFunction(candidates, actualParameters, true);
+        return matchFunction(charVarcharCoercion, candidates, actualParameters, true);
     }
 
-    private Optional<CatalogFunctionBinding> matchFunction(Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> parameters, boolean coercionAllowed)
+    private Optional<CatalogFunctionBinding> matchFunction(CharVarcharCoercion charVarcharCoercion, Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> parameters, boolean coercionAllowed)
     {
-        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
+        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(charVarcharCoercion, candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
             return Optional.empty();
         }
 
         if (coercionAllowed) {
-            applicableFunctions = selectMostSpecificFunctions(applicableFunctions, parameters);
+            applicableFunctions = selectMostSpecificFunctions(charVarcharCoercion, applicableFunctions, parameters);
             checkState(!applicableFunctions.isEmpty(), "at least single function must be left");
         }
 
@@ -184,22 +183,22 @@ class FunctionBinder
         throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
     }
 
-    private List<ApplicableFunction> identifyApplicableFunctions(Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters, boolean allowCoercion)
+    private List<ApplicableFunction> identifyApplicableFunctions(CharVarcharCoercion charVarcharCoercion, Collection<CatalogFunctionMetadata> candidates, List<TypeDescriptorProvider> actualParameters, boolean allowCoercion)
     {
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
         for (CatalogFunctionMetadata function : candidates) {
-            new SignatureBinder(metadata, typeManager, function.functionMetadata().getSignature(), allowCoercion, legacyVarcharToCharCoercion)
+            new SignatureBinder(metadata, typeManager, function.functionMetadata().getSignature(), allowCoercion, charVarcharCoercion)
                     .bind(actualParameters)
                     .ifPresent(signature -> applicableFunctions.add(new ApplicableFunction(function, signature)));
         }
         return applicableFunctions.build();
     }
 
-    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> applicableFunctions, List<TypeDescriptorProvider> parameters)
+    private List<ApplicableFunction> selectMostSpecificFunctions(CharVarcharCoercion charVarcharCoercion, List<ApplicableFunction> applicableFunctions, List<TypeDescriptorProvider> parameters)
     {
         checkArgument(!applicableFunctions.isEmpty());
 
-        List<ApplicableFunction> mostSpecificFunctions = selectMostSpecificFunctions(applicableFunctions);
+        List<ApplicableFunction> mostSpecificFunctions = selectMostSpecificFunctions(charVarcharCoercion, applicableFunctions);
         if (mostSpecificFunctions.size() <= 1) {
             return mostSpecificFunctions;
         }
@@ -238,7 +237,7 @@ class FunctionBinder
         return mostSpecificFunctions;
     }
 
-    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> candidates)
+    private List<ApplicableFunction> selectMostSpecificFunctions(CharVarcharCoercion charVarcharCoercion, List<ApplicableFunction> candidates)
     {
         // Provided `isMoreSpecificThan` is a partial order relation, this finds all the minimum values among candidates.
         // TODO Warning: `isMoreSpecificThan` compares bound signature of the left with declared signature of the right (asymmetric) and it is *not* proper partial order relation.
@@ -247,11 +246,11 @@ class FunctionBinder
         List<ApplicableFunction> representatives = new ArrayList<>();
 
         for (ApplicableFunction current : candidates) {
-            if (representatives.removeIf(representative -> isMoreSpecificThan(current, representative))) {
+            if (representatives.removeIf(representative -> isMoreSpecificThan(charVarcharCoercion, current, representative))) {
                 representatives.add(current);
                 continue;
             }
-            if (representatives.stream().anyMatch(representative -> isMoreSpecificThan(representative, current))) {
+            if (representatives.stream().anyMatch(representative -> isMoreSpecificThan(charVarcharCoercion, representative, current))) {
                 // Current is less specific than one of the retained representatives.
                 continue;
             }
@@ -334,10 +333,10 @@ class FunctionBinder
     /**
      * One method is more specific than another if invocation handled by the first method could be passed on to the other one
      */
-    private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
+    private boolean isMoreSpecificThan(CharVarcharCoercion charVarcharCoercion, ApplicableFunction left, ApplicableFunction right)
     {
         List<TypeDescriptorProvider> resolvedTypes = fromTypeDescriptors(left.boundSignature().argumentTypes());
-        return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true, legacyVarcharToCharCoercion)
+        return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true, charVarcharCoercion)
                 .canBind(resolvedTypes);
     }
 

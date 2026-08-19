@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
@@ -95,7 +96,7 @@ public class ImplementExceptAll
 
         // compute expected multiplicity for every row
         checkState(result.getCountSymbols().size() > 0, "ExceptNode translation result has no count symbols");
-        ResolvedFunction greatest = metadata.resolveBuiltinFunction("greatest", fromTypes(BIGINT, BIGINT));
+        ResolvedFunction greatest = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "greatest", fromTypes(BIGINT, BIGINT));
 
         Expression count = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {
@@ -103,13 +104,13 @@ public class ImplementExceptAll
                     greatest,
                     ImmutableList.of(
                             new Call(
-                                    metadata.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT)),
+                                    metadata.resolveOperator(getCharVarcharCoercion(context.getSession()), OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT)),
                                     ImmutableList.of(count, result.getCountSymbols().get(i).toSymbolReference())),
                             new Constant(BIGINT, 0L)));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = comparison(metadata, LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), count);
+        Expression removeExtraRows = comparison(metadata, getCharVarcharCoercion(context.getSession()), LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), count);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 result.getPlanNode(),

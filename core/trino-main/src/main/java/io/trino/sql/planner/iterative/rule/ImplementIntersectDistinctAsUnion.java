@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -89,7 +90,7 @@ public class ImplementIntersectDistinctAsUnion
 
         // intersect predicate: the row must be present in every source
         Expression predicate = and(result.getCountSymbols().stream()
-                .map(symbol -> comparison(metadata, GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), new Constant(BIGINT, 1L)))
+                .map(symbol -> comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), new Constant(BIGINT, 1L)))
                 .collect(toImmutableList()));
 
         return Result.ofPlanNode(
