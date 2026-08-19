@@ -51,7 +51,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
@@ -778,9 +778,9 @@ public final class ShowQueriesRewrite
         {
             return row(
                     new StringLiteral(alias),
-                    new StringLiteral(function.getSignature().getReturnType().render()),
+                    new StringLiteral(TypeSyntax.toSql(function.getSignature().getReturnType())),
                     new StringLiteral(function.getSignature().getArgumentTypes().stream()
-                            .map(TypeTemplate::render)
+                            .map(TypeSyntax::toSql)
                             .collect(joining(", "))),
                     new StringLiteral(getFunctionType(function)),
                     function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,

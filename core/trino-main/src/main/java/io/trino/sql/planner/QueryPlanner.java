@@ -114,6 +114,8 @@ import io.trino.sql.tree.Update;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import io.trino.type.Reals;
 import io.trino.type.TypeCoercion;
 
@@ -183,8 +185,6 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.WindowFrame.Type.GROUPS;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -1946,8 +1946,8 @@ class QueryPlanner
                 type.equals(INTEGER) ||
                 type.equals(SMALLINT) ||
                 type.equals(TINYINT) ||
-                type.equals(INTERVAL_DAY_TIME) ||
-                type.equals(INTERVAL_YEAR_MONTH)) {
+                type instanceof IntervalDayTimeType ||
+                type instanceof IntervalYearMonthType) {
             return new Constant(type, 0L);
         }
 

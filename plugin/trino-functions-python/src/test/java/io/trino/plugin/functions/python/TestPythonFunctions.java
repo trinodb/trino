@@ -1507,7 +1507,7 @@ public class TestPythonFunctions
                 $$
                 SELECT add_months(interval '5-9' year to month)
                 """))
-                .matches("VALUES interval '9-3' year to month");
+                .matches("VALUES interval '9-3' year(2) to month");
 
         assertThat(assertions.query(
                 """
@@ -1544,7 +1544,7 @@ public class TestPythonFunctions
                 $$
                 SELECT get_interval(interval '5 9:23:56.123' day to second)
                 """))
-                .matches("VALUES (interval '3 18:42:33.889' day to second)");
+                .matches("VALUES (interval '3 18:42:33.889' day(2) to second)");
 
         assertThat(assertions.query(
                 """
@@ -2059,8 +2059,8 @@ public class TestPythonFunctions
                             timestamp '2024-05-06 11:42:54.12346',
                             timestamp '2024-05-06 11:42:54.123-07:00',
                             timestamp '2024-05-06 11:42:54.12346-07:00',
-                            interval '5-7' year to month,
-                            interval '5 09:23:56.123' day to second,
+                            interval '5-7' year(2) to month,
+                            interval '5 09:23:56.123' day(2) to second,
                             json '{"bar": 456, "foo": 123}',
                             uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
                             ipaddress '12.34.56.78')

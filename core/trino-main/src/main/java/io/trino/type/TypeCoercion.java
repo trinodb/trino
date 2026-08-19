@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.IntervalField;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RowType;
@@ -52,6 +53,8 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.CodePointsType.CODE_POINTS;
+import static io.trino.type.IntervalDayTimeType.createIntervalDayTimeType;
+import static io.trino.type.IntervalYearMonthType.createIntervalYearMonthType;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
@@ -93,6 +96,16 @@ public final class TypeCoercion
             boolean sameScale = sourceDecimal.getScale() == resultDecimal.getScale();
             boolean sourcePrecisionIsLessOrEqualToResultPrecision = sourceDecimal.getPrecision() <= resultDecimal.getPrecision();
             return sameDecimalSubtype && sameScale && sourcePrecisionIsLessOrEqualToResultPrecision;
+        }
+
+        // Widening an interval to a coarser qualifier in the same class keeps the same physical value
+        if (source instanceof IntervalYearMonthType && result instanceof IntervalYearMonthType) {
+            return true;
+        }
+        // A day-time interval keeps its physical value only while it stays on the same side of the
+        // short/long fractional-precision boundary; crossing it re-encodes micros as (micros, picos).
+        if (source instanceof IntervalDayTimeType sourceInterval && result instanceof IntervalDayTimeType resultInterval) {
+            return sourceInterval.isShort() == resultInterval.isShort();
         }
 
         if (source instanceof RowType sourceType && result instanceof RowType resultType) {
@@ -233,6 +246,14 @@ public final class TypeCoercion
                 Type commonSuperType = createTimeWithTimeZoneType(Math.max(((TimeWithTimeZoneType) fromType).getPrecision(), ((TimeWithTimeZoneType) toType).getPrecision()));
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
+            if (fromTypeBaseName.equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
+                Type commonSuperType = getCommonSuperTypeForIntervalYearMonth((IntervalYearMonthType) fromType, (IntervalYearMonthType) toType);
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
+                Type commonSuperType = getCommonSuperTypeForIntervalDayTime((IntervalDayTimeType) fromType, (IntervalDayTimeType) toType);
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
 
             if (isCovariantParametrizedType(fromType)) {
                 return typeCompatibilityForCovariantParametrizedType(fromType, toType);
@@ -255,6 +276,65 @@ public final class TypeCoercion
         }
 
         return TypeCompatibility.incompatible();
+    }
+
+    private static Type getCommonSuperTypeForIntervalYearMonth(IntervalYearMonthType firstType, IntervalYearMonthType secondType)
+    {
+        IntervalField startField = mostSignificant(firstType.getStartField(), secondType.getStartField());
+        IntervalField endField = leastSignificant(firstType.getEndField(), secondType.getEndField());
+        // The supertype takes the wider leading precision, so a narrower interval coerces to a wider one
+        // (year(1) to year(2)); an operand whose leading field is narrower contributes that field's maximum.
+        int leadingPrecision = Math.max(
+                leadingPrecisionIn(firstType, startField),
+                leadingPrecisionIn(secondType, startField));
+        return createIntervalYearMonthType(startField, endField, leadingPrecision);
+    }
+
+    private static Type getCommonSuperTypeForIntervalDayTime(IntervalDayTimeType firstType, IntervalDayTimeType secondType)
+    {
+        IntervalField startField = mostSignificant(firstType.getStartField(), secondType.getStartField());
+        IntervalField endField = leastSignificant(firstType.getEndField(), secondType.getEndField());
+        // The supertype takes the wider leading and fractional-seconds precision, so a narrower interval
+        // coerces to a wider one (day(1) to day(2)), matching timestamp(p)/decimal(p). An operand whose
+        // leading field is narrower than the supertype's contributes that field's maximum leading
+        // precision, since its full value spans exactly that many digits of the wider leading field.
+        int leadingPrecision = Math.max(
+                leadingPrecisionIn(firstType, startField),
+                leadingPrecisionIn(secondType, startField));
+        int fractionalPrecision = endField == IntervalField.SECOND ? Math.max(firstType.getFractionalPrecision(), secondType.getFractionalPrecision()) : 0;
+        return createIntervalDayTimeType(startField, endField, leadingPrecision, fractionalPrecision);
+    }
+
+    private static int leadingPrecisionIn(IntervalDayTimeType type, IntervalField supertypeStartField)
+    {
+        // The leading precision the interval contributes to a supertype led by supertypeStartField. A
+        // same-field operand keeps its own precision, so a narrower interval widens to a wider one
+        // (day(t) to day(u) when t <= u). A finer-field operand contributes the precision that its full
+        // range occupies in the coarser field, so it widens only as far as it fits (hour(t) to day(u)
+        // exactly when t hours' worth of digits fit in u days). Because each field's maximum leading
+        // precision denotes the same magnitude, that shift is the difference of the two field maxima.
+        // The result is capped at the supertype field's maximum, so an out-of-range leading precision
+        // saturates rather than overflows, mirroring decimal precision capping at 38.
+        int shift = IntervalDayTimeType.maxLeadingPrecision(type.getStartField()) - IntervalDayTimeType.maxLeadingPrecision(supertypeStartField);
+        int precision = type.getLeadingPrecision() - shift;
+        return Math.min(IntervalDayTimeType.maxLeadingPrecision(supertypeStartField), Math.max(1, precision));
+    }
+
+    private static int leadingPrecisionIn(IntervalYearMonthType type, IntervalField supertypeStartField)
+    {
+        int shift = IntervalYearMonthType.maxLeadingPrecision(type.getStartField()) - IntervalYearMonthType.maxLeadingPrecision(supertypeStartField);
+        int precision = type.getLeadingPrecision() - shift;
+        return Math.min(IntervalYearMonthType.maxLeadingPrecision(supertypeStartField), Math.max(1, precision));
+    }
+
+    private static IntervalField mostSignificant(IntervalField first, IntervalField second)
+    {
+        return first.code() <= second.code() ? first : second;
+    }
+
+    private static IntervalField leastSignificant(IntervalField first, IntervalField second)
+    {
+        return first.code() >= second.code() ? first : second;
     }
 
     private static Type getCommonSuperTypeForDecimal(DecimalType firstType, DecimalType secondType)

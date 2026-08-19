@@ -23,10 +23,18 @@ public enum ClientCapabilities
      * timestamp(p) without time zone
      * time(p) with time zone
      * time(p) without time zone
-     * interval X(p1) to Y(p2)
      * When this capability is not set, the server returns datetime types with precision = 3
      */
     PARAMETRIC_DATETIME,
+
+    /// Whether clients support day-time interval values with variable fractional-seconds precision.
+    /// Such a value renders exactly as many fractional digits as its declared precision — none for a
+    /// precision-0 interval, up to twelve for picoseconds — whereas an older client reads the
+    /// fractional digits as milliseconds and requires them to be present. When this capability is not
+    /// set, the server returns day-time interval values rounded to milliseconds in the legacy
+    /// three-digit form. (The interval type signature is unaffected: its base name is unchanged and
+    /// the added precision parameters are ignored by older clients.)
+    PARAMETRIC_INTERVAL,
 
     /**
      * Whether client supports the `NUMBER` type. When this capability is not set, the server returns `varchar` for `NUMBER` columns.

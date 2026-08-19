@@ -129,7 +129,7 @@ public class RefreshViewTask
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(viewDefinitionSql)
                 .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId(), Optional.ofNullable(columnComments.get(field.getName().get()))))
+                .map(field -> ViewColumn.fromType(field.getName().get(), field.getType(), Optional.ofNullable(columnComments.get(field.getName().get()))))
                 .collect(toImmutableList());
 
         ViewDefinition viewDefinitionWithNewColumns = new ViewDefinition(
