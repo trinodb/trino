@@ -17,7 +17,7 @@ import static io.trino.spi.block.Bitmap.getBits;
 import static io.trino.spi.block.Bitmap.isSet;
 import static java.lang.Math.min;
 
-final class ColumnarFilterUtils
+public final class ColumnarFilterUtils
 {
     private ColumnarFilterUtils() {}
 
@@ -26,7 +26,7 @@ final class ColumnarFilterUtils
         return isSet(validity, rawBitOffset, position);
     }
 
-    static int filterSetBitsRange(long[] validity, int rawBitOffset, int offset, int size, int[] outputPositions)
+    public static int filterSetBitsRange(long[] validity, int rawBitOffset, int offset, int size, int[] outputPositions)
     {
         int outputCount = 0;
         int end = offset + size;
@@ -34,10 +34,18 @@ final class ColumnarFilterUtils
         while (position < end) {
             int bitsInWord = min(Long.SIZE, end - position);
             long bits = getBits(validity, rawBitOffset, position, bitsInWord);
-            while (bits != 0) {
-                int bit = Long.numberOfTrailingZeros(bits);
-                outputPositions[outputCount++] = position + bit;
-                bits &= bits - 1;
+            if (Long.bitCount(bits) == bitsInWord) {
+                // Dense case: emitting sequentially beats walking bits one at a time
+                for (int bit = 0; bit < bitsInWord; bit++) {
+                    outputPositions[outputCount++] = position + bit;
+                }
+            }
+            else {
+                while (bits != 0) {
+                    int bit = Long.numberOfTrailingZeros(bits);
+                    outputPositions[outputCount++] = position + bit;
+                    bits &= bits - 1;
+                }
             }
             position += bitsInWord;
         }

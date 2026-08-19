@@ -13,13 +13,17 @@
  */
 package io.trino.operator.join.nonspilling;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomDictionaryBlock;
 import static io.trino.block.BlockAssertions.createRandomRleBlock;
@@ -75,6 +79,60 @@ final class TestJoinProbe
             blocks[i] = createRandomBlockForType(BIGINT, positionCount, 0f);
         }
         assertThat(getNonNullPositions(blocks, blocks.length, positionCount)).isEmpty();
+    }
+
+    @Test
+    void testGetNonNullPositionsBlockKinds()
+    {
+        for (int positionCount : new int[] {4, 63, 64, 65, 100, 8192}) {
+            List<Block> blocks = blockKinds(positionCount);
+            for (Block block : blocks) {
+                assertNonNullPositions(new Block[] {block}, positionCount);
+                for (Block other : blocks) {
+                    assertNonNullPositions(new Block[] {block, other}, positionCount);
+                }
+            }
+        }
+    }
+
+    @Test
+    void testGetNonNullPositionsTinyPages()
+    {
+        Block empty = BIGINT.createBlockBuilder(null, 0).build();
+        assertThat(getNonNullPositions(new Block[] {empty}, 1, 0)).isEmpty();
+        assertThat(getNonNullPositions(new Block[] {empty, empty}, 2, 0)).isEmpty();
+
+        Block nullValue = createLongsBlock((Long) null);
+        Block value = createLongsBlock(7L);
+        assertNonNullPositions(new Block[] {nullValue}, 1);
+        assertNonNullPositions(new Block[] {value}, 1);
+        assertNonNullPositions(new Block[] {value, nullValue}, 1);
+        assertNonNullPositions(new Block[] {value, value}, 1);
+    }
+
+    private static List<Block> blockKinds(int positionCount)
+    {
+        return ImmutableList.of(
+                createRandomBlockForType(BIGINT, positionCount, 0.3f),
+                createRandomBlockForType(BIGINT, positionCount + 37, 0.3f).getRegion(37, positionCount),
+                RunLengthEncodedBlock.create(BIGINT, null, positionCount),
+                RunLengthEncodedBlock.create(BIGINT, 5L, positionCount),
+                createRandomDictionaryBlock(createLongsBlock(1L, null, 2L, null), positionCount),
+                createRandomDictionaryBlock(createRandomBlockForType(BIGINT, 10_000, 0.3f), positionCount),
+                createRandomDictionaryBlock(createRandomBlockForType(BIGINT, 10_037, 0.3f).getRegion(37, 10_000), positionCount),
+                createRandomDictionaryBlock(createRandomBlockForType(BIGINT, 16, 0f), positionCount));
+    }
+
+    private static void assertNonNullPositions(Block[] blocks, int positionCount)
+    {
+        int[] expected = getExpectedNonNullPositions(blocks, positionCount);
+        Optional<int[]> actual = getNonNullPositions(blocks, blocks.length, positionCount);
+        if (expected.length == positionCount) {
+            assertThat(actual).isEmpty();
+        }
+        else {
+            assertThat(actual).hasValueSatisfying(positions -> assertThat(positions).containsExactly(expected));
+        }
     }
 
     private static int[] getExpectedNonNullPositions(Block[] blocks, int positionCount)
