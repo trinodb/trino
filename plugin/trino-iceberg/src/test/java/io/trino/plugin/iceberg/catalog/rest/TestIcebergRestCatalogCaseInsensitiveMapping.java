@@ -307,6 +307,54 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         backend.dropView(TableIdentifier.of(NAMESPACE, viewName));
     }
 
+    @Test
+    void testCaseInsensitiveCollisionBetweenTableAndView()
+    {
+        // A remote backend that is case-sensitive can hold a table and a view whose names differ
+        // only by case (the Iceberg spec forbids a table and view sharing the *same* name, but not
+        // case-variants). With case-insensitive matching enabled, both collapse to a single Trino
+        // name and Trino cannot address them separately.
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
+        String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
+        createDir(namespaceLocation);
+
+        String suffix = randomNameSuffix();
+        String lowercaseName = "cross_type_collision_" + suffix;
+        TableIdentifier remoteTable = TableIdentifier.of(NAMESPACE, "CROSS_TYPE_COLLISION_" + suffix);
+        TableIdentifier remoteView = TableIdentifier.of(NAMESPACE, lowercaseName);
+
+        String tableLocation = namespaceLocation + "/" + lowercaseName + "_table";
+        createDir(tableLocation);
+        createDir(tableLocation + "/data");
+        createDir(tableLocation + "/metadata");
+        backend.buildTable(remoteTable, new Schema(required(1, "t_val", Types.LongType.get())))
+                .withLocation(tableLocation)
+                .createTransaction()
+                .commitTransaction();
+
+        String viewLocation = namespaceLocation + "/" + lowercaseName + "_view";
+        createDir(viewLocation);
+        createDir(viewLocation + "/data");
+        createDir(viewLocation + "/metadata");
+        backend.buildView(remoteView)
+                .withQuery("trino", "SELECT BIGINT '7' AS v_val")
+                .withSchema(new Schema(required(1, "v_val", Types.LongType.get())))
+                .withDefaultNamespace(NAMESPACE)
+                .withLocation(viewLocation)
+                .createOrReplace();
+
+        // The analyzer resolves views before tables (StatementAnalyzer resolves
+        // materialized view -> view -> table), so the query binds to the view and the
+        // colliding table is unreachable: it returns the view's column/value, not the table's.
+        assertThat(computeActual("DESCRIBE " + lowercaseName).getMaterializedRows())
+                .singleElement()
+                .satisfies(row -> assertThat(row.getField(0)).isEqualTo("v_val"));
+        assertQuery("SELECT * FROM " + lowercaseName, "VALUES CAST(7 AS BIGINT)");
+
+        assertUpdate("DROP VIEW " + lowercaseName);
+        assertUpdate("DROP TABLE " + lowercaseName);
+    }
+
     private String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns " +
