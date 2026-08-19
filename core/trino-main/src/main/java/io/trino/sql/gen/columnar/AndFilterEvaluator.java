@@ -20,6 +20,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public final class AndFilterEvaluator
         implements FilterEvaluator
 {
-    public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(ColumnarFilterCompiler compiler, Logical logical, Map<Symbol, Integer> layout, boolean filterReorderingEnabled, boolean dynamicFilter)
+    public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(CharVarcharCoercion charVarcharCoercion, ColumnarFilterCompiler compiler, Logical logical, Map<Symbol, Integer> layout, boolean filterReorderingEnabled, boolean dynamicFilter)
     {
         checkArgument(logical.operator() == Logical.Operator.AND, "logical %s should be AND", logical);
 
@@ -42,14 +43,14 @@ public final class AndFilterEvaluator
 
         ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builderWithExpectedSize(terms.size());
         for (Expression expression : terms) {
-            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, layout, compiler, filterReorderingEnabled, dynamicFilter);
+            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(charVarcharCoercion, expression, layout, compiler, filterReorderingEnabled, dynamicFilter);
             if (subExpressionEvaluator.isEmpty()) {
                 return Optional.empty();
             }
             builder.add(subExpressionEvaluator.get());
         }
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = builder.build();
-        boolean reorderingSafe = filterReorderingEnabled && isReorderingSafe(compiler.getPlannerContext(), terms);
+        boolean reorderingSafe = filterReorderingEnabled && isReorderingSafe(compiler.getPlannerContext(), charVarcharCoercion, terms);
         return Optional.of(() -> {
             FilterEvaluator[] filterEvaluators = new FilterEvaluator[subExpressionEvaluators.size()];
             for (int i = 0; i < filterEvaluators.length; i++) {

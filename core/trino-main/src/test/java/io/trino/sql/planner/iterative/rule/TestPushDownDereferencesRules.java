@@ -41,10 +41,13 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.testing.TestingTransactionHandle;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -92,6 +95,7 @@ import static java.util.Collections.singletonList;
 public class TestPushDownDereferencesRules
         extends BaseRuleTest
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final RowType ROW_TYPE = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
@@ -343,7 +347,7 @@ public class TestPushDownDereferencesRules
                                 new Logical(AND, ImmutableList.of(
                                         comparison(NOT_EQUAL, new FieldReference(new FieldReference(new Reference(nestedRowType, "a"), 0), 0), new Constant(BIGINT, 5L)),
                                         comparison(EQUAL, new FieldReference(new Reference(ROW_TYPE, "b"), 1), new Constant(BIGINT, 2L)),
-                                        not(FUNCTIONS.getMetadata(), new IsNull(new Cast(new FieldReference(new Reference(nestedRowType, "a"), 0), JSON))))),
+                                        not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Cast(new FieldReference(new Reference(nestedRowType, "a"), 0), JSON))))),
                                 p.tableScan(
                                         testTable,
                                         ImmutableList.of(p.symbol("a", nestedRowType), p.symbol("b", ROW_TYPE)),
@@ -352,7 +356,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("b", ROW_TYPE), new TpchColumnHandle("b", ROW_TYPE)))))
                 .matches(project(
                         filter(
-                                new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(BIGINT, "expr"), new Constant(BIGINT, 5L)), comparison(EQUAL, new Reference(BIGINT, "expr_0"), new Constant(BIGINT, 2L)), not(FUNCTIONS.getMetadata(), new IsNull(new Cast(new Reference(ROW_TYPE, "expr_1"), JSON))))),
+                                new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(BIGINT, "expr"), new Constant(BIGINT, 5L)), comparison(EQUAL, new Reference(BIGINT, "expr_0"), new Constant(BIGINT, 2L)), not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Cast(new Reference(ROW_TYPE, "expr_1"), JSON))))),
                                 strictProject(
                                         ImmutableMap.of(
                                                 "expr", expression(new FieldReference(new FieldReference(new Reference(nestedRowType, "a"), 0), 0)),
@@ -380,7 +384,7 @@ public class TestPushDownDereferencesRules
                                         p.symbol("expr_2", BIGINT),
                                         new FieldReference(new Reference(ROW_TYPE, "msg2"), 0)),
                                 p.filter(
-                                        new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new FieldReference(new Reference(ROW_TYPE, "msg"), 0), new Constant(BIGINT, 3L)), not(FUNCTIONS.getMetadata(), new IsNull(new Reference(ROW_TYPE, "msg2"))))),
+                                        new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new FieldReference(new Reference(ROW_TYPE, "msg"), 0), new Constant(BIGINT, 3L)), not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(ROW_TYPE, "msg2"))))),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
@@ -388,7 +392,7 @@ public class TestPushDownDereferencesRules
                                         "expr", expression(new Reference(BIGINT, "msg_x")),
                                         "expr_2", expression(new FieldReference(new Reference(ROW_TYPE, "msg2"), 0))), // not pushed down since predicate contains msg2 reference
                                 filter(
-                                        new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(BIGINT, "msg_x"), new Constant(BIGINT, 3L)), not(FUNCTIONS.getMetadata(), new IsNull(new Reference(ROW_TYPE, "msg2"))))),
+                                        new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(BIGINT, "msg_x"), new Constant(BIGINT, 3L)), not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(ROW_TYPE, "msg2"))))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "msg_x", expression(new FieldReference(new Reference(ROW_TYPE, "msg"), 0)),
@@ -636,7 +640,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("msg6", ROW_TYPE),
                                                 // min function on MSG_TYPE
                                                 new WindowNode.Function(
-                                                        createTestingMetadataManager().resolveBuiltinFunction("min", fromTypes(ROW_TYPE)),
+                                                        createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "min", fromTypes(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         Optional.empty(),
                                                         new WindowNode.Frame(

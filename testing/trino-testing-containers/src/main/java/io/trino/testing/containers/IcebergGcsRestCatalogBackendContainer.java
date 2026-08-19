@@ -15,6 +15,7 @@ package io.trino.testing.containers;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.testcontainers.containers.Network;
 
 import java.util.Optional;
 
@@ -22,8 +23,10 @@ public class IcebergGcsRestCatalogBackendContainer
         extends BaseTestContainer
 {
     public IcebergGcsRestCatalogBackendContainer(
+            Optional<Network> network,
             String warehouseLocation,
             String gcpProjectId,
+            String gcpServiceHost,
             String accessToken,
             long accessTokenExpiresAt)
     {
@@ -36,9 +39,10 @@ public class IcebergGcsRestCatalogBackendContainer
                         "CATALOG_WAREHOUSE", warehouseLocation,
                         "CATALOG_IO__IMPL", "org.apache.iceberg.gcp.gcs.GCSFileIO",
                         "CATALOG_GCS_PROJECT__ID", gcpProjectId,
+                        "CATALOG_GCS_SERVICE_HOST", gcpServiceHost,
                         "CATALOG_GCS_OAUTH2_TOKEN", accessToken,
                         "CATALOG_GCS_OAUTH2_TOKEN_EXPIRES_AT", Long.toString(accessTokenExpiresAt)),
-                Optional.empty(),
+                network,
                 5);
     }
 

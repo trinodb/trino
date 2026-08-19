@@ -29,7 +29,6 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.Bitmap.allocateWords;
-import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -44,7 +43,7 @@ public class DictionaryBuilder
     private static final float FILL_RATIO = 0.75f;
     private static final int EMPTY_SLOT = -1;
     private static final int NULL_POSITION = 0;
-    private static final int EXPECTED_BYTES_PER_ENTRY = 32;
+    private static final int INITIAL_SLICE_OUTPUT_SIZE = 64;
 
     private final IntBigArray blockPositionByHash = new IntBigArray();
 
@@ -59,11 +58,7 @@ public class DictionaryBuilder
     {
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
 
-        // todo we can do better
-        int expectedEntries = min(expectedSize, DEFAULT_MAX_PAGE_SIZE_IN_BYTES / EXPECTED_BYTES_PER_ENTRY);
-        // it is guaranteed expectedEntries * EXPECTED_BYTES_PER_ENTRY will not overflow
-        int expectedBytes = expectedEntries * EXPECTED_BYTES_PER_ENTRY;
-        sliceOutput = new DynamicSliceOutput(min(expectedBytes, MAX_ARRAY_SIZE));
+        sliceOutput = new DynamicSliceOutput(INITIAL_SLICE_OUTPUT_SIZE);
 
         int hashSize = arraySize(expectedSize, FILL_RATIO);
         this.maxFill = calculateMaxFill(hashSize);

@@ -68,6 +68,7 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floor;
@@ -672,7 +673,7 @@ class TestSqlFunctions
         SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), TESTING_BLOCK_ENCODING_SERDE);
 
         SqlRoutineCompiler compiler = new SqlRoutineCompiler(createTestingFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager());
-        SpecializedSqlScalarFunction sqlScalarFunction = compiler.compile(routine);
+        SpecializedSqlScalarFunction sqlScalarFunction = compiler.compile(SQL_STANDARD, routine);
 
         InvocationConvention invocationConvention = new InvocationConvention(
                 metadata.getFunctionNullability().getArgumentNullable().stream()

@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -405,11 +406,12 @@ public class DecorrelateUnnest
             Expression predicate = ifExpression(
                     comparison(
                             metadata,
+                            getCharVarcharCoercion(session),
                             GREATER_THAN,
                             rowNumberSymbol.toSymbolReference(),
                             new Constant(BIGINT, 1L)),
                     new Cast(
-                            failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
+                            failFunction(metadata, getCharVarcharCoercion(session), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                             BOOLEAN),
                     TRUE);
 
@@ -449,7 +451,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             sourceNode,
-                            comparison(metadata, LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
+                            comparison(metadata, getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
                     Optional.of(rowNumberSymbol));
         }
 
@@ -461,7 +463,7 @@ public class DecorrelateUnnest
             // Do not reuse source's rowNumberSymbol, because it might not follow the TopNNode's ordering.
             Symbol rowNumberSymbol = symbolAllocator.newSymbol("row_number", BIGINT);
             WindowNode.Function rowNumberFunction = new WindowNode.Function(
-                    metadata.resolveBuiltinFunction("row_number", ImmutableList.of()),
+                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "row_number", ImmutableList.of()),
                     ImmutableList.of(),
                     Optional.empty(),
                     DEFAULT_FRAME,
@@ -479,7 +481,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             windowNode,
-                            comparison(metadata, LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
+                            comparison(metadata, getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
                     Optional.of(rowNumberSymbol));
         }
 

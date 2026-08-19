@@ -20,7 +20,7 @@ import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.MountableFile;
 
@@ -55,7 +55,7 @@ public class CliEnvironment
 
     private Network network;
     private HadoopContainer hadoop;
-    private PostgreSQLContainer<?> postgresql;
+    private PostgreSQLContainer postgresql;
     private TrinoContainer trino;
 
     @Override
@@ -75,7 +75,7 @@ public class CliEnvironment
                 .withNetworkAliases(HadoopContainer.HOST_NAME);
         hadoop.start();
 
-        postgresql = new PostgreSQLContainer<>("postgres:11")
+        postgresql = new PostgreSQLContainer("postgres:11")
                 .withNetwork(network)
                 .withNetworkAliases("postgresql")
                 .withDatabaseName("test")

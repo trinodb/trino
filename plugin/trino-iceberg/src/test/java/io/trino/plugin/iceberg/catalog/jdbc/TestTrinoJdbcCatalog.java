@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -99,7 +100,8 @@ final class TestTrinoJdbcCatalog
                 FILE_IO_FACTORY,
                 useUniqueTableLocations,
                 warehouseLocation.toAbsolutePath().toString(),
-                V1);
+                V1,
+                directExecutor());
     }
 
     private static JdbcCatalog createJdbcCatalog(String jdbcUrl, Path warehouseLocation)
@@ -157,13 +159,5 @@ final class TestTrinoJdbcCatalog
         finally {
             catalog.dropNamespace(SESSION, namespace);
         }
-    }
-
-    @Test
-    @Override
-    public void testSchemaWithInvalidProperties()
-    {
-        // JDBC catalog preserves arbitrary namespace properties
-        // https://github.com/trinodb/trino/issues/29769
     }
 }

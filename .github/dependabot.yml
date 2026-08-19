@@ -35,7 +35,12 @@ updates:
     directory: "/core/trino-web-ui/src/main/resources/webapp"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 2
+    # Group dependabot updates for the web UI dependencies to reduce PR volume.
+    groups:
+      web-ui-dependencies:
+        patterns:
+          - "*"
     allow:
       - dependency-type: "all"
     ignore:

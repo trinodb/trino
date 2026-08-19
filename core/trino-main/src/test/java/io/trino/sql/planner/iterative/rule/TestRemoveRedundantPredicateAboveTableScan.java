@@ -36,6 +36,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -166,7 +167,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 ImmutableList.of(
                                         comparison(
                                                 EQUAL,
-                                                resolve(tester().getMetadata())
+                                                resolve(tester().getMetadata(), getCharVarcharCoercion(tester().getSession()))
                                                         .setName("rand")
                                                         .build(),
                                                 new Constant(DOUBLE, 42.0)),
@@ -188,7 +189,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 Logical.and(
                                         comparison(
                                                 EQUAL,
-                                                resolve(tester().getMetadata())
+                                                resolve(tester().getMetadata(), getCharVarcharCoercion(tester().getSession()))
                                                         .setName("rand")
                                                         .build(),
                                                 new Constant(DOUBLE, 42.0)),
@@ -210,7 +211,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                 .on(p -> p.filter(
                         comparison(
                                 EQUAL,
-                                resolve(tester().getMetadata())
+                                resolve(tester().getMetadata(), getCharVarcharCoercion(tester().getSession()))
                                         .setName("rand")
                                         .build(),
                                 new Constant(DOUBLE, 42.0)),

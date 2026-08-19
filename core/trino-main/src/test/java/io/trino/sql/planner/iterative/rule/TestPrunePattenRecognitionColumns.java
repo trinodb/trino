@@ -29,10 +29,13 @@ import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -62,10 +65,12 @@ import static io.trino.type.UnknownType.UNKNOWN;
 public class TestPrunePattenRecognitionColumns
         extends BaseRuleTest
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+
     @Test
     public void testRemovePatternRecognitionNode()
     {
-        ResolvedFunction rank = createTestingMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
+        ResolvedFunction rank = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "rank", ImmutableList.of());
 
         // MATCH_RECOGNIZE with options: AFTER MATCH SKIP PAST LAST ROW, ALL ROWS WITH UNMATCHED ROW
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -125,7 +130,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedWindowFunctionAndSources()
     {
-        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
+        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "lag", fromTypes(BIGINT));
 
         // remove window function "lag" and input symbol "b" used only by that function
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -177,7 +182,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedMeasureAndSources()
     {
-        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
+        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "lag", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 ROWS,
                 CURRENT_ROW,
@@ -255,7 +260,7 @@ public class TestPrunePattenRecognitionColumns
                                                 values("a", "b")))));
 
         // inputs "a", "b" are used as aggregation arguments
-        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
+        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "max_by", fromTypes(BIGINT, BIGINT));
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),

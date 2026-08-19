@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -212,7 +213,7 @@ public class TestPushFilterThroughBoolOrAggregation
                     Symbol bool = p.symbol("bool", BOOLEAN);
                     Symbol aggrBool = p.symbol("aggrbool", BOOLEAN);
                     return p.filter(
-                            not(tester().getMetadata(), new Coalesce(aggrBool.toSymbolReference(), TRUE)),
+                            not(tester().getMetadata(), getCharVarcharCoercion(tester().getSession()), new Coalesce(aggrBool.toSymbolReference(), TRUE)),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(

@@ -33,6 +33,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -159,9 +160,9 @@ public class TransformCorrelatedScalarSubquery
                 markDistinctNode,
                 new Match(
                         isDistinct.toSymbolReference(),
-                        ImmutableList.of(equalityClause(metadata, matchOperand, TRUE, TRUE)),
+                        ImmutableList.of(equalityClause(metadata, getCharVarcharCoercion(context.getSession()), matchOperand, TRUE, TRUE)),
                         new Cast(
-                                failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
+                                failFunction(metadata, getCharVarcharCoercion(context.getSession()), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                                 BOOLEAN)));
 
         return Result.ofPlanNode(new ProjectNode(

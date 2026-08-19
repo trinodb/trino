@@ -40,7 +40,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -238,7 +237,7 @@ class TestKafkaAvroReadsSchemaRegistrySmokeTest
         Schema.Parser parser = new Schema.Parser();
         // Add the referenced types to the parser first
         for (Schema type : types) {
-            parser.addTypes(Collections.singletonMap(type.getFullName(), type));
+            parser.addTypes(ImmutableList.of(type));
         }
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
             if (is == null) {

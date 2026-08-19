@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import io.airlift.slice.Slice;
+import io.trino.Session;
 import io.trino.spi.type.TimeZoneNotSupportedException;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.VarcharType;
@@ -24,6 +25,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions.Comparison;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -69,22 +71,24 @@ public class UnwrapAtTimeZoneInComparison
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        return (expression, _) -> unwrapAtTimeZone(plannerContext, expression);
+        return (expression, context) -> unwrapAtTimeZone(plannerContext, context.getSession(), expression);
     }
 
-    private static Expression unwrapAtTimeZone(PlannerContext plannerContext, Expression expression)
+    private static Expression unwrapAtTimeZone(PlannerContext plannerContext, Session session, Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
     }
 
     private static class Visitor
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
+        private final Session session;
 
-        public Visitor(PlannerContext plannerContext)
+        public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -100,7 +104,7 @@ public class UnwrapAtTimeZoneInComparison
             if (left == comparison.left() && right == comparison.right()) {
                 return expression;
             }
-            return comparison(plannerContext.getMetadata(), comparison.operator(), left, right);
+            return comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), comparison.operator(), left, right);
         }
 
         private static Expression unwrap(Expression expression)

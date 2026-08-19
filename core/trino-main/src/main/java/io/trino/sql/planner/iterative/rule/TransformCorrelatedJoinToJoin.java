@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
@@ -67,7 +68,7 @@ public class TransformCorrelatedJoinToJoin
         checkArgument(correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT, "correlation in %s JOIN", correlatedJoinNode.getType().name());
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
-        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(plannerContext, getCharVarcharCoercion(context.getSession()), context.getSymbolAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, correlatedJoinNode.getCorrelation());
         if (decorrelatedNodeOptional.isEmpty()) {
             return Result.empty();

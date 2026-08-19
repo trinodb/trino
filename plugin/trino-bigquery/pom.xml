@@ -26,12 +26,6 @@
                 <artifactId>opencensus-api</artifactId>
                 <version>0.31.1</version>
             </dependency>
-
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpcore</artifactId>
-                <version>4.4.16</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -315,7 +309,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20260719</version>
+            <version>20260814</version>
         </dependency>
 
         <dependency>

@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -77,7 +78,7 @@ public class TestPartialTranslator
         assertFullTranslation(new Call(ADD_INTEGER, ImmutableList.of(symbolReference1, dereferenceExpression1)));
 
         Expression functionCallExpression = new Call(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "concat", fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(stringLiteral, new Cast(dereferenceExpression2, VARCHAR)));
         assertFullTranslation(functionCallExpression);
     }

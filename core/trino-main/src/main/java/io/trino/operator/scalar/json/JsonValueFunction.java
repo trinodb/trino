@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import io.trino.FullConnectorSession;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.jsonpath.JsonPathEvaluator;
 import io.trino.jsonpath.JsonPathInvocationContext;
@@ -37,6 +38,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
@@ -49,7 +51,6 @@ import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
 import io.trino.type.SqlJsonPathType;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Optional;
@@ -57,6 +58,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getTypedValue;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
@@ -79,11 +81,11 @@ public class JsonValueFunction
         extends SqlScalarFunction
 {
     public static final String JSON_VALUE_FUNCTION_NAME = "$json_value";
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(JsonValueFunction.class, "jsonValueLong", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(JsonValueFunction.class, "jsonValueDouble", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(JsonValueFunction.class, "jsonValueLong", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(JsonValueFunction.class, "jsonValueDouble", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, DefaultValueLambda.class, long.class, DefaultValueLambda.class);
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -120,14 +122,12 @@ public class JsonValueFunction
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type parametersRowType = boundSignature.getArgumentType(2);
         Type returnType = boundSignature.getReturnType();
         Type emptyDefaultType = ((FunctionType) boundSignature.getArgumentType(5)).getReturnType();
         Type errorDefaultType = ((FunctionType) boundSignature.getArgumentType(7)).getReturnType();
-        MethodHandle emptyDefaultCoercion = createDefaultCoercion(functionManager, metadata, emptyDefaultType, returnType);
-        MethodHandle errorDefaultCoercion = createDefaultCoercion(functionManager, metadata, errorDefaultType, returnType);
 
         MethodHandle handle;
         if (returnType.getJavaType().equals(long.class)) {
@@ -152,8 +152,8 @@ public class JsonValueFunction
                 .bindTo(typeManager)
                 .bindTo(parametersRowType)
                 .bindTo(returnType)
-                .bindTo(emptyDefaultCoercion)
-                .bindTo(errorDefaultCoercion);
+                .bindTo(emptyDefaultType)
+                .bindTo(errorDefaultType);
         methodHandle = dropArguments(methodHandle, 5, Primitives.wrap(boundSignature.getArgumentType(3).getJavaType()));
         MethodHandle instanceFactory = constructorMethodHandle(JsonPathInvocationContext.class);
         return new ChoicesSpecializedSqlScalarFunction(
@@ -172,8 +172,8 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
-            MethodHandle emptyDefaultCoercion,
-            MethodHandle errorDefaultCoercion,
+            Type emptyDefaultType,
+            Type errorDefaultType,
             JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
@@ -184,7 +184,7 @@ public class JsonValueFunction
             long errorBehavior,
             DefaultValueLambda errorDefault)
     {
-        return (Long) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, emptyDefaultCoercion, errorDefaultCoercion, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+        return (Long) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, emptyDefaultType, errorDefaultType, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
     }
 
     @UsedByGeneratedCode
@@ -194,8 +194,8 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
-            MethodHandle emptyDefaultCoercion,
-            MethodHandle errorDefaultCoercion,
+            Type emptyDefaultType,
+            Type errorDefaultType,
             JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
@@ -206,7 +206,7 @@ public class JsonValueFunction
             long errorBehavior,
             DefaultValueLambda errorDefault)
     {
-        return (Double) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, emptyDefaultCoercion, errorDefaultCoercion, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+        return (Double) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, emptyDefaultType, errorDefaultType, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
     }
 
     @UsedByGeneratedCode
@@ -216,8 +216,8 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
-            MethodHandle emptyDefaultCoercion,
-            MethodHandle errorDefaultCoercion,
+            Type emptyDefaultType,
+            Type errorDefaultType,
             JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
@@ -228,7 +228,7 @@ public class JsonValueFunction
             long errorBehavior,
             DefaultValueLambda errorDefault)
     {
-        return (Boolean) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, emptyDefaultCoercion, errorDefaultCoercion, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+        return (Boolean) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, emptyDefaultType, errorDefaultType, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
     }
 
     @UsedByGeneratedCode
@@ -238,8 +238,8 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
-            MethodHandle emptyDefaultCoercion,
-            MethodHandle errorDefaultCoercion,
+            Type emptyDefaultType,
+            Type errorDefaultType,
             JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
@@ -250,7 +250,7 @@ public class JsonValueFunction
             long errorBehavior,
             DefaultValueLambda errorDefault)
     {
-        return (Slice) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, emptyDefaultCoercion, errorDefaultCoercion, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+        return (Slice) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, emptyDefaultType, errorDefaultType, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
     }
 
     @UsedByGeneratedCode
@@ -260,8 +260,8 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
-            MethodHandle emptyDefaultCoercion,
-            MethodHandle errorDefaultCoercion,
+            Type emptyDefaultType,
+            Type errorDefaultType,
             JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
@@ -273,12 +273,12 @@ public class JsonValueFunction
             DefaultValueLambda errorDefault)
     {
         if (inputExpression.equals(JSON_ERROR)) {
-            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
+            return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> new JsonInputConversionException("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
-                return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
+                return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
             }
         }
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
@@ -294,15 +294,15 @@ public class JsonValueFunction
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }
         catch (PathEvaluationException e) {
-            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> e);
+            return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> e);
         }
 
         if (pathResult.isEmpty()) {
-            return handleEmpty(session, emptyBehavior, emptyDefaultCoercion, emptyDefault, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found no items"));
+            return handleEmpty(functionManager, metadata, returnType, emptyDefaultType, errorDefaultType, session, emptyBehavior, emptyDefault, errorBehavior, errorDefault, () -> new JsonValueResultException("JSON path found no items"));
         }
 
         if (pathResult.size() > 1) {
-            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found multiple items"));
+            return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> new JsonValueResultException("JSON path found multiple items"));
         }
         Object item = getOnlyElement(pathResult);
         TypedValue typedValue;
@@ -315,10 +315,10 @@ public class JsonValueFunction
                 itemValue = getTypedValue(jsonNode);
             }
             catch (JsonLiteralConversionException e) {
-                return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value", e));
+                return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value", e));
             }
             if (itemValue.isEmpty()) {
-                return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
+                return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
             }
             typedValue = itemValue.get();
         }
@@ -330,10 +330,13 @@ public class JsonValueFunction
         }
         ResolvedFunction coercion;
         try {
-            coercion = metadata.getCoercion(typedValue.getType(), returnType);
+            // TODO once the legacy char/varchar semantics is removed and the CharVarcharCoercion enum is deleted, the
+            //  coercion direction is no longer session-dependent, so this runtime coercion resolution should be reverted
+            //  to the previous compile-time approach.
+            coercion = metadata.getCoercion(getCharVarcharCoercion(((FullConnectorSession) session).getSession()), typedValue.getType(), returnType);
         }
         catch (OperatorNotFoundException e) {
-            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(
+            return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> new JsonValueResultException(format(
                     "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
                     typedValue.getType(),
                     returnType)));
@@ -342,7 +345,7 @@ public class JsonValueFunction
             return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, ImmutableList.of(typedValue.getValueAsObject()));
         }
         catch (RuntimeException e) {
-            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(
+            return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> new JsonValueResultException(format(
                     "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
                     typedValue.getType(),
                     returnType)));
@@ -350,12 +353,15 @@ public class JsonValueFunction
     }
 
     private static Object handleEmpty(
+            FunctionManager functionManager,
+            Metadata metadata,
+            Type returnType,
+            Type emptyDefaultType,
+            Type errorDefaultType,
             ConnectorSession session,
             long emptyBehavior,
-            MethodHandle emptyDefaultCoercion,
             DefaultValueLambda emptyDefault,
             long errorBehavior,
-            MethodHandle errorDefaultCoercion,
             DefaultValueLambda errorDefault,
             Supplier<RuntimeException> error)
     {
@@ -364,54 +370,48 @@ public class JsonValueFunction
             case ERROR -> throw error.get();
             case DEFAULT -> {
                 try {
-                    yield evaluateDefault(session, emptyDefaultCoercion, emptyDefault);
+                    yield evaluateDefault(functionManager, metadata, returnType, emptyDefaultType, session, emptyDefault);
                 }
                 catch (TrinoException defaultError) {
                     // Only handle evaluation errors (e.g., division by zero, cast overflow) by cascading
                     // to the ON ERROR clause. Other errors indicate unexpected failures and should propagate.
                     TryFunction.propagateIfUnhandled(defaultError);
-                    yield handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> defaultError);
+                    yield handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> defaultError);
                 }
             }
         };
     }
 
     private static Object handleError(
+            FunctionManager functionManager,
+            Metadata metadata,
+            Type returnType,
+            Type errorDefaultType,
             ConnectorSession session,
             long behavior,
-            MethodHandle defaultCoercion,
             DefaultValueLambda defaultValue,
             Supplier<RuntimeException> error)
     {
         return switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
             case NULL -> null;
             case ERROR -> throw error.get();
-            case DEFAULT -> evaluateDefault(session, defaultCoercion, defaultValue);
+            case DEFAULT -> evaluateDefault(functionManager, metadata, returnType, errorDefaultType, session, defaultValue);
         };
     }
 
-    private static Object evaluateDefault(ConnectorSession session, MethodHandle defaultCoercion, DefaultValueLambda defaultValue)
+    // The char/varchar coercion direction is a per-session property, but this function is specialized without a
+    // session; the default-to-return coercion is therefore resolved here at runtime, where the session is available.
+    private static Object evaluateDefault(FunctionManager functionManager, Metadata metadata, Type returnType, Type defaultType, ConnectorSession session, DefaultValueLambda defaultValue)
     {
         Object defaultResult = defaultValue.apply();
         if (defaultResult == null) {
             return null;
         }
-        try {
-            return defaultCoercion.invoke(session, defaultResult);
-        }
-        catch (Throwable t) {
-            throwIfUnchecked(t);
-            throw new RuntimeException(t);
-        }
-    }
-
-    private static MethodHandle createDefaultCoercion(FunctionManager functionManager, Metadata metadata, Type defaultType, Type returnType)
-    {
         if (defaultType.equals(returnType)) {
-            // identity: (ConnectorSession, Object) -> Object, returns the value as-is
-            return dropArguments(MethodHandles.identity(Object.class), 0, ConnectorSession.class);
+            // identity: return the value as-is
+            return defaultResult;
         }
-        ResolvedFunction coercion = metadata.getCoercion(defaultType, returnType);
+        ResolvedFunction coercion = metadata.getCoercion(getCharVarcharCoercion(((FullConnectorSession) session).getSession()), defaultType, returnType);
         MethodHandle coercionHandle = functionManager.getScalarFunctionImplementation(
                         coercion,
                         new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false))
@@ -419,7 +419,14 @@ public class JsonValueFunction
         if (!coercionHandle.type().parameterType(0).equals(ConnectorSession.class)) {
             coercionHandle = dropArguments(coercionHandle, 0, ConnectorSession.class);
         }
-        return coercionHandle.asType(MethodType.methodType(Object.class, ConnectorSession.class, Object.class));
+        coercionHandle = coercionHandle.asType(MethodType.methodType(Object.class, ConnectorSession.class, Object.class));
+        try {
+            return coercionHandle.invoke(session, defaultResult);
+        }
+        catch (Throwable t) {
+            throwIfUnchecked(t);
+            throw new RuntimeException(t);
+        }
     }
 
     @FunctionalInterface

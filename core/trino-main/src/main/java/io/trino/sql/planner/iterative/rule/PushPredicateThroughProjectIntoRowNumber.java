@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -140,7 +141,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                domainTranslator.toPredicate(newTupleDomain));
+                domainTranslator.toPredicate(getCharVarcharCoercion(context.getSession()), newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }

@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
@@ -55,7 +57,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertEliminateFilter(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), rankingFunctionName, fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rankSymbol = p.symbol("rank_1");
@@ -86,7 +88,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertKeepFilter(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), rankingFunctionName, fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -151,7 +153,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertNoUpperBound(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), rankingFunctionName, fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");

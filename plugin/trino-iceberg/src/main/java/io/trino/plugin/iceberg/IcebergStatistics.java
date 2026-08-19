@@ -31,10 +31,10 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -64,6 +64,7 @@ public record IcebergStatistics(
     {
         private final TypeManager typeManager;
         private final List<Types.NestedField> columns;
+        private final List<io.trino.spi.type.Type> columnTypes;
 
         private long recordCount;
         private long fileCount;
@@ -75,10 +76,13 @@ public record IcebergStatistics(
 
         public Builder(
                 List<Types.NestedField> columns,
+                List<io.trino.spi.type.Type> columnTypes,
                 TypeManager typeManager)
         {
+            checkArgument(columns.size() == columnTypes.size(), "columns and columnTypes must have the same size");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.columns = ImmutableList.copyOf(columns);
+            this.columnTypes = ImmutableList.copyOf(columnTypes);
         }
 
         public void acceptDataFile(DataFile dataFile, PartitionSpec partitionSpec)
@@ -93,9 +97,10 @@ public record IcebergStatistics(
             mergeLongStatistics(nullCounts, nullValueCounts);
 
             Map<Integer, Optional<String>> identityPartitionValues = getPartitionKeys(dataFile.partition(), partitionSpec);
-            for (Types.NestedField column : columns) {
+            for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+                Types.NestedField column = columns.get(columnIndex);
                 int id = column.fieldId();
-                io.trino.spi.type.Type trinoType = toTrinoType(column.type(), typeManager);
+                io.trino.spi.type.Type trinoType = columnTypes.get(columnIndex);
                 Optional<String> partitionValue = identityPartitionValues.get(id);
                 if (partitionValue != null) {
                     if (partitionValue.isPresent()) {
@@ -133,6 +138,27 @@ public record IcebergStatistics(
                             dataFile.recordCount());
                 }
             }
+        }
+
+        public void merge(Builder other)
+        {
+            checkArgument(columns.equals(other.columns), "Cannot merge statistics collected for different columns");
+            recordCount += other.recordCount;
+            fileCount += other.fileCount;
+            size += other.size;
+            mergeLongStatistics(nullCounts, other.nullCounts);
+            mergeLongStatistics(nanCounts, other.nanCounts);
+            mergeLongStatistics(columnSizes, other.columnSizes);
+            other.columnStatistics.forEach((fieldId, statistics) -> {
+                ColumnStatistics existing = columnStatistics.get(fieldId);
+                if (existing == null) {
+                    columnStatistics.put(fieldId, new ColumnStatistics(statistics));
+                }
+                else {
+                    // an absent bound means it was invalidated, which updateMinMax also represents as a null bound
+                    existing.updateMinMax(statistics.getMin().orElse(null), statistics.getMax().orElse(null));
+                }
+            });
         }
 
         public IcebergStatistics build()
@@ -205,6 +231,14 @@ public record IcebergStatistics(
             this.max = Optional.ofNullable(initialMax);
         }
 
+        public ColumnStatistics(ColumnStatistics other)
+        {
+            requireNonNull(other, "other is null");
+            this.comparisonHandle = other.comparisonHandle;
+            this.min = other.min;
+            this.max = other.max;
+        }
+
         /**
          * Gets the minimum value accumulated during stats collection.
          *
@@ -231,7 +265,7 @@ public record IcebergStatistics(
          * @param lowerBound Trino encoded lower bound value from a file
          * @param upperBound Trino encoded upper bound value from a file
          */
-        public void updateMinMax(Object lowerBound, Object upperBound)
+        public void updateMinMax(@Nullable Object lowerBound, @Nullable Object upperBound)
         {
             if (min.isPresent()) {
                 if (lowerBound == null) {

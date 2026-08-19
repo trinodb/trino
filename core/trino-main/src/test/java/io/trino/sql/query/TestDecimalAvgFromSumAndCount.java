@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -185,6 +186,16 @@ final class TestDecimalAvgFromSumAndCount
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("Negative divisor is not supported");
+    }
+
+    @Test
+    void testZeroDivisor()
+    {
+        assertThat(assertions.query(
+                "SELECT \"$divide_round_to_scale\"(CAST(12345.00 AS decimal(38, 2)), BIGINT '0')"))
+                .failure()
+                .hasErrorCode(DIVISION_BY_ZERO)
+                .hasMessage("Division by zero");
     }
 
     @Test
