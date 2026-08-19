@@ -38,11 +38,15 @@ public class TestExtract
     @Test
     public void testYear()
     {
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42' YEAR)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '7' MONTH)")).matches("BIGINT '0'");
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '20' MONTH)")).matches("BIGINT '1'");
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42-07' YEAR TO MONTH)")).matches("BIGINT '42'");
-        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42-20' YEAR TO MONTH)")).matches("BIGINT '43'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42' YEAR)")).matches("INTEGER '42'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '7' MONTH)")).matches("INTEGER '0'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '20' MONTH)")).matches("INTEGER '1'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42-07' YEAR TO MONTH)")).matches("INTEGER '42'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '42-20' YEAR TO MONTH)")).matches("INTEGER '43'");
+
+        // larger than INTEGER range, previously failed with "Out of range for integer"
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '1000000' YEAR)")).matches("BIGINT '1000000'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM INTERVAL '-1000000' YEAR)")).matches("BIGINT '-1000000'");
 
         assertThat(assertions.expression("YEAR(INTERVAL '42' YEAR)")).matches("BIGINT '42'");
         assertThat(assertions.expression("YEAR(INTERVAL '7' MONTH)")).matches("BIGINT '0'");
@@ -85,6 +89,10 @@ public class TestExtract
         assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.123456' DAY TO SECOND)")).matches("BIGINT '42'");
         assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.1234567' DAY TO SECOND)")).matches("BIGINT '42'");
         assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '42 12:34:56.12345678' DAY TO SECOND)")).matches("BIGINT '42'");
+
+        // larger than TINYINT range, previously failed with "Out of range for tinyint"
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '1000000' DAY)")).matches("BIGINT '1000000'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM INTERVAL '-1000000' DAY)")).matches("BIGINT '-1000000'");
 
         assertThat(assertions.expression("DAY(INTERVAL '42' DAY)")).matches("BIGINT '42'");
         assertThat(assertions.expression("DAY(INTERVAL '12' HOUR)")).matches("BIGINT '0'");
