@@ -118,6 +118,7 @@ public final class SuiteRunner
     {
         Thread.currentThread().setName(environmentClass.getSimpleName());
         configureConsoleLogging();
+        SystemMemoryMonitor.start();
 
         // Legacy launcher forced this timezone for all product test JVM executions.
         TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(PRODUCT_TESTS_TIME_ZONE)));
