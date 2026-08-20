@@ -80,7 +80,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
-import static io.trino.parquet.predicate.TupleDomainParquetPredicate.checkInBloomFilter;
+import static io.trino.parquet.predicate.TupleDomainParquetPredicate.bloomFilterHasher;
 import static io.trino.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static io.trino.spi.predicate.Domain.all;
 import static io.trino.spi.predicate.Domain.create;
@@ -146,14 +146,34 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testNaNBloomFilterMembership()
+            throws Exception
     {
-        BlockSplitBloomFilter bloom = new BlockSplitBloomFilter(1024);
         // Empty bits cannot prove NaN absence: producers may hash a different payload.
-        assertThat(checkInBloomFilter(bloom, Double.NaN, DOUBLE)).isTrue();
-        assertThat(checkInBloomFilter(bloom, Double.longBitsToDouble(0x7FF0000000000001L), DOUBLE)).isTrue();
-        assertThat(checkInBloomFilter(bloom, (long) floatToRawIntBits(Float.NaN), REAL)).isTrue();
-        assertThat(checkInBloomFilter(bloom, 0x7F800001L, REAL)).isTrue();
-        assertThat(checkInBloomFilter(bloom, 42.0, DOUBLE)).isFalse();
+        assertThat(matchesEmptyBloomFilter(PrimitiveTypeName.DOUBLE, DOUBLE, Double.NaN)).isTrue();
+        assertThat(matchesEmptyBloomFilter(PrimitiveTypeName.DOUBLE, DOUBLE, Double.longBitsToDouble(0x7FF0000000000001L))).isTrue();
+        assertThat(matchesEmptyBloomFilter(FLOAT, REAL, (long) floatToRawIntBits(Float.NaN))).isTrue();
+        assertThat(matchesEmptyBloomFilter(FLOAT, REAL, 0x7F800001L)).isTrue();
+        assertThat(matchesEmptyBloomFilter(PrimitiveTypeName.DOUBLE, DOUBLE, 42.0)).isFalse();
+    }
+
+    private static boolean matchesEmptyBloomFilter(PrimitiveTypeName physicalType, Type type, Object value)
+            throws Exception
+    {
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"column"}, Types.required(physicalType).named("column"), 0, 0);
+        BloomFilterStore store = new BloomFilterStore(
+                new TestingParquetDataSource(EMPTY_SLICE, ParquetReaderOptions.defaultOptions()),
+                new BlockMetadata(0, 10, List.of()),
+                Set.of(),
+                Optional.empty())
+        {
+            @Override
+            public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
+            {
+                return Optional.of(new BlockSplitBloomFilter(1024));
+            }
+        };
+        TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(withColumnDomains(ImmutableMap.of(column, singleValue(type, value))), List.of(column), UTC);
+        return predicate.matches(store, 256);
     }
 
     @Test
@@ -649,6 +669,49 @@ public class TestTupleDomainParquetPredicate
                 Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false),
                 // widening float bounds to double is a separate change
                 Arguments.of(FLOAT, null, DOUBLE, false));
+    }
+
+    /**
+     * A bloom filter is built by hashing each value at the physical width of the column, so it can only be consulted
+     * where the predicate value hashes to the same thing the writer hashed.
+     */
+    @ParameterizedTest
+    @MethodSource("bloomFilterTypeCombinations")
+    public void testBloomFilterIsConsultedOnlyAtTheHashedWidth(PrimitiveTypeName physicalType, LogicalTypeAnnotation annotation, Type type, boolean consulted)
+    {
+        PrimitiveType parquetType = createColumnDescriptor(physicalType, annotation, "TestColumn").getPrimitiveType();
+
+        assertThat(bloomFilterHasher(type, parquetType)).matches(hasher -> hasher.isPresent() == consulted);
+    }
+
+    private static Stream<Arguments> bloomFilterTypeCombinations()
+    {
+        return Stream.of(
+                Arguments.of(INT32, null, INTEGER, true),
+                Arguments.of(INT32, null, TINYINT, true),
+                Arguments.of(INT32, dateType(), DATE, true),
+                Arguments.of(INT64, null, BIGINT, true),
+                Arguments.of(PrimitiveTypeName.DOUBLE, null, DOUBLE, true),
+                Arguments.of(FLOAT, null, REAL, true),
+                Arguments.of(BINARY, null, createUnboundedVarcharType(), true),
+                Arguments.of(BINARY, null, VARBINARY, true),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, null, VARBINARY, true),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, uuidType(), UUID, true),
+
+                // hashed at a different width, so a lookup would miss every value which is present
+                Arguments.of(INT32, null, BIGINT, false),
+                Arguments.of(INT64, null, INTEGER, false),
+                Arguments.of(FLOAT, null, DOUBLE, false),
+                Arguments.of(PrimitiveTypeName.DOUBLE, null, REAL, false),
+
+                // ColumnReaderFactory refuses a decimal annotated fixed length byte array for these, so the filter
+                // holds bytes the reader never produces
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), VARBINARY, false),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), UUID, false),
+
+                // the reader does not hand these bytes back unchanged
+                Arguments.of(BINARY, null, createVarcharType(3), false),
+                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false));
     }
 
     private static Statistics<?> statisticsFor(PrimitiveTypeName physicalType)
