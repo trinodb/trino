@@ -495,6 +495,14 @@ following properties:
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
+* - `iceberg.rest-catalog.snapshot-loading-mode`
+  - Mode used to load table snapshots from the REST catalog server. With `ALL`,
+    all snapshots are loaded eagerly. With `REFS`, only snapshots referenced by
+    branches and tags are loaded, and the remaining snapshots are loaded lazily
+    when a query accesses the snapshot history, for example with time travel or
+    the `$snapshots` metadata table. `REFS` can significantly reduce metadata
+    load times for tables with many snapshots, if supported by the REST catalog
+    server. Defaults to `ALL`.
 * - `iceberg.rest-catalog.connection-timeout`
   - Maximum time [Duration](prop-type-duration) allowed for socket connection
     requests to complete before timing out.
