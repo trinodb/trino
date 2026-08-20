@@ -19,6 +19,8 @@ import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.Self;
+import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
@@ -26,8 +28,10 @@ import io.trino.spi.type.TypeTemplates;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
@@ -50,8 +54,9 @@ public class ScalarHeader
     private final boolean neverFails;
     private final Optional<TypeTemplate> receiverType;
     private final boolean instanceMethod;
+    private final OptionalInt selfArgumentIndex;
 
-    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeTemplate> receiverType, boolean instanceMethod)
+    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeTemplate> receiverType, boolean instanceMethod, OptionalInt selfArgumentIndex)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty());
@@ -63,8 +68,11 @@ public class ScalarHeader
         this.deterministic = deterministic;
         this.neverFails = neverFails;
         this.receiverType = requireNonNull(receiverType, "receiverType is null");
-        checkArgument(!instanceMethod || receiverType.isEmpty(), "instance method receiver type is inferred from the first argument");
+        checkArgument(!instanceMethod || receiverType.isEmpty(), "instance method receiver type is inferred from the self argument");
         this.instanceMethod = instanceMethod;
+        this.selfArgumentIndex = requireNonNull(selfArgumentIndex, "selfArgumentIndex is null");
+        checkArgument(instanceMethod == selfArgumentIndex.isPresent(), "selfArgumentIndex must be present exactly for instance methods");
+        selfArgumentIndex.ifPresent(index -> checkArgument(index >= 0, "selfArgumentIndex must be non-negative"));
     }
 
     public ScalarHeader(OperatorType operatorType, Optional<String> description, boolean neverFails)
@@ -78,6 +86,7 @@ public class ScalarHeader
         this.neverFails = neverFails;
         this.receiverType = Optional.empty();
         this.instanceMethod = false;
+        this.selfArgumentIndex = OptionalInt.empty();
     }
 
     public static List<ScalarHeader> fromAnnotatedElement(AnnotatedElement annotated)
@@ -90,22 +99,37 @@ public class ScalarHeader
 
         ImmutableList.Builder<ScalarHeader> builder = ImmutableList.builder();
 
+        OptionalInt selfArgumentIndex = findSelfArgumentIndex(annotated);
+
         if (scalarFunction != null) {
             checkArgument(staticMethod == null || instanceMethod == null, "@StaticMethod and @InstanceMethod are mutually exclusive on %s", annotated);
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            Optional<TypeTemplate> receiverType = Optional.empty();
-            if (staticMethod != null) {
-                checkArgument(!hasTypeParameters(staticMethod.value()), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
-                TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
-                receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
+            Set<String> aliases = ImmutableSet.copyOf(scalarFunction.alias());
+            if (selfArgumentIndex.isPresent()) {
+                checkArgument(staticMethod == null && instanceMethod == null, "@Self is mutually exclusive with @StaticMethod and @InstanceMethod on %s", annotated);
+                // A @Self function is exposed both as an ordinary function and as an instance method.
+                builder.add(new ScalarHeader(baseName, aliases, description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), Optional.empty(), false, OptionalInt.empty()));
+                builder.add(new ScalarHeader(baseName, aliases, description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), Optional.empty(), true, selfArgumentIndex));
             }
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null));
+            else {
+                Optional<TypeTemplate> receiverType = Optional.empty();
+                if (staticMethod != null) {
+                    checkArgument(!hasTypeParameters(staticMethod.value()), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
+                    TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
+                    receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
+                }
+                // Legacy @InstanceMethod takes the first declared (self) argument as the receiver.
+                builder.add(new ScalarHeader(baseName, aliases, description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null, instanceMethod != null ? OptionalInt.of(0) : OptionalInt.empty()));
+            }
         }
         else if (staticMethod != null) {
             throw new IllegalArgumentException("@StaticMethod requires @ScalarFunction on " + annotated);
         }
         else if (instanceMethod != null) {
             throw new IllegalArgumentException("@InstanceMethod requires @ScalarFunction on " + annotated);
+        }
+        else if (selfArgumentIndex.isPresent()) {
+            throw new IllegalArgumentException("@Self requires @ScalarFunction on " + annotated);
         }
 
         if (scalarOperator != null) {
@@ -118,6 +142,32 @@ public class ScalarHeader
         List<ScalarHeader> result = builder.build();
         checkArgument(!result.isEmpty());
         return result;
+    }
+
+    /// Returns the signature position of the parameter annotated with {@link Self},
+    /// counted among the {@code @SqlType} arguments (which is the indexing used by the
+    /// function signature). Empty when no parameter is annotated. Only methods can carry
+    /// {@code @Self}; class-level elements never do.
+    private static OptionalInt findSelfArgumentIndex(AnnotatedElement annotated)
+    {
+        if (!(annotated instanceof Method method)) {
+            return OptionalInt.empty();
+        }
+        OptionalInt selfArgumentIndex = OptionalInt.empty();
+        int sqlTypeArgumentIndex = -1;
+        for (Parameter parameter : method.getParameters()) {
+            if (parameter.isAnnotationPresent(SqlType.class)) {
+                sqlTypeArgumentIndex++;
+                if (parameter.isAnnotationPresent(Self.class)) {
+                    checkArgument(selfArgumentIndex.isEmpty(), "Method [%s] has more than one @Self parameter", method);
+                    selfArgumentIndex = OptionalInt.of(sqlTypeArgumentIndex);
+                }
+            }
+            else {
+                checkArgument(!parameter.isAnnotationPresent(Self.class), "Method [%s] has @Self on a non-@SqlType parameter", method);
+            }
+        }
+        return selfArgumentIndex;
     }
 
     private static String camelToSnake(String name)
@@ -180,5 +230,10 @@ public class ScalarHeader
     public boolean isInstanceMethod()
     {
         return instanceMethod;
+    }
+
+    public OptionalInt getSelfArgumentIndex()
+    {
+        return selfArgumentIndex;
     }
 }
