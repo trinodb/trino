@@ -266,6 +266,7 @@ public class TestHiveParquetEncryption
                 .withEncryption(encodingProperties)
                 .withWriteMode(OVERWRITE)
                 .withPageSize(1024) // small pages -> dictionary likely
+                .withDictionaryEncoding(true)
                 .build()) {
             SimpleGroupFactory factory = new SimpleGroupFactory(schema);
             for (int i = 0; i < 5000; i++) {

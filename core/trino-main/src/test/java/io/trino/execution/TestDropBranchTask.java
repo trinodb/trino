@@ -90,7 +90,7 @@ final class TestDropBranchTask
     void testDropBranchOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropBranch(asQualifiedName(viewName), false, "main")))
                 .hasErrorCode(NOT_SUPPORTED)

@@ -32,17 +32,17 @@ public class CreateView
 
     private final QualifiedName name;
     private final Query query;
-    private final boolean replace;
+    private final SaveMode saveMode;
     private final Optional<String> comment;
     private final Optional<Security> security;
     private final List<Property> properties;
 
-    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
+    public CreateView(NodeLocation location, QualifiedName name, Query query, SaveMode saveMode, Optional<String> comment, Optional<Security> security, List<Property> properties)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
-        this.replace = replace;
+        this.saveMode = requireNonNull(saveMode, "saveMode is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.security = requireNonNull(security, "security is null");
         this.properties = ImmutableList.copyOf(properties);
@@ -58,9 +58,19 @@ public class CreateView
         return query;
     }
 
+    public SaveMode getSaveMode()
+    {
+        return saveMode;
+    }
+
     public boolean isReplace()
     {
-        return replace;
+        return saveMode == SaveMode.REPLACE;
+    }
+
+    public boolean isNotExists()
+    {
+        return saveMode == SaveMode.IGNORE;
     }
 
     public Optional<String> getComment()
@@ -96,7 +106,7 @@ public class CreateView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, replace, security, properties);
+        return Objects.hash(name, query, saveMode, comment, security, properties);
     }
 
     @Override
@@ -111,7 +121,7 @@ public class CreateView
         CreateView o = (CreateView) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && replace == o.replace
+                && saveMode == o.saveMode
                 && Objects.equals(comment, o.comment)
                 && Objects.equals(security, o.security)
                 && Objects.equals(properties, o.properties);
@@ -123,7 +133,7 @@ public class CreateView
         return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
-                .add("replace", replace)
+                .add("saveMode", saveMode)
                 .add("comment", comment)
                 .add("security", security)
                 .add("properties", properties)

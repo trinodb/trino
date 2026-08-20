@@ -34,6 +34,7 @@ import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.SaveMode;
 import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,12 +46,14 @@ import java.util.Optional;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
-import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
+import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -78,14 +81,14 @@ public class TestCreateViewTask
                 new StatementRewrite(ImmutableSet.of()),
                 plannerContext.getTracer());
         QualifiedObjectName tableName = qualifiedObjectName("mock_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), FAIL);
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), io.trino.spi.connector.SaveMode.FAIL);
     }
 
     @Test
     public void testCreateViewOnViewIfNotExists()
     {
         QualifiedObjectName viewName = qualifiedObjectName("new_view");
-        getFutureValue(executeCreateView(asQualifiedName(viewName), false));
+        getFutureValue(executeCreateView(asQualifiedName(viewName), FAIL));
         assertThat(metadata.isView(testSession, viewName)).isTrue();
     }
 
@@ -93,20 +96,30 @@ public class TestCreateViewTask
     public void testCreateViewOnViewIfExists()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), io.trino.spi.connector.SaveMode.FAIL);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), FAIL)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
                 .hasMessage("line 1:1: View already exists: '%s'", viewName);
+    }
+
+    @Test
+    public void testCreateViewIfNotExistsOnExistingView()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("existing_view");
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), io.trino.spi.connector.SaveMode.FAIL);
+
+        getFutureValue(executeCreateView(asQualifiedName(viewName), IGNORE));
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
     }
 
     @Test
     public void testReplaceViewOnViewIfExists()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), io.trino.spi.connector.SaveMode.FAIL);
 
-        getFutureValue(executeCreateView(asQualifiedName(viewName), true));
+        getFutureValue(executeCreateView(asQualifiedName(viewName), REPLACE));
         assertThat(metadata.isView(testSession, viewName)).isTrue();
     }
 
@@ -114,22 +127,22 @@ public class TestCreateViewTask
     public void testCreateViewOnTableIfExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), FAIL);
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), io.trino.spi.connector.SaveMode.FAIL);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), FAIL)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
-                .hasMessage("line 1:1: Table already exists: '%s'", tableName, tableName);
+                .hasMessage("line 1:1: Table already exists: '%s'", tableName);
     }
 
     @Test
     public void testReplaceViewOnTableIfExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), FAIL);
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), io.trino.spi.connector.SaveMode.FAIL);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), true)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), REPLACE)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
-                .hasMessage("line 1:1: Table already exists: '%s'", tableName, tableName);
+                .hasMessage("line 1:1: Table already exists: '%s'", tableName);
     }
 
     @Test
@@ -138,7 +151,7 @@ public class TestCreateViewTask
         QualifiedObjectName viewName = qualifiedObjectName("existing_materialized_view");
         metadata.createMaterializedView(testSession, viewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), FAIL)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
                 .hasMessage("line 1:1: Materialized view already exists: '%s'", viewName);
     }
@@ -151,7 +164,7 @@ public class TestCreateViewTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(
                 asQualifiedName(viewName),
                 ImmutableList.of(new Property(new NodeLocation(1, 88), new Identifier("unknown_property"), new StringLiteral("unknown"))),
-                false)))
+                FAIL)))
                 .hasErrorCode(INVALID_VIEW_PROPERTY)
                 .hasMessage("line 1:88: Catalog 'test_catalog' view property 'unknown_property' does not exist");
     }
@@ -164,24 +177,25 @@ public class TestCreateViewTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(
                 asQualifiedName(viewName),
                 ImmutableList.of(new Property(new NodeLocation(1, 88), new Identifier("boolean_property"), new StringLiteral("unknown"))),
-                false)))
+                FAIL)))
                 .hasErrorCode(INVALID_VIEW_PROPERTY)
                 .hasMessage("line 1:88: Invalid value for catalog 'test_catalog' view property 'boolean_property': Cannot convert ['unknown'] to boolean");
     }
 
-    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace)
+    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, SaveMode saveMode)
     {
-        return executeCreateView(viewName, ImmutableList.of(), replace);
+        return executeCreateView(viewName, ImmutableList.of(), saveMode);
     }
 
-    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, List<Property> viewProperties, boolean replace)
+    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, List<Property> viewProperties, SaveMode saveMode)
     {
-        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("mock_table")));
+        Query query = simpleQuery(selectList(new AllColumns(new NodeLocation(1, 1))), table(QualifiedName.of("mock_table")));
+
         CreateView statement = new CreateView(
                 new NodeLocation(1, 1),
                 viewName,
                 query,
-                replace,
+                saveMode,
                 Optional.empty(),
                 Optional.empty(),
                 viewProperties);

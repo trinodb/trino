@@ -84,6 +84,7 @@ import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.SaveMode;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
@@ -605,7 +606,7 @@ public final class ShowQueriesRewrite
                     node.getLocation().orElseThrow(),
                     QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                     query,
-                    false,
+                    SaveMode.FAIL,
                     viewDefinition.get().getComment(),
                     Optional.of(security),
                     propertyNodes))

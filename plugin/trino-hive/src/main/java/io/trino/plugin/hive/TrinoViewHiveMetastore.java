@@ -24,6 +24,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -63,11 +64,9 @@ public final class TrinoViewHiveMetastore
         this.connectorName = requireNonNull(connectorName, "connectorName is null");
     }
 
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, SaveMode saveMode)
     {
-        if (isUsingSystemSecurity) {
-            definition = definition.withoutOwner();
-        }
+        ConnectorViewDefinition viewDefinition = isUsingSystemSecurity ? definition.withoutOwner() : definition;
 
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(schemaViewName.getSchemaName())
@@ -77,7 +76,7 @@ public final class TrinoViewHiveMetastore
                 .setDataColumns(ImmutableList.of(new Column("dummy", HIVE_STRING, Optional.empty(), Map.of())))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(createViewProperties(session, trinoVersion, connectorName))
-                .setViewOriginalText(Optional.of(encodeViewData(definition)))
+                .setViewOriginalText(Optional.of(encodeViewData(viewDefinition)))
                 .setViewExpandedText(Optional.of(PRESTO_VIEW_EXPANDED_TEXT_MARKER));
 
         tableBuilder.getStorageBuilder()
@@ -88,7 +87,10 @@ public final class TrinoViewHiveMetastore
 
         Optional<Table> existing = metastore.getTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isTrinoView(existing.get())) {
+            if (saveMode == SaveMode.IGNORE && getView(schemaViewName).filter(existingView -> TrinoViewUtil.isSameView(existingView, viewDefinition)).isPresent()) {
+                return;
+            }
+            if (saveMode != SaveMode.REPLACE || !isTrinoView(existing.get())) {
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
 
@@ -100,6 +102,9 @@ public final class TrinoViewHiveMetastore
             metastore.createTable(table, principalPrivileges);
         }
         catch (TableAlreadyExistsException e) {
+            if (saveMode == SaveMode.IGNORE && getView(schemaViewName).filter(existingView -> TrinoViewUtil.isSameView(existingView, viewDefinition)).isPresent()) {
+                return;
+            }
             throw new ViewAlreadyExistsException(e.getTableName());
         }
     }

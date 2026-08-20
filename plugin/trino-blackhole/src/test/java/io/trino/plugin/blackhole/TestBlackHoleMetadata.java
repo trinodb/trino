@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
@@ -99,7 +100,7 @@ final class TestBlackHoleMetadata
                 .buildOrThrow();
 
         for (Entry<SchemaTableName, ConnectorViewDefinition> entry : views.entrySet()) {
-            metadata.createView(SESSION, entry.getKey(), entry.getValue(), ImmutableMap.of(), false);
+            metadata.createView(SESSION, entry.getKey(), entry.getValue(), ImmutableMap.of(), SaveMode.FAIL);
         }
 
         assertThat(metadata.listViews(SESSION, Optional.empty()))

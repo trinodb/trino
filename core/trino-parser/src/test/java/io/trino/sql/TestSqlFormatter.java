@@ -378,7 +378,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
+                        FAIL,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of())))
@@ -391,7 +391,20 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
+                        IGNORE,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of())))
+                .isEqualTo("CREATE VIEW IF NOT EXISTS test AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  t\n");
+        assertThat(formatSql(
+                new CreateView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        FAIL,
                         Optional.of("攻殻機動隊"),
                         Optional.empty(),
                         ImmutableList.of())))
@@ -406,7 +419,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
+                        FAIL,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -430,7 +443,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
+                        FAIL,
                         Optional.of("攻殻機動隊"),
                         Optional.of(DEFINER),
                         ImmutableList.of(new Property(new Identifier("property"), new StringLiteral("property_value"))))))
