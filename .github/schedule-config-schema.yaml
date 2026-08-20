@@ -58,13 +58,15 @@ items:
       properties:
         pushes:
           description: >-
-            Whether to run these tests on any push to main branches (or addition to merge queue).
+            Whether to run these tests on any push to main branches. Additions to the merge
+            queue run impact detection, so there these tests still only run when impacted.
             Default: false
           type: boolean
         dispatches:
           description: >-
-            Whether to run these tests on manual dispatches (workflow_dispatch and
-            repository_dispatch events). Default: true
+            Whether to run these tests on manual workflow_dispatch events. repository_dispatch
+            (/test-with-secrets) runs impact detection for the dispatched pull request, so there
+            these tests still only run when impacted. Default: true
           type: boolean
         impacted:
           description: >-

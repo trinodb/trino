@@ -164,17 +164,18 @@ class ScheduleConfigItem:
             includes.append(include)
         return includes
 
-    def matches_event(self, github_context: dict[str, Any]) -> bool:
+    def matches_forcing_event(self, github_context: dict[str, Any]) -> bool:
+        """Whether these tests should run in full, regardless of detected impact."""
         when = self.when or ScheduleFilter(pushes=True)
-        return any(
-            matches(github_context, when)
-            for matches in [
-                matches_push,
-                matches_dispatch,
-                matches_scheduled,
-                matches_label,
-            ]
-        )
+        # On events where ci.yml runs impact detection (GIB), pushes/dispatches matches must not
+        # force the tests to run: the per-job GIB builds skip the `install` of non-impacted
+        # modules, so their dependencies would be missing (see #30812). scheduled/labeled matches
+        # are explicit requests to run anyway; those cells are marked "forced" and ci.yml builds
+        # them with GIB disabled.
+        matchers = [matches_scheduled, matches_label]
+        if github_context.get("event_name") not in IMPACT_FILTERED_EVENTS:
+            matchers += [matches_push, matches_dispatch]
+        return any(matches(github_context, when) for matches in matchers)
 
 
 def has_impacted_module(module_set: list[str], impacted: set[str]) -> bool:
@@ -253,6 +254,11 @@ def load_when(item: dict[str, Any]) -> ScheduleFilter:
 ##########
 ### Event matchers
 ##########
+
+
+# Events on which ci.yml runs impact detection. Keep in sync with the `on:` triggers
+# of .github/workflows/ci.yml that use ${MAVEN_GIB}.
+IMPACT_FILTERED_EVENTS = ["pull_request", "merge_group", "repository_dispatch"]
 
 
 def matches_push(
@@ -385,9 +391,13 @@ def build_matrix_json(
 ) -> dict[str, Any]:
     includes = []
     for config_item in configs:
-        if config_item.matches_event(github_context):
-            # If the schedule says these tests should run, run all of them
-            includes.extend(config_item.build_matrix_includes())
+        if config_item.matches_forcing_event(github_context):
+            # These tests were selected regardless of impact, so they must also be built
+            # regardless of impact: ci.yml disables GIB for cells marked "forced" (see #30812)
+            includes.extend(
+                {**include, "forced": True}
+                for include in config_item.build_matrix_includes()
+            )
         else:
             # Otherwise, filter to impacted
             includes.extend(
@@ -524,8 +534,8 @@ class TestBuild(unittest.TestCase):
             build_matrix_json(configs, set(), {"event_name": "push"}),
             {
                 "include": [
-                    {"modules": "a", "name": "test (a)"},
-                    {"modules": "b,c", "name": "test (b, c)"},
+                    {"modules": "a", "name": "test (a)", "forced": True},
+                    {"modules": "b,c", "name": "test (b, c)", "forced": True},
                 ]
             },
         )
@@ -559,6 +569,7 @@ class TestBuild(unittest.TestCase):
                         "notify-channels": ["foo", "bar"],
                         "buildAll": True,
                         "name": "test (a, foo-profile, buildAll=True)",
+                        "forced": True,
                     }
                 ]
             },
@@ -567,33 +578,48 @@ class TestBuild(unittest.TestCase):
     def test_build_matrix_default_when(self):
         configs = [ScheduleConfigItem([["a"]])]
 
-        for event_name in [
-            "push",
-            "merge_group",
-            "workflow_dispatch",
-            "repository_dispatch",
-        ]:
+        for event_name in ["push", "workflow_dispatch"]:
             context = {"event_name": event_name}
             self.assertEqual(
                 build_matrix_json(configs, set(), context),
-                {"include": [{"modules": "a", "name": "test (a)"}]},
-                f"default runs on {event_name} without impact",
+                {"include": [{"modules": "a", "name": "test (a)", "forced": True}]},
+                f"default runs forced on {event_name} without impact",
+            )
+            self.assertEqual(
+                build_matrix_json(configs, {"a"}, context),
+                {"include": [{"modules": "a", "name": "test (a)", "forced": True}]},
+                f"default runs forced on {event_name} with impact",
+            )
+
+        # merge_group and repository_dispatch builds run GIB just like pull_request builds,
+        # so their matrix is impact-filtered to agree with the per-job builds (see #30812)
+        for event_name in ["merge_group", "repository_dispatch"]:
+            context = {"event_name": event_name}
+            self.assertEqual(
+                build_matrix_json(configs, set(), context),
+                {},
+                f"default doesn't run on {event_name} without impact",
             )
             self.assertEqual(
                 build_matrix_json(configs, {"a"}, context),
                 {"include": [{"modules": "a", "name": "test (a)"}]},
                 f"default runs on {event_name} with impact",
             )
+            self.assertEqual(
+                build_matrix_json(configs, {"b"}, context),
+                {},
+                f"default doesn't run on {event_name} when another module is impacted",
+            )
 
         context = {"event_name": "schedule", "event": {"schedule": "0 0 * * *"}}
         self.assertEqual(
             build_matrix_json(configs, set(), context),
-            {"include": [{"modules": "a", "name": "test (a)"}]},
+            {"include": [{"modules": "a", "name": "test (a)", "forced": True}]},
             "default runs with empty impact",
         )
         self.assertEqual(
             build_matrix_json(configs, {"a"}, context),
-            {"include": [{"modules": "a", "name": "test (a)"}]},
+            {"include": [{"modules": "a", "name": "test (a)", "forced": True}]},
             "default runs with impact",
         )
 
@@ -653,7 +679,37 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(matrix_other_impacted, {})
         self.assertEqual(matrix_not_impacted, {})
         self.assertEqual(
-            matrix_dispatched, {"include": [{"modules": "a", "name": "test (a)"}]}
+            matrix_dispatched,
+            {"include": [{"modules": "a", "name": "test (a)", "forced": True}]},
+        )
+
+    def test_build_matrix_labeled(self):
+        configs = [ScheduleConfigItem([["a"]], when=ScheduleFilter(labeled=["force-a"]))]
+        labeled_context = {
+            "event_name": "pull_request",
+            "event": {"pull_request": {"labels": [{"name": "force-a"}]}},
+        }
+        unlabeled_context = {
+            "event_name": "pull_request",
+            "event": {"pull_request": {"labels": []}},
+        }
+
+        # A matching label forces the tests to run in full, even though impact
+        # detection ran on the pull request and found no impact
+        self.assertEqual(
+            build_matrix_json(configs, set(), labeled_context),
+            {"include": [{"modules": "a", "name": "test (a)", "forced": True}]},
+            "labeled tests run forced on a labeled pull request without impact",
+        )
+        self.assertEqual(
+            build_matrix_json(configs, set(), unlabeled_context),
+            {},
+            "labeled tests don't run on an unlabeled pull request without impact",
+        )
+        self.assertEqual(
+            build_matrix_json(configs, {"a"}, unlabeled_context),
+            {"include": [{"modules": "a", "name": "test (a)"}]},
+            "labeled tests run unforced on an unlabeled pull request with impact",
         )
 
 

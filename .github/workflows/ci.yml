@@ -423,6 +423,8 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies
+      - name: Test matrix script
+        run: ./.github/bin/build-matrix-schedule-aware.py test
       - name: Set matrix
         id: set-matrix
         env:
@@ -452,6 +454,11 @@ jobs:
     runs-on: 'ubuntu-latest'
     needs: build-test-matrix
     if: needs.build-test-matrix.outputs.matrix != '{}'
+    env:
+      # Forced cells are selected regardless of impact, so they must be built regardless of
+      # impact: with GIB enabled, `install` would skip a non-impacted module and its
+      # dependencies would be missing in the test steps (see #30812)
+      MAVEN_ARGS: ${{ matrix.forced && '-Dgib.disable=true' || '' }}
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
