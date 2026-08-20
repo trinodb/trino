@@ -424,6 +424,7 @@ public class TestWebUi
                     new PreparedStatementEncoder(new ProtocolConfig()),
                     createTestingMetadataManager(),
                     ImmutableSet::of,
+                    _ -> ImmutableMap.of(),
                     accessControl,
                     new ProtocolConfig(),
                     QueryDataEncoder.EncoderSelector.noEncoder());
