@@ -113,6 +113,8 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
+    private boolean schedulingPolicyExplicit;
+    @GuardedBy("root")
     private boolean jmxExport;
     private volatile boolean disabled;
 
@@ -572,12 +574,52 @@ public class InternalResourceGroup
     public void setSchedulingPolicy(SchedulingPolicy policy)
     {
         synchronized (root) {
+            if (parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY) {
+                checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
+            }
+            if (policy == QUERY_PRIORITY) {
+                validateQueryPrioritySubGroups(id);
+            }
+            schedulingPolicyExplicit = true;
+            setSchedulingPolicyInternal(policy);
+        }
+    }
+
+    private void validateQueryPrioritySubGroups(ResourceGroupId queryPriorityGroup)
+    {
+        synchronized (root) {
+            for (InternalResourceGroup group : subGroups.values()) {
+                checkArgument(
+                        !group.schedulingPolicyExplicit || group.schedulingPolicy == QUERY_PRIORITY,
+                        "Cannot set %s to query priority scheduling because descendant %s explicitly uses %s",
+                        queryPriorityGroup,
+                        group.id,
+                        group.schedulingPolicy);
+                group.validateQueryPrioritySubGroups(queryPriorityGroup);
+            }
+        }
+    }
+
+    private void setSchedulingPolicyInternal(SchedulingPolicy policy)
+    {
+        synchronized (root) {
             if (policy == schedulingPolicy) {
                 return;
             }
+            boolean queryPriorityDisabled = schedulingPolicy == QUERY_PRIORITY;
 
-            if (parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY) {
-                checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
+            if (policy == QUERY_PRIORITY) {
+                // Sub groups must use query priority to ensure ordering
+                for (InternalResourceGroup group : subGroups.values()) {
+                    group.setSchedulingPolicyInternal(QUERY_PRIORITY);
+                }
+            }
+            else if (queryPriorityDisabled) {
+                for (InternalResourceGroup group : subGroups.values()) {
+                    if (!group.schedulingPolicyExplicit) {
+                        group.setSchedulingPolicyInternal(FAIR);
+                    }
+                }
             }
 
             // Switch to the appropriate queue implementation to implement the desired policy
@@ -597,10 +639,6 @@ public class InternalResourceGroup
                     queryQueue = new IndexedPriorityQueue<>();
                 }
                 case QUERY_PRIORITY -> {
-                    // Sub groups must use query priority to ensure ordering
-                    for (InternalResourceGroup group : subGroups.values()) {
-                        group.setSchedulingPolicy(QUERY_PRIORITY);
-                    }
                     queue = new IndexedPriorityQueue<>();
                     queryQueue = new IndexedPriorityQueue<>();
                 }
@@ -617,6 +655,15 @@ public class InternalResourceGroup
                 queryQueue.addOrUpdate(query, getQueryPriority(query.getSession()));
             }
             queuedQueries = queryQueue;
+        }
+    }
+
+    @Override
+    public void resetSchedulingPolicy()
+    {
+        synchronized (root) {
+            schedulingPolicyExplicit = false;
+            setSchedulingPolicyInternal(parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY ? QUERY_PRIORITY : FAIR);
         }
     }
 
@@ -662,7 +709,7 @@ public class InternalResourceGroup
             InternalResourceGroup subGroup = new InternalResourceGroup(Optional.of(this), name, jmxExportListener, executor);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
-                subGroup.setSchedulingPolicy(QUERY_PRIORITY);
+                subGroup.setSchedulingPolicyInternal(QUERY_PRIORITY);
             }
             subGroups.put(name, subGroup);
             return subGroup;

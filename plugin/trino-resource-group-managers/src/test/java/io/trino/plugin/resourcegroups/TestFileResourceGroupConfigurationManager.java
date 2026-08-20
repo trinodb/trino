@@ -60,6 +60,9 @@ public class TestFileResourceGroupConfigurationManager
         assertFails(
                 "resource_groups_config_bad_query_priority_scheduling_policy.json",
                 "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for 'requests'");
+        assertFails(
+                "resource_groups_config_bad_query_priority_subtree.json",
+                "Resource group 'leaf' must use 'query_priority' scheduling policy or inherit it because an ancestor uses 'query_priority'");
         assertFails("resource_groups_config_bad_extract_variable.json", "Invalid resource group name.*");
         assertFails("resource_groups_config_bad_query_type.json", "Selector specifies an invalid query type: invalid_query_type");
         assertFails("resource_groups_config_bad_selector.json", "Selector refers to nonexistent group: a.b.c.X");
