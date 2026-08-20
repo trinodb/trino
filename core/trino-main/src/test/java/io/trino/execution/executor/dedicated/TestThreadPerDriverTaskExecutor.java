@@ -234,6 +234,37 @@ public class TestThreadPerDriverTaskExecutor
 
     @Test
     @Timeout(30)
+    public void testStartRegistersResilientSchedulingTask()
+            throws Exception
+    {
+        AtomicBoolean failNextThread = new AtomicBoolean(true);
+        ThreadFactory threadFactory = runnable -> {
+            if (failNextThread.compareAndSet(true, false)) {
+                throw new OutOfMemoryError("unable to create native thread");
+            }
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        };
+
+        FairScheduler scheduler = new FairScheduler(1, threadFactory, Ticker.systemTicker());
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, Integer.MAX_VALUE, 1);
+        TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+        ListenableFuture<Void> done = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture())));
+
+        executor.start();
+        try {
+            // The immediate pass fails. The wrapped fixed-delay task must remain registered so the
+            // 100ms retry can start the split.
+            done.get(10, TimeUnit.SECONDS);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(30)
     public void testLeafCompletionSchedulesReplacementWhenCloseFails()
             throws Exception
     {
@@ -253,6 +284,40 @@ public class TestThreadPerDriverTaskExecutor
             failingDone.get(10, TimeUnit.SECONDS);
             assertThat(replacementStarted.await(10, TimeUnit.SECONDS)).isTrue();
             replacementDone.get(10, TimeUnit.SECONDS);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testLeafCompletionSchedulesAnotherTaskWhenTaskDrains()
+            throws Exception
+    {
+        FairScheduler scheduler = FairScheduler.newInstance(1);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, 1, 1);
+        try {
+            TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TestFuture firstBlocked = new TestFuture();
+            ListenableFuture<Void> firstDone = firstTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(
+                    _ -> firstBlocked,
+                    _ -> Futures.immediateVoidFuture())));
+
+            executor.scheduleMoreLeafSplits();
+            firstBlocked.awaitListenerAdded();
+
+            TaskEntry secondTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            CountDownLatch secondStarted = new CountDownLatch(1);
+            ListenableFuture<Void> secondDone = secondTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> {
+                secondStarted.countDown();
+                return Futures.immediateVoidFuture();
+            })));
+
+            firstBlocked.set(null);
+            firstDone.get(10, TimeUnit.SECONDS);
+            assertThat(secondStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            secondDone.get(10, TimeUnit.SECONDS);
         }
         finally {
             executor.stop();
@@ -294,6 +359,27 @@ public class TestThreadPerDriverTaskExecutor
         finally {
             scheduler.close();
         }
+    }
+
+    @Test
+    public void testMaintenanceSurvivesFailure()
+    {
+        // scheduleWithFixedDelay stops rescheduling a task that throws, so the wrapper must swallow
+        // the failure. It has to catch Error too: the failure an overloaded worker produces is
+        // OutOfMemoryError from creating a split's thread.
+        AtomicInteger runs = new AtomicInteger();
+        Runnable task = ThreadPerDriverTaskExecutor.maintenance(
+                () -> {
+                    if (runs.incrementAndGet() == 1) {
+                        throw new OutOfMemoryError("unable to create native thread");
+                    }
+                },
+                "Error in test task");
+
+        task.run();
+        task.run();
+
+        assertThat(runs.get()).isEqualTo(2);
     }
 
     @Test
