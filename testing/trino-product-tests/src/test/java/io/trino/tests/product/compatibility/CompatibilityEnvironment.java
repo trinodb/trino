@@ -31,6 +31,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Map;
 
+import static io.trino.testing.containers.environment.ConnectionRetry.createWithRetry;
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hadoopMetastoreUri;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -132,7 +133,7 @@ public class CompatibilityEnvironment
                 "jdbc:hive2://%s:%s/default",
                 hadoop.getHost(),
                 hadoop.getMappedPort(HadoopContainer.HIVESERVER2_PORT));
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, "hive", "");
+        try (Connection connection = createWithRetry(() -> DriverManager.getConnection(jdbcUrl, "hive", ""));
                 Statement statement = connection.createStatement()) {
             return statement.executeUpdate(sql);
         }
