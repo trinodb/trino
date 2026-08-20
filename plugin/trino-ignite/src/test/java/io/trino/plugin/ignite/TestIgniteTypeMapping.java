@@ -259,6 +259,68 @@ public class TestIgniteTypeMapping
     }
 
     @Test
+    public void testDecimalNegativeScale()
+    {
+        // Ignite accepts DECIMAL with negative scale in DDL, but the JDBC driver does not report
+        // decimalDigits for such columns, causing a failure when Trino tries to read column metadata.
+
+        // Scale -1: Ignite JDBC driver does not report decimalDigits, causing a crash.
+        // This affects any precision with scale = -1.
+        for (int precision : List.of(3, 5, 9)) {
+            try (TestTable table = new TestTable(igniteServer::execute, "test_decimal_neg_scale",
+                    "(pk INT PRIMARY KEY, data DECIMAL(" + precision + ", -1))")) {
+                assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + table.getName()))
+                        .hasMessageContaining("decimal digits not present");
+            }
+        }
+
+        // Scale -1 makes the entire table unreadable — even selecting non-decimal columns
+        // or querying metadata fails, because getColumns() processes all columns during planning.
+        try (TestTable table = new TestTable(igniteServer::execute, "test_decimal_neg_scale",
+                "(pk INT PRIMARY KEY, data DECIMAL(5, -1))")) {
+            igniteServer.execute("INSERT INTO " + table.getName() + " VALUES (1, 12340)");
+
+            assertThatThrownBy(() -> getQueryRunner().execute("SELECT pk FROM " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+
+            assertThatThrownBy(() -> getQueryRunner().execute("DESCRIBE " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+
+            assertThatThrownBy(() -> getQueryRunner().execute("SHOW COLUMNS FROM " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+        }
+
+        // A valid decimal column mixed with a scale-(-1) column — one bad column poisons the table
+        try (TestTable table = new TestTable(igniteServer::execute, "test_decimal_neg_scale",
+                "(pk INT PRIMARY KEY, good_data DECIMAL(5, 2), bad_data DECIMAL(5, -1))")) {
+            assertThatThrownBy(() -> getQueryRunner().execute("SELECT pk, good_data FROM " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+        }
+
+        // ALLOW_OVERFLOW decimal mapping does not help — crash at requiredDecimalDigits()
+        // happens before the ALLOW_OVERFLOW check in IgniteClient.toColumnMapping()
+        try (TestTable table = new TestTable(igniteServer::execute, "test_decimal_neg_scale",
+                "(pk INT PRIMARY KEY, data DECIMAL(5, -1))")) {
+            Session allowOverflow = Session.builder(getSession())
+                    .setCatalogSessionProperty("ignite", "decimal_mapping", "ALLOW_OVERFLOW")
+                    .setCatalogSessionProperty("ignite", "decimal_rounding_mode", "HALF_UP")
+                    .setCatalogSessionProperty("ignite", "decimal_default_scale", "0")
+                    .build();
+            assertThatThrownBy(() -> getQueryRunner().execute(allowOverflow, "SELECT * FROM " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+        }
+
+        // Scales beyond -1 work correctly — the JDBC driver reports decimalDigits for these,
+        // and the negative scale mapping in IgniteClient.toColumnMapping() maps decimal(p, -s) to decimal(p+s, 0).
+        try (TestTable table = new TestTable(igniteServer::execute, "test_decimal_neg_scale",
+                "(pk INT PRIMARY KEY, a DECIMAL(5, -2), b DECIMAL(5, -3), c DECIMAL(9, -7))")) {
+            assertQuery("SELECT column_name, data_type FROM information_schema.columns " +
+                            "WHERE table_name = '" + table.getName() + "' AND column_name != 'pk' ORDER BY column_name",
+                    "VALUES ('a', 'decimal(7,0)'), ('b', 'decimal(8,0)'), ('c', 'decimal(16,0)')");
+        }
+    }
+
+    @Test
     public void testBinary()
     {
         binaryTest("binary")
