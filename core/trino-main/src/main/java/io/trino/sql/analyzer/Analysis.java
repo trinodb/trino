@@ -329,7 +329,7 @@ public class Analysis
     {
         return target.map(target -> {
             QualifiedObjectName name = target.getName();
-            return new Output(name.catalogName(), target.getCatalogVersion(), name.schemaName(), name.objectName(), target.getColumns());
+            return new Output(name.catalogName(), target.getCatalogVersion(), name.schemaName(), name.objectName(), target.getColumns(), Optional.empty());
         });
     }
 
