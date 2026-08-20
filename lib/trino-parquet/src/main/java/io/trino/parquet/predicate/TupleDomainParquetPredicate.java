@@ -92,6 +92,7 @@ import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
@@ -355,12 +356,24 @@ public class TupleDomainParquetPredicate
      * Statistics, column indexes and dictionaries are decoded according to the physical type of the column in the file,
      * while the domain being narrowed carries the type from the table schema, and schema evolution makes the two
      * disagree. A bound is usable only when the reader can produce the column at all, which
-     * {@link ColumnReaderFactory#isSupported} decides, and when it produces the stored value unchanged, which the
-     * conversions below do not.
+     * {@link ColumnReaderFactory#isSupported} decides, when the reader produces the stored value unchanged, and when
+     * the statistics of the physical type arrive as the Java value the branch which builds the domain reads them as.
+     * The conversions below are readable but fail one of the other two.
      */
     private static boolean canNarrowDomain(Type type, PrimitiveType parquetType)
     {
         if (!isSupported(type, parquetType)) {
+            return false;
+        }
+        PrimitiveTypeName primitiveType = parquetType.getPrimitiveTypeName();
+        // RealType is an integer type, so isSupported takes a real over an integral column, where the reader
+        // reinterprets the stored integer as float bits instead of reading the value it holds
+        if (type.equals(REAL) && primitiveType != FLOAT) {
+            return false;
+        }
+        // A zero scale short decimal is read as an integer whatever it is stored in, but a byte array holds its
+        // statistics as two's complement bytes rather than as a number, which the integral branch does not read
+        if (isIntegralType(type) && primitiveType != INT32 && primitiveType != INT64) {
             return false;
         }
         // The reader truncates a bounded varchar to its length, and pads and trims a char, so a bound built from the
@@ -377,6 +390,14 @@ public class TupleDomainParquetPredicate
             return false;
         }
         return true;
+    }
+
+    /**
+     * The types whose bounds are read through {@link #asLong}, which accepts a boxed integer and nothing else.
+     */
+    private static boolean isIntegralType(Type type)
+    {
+        return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT);
     }
 
     /**
@@ -413,7 +434,7 @@ public class TupleDomainParquetPredicate
             throw new VerifyException("Impossible boolean statistics");
         }
 
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT)) {
+        if (isIntegralType(type)) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 long min = asLong(minimums.get(i));
@@ -759,7 +780,7 @@ public class TupleDomainParquetPredicate
 
         // TODO: Support TIMESTAMP, CHAR and DECIMAL
         if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == DATE) {
-            if (primitiveType != PrimitiveTypeName.INT32) {
+            if (primitiveType != INT32) {
                 return Optional.empty();
             }
             return Optional.of((bloomFilter, value) -> bloomFilter.hash(toIntExact(((Number) value).longValue())));

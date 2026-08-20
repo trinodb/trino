@@ -620,7 +620,17 @@ public class TestTupleDomainParquetPredicate
                 // the reader accepts the column but does not produce the stored value
                 Arguments.of(BINARY, null, createVarcharType(3), false),
                 Arguments.of(BINARY, null, createCharType(3), false),
-                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false));
+                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false),
+                // RealType is an integer type, so the reader takes a real over an integral column and reinterprets
+                // the stored integer as float bits
+                Arguments.of(INT32, null, REAL, false),
+                Arguments.of(INT64, null, REAL, false),
+                Arguments.of(BINARY, decimalType(0, 9), REAL, false),
+
+                // the reader reads a zero scale short decimal as an integer, but a byte array holds its statistics as
+                // two's complement bytes rather than as a number
+                Arguments.of(BINARY, decimalType(0, 9), INTEGER, false),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(0, 9), BIGINT, false));
     }
 
     /**
