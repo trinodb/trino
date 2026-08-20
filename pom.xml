@@ -193,7 +193,7 @@
         <dep.confluent.version>8.1.1</dep.confluent.version>
         <dep.datasketches.version>9.0.0</dep.datasketches.version>
         <dep.derby.version>10.17.1.0</dep.derby.version>
-        <dep.docker.images.version>127</dep.docker.images.version>
+        <dep.docker.images.version>129</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
         <dep.frontend-maven-plugin.version>2.0.2</dep.frontend-maven-plugin.version>
         <dep.frontend-bun.version>v1.4.0</dep.frontend-bun.version>
