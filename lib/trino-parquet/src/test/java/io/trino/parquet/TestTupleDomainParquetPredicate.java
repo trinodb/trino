@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.predicate.DictionaryDescriptor;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate.BloomFilterHasher;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -40,9 +41,12 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
+import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
@@ -61,6 +65,8 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -103,6 +109,7 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.NaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
@@ -114,6 +121,7 @@ import static java.util.Collections.singletonMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.dateType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.uuidType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
@@ -466,6 +474,159 @@ public class TestTupleDomainParquetPredicate
                 .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required binary StringColumn\": [min: 0x7461636F, max: 0x6170706C65, num_nulls: 0] [testFile]");
     }
 
+    /**
+     * The reader cuts a bounded varchar down to its length, so the bounds it can be held to are not the stored ones.
+     * The stored maximum still bounds it, since a prefix never sorts above the value it was cut from, while the
+     * minimum is cut back to the longest prefix of itself that nothing readable sorts below.
+     */
+    @Test
+    public void testBoundedVarcharStatistics()
+            throws ParquetCorruptionException
+    {
+        ColumnDescriptor column = createColumnDescriptor(BINARY, stringType(), "StringColumn");
+
+        VarcharType threeCodePoints = createVarcharType(3);
+        assertThat(getDomain(column, threeCodePoints, 10, stringColumnStats("apple", "taco"), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(threeCodePoints, utf8Slice("app"), true, utf8Slice("taco"), true)), false));
+        // "tacos" sits inside the stored bounds and is read back as "tac", which the range still admits
+        assertThat(getDomain(column, threeCodePoints, 10, stringColumnStats("apple", "taco"), ID, UTC).includesNullableValue(utf8Slice("tac")))
+                .isTrue();
+
+        // the cut is by code point and not by byte, and it keeps the leading byte of the code point it cuts at, so
+        // 中国 bounds at E4 rather than at 中
+        VarcharType oneCodePoint = createVarcharType(1);
+        assertThat(getDomain(column, oneCodePoint, 10, stringColumnStats("中国", "美利坚"), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(oneCodePoint, Slices.wrappedBuffer((byte) 0xE4), true, utf8Slice("美利坚"), true)), false));
+
+        // C3 C3 A9 sorts above the minimum, can sit in the same row group, and is read back as C3, which a minimum
+        // cut to a whole code point would have put outside the range
+        Slice codePointMinimum = Slices.wrappedBuffer((byte) 0xC3, (byte) 0xA9);
+        Slice codePointMaximum = Slices.wrappedBuffer((byte) 0xC3, (byte) 0xC3, (byte) 0xA9);
+        assertThat(getDomain(column, oneCodePoint, 10, binaryColumnStats(codePointMinimum, codePointMaximum), ID, UTC)
+                .includesNullableValue(Slices.wrappedBuffer((byte) 0xC3)))
+                .isTrue();
+
+        // the STRING annotation does not promise the bytes are UTF-8, and the cut no longer needs it to, since it
+        // stops at the leading byte rather than scanning past it
+        Slice invalidMinimum = Slices.wrappedBuffer((byte) 0xC7, (byte) 0x8F, (byte) 0x91, (byte) 0x4F, (byte) 0x85);
+        Slice invalidMaximum = Slices.wrappedBuffer((byte) 0xC7, (byte) 0xC8, (byte) 0x93, (byte) 0x0A);
+        assertThat(getDomain(column, oneCodePoint, 10, binaryColumnStats(invalidMinimum, invalidMaximum), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(oneCodePoint, Slices.wrappedBuffer((byte) 0xC7), true, invalidMaximum, true)), false));
+
+        // 42 C0 C9 C2 41 lies between these bounds and is read back as 42, which a minimum cut to 42 AA A3 81 would
+        // have put outside the range
+        Slice shortenedMinimum = Slices.wrappedBuffer((byte) 0x42, (byte) 0xAA, (byte) 0xA3, (byte) 0x81);
+        Slice shortenedMaximum = Slices.wrappedBuffer((byte) 0xC3, (byte) 0xC4, (byte) 0x97, (byte) 0x41);
+        assertThat(getDomain(column, oneCodePoint, 10, binaryColumnStats(shortenedMinimum, shortenedMaximum), ID, UTC)
+                .includesNullableValue(Slices.wrappedBuffer((byte) 0x42)))
+                .isTrue();
+
+        // the minimum is guarded where it is used, so an unannotated column is bounded exactly the same way
+        ColumnDescriptor unannotated = createColumnDescriptor(BINARY, "StringColumn");
+        assertThat(getDomain(unannotated, threeCodePoints, 10, stringColumnStats("apple", "taco"), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(threeCodePoints, utf8Slice("app"), true, utf8Slice("taco"), true)), false));
+    }
+
+    /**
+     * The reason the minimum is cut at all: no value the reader can produce out of a row group sorts below the low
+     * bound built from that row group's minimum, and the bounds never come out inverted. Swept over every byte string
+     * the interesting UTF-8 shapes can spell, rather than over the cases review happened to think of.
+     */
+    @Test
+    public void testBoundedVarcharLowerBoundHoldsForEveryReadableValue()
+    {
+        ColumnDescriptor column = createColumnDescriptor(BINARY, stringType(), "StringColumn");
+        List<byte[]> storedValues = byteStringsUpToLength(4);
+        ImmutableList.Builder<String> violations = ImmutableList.builder();
+
+        for (int boundedLength = 1; boundedLength <= 3; boundedLength++) {
+            VarcharType varcharType = createVarcharType(boundedLength);
+            for (byte[] minimum : storedValues) {
+                for (byte[] stored : storedValues) {
+                    if (Arrays.compareUnsigned(minimum, stored) > 0) {
+                        continue;
+                    }
+                    Slice readValue = truncateToLength(Slices.wrappedBuffer(stored), varcharType);
+                    Domain domain;
+                    try {
+                        domain = getDomain(column, varcharType, 10, binaryColumnStats(Slices.wrappedBuffer(minimum), Slices.wrappedBuffer(stored)), ID, UTC);
+                    }
+                    catch (ParquetCorruptionException _) {
+                        violations.add(describeBound(boundedLength, minimum, stored, "builds an inverted range"));
+                        continue;
+                    }
+                    if (!domain.includesNullableValue(readValue)) {
+                        violations.add(describeBound(boundedLength, minimum, stored, "excludes " + HexFormat.of().formatHex(readValue.getBytes())));
+                    }
+                }
+            }
+        }
+
+        assertThat(violations.build()).isEmpty();
+    }
+
+    private static String describeBound(int boundedLength, byte[] minimum, byte[] stored, String failure)
+    {
+        return "varchar(%s) over [%s, %s] %s".formatted(boundedLength, HexFormat.of().formatHex(minimum), HexFormat.of().formatHex(stored), failure);
+    }
+
+    /**
+     * Every byte string up to {@code maxLength} bytes long over an ASCII byte, a UTF-8 continuation byte, and the
+     * leading bytes of a two and a three byte code point, which is every shape the cut can behave differently on.
+     */
+    private static List<byte[]> byteStringsUpToLength(int maxLength)
+    {
+        byte[] alphabet = {(byte) 0x41, (byte) 0x80, (byte) 0xC3, (byte) 0xE4};
+        ImmutableList.Builder<byte[]> allValues = ImmutableList.builder();
+        List<byte[]> shorterValues = ImmutableList.of(new byte[0]);
+        for (int length = 1; length <= maxLength; length++) {
+            ImmutableList.Builder<byte[]> currentValues = ImmutableList.builder();
+            for (byte[] prefix : shorterValues) {
+                for (byte symbol : alphabet) {
+                    byte[] value = Arrays.copyOf(prefix, length);
+                    value[length - 1] = symbol;
+                    currentValues.add(value);
+                }
+            }
+            shorterValues = currentValues.build();
+            allValues.addAll(shorterValues);
+        }
+        return allValues.build();
+    }
+
+    /**
+     * The uuid values reach the bloom filter through the same branch as varchar and varbinary, wrapped in a
+     * {@link Binary} over the buffer of the slice rather than over a copy of its bytes. parquet-mr hashes the two
+     * identically, including for a slice held at an offset inside a larger buffer.
+     */
+    @Test
+    public void testUuidBloomFilterHashesTheStoredBytes()
+    {
+        PrimitiveType uuidColumn = createColumnDescriptor(FIXED_LEN_BYTE_ARRAY, uuidType(), "UuidColumn").getPrimitiveType();
+        byte[] uuidBytes = new byte[16];
+        for (int i = 0; i < uuidBytes.length; i++) {
+            uuidBytes[i] = (byte) (7 * i + 1);
+        }
+        BloomFilter bloomFilter = new BlockSplitBloomFilter(1024, 1024);
+        bloomFilter.insertHash(bloomFilter.hash(Binary.fromConstantByteArray(uuidBytes)));
+
+        byte[] backingBuffer = new byte[uuidBytes.length + 8];
+        System.arraycopy(uuidBytes, 0, backingBuffer, 5, uuidBytes.length);
+        Slice heldAtAnOffset = Slices.wrappedBuffer(backingBuffer, 5, uuidBytes.length);
+
+        BloomFilterHasher hasher = bloomFilterHasher(UUID, uuidColumn).orElseThrow();
+        assertThat(bloomFilter.findHash(hasher.hash(bloomFilter, heldAtAnOffset))).isTrue();
+    }
+
+    private static BinaryStatistics binaryColumnStats(Slice minimum, Slice maximum)
+    {
+        return (BinaryStatistics) Statistics.getBuilderForReading(Types.optional(BINARY).named("StringColumn"))
+                .withMin(minimum.getBytes())
+                .withMax(maximum.getBytes())
+                .withNumNulls(0)
+                .build();
+    }
+
     private static BinaryStatistics stringColumnStats(String minimum, String maximum)
     {
         return (BinaryStatistics) Statistics.getBuilderForReading(Types.optional(BINARY).named("StringColumn"))
@@ -588,6 +749,10 @@ public class TestTupleDomainParquetPredicate
                 Arguments.of(FLOAT, null, REAL, true),
                 Arguments.of(PrimitiveTypeName.DOUBLE, null, DOUBLE, true),
                 Arguments.of(BINARY, null, createUnboundedVarcharType(), true),
+                // the reader cuts a bounded varchar down to its length and the low bound is cut with it, which is
+                // guarded where the bound is built rather than here
+                Arguments.of(BINARY, stringType(), createVarcharType(3), true),
+                Arguments.of(BINARY, null, createVarcharType(3), true),
                 Arguments.of(BINARY, decimalType(2, 10), createDecimalType(10, 2), true),
                 Arguments.of(INT96, null, createTimestampType(3), true),
                 // ColumnReaderFactory reads a fixed length byte array verbatim for an unbounded varchar, and both byte
@@ -622,8 +787,8 @@ public class TestTupleDomainParquetPredicate
                 Arguments.of(FIXED_LEN_BYTE_ARRAY, uuidType(), UUID, false),
 
                 // the reader accepts the column but does not produce the stored value
-                Arguments.of(BINARY, null, createVarcharType(3), false),
                 Arguments.of(BINARY, null, createCharType(3), false),
+                Arguments.of(BINARY, stringType(), createCharType(3), false),
                 // RealType is an integer type, so the reader takes a real over an integral column and reinterprets
                 // the stored integer as float bits
                 Arguments.of(INT32, null, REAL, false),
@@ -675,8 +840,9 @@ public class TestTupleDomainParquetPredicate
                 Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), VARBINARY, false),
                 Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), UUID, false),
 
-                // the reader does not hand these bytes back unchanged
+                // the reader does not hand these bytes back unchanged, whatever their statistics can be narrowed to
                 Arguments.of(BINARY, null, createVarcharType(3), false),
+                Arguments.of(BINARY, stringType(), createVarcharType(3), false),
                 Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false));
     }
 
@@ -844,14 +1010,31 @@ public class TestTupleDomainParquetPredicate
         assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, stats), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(column)));
 
-        // The reader truncates a bounded varchar to its length while the statistics hold the untruncated bytes, so the
-        // column is worth no further inspection either
-        TupleDomainParquetPredicate boundedPredicate = new TupleDomainParquetPredicate(
-                getEffectivePredicate(column, createVarcharType(255), utf8Slice(value)),
-                singletonList(column),
-                UTC);
-        assertThat(boundedPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, stats), ID))
-                .isEqualTo(Optional.of(ImmutableList.of()));
+        // "Test" is read back as "Te" through a varchar(2), and the bounds are truncated with it, so a predicate on
+        // "Te" keeps the row group while one on "Ta" eliminates it
+        ColumnDescriptor utf8Column = createColumnDescriptor(BINARY, stringType(), "VarcharColumn");
+        Statistics<?> utf8Stats = Statistics.getBuilderForReading(utf8Column.getPrimitiveType())
+                .withMin(value.getBytes(UTF_8))
+                .withMax(value.getBytes(UTF_8))
+                .withNumNulls(1L)
+                .build();
+        Map<ColumnDescriptor, Long> utf8ValueCounts = ImmutableMap.of(utf8Column, 2L);
+        Map<ColumnDescriptor, Statistics<?>> utf8Statistics = ImmutableMap.of(utf8Column, utf8Stats);
+        assertThat(new TupleDomainParquetPredicate(getEffectivePredicate(utf8Column, createVarcharType(2), utf8Slice("Te")), singletonList(utf8Column), UTC)
+                .getIndexLookupCandidates(utf8ValueCounts, utf8Statistics, ID))
+                .isEqualTo(Optional.of(ImmutableList.of(utf8Column)));
+        assertThat(new TupleDomainParquetPredicate(getEffectivePredicate(utf8Column, createVarcharType(2), utf8Slice("Ta")), singletonList(utf8Column), UTC)
+                .getIndexLookupCandidates(utf8ValueCounts, utf8Statistics, ID))
+                .isEmpty();
+
+        // the low bound is guarded where it is built rather than by the annotation, so an unannotated column is held
+        // to the same bounds
+        assertThat(new TupleDomainParquetPredicate(getEffectivePredicate(column, createVarcharType(2), utf8Slice("Te")), singletonList(column), UTC)
+                .getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, stats), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(column)));
+        assertThat(new TupleDomainParquetPredicate(getEffectivePredicate(column, createVarcharType(2), utf8Slice("Ta")), singletonList(column), UTC)
+                .getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, stats), ID))
+                .isEmpty();
     }
 
     @Test
