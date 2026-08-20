@@ -174,6 +174,46 @@ public class TestMemoryBlobCache
         assertThat(source.isClosed()).isTrue();
     }
 
+    @Test
+    public void testStaleDeclaredLengthDoesNotTruncateEntry()
+            throws IOException
+    {
+        CacheKey key = CacheKey.of("testStaleDeclaredLengthDoesNotTruncateEntry", UUID.randomUUID().toString());
+        byte[] content = content(1024);
+        byte[] buffer = new byte[content.length];
+
+        // A caller may declare the length from stale metadata; the entry must still hold the
+        // content to its actual end, or every subsequent reader would see a truncated copy
+        TestingBlobSource source = new TestingBlobSource(content, 100);
+        try (Blob blob = cache.get(key, source)) {
+            assertThat(blob.length()).isEqualTo(content.length);
+            blob.read(0, buffer, 0, buffer.length);
+            assertThat(buffer).isEqualTo(content);
+        }
+        assertThat(cache.isCached(key)).isTrue();
+    }
+
+    @Test
+    public void testStaleDeclaredLengthWithOversizedContentReadsThroughToSource()
+            throws IOException
+    {
+        CacheKey key = CacheKey.of("testStaleDeclaredLengthWithOversizedContentReadsThroughToSource", UUID.randomUUID().toString());
+        byte[] content = content(MAX_CONTENT_LENGTH + 200);
+        byte[] buffer = new byte[100];
+
+        // The declared length passes the pre-filter, but the actual content exceeds the
+        // limit: the entry must be skipped, not cached truncated
+        TestingBlobSource source = new TestingBlobSource(content, 100);
+        long largeFileSkippedCount = cache.getLargeFileSkippedCount();
+        try (Blob blob = cache.get(key, source)) {
+            assertThat(cache.getLargeFileSkippedCount()).isEqualTo(largeFileSkippedCount + 1);
+            assertThat(cache.isCached(key)).isFalse();
+            blob.read(0, buffer, 0, buffer.length);
+            assertThat(buffer).isEqualTo(Arrays.copyOf(content, buffer.length));
+        }
+        assertThat(source.isClosed()).isTrue();
+    }
+
     private static byte[] content(int size)
     {
         byte[] content = new byte[size];
@@ -187,18 +227,25 @@ public class TestMemoryBlobCache
             implements BlobSource
     {
         private final byte[] content;
+        private final long declaredLength;
         private long readBytes;
         private boolean closed;
 
         public TestingBlobSource(byte[] content)
         {
+            this(content, content.length);
+        }
+
+        public TestingBlobSource(byte[] content, long declaredLength)
+        {
             this.content = content;
+            this.declaredLength = declaredLength;
         }
 
         @Override
         public long length()
         {
-            return content.length;
+            return declaredLength;
         }
 
         @Override

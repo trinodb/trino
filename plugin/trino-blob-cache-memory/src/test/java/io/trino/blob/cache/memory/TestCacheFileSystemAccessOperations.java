@@ -81,7 +81,7 @@ public class TestCacheFileSystemAccessOperations
         assertReadOperations(location, content,
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(location, "InputFile.length"))
-                        .add(new FileOperation(location, "InputFile.newInput"))
+                        .add(new FileOperation(location, "InputFile.newStream"))
                         .add(new FileOperation(location, "InputFile.lastModified"))
                         .build());
         assertReadOperations(location, content,
@@ -96,7 +96,7 @@ public class TestCacheFileSystemAccessOperations
         assertReadOperations(location, modifiedContent,
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(location, "InputFile.length"))
-                        .add(new FileOperation(location, "InputFile.newInput"))
+                        .add(new FileOperation(location, "InputFile.newStream"))
                         .add(new FileOperation(location, "InputFile.lastModified"))
                         .build());
     }

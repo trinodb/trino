@@ -31,6 +31,7 @@ import io.trino.spi.cache.NoopBlob;
 import org.weakref.jmx.Managed;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -174,8 +175,9 @@ public final class MemoryBlobCache
             stats.recordHit();
             return new CachedContent(cached, false);
         }
-        long length = source.length();
-        if (length > maxContentLengthBytes) {
+        // The length may be declared by the caller from stale metadata, so it is only a cheap
+        // pre-filter here; the load below reads the content to its actual end and re-checks
+        if (source.length() > maxContentLengthBytes) {
             largeFileSkippedCount.incrementAndGet();
             stats.recordLargeFileSkipped();
             return null;
@@ -186,12 +188,17 @@ public final class MemoryBlobCache
             boolean[] loaded = new boolean[1];
             Slice data = cache.get(key, () -> {
                 loaded[0] = true;
-                return load(source, length);
+                return load(source);
             });
             return new CachedContent(data, loaded[0]);
         }
         catch (ExecutionException e) {
             Throwable cause = e.getCause();
+            if (cause instanceof ContentExceedsMaxLengthException) {
+                largeFileSkippedCount.incrementAndGet();
+                stats.recordLargeFileSkipped();
+                return null;
+            }
             if (cause instanceof IOException io) {
                 throw io;
             }
@@ -202,11 +209,22 @@ public final class MemoryBlobCache
         }
     }
 
-    private static Slice load(BlobSource source, long length)
+    private Slice load(BlobSource source)
             throws IOException
     {
-        byte[] buffer = new byte[toIntExact(length)];
-        source.readFully(0, buffer, 0, buffer.length);
-        return Slices.wrappedBuffer(buffer);
+        // Read from the start of the content to its actual end, rather than the declared
+        // number of bytes: a caller may open a file with a stale, smaller length, and caching
+        // only that many bytes would serve a truncated copy to every subsequent reader. The
+        // extra byte detects content that outgrows the limit despite passing the pre-filter
+        try (InputStream stream = source.openStream()) {
+            byte[] content = stream.readNBytes(maxContentLengthBytes + 1);
+            if (content.length > maxContentLengthBytes) {
+                throw new ContentExceedsMaxLengthException();
+            }
+            return Slices.wrappedBuffer(content);
+        }
     }
+
+    private static final class ContentExceedsMaxLengthException
+            extends IOException {}
 }

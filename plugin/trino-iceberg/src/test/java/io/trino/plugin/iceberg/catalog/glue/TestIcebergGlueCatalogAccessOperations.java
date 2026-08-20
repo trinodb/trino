@@ -558,7 +558,7 @@ public class TestIcebergGlueCatalogAccessOperations
                                 .build(),
                         ImmutableMultiset.<FileOperation>builder()
                                 .add(new FileOperation(METADATA_JSON, "InputFile.length"))
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                                 .build());
 
                 // Pointed columns lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
@@ -571,7 +571,7 @@ public class TestIcebergGlueCatalogAccessOperations
                                 .build(),
                         ImmutableMultiset.<FileOperation>builder()
                                 .add(new FileOperation(METADATA_JSON, "InputFile.length"))
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                                 .build());
             }
             finally {
@@ -631,7 +631,7 @@ public class TestIcebergGlueCatalogAccessOperations
                                 .build(),
                         ImmutableMultiset.<FileOperation>builder()
                                 .add(new FileOperation(METADATA_JSON, "InputFile.length"))
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                                 .build());
             }
             finally {
