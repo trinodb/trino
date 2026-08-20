@@ -368,6 +368,7 @@ jobs:
             !:trino-parquet,
             !:trino-pinot,
             !:trino-postgresql,
+            !:trino-ranger,
             !:trino-redis,
             !:trino-redshift,
             !:trino-resource-group-managers,
@@ -492,6 +493,7 @@ jobs:
             - { modules: plugin/trino-oracle }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
+            - { modules: plugin/trino-ranger }
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-redshift }
             - { modules: plugin/trino-redshift, profile: cloud-tests }
