@@ -15,6 +15,8 @@ package io.trino.plugin.redshift;
 
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestView;
 import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
@@ -25,6 +27,7 @@ import java.time.Duration;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getCausalChain;
+import static io.trino.plugin.redshift.RedshiftQueryRunner.IAM_ROLE;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public final class TestingRedshiftServer
@@ -73,6 +76,32 @@ public final class TestingRedshiftServer
             throws E
     {
         return Jdbi.create(JDBC_URL, JDBC_USER, JDBC_PASSWORD).withHandle(callback);
+    }
+
+    public static SqlExecutor onRemoteDatabaseWithSchema(String schema)
+    {
+        return sql -> executeInRedshift("SET search_path TO %s; %s".formatted(schema, sql));
+    }
+
+    /**
+     * Creates a view in {@link #TEST_SCHEMA} whose scan blocks for at least {@code secondsToSleep} seconds,
+     * for tests that need a long-running remote query.
+     */
+    public static TestView createSleepingView(long secondsToSleep)
+    {
+        // pg_sleep unsupported: https://docs.aws.amazon.com/redshift/latest/dg/c_unsupported-postgresql-functions.html,
+        // Using a predefined AWS lambda replacement
+        onRemoteDatabaseWithSchema(TEST_SCHEMA).execute(
+                """
+                CREATE OR REPLACE EXTERNAL FUNCTION\s
+                        janky_sleep(x int) returns int
+                        lambda 'trino-redshift-ci-sleep' IAM_ROLE '%s'
+                STABLE
+                """.formatted(IAM_ROLE));
+        return new TestView(
+                onRemoteDatabaseWithSchema(TEST_SCHEMA),
+                "test_sleeping_view",
+                "SELECT janky_sleep(%d) AS value FROM %s.nation WHERE nationkey = 0".formatted(secondsToSleep, TEST_SCHEMA));
     }
 
     public static boolean isExceptionRecoverable(Throwable exception)
