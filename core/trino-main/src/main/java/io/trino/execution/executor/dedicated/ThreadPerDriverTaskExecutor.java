@@ -82,6 +82,7 @@ public class ThreadPerDriverTaskExecutor
 
     // Do not inline this field to avoid creating lambdas that cannot be cached by JVM.
     private final Runnable leafSplitDoneCallback = this::leafSplitDone;
+    private final Runnable scheduleMoreLeafSplitsQuietly = maintenance(this::scheduleMoreLeafSplits, "Error scheduling leaf splits");
 
     @Inject
     public ThreadPerDriverTaskExecutor(TaskManagerConfig config, Tracer tracer, VersionEmbedder versionEmbedder)
@@ -110,9 +111,9 @@ public class ThreadPerDriverTaskExecutor
     public synchronized void start()
     {
         scheduler.start();
-        backgroundTasks.scheduleWithFixedDelay(this::scheduleMoreLeafSplits, 0, 100, TimeUnit.MILLISECONDS);
-        backgroundTasks.scheduleWithFixedDelay(this::adjustConcurrency, 0, 10, TimeUnit.MILLISECONDS);
-        backgroundTasks.scheduleWithFixedDelay(this::logDiagnostics, 0, 30, TimeUnit.SECONDS);
+        backgroundTasks.scheduleWithFixedDelay(scheduleMoreLeafSplitsQuietly, 0, 100, TimeUnit.MILLISECONDS);
+        backgroundTasks.scheduleWithFixedDelay(maintenance(this::adjustConcurrency, "Error adjusting task concurrency"), 0, 10, TimeUnit.MILLISECONDS);
+        backgroundTasks.scheduleWithFixedDelay(maintenance(this::logDiagnostics, "Error logging diagnostics"), 0, 30, TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -178,12 +179,15 @@ public class ThreadPerDriverTaskExecutor
         return futures;
     }
 
-    private void leafSplitDone()
+    @VisibleForTesting
+    void leafSplitDone()
     {
         synchronized (this) {
             runningLeafDrivers--;
         }
-        scheduleMoreLeafSplits();
+        // Must be the wrapped form: this runs on the thread of a split that just finished, which
+        // is in no position to handle another task's split failing to start.
+        scheduleMoreLeafSplitsQuietly.run();
     }
 
     private void scheduleMoreLeafSplits()
@@ -266,6 +270,24 @@ public class ThreadPerDriverTaskExecutor
     }
 
     private record ClaimedLeafSplit(TaskEntry task, QueuedSplit split) {}
+
+    /// Wrap a task so that a failure does not take its caller down with it.
+    /// [ScheduledThreadPoolExecutor#scheduleWithFixedDelay] silently stops rescheduling a task
+    /// that throws, which would leave the worker permanently without leaf split scheduling or
+    /// concurrency adjustment. Failures here are typically symptoms of an overloaded worker,
+    /// such as being unable to create a thread, and it is expected to recover once load subsides.
+    @VisibleForTesting
+    static Runnable maintenance(Runnable task, String errorMessage)
+    {
+        return () -> {
+            try {
+                task.run();
+            }
+            catch (Throwable e) {
+                LOG.warn(e, "%s", errorMessage);
+            }
+        };
+    }
 
     private void adjustConcurrency()
     {

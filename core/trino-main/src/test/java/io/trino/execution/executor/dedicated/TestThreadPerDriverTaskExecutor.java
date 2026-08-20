@@ -41,6 +41,7 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
@@ -50,6 +51,7 @@ import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestThreadPerDriverTaskExecutor
@@ -159,6 +161,71 @@ public class TestThreadPerDriverTaskExecutor
         finally {
             executor.stop();
         }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testSplitCompletionDoesNotPropagateSchedulingFailure()
+            throws Exception
+    {
+        // leafSplitDone runs on the thread of a split that just finished. Failing to start some
+        // other split there is already reported to the task that owns it, so it must not escape
+        // into the completing split's stack, where it would unwind into the thread pool.
+        AtomicBoolean failNextThread = new AtomicBoolean();
+        ThreadFactory threadFactory = runnable -> {
+            if (failNextThread.compareAndSet(true, false)) {
+                throw new OutOfMemoryError("unable to create native thread");
+            }
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        };
+
+        FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, Integer.MAX_VALUE, 1);
+        scheduler.start();
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskEntry task = (TaskEntry) executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            ListenableFuture<Void> done = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture())));
+
+            failNextThread.set(true);
+            // Called directly rather than by letting a split finish, so that the assertion is on
+            // the one thing that matters: that it returns. The running leaf driver count it
+            // decrements is arranged rather than reached, which only widens the budget it then
+            // schedules against.
+            assertThatCode(executor::leafSplitDone).doesNotThrowAnyException();
+
+            // the split it could not start is still failed, so the failure is not simply discarded
+            assertThatThrownBy(done::get)
+                    .isInstanceOf(ExecutionException.class)
+                    .cause()
+                    .isInstanceOf(OutOfMemoryError.class);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    public void testMaintenanceSurvivesFailure()
+    {
+        // scheduleWithFixedDelay stops rescheduling a task that throws, so the wrapper must swallow
+        // the failure. It has to catch Error too: the failure an overloaded worker produces is
+        // OutOfMemoryError from creating a split's thread.
+        AtomicInteger runs = new AtomicInteger();
+        Runnable task = ThreadPerDriverTaskExecutor.maintenance(
+                () -> {
+                    if (runs.incrementAndGet() == 1) {
+                        throw new OutOfMemoryError("unable to create native thread");
+                    }
+                },
+                "Error in test task");
+
+        task.run();
+        task.run();
+
+        assertThat(runs.get()).isEqualTo(2);
     }
 
     @Test
