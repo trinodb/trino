@@ -183,6 +183,7 @@ public class TestColumnReaderFactory
                 primitiveType(BINARY, decimalType(0, 9)),
                 primitiveType(BINARY, decimalType(2, 10)),
                 primitiveType(FIXED_LEN_BYTE_ARRAY, null),
+                primitiveType(FIXED_LEN_BYTE_ARRAY, decimalType(0, 9)),
                 primitiveType(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20)),
                 primitiveType(FIXED_LEN_BYTE_ARRAY, uuidType()));
 
