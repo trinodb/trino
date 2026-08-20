@@ -5926,6 +5926,13 @@ public abstract class BaseHiveConnectorTest
             assertQuery("SELECT c FROM " + widenedTable, "VALUES 1.5, 2.5");
             // the pushed-down predicate neither fails the query nor drops the row it matches
             assertQuery("SELECT c FROM " + widenedTable + " WHERE c = DOUBLE '1.5'", "VALUES 1.5");
+
+            // and the float statistics still narrow the domain, so a value outside them reads no rows at all
+            assertQueryStats(
+                    getSession(),
+                    "SELECT c FROM " + widenedTable + " WHERE c = DOUBLE '99.5'",
+                    queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0),
+                    results -> assertThat(results.getRowCount()).isEqualTo(0));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + widenedTable);

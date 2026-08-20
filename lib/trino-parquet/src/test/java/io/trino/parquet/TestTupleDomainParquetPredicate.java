@@ -508,6 +508,37 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testDoubleWithFloatColumn()
+            throws Exception
+    {
+        // A column widened from real to double keeps its physical float statistics in every file written before the
+        // change, and ColumnReaderFactory widens the column itself, so those bounds are what the reader will produce
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(FLOAT, "FloatColumn");
+
+        float minimum = 4.3f;
+        float maximum = 40.3f;
+
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(minimum, maximum), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+
+        assertThat(getDomain(DOUBLE, floatDictionaryDescriptor(minimum)))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) minimum, true)), true));
+
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(FLOAT).named("test_float"),
+                BoundaryOrder.UNORDERED,
+                asList(false),
+                asList(0L),
+                toFloatByteBufferList(minimum),
+                toFloatByteBufferList(maximum));
+        assertThat(getDomain(DOUBLE, 200, columnIndex, ID, columnDescriptor, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+
+        // a NaN bound is as unusable here as it is on a physical double column
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(NaN, NaN), ID, UTC)).isEqualTo(notNull(DOUBLE));
+    }
+
+    @Test
     public void testDictionaryTypeMismatchLeavesDomainUnnarrowed()
             throws Exception
     {
@@ -562,6 +593,8 @@ public class TestTupleDomainParquetPredicate
                 // ColumnReaderFactory reads a fixed length byte array verbatim for an unbounded varchar, and both byte
                 // array physical types hold the statistics as raw bytes
                 Arguments.of(FIXED_LEN_BYTE_ARRAY, null, createUnboundedVarcharType(), true),
+                // the reader widens a float column to double, so its bounds are usable as double bounds
+                Arguments.of(FLOAT, null, DOUBLE, true),
 
                 // the reader refuses the column outright
                 Arguments.of(INT32, null, BOOLEAN, false),
@@ -587,9 +620,7 @@ public class TestTupleDomainParquetPredicate
                 // the reader accepts the column but does not produce the stored value
                 Arguments.of(BINARY, null, createVarcharType(3), false),
                 Arguments.of(BINARY, null, createCharType(3), false),
-                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false),
-                // widening float bounds to double is a separate change
-                Arguments.of(FLOAT, null, DOUBLE, false));
+                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false));
     }
 
     /**
@@ -622,6 +653,7 @@ public class TestTupleDomainParquetPredicate
                 // hashed at a different width, so a lookup would miss every value which is present
                 Arguments.of(INT32, null, BIGINT, false),
                 Arguments.of(INT64, null, INTEGER, false),
+                // note the contrast with the statistics above: the bounds widen exactly, but a hash does not
                 Arguments.of(FLOAT, null, DOUBLE, false),
                 Arguments.of(PrimitiveTypeName.DOUBLE, null, REAL, false),
 
@@ -1099,6 +1131,15 @@ public class TestTupleDomainParquetPredicate
         return new LongTimestamp(
                 start.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
                 toIntExact(round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * (long) PICOSECONDS_PER_NANOSECOND, toIntExact(TimestampType.MAX_PRECISION - precision))));
+    }
+
+    private static List<ByteBuffer> toFloatByteBufferList(Float... values)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>(values.length);
+        for (Float value : values) {
+            buffers.add(ByteBuffer.wrap(BytesUtils.intToBytes(Float.floatToIntBits(value))));
+        }
+        return buffers;
     }
 
     private static List<ByteBuffer> toByteBufferList(Long... values)
