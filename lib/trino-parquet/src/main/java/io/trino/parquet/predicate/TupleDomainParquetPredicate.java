@@ -68,6 +68,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.parquet.ParquetMetadataConverter.isMinMaxStatsSupported;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
@@ -85,8 +86,10 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.Varchars.byteCount;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
@@ -356,9 +359,9 @@ public class TupleDomainParquetPredicate
      * Statistics, column indexes and dictionaries are decoded according to the physical type of the column in the file,
      * while the domain being narrowed carries the type from the table schema, and schema evolution makes the two
      * disagree. A bound is usable only when the reader can produce the column at all, which
-     * {@link ColumnReaderFactory#isSupported} decides, when the reader produces the stored value unchanged, and when
-     * the statistics of the physical type arrive as the Java value the branch which builds the domain reads them as.
-     * The conversions below are readable but fail one of the other two.
+     * {@link ColumnReaderFactory#isSupported} decides, when what the reader produces is ordered the same way as what
+     * the file stores, and when the statistics of the physical type arrive as the Java value the branch which builds
+     * the domain reads them as. The conversions below are readable but fail one of the other two.
      */
     private static boolean canNarrowDomain(Type type, PrimitiveType parquetType)
     {
@@ -376,15 +379,37 @@ public class TupleDomainParquetPredicate
         if (isIntegralType(type) && primitiveType != INT32 && primitiveType != INT64) {
             return false;
         }
-        // The reader truncates a bounded varchar to its length, and pads and trims a char, so a bound built from the
-        // stored bytes can sit above a value the reader goes on to produce
-        if (type instanceof VarcharType varcharType && !varcharType.isUnbounded()) {
-            return false;
-        }
+        // Trino orders a char as if the shorter value were padded with spaces, while the reader trims the trailing
+        // spaces off the stored bytes, so a bound taken from those bytes is not a bound in the order the domain uses
         if (type instanceof CharType) {
             return false;
         }
         return true;
+    }
+
+    /**
+     * The lowest value the reader can produce for a column whose stored values are at or above {@code minimum}.
+     * <p>
+     * The reader cuts a bounded varchar down to its length, counting the bytes which are not UTF-8 continuation
+     * bytes, so the bound is the longest prefix of the minimum that nothing readable sorts below: its first
+     * {@code n - 1} code points followed by the leading byte of the {@code n}th. A stored value which agrees with
+     * the minimum that far scans those bytes identically and so cannot be cut any shorter, and one which differs
+     * inside them differs upwards on a byte the reader keeps. Cutting the {@code n}th code point off whole would
+     * not hold, since through a {@code varchar(1)} a minimum of {@code C3 A9} is cut to itself while a larger
+     * {@code C3 C3 A9} is cut to {@code C3}.
+     */
+    private static Slice readableLowerBound(Slice minimum, VarcharType varcharType)
+    {
+        if (varcharType.isUnbounded()) {
+            return minimum;
+        }
+        int boundedLength = varcharType.getBoundedLength();
+        if (boundedLength == 0) {
+            // the reader produces nothing but the empty slice, which no varchar sorts below
+            return EMPTY_SLICE;
+        }
+        int precedingLength = byteCount(minimum, 0, minimum.length(), boundedLength - 1);
+        return minimum.slice(0, min(precedingLength + 1, minimum.length()));
     }
 
     /**
@@ -502,12 +527,12 @@ public class TupleDomainParquetPredicate
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType varcharType) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Slice min = (Slice) minimums.get(i);
-                Slice max = (Slice) maximums.get(i);
-                rangesBuilder.addRangeInclusive(min, max);
+                // the stored maximum bounds what the reader produces as it stands, since the reader only ever cuts a
+                // prefix off a bounded varchar and a prefix never sorts above the value it was cut from
+                rangesBuilder.addRangeInclusive(readableLowerBound((Slice) minimums.get(i), varcharType), (Slice) maximums.get(i));
             }
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
@@ -766,7 +791,7 @@ public class TupleDomainParquetPredicate
      * parquet-mr builds a filter by hashing each value at the physical width of the column, so a lookup performed as a
      * type of a different width never finds a value which is present. Binary values are hashed by their bytes alone,
      * which makes the two byte array physical types interchangeable, but only where the reader hands those same bytes
-     * back, as it does not for a bounded varchar or for a decimal annotated column read as text.
+     * back, as it does not for a bounded varchar or a char.
      */
     @VisibleForTesting
     public static Optional<BloomFilterHasher> bloomFilterHasher(Type sqlType, PrimitiveType parquetType)
@@ -798,11 +823,12 @@ public class TupleDomainParquetPredicate
             }
             return Optional.of((bloomFilter, value) -> bloomFilter.hash(intBitsToFloat(toIntExact(((Number) value).longValue()))));
         }
-        // The filter hashed what the writer stored, so a byte array column only answers where the reader hands those
-        // same bytes back, which is the condition its statistics are usable under as well. A char is none of the
-        // three types below and falls through to the empty result
+        // The filter hashed whole values, so a byte array column only answers where the reader hands those same bytes
+        // back, which a bounded varchar is cut too short for. Note that this is stronger than the condition the
+        // statistics of the same column are usable under, which needs only the order to survive the read. A char is
+        // none of the three types below and falls through to the empty result
         if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType || sqlType instanceof UuidType) {
-            if (!canNarrowDomain(sqlType, parquetType)) {
+            if (!isSupported(sqlType, parquetType) || (sqlType instanceof VarcharType varcharType && !varcharType.isUnbounded())) {
                 return Optional.empty();
             }
             return Optional.of((bloomFilter, value) -> bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) value).toByteBuffer())));
