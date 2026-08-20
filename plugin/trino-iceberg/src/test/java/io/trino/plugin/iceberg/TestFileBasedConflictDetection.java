@@ -15,26 +15,39 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.RowType;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.Transaction;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -45,7 +58,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestFileBasedConflictDetection
 {
-    private static final HadoopTables HADOOP_TABLES = new HadoopTables();
     private static final String COLUMN_1_NAME = "col1";
     private static final ColumnIdentity COLUMN_1_IDENTITY = new ColumnIdentity(1, COLUMN_1_NAME, PRIMITIVE, ImmutableList.of());
     private static final IcebergColumnHandle COLUMN_1_HANDLE = IcebergColumnHandle.optional(COLUMN_1_IDENTITY).columnType(INTEGER).build();
@@ -68,6 +80,16 @@ class TestFileBasedConflictDetection
                     PARENT_COLUMN_IDENTITY.getId(),
                     PARENT_COLUMN_NAME,
                     Types.StructType.of(optional(CHILD_COLUMN_IDENTITY.getId(), CHILD_COLUMN_NAME, Types.IntegerType.get()))));
+
+    private final TrinoCatalog catalog;
+
+    public TestFileBasedConflictDetection(@TempDir File catalogDirectory)
+    {
+        TrinoFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(catalogDirectory.toPath());
+        HiveMetastore metastore = createTestingFileHiveMetastore(fileSystemFactory, Location.of("local:///"));
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
+        catalog.createNamespace(SESSION, "default", ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+    }
 
     @Test
     void testConflictDetectionOnNonPartitionedTable()
@@ -278,18 +300,23 @@ class TestFileBasedConflictDetection
         return domainCollector.domains();
     }
 
-    private static Table createIcebergTable(PartitionSpec partitionSpec)
+    private Table createIcebergTable(PartitionSpec partitionSpec)
     {
-        return HADOOP_TABLES.create(
+        SchemaTableName schemaTableName = new SchemaTableName("default", "test_table" + randomNameSuffix());
+        Transaction transaction = catalog.newCreateTableTransaction(
+                SESSION,
+                schemaTableName,
                 TABLE_SCHEMA,
                 partitionSpec,
                 SortOrder.unsorted(),
-                ImmutableMap.of("write.format.default", "ORC", "format-version", "2"),
-                "table_location" + randomNameSuffix());
+                Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                ImmutableMap.of());
+        transaction.commitTransaction();
+        return transaction.table();
     }
 
-    private static void dropIcebergTable(Table icebergTable)
+    private void dropIcebergTable(Table icebergTable)
     {
-        HADOOP_TABLES.dropTable(icebergTable.location());
+        catalog.dropTable(SESSION, new SchemaTableName("default", icebergTable.name().split("\\.")[1]));
     }
 }

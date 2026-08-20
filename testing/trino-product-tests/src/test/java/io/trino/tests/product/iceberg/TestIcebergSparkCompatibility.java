@@ -82,6 +82,7 @@ class TestIcebergSparkCompatibility
 {
     // see spark-defaults.conf
     private static final String SPARK_CATALOG = "iceberg_test";
+    private static final String SPARK_HADOOP_CATALOG = "hadoop_catalog";
     private static final String TRINO_CATALOG = "iceberg";
     private static final String TEST_SCHEMA_NAME = "default";
 
@@ -3005,6 +3006,55 @@ class TestIcebergSparkCompatibility
                 .hasStackTraceContaining("Not an Iceberg table");
 
         env.executeHiveUpdate("DROP TABLE " + hiveTableName);
+    }
+
+    @Test
+    void testRegisterHadoopCatalogTableAndRead(SparkIcebergEnvironment env)
+    {
+        // Spark HadoopCatalog writes metadata files using vN.metadata.json naming convention
+        // (e.g. v1.metadata.json, v2.metadata.json) rather than the standard UUID-based naming.
+        // This test verifies that Trino can register such a table and read/write it correctly,
+        // and that subsequent writes use the standard naming convention.
+        String baseTableName = "test_register_hadoop_catalog_table_" + randomNameSuffix();
+        String hadoopSparkTableName = SPARK_HADOOP_CATALOG + ".db." + baseTableName;
+
+        env.executeSparkUpdate("CREATE DATABASE IF NOT EXISTS " + SPARK_HADOOP_CATALOG + ".db");
+        env.executeSparkUpdate("CREATE TABLE %s (id INT, name STRING) USING ICEBERG".formatted(hadoopSparkTableName));
+        env.executeSparkUpdate("INSERT INTO %s VALUES (1, 'INDIA')".formatted(hadoopSparkTableName));
+
+        String tableLocation = env.executeSpark("DESCRIBE EXTENDED %s".formatted(hadoopSparkTableName))
+                .rows().stream()
+                .filter(row -> "Location".equals(row.getFirst()))
+                .findFirst()
+                .orElseThrow()
+                .get(1).toString();
+
+        // Register the Hadoop-catalog table in Trino and verify data
+        String registeredTableName = "registered_hadoop_table_" + randomNameSuffix();
+        String registeredTrinoTableName = trinoTableName(registeredTableName);
+        env.executeTrinoUpdate("CALL iceberg.system.register_table ('%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, registeredTableName, tableLocation));
+        assertThat(env.executeTrino("SELECT * FROM %s".formatted(registeredTrinoTableName))).containsOnly(row(1, "INDIA"));
+
+        // HadoopCatalog uses vN.metadata.json naming — verify entries written before registration
+        QueryResult metadataLog = env.executeTrino(
+                "SELECT substring(file, strpos(file, '/', -1) + 1) FROM iceberg.%s.\"%s$metadata_log_entries\" ORDER BY timestamp"
+                        .formatted(TEST_SCHEMA_NAME, registeredTableName));
+        assertThat(metadataLog)
+                .hasRowsCount(2)
+                .column(1)
+                .containsExactly("v1.metadata.json", "v2.metadata.json");
+
+        // Verify Trino can write despite non-standard metadata file names
+        env.executeTrinoUpdate("INSERT INTO %s VALUES (2, 'POLAND')".formatted(registeredTrinoTableName));
+        assertThat(env.executeTrino("SELECT * FROM %s".formatted(registeredTrinoTableName)))
+                .containsOnly(row(1, "INDIA"), row(2, "POLAND"));
+
+        // Metadata file written by Trino uses standard naming convention
+        String latestMetadataFile = env.getLatestMetadataFilename(TRINO_CATALOG, TEST_SCHEMA_NAME, registeredTableName);
+        assertThat(latestMetadataFile).matches("\\d{5}-.*\\.metadata\\.json");
+
+        env.executeTrinoUpdate("DROP TABLE " + registeredTrinoTableName);
+        env.executeSparkUpdate("DROP TABLE " + hadoopSparkTableName);
     }
 
     // Partition tests with mixed case columns

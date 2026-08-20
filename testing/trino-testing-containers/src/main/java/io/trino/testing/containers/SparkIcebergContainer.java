@@ -58,6 +58,12 @@ public class SparkIcebergContainer
             spark.sql.catalog.iceberg_test.type=hive
             spark.sql.catalog.iceberg_test.uri=thrift://hadoop-master:9083
             spark.sql.catalog.iceberg_test.cache-enabled=false
+
+            spark.sql.catalog.hadoop_catalog=org.apache.iceberg.spark.SparkCatalog
+            spark.sql.catalog.hadoop_catalog.type=hadoop
+            spark.sql.catalog.hadoop_catalog.warehouse=hdfs://hadoop-master:9000/user/hive/hadoop_catalog
+            spark.sql.catalog.hadoop_catalog.cache-enabled=false
+
             spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
 
             spark.hadoop.fs.defaultFS=hdfs://hadoop-master:9000

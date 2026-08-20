@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -26,15 +25,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DataFiles;
-import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.SortOrder;
-import org.apache.iceberg.Table;
-import org.apache.iceberg.hadoop.HadoopTables;
-import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -65,7 +55,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static org.apache.iceberg.Files.localInput;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergRegisterTableProcedure
@@ -488,62 +477,6 @@ public class TestIcebergRegisterTableProcedure
             assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + invalidMetadataFileName + "')",
                     ".*is not a valid metadata file.*");
         }
-    }
-
-    @Test
-    public void testRegisterHadoopTableAndRead()
-    {
-        // create a temporary table to generate data file
-        String tempTableName = "temp_table_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tempTableName + " (id INT, name VARCHAR) WITH (format = 'ORC')");
-        assertUpdate("INSERT INTO " + tempTableName + " values(1, 'INDIA')", 1);
-        String dataFilePath = (String) computeScalar("SELECT \"$path\" FROM " + tempTableName);
-
-        // create hadoop table
-        String hadoopTableName = "hadoop_table_" + randomNameSuffix();
-        String hadoopTableLocation = metastoreDir.getPath() + "/" + hadoopTableName;
-        HadoopTables hadoopTables = new HadoopTables();
-        Schema schema = new Schema(ImmutableList.of(
-                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
-                Types.NestedField.optional(2, "name", Types.StringType.get())));
-        Table table = hadoopTables.create(
-                schema,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of("write.format.default", "ORC"),
-                hadoopTableLocation);
-
-        // append data file to hadoop table
-        DataFile dataFile =
-                DataFiles.builder(PartitionSpec.unpartitioned())
-                        .withFormat(FileFormat.ORC)
-                        .withInputFile(localInput(new File(dataFilePath)))
-                        .withPath(dataFilePath)
-                        .withRecordCount(1)
-                        .build();
-        table.newFastAppend()
-                .appendFile(dataFile)
-                .commit();
-
-        // Hadoop style version number
-        assertThat(Location.of(getLatestMetadataLocation(fileSystem, hadoopTableLocation)).fileName())
-                .isEqualTo("v2.metadata.json");
-
-        // Try registering hadoop table in Trino and read it
-        String registeredTableName = "registered_table_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(registeredTableName, hadoopTableLocation));
-        assertQuery("SELECT * FROM " + registeredTableName, "VALUES (1, 'INDIA')");
-
-        // Verify the table can be written to despite using non-standard metadata file name
-        assertUpdate("INSERT INTO " + registeredTableName + " VALUES (2, 'POLAND')", 1);
-        assertQuery("SELECT * FROM " + registeredTableName, "VALUES (1, 'INDIA'), (2, 'POLAND')");
-
-        // New metadata file is written using standard file name convention
-        assertThat(Location.of(getLatestMetadataLocation(fileSystem, hadoopTableLocation)).fileName())
-                .matches("00003-.*\\.metadata\\.json");
-
-        assertUpdate("DROP TABLE " + registeredTableName);
-        assertUpdate("DROP TABLE " + tempTableName);
     }
 
     @Test
