@@ -35,6 +35,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
+import software.amazon.awssdk.utils.http.SdkHttpUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -45,7 +46,9 @@ import java.io.SequenceInputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
@@ -68,6 +71,7 @@ import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.stream.Collectors.joining;
 import static software.amazon.awssdk.core.internal.util.Mimetype.MIMETYPE_OCTET_STREAM;
 
 final class S3OutputStream
@@ -294,12 +298,15 @@ final class S3OutputStream
                     .bucket(location.bucket())
                     .key(location.key())
                     .storageClass(storageClass)
-                    .applyMutation(builder ->
-                            key.ifPresentOrElse(
-                                    encryption -> builder.sseCustomerKey(encoded(encryption))
-                                            .sseCustomerAlgorithm(encryption.algorithm())
-                                            .sseCustomerKeyMD5(md5Checksum(encryption)),
-                                    () -> setEncryptionSettings(builder, context.s3SseContext())))
+                    .applyMutation(builder -> {
+                        key.ifPresentOrElse(
+                                encryption -> builder.sseCustomerKey(encoded(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
+                                () -> setEncryptionSettings(builder, context.s3SseContext()));
+                        buildTaggingHeader(context.objectTags(), context.objectTagsPrefixes(), location.key())
+                                .ifPresent(builder::tagging);
+                    })
                     .build();
 
             uploadId = Optional.of(client.createMultipartUpload(request).uploadId());
@@ -409,6 +416,8 @@ final class S3OutputStream
                         builder.sseCustomerKeyMD5(md5Checksum(encryption));
                     });
                     setEncryptionSettings(builder, context.s3SseContext());
+                    buildTaggingHeader(context.objectTags(), context.objectTagsPrefixes(), location.key())
+                            .ifPresent(builder::tagging);
                 })
                 .build();
 
@@ -432,6 +441,20 @@ final class S3OutputStream
             }
             throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), putObjectException), putObjectException);
         }
+    }
+
+    @VisibleForTesting
+    static Optional<String> buildTaggingHeader(Map<String, String> objectTags, Set<String> prefixes, String s3Key)
+    {
+        if (objectTags.isEmpty()) {
+            return Optional.empty();
+        }
+        if (!prefixes.isEmpty() && prefixes.stream().noneMatch(prefix -> s3Key.startsWith(prefix) || s3Key.contains("/" + prefix))) {
+            return Optional.empty();
+        }
+        return Optional.of(objectTags.entrySet().stream()
+                .map(entry -> SdkHttpUtils.urlEncode(entry.getKey()) + "=" + SdkHttpUtils.urlEncode(entry.getValue()))
+                .collect(joining("&")));
     }
 
     interface DataStreamProvider
