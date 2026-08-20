@@ -37,6 +37,7 @@ public class OraclePoolConnectionFactory
         implements ConnectionFactory
 {
     private final DataSource dataSource;
+    private final CredentialProvider credentialProvider;
 
     public OraclePoolConnectionFactory(
             String connectionUrl,
@@ -49,6 +50,8 @@ public class OraclePoolConnectionFactory
             OpenTelemetry openTelemetry)
             throws SQLException
     {
+        this.credentialProvider = credentialProvider;
+
         PoolDataSource dataSource = PoolDataSourceFactory.getPoolDataSource();
 
         // Setting connection properties of the data source
@@ -63,24 +66,12 @@ public class OraclePoolConnectionFactory
         dataSource.setConnectionProperties(connectionProperties);
         dataSource.setInactiveConnectionTimeout(toIntExact(inactiveConnectionTimeout.roundTo(SECONDS)));
         dataSource.setConnectionWaitDuration(connectionPoolWaitDuration.toJavaTime());
-        credentialProvider.getConnectionUser(Optional.empty())
-                .ifPresent(user -> {
-                    try {
-                        dataSource.setUser(user);
-                    }
-                    catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-        credentialProvider.getConnectionPassword(Optional.empty())
-                .ifPresent(password -> {
-                    try {
-                        dataSource.setPassword(password);
-                    }
-                    catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        // Credentials are intentionally not set here: they are resolved per-connection in
+        // openConnection() below, since a session's extraCredentials (used by
+        // ExtraCredentialProvider) are only available once a real ConnectorIdentity exists, which
+        // this constructor does not have. Oracle's UCP supports heterogeneous pooling (different
+        // credentials per checkout from the same pool) via getConnection(username, password), so
+        // no default needs to be configured on the pool itself.
 
         JdbcTelemetry jdbcTelemetry = JdbcTelemetry.builder(openTelemetry)
                 .setDataSourceInstrumenterEnabled(true)
@@ -92,7 +83,12 @@ public class OraclePoolConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        Connection connection = dataSource.getConnection();
+        Optional<String> user = credentialProvider.getConnectionUser(Optional.of(session.getIdentity()));
+        Optional<String> password = credentialProvider.getConnectionPassword(Optional.of(session.getIdentity()));
+
+        Connection connection = user.isPresent()
+                ? dataSource.getConnection(user.get(), password.orElse(null))
+                : dataSource.getConnection();
         // Oracle's pool doesn't reset autocommit state of connections when reusing them so we explicitly enable
         // autocommit by default to match the JDBC specification.
         connection.setAutoCommit(true);
