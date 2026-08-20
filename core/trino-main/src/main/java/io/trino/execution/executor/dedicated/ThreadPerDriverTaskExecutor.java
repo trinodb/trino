@@ -34,6 +34,7 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.dedicated.TaskEntry.QueuedSplit;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.spi.VersionEmbedder;
+import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -47,6 +48,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
@@ -63,6 +66,7 @@ public class ThreadPerDriverTaskExecutor
         implements TaskExecutor
 {
     private static final Logger LOG = Logger.get(ThreadPerDriverTaskExecutor.class);
+    private static final long FAILURE_LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
     private final FairScheduler scheduler;
     private final Tracer tracer;
@@ -79,8 +83,13 @@ public class ThreadPerDriverTaskExecutor
     @GuardedBy("this")
     private int runningLeafDrivers;
 
+    private final AtomicBoolean schedulingLeafSplits = new AtomicBoolean();
+    private final AtomicBoolean rescheduleLeafSplits = new AtomicBoolean();
+
     // Do not inline this field to avoid creating lambdas that cannot be cached by JVM.
-    private final Consumer<TaskEntry> leafSplitDoneCallback = _ -> leafSplitDone();
+    private final Consumer<TaskEntry> leafSplitDoneCallback = this::leafSplitDone;
+    private final FailureLogger schedulingFailureLogger = new FailureLogger("Error scheduling leaf splits");
+    private final Runnable scheduleMoreLeafSplitsQuietly = maintenance(this::scheduleMoreLeafSplits, schedulingFailureLogger);
 
     @Inject
     public ThreadPerDriverTaskExecutor(TaskManagerConfig config, Tracer tracer, VersionEmbedder versionEmbedder)
@@ -109,9 +118,9 @@ public class ThreadPerDriverTaskExecutor
     public synchronized void start()
     {
         scheduler.start();
-        backgroundTasks.scheduleWithFixedDelay(this::scheduleMoreLeafSplits, 0, 100, TimeUnit.MILLISECONDS);
-        backgroundTasks.scheduleWithFixedDelay(this::adjustConcurrency, 0, 10, TimeUnit.MILLISECONDS);
-        backgroundTasks.scheduleWithFixedDelay(this::logDiagnostics, 0, 30, TimeUnit.SECONDS);
+        backgroundTasks.scheduleWithFixedDelay(scheduleMoreLeafSplitsQuietly, 0, 100, TimeUnit.MILLISECONDS);
+        backgroundTasks.scheduleWithFixedDelay(maintenance(this::adjustConcurrency, "Error adjusting task concurrency"), 0, 10, TimeUnit.MILLISECONDS);
+        backgroundTasks.scheduleWithFixedDelay(maintenance(this::logDiagnostics, "Error logging diagnostics"), 0, 30, TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -191,25 +200,83 @@ public class ThreadPerDriverTaskExecutor
             }
         }
 
-        scheduleMoreLeafSplits();
+        scheduleMoreLeafSplitsQuietly.run();
         return futures;
     }
 
-    private void leafSplitDone()
+    private void leafSplitDone(TaskEntry task)
     {
+        ClaimedLeafSplit replacement;
         synchronized (this) {
             runningLeafDrivers--;
+            replacement = claimLeafSplitForTask(task);
         }
-        scheduleMoreLeafSplits();
+
+        if (replacement != null) {
+            startClaimedSplits(ImmutableList.of(replacement));
+            return;
+        }
+
+        // When the task drains, let another task use the freed slot immediately. This runs the
+        // global pass once per task drain instead of once per split completion.
+        if (!task.hasPendingLeafSplits()) {
+            scheduleMoreLeafSplitsQuietly.run();
+        }
+    }
+
+    @GuardedBy("this")
+    @Nullable
+    private ClaimedLeafSplit claimLeafSplitForTask(TaskEntry task)
+    {
+        if (closed) {
+            return null;
+        }
+
+        int taskRunning = task.runningLeafSplits();
+        if (taskRunning >= minDriversPerTask &&
+                (runningLeafDrivers >= targetGlobalLeafDrivers || taskRunning >= min(task.targetConcurrency(), maxDriversPerTask))) {
+            return null;
+        }
+
+        List<ClaimedLeafSplit> claimed = new ArrayList<>(1);
+        if (!claimLeafSplit(task, claimed)) {
+            return null;
+        }
+        return claimed.getFirst();
     }
 
     @VisibleForTesting
     void scheduleMoreLeafSplits()
     {
-        // Start the splits outside the lock. The scheduler creates a thread per split, which on a
-        // loaded worker takes long enough that holding the lock across it stalls task registration,
-        // task removal and split completion for every task on the worker.
-        List<ClaimedLeafSplit> claimed = claimMoreLeafSplits();
+        rescheduleLeafSplits.set(true);
+        boolean retry = true;
+        while (true) {
+            if (!schedulingLeafSplits.compareAndSet(false, true)) {
+                return;
+            }
+
+            try {
+                do {
+                    rescheduleLeafSplits.set(false);
+                    retry = startClaimedSplits(claimMoreLeafSplits());
+                }
+                while (retry && rescheduleLeafSplits.get());
+            }
+            finally {
+                schedulingLeafSplits.set(false);
+            }
+
+            // Close the race where another caller requested a pass after the last flag check but
+            // before the gate was released.
+            if (!retry || !rescheduleLeafSplits.get()) {
+                return;
+            }
+        }
+    }
+
+    private boolean startClaimedSplits(List<ClaimedLeafSplit> claimed)
+    {
+        // Start the splits outside all locks. Thread creation is slow on an overloaded worker.
         for (int i = 0; i < claimed.size(); i++) {
             ClaimedLeafSplit split = claimed.get(i);
             try {
@@ -219,10 +286,11 @@ public class ThreadPerDriverTaskExecutor
                 // Claims before this one have listeners and remain running. Requeue this claim and
                 // every unstarted claim behind it; the periodic pass retries them later.
                 releaseClaims(claimed.subList(i, claimed.size()));
-                LOG.warn(e, "Error scheduling leaf splits");
-                return;
+                schedulingFailureLogger.log(e);
+                return false;
             }
         }
+        return true;
     }
 
     private void releaseClaims(List<ClaimedLeafSplit> claimed)
@@ -292,6 +360,29 @@ public class ThreadPerDriverTaskExecutor
 
     private record ClaimedLeafSplit(TaskEntry task, QueuedSplit split) {}
 
+    /// Wrap a task so that a failure does not take its caller down with it.
+    /// [ScheduledThreadPoolExecutor#scheduleWithFixedDelay] silently stops rescheduling a task
+    /// that throws, which would leave the worker permanently without leaf split scheduling or
+    /// concurrency adjustment. Failures here are typically symptoms of an overloaded worker,
+    /// such as being unable to create a thread, and it is expected to recover once load subsides.
+    @VisibleForTesting
+    static Runnable maintenance(Runnable task, String errorMessage)
+    {
+        return maintenance(task, new FailureLogger(errorMessage));
+    }
+
+    private static Runnable maintenance(Runnable task, FailureLogger failureLogger)
+    {
+        return () -> {
+            try {
+                task.run();
+            }
+            catch (Throwable e) {
+                failureLogger.log(e);
+            }
+        };
+    }
+
     private static Throwable addFailure(Throwable failure, Throwable newFailure)
     {
         if (failure == null) {
@@ -299,6 +390,41 @@ public class ThreadPerDriverTaskExecutor
         }
         failure.addSuppressed(newFailure);
         return failure;
+    }
+
+    private static final class FailureLogger
+    {
+        private final String message;
+        private final AtomicLong lastLogNanos = new AtomicLong(Long.MIN_VALUE);
+        private final AtomicLong suppressedFailures = new AtomicLong();
+
+        private FailureLogger(String message)
+        {
+            this.message = requireNonNull(message, "message is null");
+        }
+
+        public void log(Throwable failure)
+        {
+            long now = System.nanoTime();
+            while (true) {
+                long last = lastLogNanos.get();
+                if (last != Long.MIN_VALUE && now - last < FAILURE_LOG_INTERVAL_NANOS) {
+                    suppressedFailures.incrementAndGet();
+                    return;
+                }
+                if (lastLogNanos.compareAndSet(last, now)) {
+                    break;
+                }
+            }
+
+            long suppressed = suppressedFailures.getAndSet(0);
+            if (suppressed == 0) {
+                LOG.warn(failure, "%s", message);
+            }
+            else {
+                LOG.warn(failure, "%s (%s similar failures suppressed)", message, suppressed);
+            }
+        }
     }
 
     private void adjustConcurrency()
