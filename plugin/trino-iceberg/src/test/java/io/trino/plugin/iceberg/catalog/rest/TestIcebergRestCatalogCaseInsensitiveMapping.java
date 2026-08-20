@@ -244,6 +244,40 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
     }
 
     @Test
+    void testCachedTableMappingHidesExternallyRecreatedTable()
+    {
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
+        String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
+        createDir(namespaceLocation);
+
+        String tableName = "MiXeD_CaSe_ReCrEaTeD_" + randomNameSuffix();
+        String lowercaseTableName = tableName.toLowerCase(ENGLISH);
+
+        // Creating the table resolves its name through the mapping cache while it
+        // does not yet exist remotely, populating the cache with the requested name as-is.
+        String initialLocation = namespaceLocation + "/" + lowercaseTableName + "_initial";
+        assertUpdate("CREATE TABLE " + lowercaseTableName + " (a integer) WITH (location = '" + initialLocation + "')");
+
+        // Drop it on the backend and recreate it under a mixed-case remote name, so the remote name
+        // no longer matches what the cached entry points at.
+        assertThat(backend.dropTable(TableIdentifier.of(NAMESPACE, lowercaseTableName), true)).isTrue();
+
+        String recreatedLocation = namespaceLocation + "/" + lowercaseTableName + "_recreated";
+        createDir(recreatedLocation);
+        createDir(recreatedLocation + "/data");
+        createDir(recreatedLocation + "/metadata");
+        backend.buildTable(TableIdentifier.of(NAMESPACE, tableName), new Schema(required(1, "a", Types.IntegerType.get())))
+                .withLocation(recreatedLocation)
+                .createTransaction()
+                .commitTransaction();
+
+        // TODO: This asserts buggy behavior. The mapping cache retains the entry populated on the
+        //  earlier miss (lowercase name -> itself); it hides the externally recreated mixed-case
+        //  table, so the drop fails even though the table exists.
+        assertQueryFails("DROP TABLE " + lowercaseTableName, "Failed to drop table .*");
+    }
+
+    @Test
     void testLoadTableProbeDoesNotPolluteViewMapping()
     {
         Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
