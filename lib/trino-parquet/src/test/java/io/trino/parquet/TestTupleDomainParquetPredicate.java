@@ -73,6 +73,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
+import static io.trino.parquet.predicate.TupleDomainParquetPredicate.bloomFilterHasher;
 import static io.trino.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static io.trino.spi.predicate.Domain.all;
 import static io.trino.spi.predicate.Domain.create;
@@ -589,6 +590,49 @@ public class TestTupleDomainParquetPredicate
                 Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false),
                 // widening float bounds to double is a separate change
                 Arguments.of(FLOAT, null, DOUBLE, false));
+    }
+
+    /**
+     * A bloom filter is built by hashing each value at the physical width of the column, so it can only be consulted
+     * where the predicate value hashes to the same thing the writer hashed.
+     */
+    @ParameterizedTest
+    @MethodSource("bloomFilterTypeCombinations")
+    public void testBloomFilterIsConsultedOnlyAtTheHashedWidth(PrimitiveTypeName physicalType, LogicalTypeAnnotation annotation, Type type, boolean consulted)
+    {
+        PrimitiveType parquetType = createColumnDescriptor(physicalType, annotation, "TestColumn").getPrimitiveType();
+
+        assertThat(bloomFilterHasher(type, parquetType)).matches(hasher -> hasher.isPresent() == consulted);
+    }
+
+    private static Stream<Arguments> bloomFilterTypeCombinations()
+    {
+        return Stream.of(
+                Arguments.of(INT32, null, INTEGER, true),
+                Arguments.of(INT32, null, TINYINT, true),
+                Arguments.of(INT32, dateType(), DATE, true),
+                Arguments.of(INT64, null, BIGINT, true),
+                Arguments.of(PrimitiveTypeName.DOUBLE, null, DOUBLE, true),
+                Arguments.of(FLOAT, null, REAL, true),
+                Arguments.of(BINARY, null, createUnboundedVarcharType(), true),
+                Arguments.of(BINARY, null, VARBINARY, true),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, null, VARBINARY, true),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, uuidType(), UUID, true),
+
+                // hashed at a different width, so a lookup would miss every value which is present
+                Arguments.of(INT32, null, BIGINT, false),
+                Arguments.of(INT64, null, INTEGER, false),
+                Arguments.of(FLOAT, null, DOUBLE, false),
+                Arguments.of(PrimitiveTypeName.DOUBLE, null, REAL, false),
+
+                // ColumnReaderFactory refuses a decimal annotated fixed length byte array for these, so the filter
+                // holds bytes the reader never produces
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), VARBINARY, false),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), UUID, false),
+
+                // the reader does not hand these bytes back unchanged
+                Arguments.of(BINARY, null, createVarcharType(3), false),
+                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false));
     }
 
     private static Statistics<?> statisticsFor(PrimitiveTypeName physicalType)
