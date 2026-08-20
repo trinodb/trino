@@ -43,6 +43,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.LogicalTypeAnnotationVisi
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation;
+import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
 
@@ -100,8 +101,13 @@ public final class ColumnReaderFactory
     public ColumnReader create(PrimitiveField field, AggregatedMemoryContext aggregatedMemoryContext)
     {
         Type type = field.getType();
-        PrimitiveTypeName primitiveType = field.getDescriptor().getPrimitiveType().getPrimitiveTypeName();
-        LogicalTypeAnnotation annotation = field.getDescriptor().getPrimitiveType().getLogicalTypeAnnotation();
+        PrimitiveType parquetType = field.getDescriptor().getPrimitiveType();
+        if (!isSupported(type, parquetType)) {
+            throw unsupportedException(type, field);
+        }
+
+        PrimitiveTypeName primitiveType = parquetType.getPrimitiveTypeName();
+        LogicalTypeAnnotation annotation = parquetType.getLogicalTypeAnnotation();
         LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(ColumnReader.class.getSimpleName());
         ValueDecoders valueDecoders = new ValueDecoders(field, vectorizedDecodingEnabled);
         if (BOOLEAN.equals(type) && primitiveType == PrimitiveTypeName.BOOLEAN) {
@@ -111,32 +117,20 @@ public final class ColumnReaderFactory
             if (isZeroScaleShortDecimalAnnotation(annotation)) {
                 return createColumnReader(field, valueDecoders::getShortDecimalToByteDecoder, BYTE_ADAPTER, memoryContext);
             }
-            if (!isIntegerAnnotationAndPrimitive(annotation, primitiveType)) {
-                throw unsupportedException(type, field);
-            }
             return createColumnReader(field, valueDecoders::getByteDecoder, BYTE_ADAPTER, memoryContext);
         }
         if (SMALLINT.equals(type) && isIntegerOrDecimalPrimitive(primitiveType)) {
             if (isZeroScaleShortDecimalAnnotation(annotation)) {
                 return createColumnReader(field, valueDecoders::getShortDecimalToShortDecoder, SHORT_ADAPTER, memoryContext);
             }
-            if (!isIntegerAnnotationAndPrimitive(annotation, primitiveType)) {
-                throw unsupportedException(type, field);
-            }
             return createColumnReader(field, valueDecoders::getShortDecoder, SHORT_ADAPTER, memoryContext);
         }
         if (DATE.equals(type) && primitiveType == INT32) {
-            if (isIntegerAnnotation(annotation) || annotation instanceof DateLogicalTypeAnnotation) {
-                return createColumnReader(field, valueDecoders::getIntDecoder, INT_ADAPTER, memoryContext);
-            }
-            throw unsupportedException(type, field);
+            return createColumnReader(field, valueDecoders::getIntDecoder, INT_ADAPTER, memoryContext);
         }
         if (type instanceof AbstractIntType && isIntegerOrDecimalPrimitive(primitiveType)) {
             if (isZeroScaleShortDecimalAnnotation(annotation)) {
                 return createColumnReader(field, valueDecoders::getShortDecimalToIntDecoder, INT_ADAPTER, memoryContext);
-            }
-            if (!isIntegerAnnotationAndPrimitive(annotation, primitiveType)) {
-                throw unsupportedException(type, field);
             }
             return createColumnReader(field, valueDecoders::getIntDecoder, INT_ADAPTER, memoryContext);
         }
@@ -159,9 +153,6 @@ public final class ColumnReaderFactory
         if (type instanceof AbstractLongType && isIntegerOrDecimalPrimitive(primitiveType)) {
             if (isZeroScaleShortDecimalAnnotation(annotation)) {
                 return createColumnReader(field, valueDecoders::getShortDecimalDecoder, LONG_ADAPTER, memoryContext);
-            }
-            if (!isIntegerAnnotationAndPrimitive(annotation, primitiveType)) {
-                throw unsupportedException(type, field);
             }
             if (primitiveType == INT32) {
                 return createColumnReader(field, valueDecoders::getInt32ToLongDecoder, LONG_ADAPTER, memoryContext);
@@ -269,19 +260,91 @@ public final class ColumnReaderFactory
             return createColumnReader(field, valueDecoders::getBinaryDecoder, BINARY_ADAPTER, memoryContext);
         }
         if ((VARBINARY.equals(type) || VARCHAR.equals(type)) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
-            if (annotation instanceof DecimalLogicalTypeAnnotation) {
-                throw unsupportedException(type, field);
-            }
             return createColumnReader(field, valueDecoders::getFixedWidthBinaryDecoder, BINARY_ADAPTER, memoryContext);
         }
         if (UUID.equals(type) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
             // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
             // To support such files, we bet on the logical type to be UUID based on the Trino UUID type check.
-            if (annotation == null || isLogicalUuid(annotation)) {
-                return createColumnReader(field, valueDecoders::getUuidDecoder, INT128_ADAPTER, memoryContext);
-            }
+            return createColumnReader(field, valueDecoders::getUuidDecoder, INT128_ADAPTER, memoryContext);
         }
         throw unsupportedException(type, field);
+    }
+
+    /**
+     * Whether {@link #create} can build a reader for this Trino type over this Parquet column.
+     * <p>
+     * Callers which need to know whether a column is readable before a reader exists, such as statistics based pruning
+     * in the Parquet predicate, ask here instead of restating the rules, so that the two cannot drift apart. What
+     * holds the two together is {@code TestColumnReaderFactory.testIsSupportedAgreesWithCreate}, which walks every
+     * combination of the two, rather than the branches below standing in the same order as those of {@link #create}.
+     */
+    public static boolean isSupported(Type type, PrimitiveType parquetType)
+    {
+        PrimitiveTypeName primitiveType = parquetType.getPrimitiveTypeName();
+        LogicalTypeAnnotation annotation = parquetType.getLogicalTypeAnnotation();
+
+        if (BOOLEAN.equals(type) && primitiveType == PrimitiveTypeName.BOOLEAN) {
+            return true;
+        }
+        if (DATE.equals(type) && primitiveType == INT32) {
+            return isIntegerAnnotation(annotation) || annotation instanceof DateLogicalTypeAnnotation;
+        }
+        if (type instanceof TimeType) {
+            if (!(annotation instanceof TimeLogicalTypeAnnotation timeAnnotation)) {
+                return false;
+            }
+            return (primitiveType == INT64 && timeAnnotation.getUnit() == MICROS)
+                    || (primitiveType == INT32 && timeAnnotation.getUnit() == MILLIS);
+        }
+        if (BIGINT.equals(type) && primitiveType == INT64
+                && (annotation instanceof TimestampLogicalTypeAnnotation || annotation instanceof TimeLogicalTypeAnnotation)) {
+            return true;
+        }
+        // DATE and REAL are integer types as well, and TIME and BIGINT are long types, so the three branches above
+        // have to stay ahead of this one, which a date over INT64 and a real over an integral column reach
+        if ((TINYINT.equals(type) || SMALLINT.equals(type) || type instanceof AbstractIntType || type instanceof AbstractLongType)
+                && isIntegerOrDecimalPrimitive(primitiveType)) {
+            return isZeroScaleShortDecimalAnnotation(annotation) || isIntegerAnnotationAndPrimitive(annotation, primitiveType);
+        }
+        if (REAL.equals(type) && primitiveType == FLOAT) {
+            return true;
+        }
+        if (DOUBLE.equals(type)) {
+            return primitiveType == PrimitiveTypeName.DOUBLE || primitiveType == FLOAT;
+        }
+        if (type instanceof TimestampType && primitiveType == INT96) {
+            return true;
+        }
+        if (type instanceof TimestampWithTimeZoneType && primitiveType == INT96) {
+            return true;
+        }
+        if (type instanceof TimestampType && primitiveType == INT64) {
+            return annotation instanceof TimestampLogicalTypeAnnotation;
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT64) {
+            if (!(annotation instanceof TimestampLogicalTypeAnnotation timestampAnnotation)) {
+                return false;
+            }
+            // there is no millisecond decoder for a long timestamp with time zone
+            return timestampWithTimeZoneType.isShort() || timestampAnnotation.getUnit() != MILLIS;
+        }
+        if (type instanceof DecimalType decimalType && decimalType.isShort() && isIntegerOrDecimalPrimitive(primitiveType)) {
+            return (primitiveType == INT32 && isIntegerAnnotation(annotation)) || annotation instanceof DecimalLogicalTypeAnnotation;
+        }
+        if (type instanceof DecimalType decimalType && !decimalType.isShort() && isIntegerOrDecimalPrimitive(primitiveType)) {
+            return annotation instanceof DecimalLogicalTypeAnnotation;
+        }
+        // covers the bounded varchar, char and plain binary readers, which all take a variable width type over BINARY
+        if (type instanceof AbstractVariableWidthType && primitiveType == BINARY) {
+            return true;
+        }
+        if ((VARBINARY.equals(type) || VARCHAR.equals(type)) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
+            return !(annotation instanceof DecimalLogicalTypeAnnotation);
+        }
+        if (UUID.equals(type) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
+            return annotation == null || isLogicalUuid(annotation);
+        }
+        return false;
     }
 
     private <T> ColumnReader createColumnReader(
