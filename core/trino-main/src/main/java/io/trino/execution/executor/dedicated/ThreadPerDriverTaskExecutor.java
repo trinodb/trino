@@ -269,9 +269,14 @@ public class ThreadPerDriverTaskExecutor
 
     private void adjustConcurrency()
     {
-        for (TaskEntry task : tasks.values()) {
+        for (TaskEntry task : activeTasks()) {
             task.updateConcurrency();
         }
+    }
+
+    private synchronized List<TaskEntry> activeTasks()
+    {
+        return ImmutableList.copyOf(tasks.values());
     }
 
     private void logDiagnostics()
@@ -282,7 +287,7 @@ public class ThreadPerDriverTaskExecutor
             builder.append(scheduler.diagnostics().indent(4));
 
             builder.append("Query tasks:\n");
-            for (TaskEntry task : tasks.values()) {
+            for (TaskEntry task : activeTasks()) {
                 builder.append("%s: [total running = %s, leaf running = %s, leaf pending = %s, target concurrency = %s]\n".formatted(
                         task.taskId(),
                         task.totalRunningSplits(),
