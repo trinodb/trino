@@ -13,6 +13,7 @@
  */
 package io.trino.execution.executor.dedicated;
 
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
@@ -34,17 +35,132 @@ import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestThreadPerDriverTaskExecutor
 {
+    @Test
+    @Timeout(30)
+    public void testSlowSplitStartDoesNotBlockTaskManagement()
+            throws Exception
+    {
+        // A worker under load takes a long time to create a thread. While a split is being started,
+        // tasks must still be able to come and go, otherwise the worker cannot shed the load that
+        // made thread creation slow in the first place.
+        AtomicBoolean stallNextThread = new AtomicBoolean();
+        CountDownLatch threadCreationStarted = new CountDownLatch(1);
+        CountDownLatch releaseThreadCreation = new CountDownLatch(1);
+
+        ThreadFactory threadFactory = runnable -> {
+            if (stallNextThread.compareAndSet(true, false)) {
+                threadCreationStarted.countDown();
+                awaitUninterruptibly(releaseThreadCreation);
+            }
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        };
+
+        FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, Integer.MAX_VALUE);
+        executor.start();
+        ExecutorService submitter = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
+        try {
+            TaskHandle task = executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            SplitRunner split = new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture()));
+
+            stallNextThread.set(true);
+            Future<?> stalled = submitter.submit(() -> executor.enqueueSplits(task, true, ImmutableList.of(split)));
+            threadCreationStarted.await();
+
+            // registering and removing a task must not wait for the stalled thread creation
+            TaskId otherTaskId = new TaskId(new StageId("query", 1), 2, 1);
+            TaskHandle other = executor.addTask(otherTaskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            executor.removeTask(other);
+
+            releaseThreadCreation.countDown();
+            stalled.get();
+        }
+        finally {
+            releaseThreadCreation.countDown();
+            submitter.shutdownNow();
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testFailureToStartSplitReleasesItsClaim()
+            throws Exception
+    {
+        // Starting a split creates its thread, which an overloaded worker fails to do with
+        // OutOfMemoryError. The leaf driver accounting has to survive that, otherwise the worker
+        // permanently loses the capacity of every split it failed to start.
+        AtomicBoolean failNextThread = new AtomicBoolean();
+        ThreadFactory threadFactory = runnable -> {
+            if (failNextThread.compareAndSet(true, false)) {
+                throw new OutOfMemoryError("unable to create native thread");
+            }
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        };
+
+        FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
+        // no minimum guarantee and a global budget of one leaf driver, so that a leaked claim is
+        // observable: it would leave targetGlobalLeafDrivers - runningLeafDrivers at zero and no
+        // later split could be scheduled
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, Integer.MAX_VALUE, 1);
+        // start the scheduler but not the executor's background tasks, so that splits are only
+        // scheduled by the explicit enqueueSplits calls below
+        scheduler.start();
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskEntry task = (TaskEntry) executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            // queue the split without scheduling it, so that the failing start happens in a later
+            // call and the caller is holding the split's future when it does
+            ListenableFuture<Void> done = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture())));
+
+            failNextThread.set(true);
+            assertThatThrownBy(() -> executor.enqueueSplits(task, false, ImmutableList.of()))
+                    .isInstanceOf(OutOfMemoryError.class);
+
+            // the task must be failed rather than left waiting on a split that never ran
+            assertThatThrownBy(done::get)
+                    .isInstanceOf(ExecutionException.class)
+                    .cause()
+                    .isInstanceOf(OutOfMemoryError.class);
+
+            assertThat(executor.getTotalRunningLeafSplits()).isEqualTo(0);
+            assertThat(executor.getTotalRunningSplits()).isEqualTo(0);
+
+            // a leaked claim would permanently consume the global leaf driver budget, leaving no
+            // capacity to schedule this one
+            SplitRunner next = new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture()));
+            executor.enqueueSplits(task, false, ImmutableList.of(next)).get(0).get();
+            assertThat(next.isFinished()).isTrue();
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
     @Test
     @Timeout(10)
     public void testCancellationWhileProcessing()
