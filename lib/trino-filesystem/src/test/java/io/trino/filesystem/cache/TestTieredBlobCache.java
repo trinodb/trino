@@ -19,8 +19,10 @@ import io.trino.spi.cache.BlobSource;
 import io.trino.spi.cache.CacheKey;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -249,6 +251,12 @@ final class TestTieredBlobCache
             }
             reads++;
             System.arraycopy(CONTENT, toIntExact(position), buffer, offset, length);
+        }
+
+        @Override
+        public InputStream openStream()
+        {
+            return new ByteArrayInputStream(CONTENT);
         }
 
         @Override

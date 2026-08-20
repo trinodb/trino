@@ -31,6 +31,7 @@ import io.trino.spi.cache.NoopBlob;
 import io.trino.spi.catalog.CatalogName;
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -264,5 +265,11 @@ class TestCacheManagerRegistry
 
         @Override
         public void readFully(long position, byte[] buffer, int offset, int length) {}
+
+        @Override
+        public InputStream openStream()
+        {
+            return InputStream.nullInputStream();
+        }
     }
 }

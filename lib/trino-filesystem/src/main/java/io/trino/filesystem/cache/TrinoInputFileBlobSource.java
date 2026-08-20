@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.spi.cache.BlobSource;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -45,6 +46,19 @@ public final class TrinoInputFileBlobSource
             throws IOException
     {
         input().readFully(position, buffer, offset, length);
+    }
+
+    @Override
+    public InputStream openStream()
+            throws IOException
+    {
+        if (closed) {
+            throw new IOException("Blob source is closed: " + this);
+        }
+        // The raw stream ends at the actual end of the object, not at the possibly stale
+        // length the input file was opened with, so a whole-content cache populating from
+        // it never caches a truncated copy
+        return delegate.newStream();
     }
 
     // The input is held open across reads: pass-through blobs (uncached or oversized files)

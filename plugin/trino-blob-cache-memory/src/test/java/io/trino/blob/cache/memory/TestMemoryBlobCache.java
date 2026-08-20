@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.UUID;
@@ -198,6 +199,40 @@ public class TestMemoryBlobCache
         public long length()
         {
             return content.length;
+        }
+
+        @Override
+        public InputStream openStream()
+        {
+            // Like a file system source: the stream ends at the actual end of the content,
+            // regardless of the declared length
+            return new InputStream()
+            {
+                private int position;
+
+                @Override
+                public int read()
+                {
+                    byte[] buffer = new byte[1];
+                    if (read(buffer, 0, 1) == -1) {
+                        return -1;
+                    }
+                    return buffer[0] & 0xFF;
+                }
+
+                @Override
+                public int read(byte[] buffer, int offset, int count)
+                {
+                    if (position >= content.length) {
+                        return -1;
+                    }
+                    int toRead = min(count, content.length - position);
+                    System.arraycopy(content, position, buffer, offset, toRead);
+                    position += toRead;
+                    readBytes += toRead;
+                    return toRead;
+                }
+            };
         }
 
         @Override

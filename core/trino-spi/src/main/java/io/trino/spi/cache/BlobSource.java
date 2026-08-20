@@ -15,6 +15,7 @@ package io.trino.spi.cache;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * Lazy source of bytes backing a cached blob. Used by {@link BlobCache} to
@@ -41,6 +42,20 @@ public interface BlobSource
      * not fully available.
      */
     void readFully(long position, byte[] buffer, int offset, int length)
+            throws IOException;
+
+    /**
+     * Opens a stream over the entire content backing this source, starting at its first byte
+     * and ending at the actual end of the content on storage. {@link #length()} may come from
+     * metadata a caller declared without a storage round trip, so when that metadata is stale
+     * the stream can end before or after {@code length()} bytes. Caches that copy the whole
+     * content into an entry populate it from this stream, so a stale declared length can never
+     * truncate the entry.
+     * <p>
+     * The returned stream is owned by the caller and must be closed by it; closing the stream
+     * does not close this source.
+     */
+    InputStream openStream()
             throws IOException;
 
     /**

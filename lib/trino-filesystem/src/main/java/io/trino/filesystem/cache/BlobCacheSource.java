@@ -19,7 +19,11 @@ import io.trino.spi.cache.BlobSource;
 import io.trino.spi.cache.CacheKey;
 
 import java.io.IOException;
+import java.io.InputStream;
 
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -54,6 +58,50 @@ final class BlobCacheSource
             throws IOException
     {
         blob().read(position, buffer, offset, length);
+    }
+
+    @Override
+    public InputStream openStream()
+            throws IOException
+    {
+        // Streams the blob served by the tier below, so populating a cache from this source
+        // still populates that one on the way. The extent is that tier's view of the content:
+        // a whole-file tier below serves the actual content, a positional tier is bounded by
+        // the length the file was opened with
+        Blob blob = blob();
+        long length = blob.length();
+        return new InputStream()
+        {
+            private long position;
+
+            @Override
+            public int read()
+                    throws IOException
+            {
+                byte[] buffer = new byte[1];
+                if (read(buffer, 0, 1) == -1) {
+                    return -1;
+                }
+                return buffer[0] & 0xFF;
+            }
+
+            @Override
+            public int read(byte[] buffer, int offset, int count)
+                    throws IOException
+            {
+                checkFromIndexSize(offset, count, buffer.length);
+                if (count == 0) {
+                    return 0;
+                }
+                if (position >= length) {
+                    return -1;
+                }
+                int toRead = toIntExact(min(count, length - position));
+                blob.read(position, buffer, offset, toRead);
+                position += toRead;
+                return toRead;
+            }
+        };
     }
 
     // The blob is held open across reads for the same reason the underlying source is: reads
