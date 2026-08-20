@@ -102,6 +102,21 @@ public class TestColumnReaderFactory
     }
 
     /**
+     * A decimal annotated byte array holds a number in its bytes, so handing those bytes back as text or as raw bytes
+     * is not a read of the column at all. The two byte array widths have to answer that the same way.
+     */
+    @Test
+    public void testDecimalAnnotatedBinaryIsNotReadAsBytes()
+    {
+        PrimitiveType decimalBinary = primitiveType(BINARY, decimalType(2, 10));
+        for (Type type : ImmutableList.of(VARCHAR, createVarcharType(10), createCharType(10), VARBINARY)) {
+            assertThat(isSupported(type, decimalBinary))
+                    .describedAs("%s over %s", type, decimalBinary)
+                    .isFalse();
+        }
+    }
+
+    /**
      * {@link ColumnReaderFactory#isSupported} exists so that callers which prune on statistics can ask whether a column
      * is readable without restating the rules of {@link ColumnReaderFactory#create}. A restatement drifts; this walks
      * every combination the two are expected to agree on and fails the moment they stop agreeing.
