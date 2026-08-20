@@ -548,6 +548,14 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
                                 </item>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>class io.trino.spi.expression.ConnectorExpression</old>
+                                    <new>class io.trino.spi.expression.ConnectorExpression</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <justification>Lambda was missing a JSON subtype registration; adding it is backwards compatible</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

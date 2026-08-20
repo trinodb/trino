@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = Variable.class, name = "variable"),
         @JsonSubTypes.Type(value = Call.class, name = "call"),
         @JsonSubTypes.Type(value = FieldDereference.class, name = "field_dereference"),
+        @JsonSubTypes.Type(value = Lambda.class, name = "lambda"),
 })
 public abstract class ConnectorExpression
 {
