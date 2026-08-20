@@ -16,11 +16,16 @@ package io.trino.plugin.redshift;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.operator.OperatorInfo;
+import io.trino.plugin.jdbc.RemoteDatabaseEvent.Status;
+import io.trino.plugin.jdbc.RemoteLogTracingEvent;
+import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -32,17 +37,26 @@ import software.amazon.awssdk.services.s3.S3Client;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.plugin.jdbc.BaseJdbcConnectorTest.getQueryId;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.IAM_ROLE;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.createSleepingView;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -56,6 +70,15 @@ final class TestRedshiftUnload
     private static final String AWS_REGION = requiredNonEmptySystemProperty("test.redshift.aws.region");
     private static final String AWS_ACCESS_KEY = requiredNonEmptySystemProperty("test.redshift.aws.access-key");
     private static final String AWS_SECRET_KEY = requiredNonEmptySystemProperty("test.redshift.aws.secret-key");
+
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName() + "-%s"));
+    private final RedshiftRemoteDatabaseEventMonitor remoteDatabaseEventMonitor = new RedshiftRemoteDatabaseEventMonitor("UNLOAD");
+
+    @AfterAll
+    void tearDown()
+    {
+        executor.shutdownNow();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -197,6 +220,31 @@ final class TestRedshiftUnload
                     assertThat(operatorInfo).isNull();
                 },
                 results -> assertThat(results.getRowCount()).isEqualTo(1));
+    }
+
+    @Test
+    void testUnloadCancellation()
+            throws Exception
+    {
+        try (TestView sleepingView = createSleepingView(MINUTES.toSeconds(1) + 1)) {
+            String viewName = sleepingView.getName().toLowerCase(ENGLISH);
+
+            RemoteLogTracingEvent runningEvent = new RemoteLogTracingEvent(event -> event.getQuery().toLowerCase(ENGLISH).contains(viewName) && event.getStatus() == Status.RUNNING);
+            remoteDatabaseEventMonitor.startTracingDatabaseEvent(runningEvent);
+
+            String query = "SELECT * FROM " + sleepingView.getName();
+            Future<?> future = executor.submit(() -> assertQueryFails(query, "Query killed. Message: Killed by test"));
+            QueryId queryId = getQueryId(getQueryRunner(), query);
+            assertEventually(() -> assertThat(runningEvent.hasHappened()).isTrue());
+            remoteDatabaseEventMonitor.stopTracingDatabaseEvent(runningEvent);
+
+            RemoteLogTracingEvent cancelledEvent = new RemoteLogTracingEvent(event -> event.getQuery().toLowerCase(ENGLISH).contains(viewName) && event.getStatus() == Status.CANCELLED);
+            remoteDatabaseEventMonitor.startTracingDatabaseEvent(cancelledEvent);
+            assertUpdate(format("CALL system.runtime.kill_query(query_id => '%s', message => '%s')", queryId, "Killed by test"));
+            future.get();
+            assertEventually(() -> assertThat(cancelledEvent.hasHappened()).isTrue());
+            remoteDatabaseEventMonitor.stopTracingDatabaseEvent(cancelledEvent);
+        }
     }
 
     @Test
