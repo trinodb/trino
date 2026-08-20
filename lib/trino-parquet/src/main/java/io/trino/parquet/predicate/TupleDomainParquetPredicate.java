@@ -384,11 +384,6 @@ public class TupleDomainParquetPredicate
         if (type instanceof CharType) {
             return false;
         }
-        // A decimal annotated column read as varchar is rendered as text rather than as the two's complement bytes the
-        // statistics hold, and the two orderings are unrelated
-        if (type instanceof VarcharType && parquetType.getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation) {
-            return false;
-        }
         return true;
     }
 

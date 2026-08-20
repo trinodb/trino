@@ -338,7 +338,9 @@ public final class ColumnReaderFactory
         }
         // covers the bounded varchar, char and plain binary readers, which all take a variable width type over BINARY
         if (type instanceof AbstractVariableWidthType && primitiveType == BINARY) {
-            return true;
+            // a decimal annotated column holds a number in its bytes, which these readers would hand back as text,
+            // so it is refused here just as it is on the fixed length branch below
+            return !(annotation instanceof DecimalLogicalTypeAnnotation);
         }
         if ((VARBINARY.equals(type) || VARCHAR.equals(type)) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
             return !(annotation instanceof DecimalLogicalTypeAnnotation);
