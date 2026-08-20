@@ -505,7 +505,7 @@ jobs:
           ABFS_HIERARCHICAL_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
         if: >-
           contains(matrix.modules, 'trino-exchange-filesystem') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: S3 FileSystem Cloud Tests
@@ -516,7 +516,7 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
         if: >-
           contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_SECRET_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
           # Create an empty S3 bucket for S3 filesystem cloud tests and add the bucket name to GitHub environment variables
           .github/bin/s3/setup-empty-s3-bucket.sh
@@ -544,7 +544,7 @@ jobs:
         # Run tests only if any of the secrets are present
         if: >-
           contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '' || env.ABFS_OAUTH_CLIENT_SECRET != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '' || env.ABFS_OAUTH_CLIENT_SECRET != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: GCS FileSystem Cloud Tests
@@ -553,7 +553,7 @@ jobs:
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
         if: >-
           contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.GCP_CREDENTIALS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: Cloud Hive Tests
@@ -566,7 +566,7 @@ jobs:
           S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         if: >-
           contains(matrix.modules, 'trino-hive') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_SECRET_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-hive -Pcloud-tests
       - name: Cloud Delta Lake Tests
@@ -585,7 +585,7 @@ jobs:
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
           contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_ACCESSKEY != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.ABFS_ACCESSKEY != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} ${{ format('-P {0}', matrix.profile) }} -pl :trino-delta-lake \
             -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
@@ -602,7 +602,7 @@ jobs:
           BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID: ${{ vars.BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID }}
           BIGQUERY_TESTING_PROJECT_ID: ${{ vars.BIGQUERY_TESTING_PROJECT_ID }}
           BIGQUERY_TESTING_PARENT_PROJECT_ID: ${{ vars.BIGQUERY_TESTING_PARENT_PROJECT_ID }}
-        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-1') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
+        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-1') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-1 \
             -Dtesting.bigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
@@ -616,7 +616,7 @@ jobs:
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
-        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
+        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-2 \
             -Dtesting.bigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
@@ -631,7 +631,7 @@ jobs:
           SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
           SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
-        if: matrix.modules == 'plugin/trino-snowflake' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SNOWFLAKE_PASSWORD != '')
+        if: matrix.modules == 'plugin/trino-snowflake' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.SNOWFLAKE_PASSWORD != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-snowflake -Pcloud-tests \
             -Dsnowflake.test.server.url="${SNOWFLAKE_URL}" \
@@ -666,7 +666,7 @@ jobs:
           SNOWFLAKE_CATALOG_S3_REGION: ${{ vars.SNOWFLAKE_CATALOG_S3_REGION }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg ${{ format('-P {0}', matrix.profile) }} \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
@@ -689,7 +689,7 @@ jobs:
         id: tests-google-sheets
         env:
           SHEETS_CREDENTIALS_KEY: ${{ secrets.SHEETS_CREDENTIALS_KEY }}
-        if: contains(matrix.modules, 'trino-google-sheets') && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SHEETS_CREDENTIALS_KEY != '')
+        if: contains(matrix.modules, 'trino-google-sheets') && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.SHEETS_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-google-sheets -Pcloud-tests \
             -Dtesting.gsheets.credentials-key="${SHEETS_CREDENTIALS_KEY}"
@@ -707,7 +707,7 @@ jobs:
         if: >-
           contains(matrix.modules, 'trino-redshift') &&
           (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_SECRET_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' && github.event.pull_request.user.login != 'dependabot[bot]' || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
           source .github/bin/redshift/setup-aws-redshift.sh
 
@@ -977,7 +977,7 @@ jobs:
                 ;;
             esac
 
-            if [ -n "${availability_env}" ] && [ -z "${!availability_env:-}" ] && [ -z "${CI_SKIP_SECRETS_PRESENCE_CHECKS:-}" ]; then
+            if [ -n "${availability_env}" ] && [ -z "${!availability_env:-}" ] && { [ -z "${CI_SKIP_SECRETS_PRESENCE_CHECKS:-}" ] || [ "${GITHUB_ACTOR}" = "dependabot[bot]" ]; }; then
               suite_results+=("${suite}:SKIPPED")
               suite_totals+=("${suite}:missing availability credential: ${availability_env}")
               skipped_suites+=("${suite}")
