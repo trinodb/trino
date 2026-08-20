@@ -28,6 +28,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -72,6 +73,7 @@ import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.trino.parquet.reader.ColumnReaderFactory.isDecimalRescaled;
+import static io.trino.parquet.reader.ColumnReaderFactory.isSupported;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -88,6 +90,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
@@ -136,6 +139,11 @@ public class TupleDomainParquetPredicate
             if (effectivePredicateDomain == null) {
                 continue;
             }
+            // Page stats and the dictionary decode a column whose type does not match no differently from the
+            // row-group statistics, so neither can narrow its domain and neither is worth reading
+            if (!canNarrowDomain(effectivePredicateDomain.getType(), column.getPrimitiveType())) {
+                continue;
+            }
 
             Statistics<?> columnStatistics = statistics.get(column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
@@ -160,9 +168,10 @@ public class TupleDomainParquetPredicate
             }
             // If the predicate domain on a column includes the entire domain from column row-group statistics,
             // then more granular statistics from page stats or dictionary for this column will not help to eliminate the row-group.
-            if (!effectivePredicateDomain.contains(domain)) {
-                candidateColumns.add(column);
+            if (effectivePredicateDomain.contains(domain)) {
+                continue;
             }
+            candidateColumns.add(column);
         }
         return Optional.of(candidateColumns.build());
     }
@@ -333,6 +342,40 @@ public class TupleDomainParquetPredicate
     }
 
     /**
+     * Whether a domain may be narrowed from the statistics of this column.
+     * <p>
+     * Statistics, column indexes and dictionaries are decoded according to the physical type of the column in the file,
+     * while the domain being narrowed carries the type from the table schema, and schema evolution makes the two
+     * disagree. A bound is usable only when the reader can produce the column at all, which
+     * {@link ColumnReaderFactory#isSupported} decides, and when it produces the stored value unchanged, which the
+     * conversions below do not.
+     */
+    private static boolean canNarrowDomain(Type type, PrimitiveType parquetType)
+    {
+        if (!isSupported(type, parquetType)) {
+            return false;
+        }
+        // The reader truncates a bounded varchar to its length, and pads and trims a char, so a bound built from the
+        // stored bytes can sit above a value the reader goes on to produce
+        if (type instanceof VarcharType varcharType && !varcharType.isUnbounded()) {
+            return false;
+        }
+        if (type instanceof CharType) {
+            return false;
+        }
+        // A decimal annotated column read as varchar is rendered as text rather than as the two's complement bytes the
+        // statistics hold, and the two orderings are unrelated
+        if (type instanceof VarcharType && parquetType.getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation) {
+            return false;
+        }
+        // The double branch decodes a Double, so a float column is left alone until those bounds are widened
+        if (DOUBLE.equals(type) && parquetType.getPrimitiveTypeName() == FLOAT) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Get a domain for the ranges defined by each pair of elements from {@code minimums} and {@code maximums}.
      * Both arrays must have the same length.
      */
@@ -345,6 +388,10 @@ public class TupleDomainParquetPredicate
             DateTimeZone timeZone)
     {
         checkArgument(minimums.size() == maximums.size(), "Expected minimums and maximums to have the same size");
+
+        if (!canNarrowDomain(type, column.getPrimitiveType())) {
+            return Domain.create(ValueSet.all(type), hasNullValue);
+        }
 
         if (type.equals(BOOLEAN)) {
             boolean hasTrueValues = minimums.stream().anyMatch(value -> (boolean) value) || maximums.stream().anyMatch(value -> (boolean) value);
