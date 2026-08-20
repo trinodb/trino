@@ -607,7 +607,11 @@ public class TestTupleDomainParquetPredicate
                 Arguments.of(INT32, null, createUnboundedVarcharType(), false),
                 Arguments.of(FLOAT, null, createDecimalType(5, 2), false),
                 Arguments.of(INT32, null, createTimestampType(3), false),
+                // a decimal annotated byte array holds a number in its bytes, which the reader refuses to hand back
+                // as text or as raw bytes, whichever of the two widths it is stored in
                 Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), createUnboundedVarcharType(), false),
+                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false),
+                Arguments.of(BINARY, decimalType(2, 10), VARBINARY, false),
                 // an integral column annotated as a decimal with a scale is rescaled by the reader, not read as an integer
                 Arguments.of(INT64, decimalType(2, 18), BIGINT, false),
                 // a decimal needs its annotation to know the scale, so an unannotated column is not a decimal at all
@@ -620,7 +624,6 @@ public class TestTupleDomainParquetPredicate
                 // the reader accepts the column but does not produce the stored value
                 Arguments.of(BINARY, null, createVarcharType(3), false),
                 Arguments.of(BINARY, null, createCharType(3), false),
-                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false),
                 // RealType is an integer type, so the reader takes a real over an integral column and reinterprets
                 // the stored integer as float bits
                 Arguments.of(INT32, null, REAL, false),
