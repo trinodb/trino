@@ -39,14 +39,12 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
-import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -74,8 +72,7 @@ public class ThreadPerDriverTaskExecutor
     private final int maxDriversPerTask;
     private final ScheduledThreadPoolExecutor backgroundTasks = new ScheduledThreadPoolExecutor(2, daemonThreadsNamed("task-executor-scheduler-%s"));
 
-    @GuardedBy("this")
-    private final Map<TaskId, TaskEntry> tasks = new HashMap<>();
+    private final Map<TaskId, TaskEntry> tasks = new ConcurrentHashMap<>();
 
     private volatile boolean closed;
 
@@ -173,12 +170,8 @@ public class ThreadPerDriverTaskExecutor
     public void removeTask(TaskHandle handle)
     {
         TaskEntry entry = (TaskEntry) handle;
-        synchronized (this) {
-            tasks.remove(entry.taskId());
-        }
-        if (!entry.isDestroyed()) {
-            entry.destroy();
-        }
+        tasks.remove(entry.taskId(), entry);
+        entry.destroy();
     }
 
     @Override
@@ -263,15 +256,19 @@ public class ThreadPerDriverTaskExecutor
             }
         }
 
-        // claim additional drivers up to the target global leaf drivers
-        Queue<TaskEntry> queue = new ArrayDeque<>(tasks.values());
+        // Claim additional drivers up to the target global leaf drivers. Iterate in rounds to
+        // retain the previous round-robin behavior without copying the task map into a queue.
         int target = targetGlobalLeafDrivers - runningLeafDrivers;
-        for (int i = 0; i < target && !queue.isEmpty(); i++) {
-            TaskEntry task = queue.poll();
-            if (task.runningLeafSplits() < min(task.targetConcurrency(), maxDriversPerTask)) {
-                claimLeafSplit(task, claimed);
-                if (task.hasPendingLeafSplits()) {
-                    queue.add(task);
+        boolean progress = true;
+        while (target > 0 && progress) {
+            progress = false;
+            for (TaskEntry task : tasks.values()) {
+                if (target == 0) {
+                    break;
+                }
+                if (task.runningLeafSplits() < min(task.targetConcurrency(), maxDriversPerTask) && claimLeafSplit(task, claimed)) {
+                    target--;
+                    progress = true;
                 }
             }
         }
@@ -340,13 +337,13 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Managed
-    public synchronized int getTasks()
+    public int getTasks()
     {
         return tasks.size();
     }
 
     @Managed
-    public synchronized int getTotalRunningSplits()
+    public int getTotalRunningSplits()
     {
         return tasks.values().stream()
                 .mapToInt(TaskEntry::totalRunningSplits)
@@ -354,7 +351,7 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Managed
-    public synchronized int getTotalRunningLeafSplits()
+    public int getTotalRunningLeafSplits()
     {
         return tasks.values().stream()
                 .mapToInt(TaskEntry::runningLeafSplits)
@@ -362,7 +359,7 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Managed
-    public synchronized int getTotalPendingLeafSplits()
+    public int getTotalPendingLeafSplits()
     {
         return tasks.values().stream()
                 .mapToInt(TaskEntry::pendingLeafSplitCount)
