@@ -1599,7 +1599,7 @@ public class TestIcebergV3
     {
         BaseTable table = loadTable(tableName);
         table.refresh();
-        DataFile dataFile = getOnlyElement(table.currentSnapshot().addedDataFiles(table.io()));
+        DataFile dataFile = getOnlyElement(SnapshotChanges.builderFor(table).build().addedDataFiles());
         return getParquetFileMetadata(fileSystemFactory.create(SESSION).newInputFile(Location.of(dataFile.location())));
     }
 
