@@ -300,8 +300,10 @@ public final class ColumnReaderFactory
                 && (annotation instanceof TimestampLogicalTypeAnnotation || annotation instanceof TimeLogicalTypeAnnotation)) {
             return true;
         }
-        // DATE and REAL are integer types as well, and TIME and BIGINT are long types, so the three branches above
-        // have to stay ahead of this one, which a date over INT64 and a real over an integral column reach
+        // DATE and REAL are integer types, and TIME and BIGINT are long types, so the three branches above have to
+        // stay ahead of this one. A date over INT64 and a real over an integral column reach here, where create()
+        // reads the real through the integer decoder, as the raw bits of the stored integer rather than as the value
+        // it holds
         if ((TINYINT.equals(type) || SMALLINT.equals(type) || type instanceof AbstractIntType || type instanceof AbstractLongType)
                 && isIntegerOrDecimalPrimitive(primitiveType)) {
             return isZeroScaleShortDecimalAnnotation(annotation) || isIntegerAnnotationAndPrimitive(annotation, primitiveType);
