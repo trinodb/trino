@@ -54,6 +54,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
 
 import java.io.Serializable;
@@ -267,6 +268,12 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // decided once for the column, which also skips the range expansion below when the filter cannot match
+            Optional<BloomFilterHasher> hasher = bloomFilterHasher(effectivePredicateDomain.getType(), column.getPrimitiveType());
+            if (hasher.isEmpty()) {
+                continue;
+            }
+
             Optional<Collection<Object>> discreteValues = extractDiscreteValues(domainCompactionThreshold, effectivePredicateDomain.getValues());
             // values are not discrete, so bloom filter isn't helpful
             if (discreteValues.isEmpty()) {
@@ -278,7 +285,8 @@ public class TupleDomainParquetPredicate
                 continue;
             }
             BloomFilter bloomFilter = bloomFilterOptional.get();
-            if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, effectivePredicateDomain.getType()))) {
+            BloomFilterHasher columnHasher = hasher.orElseThrow();
+            if (discreteValues.get().stream().noneMatch(value -> bloomFilter.findHash(columnHasher.hash(bloomFilter, value)))) {
                 return false;
             }
         }
@@ -738,37 +746,64 @@ public class TupleDomainParquetPredicate
     }
 
     /**
-     * Check if the predicateValue might be in the bloomfilter
-     *
-     * @param bloomFilter parquet bloomfilter.
-     * @param predicateValue effective discrete predicate value.
-     * @param sqlType Type that contains information about the type schema from connector's metadata
-     * @return true if the predicateValue might be in the bloomfilter, false if the predicateValue absolutely is not in the bloomfilter
+     * How a predicate value has to be hashed to be looked up in the bloom filter of this column, or empty when the
+     * filter cannot answer for this column at all and has to be ignored rather than trusted.
+     * <p>
+     * parquet-mr builds a filter by hashing each value at the physical width of the column, so a lookup performed as a
+     * type of a different width never finds a value which is present. Binary values are hashed by their bytes alone,
+     * which makes the two byte array physical types interchangeable, but only where the reader hands those same bytes
+     * back, as it does not for a bounded varchar or for a decimal annotated column read as text.
      */
     @VisibleForTesting
-    public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
+    public static Optional<BloomFilterHasher> bloomFilterHasher(Type sqlType, PrimitiveType parquetType)
     {
+        PrimitiveTypeName primitiveType = parquetType.getPrimitiveTypeName();
+
         // TODO: Support TIMESTAMP, CHAR and DECIMAL
         if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == DATE) {
-            return bloomFilter.findHash(bloomFilter.hash(toIntExact(((Number) predicateValue).longValue())));
+            if (primitiveType != PrimitiveTypeName.INT32) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(toIntExact(((Number) value).longValue())));
         }
         if (sqlType == BIGINT) {
-            return bloomFilter.findHash(bloomFilter.hash(((Number) predicateValue).longValue()));
+            if (primitiveType != INT64) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(((Number) value).longValue()));
         }
-        else if (sqlType == DOUBLE) {
-            return bloomFilter.findHash(bloomFilter.hash(((Double) predicateValue).doubleValue()));
+        if (sqlType == DOUBLE) {
+            if (primitiveType != PrimitiveTypeName.DOUBLE) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(((Double) value).doubleValue()));
         }
-        else if (sqlType == REAL) {
-            return bloomFilter.findHash(bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).longValue()))));
+        if (sqlType == REAL) {
+            if (primitiveType != FLOAT) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(intBitsToFloat(toIntExact(((Number) value).longValue()))));
         }
-        else if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
-            return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) predicateValue).toByteBuffer())));
-        }
-        else if (sqlType instanceof UuidType) {
-            return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteArray(((Slice) predicateValue).getBytes())));
+        // The filter hashed what the writer stored, so a byte array column only answers where the reader hands those
+        // same bytes back, which is the condition its statistics are usable under as well. A char is none of the
+        // three types below and falls through to the empty result
+        if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType || sqlType instanceof UuidType) {
+            if (!canNarrowDomain(sqlType, parquetType)) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) value).toByteBuffer())));
         }
 
-        return true;
+        return Optional.empty();
+    }
+
+    /**
+     * Hashes one predicate value the way the bloom filter of a particular column was built.
+     */
+    @FunctionalInterface
+    public interface BloomFilterHasher
+    {
+        long hash(BloomFilter bloomFilter, Object predicateValue);
     }
 
     private static Optional<Collection<Object>> extractDiscreteValues(int domainCompactionThreshold, ValueSet valueSet)
