@@ -376,10 +376,6 @@ public class TupleDomainParquetPredicate
         if (type instanceof VarcharType && parquetType.getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation) {
             return false;
         }
-        // The double branch decodes a Double, so a float column is left alone until those bounds are widened
-        if (DOUBLE.equals(type) && parquetType.getPrimitiveTypeName() == FLOAT) {
-            return false;
-        }
         return true;
     }
 
@@ -476,10 +472,12 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE)) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Double min = (Double) minimums.get(i);
-                Double max = (Double) maximums.get(i);
+                // ColumnReaderFactory widens a float column to double, and every float has an exact double, so these
+                // bounds are the values the reader itself produces
+                double min = ((Number) minimums.get(i)).doubleValue();
+                double max = ((Number) maximums.get(i)).doubleValue();
 
-                if (min.isNaN() || max.isNaN()) {
+                if (Double.isNaN(min) || Double.isNaN(max)) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
