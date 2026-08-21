@@ -3540,9 +3540,9 @@ public class TestSqlParser
                         ImmutableList.of(),
                         Optional.empty()));
 
-        assertThatThrownBy(() -> SQL_PARSER.createStatement("CREATE TABLE foo (a VARCHAR DEFAULT CURRENT_USER)"))
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("CREATE TABLE foo (a VARCHAR DEFAULT upper('trino'))"))
                 .isInstanceOf(ParsingException.class)
-                .hasMessageMatching("line 1:37: mismatched input 'CURRENT_USER'.*");
+                .hasMessage("line 1:42: mismatched input '('. Expecting: <string>");
     }
 
     @Test
@@ -5234,9 +5234,9 @@ public class TestSqlParser
                         false,
                         false));
 
-        assertThatThrownBy(() -> SQL_PARSER.createStatement("ALTER TABLE foo.t ADD COLUMN c varchar DEFAULT CURRENT_USER"))
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("ALTER TABLE foo.t ADD COLUMN c varchar DEFAULT upper('trino')"))
                 .isInstanceOf(ParsingException.class)
-                .hasMessageMatching("line 1:48: mismatched input 'CURRENT_USER'.*");
+                .hasMessage("line 1:53: mismatched input '('. Expecting: <string>");
 
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL"))
                 .isEqualTo(new AddColumn(

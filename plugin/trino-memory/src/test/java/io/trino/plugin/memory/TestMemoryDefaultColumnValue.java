@@ -195,11 +195,94 @@ public class TestMemoryDefaultColumnValue
     }
 
     @Test
+    void testCurrentDate()
+    {
+        assertNonNullDefaultValue("DATE", "CURRENT_DATE");
+    }
+
+    @Test
+    void testCurrentTime()
+    {
+        assertNonNullDefaultValue("TIME(3) WITH TIME ZONE", "CURRENT_TIME");
+        assertNonNullDefaultValue("TIME(0) WITH TIME ZONE", "CURRENT_TIME(0)");
+        assertNonNullDefaultValue("TIME(6) WITH TIME ZONE", "CURRENT_TIME(6)");
+    }
+
+    @Test
+    void testCurrentTimestamp()
+    {
+        assertNonNullDefaultValue("TIMESTAMP(3) WITH TIME ZONE", "CURRENT_TIMESTAMP");
+        assertNonNullDefaultValue("TIMESTAMP(0) WITH TIME ZONE", "CURRENT_TIMESTAMP(0)");
+        assertNonNullDefaultValue("TIMESTAMP(6) WITH TIME ZONE", "CURRENT_TIMESTAMP(6)");
+    }
+
+    @Test
+    void testLocalTime()
+    {
+        assertNonNullDefaultValue("TIME(3)", "LOCALTIME");
+        assertNonNullDefaultValue("TIME(0)", "LOCALTIME(0)");
+        assertNonNullDefaultValue("TIME(6)", "LOCALTIME(6)");
+    }
+
+    @Test
+    void testLocalTimestamp()
+    {
+        assertNonNullDefaultValue("TIMESTAMP(3)", "LOCALTIMESTAMP");
+        assertNonNullDefaultValue("TIMESTAMP(0)", "LOCALTIMESTAMP(0)");
+        assertNonNullDefaultValue("TIMESTAMP(6)", "LOCALTIMESTAMP(6)");
+    }
+
+    @Test
+    void testCurrentUser()
+    {
+        assertDefaultValue("VARCHAR", "CURRENT_USER", "CURRENT_USER");
+    }
+
+    @Test
+    void testCurrentCatalog()
+    {
+        assertDefaultValue("VARCHAR", "CURRENT_CATALOG", "CURRENT_CATALOG");
+    }
+
+    @Test
+    void testCurrentSchema()
+    {
+        assertDefaultValue("VARCHAR", "CURRENT_SCHEMA", "CURRENT_SCHEMA");
+    }
+
+    @Test
+    void testCurrentPath()
+    {
+        assertDefaultValue("VARCHAR", "CURRENT_PATH", "CURRENT_PATH");
+    }
+
+    @Test
     void testInformationSchema()
     {
         try (TestTable table = newTrinoTable("test_default_value", "(id int, data int DEFAULT 123)")) {
             assertThat((String) computeScalar("SELECT column_default FROM information_schema.columns WHERE table_name = '" + table.getName() + "' AND column_name = 'data'"))
                     .isEqualTo("123");
+        }
+    }
+
+    private void assertNonNullDefaultValue(@Language("SQL") String columnType, @Language("SQL") String defaultValue)
+    {
+        try (TestTable table = newTrinoTable("test_default_value", "(id int, data " + columnType + " DEFAULT " + defaultValue + ")")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (id) VALUES (1)", 1);
+            assertThat(query("SELECT data IS NOT NULL FROM " + table.getName()))
+                    .matches("VALUES true");
+        }
+
+        try (TestTable table = newTrinoTable("test_default_value", "(id int, data " + columnType + ")")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN data SET DEFAULT " + defaultValue);
+            assertUpdate("INSERT INTO " + table.getName() + " (id) VALUES (1)", 1);
+            assertThat(query("SELECT data IS NOT NULL FROM " + table.getName()))
+                    .matches("VALUES true");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN data DROP DEFAULT");
+            assertUpdate("INSERT INTO " + table.getName() + " (id) VALUES (2)", 1);
+            assertThat(query("SELECT data IS NOT NULL FROM " + table.getName() + " WHERE id = 2"))
+                    .matches("VALUES false");
         }
     }
 
