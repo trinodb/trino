@@ -26,6 +26,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -222,7 +223,7 @@ final class TestRedshiftUnload
                 results -> assertThat(results.getRowCount()).isEqualTo(1));
     }
 
-    @Test
+    @RepeatedTest(100)
     void testUnloadCancellation()
             throws Exception
     {
