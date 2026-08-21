@@ -45,6 +45,12 @@ by the hash tables built during execution, memory used during sorting, etc.
 When the user memory allocation of a query across all workers hits this limit
 it is killed.
 
+If a resource group confines its queries to a node group, this cluster-wide
+limit still counts every node, so a query restricted to a small group can hold
+a far larger share of the workers available to it than intended. Pair the node
+group with a lower `query_max_memory` for that resource group, applied through
+a {doc}`session property manager </admin/session-property-managers>`.
+
 :::{warning}
 {ref}`prop-resource-query-max-total-memory` must be greater than
 {ref}`prop-resource-query-max-memory`.
@@ -55,6 +61,7 @@ Does not apply for queries with task level retries enabled (`retry-policy=TASK`)
 :::
 
 (prop-resource-query-max-total-memory)=
+
 ## `query.max-total-memory`
 
 - **Type:** {ref}`prop-type-data-size`
