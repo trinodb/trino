@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +36,8 @@ public class TestServerConfig
                 .setIncludeExceptionInResponse(true)
                 .setGracePeriod(new Duration(2, MINUTES))
                 .setQueryResultsCompressionEnabled(true)
-                .setQueryInfoUrlTemplate(null));
+                .setQueryInfoUrlTemplate(null)
+                .setNodeGroups(ImmutableSet.of()));
     }
 
     @Test
@@ -48,6 +50,7 @@ public class TestServerConfig
                 .put("shutdown.grace-period", "5m")
                 .put("query-results.compression-enabled", "false")
                 .put("query.info-url-template", "https://example.com/query/${QUERY_ID}")
+                .put("node.groups", "etl,shared")
                 .buildOrThrow();
 
         ServerConfig expected = new ServerConfig()
@@ -56,7 +59,8 @@ public class TestServerConfig
                 .setIncludeExceptionInResponse(false)
                 .setGracePeriod(new Duration(5, MINUTES))
                 .setQueryResultsCompressionEnabled(false)
-                .setQueryInfoUrlTemplate("https://example.com/query/${QUERY_ID}");
+                .setQueryInfoUrlTemplate("https://example.com/query/${QUERY_ID}")
+                .setNodeGroups(ImmutableSet.of("etl", "shared"));
 
         assertFullMapping(properties, expected);
     }

@@ -16,10 +16,12 @@ package io.trino.node;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.HostAddress;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public interface InternalNodeManager
@@ -44,6 +46,21 @@ public interface InternalNodeManager
     default Set<InternalNode> getCoordinators()
     {
         return getAllNodes().activeCoordinators();
+    }
+
+    /**
+     * Active nodes a query restricted to the given node group may be scheduled on; an empty group means
+     * unrestricted. Coordinators are exempt, matching the node map built by the node selectors.
+     */
+    default Set<InternalNode> getActiveNodesInGroup(Optional<String> nodeGroup)
+    {
+        Set<InternalNode> activeNodes = getAllNodes().activeNodes();
+        if (nodeGroup.isEmpty()) {
+            return activeNodes;
+        }
+        return activeNodes.stream()
+                .filter(node -> node.getNodeGroups().contains(nodeGroup.get()) || node.isCoordinator())
+                .collect(toImmutableSet());
     }
 
     AllNodes getAllNodes();
