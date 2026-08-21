@@ -62,6 +62,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -76,6 +77,7 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -628,6 +630,115 @@ public class TestNodeScheduler
     private Multimap<InternalNode, Split> computeSingleAssignment(NodeSelector nodeSelector, Split split)
     {
         return nodeSelector.computeAssignments(ImmutableSet.of(split), ImmutableList.copyOf(taskMap.values())).getAssignments();
+    }
+
+    @Test
+    public void testNodeGroupRestrictsNodeSelection()
+    {
+        nodeManager.addNodes(
+                new InternalNode("etl1", URI.create("http://10.0.0.1:21"), NodeVersion.UNKNOWN, false, ImmutableSet.of("etl", "shared")),
+                new InternalNode("adhoc1", URI.create("http://10.0.0.1:22"), NodeVersion.UNKNOWN, false, ImmutableSet.of("adhoc", "shared")),
+                new InternalNode("ungrouped", URI.create("http://10.0.0.1:23"), NodeVersion.UNKNOWN, false));
+
+        assertThat(selectableNodes(nodeScheduler, "etl")).containsExactly("etl1");
+        assertThat(selectableNodes(nodeScheduler, "adhoc")).containsExactly("adhoc1");
+        // a node declaring several groups is selectable for each of them
+        assertThat(selectableNodes(nodeScheduler, "shared")).containsExactlyInAnyOrder("etl1", "adhoc1");
+        // a group no node declares leaves nothing to schedule on
+        assertThat(selectableNodes(nodeScheduler, "missing")).isEmpty();
+        // an unrestricted query is not limited to grouped nodes
+        assertThat(selectableNodes(nodeScheduler.createNodeSelector(session)))
+                .containsExactlyInAnyOrder("etl1", "adhoc1", "ungrouped");
+    }
+
+    @Test
+    public void testNodeGroupRestrictsTopologyAwareNodeSelection()
+    {
+        nodeManager.addNodes(
+                new InternalNode("etl1", URI.create("http://host1.rack1:21"), NodeVersion.UNKNOWN, false, ImmutableSet.of("etl")),
+                new InternalNode("adhoc1", URI.create("http://host2.rack1:22"), NodeVersion.UNKNOWN, false, ImmutableSet.of("adhoc")));
+
+        NodeScheduler topologyAwareScheduler = new NodeScheduler(new TopologyAwareNodeSelectorFactory(
+                new TestNetworkTopology(),
+                CURRENT_NODE,
+                nodeManager,
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                getNetworkTopologyConfig(),
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig())));
+
+        assertThat(selectableNodes(topologyAwareScheduler, "etl")).containsExactly("etl1");
+        assertThat(selectableNodes(topologyAwareScheduler, "adhoc")).containsExactly("adhoc1");
+    }
+
+    @Test
+    public void testNodeGroupDoesNotExcludeCoordinator()
+    {
+        nodeManager.addNodes(new InternalNode("etl1", URI.create("http://10.0.0.1:21"), NodeVersion.UNKNOWN, false, ImmutableSet.of("etl")));
+
+        // the coordinator declares no node group, but must stay available so that coordinator-only stages
+        // and the coordinator fallback in selectExactNodes keep working
+        NodeScheduler schedulerWithCoordinator = new NodeScheduler(new UniformNodeSelectorFactory(
+                CURRENT_NODE,
+                nodeManager,
+                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                nodeTaskMap,
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, true), new StableHostAddressProviderConfig())));
+
+        assertThat(selectableNodes(schedulerWithCoordinator, "etl"))
+                .containsExactlyInAnyOrder("etl1", CURRENT_NODE.getNodeIdentifier());
+        assertThat(schedulerWithCoordinator.createNodeSelector(sessionWithNodeGroup("missing")).selectCurrentNode())
+                .isEqualTo(CURRENT_NODE);
+    }
+
+    @Test
+    public void testNodeAddressedSplitOutsideNodeGroupIsRejected()
+    {
+        // the split can only run on the node it is addressed to, and that node is not in the query's group.
+        // The connector chose it from the cluster wide node list, so refuse the query rather than leave it
+        // unschedulable, matching how a connector that pins partitions to nodes is handled.
+        setUpNodes();
+        nodeManager.addNodes(new InternalNode("etl1", URI.create("http://10.0.0.1:21"), NodeVersion.UNKNOWN, false, ImmutableSet.of("etl")));
+        Split split = new Split(TEST_CATALOG_HANDLE, new TestSplitLocal());
+
+        NodeSelector restricted = nodeScheduler.createNodeSelector(sessionWithNodeGroup("etl"));
+        assertTrinoExceptionThrownBy(() -> computeSingleAssignment(restricted, split))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("addresses splits to specific nodes")
+                .hasMessageContaining("node group 'etl'");
+
+        // the same split is fine for a query that is not restricted to a node group
+        assertThat(getOnlyElement(computeSingleAssignment(nodeScheduler.createNodeSelector(session), split).entries()).getKey().getHostAndPort())
+                .isEqualTo(split.getAddresses().get(0));
+    }
+
+    @Test
+    public void testEmptyNodeGroupNamesTheGroup()
+    {
+        setUpNodes();
+        NodeSelector restricted = nodeScheduler.createNodeSelector(sessionWithNodeGroup("missing"));
+        assertTrinoExceptionThrownBy(() -> computeSingleAssignment(restricted, new Split(TEST_CATALOG_HANDLE, new TestSplitRemote())))
+                .hasErrorCode(NO_NODES_AVAILABLE)
+                .hasMessageContaining("node group 'missing'");
+    }
+
+    private static Set<String> selectableNodes(NodeScheduler nodeScheduler, String nodeGroup)
+    {
+        return selectableNodes(nodeScheduler.createNodeSelector(sessionWithNodeGroup(nodeGroup)));
+    }
+
+    private static Set<String> selectableNodes(NodeSelector nodeSelector)
+    {
+        return nodeSelector.allNodes().stream()
+                .map(InternalNode::getNodeIdentifier)
+                .collect(toImmutableSet());
+    }
+
+    private static Session sessionWithNodeGroup(String nodeGroup)
+    {
+        return TestingSession.testSessionBuilder()
+                .setNodeGroup(Optional.of(nodeGroup))
+                .build();
     }
 
     private static Session sessionWithMaxUnacknowledgedSplitsPerTask(int maxUnacknowledgedSplitsPerTask)

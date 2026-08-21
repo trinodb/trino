@@ -27,6 +27,7 @@ import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.TrinoException;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -38,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,7 +47,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.lang.Math.addExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
@@ -148,6 +153,24 @@ public class NodeScheduler
         }
 
         return ImmutableList.copyOf(chosen);
+    }
+
+    /**
+     * A split that is not remotely accessible must run on the node it is addressed to. Connectors choose
+     * those nodes from the cluster-wide node list, without knowing about node groups, so a query restricted
+     * to a group cannot run them and is refused rather than left unschedulable.
+     */
+    public static TrinoException noNodesAvailable(Split split, Optional<String> nodeGroup)
+    {
+        if (nodeGroup.isPresent() && !split.isRemotelyAccessible()) {
+            return new TrinoException(NOT_SUPPORTED, format(
+                    "Catalog '%s' addresses splits to specific nodes, which is not supported for a query restricted to node group '%s'",
+                    split.getCatalogHandle().getCatalogName(),
+                    nodeGroup.get()));
+        }
+        return new TrinoException(NO_NODES_AVAILABLE, nodeGroup
+                .map("No nodes available to run query in node group '%s'"::formatted)
+                .orElse("No nodes available to run query"));
     }
 
     public static SplitPlacementResult selectDistributionNodes(
