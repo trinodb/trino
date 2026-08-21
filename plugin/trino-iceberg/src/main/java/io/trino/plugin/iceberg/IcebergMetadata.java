@@ -3436,15 +3436,35 @@ public class IcebergMetadata
         if (hasDeleteTasks) {
             rowDelta.validateDataFilesExist(referencedDataFiles.build());
         }
-        if (hasDataTasks) {
-            // Iceberg requires this for UPDATE and MERGE only. Deleting a row that a concurrent commit also deleted is idempotent.
-            // A commit writing data files is an UPDATE or a MERGE, a commit writing only position deletes is a DELETE.
+        // Iceberg requires this for UPDATE and MERGE only. Deleting a row that a concurrent commit also deleted is idempotent.
+        // A commit writing data files is an UPDATE or a MERGE, a commit writing only position deletes is a DELETE.
+        // Iceberg rejects concurrently added deletion vectors per referenced data file, so at format version 3 this
+        // check is needed only for equality deletes.
+        if (hasDataTasks && (formatVersion < 3 || mayHaveEqualityDeletes(session, table))) {
             rowDelta.validateNoConflictingDeleteFiles();
         }
         if (!deletionVectorInfos.isEmpty()) {
             deletionVectorWriter.writeDeletionVectors(session, icebergTable, table, deletionVectorInfos, rowDelta);
         }
         commitUpdateAndTransaction(rowDelta, session, transaction, "write");
+    }
+
+    /**
+     * Checks the latest snapshot summary; a missing summary or equality delete count is treated as having
+     * equality deletes. Equality deletes committed after this check and before the write commits are not detected.
+     */
+    private boolean mayHaveEqualityDeletes(ConnectorSession session, IcebergTableHandle table)
+    {
+        Snapshot currentSnapshot = catalog.loadTable(session, table.getSchemaTableName()).currentSnapshot();
+        if (currentSnapshot == null) {
+            return false;
+        }
+        Map<String, String> summary = currentSnapshot.summary();
+        if (summary == null) {
+            return true;
+        }
+        String totalEqualityDeletes = summary.get(TOTAL_EQ_DELETES_PROP);
+        return totalEqualityDeletes == null || !totalEqualityDeletes.equals("0");
     }
 
     /**

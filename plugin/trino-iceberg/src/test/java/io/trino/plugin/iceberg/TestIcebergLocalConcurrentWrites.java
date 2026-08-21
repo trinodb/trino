@@ -14,13 +14,16 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.concurrent.MoreFutures;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.Table;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -39,6 +42,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.loadTable;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -497,14 +504,119 @@ final class TestIcebergLocalConcurrentWrites
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(3)
+    void testConcurrentUpdateOfSeparateDataFilesWithDeletionVectors()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_update_separate_data_files_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, part BIGINT) WITH (format_version = 3)");
+        // Separate INSERTs keep each part group in its own data file in this unpartitioned table
+        assertUpdate("INSERT INTO " + tableName + " SELECT a, 1 FROM UNNEST(SEQUENCE(1, 100)) AS t(a)", 100);
+        assertUpdate("INSERT INTO " + tableName + " SELECT a, 2 FROM UNNEST(SEQUENCE(1, 100)) AS t(a)", 100);
+        assertUpdate("INSERT INTO " + tableName + " SELECT a, 3 FROM UNNEST(SEQUENCE(1, 100)) AS t(a)", 100);
+
+        // UPDATE will increase every value by 1
+        long expectedDataSum = (long) computeScalar("SELECT sum(a + 1) FROM " + tableName);
+
+        try {
+            // update data concurrently, with each query matching rows of a single data file
+            executor.invokeAll(IntStream.rangeClosed(1, threads)
+                            .mapToObj(part -> (Callable<Void>) () -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE part = " + part);
+                                return null;
+                            })
+                            .collect(toImmutableList()))
+                    .forEach(MoreFutures::getDone);
+
+            assertThat((long) computeScalar("SELECT sum(a) FROM " + tableName)).isEqualTo(expectedDataSum);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
+    void testConcurrentUpdateWithEqualityDeletes()
+            throws Exception
+    {
+        int threads = 2;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_update_equality_deletes_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, part BIGINT) WITH (format_version = 3)");
+        // Separate INSERTs keep each part group in its own data file in this unpartitioned table
+        assertUpdate("INSERT INTO " + tableName + " SELECT a, 1 FROM UNNEST(SEQUENCE(1, 100)) AS t(a)", 100);
+        assertUpdate("INSERT INTO " + tableName + " SELECT a, 2 FROM UNNEST(SEQUENCE(1, 100)) AS t(a)", 100);
+
+        // An equality delete matching no rows still marks the table as containing equality deletes
+        TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(getQueryRunner());
+        Table icebergTable = loadTable(tableName, getHiveMetastore(getQueryRunner()), fileSystemFactory, "iceberg", "tpch");
+        writeEqualityDeleteForTable(icebergTable, fileSystemFactory, Optional.empty(), Optional.empty(), ImmutableMap.of("part", 999L), Optional.empty());
+
+        long baseDataSum = (long) computeScalar("SELECT sum(a) FROM " + tableName);
+
+        try {
+            // update data concurrently, with each query matching rows of a single data file
+            List<Future<Boolean>> futures = IntStream.rangeClosed(1, threads)
+                    .mapToObj(part -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE part = " + part);
+                            return true;
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                assertThat(trinoException).hasMessageMatching("Failed to commit the transaction during write.*|" +
+                                        "Failed to commit during write.*");
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return false;
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            long successes = futures.stream()
+                    .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .filter(success -> success)
+                    .count();
+
+            // Equality deletes keep the conservative conflict validation, so only one update commits
+            assertThat(successes).isEqualTo(1);
+            assertThat((long) computeScalar("SELECT sum(a) FROM " + tableName)).isEqualTo(baseDataSum + 100);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentOverlappingUpdate()
             throws Exception
     {
-        testConcurrentOverlappingUpdate(false);
-        testConcurrentOverlappingUpdate(true);
+        testConcurrentOverlappingUpdate(false, 2);
+        testConcurrentOverlappingUpdate(true, 2);
+        testConcurrentOverlappingUpdate(false, 3);
+        testConcurrentOverlappingUpdate(true, 3);
     }
 
-    private void testConcurrentOverlappingUpdate(boolean partitioned)
+    private void testConcurrentOverlappingUpdate(boolean partitioned, int formatVersion)
             throws Exception
     {
         int threads = 3;
@@ -513,7 +625,7 @@ final class TestIcebergLocalConcurrentWrites
         String tableName = "test_concurrent_overlapping_updates_table_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a, part) " +
-                (partitioned ? " WITH (partitioning = ARRAY['part'])" : "") +
+                " WITH (format_version = " + formatVersion + (partitioned ? ", partitioning = ARRAY['part']" : "") + ")" +
                 " AS VALUES (1, 10), (11, 20), (21, NULL), (31, 40)", 4);
 
         try {
