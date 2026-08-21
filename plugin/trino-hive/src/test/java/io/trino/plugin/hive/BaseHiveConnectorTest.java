@@ -8365,17 +8365,59 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCtasFailsWithAvroSchemaUrl()
     {
+        // WITH NO DATA is a pure DDL operation that goes through createTable(), which validates the
+        // avro_schema_url property against the (default ORC) storage format rather than rejecting CTAS.
         @Language("SQL") String ctasSqlWithoutData = "CREATE TABLE create_avro\n" +
                 "WITH (avro_schema_url = 'dummy_schema')\n" +
                 "AS SELECT 'dummy_value' as dummy_col WITH NO DATA";
 
-        assertQueryFails(ctasSqlWithoutData, "CREATE TABLE AS not supported when Avro schema url is set");
+        assertQueryFails(ctasSqlWithoutData, "Cannot specify avro_schema_url table property for storage format: ORC");
 
+        // WITH DATA goes through beginCreateTable(), which rejects CTAS when an Avro schema url is set.
         @Language("SQL") String ctasSql = "CREATE TABLE create_avro\n" +
                 "WITH (avro_schema_url = 'dummy_schema')\n" +
                 "AS SELECT * FROM (VALUES('a')) t (a)";
 
         assertQueryFails(ctasSql, "CREATE TABLE AS not supported when Avro schema url is set");
+    }
+
+    @Test
+    public void testCtasWithNoDataSucceedsWithAvroSchemaUrl()
+            throws Exception
+    {
+        String tableName = "test_ctas_no_data_avro_schema_url_" + randomNameSuffix();
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        String schema =
+                """
+                {
+                    "namespace": "io.trino.test",
+                    "name": "testNoData",
+                    "type": "record",
+                    "fields": [
+                       { "name":"dummy_col", "type":"string" }
+                    ]
+                }\
+                """;
+        Location schemaFile = tempDir.appendPath("test_no_data_schema.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
+
+        try {
+            assertUpdate(
+                    format("CREATE TABLE %s WITH (avro_schema_url = '%s', format = 'AVRO') " +
+                                    "AS SELECT 'dummy' AS dummy_col WITH NO DATA",
+                            tableName,
+                            schemaFile),
+                    0);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            fileSystem.deleteDirectory(tempDir);
+        }
     }
 
     @Test
