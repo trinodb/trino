@@ -138,6 +138,14 @@ public class TestIntervalDayTime
         assertThat(assertions.expression("INTERVAL '32' SECOND"))
                 .isEqualTo(interval(0, 0, 0, 32, 0));
 
+        // Fractional seconds beyond millisecond precision must fail (see #6754)
+        assertThatThrownBy(assertions.expression("INTERVAL '.0001' SECOND")::evaluate)
+                .hasMessage("line 1:12: Invalid INTERVAL SECOND value: .0001");
+        assertThatThrownBy(assertions.expression("INTERVAL '1.1234' SECOND")::evaluate)
+                .hasMessage("line 1:12: Invalid INTERVAL SECOND value: 1.1234");
+        assertThatThrownBy(assertions.expression("INTERVAL '5 9:23:56.1234' DAY TO SECOND")::evaluate)
+                .hasMessage("line 1:12: Invalid INTERVAL DAY TO SECOND value: 5 9:23:56.1234");
+
         // Invalid literals
         assertThatThrownBy(assertions.expression("INTERVAL '12X' DAY")::evaluate)
                 .hasMessage("line 1:12: Invalid INTERVAL DAY value: 12X");

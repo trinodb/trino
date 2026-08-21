@@ -280,6 +280,12 @@ public final class DateTimeUtils
 
     private static long parsePeriodMillis(PeriodFormatter periodFormatter, String value)
     {
+        // Day-time intervals are stored at millisecond precision. Reject values whose
+        // fractional-seconds field has more than 3 digits instead of silently truncating
+        // (e.g. INTERVAL '.0001' SECOND must not be treated as zero).
+        //
+        // See https://github.com/trinodb/trino/issues/6754
+        checkFractionalSecondsPrecision(value);
         Period period = parsePeriod(periodFormatter, value);
         return IntervalDayTime.toMillis(
                 period.getValue(DAY_FIELD),
@@ -287,6 +293,36 @@ public final class DateTimeUtils
                 period.getValue(MINUTE_FIELD),
                 period.getValue(SECOND_FIELD),
                 period.getValue(MILLIS_FIELD));
+    }
+
+    private static void checkFractionalSecondsPrecision(String value)
+    {
+        // Strip a leading sign so "-1.1234" is checked like "1.1234".
+        String unsigned = value.startsWith("-") || value.startsWith("+") ? value.substring(1) : value;
+
+        int separator = -1;
+        for (int i = 0; i < unsigned.length(); i++) {
+            char c = unsigned.charAt(i);
+            if (c == '.' || c == ',') {
+                separator = i;
+            }
+        }
+        if (separator < 0) {
+            return;
+        }
+
+        int digits = 0;
+        for (int i = separator + 1; i < unsigned.length(); i++) {
+            char c = unsigned.charAt(i);
+            if (c < '0' || c > '9') {
+                break;
+            }
+            digits++;
+        }
+        if (digits > 3) {
+            throw new IllegalArgumentException(
+                    format("INTERVAL fractional seconds precision exceeds milliseconds: %s", value));
+        }
     }
 
     public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
