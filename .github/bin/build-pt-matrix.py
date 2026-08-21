@@ -11,88 +11,56 @@ from pathlib import Path
 SUITE_DIR = Path("testing/trino-product-tests/src/test/java/io/trino/tests/product/suite")
 SUITE_HELPERS = {"SuiteRunner", "SuiteTag"}
 
-BUCKETS = [
-    ("jdbc-core", [
-        "SuiteMysql",
-        "SuitePostgresql",
-        "SuiteSqlServer",
-        "SuiteFunctions",
-        "SuiteTpch",
-        "SuiteTpcds",
-    ]),
-    ("jdbc-external", [
-        "SuiteExasol",
-        "SuiteSnowflake",
-    ]),
-    ("connector-smoke", [
-        "SuiteCassandra",
-        "SuiteClickhouse",
-        "SuiteBlackHole",
-        "SuiteAllConnectorsSmoke",
-        "SuiteIgnite",
-    ]),
-    ("auth-and-clients", [
-        "SuiteKafka",
-        "SuiteLdap",
-        "SuiteOauth2",
-        "SuiteClients",
-        "SuiteJdbcKerberos",
-        "SuiteLoki",
-        "SuiteRanger",
-        "SuiteTls",
-    ]),
-    ("hive-basic", [
-        "SuiteHiveBasic",
-        "SuiteHmsOnly",
-        "SuiteHiveStorageFormats",
-        "SuiteSqlCancel",
-    ]),
-    ("hive-kerberos", [
-        "SuiteHdfsImpersonation",
-        "SuiteTwoHives",
-        "SuiteHive4",
-        "SuiteHudi",
-    ]),
-    ("hive-transactional", [
-        "SuiteHiveTransactional",
-        "SuiteAuthorization",
-        "SuiteFaultTolerant",
-    ]),
-    ("hive-storage", [
-        "SuiteHiveSpark",
-        "SuiteHiveAlluxioCaching",
-        "SuiteStorageFormatsDetailed",
-        "SuiteParquet",
-    ]),
-    ("iceberg", [
-        "SuiteIceberg",
-    ]),
-    ("delta-lake", [
-        "SuiteDeltaLakeOss",
-        "SuiteCompatibility",
-    ]),
-    ("cloud-object-store", [
-        "SuiteGcs",
-        "SuiteAzure",
-    ]),
-    ("databricks-133", [
-        "SuiteDeltaLakeDatabricks133",
-    ]),
-    ("databricks-143", [
-        "SuiteDeltaLakeDatabricks143",
-    ]),
-    ("databricks-154", [
-        "SuiteDeltaLakeDatabricks154",
-    ]),
-    ("databricks-164", [
-        "SuiteDeltaLakeDatabricks164",
-    ]),
-    ("databricks-173", [
-        "SuiteDeltaLakeDatabricks173",
-    ]),
+SUITES = [
+    "SuiteMysql",
+    "SuitePostgresql",
+    "SuiteSqlServer",
+    "SuiteFunctions",
+    "SuiteTpch",
+    "SuiteTpcds",
+    "SuiteExasol",
+    "SuiteSnowflake",
+    "SuiteCassandra",
+    "SuiteClickhouse",
+    "SuiteBlackHole",
+    "SuiteAllConnectorsSmoke",
+    "SuiteIgnite",
+    "SuiteKafka",
+    "SuiteLdap",
+    "SuiteOauth2",
+    "SuiteClients",
+    "SuiteJdbcKerberos",
+    "SuiteLoki",
+    "SuiteRanger",
+    "SuiteTls",
+    "SuiteHiveBasic",
+    "SuiteHmsOnly",
+    "SuiteHiveStorageFormats",
+    "SuiteSqlCancel",
+    "SuiteHdfsImpersonation",
+    "SuiteTwoHives",
+    "SuiteHive4",
+    "SuiteHudi",
+    "SuiteHiveTransactional",
+    "SuiteAuthorization",
+    "SuiteFaultTolerant",
+    "SuiteHiveSpark",
+    "SuiteHiveAlluxioCaching",
+    "SuiteStorageFormatsDetailed",
+    "SuiteParquet",
+    "SuiteIceberg",
+    "SuiteDeltaLakeOss",
+    "SuiteCompatibility",
+    "SuiteGcs",
+    "SuiteAzure",
+    "SuiteDeltaLakeDatabricks133",
+    "SuiteDeltaLakeDatabricks143",
+    "SuiteDeltaLakeDatabricks154",
+    "SuiteDeltaLakeDatabricks164",
+    "SuiteDeltaLakeDatabricks173",
 ]
 
-ALL_SUITES = frozenset(suite for _, suites in BUCKETS for suite in suites)
+ALL_SUITES = frozenset(SUITES)
 ALL_CONNECTORS_SMOKE = frozenset({"SuiteAllConnectorsSmoke"})
 DATABRICKS_SUITES = frozenset({
     "SuiteDeltaLakeDatabricks133",
@@ -263,13 +231,9 @@ def build_matrix(impacted_modules):
         selected_suites = ALL_SUITES
 
     include = []
-    for bucket, suites in BUCKETS:
-        filtered_suites = [suite for suite in suites if suite in selected_suites]
-        if filtered_suites:
-            include.append({
-                "bucket": bucket,
-                "suites": " ".join(filtered_suites),
-            })
+    for suite in SUITES:
+        if suite in selected_suites:
+            include.append({"suite": suite})
     return {"include": include} if include else {}
 
 
@@ -298,7 +262,7 @@ def suites_for_impacted_modules(impacted_modules):
 
 
 def validate_configuration(suite_dir=SUITE_DIR):
-    declared_suites = [suite for _, suites in BUCKETS for suite in suites]
+    declared_suites = SUITES
     duplicate_suites = sorted({suite for suite in declared_suites if declared_suites.count(suite) > 1})
     if duplicate_suites:
         raise ValueError(f"Suites declared more than once: {', '.join(duplicate_suites)}")
@@ -327,8 +291,8 @@ class TestBuildMatrix(unittest.TestCase):
             build_matrix({"plugin/trino-mysql"}),
             {
                 "include": [
-                    {"bucket": "jdbc-core", "suites": "SuiteMysql"},
-                    {"bucket": "connector-smoke", "suites": "SuiteAllConnectorsSmoke"},
+                    {"suite": "SuiteMysql"},
+                    {"suite": "SuiteAllConnectorsSmoke"},
                 ],
             },
         )
@@ -338,9 +302,9 @@ class TestBuildMatrix(unittest.TestCase):
             build_matrix({"plugin/trino-mariadb"}),
             {
                 "include": [
-                    {"bucket": "jdbc-core", "suites": "SuiteMysql"},
-                    {"bucket": "connector-smoke", "suites": "SuiteAllConnectorsSmoke"},
-                    {"bucket": "auth-and-clients", "suites": "SuiteRanger"},
+                    {"suite": "SuiteMysql"},
+                    {"suite": "SuiteAllConnectorsSmoke"},
+                    {"suite": "SuiteRanger"},
                 ],
             },
         )
@@ -397,7 +361,9 @@ class TestBuildMatrix(unittest.TestCase):
         self.assertEqual(build_matrix(set()), build_matrix(None))
 
     def test_forced_full_run(self):
-        self.assertEqual(suites_from_matrix(build_matrix(None)), ALL_SUITES)
+        matrix = build_matrix(None)
+        self.assertEqual(suites_from_matrix(matrix), ALL_SUITES)
+        self.assertEqual(len(matrix["include"]), len(ALL_SUITES))
 
     def test_understood_module_without_product_tests_produces_empty_matrix(self):
         self.assertEqual(build_matrix({"plugin/trino-example-jdbc"}), {})
@@ -407,11 +373,7 @@ class TestBuildMatrix(unittest.TestCase):
 
 
 def suites_from_matrix(matrix):
-    return {
-        suite
-        for item in matrix.get("include", [])
-        for suite in item["suites"].split()
-    }
+    return {item["suite"] for item in matrix.get("include", [])}
 
 
 validate_configuration()

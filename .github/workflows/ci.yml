@@ -929,7 +929,7 @@ jobs:
 
   pt:
     runs-on: 'ubuntu-latest'
-    name: pt (${{ matrix.bucket }})
+    name: pt (${{ matrix.suite }})
     if: needs.build-pt.outputs.matrix != '{}'
     strategy:
       fail-fast: false
@@ -1002,13 +1002,13 @@ jobs:
           declare -a suite_results=()
           declare -a suite_totals=()
           declare -a skipped_suites=()
-          echo "## pt ${{ matrix.bucket }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "## pt ${{ matrix.suite }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           failed=0
           failed_suites=()
 
-          for suite in ${{ matrix.suites }}; do
+          for suite in ${{ matrix.suite }}; do
             log_file="logs/${suite}.log"
             echo "### ${suite}" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -1114,9 +1114,9 @@ jobs:
 
           echo ""
           echo "========================================"
-          echo "        PT-JUNIT BUCKET SUMMARY         "
+          echo "         PT-JUNIT SUITE SUMMARY         "
           echo "========================================"
-          echo "Bucket: ${{ matrix.bucket }}"
+          echo "Suite: ${{ matrix.suite }}"
           echo ""
           for entry in "${suite_results[@]}"; do
             suite_name=${entry%%:*}
@@ -1164,7 +1164,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pt (${{ matrix.bucket }})
+          name: pt (${{ matrix.suite }})
           path: logs/
           retention-days: 7
       - name: Update PR check
@@ -1183,7 +1183,7 @@ jobs:
         if: ${{ failure() && github.event_name == 'merge_group' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/bin/cancel-merge-queue-workflow.sh "pt (${{ matrix.bucket }})"
+        run: .github/bin/cancel-merge-queue-workflow.sh "pt (${{ matrix.suite }})"
 
 
   build-success:
