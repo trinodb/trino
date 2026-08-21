@@ -22,6 +22,7 @@ import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
@@ -40,7 +41,7 @@ public final class S3FileSystemFactory
     {
         this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
         this.client = loader.createClient();
-        this.preSigner = createS3PreSigner(config, client);
+        this.preSigner = createS3PreSigner(config, client, loader.aliasResolver(), Optional.empty());
         this.context = loader.context();
         this.uploadExecutor = loader.uploadExecutor();
     }
