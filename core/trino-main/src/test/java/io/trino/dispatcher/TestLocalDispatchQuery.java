@@ -236,7 +236,7 @@ public class TestLocalDispatchQuery
         }
 
         @Override
-        public synchronized ListenableFuture<Void> waitForMinimumWorkers(int executionMinCount, Duration executionMaxWait)
+        public synchronized ListenableFuture<Void> waitForMinimumWorkers(Optional<String> nodeGroup, int executionMinCount, Duration executionMaxWait)
         {
             return immediateVoidFuture();
         }
