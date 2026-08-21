@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -141,7 +142,8 @@ public class TestUniformNodeSelector
                 NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
                 false,
                 queueSizeAdjuster,
-                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig()));
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig()),
+                Optional.empty());
 
         for (int i = 0; i < 20; i++) {
             splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit()));
@@ -314,7 +316,8 @@ public class TestUniformNodeSelector
                 NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
                 true,
                 new UniformNodeSelector.QueueSizeAdjuster(1000, 10000, new TestingTicker()),
-                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig()));
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig()),
+                Optional.empty());
 
         Split rigidSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(node1.getHostAndPort())));
         splits.add(rigidSplit);
