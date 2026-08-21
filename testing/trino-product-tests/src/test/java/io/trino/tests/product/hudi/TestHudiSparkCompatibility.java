@@ -301,6 +301,33 @@ class TestHudiSparkCompatibility
         }
     }
 
+    @Test
+    void testReadCopyOnWriteTableWithPendingClustering(HudiEnvironment env)
+    {
+        String tableName = "test_hudi_cow_pending_clustering_" + randomNameSuffix();
+        String warehouseDir = env.getWarehouseDirectory();
+
+        env.executeSparkUpdate("CREATE TABLE default." + tableName +
+                "(id bigint, name string, ts bigint)" +
+                "USING hudi " +
+                "TBLPROPERTIES (" +
+                " type = 'cow'," +
+                " primaryKey = 'id'," +
+                " preCombineField = 'ts'," +
+                " hoodie.clustering.schedule.inline = 'true'," +
+                " hoodie.clustering.inline = 'false')" +
+                "LOCATION 'hdfs://hadoop-master:9000" + warehouseDir + "/" + tableName + "'");
+
+        try {
+            env.executeSparkUpdate("INSERT INTO default." + tableName + " VALUES (1, 'a1', 1000), (2, 'a2', 2000)");
+            assertThat(env.executeTrino("SELECT id, name FROM hudi.default." + tableName))
+                    .containsOnly(row(1L, "a1"), row(2L, "a2"));
+        }
+        finally {
+            env.executeSparkUpdate("DROP TABLE default." + tableName);
+        }
+    }
+
     private void createNonPartitionedTable(HudiEnvironment env, String tableName, String tableType)
     {
         String warehouseDir = env.getWarehouseDirectory();

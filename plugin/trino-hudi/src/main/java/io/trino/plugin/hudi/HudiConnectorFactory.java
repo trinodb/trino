@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import org.apache.avro.util.ClassSecurityValidator;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -43,6 +44,7 @@ import java.util.Set;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
+import static org.apache.avro.util.ClassSecurityValidator.composite;
 
 public class HudiConnectorFactory
         implements ConnectorFactory
@@ -66,6 +68,8 @@ public class HudiConnectorFactory
             ConnectorContext context,
             Optional<Module> module)
     {
+        ClassSecurityValidator.setGlobal(composite(ClassSecurityValidator.getGlobal(), clazz -> clazz.getName().startsWith("org.apache.hudi.")));
+
         ClassLoader classLoader = HudiConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
