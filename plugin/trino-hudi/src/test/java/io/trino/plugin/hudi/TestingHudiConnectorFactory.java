@@ -58,9 +58,7 @@ public class TestingHudiConnectorFactory
         return createConnector(catalogName, configBuilder.buildOrThrow(), context, Optional.of(binder -> {
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
-            configBinder(binder).bindConfigDefaults(
-                    FileHiveMetastoreConfig.class,
-                    metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));
+            configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///managed/"));
         }));
     }
 }

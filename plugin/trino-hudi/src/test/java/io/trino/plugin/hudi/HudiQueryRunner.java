@@ -97,6 +97,13 @@ public final class HudiQueryRunner
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperties(Map<String, String> properties)
+        {
+            this.connectorProperties.putAll(properties);
+            return this;
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -130,7 +137,7 @@ public final class HudiQueryRunner
     {
         private DefaultHudiQueryRunnerMain() {}
 
-        static void main()
+        public static void main(String[] args)
                 throws Exception
         {
             Logging.initialize();
@@ -150,7 +157,7 @@ public final class HudiQueryRunner
     {
         private HudiFlociQueryRunnerMain() {}
 
-        static void main()
+        public static void main(String[] args)
                 throws Exception
         {
             Logging.initialize();
