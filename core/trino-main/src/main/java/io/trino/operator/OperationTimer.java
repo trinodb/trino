@@ -14,11 +14,10 @@
 package io.trino.operator;
 
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.vthreadtime.VirtualThreadTime;
 import io.trino.annotation.NotThreadSafe;
 import jakarta.annotation.Nullable;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -30,10 +29,11 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 class OperationTimer
 {
-    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
-
     private final boolean trackOverallCpuTime;
     private final boolean trackOperationCpuTime;
+    private final boolean virtualThread;
+    @Nullable
+    private final VirtualThreadTime virtualThreadTime;
 
     private final long wallStart;
     private final long cpuStart;
@@ -53,6 +53,9 @@ class OperationTimer
         this.trackOverallCpuTime = trackOverallCpuTime;
         this.trackOperationCpuTime = trackOperationCpuTime;
         checkArgument(trackOverallCpuTime || !trackOperationCpuTime, "tracking operation cpu time without tracking overall cpu time is not supported");
+
+        virtualThread = trackOverallCpuTime && Thread.currentThread().isVirtual();
+        virtualThreadTime = virtualThread ? ThreadExecutionTimer.currentVirtualThreadTime() : null;
 
         wallStart = System.nanoTime();
         cpuStart = trackOverallCpuTime ? currentThreadCpuTime() : 0;
@@ -89,9 +92,15 @@ class OperationTimer
         overallTiming.record(nanosBetween(wallStart, wallEnd), nanosBetween(cpuStart, cpuEnd));
     }
 
-    private static long currentThreadCpuTime()
+    private long currentThreadCpuTime()
     {
-        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
+        if (!virtualThread) {
+            return ThreadExecutionTimer.currentPlatformThreadTimeNanos();
+        }
+        if (virtualThreadTime == null) {
+            return 0;
+        }
+        return virtualThreadTime.mountedTimeNanos();
     }
 
     private static long nanosBetween(long start, long end)
