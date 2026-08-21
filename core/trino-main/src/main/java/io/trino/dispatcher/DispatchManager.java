@@ -242,6 +242,15 @@ public class DispatchManager
             // apply system default session properties (does not override user set properties)
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType, selectionContext.getResourceGroupId());
 
+            // restrict the query to the node group of its resource group, if it declares one. This is resolved
+            // from the resource group rather than the session so that a user cannot choose their own node group.
+            Optional<String> nodeGroup = resourceGroupManager.getNodeGroup(selectionContext);
+            if (nodeGroup.isPresent()) {
+                session = Session.builder(session)
+                        .setNodeGroup(nodeGroup)
+                        .build();
+            }
+
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
                     sessionContext.getTransactionId(),
