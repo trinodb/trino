@@ -959,7 +959,7 @@ jobs:
         run: |
           gzip -dc product-tests-trino-image.tar.gz | docker load
           version=$($MAVEN -f pom.xml --quiet help:evaluate -Dexpression=project.version -DforceStdout --raw-streams)
-          docker tag "product-tests-trino:${version}-amd64" trinodb/trino:latest
+          docker tag "product-tests-trino:${version}-amd64" trino:for-product-tests
       - name: Compile JUnit product test suites
         run: |
           $MAVEN -pl testing/trino-product-tests -Dair.check.skip-all=true -DskipTests test-compile
@@ -967,7 +967,7 @@ jobs:
         id: tests
         shell: bash
         env:
-          TRINO_PRODUCT_TESTS_IMAGE: trinodb/trino:latest
+          TRINO_PRODUCT_TESTS_IMAGE: "trino:for-product-tests"
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
           ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
