@@ -313,7 +313,11 @@ public class BinPackingNodeAllocatorService
                         break;
                     }
 
-                    pendingAcquire.getFuture().setException(new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query"));
+                    pendingAcquire.getFuture().setException(new TrinoException(
+                            NO_NODES_AVAILABLE,
+                            pendingAcquire.getNodeGroup()
+                                    .map("No nodes available to run query in node group '%s'"::formatted)
+                                    .orElse("No nodes available to run query")));
                     iterator.remove();
                 }
                 case NOT_ENOUGH_RESOURCES_NOW -> {
@@ -433,7 +437,7 @@ public class BinPackingNodeAllocatorService
             @Override
             public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
             {
-                return BinPackingNodeAllocatorService.this.acquire(nodeRequirements, memoryRequirement, executionClass, session.getQueryId());
+                return BinPackingNodeAllocatorService.this.acquire(nodeRequirements, memoryRequirement, executionClass, session.getQueryId(), session.getNodeGroup());
             }
 
             @Override
@@ -446,8 +450,13 @@ public class BinPackingNodeAllocatorService
 
     public NodeAllocator.NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass, QueryId queryId)
     {
+        return acquire(nodeRequirements, memoryRequirement, executionClass, queryId, Optional.empty());
+    }
+
+    public NodeAllocator.NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass, QueryId queryId, Optional<String> nodeGroup)
+    {
         BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass, nodeRequirements);
-        PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, nodeLease, queryId, ticker);
+        PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, nodeLease, queryId, nodeGroup, ticker);
         Deque<PendingAcquire> requesterPendingAcquires = pendingAcquires.computeIfAbsent(queryId, _ -> new ConcurrentLinkedDeque<>());
         requesterPendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
@@ -561,16 +570,18 @@ public class BinPackingNodeAllocatorService
         private final NodeRequirements nodeRequirements;
         private final BinPackingNodeLease lease;
         private final QueryId queryId;
+        private final Optional<String> nodeGroup;
         private final Stopwatch noMatchingNodeStopwatch;
         private final Stopwatch notEnoughResourcesStopwatch;
 
         private volatile BinPackingSimulation.ReservationStatus lastReservationStatus = BinPackingSimulation.ReservationStatus.UNKNOWN;
 
-        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, QueryId queryId, Ticker ticker)
+        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, QueryId queryId, Optional<String> nodeGroup, Ticker ticker)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
             this.lease = requireNonNull(lease, "lease is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
+            this.nodeGroup = requireNonNull(nodeGroup, "nodeGroup is null");
             this.noMatchingNodeStopwatch = Stopwatch.createUnstarted(ticker);
             this.notEnoughResourcesStopwatch = Stopwatch.createStarted(ticker);
         }
@@ -588,6 +599,11 @@ public class BinPackingNodeAllocatorService
         public QueryId getQueryId()
         {
             return queryId;
+        }
+
+        public Optional<String> getNodeGroup()
+        {
+            return nodeGroup;
         }
 
         public SettableFuture<InternalNode> getFuture()
@@ -762,6 +778,8 @@ public class BinPackingNodeAllocatorService
     private static class BinPackingSimulation
     {
         private final List<InternalNode> allNodesSorted;
+        private final Map<String, List<InternalNode>> candidatesWithCoordinatorByNodeGroup = new HashMap<>();
+        private final Map<String, List<InternalNode>> candidatesExceptCoordinatorByNodeGroup = new HashMap<>();
         private final List<InternalNode> workerNodesSorted;
         private final Multimap<HostAddress, InternalNode> allNodesByAddress;
         private final boolean ignoreAcquiredSpeculative;
@@ -879,22 +897,28 @@ public class BinPackingNodeAllocatorService
         {
             NodeRequirements requirements = acquire.getNodeRequirements();
 
+            Optional<String> nodeGroup = acquire.getNodeGroup();
             List<InternalNode> candidates;
             Optional<HostAddress> address = requirements.getAddress();
             if (address.isPresent() && (optimizedLocalScheduling || !requirements.isRemotelyAccessible())) {
                 Collection<InternalNode> preferred = allNodesByAddress.get(address.get());
                 if ((!preferred.isEmpty() && acquire.getNotEnoughResourcesPeriod().compareTo(exhaustedNodeWaitPeriod) < 0) || !requirements.isRemotelyAccessible()) {
                     // use preferred node if available
-                    candidates = getCandidatesWithCoordinator().stream().filter(preferred::contains).collect(toImmutableList());
+                    candidates = getCandidatesWithCoordinator(nodeGroup).stream().filter(preferred::contains).collect(toImmutableList());
+                    if (candidates.isEmpty() && requirements.isRemotelyAccessible()) {
+                        // the preferred node is outside the query's node group, so fall back to any allowed node
+                        // rather than waiting out allowedNoMatchingNodePeriod and failing the query
+                        candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(nodeGroup) : getCandidatesExceptCoordinator(nodeGroup);
+                    }
                 }
                 else {
                     // use all nodes if we do not have preferences or waited to long
-                    candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator() : getCandidatesExceptCoordinator();
+                    candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(nodeGroup) : getCandidatesExceptCoordinator(nodeGroup);
                 }
             }
             else {
                 // standard candidates
-                candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator() : getCandidatesExceptCoordinator();
+                candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(nodeGroup) : getCandidatesExceptCoordinator(nodeGroup);
             }
 
             if (candidates.isEmpty()) {
@@ -955,14 +979,30 @@ public class BinPackingNodeAllocatorService
             return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
         }
 
-        private List<InternalNode> getCandidatesExceptCoordinator()
+        private List<InternalNode> getCandidatesExceptCoordinator(Optional<String> nodeGroup)
         {
-            return workerNodesSorted;
+            return candidatesForNodeGroup(candidatesExceptCoordinatorByNodeGroup, workerNodesSorted, nodeGroup);
         }
 
-        private List<InternalNode> getCandidatesWithCoordinator()
+        private List<InternalNode> getCandidatesWithCoordinator(Optional<String> nodeGroup)
         {
-            return allNodesSorted;
+            return candidatesForNodeGroup(candidatesWithCoordinatorByNodeGroup, allNodesSorted, nodeGroup);
+        }
+
+        /**
+         * Filters the already sorted candidates, rather than reading a node group index, so that ties between
+         * equally loaded nodes keep resolving the same way from one simulation to the next. Built on demand
+         * because most clusters use no node groups at all, and a simulation is built several times per pass.
+         */
+        private static List<InternalNode> candidatesForNodeGroup(Map<String, List<InternalNode>> cache, List<InternalNode> candidatesSorted, Optional<String> nodeGroup)
+        {
+            if (nodeGroup.isEmpty()) {
+                return candidatesSorted;
+            }
+            return cache.computeIfAbsent(nodeGroup.get(), group -> candidatesSorted.stream()
+                    // coordinators are exempt, matching the node selector used by pipelined execution
+                    .filter(node -> node.getNodeGroups().contains(group) || node.isCoordinator())
+                    .collect(toImmutableList()));
         }
 
         private Comparator<InternalNode> resolveTiesWithSpeculativeMemory(Comparator<InternalNode> comparator)

@@ -156,6 +156,15 @@ public class EventDrivenTaskSourceFactory
                 metricsRecorder);
     }
 
+    /**
+     * Number of nodes the query may be scheduled on, which is fewer than the cluster when it is
+     * restricted to a node group.
+     */
+    private int schedulableNodeCount(Session session)
+    {
+        return nodeManager.getActiveNodesInGroup(session.getNodeGroup()).size();
+    }
+
     private SplitAssigner createSplitAssigner(
             Session session,
             PlanFragment fragment,
@@ -248,7 +257,7 @@ public class EventDrivenTaskSourceFactory
                     outputDataSizeEstimates,
                     fragment,
                     getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(session).toBytes(),
-                    toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * nodeManager.getAllNodes().activeNodes().size())),
+                    toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * schedulableNodeCount(session))),
                     Integer.MAX_VALUE); // compute tasks are bounded by the number of partitions anyways
         }
         if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)
@@ -262,7 +271,7 @@ public class EventDrivenTaskSourceFactory
                     outputDataSizeEstimates,
                     fragment,
                     getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(session).toBytes(),
-                    toIntExact(round(getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(session) * nodeManager.getAllNodes().activeNodes().size())),
+                    toIntExact(round(getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(session) * schedulableNodeCount(session))),
                     getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(session));
         }
 
