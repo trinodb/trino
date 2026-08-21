@@ -18,6 +18,7 @@ import io.trino.testing.containers.HdfsClient;
 import io.trino.testing.containers.MultiNodeTrinoCluster;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Network;
 
 import java.sql.Connection;
@@ -145,7 +146,7 @@ public class MultinodeHiveCachingEnvironment
      * @param sql the SQL query to execute
      * @return the command output
      */
-    public String runOnHive(String sql)
+    public String runOnHive(@Language("SQL") String sql)
     {
         return hadoop.runOnHive(sql);
     }
@@ -234,7 +235,7 @@ public class MultinodeHiveCachingEnvironment
     /**
      * Executes a query using the cached Hive catalog.
      */
-    public QueryResult executeHiveCached(String sql)
+    public QueryResult executeHiveCached(@Language("SQL") String sql)
     {
         try (Connection conn = createTrinoConnection();
                 Statement stmt = conn.createStatement();
@@ -249,7 +250,7 @@ public class MultinodeHiveCachingEnvironment
     /**
      * Executes a query using the non-cached Hive catalog.
      */
-    public QueryResult executeHiveNonCached(String sql)
+    public QueryResult executeHiveNonCached(@Language("SQL") String sql)
     {
         try (Connection conn = createTrinoConnection();
                 Statement stmt = conn.createStatement();
