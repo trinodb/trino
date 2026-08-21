@@ -44,15 +44,14 @@ public class UgiBasedMetastoreClientFactory
     public ThriftMetastoreClient createMetastoreClientFor(Optional<ConnectorIdentity> identity)
             throws TException
     {
-        ThriftMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty());
-
-        if (impersonationEnabled) {
-            String username = identity.map(userNameProvider::get)
-                    .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
-            setMetastoreUserOrClose(client, username);
+        if (!impersonationEnabled) {
+            return clientProvider.createMetastoreClient(Optional.empty(), _ -> {});
         }
 
-        return client;
+        String username = identity.map(userNameProvider::get)
+                .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
+
+        return clientProvider.createMetastoreClient(Optional.empty(), client -> setMetastoreUserOrClose(client, username));
     }
 
     private static void setMetastoreUserOrClose(ThriftMetastoreClient client, String username)

@@ -92,10 +92,10 @@ public class DefaultThriftMetastoreClientFactory
     }
 
     @Override
-    public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
+    public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
             throws TTransportException
     {
-        return create(() -> getTransportSupplier(uri, delegationToken), hostname);
+        return create(() -> getTransportSupplier(uri, delegationToken), clientInitializer, hostname);
     }
 
     private TTransport getTransportSupplier(URI uri, Optional<String> delegationToken)
@@ -105,12 +105,13 @@ public class DefaultThriftMetastoreClientFactory
         return createTransport(HostAndPort.fromParts(uri.getHost(), uri.getPort()), delegationToken);
     }
 
-    protected ThriftMetastoreClient create(TransportSupplier transportSupplier, String hostname)
+    protected ThriftMetastoreClient create(TransportSupplier transportSupplier, ThriftMetastoreClientInitializer clientInitializer, String hostname)
             throws TTransportException
     {
         return new ThriftHiveMetastoreClient(
                 transportSupplier,
                 hostname,
+                clientInitializer,
                 catalogName,
                 metastoreSupportsDateStatistics,
                 chosenGetTableAlternative,
