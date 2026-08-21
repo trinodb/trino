@@ -79,10 +79,10 @@ public class GrantRolesTask
         specifiedRoles.addAll(roles);
         grantees.stream()
                 .filter(principal -> principal.getType() == ROLE)
-                .map(TrinoPrincipal::getName)
+                .map(TrinoPrincipal::getPrincipalName)
                 .forEach(specifiedRoles::add);
         if (grantor.isPresent() && grantor.get().getType() == ROLE) {
-            specifiedRoles.add(grantor.get().getName());
+            specifiedRoles.add(grantor.get().getPrincipalName());
         }
 
         for (String role : specifiedRoles) {
