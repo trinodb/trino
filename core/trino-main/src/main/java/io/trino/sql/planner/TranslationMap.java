@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.RowNullnessFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -666,6 +667,12 @@ public class TranslationMap
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), getCharVarcharCoercion(session), in) : in;
             }
             case IsNullPredicate predicate -> {
+                if (value.type() instanceof RowType) {
+                    yield BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(session))
+                            .setName(predicate.isNegated() ? RowNullnessFunction.IS_NOT_NULL_NAME : RowNullnessFunction.IS_NULL_NAME)
+                            .addArgument(value.type(), value)
+                            .build();
+                }
                 io.trino.sql.ir.Expression isNull = new IsNull(value);
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), getCharVarcharCoercion(session), isNull) : isNull;
             }
