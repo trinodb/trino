@@ -138,6 +138,7 @@ public final class DistributedQueryRunner
     private DistributedQueryRunner(
             Session defaultSession,
             int workerCount,
+            List<Map<String, String>> workerProperties,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             String environment,
@@ -201,7 +202,7 @@ public final class DistributedQueryRunner
                     ImmutableList.of());
 
             for (int i = 0; i < workerCount; i++) {
-                createNewWorker.accept(Map.of());
+                createNewWorker.accept(i < workerProperties.size() ? workerProperties.get(i) : Map.of());
             }
             refreshNodes();
         }
@@ -756,6 +757,7 @@ public final class DistributedQueryRunner
         private Optional<Map<String, String>> blobCacheProperties = Optional.empty();
         private final ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
         private int workerCount = 2;
+        private List<Map<String, String>> workerProperties = ImmutableList.of();
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Consumer<QueryRunner> additionalSetup = _ -> {};
@@ -788,6 +790,18 @@ public final class DistributedQueryRunner
         public SELF setWorkerCount(int workerCount)
         {
             this.workerCount = workerCount;
+            return self();
+        }
+
+        /**
+         * Configuration for each worker separately, for tests that need workers to differ, such as
+         * belonging to different node groups. Sets the worker count to the number of entries.
+         */
+        @CanIgnoreReturnValue
+        public SELF setWorkerProperties(List<Map<String, String>> workerProperties)
+        {
+            this.workerProperties = ImmutableList.copyOf(workerProperties);
+            this.workerCount = this.workerProperties.size();
             return self();
         }
 
@@ -1015,6 +1029,7 @@ public final class DistributedQueryRunner
             DistributedQueryRunner queryRunner = new DistributedQueryRunner(
                     defaultSession,
                     workerCount,
+                    workerProperties,
                     extraProperties,
                     coordinatorProperties,
                     environment,
