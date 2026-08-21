@@ -22,6 +22,7 @@ import io.trino.testing.containers.environment.QueryResult;
 import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -30,6 +31,7 @@ import java.sql.Statement;
 import java.util.Map;
 
 import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 /**
  * Hudi product test environment for interoperability testing.
@@ -55,6 +57,9 @@ import static io.trino.testing.containers.environment.QueryRetry.executeWithRetr
 public class HudiEnvironment
         extends ProductTestEnvironment
 {
+    private static final Path CONFIG_DIR = Path.of("testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/environment/multinode-hudi");
+    private static final String JVM_CONFIG_TARGET = "/etc/trino/jvm.config";
+
     static {
         // Ensure the Hive JDBC driver is loaded for Spark Thrift Server connections
         try {
@@ -109,6 +114,7 @@ public class HudiEnvironment
                         "hive.config.resources", "/etc/trino/hdfs-site.xml",
                         "hive.hudi-catalog-name", "hudi"))
                 .build();
+        trino.withCopyFileToContainer(forHostPath(CONFIG_DIR.resolve("jvm.config").toString()), JVM_CONFIG_TARGET);
         TrinoProductTestContainer.startAndWait(trino);
     }
 
