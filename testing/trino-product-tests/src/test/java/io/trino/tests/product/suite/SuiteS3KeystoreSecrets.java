@@ -1,0 +1,48 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.tests.product.suite;
+
+import io.trino.tests.product.TestGroup;
+import io.trino.tests.product.hive.S3KeystoreSecretsEnvironment;
+import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Product tests for keystore-backed S3 credentials with Hive and MinIO.
+ * <p>
+ * Run standalone:
+ * <pre>
+ * mvn exec:java -Dexec.mainClass="io.trino.tests.product.suite.SuiteS3KeystoreSecrets"
+ * </pre>
+ */
+public final class SuiteS3KeystoreSecrets
+{
+    private SuiteS3KeystoreSecrets() {}
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        System.setProperty("trino.product-test.environment-mode", "STRICT");
+
+        List<TestRunResult> results = new ArrayList<>();
+        results.add(SuiteRunner.forEnvironment(S3KeystoreSecretsEnvironment.class)
+                .includeTag(TestGroup.S3KeystoreSecrets.class)
+                .run());
+
+        SuiteRunner.printSummary(results);
+        System.exit(SuiteRunner.hasFailures(results) ? 1 : 0);
+    }
+}
