@@ -886,12 +886,14 @@ class StatementAnalyzer
         @Override
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
-            if (metadata.isView(session, tableName)) {
+            QualifiedObjectName originalName = createQualifiedObjectName(session, node, node.getTableName());
+            if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
 
-            TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            TableHandle tableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
             analysis.setUpdateType("ANALYZE");
