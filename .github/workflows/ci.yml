@@ -868,7 +868,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -P product-test-distribution -pl '!:trino-docs'
       - name: Determine impacted Maven modules
         if: >-
           github.event_name == 'pull_request' &&
@@ -895,11 +895,13 @@ jobs:
             client/trino-cli/target/*-executable.jar
             product-tests-trino-image.tar.gz
           retention-days: 1
-      - name: Product tests Maven artifacts
+      - name: Product test distribution
         uses: actions/upload-artifact@v7
         with:
-          name: product tests m2 io.trino
-          path: ~/.m2/repository/io/trino
+          name: product test distribution
+          path: |
+            testing/trino-product-tests/target/product-test-distribution
+            testing/trino-product-tests/target/iceberg-spark-runtime.jar
           retention-days: 1
       - name: Build product-test matrix from impacted modules
         if: >-
@@ -950,19 +952,16 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: product tests and server tarball
-      - name: Product tests Maven artifacts
+      - name: Product test distribution
         uses: actions/download-artifact@v8
         with:
-          name: product tests m2 io.trino
-          path: ~/.m2/repository/io/trino
+          name: product test distribution
+          path: testing/trino-product-tests/target
       - name: Load Trino Docker image for product tests
         run: |
           gzip -dc product-tests-trino-image.tar.gz | docker load
           version=$($MAVEN -f pom.xml --quiet help:evaluate -Dexpression=project.version -DforceStdout --raw-streams)
           docker tag "product-tests-trino:${version}-amd64" trino:for-product-tests
-      - name: Compile JUnit product test suites
-        run: |
-          $MAVEN -pl testing/trino-product-tests -Dair.check.skip-all=true -DskipTests test-compile
       - name: Product Tests (JUnit suites)
         id: tests
         shell: bash
@@ -993,6 +992,12 @@ jobs:
           SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
         run: |
           mkdir -p logs
+
+          # Suites load checked-in configuration from paths relative to the repository root.
+          product_test_distribution=testing/trino-product-tests/target/product-test-distribution
+          test_jar=("${product_test_distribution}"/lib/trino-product-tests-*-tests.jar)
+          product_test_classpath=$(< "${product_test_distribution}/classpath.txt")
+          product_test_classpath="${product_test_distribution}/${product_test_classpath//:/:${product_test_distribution}/}"
 
           declare -a suite_results=()
           declare -a suite_totals=()
@@ -1073,10 +1078,12 @@ jobs:
               fi
             fi
             set +e
-            $MAVEN -pl testing/trino-product-tests -Dair.check.skip-all=true -DskipTests exec:java \
-              -Dexec.classpathScope=test \
+            java \
+              -Xmx512M \
+              -XX:+ExitOnOutOfMemoryError \
               -Dtrino.product-tests.image="${TRINO_PRODUCT_TESTS_IMAGE}" \
-              -Dexec.mainClass=io.trino.tests.product.suite.${suite} \
+              -cp "${test_jar[0]}:${product_test_classpath}" \
+              io.trino.tests.product.suite.${suite} \
               | tee "${log_file}"
             rc=${PIPESTATUS[0]}
             set -e
