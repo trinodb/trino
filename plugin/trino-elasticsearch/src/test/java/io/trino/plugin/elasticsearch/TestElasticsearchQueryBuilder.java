@@ -44,6 +44,7 @@ public class TestElasticsearchQueryBuilder
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private static final ElasticsearchColumnHandle NAME = new ElasticsearchColumnHandle(ImmutableList.of("name"), VARCHAR, new IndexMetadata.PrimitiveType("text"), new VarcharDecoder.Descriptor("name"), true);
+    private static final ElasticsearchColumnHandle ANALYZED_TEXT = new ElasticsearchColumnHandle(ImmutableList.of("text_column"), VARCHAR, new IndexMetadata.PrimitiveType("text"), new VarcharDecoder.Descriptor("text_column"), false);
     private static final ElasticsearchColumnHandle AGE = new ElasticsearchColumnHandle(ImmutableList.of("age"), INTEGER, new IndexMetadata.PrimitiveType("int"), new IntegerDecoder.Descriptor("age"), true);
     private static final ElasticsearchColumnHandle SCORE = new ElasticsearchColumnHandle(ImmutableList.of("score"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("score"), true);
     private static final ElasticsearchColumnHandle LENGTH = new ElasticsearchColumnHandle(ImmutableList.of("length"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("length"), true);
@@ -131,6 +132,23 @@ public class TestElasticsearchQueryBuilder
                         SCORE, Domain.onlyNull(DOUBLE)),
                 """
                 {"bool":{"filter":[{"term":{"age":10}}],"must_not":[{"exists":{"field":"score"}}]}}""");
+    }
+
+    @Test
+    public void testMatchPhrase()
+            throws IOException
+    {
+        // A single-value domain on analyzed text is the lowering bridge for an UNSAFE full-text match_phrase.
+        JsonNode actual = buildSearchQuery(
+                TupleDomain.withColumnDomains(Map.of(ANALYZED_TEXT, Domain.singleValue(VARCHAR, utf8Slice("ngô văn")))),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                Map.of());
+        assertThat(JSON_MAPPER.readTree(actual.toString()))
+                .isEqualTo(JSON_MAPPER.readTree(
+                        """
+                        {"bool":{"filter":[{"match_phrase":{"text_column":"ngô văn"}}]}}"""));
     }
 
     @Test

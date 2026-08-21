@@ -11,18 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.elasticsearch;
+package io.trino.plugin.elasticsearch.expression;
 
-import java.io.IOException;
+import io.trino.plugin.elasticsearch.ElasticsearchColumnHandle;
 
-import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
+import static java.util.Objects.requireNonNull;
 
-public class TestElasticsearch8ConnectorTest
-        extends BaseElasticsearchFullTextPushdownTest
+public record ElasticsearchExpressionRewrite(
+        ElasticsearchColumnHandle column,
+        QueryType queryType,
+        String value)
 {
-    public TestElasticsearch8ConnectorTest()
-            throws IOException
+    public ElasticsearchExpressionRewrite
     {
-        super(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE));
+        requireNonNull(column, "column is null");
+        requireNonNull(queryType, "queryType is null");
+        requireNonNull(value, "value is null");
+    }
+
+    public enum QueryType
+    {
+        MATCH_PHRASE
     }
 }

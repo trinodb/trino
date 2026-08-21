@@ -33,7 +33,7 @@ public class ElasticsearchConnectorModule
     protected void setup(Binder binder)
     {
         binder.bind(ElasticsearchConnector.class).in(Scopes.SINGLETON);
-        binder.bind(ElasticsearchMetadata.class).to(CasePreservingElasticsearchMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchMetadata.class).to(RuleBasedElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
