@@ -30,7 +30,7 @@ import static java.util.Objects.checkFromIndexSize;
 public class ByteArrayBlockEncoding
         implements BlockEncoding
 {
-    private static final VectorSpecies<Byte> BYTE_SPECIES = ByteVector.SPECIES_PREFERRED;
+    private static final VectorSpecies<Byte> BYTE_SPECIES = VectorApiSupport.preferredByteSpecies();
     public static final String NAME = "BYTE_ARRAY";
 
     private final boolean vectorizeNullCompress;
