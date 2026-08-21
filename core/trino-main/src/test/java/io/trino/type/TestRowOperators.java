@@ -996,6 +996,49 @@ public class TestRowOperators
     }
 
     @Test
+    public void testRowCoalesce()
+    {
+        assertThat(assertions.query("SELECT COALESCE(CAST(ROW(null) AS ROW(integer)), ROW(1))"))
+                .matches("SELECT CAST(ROW(1) AS ROW(integer))");
+        assertThat(assertions.query("SELECT COALESCE(CAST(ROW(1) AS ROW(integer)), ROW(2))"))
+                .matches("SELECT CAST(ROW(1) AS ROW(integer))");
+        assertThat(assertions.query("SELECT COALESCE(CAST(ROW(null, null) AS ROW(integer, integer)), ROW(1, 2))"))
+                .matches("SELECT CAST(ROW(1, 2) AS ROW(integer, integer))");
+        assertThat(assertions.query("SELECT COALESCE(CAST(ROW(1, null) AS ROW(integer, integer)), ROW(1, 2))"))
+                .matches("SELECT CAST(ROW(1, null) AS ROW(integer, integer))");
+        assertThat(assertions.query("SELECT COALESCE(CAST(null AS ROW(integer, integer)), ROW(1, 2))"))
+                .matches("SELECT CAST(ROW(1, 2) AS ROW(integer, integer))");
+        assertThat(assertions.query(
+                "SELECT COALESCE(CAST(ROW(null, null) AS ROW(integer, integer)), CAST(ROW(1, null) AS ROW(integer, integer)), ROW(9, 9))"))
+                .matches("SELECT CAST(ROW(1, null) AS ROW(integer, integer))");
+        assertThat(assertions.query(
+                "SELECT COALESCE(CAST(ROW(null, null) AS ROW(integer, integer)), CAST(NULL AS ROW(integer, integer)))"))
+                .matches("SELECT CAST(NULL AS ROW(integer, integer))");
+
+        assertThat(assertions.query(
+                """
+                SELECT COALESCE(r, CAST(ROW(1, 2) AS ROW(a integer, b integer)))
+                FROM (
+                    SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                """))
+                .matches("SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer))");
+        assertThat(assertions.query(
+                """
+                SELECT COALESCE(r, CAST(ROW(1, 2) AS ROW(a integer, b integer)))
+                FROM (
+                    SELECT CAST(ROW(1, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                """))
+                .matches("SELECT CAST(ROW(1, null) AS ROW(a integer, b integer))");
+        assertThat(assertions.expression("COALESCE(a, ROW(1, 2))")
+                .binding("a", "CAST(ROW(null, null) AS ROW(integer, integer))"))
+                .isEqualTo(ImmutableList.of(1, 2));
+    }
+
+    @Test
     public void testRowHashOperator()
     {
         assertRowHashOperator("ROW(1, 2)", ImmutableList.of(INTEGER, INTEGER), ImmutableList.of(1, 2));

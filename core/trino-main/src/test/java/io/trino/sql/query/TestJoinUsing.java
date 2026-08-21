@@ -188,4 +188,83 @@ public class TestJoinUsing
                 "SELECT * FROM (VALUES (123456789123456789.123456, 2.0)) x (a, b) JOIN (VALUES (123456789123456789.123456, 3.0)) y (a, b) USING(a)"))
                 .matches("VALUES (123456789123456789.123456, 2.0, 3.0)");
     }
+
+    @Test
+    public void testRowKey()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT k FROM
+                  (SELECT CAST(ROW(1) AS ROW(a integer)) AS k) t
+                JOIN
+                  (SELECT CAST(ROW(1) AS ROW(a integer)) AS k) u
+                USING (k)
+                """))
+                .matches("SELECT CAST(ROW(1) AS ROW(a integer))");
+
+        assertThat(assertions.query(
+                """
+                SELECT k FROM
+                  (SELECT CAST(ROW(null) AS ROW(a integer)) AS k) t
+                FULL JOIN
+                  (SELECT CAST(ROW(1) AS ROW(a integer)) AS k) u
+                USING (k)
+                """))
+                .matches(
+                        """
+                        SELECT CAST(NULL AS ROW(a integer))
+                        UNION ALL
+                        SELECT CAST(ROW(1) AS ROW(a integer))
+                        """);
+
+        assertThat(assertions.query(
+                """
+                SELECT k FROM
+                  (SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer)) AS k) t
+                JOIN
+                  (SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer)) AS k) u
+                USING (k)
+                """))
+                .matches("SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer))");
+
+        assertThat(assertions.query(
+                """
+                SELECT k FROM
+                  (SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS k) t
+                FULL JOIN
+                  (SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer)) AS k) u
+                USING (k)
+                """))
+                .matches(
+                        """
+                        SELECT CAST(NULL AS ROW(a integer, b integer))
+                        UNION ALL
+                        SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer))
+                        """);
+
+        assertThat(assertions.query(
+                """
+                SELECT k FROM
+                  (SELECT CAST(ROW(1, null) AS ROW(a integer, b integer)) AS k) t
+                FULL JOIN
+                  (SELECT CAST(ROW(2, 2) AS ROW(a integer, b integer)) AS k) u
+                USING (k)
+                """))
+                .matches(
+                        """
+                        SELECT CAST(ROW(1, null) AS ROW(a integer, b integer))
+                        UNION ALL
+                        SELECT CAST(ROW(2, 2) AS ROW(a integer, b integer))
+                        """);
+
+        assertThat(assertions.query(
+                """
+                SELECT k FROM
+                  (SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS k) t
+                LEFT JOIN
+                  (SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer)) AS k) u
+                USING (k)
+                """))
+                .matches("SELECT CAST(NULL AS ROW(a integer, b integer))");
+    }
 }

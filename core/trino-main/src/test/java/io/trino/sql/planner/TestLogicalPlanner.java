@@ -34,11 +34,13 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
@@ -66,6 +68,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SemiJoinNode.DistributionType;
 import io.trino.sql.planner.plan.SortNode;
@@ -2755,6 +2758,127 @@ public class TestLogicalPlanner
                                 builder -> builder
                                         .left(any(unnest(values("array"))))
                                         .right(exchange(tableScan("nation"))))))));
+    }
+
+    @Test
+    public void testJoinUsingIntegerStaysCoalesce()
+    {
+        Plan plan = plan(
+                "SELECT k FROM (VALUES 1) t(k) FULL JOIN (VALUES 2) u(k) USING (k)",
+                CREATED);
+        assertThat(containsRowTypedCoalesce(plan.getRoot())).isFalse();
+        assertThat(containsFunction(plan.getRoot(), "$row_is_null")).isFalse();
+        assertThat(containsCoalesce(plan.getRoot())).isTrue();
+    }
+
+    @Test
+    public void testJoinUsingRowKeyUsesRowIsNull()
+    {
+        Plan plan = plan(
+                """
+                SELECT k FROM
+                  (SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer)) AS k) t
+                FULL JOIN
+                  (SELECT CAST(ROW(3, 4) AS ROW(a integer, b integer)) AS k) u
+                USING (k)
+                """,
+                CREATED);
+        assertThat(containsRowTypedCoalesce(plan.getRoot())).isFalse();
+        assertThat(containsFunction(plan.getRoot(), "$row_is_null")).isTrue();
+    }
+
+    @Test
+    public void testRowCoalesceBindsNonTrivialOperand()
+    {
+        Plan plan = plan(
+                """
+                SELECT COALESCE(ROW(x, x), ROW(1, 2))
+                FROM (VALUES 1) t(x)
+                WHERE random() >= 0
+                """,
+                CREATED);
+        assertThat(containsLet(plan.getRoot())).isTrue();
+        assertThat(containsFunction(plan.getRoot(), "$row_is_null")).isTrue();
+    }
+
+    private static boolean containsFunction(PlanNode root, String name)
+    {
+        boolean[] found = {false};
+        DefaultTraversalVisitor<Void> visitor = new DefaultTraversalVisitor<>()
+        {
+            @Override
+            protected Void visitCall(Call node, Void context)
+            {
+                if (node.function().signature().getName().functionName().equals(name)) {
+                    found[0] = true;
+                }
+                return super.visitCall(node, context);
+            }
+        };
+        visitPlanExpressions(root, visitor);
+        return found[0];
+    }
+
+    private static boolean containsCoalesce(PlanNode root)
+    {
+        boolean[] found = {false};
+        DefaultTraversalVisitor<Void> visitor = new DefaultTraversalVisitor<>()
+        {
+            @Override
+            protected Void visitCoalesce(Coalesce node, Void context)
+            {
+                found[0] = true;
+                return super.visitCoalesce(node, context);
+            }
+        };
+        visitPlanExpressions(root, visitor);
+        return found[0];
+    }
+
+    private static boolean containsLet(PlanNode root)
+    {
+        boolean[] found = {false};
+        DefaultTraversalVisitor<Void> visitor = new DefaultTraversalVisitor<>()
+        {
+            @Override
+            protected Void visitLet(Let node, Void context)
+            {
+                found[0] = true;
+                return super.visitLet(node, context);
+            }
+        };
+        visitPlanExpressions(root, visitor);
+        return found[0];
+    }
+
+    private static boolean containsRowTypedCoalesce(PlanNode root)
+    {
+        boolean[] found = {false};
+        DefaultTraversalVisitor<Void> visitor = new DefaultTraversalVisitor<>()
+        {
+            @Override
+            protected Void visitCoalesce(Coalesce node, Void context)
+            {
+                if (node.operands().stream().anyMatch(operand -> operand.type() instanceof RowType)) {
+                    found[0] = true;
+                }
+                return super.visitCoalesce(node, context);
+            }
+        };
+        visitPlanExpressions(root, visitor);
+        return found[0];
+    }
+
+    private static void visitPlanExpressions(PlanNode root, DefaultTraversalVisitor<Void> visitor)
+    {
+        searchFrom(root).findAll().forEach(node -> {
+            if (node instanceof ProjectNode project) {
+                project.getAssignments().expressions().forEach(visitor::process);
+            }
+            else if (node instanceof FilterNode filter) {
+                visitor.process(filter.getPredicate());
+            }
+        });
     }
 
     @Test

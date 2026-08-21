@@ -138,6 +138,8 @@ A nested row field is a value, not the null value, so there is no recursion:
 SELECT ROW(ROW(NULL, NULL)) IS NULL; -- false
 ```
 
+A `NOT NULL` row column rejects `(1, NULL)` and `(NULL, NULL)`.
+
 The anti-join idiom `WHERE b.row_col IS NULL` after a `LEFT JOIN` also returns
 rows that matched whose row column has all fields null. Use
 `b.row_col IS NOT DISTINCT FROM NULL` to test whether the row value itself is

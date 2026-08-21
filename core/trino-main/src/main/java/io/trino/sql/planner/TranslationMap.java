@@ -42,7 +42,6 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
-import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
@@ -222,6 +221,7 @@ public class TranslationMap
     private final Session session;
     private final PlannerContext plannerContext;
     private final SymbolAllocator symbolAllocator;
+    private final ExpressionBindings expressionBindings;
 
     // current mappings of underlying field -> symbol for translating direct field references
     private final Symbol[] fieldSymbols;
@@ -271,6 +271,7 @@ public class TranslationMap
         this.session = requireNonNull(session, "session is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        this.expressionBindings = new ExpressionBindings(plannerContext.getMetadata(), getCharVarcharCoercion(session), symbolAllocator);
         this.substitutions = ImmutableMap.copyOf(substitutions);
         this.predicateSubstitutions = ImmutableMap.copyOf(requireNonNull(predicateSubstitutions, "predicateSubstitutions is null"));
 
@@ -703,9 +704,9 @@ public class TranslationMap
     {
         List<Symbol> symbols = new ArrayList<>();
         List<io.trino.sql.ir.Expression> bindings = new ArrayList<>();
-        io.trino.sql.ir.Expression boundValue = bindIfNonTrivial(value, symbols, bindings);
-        io.trino.sql.ir.Expression boundMin = bindIfNonTrivial(min, symbols, bindings);
-        io.trino.sql.ir.Expression boundMax = bindIfNonTrivial(max, symbols, bindings);
+        io.trino.sql.ir.Expression boundValue = expressionBindings.bindIfNonTrivial("between", value, symbols, bindings);
+        io.trino.sql.ir.Expression boundMin = expressionBindings.bindIfNonTrivial("between", min, symbols, bindings);
+        io.trino.sql.ir.Expression boundMax = expressionBindings.bindIfNonTrivial("between", max, symbols, bindings);
 
         io.trino.sql.ir.Expression result = new Logical(Logical.Operator.OR, ImmutableList.of(
                 new Logical(Logical.Operator.AND, ImmutableList.of(
@@ -721,22 +722,12 @@ public class TranslationMap
         return result;
     }
 
-    private io.trino.sql.ir.Expression bindIfNonTrivial(io.trino.sql.ir.Expression expression, List<Symbol> symbols, List<io.trino.sql.ir.Expression> bindings)
-    {
-        if (expression instanceof Reference || expression instanceof Constant) {
-            return expression;
-        }
-        Symbol bound = symbolAllocator.newSymbol("between", expression.type());
-        symbols.add(bound);
-        bindings.add(expression);
-        return new Reference(expression.type(), bound.name());
-    }
-
     private io.trino.sql.ir.Expression translate(CoalesceExpression expression)
     {
-        return new Coalesce(expression.getOperands().stream()
+        List<io.trino.sql.ir.Expression> operands = expression.getOperands().stream()
                 .map(this::translateExpression)
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
+        return expressionBindings.rowCoalesce(operands);
     }
 
     private io.trino.sql.ir.Expression translate(GenericLiteral expression)
