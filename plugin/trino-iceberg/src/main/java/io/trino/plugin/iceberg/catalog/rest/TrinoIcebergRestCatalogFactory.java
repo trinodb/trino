@@ -96,10 +96,12 @@ public class TrinoIcebergRestCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.caseInsensitiveNameMatching = restConfig.isCaseInsensitiveNameMatching();
         this.remoteNamespaceMappingCache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
         this.remoteTableMappingCache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
