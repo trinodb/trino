@@ -41,6 +41,7 @@ import java.text.Normalizer;
 import java.util.OptionalInt;
 
 import static com.google.common.math.LongMath.saturatedAdd;
+import static com.google.common.math.LongMath.saturatedSubtract;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
@@ -59,7 +60,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
-import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 
@@ -233,7 +233,9 @@ public final class StringFunctions
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
     {
         if (instance < 0) {
-            return stringPositionFromEnd(string, substring, abs(instance));
+            // abs(Long.MIN_VALUE) is negative, which stringPositionFromEnd would reject as a non-negative instance.
+            // Negating with saturation keeps the count positive, so the search simply runs out of matches and returns 0.
+            return stringPositionFromEnd(string, substring, saturatedSubtract(0, instance));
         }
         return stringPositionFromStart(string, substring, instance);
     }
@@ -478,7 +480,9 @@ public final class StringFunctions
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
         // Empty delimiter? Then every character will be a split
         if (delimiter.length() == 0) {
-            int startCodePoint = toIntExact(index);
+            // an index beyond Integer.MAX_VALUE is past the end of any string, and saturating keeps it out of range
+            // rather than overflowing, so it is reported as a missing part like any other too large index
+            int startCodePoint = Ints.saturatedCast(index);
 
             int indexStart = offsetOfCodePoint(string, startCodePoint - 1);
             if (indexStart < 0) {

@@ -881,6 +881,13 @@ public class TestStringFunctions
         assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "-4"))
                 .isEqualTo(0L);
 
+        // an instance count that cannot be negated without overflowing is simply more occurrences than the string has
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "-9223372036854775808"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "9223372036854775807"))
+                .isEqualTo(0L);
+
         assertThat(assertions.function("strpos", "'highhigh'", "'ig'", "-1"))
                 .isEqualTo(6L);
 
@@ -1511,6 +1518,13 @@ public class TestStringFunctions
                 .isNull(createVarcharType(3));
 
         assertThat(assertions.function("split_part", "'abc'", "''", "99"))
+                .isNull(createVarcharType(3));
+
+        // an index that does not fit in an int is past the end of the string, like any other too large index
+        assertThat(assertions.function("split_part", "'abc'", "''", "3000000000"))
+                .isNull(createVarcharType(3));
+
+        assertThat(assertions.function("split_part", "'abc'", "''", "9223372036854775807"))
                 .isNull(createVarcharType(3));
 
         assertThat(assertions.function("split_part", "'abc'", "'abcd'", "1"))

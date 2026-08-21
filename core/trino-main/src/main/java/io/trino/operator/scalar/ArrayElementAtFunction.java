@@ -66,7 +66,8 @@ public final class ArrayElementAtFunction
         if (index == 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
-        if (Math.abs(index) > arrayLength) {
+        // the bounds are compared without Math.abs, because Math.abs(Long.MIN_VALUE) is negative and would let the index through
+        if (index > arrayLength || index < -arrayLength) {
             return -1; // -1 indicates that the element is out of range and "ELEMENT_AT" should return null
         }
         if (index > 0) {
