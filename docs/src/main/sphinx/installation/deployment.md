@@ -111,6 +111,19 @@ The above properties are described below:
 - `node.data-dir`:
   The location (filesystem path) of the data directory. Trino stores
   logs and other data here.
+- `node.groups`:
+  Optional comma-separated list of node group names this node belongs to, for
+  example `node.groups=etl,shared`. A node may belong to any number of groups,
+  and groups may overlap. Each name must start with an alphanumeric character
+  and only contain alphanumeric, `-`, or `_` characters. When unset, the node
+  belongs to no group. Membership is visible in the `node_groups` column of
+  [](/connector/system).
+
+  Node groups constrain *where* a query may run; they do not *reserve*
+  capacity. A node listed in two groups can be fully occupied by queries from
+  either one. Use non-overlapping membership if you need hard isolation, and
+  resource group concurrency and memory limits to bound how much of the cluster
+  a workload occupies.
 
 (jvm-config)=
 ### JVM config
