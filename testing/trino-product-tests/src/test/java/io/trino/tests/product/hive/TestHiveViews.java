@@ -508,7 +508,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testSelectOnView(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS hive_test_view");
         env.executeHiveUpdate("CREATE VIEW hive_test_view AS SELECT * FROM nation");
 
@@ -525,7 +524,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testArrayIndexingInView(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP TABLE IF EXISTS test_hive_view_array_index_table");
         env.executeHiveUpdate("CREATE TABLE test_hive_view_array_index_table(an_index int, an_array array<string>)");
         env.executeHiveUpdate("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('trino','hive') FROM nation WHERE n_nationkey = 1");
@@ -551,7 +549,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testCommonTableExpression(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate(
                 "CREATE OR REPLACE VIEW test_common_table_expression AS " +
                         "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8) SELECT * FROM t");
@@ -568,7 +565,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testNestedCommonTableExpression(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate(
                 "CREATE OR REPLACE VIEW test_nested_common_table_expression AS " +
                         "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8), " +
@@ -586,7 +582,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testArrayConstructionInView(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS test_array_construction_view");
         env.executeHiveUpdate("CREATE VIEW test_array_construction_view AS SELECT n_nationkey, array(n_nationkey, n_regionkey) AS a FROM nation");
 
@@ -600,7 +595,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testMapConstructionInView(HiveBasicEnvironment env)
     {
-        createOrdersTable(env);
         env.executeHiveUpdate(
                 "CREATE OR REPLACE VIEW test_map_construction_view AS " +
                         "SELECT" +
@@ -625,7 +619,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testSelectOnViewFromDifferentSchema(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP SCHEMA IF EXISTS test_schema CASCADE");
         env.executeHiveUpdate("CREATE SCHEMA test_schema");
         env.executeHiveUpdate(
@@ -681,7 +674,6 @@ class TestHiveViews
     // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
     void testViewWithUnsupportedCoercion(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS view_with_unsupported_coercion");
         env.executeHiveUpdate("CREATE VIEW view_with_unsupported_coercion AS SELECT length(n_comment) FROM nation");
 
@@ -693,7 +685,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testOuterParentheses(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("CREATE OR REPLACE VIEW view_outer_parentheses AS (SELECT 'parentheses' AS col FROM nation LIMIT 1)");
 
         assertViewQuery(
@@ -745,7 +736,6 @@ class TestHiveViews
     // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
     void testWithUnsupportedFunction(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS view_with_repeat_function");
         env.executeHiveUpdate("CREATE VIEW view_with_repeat_function AS SELECT REPEAT(n_comment,2) FROM nation");
 
@@ -757,7 +747,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testExistingView(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS hive_duplicate_view");
         env.executeHiveUpdate("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation");
 
@@ -769,7 +758,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testShowCreateView(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS hive_show_view");
         env.executeHiveUpdate("CREATE VIEW hive_show_view AS SELECT * FROM nation");
 
@@ -801,8 +789,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testRichSqlSyntax(HiveBasicEnvironment env)
     {
-        createNationTable(env);
-        createOrdersTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS view_with_rich_syntax");
         env.executeHiveUpdate("CREATE VIEW view_with_rich_syntax AS " +
                 "SELECT \n" +
@@ -860,7 +846,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testHiveViewInInformationSchema(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP SCHEMA IF EXISTS test_schema CASCADE");
 
         env.executeHiveUpdate("CREATE SCHEMA test_schema");
@@ -942,7 +927,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testNestedHiveViews(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS nested_base_view");
         env.executeHiveUpdate("DROP VIEW IF EXISTS nested_middle_view");
         env.executeHiveUpdate("DROP VIEW IF EXISTS nested_top_view");
@@ -962,7 +946,6 @@ class TestHiveViews
     void testSelectFromHiveViewWithoutDefaultCatalogAndSchema(HiveBasicEnvironment env)
             throws SQLException
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS no_catalog_schema_view");
         env.executeHiveUpdate("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
 
@@ -1001,7 +984,6 @@ class TestHiveViews
     void testCurrentUser(HiveBasicEnvironment env)
             throws SQLException
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS current_user_hive_view");
         env.executeHiveUpdate("CREATE VIEW current_user_hive_view as SELECT current_user() AS cu FROM nation LIMIT 1");
 
@@ -1021,7 +1003,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testNestedGroupBy(HiveBasicEnvironment env)
     {
-        createNationTable(env);
         env.executeHiveUpdate("DROP VIEW IF EXISTS test_nested_group_by_view");
         env.executeHiveUpdate("CREATE VIEW test_nested_group_by_view AS SELECT n_regionkey, count(1) count FROM (SELECT n_regionkey FROM nation GROUP BY n_regionkey ) t GROUP BY n_regionkey");
 
@@ -1039,7 +1020,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testUnionAllViews(HiveBasicEnvironment env)
     {
-        createRegionTable(env);
         env.executeHiveUpdate("DROP TABLE IF EXISTS union_helper");
         env.executeHiveUpdate("CREATE TABLE union_helper (\n"
                 + "r_regionkey BIGINT,\n"
@@ -1076,7 +1056,6 @@ class TestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testUnionDistinctViews(HiveBasicEnvironment env)
     {
-        createRegionTable(env);
         env.executeHiveUpdate("DROP TABLE IF EXISTS union_helper");
         env.executeHiveUpdate("CREATE TABLE union_helper (\n"
                 + "r_regionkey BIGINT,\n"
@@ -1198,29 +1177,5 @@ class TestHiveViews
     private static Date sqlDate(int year, int month, int day)
     {
         return Date.valueOf(LocalDate.of(year, month, day));
-    }
-
-    /**
-     * Creates the nation table from TPCH if it doesn't exist.
-     */
-    private static void createNationTable(HiveBasicEnvironment env)
-    {
-        env.executeTrinoUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT * FROM tpch.tiny.nation");
-    }
-
-    /**
-     * Creates the orders table from TPCH if it doesn't exist.
-     */
-    private static void createOrdersTable(HiveBasicEnvironment env)
-    {
-        env.executeTrinoUpdate("CREATE TABLE IF NOT EXISTS orders AS SELECT * FROM tpch.tiny.orders");
-    }
-
-    /**
-     * Creates the region table from TPCH if it doesn't exist.
-     */
-    private static void createRegionTable(HiveBasicEnvironment env)
-    {
-        env.executeTrinoUpdate("CREATE TABLE IF NOT EXISTS region AS SELECT * FROM tpch.tiny.region");
     }
 }
