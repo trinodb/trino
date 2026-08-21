@@ -738,6 +738,19 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+```text
+        metric_name             | metric_value
+--------------------------------+--------------
+ rewritten_data_files_count     |            1
+ removed_deletion_vectors_count |            1
+ added_data_files_count         |            2
+```
+
+The `removed_deletion_vectors_count` metric counts deletion vectors removed from
+the active table state, not physical files deleted from storage. Unreferenced
+deletion vector files can be removed by [VACUUM](delta-lake-vacuum), subject to the
+retention period.
+
 Use a `WHERE` clause with [metadata columns](delta-lake-special-columns) to filter
 which files are optimized.
 

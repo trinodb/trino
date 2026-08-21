@@ -935,6 +935,90 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testOptimizeReturnsMetrics()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_returns_metrics", "(key integer, value varchar)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'eleven')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (12, 'twelve')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (13, 'thirteen')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (14, 'fourteen')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (15, 'fifteen')", 1);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(5);
+
+            // TestingTrinoServer uses two writers per task; use one so OPTIMIZE produces a single output file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertUpdate(
+                    singleWriterSession,
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 5), ('removed_deletion_vectors_count', 0), ('added_data_files_count', 1)");
+
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "VALUES (11, 'eleven'), (12, 'twelve'), (13, 'thirteen'), (14, 'fourteen'), (15, 'fifteen')");
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(1)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
+    public void testOptimizeWithDeletionVectors()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_deletion_vectors",
+                "WITH (deletion_vectors_enabled = true) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation", 25);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(2);
+            assertUpdate("DELETE FROM " + tableName + " WHERE nationkey < 5", 10);
+
+            // TestingTrinoServer uses two writers per task; use one so OPTIMIZE produces a single output file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertUpdate(
+                    singleWriterSession,
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 2), ('removed_deletion_vectors_count', 2), ('added_data_files_count', 1)");
+            assertThat(getActiveFiles(tableName)).hasSize(1);
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "SELECT * FROM nation WHERE nationkey >= 5 UNION ALL SELECT * FROM nation WHERE nationkey >= 5");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithPartitionedTableAndDeleteVector()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_partitioned_deletion_vectors",
+                "WITH (deletion_vectors_enabled = true, partitioned_by = ARRAY['regionkey']) AS SELECT nationkey, regionkey FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation", 25);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(10);
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1 AND nationkey < 5", 6);
+
+            assertUpdate(
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 10), ('removed_deletion_vectors_count', 2), ('added_data_files_count', 5)");
+            assertThat(getActiveFiles(tableName)).hasSize(5);
+            assertQuery(
+                    "SELECT nationkey, regionkey, count(*) FROM " + tableName + " GROUP BY nationkey, regionkey",
+                    "SELECT nationkey, regionkey, 2 FROM nation WHERE regionkey <> 1 OR nationkey >= 5");
+        }
+    }
+
+    @Test
     public void testAddColumnAndVacuum()
             throws Exception
     {
