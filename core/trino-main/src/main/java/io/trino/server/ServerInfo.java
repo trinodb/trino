@@ -13,11 +13,13 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.node.NodeState;
 import io.trino.spi.NodeVersion;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,7 +31,8 @@ public record ServerInfo(
         boolean coordinator,
         Optional<String> coordinatorId,
         boolean starting,
-        Duration uptime)
+        Duration uptime,
+        Set<String> nodeGroups)
 {
     public ServerInfo
     {
@@ -39,5 +42,7 @@ public record ServerInfo(
         requireNonNull(environment, "environment is null");
         requireNonNull(coordinatorId, "coordinatorId is null");
         requireNonNull(uptime, "uptime is null");
+        // absent in JSON from a server that predates node groups; unlike Optional, a Set deserializes to null
+        nodeGroups = nodeGroups == null ? ImmutableSet.of() : ImmutableSet.copyOf(nodeGroups);
     }
 }

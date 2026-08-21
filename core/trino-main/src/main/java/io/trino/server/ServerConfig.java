@@ -13,12 +13,15 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -30,6 +33,7 @@ public class ServerConfig
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean queryResultsCompressionEnabled = true;
     private Optional<String> queryInfoUrlTemplate = Optional.empty();
+    private Set<String> nodeGroups = ImmutableSet.of();
 
     public boolean isCoordinator()
     {
@@ -102,6 +106,20 @@ public class ServerConfig
     public ServerConfig setQueryInfoUrlTemplate(String queryInfoUrlTemplate)
     {
         this.queryInfoUrlTemplate = Optional.ofNullable(queryInfoUrlTemplate);
+        return this;
+    }
+
+    @NotNull
+    public Set<@Pattern(regexp = "[A-Za-z0-9][_A-Za-z0-9-]*") String> getNodeGroups()
+    {
+        return nodeGroups;
+    }
+
+    @Config("node.groups")
+    @ConfigDescription("Names of the node groups this server belongs to")
+    public ServerConfig setNodeGroups(Set<String> nodeGroups)
+    {
+        this.nodeGroups = ImmutableSet.copyOf(nodeGroups);
         return this;
     }
 }
