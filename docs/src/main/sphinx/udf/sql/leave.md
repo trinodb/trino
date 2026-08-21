@@ -19,20 +19,24 @@ statement inside the loop can cause the exit from processing the loop when the
 value for the parameter `p` is 1 or less. This can be the case if the value is
 passed in as 1 or less or after a number of iterations through the loop.
 
-```sql
-FUNCTION my_pow(n int, p int)
-RETURNS int
-BEGIN
-  DECLARE r int DEFAULT n;
-  top: LOOP
-    IF p <= 1 THEN
-      LEAVE top;
-    END IF;
-    SET r = r * n;
-    SET p = p - 1;
-  END LOOP;
-  RETURN r;
-END
+```{try-sql}
+WITH
+  FUNCTION my_pow(n int, p int)
+  RETURNS int
+  BEGIN
+    DECLARE r int DEFAULT n;
+    top: LOOP
+      IF p <= 1 THEN
+        LEAVE top;
+      END IF;
+      SET r = r * n;
+      SET p = p - 1;
+    END LOOP;
+    RETURN r;
+  END
+SELECT my_pow(2, 2) AS two_squared,
+       my_pow(2, 8) AS two_to_the_eighth,
+       my_pow(3, 3) AS three_cubed
 ```
 
 Further examples of varying complexity that cover usage of the `LEAVE` statement

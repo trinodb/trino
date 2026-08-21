@@ -39,37 +39,41 @@ within views to filter out rows or otherwise restrict access.
 
 Create a simple view `test` over the `orders` table:
 
-```
-CREATE VIEW test AS
+```{try-sql}
+CREATE VIEW memory.default.test AS
 SELECT orderkey, orderstatus, totalprice / 2 AS half
-FROM orders
+FROM tpch.tiny.orders
 ```
 
 Create a view `test_with_comment` with a view comment:
 
-```
-CREATE VIEW test_with_comment
+```{try-sql}
+CREATE VIEW memory.default.test_with_comment
 COMMENT 'A view to keep track of orders.'
 AS
 SELECT orderkey, orderstatus, totalprice
-FROM orders
+FROM tpch.tiny.orders
 ```
 
 Create a view `orders_by_date` that summarizes `orders`:
 
-```
-CREATE VIEW orders_by_date AS
+```{try-sql}
+CREATE VIEW memory.default.orders_by_date AS
 SELECT orderdate, sum(totalprice) AS price
-FROM orders
+FROM tpch.tiny.orders
 GROUP BY orderdate
 ```
 
 Create a view that replaces an existing view:
 
-```
-CREATE OR REPLACE VIEW test AS
+```{try-sql}
+CREATE VIEW memory.default.test AS
+SELECT orderkey, orderstatus, totalprice / 2 AS half
+FROM tpch.tiny.orders;
+---
+CREATE OR REPLACE VIEW memory.default.test AS
 SELECT orderkey, orderstatus, totalprice / 4 AS quarter
-FROM orders
+FROM tpch.tiny.orders
 ```
 
 ## See also

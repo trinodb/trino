@@ -24,8 +24,9 @@ The `ELSEIF` and `ELSE` segments are optional.
 
 ## Examples
 
-```sql
-FUNCTION simple_if(a bigint)
+```{try-sql}
+WITH
+  FUNCTION simple_if(a bigint)
   RETURNS varchar
   BEGIN
     IF a = 0 THEN
@@ -36,6 +37,9 @@ FUNCTION simple_if(a bigint)
       RETURN 'more than one or negative';
     END IF;
   END
+SELECT simple_if(0) AS zero,
+       simple_if(1) AS one,
+       simple_if(5) AS other
 ```
 
 Further examples of varying complexity that cover usage of the `IF` statement in

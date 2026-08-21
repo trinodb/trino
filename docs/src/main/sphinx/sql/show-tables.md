@@ -22,8 +22,8 @@ the results to the desired subset.
 The following query lists tables and views that begin with `p` in
 the `tiny` schema of the `tpch` catalog:
 
-```sql
-SHOW TABLES FROM tpch.tiny LIKE 'p%';
+```{try-sql}
+SHOW TABLES FROM tpch.tiny LIKE 'p%'
 ```
 
 ## See also

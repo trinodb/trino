@@ -107,26 +107,18 @@ A floating point, decimal number of unspecified precision of at least 50 decimal
 The type supports positive values as small as `1e-100` or smaller, and
 values as large as `1e100` or larger.
 
-```sql
-SELECT NUMBER '3.1415926535897932384626433832795028841971693993751'
--- 3.1415926535897932384626433832795028841971693993751 without loss of precision
-
-SELECT NUMBER '12345678901234567890123456789012345678901234567890e30'
--- 1.234567890123456789012345678901234567890123456789E+79 without loss of precision
+```{try-sql}
+SELECT NUMBER '3.1415926535897932384626433832795028841971693993751',
+       NUMBER '12345678901234567890123456789012345678901234567890e30'
 ```
 
 The `NUMBER` type supports the special values `Infinity`, `-Infinity`, and `NaN`,
 following similar semantics to floating-point types:
 
-```sql
-SELECT NUMBER 'Infinity';
--- Infinity
-
-SELECT NUMBER '-Infinity';
--- -Infinity
-
-SELECT NUMBER 'NaN';
--- NaN
+```{try-sql}
+SELECT NUMBER 'Infinity',
+       NUMBER '-Infinity',
+       NUMBER 'NaN'
 ```
 
 Division by zero raises a "Division by zero" error:
@@ -512,7 +504,7 @@ spaces.
 As with `VARCHAR`, a single quote in a `CHAR` literal can be escaped with
 another single quote:
 
-```sql
+```{try-sql}
 SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
 ```
 
@@ -598,8 +590,8 @@ SQL statements support usage of binary literal data with the prefix `X` or `x`.
 The binary data has to use hexadecimal format. For example, the binary form of
 `eh?` is `X'65683F'` as you can confirm with the following statement:
 
-```sql
-SELECT from_utf8(x'65683F');
+```{try-sql}
+SELECT from_utf8(x'65683F')
 ```
 
 Binary literals ignore any whitespace characters. For example, the literal
@@ -636,12 +628,9 @@ underlying value type, rather than reducing values to a limited set of JSON
 types.
 
 Examples:
-```sql
-SELECT typeof(CAST(JSON '{"a": 1, "b": [true, null]}' AS VARIANT));
--- variant
-
-SELECT CAST(CAST(JSON '123' AS VARIANT) AS BIGINT);
--- 123
+```{try-sql}
+SELECT typeof(CAST(JSON '{"a": 1, "b": [true, null]}' AS VARIANT)),
+       CAST(CAST(JSON '123' AS VARIANT) AS BIGINT)
 ```
 
 `VARIANT` follows the [Apache Iceberg Variant specification](https://github.com/apache/parquet-format/blob/master/VariantEncoding.md).

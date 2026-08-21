@@ -156,3 +156,14 @@ button.copybtn {
     position: relative;
     top: -5.5rem;
 }
+
+/* trysql.io interactive SQL embeds (try-sql directive) */
+try-sql {
+    display: block;
+    margin: 1.5rem auto;
+}
+
+try-sql iframe {
+    display: block;
+    margin: 0 auto;
+}
