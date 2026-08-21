@@ -345,6 +345,7 @@ jobs:
             !:trino-filesystem-gcs,
             !:trino-filesystem-manager,
             !:trino-filesystem-s3,
+            !:trino-firebird,
             !:trino-geospatial,
             !:trino-google-sheets,
             !:trino-hdfs,
