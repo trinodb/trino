@@ -51,6 +51,7 @@ import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.admission.AdmissionPolicyManager;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
@@ -440,6 +441,10 @@ public class ServerMainModule
         // plugin manager
         newOptionalBinder(binder, PluginInstaller.class).setDefault()
                 .to(PluginManager.class).in(Scopes.SINGLETON);
+        // admission policy factory registry — populated by PluginManager on every node,
+        // so it must be bound server-wide (coordinator and workers), independent of the
+        // coordinator-only AdmissionPolicyModule that wires policy selection and dispatch
+        binder.bind(AdmissionPolicyManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PluginsProvider.class).setDefault()
                 .to(ServerPluginsProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ServerPluginsProviderConfig.class);
