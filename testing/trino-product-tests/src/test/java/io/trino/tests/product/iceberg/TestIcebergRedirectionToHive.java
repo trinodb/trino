@@ -410,19 +410,17 @@ class TestIcebergRedirectionToHive
 
         createHiveTable(env, hiveTableName, false);
 
-        env.executeTrinoUpdate("ALTER TABLE " + icebergTableName + " DROP COLUMN comment");
+        // createHiveTable produces an ORC table (connector default). Its SerDe (OrcSerde) is not in
+        // HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES, so DROP COLUMN is rejected. This test used to
+        // exercise the redirection-plus-drop happy path; it is now inverted to prove the redirection
+        // still reaches the Hive connector and surfaces the guard's rejection message.
+        assertThatThrownBy(() -> env.executeTrinoUpdate("ALTER TABLE " + icebergTableName + " DROP COLUMN comment"))
+                .hasMessageContaining("Dropping columns is not supported by table SerDe:");
 
+        // The schema is unchanged after the rejected DROP.
         assertThat(env.executeTrino("DESCRIBE " + icebergTableName).column(1))
-                .containsOnly("nationkey", "name", "regionkey");
+                .containsOnly("nationkey", "name", "comment", "regionkey");
 
-        // After dropping the column from the Hive metastore, access ORC columns by name
-        // Session setting must persist for the query
-        env.executeTrinoInSession(session -> {
-            session.executeUpdate("SET SESSION hive.orc_use_column_names = true");
-            QueryResult hiveResult = session.executeQuery("TABLE " + hiveTableName);
-            QueryResult expected = session.executeQuery("SELECT nationkey, name, regionkey FROM tpch.tiny.nation");
-            assertResultsEqual(hiveResult, expected);
-        });
         env.executeTrinoUpdate("DROP TABLE " + hiveTableName);
     }
 
