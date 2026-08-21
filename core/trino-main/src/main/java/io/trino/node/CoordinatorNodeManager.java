@@ -14,6 +14,7 @@
 package io.trino.node;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -51,6 +53,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.counting;
+import static java.util.stream.Collectors.groupingBy;
 
 @ThreadSafe
 public final class CoordinatorNodeManager
@@ -294,6 +298,19 @@ public final class CoordinatorNodeManager
     {
         AllNodes allNodes = getAllNodes();
         return allNodes.activeNodes().size() - allNodes.activeCoordinators().size();
+    }
+
+    /**
+     * Number of active nodes declaring each node group, so that an operator can alert before a group empties
+     * and its queries start failing. Nodes may declare several groups, so these do not sum to the node count.
+     */
+    @Managed
+    public String getActiveNodeCountByNodeGroup()
+    {
+        Map<String, Long> countByNodeGroup = getAllNodes().activeNodes().stream()
+                .flatMap(node -> node.getNodeGroups().stream())
+                .collect(groupingBy(identity(), TreeMap::new, counting()));
+        return Joiner.on(", ").withKeyValueSeparator("=").join(countByNodeGroup);
     }
 
     @VisibleForTesting

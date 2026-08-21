@@ -254,7 +254,8 @@ public class TestShowQueries
         assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 'node%'"))
                 .matches("VALUES " +
                         "(VARCHAR 'node_id', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')," +
-                        "(VARCHAR 'node_version', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')");
+                        "(VARCHAR 'node_version', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')," +
+                        "(VARCHAR 'node_groups', VARCHAR 'array(varchar)' , VARCHAR '', VARCHAR '')");
         assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 'node_id'"))
                 .matches("VALUES (VARCHAR 'node_id', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')");
         assertThat(assertions.execute("SHOW COLUMNS FROM system.runtime.nodes LIKE ''").getRowCount()).isEqualTo(0);
