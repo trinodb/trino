@@ -22,6 +22,7 @@ import io.trino.operator.RetryPolicy;
 
 import java.util.Set;
 import java.util.function.IntSupplier;
+import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.getCostEstimationWorkerCount;
@@ -34,15 +35,17 @@ import static java.util.Objects.requireNonNull;
 
 public class TaskCountEstimator
 {
-    private final IntSupplier numberOfNodes;
+    private final ToIntFunction<Session> numberOfNodes;
 
     @Inject
     public TaskCountEstimator(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager)
     {
         boolean schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         requireNonNull(nodeManager, "nodeManager is null");
-        this.numberOfNodes = () -> {
-            Set<InternalNode> activeNodes = nodeManager.getAllNodes().activeNodes();
+        this.numberOfNodes = session -> {
+            // a query restricted to a node group only runs on that group, so costing it against the whole
+            // cluster would over-estimate the parallelism available to it
+            Set<InternalNode> activeNodes = nodeManager.getActiveNodesInGroup(session.getNodeGroup());
             int count;
             if (schedulerIncludeCoordinator) {
                 count = activeNodes.size();
@@ -59,7 +62,8 @@ public class TaskCountEstimator
 
     public TaskCountEstimator(IntSupplier numberOfNodes)
     {
-        this.numberOfNodes = requireNonNull(numberOfNodes, "numberOfNodes is null");
+        requireNonNull(numberOfNodes, "numberOfNodes is null");
+        this.numberOfNodes = _ -> numberOfNodes.getAsInt();
     }
 
     public int estimateSourceDistributedTaskCount(Session session)
@@ -69,7 +73,7 @@ public class TaskCountEstimator
             // validated to be at least 1
             return costEstimationWorkerCount;
         }
-        int count = numberOfNodes.getAsInt();
+        int count = numberOfNodes.applyAsInt(session);
         checkState(count > 0, "%s should return positive number of nodes: %s", numberOfNodes, count);
         return count;
     }
