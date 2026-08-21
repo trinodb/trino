@@ -14,15 +14,15 @@
 package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
-import io.trino.tests.product.deltalake.DeltaLakeOssEnvironment;
+import io.trino.tests.product.deltalake.DeltaLakeKerberosHdfsEnvironment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public final class SuiteDeltaLakeOss
+public final class SuiteDeltaLakeHdfs
 {
-    private SuiteDeltaLakeOss() {}
+    private SuiteDeltaLakeHdfs() {}
 
     public static void main(String[] args)
             throws Exception
@@ -31,8 +31,8 @@ public final class SuiteDeltaLakeOss
 
         List<TestRunResult> results = new ArrayList<>();
 
-        results.add(SuiteRunner.forEnvironment(DeltaLakeOssEnvironment.class)
-                .includeTag(TestGroup.DeltaLakeOss.class)
+        results.add(SuiteRunner.forEnvironment(DeltaLakeKerberosHdfsEnvironment.class)
+                .includeTag(TestGroup.DeltaLakeHdfs.class)
                 .run());
 
         SuiteRunner.printSummary(results);

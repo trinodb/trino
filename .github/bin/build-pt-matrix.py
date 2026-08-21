@@ -50,7 +50,10 @@ SUITES = [
     "SuiteParquet",
     "SuiteIceberg",
     "SuiteIcebergVariants",
+    "SuiteDeltaLakeFloci",
+    "SuiteDeltaLakeHdfs",
     "SuiteDeltaLakeOss",
+    "SuiteDeltaLakeAlluxioCaching",
     "SuiteCompatibility",
     "SuiteGcs",
     "SuiteAzure",
@@ -72,6 +75,9 @@ DATABRICKS_SUITES = frozenset({
 })
 DELTA_LAKE_SUITES = DATABRICKS_SUITES | {
     "SuiteAzure",
+    "SuiteDeltaLakeAlluxioCaching",
+    "SuiteDeltaLakeFloci",
+    "SuiteDeltaLakeHdfs",
     "SuiteDeltaLakeOss",
     "SuiteGcs",
 }
@@ -80,6 +86,8 @@ HIVE_SUITES = DATABRICKS_SUITES | {
     "SuiteAzure",
     "SuiteClients",
     "SuiteCompatibility",
+    "SuiteDeltaLakeFloci",
+    "SuiteDeltaLakeHdfs",
     "SuiteDeltaLakeOss",
     "SuiteGcs",
     "SuiteHdfsImpersonation",
@@ -103,7 +111,7 @@ HIVE_SUITES = DATABRICKS_SUITES | {
 ICEBERG_SUITES = {
     "SuiteAzure",
     "SuiteCompatibility",
-    "SuiteDeltaLakeOss",
+    "SuiteDeltaLakeFloci",
     "SuiteGcs",
     "SuiteHiveStorageFormats",
     "SuiteHmsOnly",
@@ -131,7 +139,7 @@ MODULE_TO_SUITES = {
     # same level: shared libraries, clients, core, and other infrastructure cause a full run.
     "plugin/trino-base-jdbc": JDBC_CONNECTOR_SUITES,
     "plugin/trino-blob-cache-alluxio": {
-        "SuiteDeltaLakeOss",
+        "SuiteDeltaLakeAlluxioCaching",
         "SuiteHiveAlluxioCaching",
         "SuiteIcebergVariants",
     },
@@ -156,7 +164,7 @@ MODULE_TO_SUITES = {
     "plugin/trino-iceberg": ALL_CONNECTORS_SMOKE | ICEBERG_SUITES,
     "plugin/trino-ignite": ALL_CONNECTORS_SMOKE | {"SuiteIgnite"},
     "plugin/trino-jmx": ALL_CONNECTORS_SMOKE | {
-        "SuiteDeltaLakeOss",
+        "SuiteDeltaLakeAlluxioCaching",
         "SuiteHiveAlluxioCaching",
         "SuiteIcebergVariants",
     },
