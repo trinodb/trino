@@ -14,12 +14,7 @@
 package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
-import io.trino.tests.product.hive.HiveIcebergRedirectionsEnvironment;
-import io.trino.tests.product.iceberg.MultiNodeIcebergFlociCachingEnvironment;
 import io.trino.tests.product.iceberg.SparkIcebergEnvironment;
-import io.trino.tests.product.iceberg.SparkIcebergJdbcCatalogEnvironment;
-import io.trino.tests.product.iceberg.SparkIcebergNessieEnvironment;
-import io.trino.tests.product.iceberg.SparkIcebergRestEnvironment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
 import java.util.ArrayList;
@@ -39,27 +34,6 @@ public final class SuiteIceberg
         results.add(SuiteRunner.forEnvironment(SparkIcebergEnvironment.class)
                 .includeTag(TestGroup.Iceberg.class)
                 .excludeTag(TestGroup.IcebergFormatVersionCompatibility.class)
-                .excludeTag(TestGroup.StorageFormats.class)
-                .run());
-
-        results.add(SuiteRunner.forEnvironment(HiveIcebergRedirectionsEnvironment.class)
-                .includeTag(TestGroup.HiveIcebergRedirections.class)
-                .run());
-
-        results.add(SuiteRunner.forEnvironment(SparkIcebergRestEnvironment.class)
-                .includeTag(TestGroup.IcebergRest.class)
-                .run());
-
-        results.add(SuiteRunner.forEnvironment(SparkIcebergJdbcCatalogEnvironment.class)
-                .includeTag(TestGroup.IcebergJdbc.class)
-                .run());
-
-        results.add(SuiteRunner.forEnvironment(SparkIcebergNessieEnvironment.class)
-                .includeTag(TestGroup.IcebergNessie.class)
-                .run());
-
-        results.add(SuiteRunner.forEnvironment(MultiNodeIcebergFlociCachingEnvironment.class)
-                .includeTag(TestGroup.IcebergAlluxioCaching.class)
                 .excludeTag(TestGroup.StorageFormats.class)
                 .run());
 

@@ -49,6 +49,7 @@ SUITES = [
     "SuiteStorageFormatsDetailed",
     "SuiteParquet",
     "SuiteIceberg",
+    "SuiteIcebergVariants",
     "SuiteDeltaLakeOss",
     "SuiteCompatibility",
     "SuiteGcs",
@@ -91,6 +92,7 @@ HIVE_SUITES = DATABRICKS_SUITES | {
     "SuiteHmsOnly",
     "SuiteHudi",
     "SuiteIceberg",
+    "SuiteIcebergVariants",
     "SuiteParquet",
     "SuiteSqlCancel",
     "SuiteStorageFormatsDetailed",
@@ -106,6 +108,7 @@ ICEBERG_SUITES = {
     "SuiteHiveStorageFormats",
     "SuiteHmsOnly",
     "SuiteIceberg",
+    "SuiteIcebergVariants",
     "SuiteStorageFormatsDetailed",
 }
 JDBC_CONNECTOR_SUITES = ALL_CONNECTORS_SMOKE | {
@@ -130,7 +133,7 @@ MODULE_TO_SUITES = {
     "plugin/trino-blob-cache-alluxio": {
         "SuiteDeltaLakeOss",
         "SuiteHiveAlluxioCaching",
-        "SuiteIceberg",
+        "SuiteIcebergVariants",
     },
     "plugin/trino-exchange-filesystem": {"SuiteFaultTolerant"},
     "plugin/trino-example-jdbc": set(),
@@ -155,7 +158,7 @@ MODULE_TO_SUITES = {
     "plugin/trino-jmx": ALL_CONNECTORS_SMOKE | {
         "SuiteDeltaLakeOss",
         "SuiteHiveAlluxioCaching",
-        "SuiteIceberg",
+        "SuiteIcebergVariants",
     },
     "plugin/trino-kafka": ALL_CONNECTORS_SMOKE | {"SuiteKafka"},
     "plugin/trino-loki": ALL_CONNECTORS_SMOKE | {"SuiteLoki"},
