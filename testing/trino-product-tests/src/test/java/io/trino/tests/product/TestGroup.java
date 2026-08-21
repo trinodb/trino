@@ -183,6 +183,11 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
+    @Tag("s3_keystore_secrets")
+    @interface S3KeystoreSecrets {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
     @Tag("postgresql_postgis")
     @interface PostgresqlPostgis {}
 

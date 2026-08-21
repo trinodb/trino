@@ -28,6 +28,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.secrets.RuntimeSecretResolver;
 import io.trino.spi.type.TypeManager;
 
 import static java.util.Objects.requireNonNull;
@@ -61,5 +62,7 @@ public class ConnectorContextModule
         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
         binder.bind(BlocksHashFactory.class).toInstance(context.getBlocksHashFactory());
         binder.bind(ConnectorExpressionEvaluator.class).toInstance(context.getExpressionEvaluator());
+        context.getRuntimeSecretResolver().ifPresent(resolver ->
+                binder.bind(RuntimeSecretResolver.class).toInstance(resolver));
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import io.trino.filesystem.s3.S3FileSystemConfig.S3AuthType;
+import io.trino.spi.TrinoException;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -30,13 +31,24 @@ import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 import java.net.URI;
 import java.util.Optional;
 
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
+
 final class S3FileSystemUtils
 {
     private S3FileSystemUtils() {}
 
     public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client)
     {
-        Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
+        return createS3PreSigner(config, s3Client, Optional.empty(), Optional.empty());
+    }
+
+    public static S3Presigner createS3PreSigner(
+            S3FileSystemConfig config,
+            S3Client s3Client,
+            Optional<S3SecretsCredentialResolver> secretsCredentialResolver,
+            Optional<String> bucket)
+    {
+        Optional<AwsCredentialsProvider> staticCredentialsProvider = createCredentialsProvider(config, secretsCredentialResolver, bucket);
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
@@ -86,9 +98,30 @@ final class S3FileSystemUtils
 
     static Optional<AwsCredentialsProvider> createStaticCredentialsProvider(S3FileSystemConfig config)
     {
-        if ((config.getAwsAccessKey() != null) || (config.getAwsSecretKey() != null)) {
+        return createCredentialsProvider(config, Optional.empty(), Optional.empty());
+    }
+
+    static Optional<AwsCredentialsProvider> createCredentialsProvider(
+            S3FileSystemConfig config,
+            Optional<S3SecretsCredentialResolver> secretsCredentialResolver,
+            Optional<String> bucket)
+    {
+        Optional<String> accessKey = Optional.ofNullable(config.getAwsAccessKey());
+        Optional<String> secretKey = Optional.ofNullable(config.getAwsSecretKey());
+
+        if (accessKey.isEmpty() && secretKey.isEmpty() && secretsCredentialResolver.isPresent() && bucket.isPresent()) {
+            S3SecretsCredentialResolver.BucketCredentials bucketCredentials = secretsCredentialResolver.get()
+                    .resolveBucketCredentials(bucket.get());
+            accessKey = Optional.of(bucketCredentials.accessKey());
+            secretKey = Optional.of(bucketCredentials.secretKey());
+        }
+
+        if (accessKey.isPresent() && secretKey.isPresent()) {
             return Optional.of(StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsSecretKey())));
+                    AwsBasicCredentials.create(accessKey.get(), secretKey.get())));
+        }
+        if (accessKey.isPresent() || secretKey.isPresent()) {
+            throw new TrinoException(CONFIGURATION_INVALID, "Both S3 access key and secret key must be configured");
         }
         return Optional.empty();
     }

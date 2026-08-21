@@ -74,6 +74,7 @@ BUCKETS = [
     ("cloud-object-store", [
         "SuiteGcs",
         "SuiteAzure",
+        "SuiteS3KeystoreSecrets",
     ]),
     ("databricks-133", [
         "SuiteDeltaLakeDatabricks133",

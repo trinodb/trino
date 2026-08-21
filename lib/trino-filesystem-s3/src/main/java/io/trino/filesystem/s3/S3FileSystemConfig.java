@@ -144,6 +144,8 @@ public class S3FileSystemConfig
 
     private String awsAccessKey;
     private String awsSecretKey;
+    private String secretsBucketKeyPrefix;
+    private String secretsProvider = "keystore";
     private String endpoint;
     private String region;
     private boolean pathStyleAccess;
@@ -201,6 +203,37 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setAwsSecretKey(String awsSecretKey)
     {
         this.awsSecretKey = awsSecretKey;
+        return this;
+    }
+
+    public String getSecretsBucketKeyPrefix()
+    {
+        return secretsBucketKeyPrefix;
+    }
+
+    @Config("s3.secrets.bucket-key-prefix")
+    @ConfigDescription("Prefix for per-bucket keystore aliases resolved at query time via the configured secrets provider (for example, fs.s3a.bucket.)")
+    public S3FileSystemConfig setSecretsBucketKeyPrefix(String secretsBucketKeyPrefix)
+    {
+        this.secretsBucketKeyPrefix = secretsBucketKeyPrefix;
+        return this;
+    }
+
+    public boolean isSecretsBucketPrefixConfigured()
+    {
+        return secretsBucketKeyPrefix != null;
+    }
+
+    public String getSecretsProvider()
+    {
+        return secretsProvider;
+    }
+
+    @Config("s3.secrets.provider")
+    @ConfigDescription("Secrets provider name from secrets.toml used for query-time alias resolution when s3.secrets.bucket-key-prefix is set")
+    public S3FileSystemConfig setSecretsProvider(String secretsProvider)
+    {
+        this.secretsProvider = secretsProvider;
         return this;
     }
 

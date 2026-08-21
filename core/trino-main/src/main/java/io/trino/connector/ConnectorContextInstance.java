@@ -25,7 +25,10 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.secrets.RuntimeSecretResolver;
 import io.trino.spi.type.TypeManager;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,6 +47,7 @@ public class ConnectorContextInstance
     private final BlocksHashFactory blocksHashFactory;
     private final ConnectorExpressionEvaluator evaluator;
     private final ConnectorCacheFactory cacheFactory;
+    private final Optional<RuntimeSecretResolver> runtimeSecretResolver;
 
     public ConnectorContextInstance(
             OpenTelemetry openTelemetry,
@@ -57,7 +61,8 @@ public class ConnectorContextInstance
             FunctionBundleFactory functionBundleFactory,
             BlocksHashFactory blocksHashFactory,
             ConnectorExpressionEvaluator evaluator,
-            ConnectorCacheFactory cacheFactory)
+            ConnectorCacheFactory cacheFactory,
+            Optional<RuntimeSecretResolver> runtimeSecretResolver)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -71,6 +76,7 @@ public class ConnectorContextInstance
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
         this.cacheFactory = requireNonNull(cacheFactory, "cacheFactory is null");
+        this.runtimeSecretResolver = requireNonNull(runtimeSecretResolver, "runtimeSecretResolver is null");
     }
 
     @Override
@@ -143,5 +149,11 @@ public class ConnectorContextInstance
     public ConnectorCacheFactory getCacheFactory()
     {
         return cacheFactory;
+    }
+
+    @Override
+    public Optional<RuntimeSecretResolver> getRuntimeSecretResolver()
+    {
+        return runtimeSecretResolver;
     }
 }
