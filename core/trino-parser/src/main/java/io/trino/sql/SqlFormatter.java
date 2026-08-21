@@ -189,6 +189,7 @@ import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
+import io.trino.sql.tree.Use;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDeclaration;
@@ -2125,6 +2126,18 @@ public final class SqlFormatter
         {
             builder.append("RESET SESSION ")
                     .append(formatName(node.getName()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitUse(Use node, Integer indent)
+        {
+            builder.append("USE ");
+            node.getCatalog().ifPresent(catalog -> builder
+                    .append(formatName(catalog))
+                    .append("."));
+            builder.append(formatName(node.getSchema()));
 
             return null;
         }
