@@ -5916,6 +5916,35 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testParquetPredicateOnWidenedColumnType()
+    {
+        // The connector cannot express ALTER TABLE ... CHANGE COLUMN real -> double, so reach the same state through an
+        // external table declaring double over a Parquet file which physically stores float
+        String sourceTable = "test_widened_column_source_" + randomNameSuffix();
+        String widenedTable = "test_widened_column_double_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable + " (c real) WITH (format = 'PARQUET')");
+        try {
+            assertUpdate("INSERT INTO " + sourceTable + " VALUES REAL '1.5', REAL '2.5'", 2);
+            assertUpdate(format("CREATE TABLE %s (c double) WITH (format = 'PARQUET', external_location = '%s')", widenedTable, getTableLocation(sourceTable)));
+
+            assertQuery("SELECT c FROM " + widenedTable, "VALUES 1.5, 2.5");
+            // the pushed-down predicate neither fails the query nor drops the row it matches
+            assertQuery("SELECT c FROM " + widenedTable + " WHERE c = DOUBLE '1.5'", "VALUES 1.5");
+
+            // and the float statistics still narrow the domain, so a value outside them reads no rows at all
+            assertQueryStats(
+                    getSession(),
+                    "SELECT c FROM " + widenedTable + " WHERE c = DOUBLE '99.5'",
+                    queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0),
+                    results -> assertThat(results.getRowCount()).isEqualTo(0));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + widenedTable);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTable);
+        }
+    }
+
+    @Test
     public void testParquetWithMissingColumns()
     {
         Session sessionUsingColumnIndex = Session.builder(getSession())
