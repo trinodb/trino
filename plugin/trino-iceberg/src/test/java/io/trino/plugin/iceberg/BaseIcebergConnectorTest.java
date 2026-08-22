@@ -4982,6 +4982,48 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSplitPruningForFilterThroughProjection()
+    {
+        String tableName = "test_split_pruning_through_projection";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        // disable writes redistribution to have predictable number of files written per partition (one).
+        Session noRedistributeWrites = Session.builder(getSession())
+                .setSystemProperty("redistribute_writes", "false")
+                .build();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, part INTEGER) WITH (partitioning = ARRAY['part'])");
+        assertUpdate(noRedistributeWrites, "INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (3, 30), (4, 40)", 4);
+
+        // sanity check that table contains exactly one file per partition
+        assertThat(computeScalar("SELECT count(*) FROM \"" + tableName + "$files\"")).isEqualTo(4L);
+        verifySplitCount("SELECT * FROM " + tableName, 4);
+
+        // A filter over a projected expression with OR cannot be inlined below the projection by
+        // PredicatePushDown, because the disjunctive conjuncts reference the projected symbol more
+        // than once. PushPredicateIntoTableScanWithProject derives the scan constraint through the
+        // projection instead, without moving the filter.
+        String projected = "(SELECT id, CAST(part AS bigint) AS p FROM " + tableName + ")";
+
+        verifySplitCount("SELECT * FROM " + projected + " WHERE p BETWEEN 5 AND 15 OR p BETWEEN 25 AND 35", 2);
+        verifySplitCount("SELECT * FROM " + projected + " WHERE p BETWEEN 5 AND 15 OR p BETWEEN 15 AND 25", 2);
+
+        // single range through the projection keeps working (inlined by PredicatePushDown)
+        verifySplitCount("SELECT * FROM " + projected + " WHERE p BETWEEN 15 AND 25", 1);
+
+        // a residual filter between the projection and the scan (e.g. a view's WHERE clause the
+        // connector cannot fully enforce) must not defeat the constraint derivation
+        String projectedWithFilter = "(SELECT id, CAST(part AS bigint) AS p FROM " + tableName + " WHERE id IS NOT NULL)";
+        verifySplitCount("SELECT * FROM " + projectedWithFilter + " WHERE p BETWEEN 5 AND 15 OR p BETWEEN 25 AND 35", 2);
+
+        // range matching no partition
+        verifySplitCount("SELECT * FROM " + projected + " WHERE p BETWEEN 100 AND 200 OR p BETWEEN 300 AND 400", 0);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testAllAvailableTypes()
     {
         assertUpdate("CREATE TABLE test_all_types (" +
