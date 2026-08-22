@@ -16,6 +16,15 @@ package io.trino.plugin.sqlserver;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
+import java.util.Optional;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SqlServerConfig
 {
@@ -23,6 +32,9 @@ public class SqlServerConfig
     private boolean bulkCopyForWrite;
     private boolean bulkCopyForWriteLockDestinationTable;
     private boolean storedProcedureTableFunctionEnabled;
+    private Duration connectSocketTimeout = new Duration(30, SECONDS);
+    private Duration socketTimeout;
+    private int connectRetryCount;
 
     public boolean isBulkCopyForWrite()
     {
@@ -60,6 +72,50 @@ public class SqlServerConfig
     public SqlServerConfig setSnapshotIsolationDisabled(boolean snapshotIsolationDisabled)
     {
         this.snapshotIsolationDisabled = snapshotIsolationDisabled;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0s")
+    public Duration getConnectSocketTimeout()
+    {
+        return connectSocketTimeout;
+    }
+
+    @Config("sqlserver.connect-socket-timeout")
+    @ConfigDescription("Maximum time a socket read can block while establishing a connection, so that connections to an unresponsive server fail instead of hanging indefinitely; 0 means no timeout")
+    public SqlServerConfig setConnectSocketTimeout(Duration connectSocketTimeout)
+    {
+        this.connectSocketTimeout = connectSocketTimeout;
+        return this;
+    }
+
+    public Optional<@MinDuration("0s") Duration> getSocketTimeout()
+    {
+        return Optional.ofNullable(socketTimeout);
+    }
+
+    @Config("sqlserver.socket-timeout")
+    @ConfigDescription("Maximum time a socket read can block after the connection is established; 0 means no timeout, which is the default")
+    public SqlServerConfig setSocketTimeout(Duration socketTimeout)
+    {
+        this.socketTimeout = socketTimeout;
+        return this;
+    }
+
+    @Min(0)
+    @Max(255)
+    public int getConnectRetryCount()
+    {
+        return connectRetryCount;
+    }
+
+    @Config("sqlserver.connect-retry-count")
+    @ConfigDescription("Number of times the driver silently retries a broken connection, both when connecting and through idle connection resiliency; " +
+            "0 disables retries, so that connection failures surface to Trino immediately and a transparent reconnect cannot silently reset the socket timeout")
+    public SqlServerConfig setConnectRetryCount(int connectRetryCount)
+    {
+        this.connectRetryCount = connectRetryCount;
         return this;
     }
 

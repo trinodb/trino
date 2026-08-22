@@ -25,6 +25,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.microsoft.sqlserver.jdbc.ISQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -41,11 +42,13 @@ public class SqlServerConnectionFactory
 
     private final ConnectionFactory delegate;
     private final boolean snapshotIsolationDisabled;
+    private final int socketTimeoutMillis;
 
-    public SqlServerConnectionFactory(ConnectionFactory delegate, boolean snapshotIsolationDisabled)
+    public SqlServerConnectionFactory(ConnectionFactory delegate, boolean snapshotIsolationDisabled, int socketTimeoutMillis)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.snapshotIsolationDisabled = snapshotIsolationDisabled;
+        this.socketTimeoutMillis = socketTimeoutMillis;
     }
 
     @Override
@@ -54,6 +57,12 @@ public class SqlServerConnectionFactory
     {
         Connection connection = delegate.openConnection(session);
         try {
+            // The connection was opened with connect-socket-timeout bounding every handshake read, so that
+            // connections to an unresponsive server fail instead of blocking the split thread forever
+            // (a blocking socket read is not interruptible). Once the connection is established, replace it
+            // with the steady-state timeout, which is unlimited by default: reads legitimately block for as
+            // long as a pushed-down statement executes on the server.
+            connection.setNetworkTimeout(directExecutor(), socketTimeoutMillis);
             prepare(connection);
         }
         catch (SQLException e) {

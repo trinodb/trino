@@ -102,10 +102,30 @@ behavior of the connector and the issues queries to the database.
 
 * - Property name
   - Description
+* - `sqlserver.connect-retry-count`
+  - Number of times the SQL Server driver silently retries a broken
+      connection, both when connecting and by transparently reconnecting
+      connections that broke while idle. Defaults to `0`, so that connection
+      failures surface to Trino immediately and are handled by its own retry
+      mechanisms. Note that a transparent reconnect re-runs the login sequence,
+      which reverts the connection to `sqlserver.connect-socket-timeout`
+      instead of `sqlserver.socket-timeout` for the rest of its lifetime.
+* - `sqlserver.connect-socket-timeout`
+  - Maximum [duration](prop-type-duration) a socket read can block while a
+      connection is established, covering the TCP, TLS, and login handshake.
+      Connections to an unresponsive server fail after the timeout instead of
+      blocking indefinitely. Set to `0s` to disable the timeout. Defaults to
+      `30s`.
 * - `sqlserver.snapshot-isolation.disabled`
   - Control the automatic use of snapshot isolation for transactions issued by
       Trino in SQL Server. Defaults to `false`, which means that snapshot
       isolation is enabled.
+* - `sqlserver.socket-timeout`
+  - Maximum [duration](prop-type-duration) a socket read can block after the
+      connection is established. By default, and when set to `0s`, reads never
+      time out. If set, the value must be well above the runtime of the longest
+      queries pushed down to SQL Server, because the server sends no data while
+      a statement is still executing.
 :::
 
 ```{include} jdbc-case-insensitive-matching.fragment
