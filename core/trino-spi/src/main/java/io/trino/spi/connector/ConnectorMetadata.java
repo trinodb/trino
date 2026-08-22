@@ -1863,4 +1863,44 @@ public interface ConnectorMetadata
     {
         return Optional.empty();
     }
+
+    /**
+     * Canonicalizes the provided SQL identifier according to connector-specific rules
+     * for the purpose of providing the name in metadata APIs
+     */
+    // FIXME: the default canonicalizer is used by the JdbcPlugin (ie: H2 database)
+    default String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
+    default String canonicalize(String value, boolean delimited)
+    {
+        return delimited ? value : canonicalize(value);
+    }
+
+    default String compare(String value)
+    {
+        return value;
+    }
+
+    default String compareSchema(String value)
+    {
+        return value;
+    }
+
+    default String compareTable(String value)
+    {
+        return value;
+    }
+
+    default String compareColumn(String value)
+    {
+        return value;
+    }
+
+    default boolean predicate(String value)
+    {
+        return !value.equals(canonicalize(value));
+    }
 }

@@ -90,6 +90,7 @@ import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -799,5 +800,11 @@ public abstract class AbstractTestQueryFramework
                         "In particular, make sure you do not allocate any resources in a test class constructor, " +
                         "as this can easily lead to OutOfMemoryErrors and other types of test flakiness.");
         return afterClassCloser.register(resource);
+    }
+
+    protected String canonicalize(String value)
+    {
+        // FIXME: trino-base-jdbc use H2 has connector. For other connectors, this method needs to be overridden.
+        return value.toUpperCase(ENGLISH);
     }
 }
