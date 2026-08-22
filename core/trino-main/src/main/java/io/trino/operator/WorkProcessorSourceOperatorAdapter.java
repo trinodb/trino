@@ -18,11 +18,16 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
+import java.util.function.Supplier;
 
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
+import static io.trino.operator.PageValidations.validateOutputPageTypes;
 import static io.trino.operator.WorkProcessor.ProcessState.blocked;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
@@ -35,8 +40,13 @@ public class WorkProcessorSourceOperatorAdapter
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final WorkProcessorSourceOperator sourceOperator;
-    private final WorkProcessor<Page> pages;
+    private final boolean validateOutputPages;
+    private final List<Type> outputTypes;
+    private final Supplier<String> debugContext;
     private final SplitBuffer splitBuffer;
+
+    // committed to the regular or masked stream on first output; both share one source, so only one is ever built
+    private WorkProcessor<?> pages;
 
     private boolean operatorFinishing;
 
@@ -59,10 +69,42 @@ public class WorkProcessorSourceOperatorAdapter
                         operatorContext,
                         operatorContext.getDriverContext().getYieldSignal(),
                         WorkProcessor.create(splitBuffer));
-        this.pages = sourceOperator.getOutputPages()
+        this.validateOutputPages = isSourcePagesValidationEnabled(operatorContext.getSession());
+        this.outputTypes = sourceOperatorFactory.getOutputTypes();
+        this.debugContext = () -> "%s; taskId=%s; operatorId=%s".formatted(
+                operatorContext.getOperatorType(),
+                operatorContext.getDriverContext().getTaskId(),
+                operatorContext.getOperatorId());
+        operatorContext.setInfoSupplier(() -> sourceOperator.getOperatorInfo().orElse(null));
+    }
+
+    private WorkProcessor<Page> regularOutput()
+    {
+        WorkProcessor<Page> outputPages = sourceOperator.getOutputPages()
                 .withProcessStateMonitor(_ -> updateOperatorStats())
                 .finishWhen(() -> operatorFinishing);
-        operatorContext.setInfoSupplier(() -> sourceOperator.getOperatorInfo().orElse(null));
+        if (validateOutputPages) {
+            outputPages = outputPages.map(page -> {
+                validateOutputPageTypes(page, outputTypes, debugContext);
+                return page;
+            });
+        }
+        return outputPages;
+    }
+
+    private WorkProcessor<MaskedPage> maskedOutput()
+    {
+        WorkProcessor<MaskedPage> maskedPages = sourceOperator.getMaskedOutputPages()
+                .withProcessStateMonitor(_ -> updateOperatorStats())
+                .finishWhen(() -> operatorFinishing);
+        if (validateOutputPages) {
+            // masked output validates lazily inside materialize(), so deferred channels stay undecoded
+            maskedPages = maskedPages.map(maskedPage -> {
+                maskedPage.setOutputValidator(page -> validateOutputPageTypes(page, outputTypes, debugContext));
+                return maskedPage;
+            });
+        }
+        return maskedPages;
     }
 
     @Override
@@ -96,7 +138,7 @@ public class WorkProcessorSourceOperatorAdapter
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        if (!pages.isBlocked()) {
+        if (pages == null || !pages.isBlocked()) {
             return NOT_BLOCKED;
         }
 
@@ -118,6 +160,9 @@ public class WorkProcessorSourceOperatorAdapter
     @Override
     public Page getOutput()
     {
+        if (pages == null) {
+            pages = regularOutput();
+        }
         if (!pages.process()) {
             return null;
         }
@@ -126,7 +171,30 @@ public class WorkProcessorSourceOperatorAdapter
             return null;
         }
 
-        return pages.getResult();
+        return (Page) pages.getResult();
+    }
+
+    @Override
+    public boolean producesMaskedOutput()
+    {
+        return sourceOperator.producesMaskedOutput();
+    }
+
+    @Override
+    public MaskedPage getMaskedOutput()
+    {
+        if (pages == null) {
+            pages = maskedOutput();
+        }
+        if (!pages.process()) {
+            return null;
+        }
+
+        if (pages.isFinished()) {
+            return null;
+        }
+
+        return (MaskedPage) pages.getResult();
     }
 
     @Override
@@ -139,7 +207,7 @@ public class WorkProcessorSourceOperatorAdapter
     @Override
     public boolean isFinished()
     {
-        return pages.isFinished();
+        return pages != null && pages.isFinished();
     }
 
     @Override
