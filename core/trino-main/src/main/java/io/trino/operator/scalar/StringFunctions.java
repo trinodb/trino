@@ -22,12 +22,15 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -885,20 +888,62 @@ public final class StringFunctions
         return distance;
     }
 
-    @Description("Transforms the string to normalized form")
-    @ScalarFunction
-    @LiteralParameters({"x", "y"})
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice normalize(@SqlType("varchar(x)") Slice slice, @SqlType("varchar(y)") Slice form)
+    public static Slice normalize(Slice slice, Slice form)
     {
-        Normalizer.Form targetForm;
+        return normalize(slice, normalizationForm(form));
+    }
+
+    private static Normalizer.Form normalizationForm(Slice form)
+    {
         try {
-            targetForm = Normalizer.Form.valueOf(form.toStringUtf8());
+            return Normalizer.Form.valueOf(form.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Normalization form must be one of [NFD, NFC, NFKD, NFKC]");
         }
-        return utf8Slice(Normalizer.normalize(slice.toStringUtf8(), targetForm));
+    }
+
+    private static Slice normalize(Slice slice, Normalizer.Form form)
+    {
+        return utf8Slice(Normalizer.normalize(slice.toStringUtf8(), form));
+    }
+
+    @Description("Transforms the string to normalized form")
+    @ScalarFunction("normalize")
+    public static final class Normalize
+    {
+        private Normalize() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters({"x", "y"})
+            @SqlType(StandardTypes.VARCHAR)
+            public static Slice normalize(@SqlType("varchar(x)") Slice slice, @SqlType("varchar(y)") Slice form)
+            {
+                return StringFunctions.normalize(slice, form);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 1)
+        public static final class ConstantForm
+        {
+            private final Normalizer.Form form;
+
+            public ConstantForm(@ConstantArgument(1) Slice form)
+            {
+                this.form = normalizationForm(form);
+            }
+
+            @LiteralParameters("x")
+            @SqlType(StandardTypes.VARCHAR)
+            public Slice normalize(@SqlType("varchar(x)") Slice slice)
+            {
+                return StringFunctions.normalize(slice, form);
+            }
+        }
     }
 
     @Description("Decodes the UTF-8 encoded string")
@@ -909,11 +954,12 @@ public final class StringFunctions
         return SliceUtf8.fixInvalidUtf8(slice);
     }
 
-    @Description("Decodes the UTF-8 encoded string")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType("varchar(x)") Slice replacementCharacter)
+    public static Slice fromUtf8(Slice slice, Slice replacementCharacter)
+    {
+        return SliceUtf8.fixInvalidUtf8(slice, replacementCodePoint(replacementCharacter));
+    }
+
+    private static OptionalInt replacementCodePoint(Slice replacementCharacter)
     {
         int count = countCodePoints(replacementCharacter);
         if (count > 1) {
@@ -932,18 +978,93 @@ public final class StringFunctions
         else {
             replacementCodePoint = OptionalInt.empty();
         }
-        return SliceUtf8.fixInvalidUtf8(slice, replacementCodePoint);
+        return replacementCodePoint;
     }
 
     @Description("Decodes the UTF-8 encoded string")
-    @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long replacementCodePoint)
+    @ScalarFunction("from_utf8")
+    public static final class FromUtf8WithReplacement
+    {
+        private FromUtf8WithReplacement() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters("x")
+            @SqlType(StandardTypes.VARCHAR)
+            public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType("varchar(x)") Slice replacementCharacter)
+            {
+                return StringFunctions.fromUtf8(slice, replacementCharacter);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 1)
+        public static final class ConstantReplacement
+        {
+            private final OptionalInt replacementCodePoint;
+
+            public ConstantReplacement(@ConstantArgument(1) Slice replacementCharacter)
+            {
+                replacementCodePoint = replacementCodePoint(replacementCharacter);
+            }
+
+            @SqlType(StandardTypes.VARCHAR)
+            public Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice)
+            {
+                return SliceUtf8.fixInvalidUtf8(slice, replacementCodePoint);
+            }
+        }
+    }
+
+    public static Slice fromUtf8(Slice slice, long replacementCodePoint)
+    {
+        return SliceUtf8.fixInvalidUtf8(slice, replacementCodePoint(replacementCodePoint));
+    }
+
+    private static OptionalInt replacementCodePoint(long replacementCodePoint)
     {
         if (replacementCodePoint > MAX_CODE_POINT || Character.getType((int) replacementCodePoint) == SURROGATE) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");
         }
-        return SliceUtf8.fixInvalidUtf8(slice, OptionalInt.of((int) replacementCodePoint));
+        return OptionalInt.of((int) replacementCodePoint);
+    }
+
+    @Description("Decodes the UTF-8 encoded string")
+    @ScalarFunction("from_utf8")
+    public static final class FromUtf8WithCodePoint
+    {
+        private FromUtf8WithCodePoint() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @SqlType(StandardTypes.VARCHAR)
+            public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long replacementCodePoint)
+            {
+                return StringFunctions.fromUtf8(slice, replacementCodePoint);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 1)
+        public static final class ConstantReplacement
+        {
+            private final OptionalInt replacementCodePoint;
+
+            public ConstantReplacement(@ConstantArgument(1) long replacementCodePoint)
+            {
+                this.replacementCodePoint = replacementCodePoint(replacementCodePoint);
+            }
+
+            @SqlType(StandardTypes.VARCHAR)
+            public Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice)
+            {
+                return SliceUtf8.fixInvalidUtf8(slice, replacementCodePoint);
+            }
+        }
     }
 
     @Description("Encodes the string to UTF-8")
@@ -1012,11 +1133,12 @@ public final class StringFunctions
         return source.compareTo(source.length() - suffix.length(), suffix.length(), suffix, 0, suffix.length()) == 0;
     }
 
-    @Description("Translate characters from the source string based on original and translations strings")
-    @ScalarFunction
-    @LiteralParameters({"x", "y", "z"})
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice translate(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
+    public static Slice translate(Slice source, Slice from, Slice to)
+    {
+        return translate(source, translationMap(from, to));
+    }
+
+    private static Int2IntOpenHashMap translationMap(Slice from, Slice to)
     {
         int[] fromCodePoints = castToCodePoints(from);
         int[] toCodePoints = castToCodePoints(to);
@@ -1026,7 +1148,11 @@ public final class StringFunctions
             int fromCodePoint = fromCodePoints[index];
             map.putIfAbsent(fromCodePoint, index < toCodePoints.length ? toCodePoints[index] : -1);
         }
+        return map;
+    }
 
+    private static Slice translate(Slice source, Int2IntOpenHashMap map)
+    {
         int[] sourceCodePoints = castToCodePoints(source);
         int[] targetCodePoints = new int[sourceCodePoints.length];
         int targetPositions = 0;
@@ -1051,6 +1177,44 @@ public final class StringFunctions
         }
 
         return target;
+    }
+
+    @Description("Translate characters from the source string based on original and translations strings")
+    @ScalarFunction("translate")
+    public static final class Translate
+    {
+        private Translate() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters({"x", "y", "z"})
+            @SqlType(StandardTypes.VARCHAR)
+            public static Slice translate(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
+            {
+                return StringFunctions.translate(source, from, to);
+            }
+        }
+
+        @ConstantSpecialization(arguments = {1, 2})
+        public static final class ConstantTranslation
+        {
+            private final Int2IntOpenHashMap map;
+
+            public ConstantTranslation(@ConstantArgument(1) Slice from, @ConstantArgument(2) Slice to)
+            {
+                map = translationMap(from, to);
+            }
+
+            @LiteralParameters("x")
+            @SqlType(StandardTypes.VARCHAR)
+            public Slice translate(@SqlType("varchar(x)") Slice source)
+            {
+                return StringFunctions.translate(source, map);
+            }
+        }
     }
 
     @Description("Encodes a string into a Soundex value")
