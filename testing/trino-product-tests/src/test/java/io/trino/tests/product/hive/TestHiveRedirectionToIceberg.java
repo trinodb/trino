@@ -340,6 +340,7 @@ class TestHiveRedirectionToIceberg
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   compression_codec = 'ZSTD',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +

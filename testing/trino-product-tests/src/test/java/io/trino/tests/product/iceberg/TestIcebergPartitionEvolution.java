@@ -63,6 +63,7 @@ class TestIcebergPartitionEvolution
                                     "   c varchar\n" +
                                     ")\n" +
                                     "WITH (\n" +
+                                    "   compression_codec = 'ZSTD',\n" +
                                     "   format = 'PARQUET',\n" +
                                     "   format_version = 1,\n" +
                                     "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/" + tableName + "-\\E.*\\Q',\n" +
