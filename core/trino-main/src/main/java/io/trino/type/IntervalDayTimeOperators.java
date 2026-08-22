@@ -20,7 +20,12 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.sql.tree.IntervalField;
 
+import java.util.Optional;
+import java.util.OptionalInt;
+
+import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.client.IntervalDayTime.formatMillis;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -32,6 +37,7 @@ import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
 import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.negateExact;
@@ -152,5 +158,38 @@ public final class IntervalDayTimeOperators
             return slice;
         }
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", slice.toStringUtf8(), x));
+    }
+
+    // fallible
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long castFromVarchar(@SqlType("varchar(x)") Slice value)
+    {
+        return parse(value);
+    }
+
+    // fallible
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long castFromChar(@SqlType("char(x)") Slice value)
+    {
+        return parse(value);
+    }
+
+    // Reuses the same day-to-second literal grammar as the `INTERVAL '...' DAY TO SECOND` SQL
+    // literal (DateTimeUtils.parseDayTimeInterval), since IntervalDayTimeType is always the
+    // DAY TO SECOND precision at runtime; there is no separate qualifier to track on the value.
+    private static long parse(Slice value)
+    {
+        String trimmed = trim(value).toStringUtf8();
+        IntervalField endField = new IntervalField.Second(OptionalInt.empty());
+        try {
+            return parseDayTimeInterval(trimmed, new IntervalField.Day(), Optional.of(endField));
+        }
+        catch (TrinoException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to interval day to second", trimmed), e);
+        }
     }
 }
