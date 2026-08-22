@@ -22,6 +22,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameView;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 
@@ -63,7 +64,7 @@ public class RenameViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
         if (metadata.isMaterializedView(session, viewName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
@@ -85,8 +86,8 @@ public class RenameViewTask
 
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
-
-        QualifiedObjectName target = createTargetQualifiedObjectName(viewName, statement.getTarget());
+        Resolver resolver = metadata.getResolverManager().getResolver(session, viewName.catalogName());
+        QualifiedObjectName target = createTargetQualifiedObjectName(viewName, statement.getTarget(), resolver);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }

@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestMemorySessionProperties
         extends AbstractTestQueryFramework
 {
-    public static final String sql = "SELECT COUNT(*), clerk FROM orders GROUP BY clerk";
+    public static final String sql = "SELECT COUNT(*), \"clerk\" FROM \"orders\" GROUP BY \"clerk\"";
 
     @Override
     protected QueryRunner createQueryRunner()

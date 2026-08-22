@@ -400,6 +400,7 @@ public class LogicalPlanner
 
     private RelationPlan createExplainAnalyzePlan(Analysis analysis, ExplainAnalyze statement)
     {
+        // System.out.println("LogicalPlanner.createExplainAnalyzePlan() 1");
         RelationPlan underlyingPlan = planStatementWithoutOutput(analysis, statement.getStatement());
         PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
@@ -1069,7 +1070,7 @@ public class LogicalPlanner
     private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
     {
         Table table = statement.getTable();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName(), metadata);
         TableExecuteHandle executeHandle = analysis.getTableExecuteHandle().orElseThrow();
 
         if (!analysis.isTableExecuteReadsData()) {

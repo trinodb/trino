@@ -237,9 +237,14 @@ public final class SqlFormatter
 
     public static String formatName(QualifiedName name)
     {
-        return name.getOriginalParts().stream()
-                .map(SqlFormatter::formatName)
-                .collect(joining("."));
+        // FIXME: If we do not want to lose the canonical form,
+        //        we must check if QualifiedName has not already been canonicalized.
+        if (!name.isResolved()) {
+            return name.getOriginalParts().stream()
+                    .map(SqlFormatter::formatName)
+                    .collect(joining("."));
+        }
+        return name.getSqlName();
     }
 
     private static String formatExpression(Expression expression)
@@ -1565,6 +1570,20 @@ public final class SqlFormatter
             node.getEscape().ifPresent(value -> builder
                     .append(" ESCAPE ")
                     .append(formatStringLiteral(value)));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitUse(Use node, Integer indent)
+        {
+            builder.append("USE ");
+
+            node.getCatalog().ifPresent(identifier -> builder
+                    .append(SqlFormatter.formatName(identifier))
+                    .append("."));
+
+            builder.append(SqlFormatter.formatName(node.getSchema()));
 
             return null;
         }

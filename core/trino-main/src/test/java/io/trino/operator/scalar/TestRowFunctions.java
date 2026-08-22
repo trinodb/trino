@@ -51,25 +51,25 @@ public class TestRowFunctions
     @Test
     public void testFields()
     {
-        assertThat(assertions.expression("ROW::fields(data)")
+        assertThat(assertions.expression("row::fields(data)")
                 .binding("data", "CAST(ROW('hello', 'world') AS ROW(greeting VARCHAR, planet VARCHAR))"))
                 .hasType(new ArrayType(VARCHAR))
                 .neverFails()
                 .isEqualTo(ImmutableList.of("greeting", "planet"));
 
-        assertThat(assertions.expression("ROW::fields(data)")
+        assertThat(assertions.expression("row::fields(data)")
                 .binding("data", "CAST(NULL AS ROW(greeting VARCHAR, planet VARCHAR))"))
                 .hasType(new ArrayType(VARCHAR))
                 .neverFails()
                 .isEqualTo(ImmutableList.of("greeting", "planet"));
 
-        assertThat(assertions.expression("ROW::fields(data)")
+        assertThat(assertions.expression("row::fields(data)")
                 .binding("data", "ROW('hello', 'world')"))
                 .hasType(new ArrayType(VARCHAR))
                 .neverFails()
                 .isEqualTo(Arrays.asList(null, null));
 
-        assertThat(assertions.expression("ROW::fields(data)")
+        assertThat(assertions.expression("row::fields(data)")
                 .binding("data", "CAST(NULL AS ROW(greeting VARCHAR, planet ROW(color varchar, size bigint)))"))
                 .hasType(new ArrayType(VARCHAR))
                 .neverFails()

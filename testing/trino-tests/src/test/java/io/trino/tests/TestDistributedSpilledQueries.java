@@ -26,6 +26,7 @@ import java.util.Map;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 
 public class TestDistributedSpilledQueries
@@ -70,5 +71,11 @@ public class TestDistributedSpilledQueries
             queryRunner.close();
             throw e;
         }
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 }

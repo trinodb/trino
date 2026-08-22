@@ -54,4 +54,43 @@ public class TestHiveConnectorTest
             assertUpdate("DROP TABLE " + table);
         }
     }
+
+    @Test
+    public void testCommonTableExpression()
+    {
+        String view = "test_common_table_expression" + randomNameSuffix();
+        try {
+            assertUpdate(
+                    """
+                    CREATE VIEW %s AS
+                    WITH t AS (SELECT nationkey, regionkey FROM nation WHERE nationkey = 8) SELECT * FROM t\
+                    """.formatted(view));
+
+            assertQuery("SELECT * FROM " + view,
+                    "VALUES (8, 2)");
+        }
+        finally {
+            assertUpdate("DROP VIEW " + view);
+        }
+    }
+
+    @Test
+    public void testNestedCommonTableExpression()
+    {
+        String view = "test_nested_common_table_expression" + randomNameSuffix();
+        try {
+            assertUpdate(
+                    """
+                    CREATE VIEW %s AS
+                    WITH t AS (SELECT nationkey, regionkey FROM nation WHERE nationkey = 8),
+                        t2 AS (SELECT nationkey * 2 AS nationkey, regionkey * 2 AS regionkey FROM t) SELECT * FROM t2\
+                    """.formatted(view));
+
+            assertQuery("SELECT * FROM " + view,
+                    "VALUES (16, 4)");
+        }
+        finally {
+            assertUpdate("DROP VIEW " + view);
+        }
+    }
 }

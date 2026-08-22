@@ -275,8 +275,8 @@ public class MultinodeHiveCachingEnvironment
     {
         String sql =
                 """
-                SELECT node, "cachereads.alltime.count" as cache_reads, "externalreads.alltime.count" as external_reads
-                FROM jmx.current."io.trino.blob.cache.alluxio:name=hive,type=alluxiocachestats"
+                SELECT node, "CacheReads.AllTime.Count" as cache_reads, "ExternalReads.AllTime.Count" as external_reads
+                FROM jmx.current."io.trino.blob.cache.alluxio:name=hive,type=AlluxioCacheStats"
                 """;
         return executeTrino(sql);
     }

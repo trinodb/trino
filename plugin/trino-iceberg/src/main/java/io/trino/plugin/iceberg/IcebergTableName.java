@@ -35,7 +35,7 @@ public final class IcebergTableName
     static {
         String referencableTableTypes = Stream.of(TableType.values())
                 .filter(tableType -> tableType != DATA)
-                .map(tableType -> tableType.name().toLowerCase(ENGLISH))
+                .map(tableType -> tableType.name())
                 .collect(Collectors.joining("|"));
         TABLE_PATTERN = Pattern.compile("" +
                 "(?<table>[^$@]+)" +
@@ -50,7 +50,9 @@ public final class IcebergTableName
     public static String tableNameWithType(String tableName, TableType tableType)
     {
         requireNonNull(tableName, "tableName is null");
-        return tableName + "$" + tableType.name().toLowerCase(ENGLISH);
+        String name = tableName + "$" + tableType.name().toLowerCase(ENGLISH);
+        System.out.println("IcebergTableName.tableNameWithType() tableName: " + tableName);
+        return name;
     }
 
     public static String tableNameFrom(String validIcebergTableName)

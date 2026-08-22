@@ -25,7 +25,6 @@ import java.util.Set;
 
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -60,9 +59,9 @@ public class TestPrometheusCaseInsensitiveNameMatching
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         List<SchemaTableName> tables = metadata.listTables(null, Optional.of(DEFAULT_SCHEMA));
         assertThat(tableNames).hasSize(1);
-        assertThat(UPPER_CASE_METRIC.toLowerCase(ENGLISH)).isEqualTo(tables.get(0).getTableName());
+        assertThat(UPPER_CASE_METRIC).isEqualTo(tables.get(0).getTableName());
 
-        assertThat(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName())).isNull();
+        assertThat(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName())).isNotNull();
     }
 
     @Test
@@ -82,9 +81,8 @@ public class TestPrometheusCaseInsensitiveNameMatching
         List<SchemaTableName> tables = metadata.listTables(null, Optional.of(DEFAULT_SCHEMA));
         assertThat(tableNames).hasSize(1);
         SchemaTableName table = tables.get(0);
-        assertThat(UPPER_CASE_METRIC.toLowerCase(ENGLISH)).isEqualTo(table.getTableName());
+        assertThat(UPPER_CASE_METRIC).isEqualTo(table.getTableName());
 
-        assertThat(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName())).isNotNull();
-        assertThat(UPPER_CASE_METRIC).isEqualTo(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName()).name());
+        assertThat(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName())).isNull();
     }
 }
