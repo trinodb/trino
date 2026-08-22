@@ -108,24 +108,50 @@ class TaskEntry
     }
 
     /**
-     * @return true if a split was scheduled; false if no splits are pending
+     * Claim the next pending leaf split and account for it as running. The claimed split must be
+     * handed to {@link #startLeafSplit} to actually run; the two steps are separate so that the
+     * caller can start the split without holding any lock.
+     *
+     * @return null if no splits are pending
      */
-    public synchronized boolean dequeueAndRunLeafSplit(Runnable doneCallback)
+    public synchronized QueuedSplit claimLeafSplit()
     {
         QueuedSplit split = pending.poll();
         if (split == null) {
-            return false;
+            return null;
         }
 
-        runSplit(split.split())
+        runningLeafSplits++;
+        running.add(split.split());
+
+        return split;
+    }
+
+    /// Start a split claimed via [#claimLeafSplit()]. Must be called without holding a lock.
+    /// If this throws, the claim was not consumed and must be given back via
+    /// [#releaseLeafSplit(QueuedSplit,Throwable)].
+    public void startLeafSplit(QueuedSplit split, Runnable doneCallback)
+    {
+        submit(split.split())
                 .addListener(() -> {
                     leafSplitDone(split);
                     doneCallback.run();
                 }, directExecutor());
+    }
 
-        runningLeafSplits++;
-
-        return true;
+    /// Give back a split claimed via [#claimLeafSplit()] that could not be started. The split's
+    /// work is lost, so the task is failed rather than told that the split finished.
+    ///
+    /// Completes the split's future while holding this monitor, as does the normal completion
+    /// path. That is only safe because `SqlTaskExecution` registers its callback on the task
+    /// notification executor: the callback reaches `removeTask`, and so the task executor
+    /// monitor, which is always acquired before this one. Running it inline would close a cycle.
+    public synchronized void releaseLeafSplit(QueuedSplit split, Throwable cause)
+    {
+        runningLeafSplits--;
+        running.remove(split.split());
+        split.split().close();
+        split.done().setException(cause);
     }
 
     private synchronized void leafSplitDone(QueuedSplit split)
@@ -134,7 +160,19 @@ class TaskEntry
         split.done().set(null);
     }
 
-    public synchronized ListenableFuture<Void> runSplit(SplitRunner split)
+    public ListenableFuture<Void> runSplit(SplitRunner split)
+    {
+        synchronized (this) {
+            running.add(split);
+        }
+
+        return submit(split);
+    }
+
+    /// Hand a split that is already accounted for in `running` to the scheduler. Must be called
+    /// without holding a lock: the scheduler creates the thread that runs the split, which on a
+    /// loaded worker is slow enough to stall every other operation on the lock.
+    private ListenableFuture<Void> submit(SplitRunner split)
     {
         int splitId = nextSplitId();
         ListenableFuture<Void> done = scheduler.submit(
@@ -142,7 +180,6 @@ class TaskEntry
                 splitId,
                 new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
         done.addListener(() -> splitDone(split), directExecutor());
-        running.add(split);
 
         return done;
     }
@@ -194,7 +231,7 @@ class TaskEntry
         return concurrency.targetConcurrency();
     }
 
-    private record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}
+    record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}
 
     private record VersionEmbedderBridge(VersionEmbedder versionEmbedder, Schedulable delegate)
             implements Schedulable
