@@ -40,6 +40,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TypeManager;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -75,6 +77,7 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCheckpointWriter
 {
@@ -272,8 +275,8 @@ public class TestCheckpointWriter
                 Optional.of(new DeltaLakeParquetFileStatistics(
                         Optional.of(5L),
                         Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 01:00:00"))
-                                .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123"))
+                                .put("ts", convertToTimestampWithTimeZone("2060-10-31 01:00:00"))
+                                .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123456"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 101L)
                                 .put("dec_long", Int128.valueOf(111111111111123L))
@@ -287,8 +290,8 @@ public class TestCheckpointWriter
                                 .put("row", new SqlRow(0, minMaxRowFieldBlocks))
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 02:00:00"))
-                                .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123"))
+                                .put("ts", convertToTimestampWithTimeZone("2060-10-31 02:00:00"))
+                                .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123456"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 201L)
                                 .put("dec_long", Int128.valueOf(222222222222123L))
@@ -355,11 +358,69 @@ public class TestCheckpointWriter
         assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
+    @Test
+    public void testSubMillisecondTimestampStatisticsRejected()
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+
+        LongTimestampWithTimeZone subMillisecondTimestamp = LongTimestampWithTimeZone.fromEpochMillisAndFraction(
+                unpackMillisUtc(DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 01:00:00")), 456_000_000, UTC_KEY);
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePathParquet",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.empty(),
+                Optional.of(new DeltaLakeParquetFileStatistics(
+                        Optional.of(5L),
+                        Optional.of(ImmutableMap.of("ts", subMillisecondTimestamp)),
+                        Optional.of(ImmutableMap.of("ts", subMillisecondTimestamp)),
+                        Optional.of(ImmutableMap.of("ts", 1L)))),
+                ImmutableMap.of(),
+                Optional.empty());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(addFileEntry),
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+
+        File targetFile = Files.createTempFile("testSubMillisecondTimestampStatisticsRejected-", ".checkpoint.parquet").toFile();
+        targetFile.deleteOnExit();
+        String targetPath = "file://" + targetFile.getAbsolutePath();
+        targetFile.delete(); // file must not exist when writer is called
+
+        // the checkpoint statistics field is millisecond-granular; writing anything finer must fail loudly instead of flooring the value
+        assertThatThrownBy(() -> writer.write(entries, createOutputFile(targetPath)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Unexpected sub-millisecond statistics value");
+    }
+
     private static long convertToTimestamp(String value)
     {
         LocalDateTime localDateTime = LocalDateTime.parse(value);
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+    }
+
+    private static LongTimestampWithTimeZone convertToTimestampWithTimeZone(String value)
+    {
+        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(unpackMillisUtc(DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, value)), 0, UTC_KEY);
     }
 
     @Test

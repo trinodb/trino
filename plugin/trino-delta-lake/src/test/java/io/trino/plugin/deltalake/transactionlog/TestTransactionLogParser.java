@@ -15,6 +15,7 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -25,6 +26,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.find
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readPartitionTimestampWithZone;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readVersionChecksumFile;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTransactionLogParser
@@ -47,22 +49,22 @@ public class TestTransactionLogParser
     @Test
     void testReadPartitionTimestampWithZone()
     {
-        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00")).isEqualTo(0L);
-        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.1")).isEqualTo(409600L);
-        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.01")).isEqualTo(40960L);
-        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.001")).isEqualTo(4096L);
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, UTC_KEY));
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.1")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(100, 0, UTC_KEY));
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.01")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(10, 0, UTC_KEY));
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.001")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1, 0, UTC_KEY));
 
-        // https://github.com/trinodb/trino/issues/20359 Increase timestamp precision to microseconds
-        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.0001")).isEqualTo(0L);
-        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.00001")).isEqualTo(0L);
-        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.000001")).isEqualTo(0L);
+        // Microsecond-precision fractions are preserved (https://github.com/trinodb/trino/issues/20359)
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.0001")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 100_000_000, UTC_KEY));
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.00001")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 10_000_000, UTC_KEY));
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.000001")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 1_000_000, UTC_KEY));
     }
 
     @Test
     void testReadPartitionTimestampWithZoneIso8601()
     {
-        assertThat(readPartitionTimestampWithZone("1970-01-01T00:00:00.000000Z")).isEqualTo(0L);
-        assertThat(readPartitionTimestampWithZone("1970-01-01T01:00:00.000000+01:00")).isEqualTo(0L);
+        assertThat(readPartitionTimestampWithZone("1970-01-01T00:00:00.000000Z")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, UTC_KEY));
+        assertThat(readPartitionTimestampWithZone("1970-01-01T01:00:00.000000+01:00")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, UTC_KEY));
     }
 
     /**
