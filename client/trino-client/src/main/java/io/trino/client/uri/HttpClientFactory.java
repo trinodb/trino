@@ -73,6 +73,7 @@ public class HttpClientFactory
                     uri.getRequiredKerberosServicePrincipalPattern(),
                     uri.getRequiredKerberosRemoteServiceName(),
                     uri.getRequiredKerberosUseCanonicalHostname(),
+                    uri.getKerberosUseNativeGss(),
                     uri.getKerberosPrincipal(),
                     uri.getKerberosConfigPath(),
                     uri.getKerberosKeytabPath(),
