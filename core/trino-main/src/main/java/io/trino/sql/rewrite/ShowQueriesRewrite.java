@@ -77,6 +77,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicated;
+import io.trino.sql.tree.PrimaryKeyDefinition;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -653,6 +654,19 @@ public final class ShowQueriesRewrite
                     })
                     .collect(toImmutableList());
 
+            List<TableElement> tableElements = columns;
+            List<String> primaryKeys = connectorTableMetadata.getPrimaryKeys();
+            if (!primaryKeys.isEmpty()) {
+                PrimaryKeyDefinition primaryKey = new PrimaryKeyDefinition(
+                        primaryKeys.stream()
+                                .map(Identifier::new)
+                                .collect(toImmutableList()));
+                tableElements = ImmutableList.<TableElement>builder()
+                        .addAll(columns)
+                        .add(primaryKey)
+                        .build();
+            }
+
             Map<String, Object> properties = connectorTableMetadata.getProperties();
             Collection<PropertyMetadata<?>> allTableProperties = tablePropertyManager.getAllProperties(tableHandle.catalogHandle());
             List<Property> propertyNodes = toSqlProperties("table " + targetTableName, INVALID_TABLE_PROPERTY, properties, allTableProperties);
@@ -660,7 +674,7 @@ public final class ShowQueriesRewrite
             CreateTable createTable = new CreateTable(
                     node.getLocation().orElseThrow(),
                     QualifiedName.of(targetTableName.catalogName(), targetTableName.schemaName(), targetTableName.objectName()),
-                    columns,
+                    tableElements,
                     FAIL,
                     propertyNodes,
                     connectorTableMetadata.getComment());
