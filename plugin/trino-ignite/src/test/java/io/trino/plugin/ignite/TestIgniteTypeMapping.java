@@ -259,6 +259,19 @@ public class TestIgniteTypeMapping
     }
 
     @Test
+    public void testDecimalNegativeScale()
+    {
+        // Ignite supports decimal with negative scale internally. The JDBC driver
+        // reports the actual negative scale, so Trino adjusts precision accordingly:
+        // decimal(p, -s) is mapped to decimal(p+s, 0).
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, -1)", "CAST('10' AS decimal(3, -1))", createDecimalType(4, 0), "CAST('10' AS decimal(4, 0))")
+                .addRoundTrip("decimal(3, -1)", "CAST('0' AS decimal(3, -1))", createDecimalType(4, 0), "CAST('0' AS decimal(4, 0))")
+                .addRoundTrip("decimal(3, -2)", "CAST('100' AS decimal(3, -2))", createDecimalType(5, 0), "CAST('100' AS decimal(5, 0))")
+                .execute(getQueryRunner(), igniteCreateAndInsert("test_decimal_negative_scale"));
+    }
+
+    @Test
     public void testBinary()
     {
         binaryTest("binary")
