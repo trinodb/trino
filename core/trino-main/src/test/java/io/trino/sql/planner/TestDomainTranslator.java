@@ -60,6 +60,7 @@ import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -67,8 +68,11 @@ import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -128,6 +132,7 @@ public class TestDomainTranslator
     private static final Symbol C_TINYINT = new Symbol(TINYINT, "c_tinyint");
     private static final Symbol C_REAL = new Symbol(REAL, "c_real");
     private static final Symbol C_REAL_1 = new Symbol(REAL, "c_real_1");
+    private static final Symbol C_TIMESTAMP_TZ = new Symbol(TIMESTAMP_TZ_MILLIS, "c_timestamp_tz");
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
@@ -1561,6 +1566,86 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(greaterThan(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc\u0001"))));
         assertUnsupportedPredicate(lessThanOrEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc\u0001"))));
         assertUnsupportedPredicate(lessThan(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc "))));
+    }
+
+    @Test
+    public void testAtTimeZoneComparison()
+    {
+        long low = packDateTimeWithZone(TIMESTAMP_VALUE, UTC_KEY);
+        long high = packDateTimeWithZone(TIMESTAMP_VALUE + 86_400_000, UTC_KEY);
+        Constant lowLiteral = new Constant(TIMESTAMP_TZ_MILLIS, low);
+        Constant highLiteral = new Constant(TIMESTAMP_TZ_MILLIS, high);
+
+        Expression atTimeZone = atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), C_VARCHAR.toSymbolReference());
+
+        // the instant-based range is pushable; the original predicate is kept as remainder to
+        // preserve the zone argument's null and invalid-zone behavior
+        assertPredicateTranslates(
+                greaterThan(atTimeZone, lowLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.greaterThan(TIMESTAMP_TZ_MILLIS, low)), false)),
+                greaterThan(atTimeZone, lowLiteral));
+
+        assertPredicateTranslates(
+                equal(atTimeZone, lowLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.equal(TIMESTAMP_TZ_MILLIS, low)), false)),
+                equal(atTimeZone, lowLiteral));
+
+        assertPredicateTranslates(
+                notEqual(atTimeZone, lowLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.lessThan(TIMESTAMP_TZ_MILLIS, low), Range.greaterThan(TIMESTAMP_TZ_MILLIS, low)), false)),
+                notEqual(atTimeZone, lowLiteral));
+
+        // constant on the left is normalized
+        assertPredicateTranslates(
+                lessThan(lowLiteral, atTimeZone),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.greaterThan(TIMESTAMP_TZ_MILLIS, low)), false)),
+                lessThan(lowLiteral, atTimeZone));
+
+        // conjuncts intersect into a range over the underlying column
+        assertPredicateTranslates(
+                and(greaterThanOrEqual(atTimeZone, lowLiteral), lessThanOrEqual(atTimeZone, highLiteral)),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP_TZ_MILLIS, low, true, high, true)), false)),
+                and(greaterThanOrEqual(atTimeZone, lowLiteral), lessThanOrEqual(atTimeZone, highLiteral)));
+
+        // nested at_timezone calls unwrap down to the underlying column
+        Expression nested = atTimeZone(atTimeZone, stringLiteral("UTC"));
+        assertPredicateTranslates(
+                greaterThan(nested, lowLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.greaterThan(TIMESTAMP_TZ_MILLIS, low)), false)),
+                greaterThan(nested, lowLiteral));
+
+        // complement and null-constant comparisons are not translated
+        assertUnsupportedPredicate(not(greaterThan(atTimeZone, lowLiteral)));
+        assertUnsupportedPredicate(equal(atTimeZone, new Constant(TIMESTAMP_TZ_MILLIS, null)));
+    }
+
+    @Test
+    public void testAtTimeZoneComparisonWithDstAmbiguousValue()
+    {
+        // The wall time 2020-10-25 02:31:18 Europe/Warsaw is ambiguous: it occurs at
+        // 00:31:18 UTC (CEST, before the DST fall-back) and again at 01:31:18 UTC (CET, after).
+        // Wall-time resolution happens when the literal is analyzed, before domain extraction,
+        // so the domain must be derived from whichever instant the constant carries --
+        // never from its wall-time twin.
+        long firstOccurrence = packDateTimeWithZone(new DateTime(2020, 10, 25, 0, 31, 18, 0, DateTimeZone.UTC).getMillis(), getTimeZoneKey("Europe/Warsaw"));
+        long secondOccurrence = packDateTimeWithZone(new DateTime(2020, 10, 25, 1, 31, 18, 0, DateTimeZone.UTC).getMillis(), getTimeZoneKey("Europe/Warsaw"));
+
+        Expression atTimeZone = atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), stringLiteral("Europe/Warsaw"));
+
+        for (long instant : new long[] {firstOccurrence, secondOccurrence}) {
+            Constant literal = new Constant(TIMESTAMP_TZ_MILLIS, instant);
+            assertPredicateTranslates(
+                    equal(atTimeZone, literal),
+                    tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.equal(TIMESTAMP_TZ_MILLIS, instant)), false)),
+                    equal(atTimeZone, literal));
+        }
+    }
+
+    private Expression atTimeZone(Expression timestamp, Expression zone)
+    {
+        return new Call(
+                functionResolution.resolveFunction("at_timezone", fromTypes(timestamp.type(), zone.type())),
+                ImmutableList.of(timestamp, zone));
     }
 
     private void assertPredicateIsAlwaysTrue(Expression expression)
