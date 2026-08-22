@@ -51,6 +51,7 @@ BUCKETS = [
         "SuiteHdfsImpersonation",
         "SuiteTwoHives",
         "SuiteHive4",
+        "SuiteHive4HttpThriftMetastore",
         "SuiteHudi",
     ]),
     ("hive-transactional", [

@@ -1,0 +1,83 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.tests.product.hive;
+
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.trino.TrinoContainer;
+import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
+
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Map;
+
+public class HttpsThriftHive4MetastoreEnvironment
+        extends AbstractHttpThriftHive4MetastoreEnvironment
+{
+    public static final String HMS_THRIFT_HTTPS_NGINX = "hms-thrift-https";
+    private static final String CONTAINER_TRUSTSTORE = "/etc/trino/hive-metastore-thrift-https-truststore.jks";
+
+    private GenericContainer<?> nginx;
+
+    @Override
+    protected void configureMetastoreDependencies()
+    {
+        nginx = new GenericContainer<>(DockerImageName.parse("nginx:1.25-alpine"))
+                .withNetwork(network)
+                .withNetworkAliases(HMS_THRIFT_HTTPS_NGINX)
+                .withExposedPorts(443)
+                .withCopyToContainer(Transferable.of(HttpThriftHive4MetastoreResources.readTextResource("nginx/nginx.conf")), "/etc/nginx/nginx.conf")
+                .withCopyToContainer(MountableFile.forClasspathResource("hive-http-thrift-metastore/nginx/server.crt"), "/etc/nginx/certs/server.crt")
+                .withCopyToContainer(MountableFile.forClasspathResource("hive-http-thrift-metastore/nginx/server.key"), "/etc/nginx/certs/server.key")
+                .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
+                .dependsOn(metastore);
+        nginx.start();
+    }
+
+    @Override
+    protected void customizeTrinoContainer(TrinoContainer container)
+    {
+        Path truststore = HttpThriftHive4MetastoreResources.extractBinaryResource("nginx/truststore.jks");
+        container.withCopyToContainer(MountableFile.forHostPath(truststore), CONTAINER_TRUSTSTORE);
+        container.dependsOn(nginx);
+    }
+
+    @Override
+    protected String getMetastoreUri()
+    {
+        return "https://" + HMS_THRIFT_HTTPS_NGINX + ":443/metastore";
+    }
+
+    @Override
+    protected Map<String, String> additionalHiveCatalogProperties()
+    {
+        return Map.of(
+                "hive.metastore.http.client.bearer-token", "test-hms-bearer-token",
+                "hive.metastore.http.client.ssl.trust-certificate", CONTAINER_TRUSTSTORE,
+                "hive.metastore.http.client.ssl.trust-certificate-password", "changeit",
+                "hive.metastore.http.client.ssl.verify-hostname", "false");
+    }
+
+    @Override
+    protected void doClose()
+    {
+        if (nginx != null) {
+            nginx.close();
+            nginx = null;
+        }
+        super.doClose();
+    }
+}
