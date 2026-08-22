@@ -3506,6 +3506,10 @@ public class DeltaLakeMetadata
     @Override
     public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
     {
+        if (table instanceof CorruptedDeltaLakeTableHandle) {
+            return Optional.empty();
+        }
+
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) table;
         boolean isPartitioned = !handle.getMetadataEntry().getLowercasePartitionColumns().isEmpty();
         return Optional.of(new DeltaLakeInputInfo(isPartitioned, handle.getReadVersion()));

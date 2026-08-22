@@ -361,6 +361,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public Optional<Object> getInfo(Session session, TableHandle handle)
+        {
+            return Optional.empty();
+        }
+
+        @Override
         public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
         {
             checkArgument(saveMode == REPLACE || saveMode == IGNORE || !tables.containsKey(tableMetadata.getTable()));
