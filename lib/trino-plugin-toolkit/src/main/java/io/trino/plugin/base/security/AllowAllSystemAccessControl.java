@@ -26,6 +26,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -70,6 +71,9 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanImpersonateUser(Identity identity, String userName) {}
+
+    @Override
+    public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason) {}
 
     @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName) {}

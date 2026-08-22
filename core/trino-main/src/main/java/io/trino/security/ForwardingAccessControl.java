@@ -23,6 +23,7 @@ import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -59,6 +60,12 @@ public abstract class ForwardingAccessControl
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
         delegate().checkCanImpersonateUser(identity, userName);
+    }
+
+    @Override
+    public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason)
+    {
+        delegate().checkCanSetEffectiveIdentity(identity, targetIdentity, reason);
     }
 
     @Override

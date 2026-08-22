@@ -43,6 +43,7 @@ import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
@@ -67,6 +68,7 @@ import java.util.function.BiConsumer;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
+import static io.trino.spi.security.AccessDeniedException.denySetEffectiveIdentity;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -100,6 +102,35 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
         accessControlManager.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanImpersonateUser(Identity.forUser("test").build(), "foo");
+    }
+
+    @Test
+    public void testSetEffectiveIdentityAllowedByDefault()
+    {
+        AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
+        accessControlManager.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.forUser("test").build(), Identity.forUser("owner").build(), IdentitySwitchReason.VIEW_OWNER);
+    }
+
+    @Test
+    public void testSetEffectiveIdentityToSameUserSkipsCheck()
+    {
+        AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
+        accessControlManager.setSystemAccessControls(ImmutableList.of(new SystemAccessControl()
+        {
+            @Override
+            public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason)
+            {
+                denySetEffectiveIdentity(identity.getUser(), targetIdentity.getUser());
+            }
+        }));
+
+        // switching to the same identity is not an identity switch and is not checked
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.forUser("test").build(), Identity.forUser("test").build(), IdentitySwitchReason.VIEW_OWNER);
+
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEffectiveIdentity(Identity.forUser("test").build(), Identity.forUser("owner").build(), IdentitySwitchReason.VIEW_OWNER))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("cannot run as user owner");
     }
 
     @Test

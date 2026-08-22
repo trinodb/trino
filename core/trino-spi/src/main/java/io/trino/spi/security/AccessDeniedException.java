@@ -64,6 +64,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetEffectiveIdentity(String user, String targetUser)
+    {
+        denySetEffectiveIdentity(user, targetUser, null);
+    }
+
+    public static void denySetEffectiveIdentity(String user, String targetUser, String extraInfo)
+    {
+        throw new AccessDeniedException(format("User %s cannot run as user %s%s", user, targetUser, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyReadSystemInformationAccess()
     {
         denyReadSystemInformationAccess(null);
