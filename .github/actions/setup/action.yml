@@ -119,9 +119,6 @@ runs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-      - name: Prefer Google Maven Central for Maven wrapper
-        shell: bash
-        run: echo "MVNW_REPOURL=https://maven-central.storage-download.googleapis.com/maven2" >> "${GITHUB_ENV}"
       - name: Cache and Restore Maven wrapper
         id: cache-maven-wrapper
         if: ${{ format('{0}', inputs.cache) == 'true' }}
