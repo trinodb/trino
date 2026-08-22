@@ -600,11 +600,13 @@ public class ParquetWriteValidation
         if (expected.isSetNull_count()) {
             expectedStatsBuilder.withNumNulls(expected.getNull_count());
         }
-        if (expected.isSetMin_value()) {
+        if (expected.isSetMin_value() && expected.isSetMax_value()) {
             expectedStatsBuilder.withMin(expected.getMin_value());
-        }
-        if (expected.isSetMax_value()) {
             expectedStatsBuilder.withMax(expected.getMax_value());
+        }
+        else if (expected.isSetMin() && expected.isSetMax()) {
+            expectedStatsBuilder.withMin(expected.getMin());
+            expectedStatsBuilder.withMax(expected.getMax());
         }
         return actual.equals(expectedStatsBuilder.build());
     }
