@@ -143,29 +143,31 @@ final class FlatSet
         return getIndex(block, position, hash) >= 0;
     }
 
-    public void add(Block block, int position)
+    public boolean add(Block block, int position)
     {
         if (block.isNull(position)) {
+            boolean added = !hasNull;
             hasNull = true;
-            return;
+            return added;
         }
-        addNonNull(block, position, valueHashCode(block, position));
+        return addNonNull(block, position, valueHashCode(block, position));
     }
 
-    public void add(Block block, int position, long hash)
+    public boolean add(Block block, int position, long hash)
     {
         if (block.isNull(position)) {
+            boolean added = !hasNull;
             hasNull = true;
-            return;
+            return added;
         }
-        addNonNull(block, position, hash);
+        return addNonNull(block, position, hash);
     }
 
-    private void addNonNull(Block block, int position, long hash)
+    private boolean addNonNull(Block block, int position, long hash)
     {
         int index = getIndex(block, position, hash);
         if (index >= 0) {
-            return;
+            return false;
         }
 
         index = -index - 1;
@@ -174,6 +176,7 @@ final class FlatSet
         if (size >= maxFill) {
             rehash();
         }
+        return true;
     }
 
     private int getIndex(Block block, int position, long hash)
