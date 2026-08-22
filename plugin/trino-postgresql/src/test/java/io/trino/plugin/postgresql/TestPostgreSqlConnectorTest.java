@@ -74,7 +74,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEFAULT_COLUMN_VALUE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
@@ -86,6 +88,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * @see TestPostgreSqlConnectorSmokeTest
@@ -123,6 +126,7 @@ public class TestPostgreSqlConnectorTest
             // Arrays are supported conditionally. Check the defaults.
             case SUPPORTS_ARRAY -> new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
             case SUPPORTS_CANCELLATION,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
@@ -271,6 +275,76 @@ public class TestPostgreSqlConnectorTest
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("ERROR: column \".*\" contains null values");
+    }
+
+    @Test
+    @Override // Overriden because exception is throw during table creation and not after insert
+    public void testInsertDefaultNullIntoNotNullColumn()
+    {
+        assertThatThrownBy(super::testInsertDefaultNullIntoNotNullColumn)
+                .hasMessageMatching("(?s).*Expecting message:.*ERROR: null value in column \"y\" violates not-null constraint.*");
+    }
+
+    @Test
+    public void testExecuteCreateTableWithDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        String tableName = "test_default_value" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+        assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + " (x INT, y VARCHAR DEFAULT ''hello || word'')')");
+        assertUpdate("INSERT INTO " + schemaTableName + "(x) VALUES 1", 1);
+        assertThat(query("SELECT * FROM " + schemaTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'hello || word')");
+        assertUpdate("ALTER TABLE " + schemaTableName + " ALTER COLUMN y DROP DEFAULT");
+        assertUpdate("DROP TABLE " + schemaTableName);
+
+        assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + " (x INT, y VARCHAR DEFAULT ''hello'''' || ''''word'')')");
+        assertUpdate("INSERT INTO " + schemaTableName + "(x) VALUES 1", 1);
+        assertThat(query("SELECT * FROM " + schemaTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'hello'' || ''word')");
+        assertUpdate("ALTER TABLE " + schemaTableName + " ALTER COLUMN y DROP DEFAULT");
+        assertUpdate("DROP TABLE " + schemaTableName);
+
+        // FIXME: Concatenation when assigning a default value works when executing table creation, but this default value cannot be dropped by Trino.
+        //        This is a limitation stemming from the underlying pgjdbc driver. See: https://github.com/pgjdbc/pgjdbc/issues/4333
+        assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + " (x INT, y VARCHAR DEFAULT ''hello'' || ''word'')')");
+        assertUpdate("INSERT INTO " + schemaTableName + "(x) VALUES 1", 1);
+        assertThat(query("SELECT * FROM " + schemaTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'helloword')");
+        assertQueryFails("ALTER TABLE " + schemaTableName + " ALTER COLUMN y DROP DEFAULT", "line 1:1: Column 'y' does not have a default value");
+        assertUpdate("CALL system.execute('ALTER TABLE " + schemaTableName + " ALTER COLUMN y DROP DEFAULT')");
+        assertUpdate("DROP TABLE " + schemaTableName);
+    }
+
+    @Test
+    @Override // Overriden because with PostgreSql default value is used when inserting a new column.
+    public void testAddDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        try (TestTable table = newTrinoTable("test_default_value", "(w int)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN x int DEFAULT 123");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 1", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y varchar DEFAULT 'default varchar'");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123, 'default varchar'), (2, 123, 'default varchar')");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN z char(15) DEFAULT 'default char'");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 3", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123, 'default varchar', 'default char   '), (2, 123, 'default varchar', 'default char   '), (3, 123, 'default varchar', 'default char   ')");
+        }
     }
 
     @Test
