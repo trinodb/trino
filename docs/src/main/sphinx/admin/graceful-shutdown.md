@@ -36,6 +36,15 @@ Keep the following aspects in mind:
   Ranger this permission can be found under
   _"System Information - Write System Information"_. 
 
+
+If the cluster uses node groups, take care when shutting down the last node of a
+group. A query assigned to a node group with no active nodes waits for
+`query.required-workers-max-wait` and then fails, so drain the nodes of a group
+only while another node of that group remains active, or after the workloads
+assigned to it have been repointed. The active node count of each group is
+exported by the node manager as `ActiveNodeCountByNodeGroup`. See
+[](node-properties) for `node.groups`.
+
 ## Shutdown behavior
 
 Once the API is called, the worker performs the following steps:

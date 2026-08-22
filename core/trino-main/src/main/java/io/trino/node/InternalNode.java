@@ -13,6 +13,7 @@
  */
 package io.trino.node;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -23,6 +24,7 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
@@ -41,15 +43,24 @@ public class InternalNode
     private final URI internalUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
+    private final Set<String> nodeGroups;
     private final long longHashCode;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
+    {
+        this(nodeIdentifier, internalUri, nodeVersion, coordinator, ImmutableSet.of());
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, Set<String> nodeGroups)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
+        this.nodeGroups = ImmutableSet.copyOf(requireNonNull(nodeGroups, "nodeGroups is null"));
+        // nodeGroups is deliberately excluded so that changing a node's groups does not reshuffle
+        // rendezvous hashing of splits, which is keyed on this value
         this.longHashCode = new XxHash64(coordinator ? 1 : 0)
                 .update(nodeIdentifier.getBytes(UTF_8))
                 .update(internalUri.toString().getBytes(UTF_8))
@@ -107,6 +118,11 @@ public class InternalNode
         return nodeVersion;
     }
 
+    public Set<String> getNodeGroups()
+    {
+        return nodeGroups;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -120,7 +136,8 @@ public class InternalNode
         return coordinator == o.coordinator &&
                 Objects.equals(nodeIdentifier, o.nodeIdentifier) &&
                 Objects.equals(internalUri, o.internalUri) &&
-                Objects.equals(nodeVersion, o.nodeVersion);
+                Objects.equals(nodeVersion, o.nodeVersion) &&
+                Objects.equals(nodeGroups, o.nodeGroups);
     }
 
     public long longHashCode()
@@ -142,6 +159,7 @@ public class InternalNode
                 .add("internalUri", internalUri)
                 .add("nodeVersion", nodeVersion)
                 .add("coordinator", coordinator)
+                .add("nodeGroups", nodeGroups)
                 .toString();
     }
 }

@@ -47,6 +47,7 @@ public interface ResourceGroupsDao
             "  soft_cpu_limit VARCHAR(128) NULL,\n" +
             "  hard_cpu_limit VARCHAR(128) NULL,\n" +
             "  hard_physical_data_scan_limit VARCHAR(128) NULL,\n" +
+            "  node_group VARCHAR(250) NULL,\n" +
             "  parent BIGINT NULL,\n" +
             "  environment VARCHAR(128) NULL,\n" +
             "  PRIMARY KEY (resource_group_id),\n" +
@@ -56,7 +57,7 @@ public interface ResourceGroupsDao
 
     @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, " +
             "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
-            "  hard_cpu_limit, hard_physical_data_scan_limit, parent\n" +
+            "  hard_cpu_limit, hard_physical_data_scan_limit, node_group, parent\n" +
             "FROM resource_groups\n" +
             "WHERE environment = :environment\n")
     @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)

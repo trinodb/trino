@@ -138,6 +138,11 @@ are reflected automatically for incoming queries.
 - `jmxExport` (optional): If true, group statistics are exported to JMX for monitoring.
   Defaults to `false`.
 
+- `nodeGroup` (optional): name of the node group that queries in this group must run
+  on. Queries only run on workers that declare membership of that group with the
+  `node.groups` property, see [](node-properties). A sub-group that does not specify
+  `nodeGroup` inherits it from the nearest ancestor that does. See {ref}`node-groups`.
+
 - `subGroups` (optional): list of sub-groups.
 
 (scheduleweight-example)=
@@ -159,6 +164,43 @@ evenly and each receive 50% of the queries in a given timeframe.
 ```{literalinclude} schedule-weight-example.json
 :language: text
 ```
+
+(node-groups)=
+### Node groups
+
+A node group restricts the workers that queries in a resource group run on, so that an
+expensive workload does not compete for CPU and memory with the rest of the cluster.
+Workers declare the groups they belong to with the `node.groups` property, and may belong
+to more than one, see [](node-properties).
+
+A node group constrains where queries run, it does not reserve capacity for them. A worker
+shared between two node groups can be fully occupied by queries from either one. Use
+`hardConcurrencyLimit` and `softMemoryLimit` to limit how much of the cluster a group
+occupies, and give workers non-overlapping membership to keep queries strictly apart.
+
+Both memory limits are measured against the whole cluster. A percentage `softMemoryLimit`
+is a share of total cluster memory, so a group restricted to a tenth of the workers never
+reaches a limit higher than about ten percent and the limit has no effect. Use an absolute
+value sized to the workers of the group instead, and set `query_max_memory` for the group
+with a {doc}`session property manager </admin/session-property-managers>` for the same
+reason.
+
+When workers run out of memory, the query that is terminated is the largest consumer of
+memory on those workers, so a query restricted to a different node group is not considered.
+There are two exceptions. The `query.low-memory-killer.policy=total-reservation` policy
+selects the largest query in the cluster wherever its memory is held, and a query that sets
+`resource_overcommit` is terminated whenever any worker in the cluster runs out of memory.
+
+Some catalogs cannot be read from a query that is restricted to a node group. Connectors
+that assign work to specific nodes choose them from the cluster-wide list of workers and
+are not aware of node groups, so such a query is rejected instead of running outside its
+group. This applies to `jmx`, `memory`, `tpch` and `tpcds`.
+
+A node group is only as reliable as the selector that chooses the resource group. The
+`source` and client tags of a query are set by the client, so a selector that matches on
+them lets a user choose their own resource group, and with it their node group, in the same
+way that it already lets them choose that group's concurrency and memory limits. Match on
+`user`, `userGroup`, `originalUser` or `authenticatedUser` where placement must be enforced.
 
 ## Selector rules
 

@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
@@ -78,6 +79,14 @@ public class TestBinPackingNodeAllocator
     private static final InternalNode NODE_4 = new InternalNode("node-4", URI.create("local://" + NODE_4_ADDRESS), NodeVersion.UNKNOWN, false);
 
     private static final CatalogHandle CATALOG_1 = createTestCatalogHandle("catalog1");
+
+    // NODE_ETL and NODE_ADHOC both belong to "shared", so a shared query contends with each of them
+    // same identities as NODE_1/NODE_2 so the fixture's per-node memory info applies
+    private static final InternalNode NODE_ETL = new InternalNode("node-1", URI.create("local://" + NODE_1_ADDRESS), NodeVersion.UNKNOWN, false, ImmutableSet.of("etl", "shared"));
+    private static final InternalNode NODE_ADHOC = new InternalNode("node-2", URI.create("local://" + NODE_2_ADDRESS), NodeVersion.UNKNOWN, false, ImmutableSet.of("adhoc", "shared"));
+
+    private static final Session SESSION_ETL = sessionWithNodeGroup("query_etl", "etl");
+    private static final Session SESSION_SHARED = sessionWithNodeGroup("query_shared", "shared");
 
     private static final NodeRequirements REQ_NONE = new NodeRequirements(Optional.empty(), Optional.empty(), true);
     private static final NodeRequirements REQ_NODE_1 = new NodeRequirements(Optional.empty(), Optional.of(NODE_1_ADDRESS), true);
@@ -1094,6 +1103,93 @@ public class TestBinPackingNodeAllocator
     private TaskId taskId(int partition)
     {
         return new TaskId(new StageId("test_query", 0), partition, 0);
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testNodeGroupRestrictsAcquires()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_ETL, NODE_ADHOC);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator etlAllocator = nodeAllocatorService.getNodeAllocator(SESSION_ETL)) {
+            // only one of the two nodes declares "etl", so both acquires land there
+            NodeAllocator.NodeLease etlAcquire1 = etlAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease etlAcquire2 = etlAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertAcquired(etlAcquire1, NODE_ETL);
+            assertAcquired(etlAcquire2, NODE_ETL);
+            etlAcquire1.release();
+            etlAcquire2.release();
+        }
+
+        try (NodeAllocator sharedAllocator = nodeAllocatorService.getNodeAllocator(SESSION_SHARED)) {
+            // "shared" spans both nodes, so acquires spread across them
+            assertAcquired(sharedAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD), NODE_ETL);
+            assertAcquired(sharedAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD), NODE_ADHOC);
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testOverlappingNodeGroupsShareNodeMemory()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_ETL, NODE_ADHOC);
+        setupNodeAllocatorService(nodeManager);
+
+        // Groups overlap on a physical node, so memory reserved through one group must be visible to the
+        // other. This is what breaks if the simulation is ever split per node group.
+        try (NodeAllocator etlAllocator = nodeAllocatorService.getNodeAllocator(SESSION_ETL);
+                NodeAllocator sharedAllocator = nodeAllocatorService.getNodeAllocator(SESSION_SHARED)) {
+            assertAcquired(etlAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD), NODE_ETL);
+
+            // a "shared" acquire too big for what is left on NODE_ETL must go to NODE_ADHOC
+            assertAcquired(sharedAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD), NODE_ADHOC);
+
+            assertNotAcquired(sharedAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD));
+            assertNotAcquired(etlAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD));
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testNoNodeInNodeGroupFailsNamingTheGroup()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_ADHOC);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator etlAllocator = nodeAllocatorService.getNodeAllocator(SESSION_ETL)) {
+            NodeAllocator.NodeLease acquire = etlAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            assertNotAcquired(acquire);
+
+            ticker.increment(1, TimeUnit.MINUTES);
+            ticker.increment(2, TimeUnit.SECONDS); // past the no matching node timeout
+            nodeAllocatorService.processPendingAcquires();
+
+            assertThatThrownBy(() -> Futures.getUnchecked(acquire.getNode()))
+                    .hasMessageContaining("node group 'etl'");
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testPreferredAddressOutsideNodeGroupFallsBack()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_ETL, NODE_ADHOC);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator etlAllocator = nodeAllocatorService.getNodeAllocator(SESSION_ETL)) {
+            // the preferred node is outside the query's group; a remotely accessible split should still be
+            // placed on an allowed node rather than waiting out the timeout and failing
+            assertAcquired(etlAllocator.acquire(REQ_NODE_2, DataSize.of(16, GIGABYTE), STANDARD), NODE_ETL);
+        }
+    }
+
+    private static Session sessionWithNodeGroup(String queryId, String nodeGroup)
+    {
+        return testSessionBuilder()
+                .setQueryId(new QueryId(queryId))
+                .setNodeGroup(Optional.of(nodeGroup))
+                .build();
     }
 
     private void assertAcquired(NodeAllocator.NodeLease lease, InternalNode node)

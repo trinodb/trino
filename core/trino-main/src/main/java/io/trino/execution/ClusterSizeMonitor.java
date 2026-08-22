@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -22,25 +23,28 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.node.AllNodes;
+import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.PriorityQueue;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.String.format;
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -53,11 +57,12 @@ public class ClusterSizeMonitor
 
     private final Consumer<AllNodes> listener = this::updateAllNodes;
 
+    // keyed by node group, with an empty key for queries that are not restricted to one
     @GuardedBy("this")
-    private int currentCount;
+    private Map<Optional<String>, Integer> currentCounts = ImmutableMap.of();
 
     @GuardedBy("this")
-    private final PriorityQueue<MinNodesFuture> futuresQueue = new PriorityQueue<>(comparing(MinNodesFuture::executionMinCount));
+    private final Set<MinNodesFuture> futures = new HashSet<>();
 
     @Inject
     public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig)
@@ -94,18 +99,19 @@ public class ClusterSizeMonitor
      * Note: caller should not add a listener using the direct executor, as this can delay the
      * notifications for other listeners.
      */
-    public synchronized ListenableFuture<Void> waitForMinimumWorkers(int executionMinCount, Duration executionMaxWait)
+    public synchronized ListenableFuture<Void> waitForMinimumWorkers(Optional<String> nodeGroup, int executionMinCount, Duration executionMaxWait)
     {
         checkArgument(executionMinCount > 0, "executionMinCount should be greater than 0");
+        requireNonNull(nodeGroup, "nodeGroup is null");
         requireNonNull(executionMaxWait, "executionMaxWait is null");
 
-        if (currentCount >= executionMinCount) {
+        if (currentCount(nodeGroup) >= executionMinCount) {
             return immediateVoidFuture();
         }
 
         SettableFuture<Void> future = SettableFuture.create();
-        MinNodesFuture minNodesFuture = new MinNodesFuture(executionMinCount, future);
-        futuresQueue.add(minNodesFuture);
+        MinNodesFuture minNodesFuture = new MinNodesFuture(nodeGroup, executionMinCount, future);
+        futures.add(minNodesFuture);
 
         // if future does not finish in wait period, complete with an exception
         ScheduledFuture<?> timeoutTask = executor.schedule(
@@ -113,7 +119,12 @@ public class ClusterSizeMonitor
                     synchronized (this) {
                         future.setException(new TrinoException(
                                 GENERIC_INSUFFICIENT_RESOURCES,
-                                format("Insufficient active worker nodes. Waited %s for at least %s workers, but only %s workers are active", executionMaxWait, executionMinCount, currentCount)));
+                                format(
+                                        "Insufficient active worker nodes%s. Waited %s for at least %s workers, but only %s workers are active",
+                                        nodeGroup.map(" in node group '%s'"::formatted).orElse(""),
+                                        executionMaxWait,
+                                        executionMinCount,
+                                        currentCount(nodeGroup))));
                     }
                 },
                 executionMaxWait.toMillis(),
@@ -128,47 +139,64 @@ public class ClusterSizeMonitor
         return future;
     }
 
+    @GuardedBy("this")
+    private int currentCount(Optional<String> nodeGroup)
+    {
+        return currentCounts.getOrDefault(nodeGroup, 0);
+    }
+
     private synchronized void removeFuture(MinNodesFuture minNodesFuture)
     {
-        futuresQueue.remove(minNodesFuture);
+        futures.remove(minNodesFuture);
     }
 
     private synchronized void updateAllNodes(AllNodes allNodes)
     {
-        if (includeCoordinator) {
-            currentCount = allNodes.activeNodes().size();
+        // recomputed from the whole snapshot: node change listeners run on a pool, so snapshots can
+        // arrive out of order, and start() delivers one twice
+        Set<InternalNode> schedulableNodes = includeCoordinator
+                ? allNodes.activeNodes()
+                : Sets.difference(allNodes.activeNodes(), allNodes.activeCoordinators());
+
+        Map<Optional<String>, Integer> counts = new HashMap<>();
+        counts.put(Optional.empty(), schedulableNodes.size());
+        for (InternalNode node : schedulableNodes) {
+            for (String nodeGroup : node.getNodeGroups()) {
+                counts.merge(Optional.of(nodeGroup), 1, Integer::sum);
+            }
         }
-        else {
-            currentCount = Sets.difference(allNodes.activeNodes(), allNodes.activeCoordinators()).size();
-        }
+        currentCounts = ImmutableMap.copyOf(counts);
 
         ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = ImmutableList.builder();
-        while (!futuresQueue.isEmpty()) {
-            MinNodesFuture minNodesFuture = futuresQueue.peek();
-            if (minNodesFuture.executionMinCount() > currentCount) {
-                break;
+        futures.removeIf(minNodesFuture -> {
+            if (minNodesFuture.executionMinCount() > currentCount(minNodesFuture.nodeGroup())) {
+                return false;
             }
             listenersBuilder.add(minNodesFuture.future());
-            // this should not happen since we have a lock
-            checkState(futuresQueue.poll() == minNodesFuture, "Unexpected modifications to MinNodesFuture queue");
-        }
+            return true;
+        });
         List<SettableFuture<Void>> listeners = listenersBuilder.build();
         executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
     }
 
+    /**
+     * Highest worker count any query is currently waiting for, across all node groups. With node groups in
+     * use this is an upper bound rather than a count of workers the cluster as a whole is missing.
+     */
     @Managed
     public synchronized int getRequiredWorkers()
     {
-        return futuresQueue.stream()
-                .map(MinNodesFuture::executionMinCount)
-                .max(Integer::compareTo)
+        return futures.stream()
+                .mapToInt(MinNodesFuture::executionMinCount)
+                .max()
                 .orElse(0);
     }
 
-    private record MinNodesFuture(int executionMinCount, SettableFuture<Void> future)
+    private record MinNodesFuture(Optional<String> nodeGroup, int executionMinCount, SettableFuture<Void> future)
     {
         MinNodesFuture
         {
+            requireNonNull(nodeGroup, "nodeGroup is null");
             requireNonNull(future, "future is null");
         }
     }

@@ -341,6 +341,25 @@ public class TestFileResourceGroupConfigurationManager
         assertThatThrownBy(() -> parse(fileName)).hasMessageMatching(expectedPattern);
     }
 
+    @Test
+    public void testNodeGroup()
+    {
+        FileResourceGroupConfigurationManager manager = parse("resource_groups_config_node_group.json");
+
+        assertThat(nodeGroup(manager, "etl")).contains("batch");
+        // a sub group without its own node group inherits the nearest ancestor that declares one
+        assertThat(nodeGroup(manager, "etl.inherits")).contains("batch");
+        assertThat(nodeGroup(manager, "etl.overrides")).contains("batch_large");
+        // a group under a root that declares no node group is unrestricted
+        assertThat(nodeGroup(manager, "adhoc")).isEmpty();
+        assertThat(nodeGroup(manager, "adhoc.unrestricted")).isEmpty();
+    }
+
+    private static Optional<String> nodeGroup(FileResourceGroupConfigurationManager manager, String groupId)
+    {
+        return manager.getNodeGroup(new SelectionContext<>(ResourceGroupId.valueOf(groupId), new ResourceGroupIdTemplate(groupId)));
+    }
+
     private static FileResourceGroupConfigurationManager parse(String fileName)
     {
         FileResourceGroupConfig config = new FileResourceGroupConfig();

@@ -36,7 +36,7 @@ import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -168,18 +168,41 @@ public abstract class AbstractResourceConfigurationManager
 
     protected ResourceGroupSpec getMatchingSpec(ResourceGroup group, SelectionContext<ResourceGroupIdTemplate> context)
     {
+        List<ResourceGroupSpec> path = getMatchingSpecPath(group.getId(), context.getContext());
+        verify(!path.isEmpty(), "path is empty");
+        return path.getLast();
+    }
+
+    @Override
+    public Optional<String> getNodeGroup(SelectionContext<ResourceGroupIdTemplate> context)
+    {
+        // Unlike the resource limits, which are enforced by combining the limits of every ancestor, a node group
+        // cannot be combined, so the nearest ancestor that declares one wins unless the group overrides it.
+        Optional<String> nodeGroup = Optional.empty();
+        for (ResourceGroupSpec spec : getMatchingSpecPath(context.getResourceGroupId(), context.getContext())) {
+            if (spec.getNodeGroup().isPresent()) {
+                nodeGroup = spec.getNodeGroup();
+            }
+        }
+        return nodeGroup;
+    }
+
+    /**
+     * The specs matching each segment of the group id template, from the root group down to the group itself.
+     */
+    private List<ResourceGroupSpec> getMatchingSpecPath(ResourceGroupId groupId, ResourceGroupIdTemplate groupIdTemplate)
+    {
+        ImmutableList.Builder<ResourceGroupSpec> path = ImmutableList.builder();
         List<ResourceGroupSpec> candidates = getRootGroups();
-        ResourceGroupIdTemplate groupIdTemplate = context.getContext();
-        ResourceGroupSpec match = null;
 
         for (ResourceGroupNameTemplate segment : groupIdTemplate.getSegments()) {
-            match = null;
+            ResourceGroupSpec match = null;
             for (ResourceGroupSpec candidate : candidates) {
                 if (candidate.getName().equals(segment)) {
                     if (match != null) {
                         throw new TrinoException(INVALID_RESOURCE_GROUP, format(
                                 "Ambiguous configuration for [%s] using [%s]. Matches [%s] and [%s]",
-                                group.getId(),
+                                groupId,
                                 groupIdTemplate,
                                 match.getName(),
                                 candidate.getName()));
@@ -188,12 +211,12 @@ public abstract class AbstractResourceConfigurationManager
                 }
             }
 
-            checkState(match != null, "No matching configuration found for [%s] using [%s]", group.getId(), groupIdTemplate);
+            checkState(match != null, "No matching configuration found for [%s] using [%s]", groupId, groupIdTemplate);
+            path.add(match);
             candidates = match.getSubGroups();
         }
 
-        verifyNotNull(match, "match is null");
-        return match;
+        return path.build();
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
