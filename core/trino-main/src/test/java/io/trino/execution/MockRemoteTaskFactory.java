@@ -479,6 +479,9 @@ public class MockRemoteTaskFactory
         }
 
         @Override
+        public void forceFinalizationUsingTaskStatus() {}
+
+        @Override
         public synchronized PartitionedSplitsInfo getPartitionedSplitsInfo()
         {
             if (taskStateMachine.getState().isDone()) {
