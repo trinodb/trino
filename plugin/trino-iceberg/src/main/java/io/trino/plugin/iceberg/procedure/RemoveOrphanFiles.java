@@ -66,7 +66,8 @@ public final class RemoveOrphanFiles
             ExecutorService icebergScanExecutor,
             ExecutorService icebergFileDeleteExecutor,
             SchemaTableName schemaTableName,
-            Instant expiration)
+            Instant expiration,
+            boolean dryRun)
     {
         Set<String> processedManifestFilePaths = new HashSet<>();
         // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
@@ -131,12 +132,13 @@ public final class RemoveOrphanFiles
             // Ensure any futures still running are canceled in case of failure
             manifestScanFutures.forEach(future -> future.cancel(true));
         }
-        ScanAndDeleteResult result = scanAndDeleteInvalidFiles(table, fileSystem, icebergFileDeleteExecutor, schemaTableName, expiration, validFileNames);
-        log.info("remove_orphan_files for table %s processed %d manifest files, found %d active files, scanned %d files, deleted %d files (%d bytes)",
+        ScanAndDeleteResult result = scanAndDeleteInvalidFiles(table, fileSystem, icebergFileDeleteExecutor, schemaTableName, expiration, validFileNames, dryRun);
+        log.info("remove_orphan_files for table %s processed %d manifest files, found %d active files, scanned %d files, %s %d files (%d bytes)",
                 schemaTableName,
                 processedManifestFilePaths.size(),
                 validFileNames.size() - 1, // excluding version-hint.text
                 result.scannedFilesCount(),
+                dryRun ? "would delete" : "deleted",
                 result.deletedFilesCount(),
                 result.deletedBytes());
         return ImmutableMap.of(
@@ -153,7 +155,8 @@ public final class RemoveOrphanFiles
             ExecutorService icebergFileDeleteExecutor,
             SchemaTableName schemaTableName,
             Instant expiration,
-            Set<String> validFiles)
+            Set<String> validFiles,
+            boolean dryRun)
     {
         List<Future<?>> deleteFutures = new ArrayList<>();
         long scannedFilesCount = 0;
@@ -166,9 +169,13 @@ public final class RemoveOrphanFiles
                 FileEntry entry = allFiles.next();
                 scannedFilesCount++;
                 if (entry.lastModified().isBefore(expiration) && !validFiles.contains(entry.location().fileName())) {
-                    filesToDelete.add(entry.location());
                     deletedFilesCount++;
                     deletedBytes += entry.length();
+                    if (dryRun) {
+                        log.debug("%s file would be deleted while removing orphan files %s", entry.location(), schemaTableName.getTableName());
+                        continue;
+                    }
+                    filesToDelete.add(entry.location());
                     if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
                         List<Location> finalFilesToDelete = filesToDelete;
                         deleteFutures.add(icebergFileDeleteExecutor.submit(() -> deleteFiles(finalFilesToDelete, schemaTableName, fileSystem)));

@@ -7200,6 +7200,45 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testRemoveOrphanFilesDryRun()
+            throws Exception
+    {
+        String tableName = "test_removing_orphan_files_dry_run_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
+        assertUpdate("DELETE FROM " + tableName + " WHERE key = 'two'", 1);
+        String location = getTableLocation(tableName);
+        String orphanFile1 = getIcebergTableDataPath(location) + "/invalidData1." + format;
+        String orphanFile2 = getIcebergTableDataPath(location) + "/invalidData2." + format;
+        int orphanFile1Bytes = 123;
+        int orphanFile2Bytes = 456;
+        int totalOrphanBytes = orphanFile1Bytes + orphanFile2Bytes;
+        createFile(orphanFile1, new byte[orphanFile1Bytes]);
+        createFile(orphanFile2, new byte[orphanFile2Bytes]);
+        List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(initialDataFiles).contains(orphanFile1, orphanFile2);
+
+        @Language("SQL") String expectedMetrics = "VALUES ('processed_manifests_count', 3), ('active_files_count', 16), ('scanned_files_count', 18), ('deleted_files_count', 2), ('deleted_bytes', " + totalOrphanBytes + ")";
+
+        // A dry run reports the files it would remove, but leaves them in place
+        assertUpdate(
+                sessionWithShortRetentionUnlocked,
+                "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s', dry_run => true)",
+                expectedMetrics);
+        assertThat(getAllDataFilesFromTableDirectory(tableName)).containsExactlyInAnyOrderElementsOf(initialDataFiles);
+
+        // Running the procedure without dry run reports the same metrics and removes the files
+        assertUpdate(
+                sessionWithShortRetentionUnlocked,
+                "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
+                expectedMetrics);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('one', 1), ('three', 3)");
+        assertThat(getAllDataFilesFromTableDirectory(tableName)).doesNotContain(orphanFile1, orphanFile2);
+    }
+
+    @Test
     public void testIfRemoveOrphanFilesCleansUnnecessaryDataFilesInPartitionedTable()
             throws Exception
     {
@@ -7293,7 +7332,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_remove_orphan_files.*\\[retentionThreshold=0\\.00s].*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_remove_orphan_files.*\\[retentionThreshold=0\\.00s, dryRun=false].*");
     }
 
     @Test
