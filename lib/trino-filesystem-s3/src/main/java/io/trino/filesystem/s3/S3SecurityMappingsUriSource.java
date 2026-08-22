@@ -14,7 +14,9 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
@@ -35,19 +37,23 @@ class S3SecurityMappingsUriSource
     private final URI configUri;
     private final HttpClient httpClient;
     private final String jsonPointer;
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public S3SecurityMappingsUriSource(S3SecurityMappingConfig config, @ForS3SecurityMapping HttpClient httpClient)
+    public S3SecurityMappingsUriSource(S3SecurityMappingConfig config, @ForS3SecurityMapping HttpClient httpClient, SecretsResolver secretsResolver)
     {
         this.configUri = config.getConfigUri().orElseThrow();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.jsonPointer = config.getJsonPointer();
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     @Override
     public S3SecurityMappings get()
     {
-        return parseJson(getRawJsonString(), jsonPointer, S3SecurityMappings.class);
+        String json = getRawJsonString();
+        String resolved = secretsResolver.getResolvedConfiguration(ImmutableMap.of("json", json)).get("json");
+        return parseJson(resolved, jsonPointer, S3SecurityMappings.class);
     }
 
     @VisibleForTesting
