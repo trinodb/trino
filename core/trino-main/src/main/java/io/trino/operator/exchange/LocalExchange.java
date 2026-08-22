@@ -86,6 +86,11 @@ public class LocalExchange
     @GuardedBy("this")
     private int nextSourceIndex;
 
+    // A pipeline that feeds this exchange, recorded at plan time. Consumers reading the exchange
+    // donate priority to it while blocked waiting for input.
+    @GuardedBy("this")
+    private OptionalInt producerPipeline = OptionalInt.empty();
+
     public LocalExchange(
             PartitionFunctionProvider partitionFunctionProvider,
             Session session,
@@ -204,6 +209,20 @@ public class LocalExchange
     public int getBufferCount()
     {
         return sources.size();
+    }
+
+    /// Record a pipeline that feeds this exchange. Called at plan time; the first one recorded is the
+    /// producer a blocked consumer of this exchange donates priority to.
+    public synchronized void addProducerPipeline(int pipelineId)
+    {
+        if (producerPipeline.isEmpty()) {
+            producerPipeline = OptionalInt.of(pipelineId);
+        }
+    }
+
+    public synchronized OptionalInt getProducerPipeline()
+    {
+        return producerPipeline;
     }
 
     public synchronized LocalExchangeSinkFactory createSinkFactory()

@@ -45,6 +45,22 @@ public final class OperatorFactories
             List<Integer> probeJoinChannel,
             Optional<List<Integer>> probeOutputChannelsOptional)
     {
+        return join(joinType, operatorId, planNodeId, lookupSourceFactory, hasFilter, probeTypes, probeJoinChannel, probeOutputChannelsOptional, OptionalInt.empty());
+    }
+
+    /// @param buildPipeline the pipeline running the build side, so a blocked probe can donate
+    ///         priority to it; [OptionalInt#empty()] when it is not known
+    public static OperatorFactory join(
+            JoinOperatorType joinType,
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends PartitionedLookupSourceFactory> lookupSourceFactory,
+            boolean hasFilter,
+            List<Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            Optional<List<Integer>> probeOutputChannelsOptional,
+            OptionalInt buildPipeline)
+    {
         List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
                 .map(probeTypes::get)
@@ -58,7 +74,8 @@ public final class OperatorFactories
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
-                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, hasFilter)));
+                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, hasFilter),
+                buildPipeline));
     }
 
     public static OperatorFactory spillingJoin(

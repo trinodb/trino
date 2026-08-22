@@ -21,6 +21,8 @@ import io.trino.operator.OperatorFactory;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.OptionalInt;
+
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +50,7 @@ public class LocalExchangeSourceOperator
             checkState(!closed, "Factory is already closed");
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSourceOperator.class.getSimpleName());
-            return new LocalExchangeSourceOperator(operatorContext, localExchange.getNextSource());
+            return new LocalExchangeSourceOperator(operatorContext, localExchange.getNextSource(), localExchange.getProducerPipeline());
         }
 
         @Override
@@ -66,13 +68,22 @@ public class LocalExchangeSourceOperator
 
     private final OperatorContext operatorContext;
     private final LocalExchangeSource source;
+    private final OptionalInt producerPipeline;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
-    public LocalExchangeSourceOperator(OperatorContext operatorContext, LocalExchangeSource source)
+    public LocalExchangeSourceOperator(OperatorContext operatorContext, LocalExchangeSource source, OptionalInt producerPipeline)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.source = requireNonNull(source, "source is null");
+        this.producerPipeline = requireNonNull(producerPipeline, "producerPipeline is null");
         operatorContext.setInfoSupplier(source::getBufferInfo);
+    }
+
+    @Override
+    public OptionalInt getBlockedProducerPipeline()
+    {
+        // Only consulted while blocked (waiting for input from the producer pipeline).
+        return producerPipeline;
     }
 
     @Override
