@@ -548,6 +548,11 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorMergeSink io.trino.spi.connector.ConnectorPageSinkProvider::createMergeSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <new>method io.trino.spi.connector.ConnectorMergeSink io.trino.spi.connector.ConnectorPageSinkProvider::createMergeSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId, io.trino.spi.connector.MemoryContext)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
