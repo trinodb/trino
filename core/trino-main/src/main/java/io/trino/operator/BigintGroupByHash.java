@@ -30,6 +30,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfLongArray;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -38,6 +39,26 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A group-by hash for a single BIGINT channel that stores quotiented hashes instead of values
+ * (see Knuth 6.4 exercise 13, and "Succinct and Fast Tiny Pointer Hash Tables", VLDB 2026).
+ * <p>
+ * The bucket index is the low {@code log2(capacity)} bits of an invertible hash of the value,
+ * so a slot only stores the bits the position does not imply: the remaining hash bits and the
+ * linear-probing displacement, packed into one long, with the group id in a parallel int
+ * array. Together they recover the home bucket and full hash, which makes probe matches exact
+ * and lets output reconstruct values by inverting the hash. This reduces memory by ~20% at
+ * large group counts. The split arrays keep every probe load aligned (packed variable-width
+ * slots straddle cache lines, which some cores penalize heavily), and the two loads overlap
+ * through memory-level parallelism.
+ * <p>
+ * Hashing starts as the identity function, which is collision-free for dense keys and requires
+ * no computation before the probe load. When clustering is measured during rehash, the table
+ * switches to the murmur3 finalizer by re-hashing the recovered values. Displacement overflow,
+ * or a high average insert displacement sampled per batch, grows the table instead, since dense
+ * keys wrapping around an intermediate capacity cluster only transiently; keys that defeat
+ * identity bucketing at any capacity still cluster after the growth, which the rehash detects.
+ */
 public class BigintGroupByHash
         implements GroupByHash
 {
@@ -46,22 +67,68 @@ public class BigintGroupByHash
 
     private static final float FILL_RATIO = 0.75f;
 
+    // at 0.75 fill, P(displacement > 4095) is ~e^-154 per element, so 12 bits never overflow
+    private static final int MAX_DISPLACEMENT_BITS = 12;
+
+    private static final int MAX_CAPACITY = 1 << 30;
+
+    // identity hashing is abandoned when rehash measures average displacement above this;
+    // uniform keys average ~0.3 right after doubling, so this only fires on structured keys
+    private static final long MAX_AVERAGE_DISPLACEMENT = 2;
+
+    // an average displacement of inserts since the last rehash above this triggers an early
+    // grow, so clustered keys stop paying for long probe chains after about one batch instead
+    // of a full fill cycle; the post-rehash measurement then decides whether to also switch
+    // the hash function, since dense keys wrapping around an intermediate capacity cluster
+    // just as hard but disperse on growth. Uniform keys average under ~3 even at peak load
+    private static final long MAX_INSERT_AVERAGE_DISPLACEMENT = 8;
+    private static final int MIN_INSERTS_TO_MEASURE_CLUSTERING = 256;
+
+    // Tables larger than the cache are probed in two passes over mini-batches: the first pass
+    // computes hashes and touches each row's home slot so the misses overlap, and the second
+    // pass completes the probes against warm cache lines. The threshold is set above the
+    // capacities that still fit in the last-level cache, where the touch pass is wasted work
+    private static final int PREFETCH_BATCH = 32;
+    private static final int PREFETCH_MIN_CAPACITY = 1 << 22;
+
+    // true until clustering is detected; from then on the murmur3 finalizer is used
+    private boolean identityHashing;
+
     private int hashCapacity;
     private int maxFill;
     private int mask;
+    private int log2Capacity;
+    private int remainderBits;
+    private int maxDisplacement;
 
-    // the hash table from values to groupIds
-    private long[] values;
-    private int[] groupIds;
+    // records[slot] packs (displacement << remainderBits) | remainder; groupIdsPlusOne[slot]
+    // holds groupId + 1, where zero means empty so freshly allocated arrays form a valid
+    // empty table without a fill pass
+    private long[] records;
+    private int[] groupIdsPlusOne;
 
     // groupId for the null value
     private int nullGroupId = -1;
 
-    // reverse index from the groupId back to the value
-    private long[] valuesByGroupId;
+    // reverse index from the groupId back to the slot holding its record
+    private int[] slotsByGroupId;
+
+    // values in groupId order, materialized by startReleasingOutput, which frees the table
+    private long[] releasedValues;
 
     private int nextGroupId;
     private DictionaryLookBack dictionaryLookBack;
+
+    // cumulative displacement of new-group inserts since the last rehash, sampled once per
+    // batch to detect identity-hash clustering without waiting for a fill-triggered rehash
+    private long insertDisplacementSum;
+    private int groupCountAtLastRehash;
+
+    private final long[] scratchValues = new long[PREFETCH_BATCH];
+    private final long[] scratchHashes = new long[PREFETCH_BATCH];
+    // consumes the first-pass touch loads so they cannot be eliminated as dead code
+    @SuppressWarnings("UnusedVariable")
+    private long prefetchSink;
 
     // reserve enough memory before rehash
     private final UpdateMemory updateMemory;
@@ -70,17 +137,25 @@ public class BigintGroupByHash
 
     public BigintGroupByHash(int expectedSize, UpdateMemory updateMemory)
     {
+        this(expectedSize, true, updateMemory);
+    }
+
+    @VisibleForTesting
+    BigintGroupByHash(int expectedSize, boolean identityHashing, UpdateMemory updateMemory)
+    {
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
+        this.identityHashing = identityHashing;
 
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
+        checkArgument(hashCapacity <= MAX_CAPACITY, "expectedSize is too large");
 
         maxFill = calculateMaxFill(hashCapacity);
         mask = hashCapacity - 1;
-        values = new long[hashCapacity];
-        groupIds = new int[hashCapacity];
-        Arrays.fill(groupIds, -1);
+        updateRecordLayout();
+        records = new long[hashCapacity];
+        groupIdsPlusOne = new int[hashCapacity];
 
-        valuesByGroupId = new long[maxFill];
+        slotsByGroupId = new int[maxFill];
 
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
@@ -89,15 +164,22 @@ public class BigintGroupByHash
 
     private BigintGroupByHash(BigintGroupByHash other)
     {
+        identityHashing = other.identityHashing;
         hashCapacity = other.hashCapacity;
         maxFill = other.maxFill;
         mask = other.mask;
-        values = Arrays.copyOf(other.values, other.values.length);
-        groupIds = Arrays.copyOf(other.groupIds, other.groupIds.length);
+        log2Capacity = other.log2Capacity;
+        remainderBits = other.remainderBits;
+        maxDisplacement = other.maxDisplacement;
+        records = copyOfNullable(other.records);
+        groupIdsPlusOne = copyOfNullable(other.groupIdsPlusOne);
         nullGroupId = other.nullGroupId;
-        valuesByGroupId = Arrays.copyOf(other.valuesByGroupId, other.valuesByGroupId.length);
+        slotsByGroupId = copyOfNullable(other.slotsByGroupId);
+        releasedValues = copyOfNullable(other.releasedValues);
         nextGroupId = other.nextGroupId;
         dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
+        insertDisplacementSum = other.insertDisplacementSum;
+        groupCountAtLastRehash = other.groupCountAtLastRehash;
         updateMemory = other.updateMemory;
         preallocatedMemoryInBytes = other.preallocatedMemoryInBytes;
         currentPageSizeInBytes = other.currentPageSizeInBytes;
@@ -107,9 +189,10 @@ public class BigintGroupByHash
     public long getEstimatedSize()
     {
         return INSTANCE_SIZE +
-                sizeOf(groupIds) +
-                sizeOf(values) +
-                sizeOf(valuesByGroupId) +
+                sizeOf(records) +
+                sizeOf(groupIdsPlusOne) +
+                sizeOf(slotsByGroupId) +
+                sizeOf(releasedValues) +
                 preallocatedMemoryInBytes;
     }
 
@@ -124,6 +207,32 @@ public class BigintGroupByHash
     {
         dictionaryLookBack = null;
         currentPageSizeInBytes = 0;
+        if (releasedValues != null) {
+            return;
+        }
+
+        // the reservation result is ignored: the release frees more than it allocates, so
+        // pausing here would mean waiting for memory in order to free memory
+        preallocatedMemoryInBytes = sizeOfLongArray(nextGroupId);
+        updateMemory.update();
+
+        // materialize values in groupId order so output appends become sequential reads,
+        // freeing the reverse index first to limit the transient footprint
+        slotsByGroupId = null;
+        long[] values = new long[nextGroupId];
+        for (int slot = 0; slot < hashCapacity; slot++) {
+            int groupIdPlusOne = groupIdsPlusOne[slot];
+            if (groupIdPlusOne != 0) {
+                values[groupIdPlusOne - 1] = reconstructValue(slot);
+            }
+        }
+        releasedValues = values;
+        records = null;
+        groupIdsPlusOne = null;
+
+        preallocatedMemoryInBytes = 0;
+        // report the reduced memory usage
+        updateMemory.update();
     }
 
     @Override
@@ -134,14 +243,18 @@ public class BigintGroupByHash
         if (groupId == nullGroupId) {
             blockBuilder.appendNull();
         }
+        else if (releasedValues != null) {
+            BIGINT.writeLong(blockBuilder, releasedValues[groupId]);
+        }
         else {
-            BIGINT.writeLong(blockBuilder, valuesByGroupId[groupId]);
+            BIGINT.writeLong(blockBuilder, reconstructValue(slotsByGroupId[groupId]));
         }
     }
 
     @Override
     public Work<?> addPage(Page page)
     {
+        checkState(releasedValues == null, "output is being released");
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         Block block = page.getBlock(0);
         if (block instanceof RunLengthEncodedBlock rleBlock) {
@@ -157,6 +270,7 @@ public class BigintGroupByHash
     @Override
     public Work<int[]> getGroupIds(Page page)
     {
+        checkState(releasedValues == null, "output is being released");
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         Block block = page.getBlock(0);
         if (block instanceof RunLengthEncodedBlock rleBlock) {
@@ -172,7 +286,10 @@ public class BigintGroupByHash
     @Override
     public long getRawHash(int groupId)
     {
-        return BigintType.hash(valuesByGroupId[groupId]);
+        if (releasedValues != null) {
+            return BigintType.hash(releasedValues[groupId]);
+        }
+        return BigintType.hash(reconstructValue(slotsByGroupId[groupId]));
     }
 
     @VisibleForTesting
@@ -182,10 +299,69 @@ public class BigintGroupByHash
         return hashCapacity;
     }
 
+    @VisibleForTesting
+    boolean isIdentityHashing()
+    {
+        return identityHashing;
+    }
+
     @Override
     public GroupByHash copy()
     {
         return new BigintGroupByHash(this);
+    }
+
+    private long hashValue(long value)
+    {
+        if (identityHashing) {
+            return value;
+        }
+        return murmurHash3(value);
+    }
+
+    private long invertHash(long hash)
+    {
+        if (identityHashing) {
+            return hash;
+        }
+        return invMurmurHash3(hash);
+    }
+
+    private void updateRecordLayout()
+    {
+        log2Capacity = Integer.numberOfTrailingZeros(hashCapacity);
+        remainderBits = 64 - log2Capacity;
+        int displacementBits = min(log2Capacity, MAX_DISPLACEMENT_BITS);
+        maxDisplacement = (1 << displacementBits) - 1;
+    }
+
+    private long reconstructValue(int slot)
+    {
+        long record = records[slot];
+        int displacement = (int) (record >>> remainderBits);
+        int homePosition = (slot - displacement) & mask;
+        long hash = ((record & remainderMask()) << log2Capacity) | homePosition;
+        return invertHash(hash);
+    }
+
+    private long remainderMask()
+    {
+        return (1L << remainderBits) - 1;
+    }
+
+    /**
+     * Inverse of {@link it.unimi.dsi.fastutil.HashCommon#murmurHash3(long)}: xorshift by 33 is
+     * an involution, and the multipliers are the modular inverses of the murmur3 constants.
+     */
+    @VisibleForTesting
+    static long invMurmurHash3(long x)
+    {
+        x ^= x >>> 33;
+        x *= 0x9CB4B2F8129337DBL;
+        x ^= x >>> 33;
+        x *= 0x4F74430C22A54005L;
+        x ^= x >>> 33;
+        return x;
     }
 
     private int putIfAbsent(int position, Block block)
@@ -200,34 +376,119 @@ public class BigintGroupByHash
         }
 
         long value = BIGINT.getLong(block, position);
-        int hashPosition = getHashPosition(value, mask);
-
-        // look for an empty slot or a slot containing this key
-        while (true) {
-            int groupId = groupIds[hashPosition];
-            if (groupId == -1) {
-                break;
-            }
-
-            if (value == values[hashPosition]) {
-                return groupId;
-            }
-
-            // increment position and mask to handle wrap around
-            hashPosition = (hashPosition + 1) & mask;
-        }
-
-        return addNewGroup(hashPosition, value);
+        return putValueIfAbsent(value);
     }
 
-    private int addNewGroup(int hashPosition, long value)
+    private int putValueIfAbsent(long value)
     {
-        // record group id in hash
+        return putValueIfAbsent(value, hashValue(value));
+    }
+
+    private int putValueIfAbsent(long value, long hash)
+    {
+        while (true) {
+            int hashPosition = (int) (hash & mask);
+            // each probe step advances the displacement field of the expected record, so record
+            // equality implies an equal home bucket and hash, and therefore an equal value
+            long expectedRecord = hash >>> log2Capacity;
+            long displacementIncrement = 1L << remainderBits;
+            int displacement = 0;
+
+            while (true) {
+                int groupIdPlusOne = groupIdsPlusOne[hashPosition];
+                if (groupIdPlusOne == 0) {
+                    insertDisplacementSum += displacement;
+                    return addNewGroup(hashPosition, expectedRecord);
+                }
+
+                if (records[hashPosition] == expectedRecord) {
+                    return groupIdPlusOne - 1;
+                }
+
+                // increment position and mask to handle wrap around
+                hashPosition = (hashPosition + 1) & mask;
+                displacement++;
+                expectedRecord += displacementIncrement;
+                if (displacement > maxDisplacement) {
+                    break;
+                }
+            }
+
+            // Displacement overflow: grow and retry. Identity-hashing clusters caused by dense
+            // keys wrapping around a small capacity disappear after doubling; if they persist,
+            // the post-rehash check switches the hash function.
+            boolean rehashed;
+            if (identityHashing && hashCapacity * 2L > MAX_CAPACITY) {
+                rehashed = tryRehash(hashCapacity, false);
+            }
+            else {
+                rehashed = tryRehash();
+            }
+            if (!rehashed) {
+                throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Cannot rehash hash table needed to store displaced entry");
+            }
+            // the rehash may have switched the hash function
+            hash = hashValue(value);
+        }
+    }
+
+    private void putBatch(Block block, int offset, int count, int[] groupIdsOut, int outOffset)
+    {
+        long[] values = scratchValues;
+        long[] hashes = scratchHashes;
+        boolean identityHashingAtStart = identityHashing;
+        long sink = 0;
+        for (int i = 0; i < count; i++) {
+            long value = BIGINT.getLong(block, offset + i);
+            long hash = hashValue(value);
+            values[i] = value;
+            hashes[i] = hash;
+            int home = (int) (hash & mask);
+            sink += groupIdsPlusOne[home] + records[home];
+        }
+        prefetchSink += sink;
+
+        for (int i = 0; i < count; i++) {
+            int groupId;
+            if (identityHashing != identityHashingAtStart) {
+                // a mid-batch rehash switched the hash function, invalidating precomputed hashes
+                groupId = putValueIfAbsent(values[i]);
+            }
+            else {
+                groupId = putValueIfAbsent(values[i], hashes[i]);
+            }
+            if (groupIdsOut != null) {
+                groupIdsOut[outOffset + i] = groupId;
+            }
+        }
+    }
+
+    private void putRange(Block block, int offset, int count, int[] groupIdsOut)
+    {
+        if (hashCapacity >= PREFETCH_MIN_CAPACITY) {
+            for (int i = 0; i < count; i += PREFETCH_BATCH) {
+                putBatch(block, offset + i, min(PREFETCH_BATCH, count - i), groupIdsOut, offset + i);
+            }
+        }
+        else if (groupIdsOut != null) {
+            for (int i = offset; i < offset + count; i++) {
+                groupIdsOut[i] = putValueIfAbsent(BIGINT.getLong(block, i));
+            }
+        }
+        else {
+            for (int i = offset; i < offset + count; i++) {
+                putValueIfAbsent(BIGINT.getLong(block, i));
+            }
+        }
+    }
+
+    private int addNewGroup(int hashPosition, long record)
+    {
         int groupId = nextGroupId++;
 
-        values[hashPosition] = value;
-        valuesByGroupId[groupId] = value;
-        groupIds[hashPosition] = groupId;
+        records[hashPosition] = record;
+        groupIdsPlusOne[hashPosition] = groupId + 1;
+        slotsByGroupId[groupId] = hashPosition;
 
         // increase capacity, if necessary
         if (needRehash()) {
@@ -238,54 +499,98 @@ public class BigintGroupByHash
 
     private boolean tryRehash()
     {
-        long newCapacityLong = hashCapacity * 2L;
-        if (newCapacityLong > Integer.MAX_VALUE) {
+        return tryRehash(hashCapacity * 2L, identityHashing);
+    }
+
+    private boolean tryRehash(long newCapacityLong, boolean newIdentityHashing)
+    {
+        if (newCapacityLong > MAX_CAPACITY) {
             throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
         int newCapacity = toIntExact(newCapacityLong);
 
+        int newLog2Capacity = Integer.numberOfTrailingZeros(newCapacity);
+        int newRemainderBits = 64 - newLog2Capacity;
+        int newMaxDisplacement = (1 << min(newLog2Capacity, MAX_DISPLACEMENT_BITS)) - 1;
+
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
-        // This includes the new capacity for values, groupIds, and valuesByGroupId as well as the size of the current page
-        preallocatedMemoryInBytes = newCapacity * (long) (Long.BYTES + Integer.BYTES) + ((long) calculateMaxFill(newCapacity)) * Long.BYTES + currentPageSizeInBytes;
+        // This includes the new capacity for records and group ids as well as slotsByGroupId and the size of the current page
+        preallocatedMemoryInBytes = newCapacity * ((long) Long.BYTES + Integer.BYTES) + ((long) calculateMaxFill(newCapacity)) * Integer.BYTES + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
         }
 
         int newMask = newCapacity - 1;
-        long[] newValues = new long[newCapacity];
-        int[] newGroupIds = new int[newCapacity];
-        Arrays.fill(newGroupIds, -1);
+        long[] newRecords = new long[newCapacity];
+        int[] newGroupIdsPlusOne = new int[newCapacity];
+        long newDisplacementIncrement = 1L << newRemainderBits;
+        long totalDisplacement = 0;
+        int entryCount = 0;
 
-        for (int i = 0; i < values.length; i++) {
-            int groupId = groupIds[i];
-
-            if (groupId != -1) {
-                long value = values[i];
-                int hashPosition = getHashPosition(value, newMask);
-
-                // find an empty slot for the address
-                while (newGroupIds[hashPosition] != -1) {
-                    hashPosition = (hashPosition + 1) & newMask;
-                }
-
-                // record the mapping
-                newValues[hashPosition] = value;
-                newGroupIds[hashPosition] = groupId;
+        for (int i = 0; i < hashCapacity; i++) {
+            int groupIdPlusOne = groupIdsPlusOne[i];
+            if (groupIdPlusOne == 0) {
+                continue;
             }
+
+            long record = records[i];
+            int displacement = (int) (record >>> remainderBits);
+            int homePosition = (i - displacement) & mask;
+            long hash = ((record & remainderMask()) << log2Capacity) | homePosition;
+            if (newIdentityHashing != identityHashing) {
+                // switching is only ever from identity hashing, where the hash is the value
+                hash = murmurHash3(hash);
+            }
+
+            // find an empty slot for the record
+            int hashPosition = (int) (hash & newMask);
+            long newRecord = hash >>> newLog2Capacity;
+            int newDisplacement = 0;
+            while (newGroupIdsPlusOne[hashPosition] != 0) {
+                hashPosition = (hashPosition + 1) & newMask;
+                newRecord += newDisplacementIncrement;
+                newDisplacement++;
+            }
+            if (newDisplacement > newMaxDisplacement) {
+                // identity clusters can survive the doubling when several dense key ranges
+                // alias onto the same buckets (offsets congruent modulo the new capacity), so
+                // the reinsert itself can overflow the displacement field; redo the rehash
+                // with the murmur3 finalizer, which disperses any key structure. The old table
+                // is untouched until the rehash commits, so retrying is safe
+                verify(newIdentityHashing, "displacement overflow after rehash");
+                return tryRehash(newCapacityLong, false);
+            }
+            totalDisplacement += newDisplacement;
+            entryCount++;
+
+            newRecords[hashPosition] = newRecord;
+            newGroupIdsPlusOne[hashPosition] = groupIdPlusOne;
+            slotsByGroupId[groupIdPlusOne - 1] = hashPosition;
         }
 
+        identityHashing = newIdentityHashing;
         mask = newMask;
         hashCapacity = newCapacity;
         maxFill = calculateMaxFill(hashCapacity);
-        values = newValues;
-        groupIds = newGroupIds;
+        updateRecordLayout();
+        records = newRecords;
+        groupIdsPlusOne = newGroupIdsPlusOne;
 
-        this.valuesByGroupId = Arrays.copyOf(valuesByGroupId, maxFill);
+        this.slotsByGroupId = Arrays.copyOf(slotsByGroupId, maxFill);
+
+        insertDisplacementSum = 0;
+        groupCountAtLastRehash = nextGroupId;
 
         preallocatedMemoryInBytes = 0;
         // release temporary memory reservation
         updateMemory.update();
+
+        // switch off identity hashing if the reinsertion pass measured clustering; the nested
+        // rehash cannot recurse since it commits identityHashing = false before this check
+        if (identityHashing && totalDisplacement > MAX_AVERAGE_DISPLACEMENT * entryCount) {
+            tryRehash(hashCapacity, false);
+        }
         return true;
     }
 
@@ -294,9 +599,10 @@ public class BigintGroupByHash
         return nextGroupId >= maxFill;
     }
 
-    private static int getHashPosition(long rawHash, int mask)
+    private boolean insertsAreClustered()
     {
-        return (int) (murmurHash3(rawHash) & mask);
+        int inserted = nextGroupId - groupCountAtLastRehash;
+        return inserted >= MIN_INSERTS_TO_MEASURE_CLUSTERING && insertDisplacementSum > MAX_INSERT_AVERAGE_DISPLACEMENT * inserted;
     }
 
     private static int calculateMaxFill(int hashSize)
@@ -308,6 +614,16 @@ public class BigintGroupByHash
         }
         checkArgument(hashSize > maxFill, "hashSize must be larger than maxFill");
         return maxFill;
+    }
+
+    private static int[] copyOfNullable(int[] array)
+    {
+        return array == null ? null : Arrays.copyOf(array, array.length);
+    }
+
+    private static long[] copyOfNullable(long[] array)
+    {
+        return array == null ? null : Arrays.copyOf(array, array.length);
     }
 
     private void updateDictionaryLookBack(Block dictionary)
@@ -354,8 +670,13 @@ public class BigintGroupByHash
                     return false;
                 }
 
-                for (int i = lastPosition; i < lastPosition + batchSize; i++) {
-                    putIfAbsent(i, block);
+                if (block.mayHaveNull()) {
+                    for (int i = lastPosition; i < lastPosition + batchSize; i++) {
+                        putIfAbsent(i, block);
+                    }
+                }
+                else {
+                    putRange(block, lastPosition, batchSize, null);
                 }
 
                 lastPosition += batchSize;
@@ -490,9 +811,13 @@ public class BigintGroupByHash
                     return false;
                 }
 
-                for (int i = lastPosition; i < lastPosition + batchSize; i++) {
-                    // output the group id for this row
-                    groupIds[i] = putIfAbsent(i, block);
+                if (block.mayHaveNull()) {
+                    for (int i = lastPosition; i < lastPosition + batchSize; i++) {
+                        groupIds[i] = putIfAbsent(i, block);
+                    }
+                }
+                else {
+                    putRange(block, lastPosition, batchSize, groupIds);
                 }
 
                 lastPosition += batchSize;
@@ -617,6 +942,15 @@ public class BigintGroupByHash
 
     private boolean ensureHashTableSize(int batchSize)
     {
+        if (identityHashing && insertsAreClustered()) {
+            // grow rather than switch: the rehash measures displacement in the new table and
+            // switches the hash function only if the clustering survives the doubling
+            boolean rehashed = hashCapacity * 2L > MAX_CAPACITY ? tryRehash(hashCapacity, false) : tryRehash();
+            if (!rehashed) {
+                return false;
+            }
+        }
+
         int positionCountUntilRehash = maxFill - nextGroupId;
         while (positionCountUntilRehash < batchSize) {
             if (!tryRehash()) {

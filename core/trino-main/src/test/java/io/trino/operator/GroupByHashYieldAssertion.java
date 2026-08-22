@@ -195,7 +195,7 @@ public final class GroupByHashYieldAssertion
 
                     // Assert the estimated reserved memory after rehash is lower than the one before rehash (extra memory allocation has been released)
                     long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-                    long expectedMemoryUsageAfterRehash = oldMemoryUsage + getHashTableSizeInBytes(hashKeyType, oldCapacity);
+                    long expectedMemoryUsageAfterRehash = oldMemoryUsage + getHashTableSizeInBytes(hashKeyType, oldCapacity * 2) - getHashTableSizeInBytes(hashKeyType, oldCapacity);
                     double memoryUsageErrorUpperBound = 1.01;
                     double memoryUsageError = rehashedMemoryUsage * 1.0 / expectedMemoryUsageAfterRehash;
                     if (memoryUsageError > memoryUsageErrorUpperBound) {
@@ -226,8 +226,9 @@ public final class GroupByHashYieldAssertion
     private static long getHashTableSizeInBytes(Type hashKeyType, int capacity)
     {
         if (hashKeyType == BIGINT) {
-            // groupIds and values double by hashCapacity; while valuesByGroupId double by maxFill = hashCapacity / 0.75
-            return capacity * (long) (Long.BYTES * 1.75 + Integer.BYTES);
+            // long records and int group ids are sized by hashCapacity, while slotsByGroupId
+            // is sized by maxFill = hashCapacity * 0.75
+            return capacity * (Long.BYTES + Integer.BYTES + (long) (Integer.BYTES * 0.75));
         }
 
         @SuppressWarnings("OverlyComplexArithmeticExpression")
