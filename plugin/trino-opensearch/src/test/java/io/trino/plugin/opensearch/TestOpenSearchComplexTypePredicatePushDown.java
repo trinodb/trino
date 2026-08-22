@@ -158,17 +158,23 @@ final class TestOpenSearchComplexTypePredicatePushDown
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 
-        // no predicate push down for entire ROW
+        // mixed-null rows are not IS NOT NULL. $row_is_not_null is opaque, so there is no field prune.
+        long[] fullScanBytes = {0};
+        assertQueryStats(
+                getSession(),
+                "SELECT * FROM " + tableName + " WHERE true",
+                queryStats -> fullScanBytes[0] = queryStats.getProcessedInputDataSize().toBytes(),
+                results -> assertThat(results.getRowCount()).isEqualTo(4096));
         assertQueryStats(
                 getSession(),
                 "SELECT * FROM " + tableName + " WHERE col IS NOT NULL",
-                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
-                results -> assertThat(results.getRowCount()).isEqualTo(4096));
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(fullScanBytes[0]),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
 
         assertQueryStats(
                 getSession(),
                 "SELECT * FROM " + tableName + " WHERE col IS NULL",
-                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(fullScanBytes[0]),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 

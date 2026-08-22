@@ -247,7 +247,8 @@ public class PushAggregationThroughOuterJoin
                 ImmutableMap.of(),
                 Optional.empty());
 
-        // Add coalesce expressions for all aggregation functions
+        // Coalesce aggregation over the live outer row with the same aggregation over a
+        // value-null inner row. Missing groups are the null value, not SQL row IS NULL.
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         for (Symbol symbol : outerJoin.getOutputSymbols()) {
             if (aggregationNode.getAggregations().containsKey(symbol)) {
