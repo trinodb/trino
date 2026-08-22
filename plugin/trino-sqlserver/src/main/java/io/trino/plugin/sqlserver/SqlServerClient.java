@@ -61,11 +61,8 @@ import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
-import io.trino.plugin.jdbc.expression.ComparisonOperator;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
-import io.trino.plugin.jdbc.expression.RewriteCaseSensitiveComparison;
-import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -338,7 +335,8 @@ public class SqlServerClient
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
-                .add(new RewriteIn())
+                .add(new RewriteSqlServerIn())
+                .add(new RewriteSqlServerNullIf())
                 .add(new RewriteLikeWithCaseSensitivity())
                 .add(new RewriteLikeEscapeWithCaseSensitivity())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
@@ -349,7 +347,6 @@ public class SqlServerClient
                 .map("$less_than_or_equal(left: numeric_type, right: numeric_type)").to("left <= right")
                 .map("$greater_than(left: numeric_type, right: numeric_type)").to("left > right")
                 .map("$greater_than_or_equal(left: numeric_type, right: numeric_type)").to("left >= right")
-                .add(new RewriteCaseSensitiveComparison(ImmutableSet.of(ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL)))
                 .map("$add(left: integer_type, right: integer_type)").to("left + right")
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
@@ -359,7 +356,6 @@ public class SqlServerClient
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
-                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
@@ -1205,7 +1201,10 @@ public class SqlServerClient
             JoinCondition.Operator operator = joinCondition.getOperator();
             return switch (operator) {
                 case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> false;
-                case EQUAL, NOT_EQUAL -> isCaseSensitiveVarchar(joinCondition.getLeftColumn()) && isCaseSensitiveVarchar(joinCondition.getRightColumn());
+                case EQUAL, NOT_EQUAL -> joinCondition.getLeftColumn().getColumnType() instanceof CharType
+                        && joinCondition.getRightColumn().getColumnType() instanceof CharType
+                        && isCaseSensitiveVarchar(joinCondition.getLeftColumn())
+                        && isCaseSensitiveVarchar(joinCondition.getRightColumn());
                 default -> false;
             };
         }
