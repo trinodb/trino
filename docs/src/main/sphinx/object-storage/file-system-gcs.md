@@ -57,6 +57,30 @@ Storage file system support:
     for all requests sent to Google Cloud Storage. Defaults to `Trino`.
 :::
 
+## Encryption
+
+Trino supports [customer-supplied encryption keys
+(CSEK)](https://cloud.google.com/storage/docs/encryption/customer-supplied-keys)
+to encrypt objects written to Google Cloud Storage and decrypt objects read from
+Google Cloud Storage. Separate encryption and decryption key properties are
+supported so that you can rotate keys: configure the new key for encryption and
+keep the previous key for decryption until all objects are re-encrypted.
+
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
+
+* - Property
+  - Description
+* - `gcs.encryption-key`
+  - The 256-bit, Base64-encoded AES-256 customer-supplied encryption key used
+    to encrypt objects written to Google Cloud Storage.
+* - `gcs.decryption-key`
+  - The 256-bit, Base64-encoded AES-256 customer-supplied encryption key used
+    to decrypt objects read from Google Cloud Storage. Typically set to the
+    same value as `gcs.encryption-key` unless rotating keys.
+:::
+
 ## Authentication
 
 Use one of the following properties to configure the authentication to Google
