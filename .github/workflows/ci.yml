@@ -761,6 +761,13 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-google-sheets -Pcloud-tests \
             -Dtesting.gsheets.credentials-key="${SHEETS_CREDENTIALS_KEY}"
+      - name: Cleanup stale Redshift Clusters
+        env:
+          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ vars.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
+        if: always()
+        run: .github/bin/redshift/delete-stale-aws-redshift.sh
       - name: Cloud Redshift Tests ${{ matrix.profile }}
         id: tests-redshift
         env:
