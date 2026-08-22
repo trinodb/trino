@@ -380,6 +380,7 @@ jobs:
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift,
+            !:trino-trino,
             !:trino-web-ui'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
@@ -502,6 +503,7 @@ jobs:
             # TODO re-enable Snowflake cloud tests https://github.com/trinodb/trino/issues/30823
             # - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
+            - { modules: plugin/trino-trino }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }

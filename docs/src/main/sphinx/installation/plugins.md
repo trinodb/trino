@@ -300,4 +300,7 @@ included in the build and release process and the resulting the binary packages.
 * - tpch
   - [](/connector/tpch)
   - {download_gh}`tpch`
+* - trino
+  - [](/connector/trino)
+  - {download_gh}`trino`
 :::
