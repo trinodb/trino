@@ -29,6 +29,7 @@ import java.util.Map;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +49,6 @@ public final class SnowflakeQueryRunner
         Builder builder = new Builder()
                 .addConnectorProperty("connection-url", TestingSnowflakeServer.TEST_URL)
                 .addConnectorProperty("connection-user", TestingSnowflakeServer.TEST_USER)
-                .addConnectorProperty("connection-password", TestingSnowflakeServer.TEST_PASSWORD)
                 .addConnectorProperty("snowflake.database", TestingSnowflakeServer.TEST_DATABASE)
                 .addConnectorProperty("snowflake.warehouse", TestingSnowflakeServer.TEST_WAREHOUSE);
         TestingSnowflakeServer.TEST_ROLE.ifPresent(role -> builder.addConnectorProperty("snowflake.role", role));
@@ -111,6 +111,7 @@ public final class SnowflakeQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = builder()
+                .addConnectorProperty("connection-password", requiredNonEmptySystemProperty("snowflake.test.server.password"))
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .build();
 
