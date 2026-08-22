@@ -6352,8 +6352,8 @@ public class TestAnalyzer
         analyze("SELECT * FROM fresh_materialized_view" + suffix);
         analyze("SELECT * FROM fresh_materialized_view_non_existent_table" + suffix);
         assertFails("REFRESH MATERIALIZED VIEW fresh_materialized_view_non_existent_table" + suffix)
-                .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:1: Failed analyzing stored view 'tpch.s1.fresh_materialized_view_non_existent_table" + suffix + "': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
 
     @Test
@@ -6368,8 +6368,8 @@ public class TestAnalyzer
                 .hasErrorCode(VIEW_IS_STALE)
                 .hasMessage("line 1:15: Materialized view 'tpch.s1.stale_materialized_view_non_existent_table_when_stale_fail' is stale");
         assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table_when_stale_fail")
-                .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:1: Failed analyzing stored view 'tpch.s1.stale_materialized_view_non_existent_table_when_stale_fail': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
 
     public void testAnalyzeStaleMaterializedViewWithWhenStaleInline(WhenStaleBehavior whenStaleBehavior)
@@ -6381,8 +6381,8 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_VIEW)
                 .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.stale_materialized_view_non_existent_table" + suffix + "': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
         assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table" + suffix)
-                .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:1: Failed analyzing stored view 'tpch.s1.stale_materialized_view_non_existent_table" + suffix + "': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
 
     @Test
@@ -6443,7 +6443,7 @@ public class TestAnalyzer
         analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view" + suffix, accessControlManager);
         assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW fresh_materialized_view" + suffix, accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
+                .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
         if (whenStaleBehavior == INLINE) {
             // Now we check that when the MV is stale, access to the underlying tables is checked.
             assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view" + suffix, accessControlManager)
@@ -6458,7 +6458,7 @@ public class TestAnalyzer
 
         assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW stale_materialized_view" + suffix, accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
+                .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
     }
 
     @Test

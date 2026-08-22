@@ -1270,11 +1270,9 @@ public abstract class BaseIcebergMaterializedViewTest
         // Refresh by a different user picks up the new row
         assertUpdate(otherUserSession, "REFRESH MATERIALIZED VIEW " + mvName, 1);
         assertFreshness(mvName, "FRESH");
-        // TODO https://github.com/trinodb/trino/issues/28738 session-scoped expressions should resolve using
-        // the MV owner's identity during refresh (like the stale inline path does via analyzeView), but currently
-        // the refresh path resolves them from the refreshing user's session.
-        // When fixed, this should be: VALUES ('user'), ('user')
-        assertQuery("SELECT created_by FROM " + mvName, "VALUES ('user'), ('other_user')");
+        // current_user should resolve to 'user' (the MV owner) for all rows,
+        // regardless of who triggered the refresh
+        assertQuery("SELECT created_by FROM " + mvName, "VALUES ('user'), ('user')");
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP TABLE " + sourceTableName);
