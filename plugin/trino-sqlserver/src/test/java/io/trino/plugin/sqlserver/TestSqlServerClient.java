@@ -15,18 +15,23 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -67,6 +72,34 @@ public class TestSqlServerClient
             TESTING_TYPE_MANAGER,
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
+
+    private static JdbcColumnHandle characterColumn(String name, io.trino.spi.type.Type type, CaseSensitivity caseSensitivity)
+    {
+        return JdbcColumnHandle.builder()
+                .setColumnName(name)
+                .setColumnType(type)
+                .setJdbcTypeHandle(new JdbcTypeHandle(
+                        type instanceof CharType ? Types.CHAR : Types.VARCHAR,
+                        Optional.of(type instanceof CharType ? "char" : "varchar"),
+                        Optional.of(10),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(caseSensitivity)))
+                .build();
+    }
+
+    @Test
+    public void testVarcharEqualityJoinPushdownDisabledUnderPadSpace()
+    {
+        SqlServerClient client = (SqlServerClient) JDBC_CLIENT;
+        JdbcColumnHandle csVarchar = characterColumn("v", VarcharType.createVarcharType(10), CaseSensitivity.CASE_SENSITIVE);
+        JdbcColumnHandle csChar = characterColumn("c", CharType.createCharType(10), CaseSensitivity.CASE_SENSITIVE);
+
+        assertThat(client.isSupportedJoinCondition(SESSION, new JdbcJoinCondition(csVarchar, JoinCondition.Operator.EQUAL, csVarchar))).isFalse();
+        assertThat(client.isSupportedJoinCondition(SESSION, new JdbcJoinCondition(csVarchar, JoinCondition.Operator.NOT_EQUAL, csVarchar))).isFalse();
+
+        assertThat(client.isSupportedJoinCondition(SESSION, new JdbcJoinCondition(csChar, JoinCondition.Operator.EQUAL, csChar))).isTrue();
+    }
 
     @Test
     public void testImplementCount()

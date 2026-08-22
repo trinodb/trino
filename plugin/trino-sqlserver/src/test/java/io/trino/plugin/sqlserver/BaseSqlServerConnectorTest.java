@@ -51,9 +51,6 @@ public abstract class BaseSqlServerConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_JOIN_PUSHDOWN -> true;
-            // Equality predicates over varchar are pushed only as a superset pre-filter (PAD SPACE), so this derived
-            // behavior is off; a column-to-column join is unaffected, so re-enable the join behavior it would cascade off.
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
@@ -82,6 +79,101 @@ public abstract class BaseSqlServerConnectorTest
                  SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    public void testVarcharEqualityJoinPushdownIgnoresTrailingSpaces()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_varchar_join_pad_space",
+                "(v varchar(10) COLLATE Latin1_General_CS_AS)",
+                List.of("'a'", "'a '"))) {
+            Session session = Session.builder(joinPushdownEnabled(getSession()))
+                    .setCatalogSessionProperty("sqlserver", "join_pushdown_strategy", "EAGER")
+                    .build();
+            assertThat(query(session, "SELECT l.v, r.v FROM " + table.getName() + " l JOIN " + table.getName() + " r ON l.v = r.v"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a ', 'a ')")
+                    .joinIsNotFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testVarcharColumnComparisonPushdownIgnoresTrailingSpaces()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_varchar_cmp_pad_space",
+                "(a varchar(10) COLLATE Latin1_General_CS_AS, b varchar(10) COLLATE Latin1_General_CS_AS)",
+                List.of("'a', 'a'", "'a', 'a '", "'a ', 'a'"))) {
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a = b"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a')")
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
+    public void testVarcharInPredicatePushdownIgnoresTrailingSpaces()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_varchar_in_pad_space",
+                "(a varchar(10) COLLATE Latin1_General_CS_AS, b varchar(10) COLLATE Latin1_General_CS_AS, c varchar(10) COLLATE Latin1_General_CS_AS)",
+                List.of("'a', 'a', 'zz'", "'a', 'a ', 'zz'", "'a ', 'a', 'zz'", "'a ', 'a ', 'zz'"))) {
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a IN (b, c)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a ', 'a ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a NOT IN (b, c)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a '), ('a ', 'a')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            // a constant IN list is not captured as a domain here, so it reaches the connector as an expression
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a IN ('a', 'x') OR c = 'yy'"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a', 'a ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
+    public void testVarcharNullIfPushdownIgnoresTrailingSpaces()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_varchar_nullif_pad_space",
+                "(a varchar(10) COLLATE Latin1_General_CS_AS, b varchar(10) COLLATE Latin1_General_CS_AS, d1 date, d2 date)",
+                List.of("'a', 'a', '2001-01-01', '2001-01-01'", "'a', 'a ', '2001-01-02', '2001-01-02'", "'a ', 'a', '2001-01-03', '2001-01-04'", "'a ', 'a ', '2001-01-05', '2001-01-06'"))) {
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE NULLIF(a, b) IS NULL"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a ', 'a ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE NULLIF(a, 'a') IS NULL"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a', 'a ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            // nullif over a non-character type is still pushed down
+            assertThat(query("SELECT d1 FROM " + table.getName() + " WHERE NULLIF(d1, d2) IS NULL"))
+                    .matches("VALUES DATE '2001-01-01', DATE '2001-01-02'")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testNoInPredicatePushdownOnCaseInsensitiveCharColumn()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_char_in_case_insensitive",
+                "(a char(3) COLLATE Latin1_General_CI_AS, b char(3) COLLATE Latin1_General_CI_AS, c char(3) COLLATE Latin1_General_CI_AS)",
+                List.of("'a', 'a', 'zz'", "'a', 'A', 'zz'"))) {
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a IN (b, c)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a  ', 'a  ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
     }
 
     @Override
@@ -237,9 +329,8 @@ public abstract class BaseSqlServerConnectorTest
                 // the varchar equality predicate leaves a residual filter that prevents full pushdown
                 .isNotFullyPushedDown(FilterNode.class);
 
-        // join on varchar columns is unaffected: a column-to-column join is not pushed via the domain pushdown path
         assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM nation n JOIN nation n2 ON n.name = n2.name"))
-                .isFullyPushedDown();
+                .joinIsNotFullyPushedDown();
 
         // bigint equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
