@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static io.trino.plugin.geospatial.GeoTestUtils.assertSpatialEquals;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Collections.reverse;
@@ -262,6 +263,13 @@ public class TestGeometryUnionGeoAggregation
                 "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))",
                 "MULTIPOLYGON (((1 3, 1 4, 3 4, 3 3, 1 3)), ((3 3, 3 4, 4 4, 4 3, 3 3)), ((4 3, 4 4, 6 4, 6 3, 4 3)))",
                 "MULTIPOLYGON (((3 1, 4 1, 4 3, 3 3, 3 1)), ((3 4, 3 6, 4 6, 4 4, 3 4)))");
+
+        // The valid polygon is disjoint from the invalid one, so the expected result carries the
+        // repaired bow-tie's own coordinates and a result that dropped it would not match.
+        test("self-intersecting polygon is repaired after union failure",
+                "MULTIPOLYGON (((0 0, 1 1, 2 0, 0 0)), ((0 2, 2 2, 1 1, 0 2)), ((10 10, 10 12, 12 12, 12 10, 10 10)))",
+                "POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))",
+                "POLYGON ((10 10, 12 10, 12 12, 10 12, 10 10))");
     }
 
     @Test
@@ -389,6 +397,65 @@ public class TestGeometryUnionGeoAggregation
         GeometryUnionAgg.combine(state, otherState);
 
         assertThat(state.getGeometry().getSRID()).isEqualTo(4326);
+    }
+
+    @Test
+    public void testStrictModeRejectsInvalidRawInputAndTrustsIntermediateState()
+            throws ParseException
+    {
+        Geometry invalid = geometry("POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))", 4326);
+        Geometry valid = geometry("POLYGON ((10 10, 12 10, 12 12, 10 12, 10 10))", 4326);
+        Geometry expected = geometry("MULTIPOLYGON (((0 0, 1 1, 2 0, 0 0)), ((0 2, 2 2, 1 1, 0 2)), ((10 10, 10 12, 12 12, 12 10, 10 10)))", 4326);
+
+        GeometryState state = new GeometryStateFactory.SingleGeometryState();
+        assertTrinoExceptionThrownBy(() -> GeometryUnionAgg.input(state, invalid, true))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Self-intersection at or near (1.0 1.0)");
+        assertThat(state.getGeometry()).isNull();
+
+        GeometryUnionAgg.input(state, valid, true);
+        Geometry stateBeforeFailure = state.getGeometry();
+        assertTrinoExceptionThrownBy(() -> GeometryUnionAgg.input(state, invalid, true))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+        assertThat(state.getGeometry()).isSameAs(stateBeforeFailure);
+
+        // Inject a synthetic invalid partial to verify that combine() is not a second
+        // user-input validation boundary. Strict input validation makes such a state unlikely,
+        // but overlay output is not guaranteed valid in every case (locationtech/jts#1000), so
+        // combine() must handle it leniently rather than blame the user's arguments.
+        GeometryState validThenInvalid = geometryState(valid.copy());
+        GeometryUnionAgg.combine(validThenInvalid, geometryState(invalid.copy()));
+        assertCombinedGeometry(validThenInvalid.getGeometry(), expected);
+
+        GeometryState invalidThenValid = geometryState(invalid.copy());
+        GeometryUnionAgg.combine(invalidThenValid, geometryState(valid.copy()));
+        assertCombinedGeometry(invalidThenValid.getGeometry(), expected);
+
+        GeometryState emptyThenInvalid = new GeometryStateFactory.SingleGeometryState();
+        GeometryUnionAgg.combine(emptyThenInvalid, geometryState(invalid.copy()));
+        assertThat(emptyThenInvalid.getGeometry().isValid()).isFalse();
+        assertThat(emptyThenInvalid.getGeometry().equalsExact(invalid)).isTrue();
+        GeometryUnionAgg.combine(emptyThenInvalid, geometryState(valid.copy()));
+        assertCombinedGeometry(emptyThenInvalid.getGeometry(), expected);
+    }
+
+    private static GeometryState geometryState(Geometry geometry)
+    {
+        GeometryState state = new GeometryStateFactory.SingleGeometryState();
+        state.setGeometry(geometry);
+        return state;
+    }
+
+    private static void assertCombinedGeometry(Geometry actual, Geometry expected)
+            throws ParseException
+    {
+        assertThat(actual.isValid()).isTrue();
+        assertThat(actual.getSRID()).isEqualTo(4326);
+        assertThat(actual.equalsTopo(expected)).isTrue();
+        assertThat(actual.getArea()).isEqualTo(6.0);
+        assertThat(actual.covers(geometry("POINT (1 0.25)", 4326))).isTrue();
+        assertThat(actual.covers(geometry("POINT (1 1.75)", 4326))).isTrue();
+        assertThat(actual.covers(geometry("POINT (11 11)", 4326))).isTrue();
     }
 
     private static Geometry geometry(String wkt, int srid)

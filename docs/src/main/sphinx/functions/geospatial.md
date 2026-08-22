@@ -7,6 +7,28 @@ geometries that are operated on are both simple and valid. For example, it does 
 make sense to calculate the area of a polygon that has a hole defined outside the
 polygon, or to construct a polygon from a non-simple boundary line.
 
+By default, overlay and union operations preserve the legacy lenient behavior: if
+JTS reports a topology failure caused by an invalid input, Trino repairs only the
+invalid input with `GeometryFixer` and retries the operation once. This repair can
+change the geometry and is not guaranteed to reproduce every result from the legacy
+Esri engine. Set the JVM property
+`-Dtrino.geospatial.strict-invalid-overlay=true` on the coordinator and every worker
+to reject invalid inputs with `INVALID_FUNCTION_ARGUMENT` instead. The property only
+accepts the lowercase values `true` and `false`, is read once during geospatial
+plugin initialization, and must be identical on all nodes in a cluster. Changing it
+requires restarting the affected nodes. A rolling restart runs both modes in the same
+cluster until it completes, and queries on invalid inputs then fail or succeed depending
+on which nodes execute them, so change the mode by replacing the cluster or during a
+maintenance window.
+
+The policy applies to {func}`ST_Intersection`, {func}`ST_Difference`,
+{func}`ST_SymDifference`, {func}`ST_Union`, {func}`geometry_union`,
+and {func}`geometry_union_agg`. Strict mode validates each raw input geometry,
+adding a per-input cost proportional to the geometry size; engine-produced
+intermediate results, such as partial aggregation states, are not revalidated.
+{func}`convex_hull_agg` is not subject to this policy, because a convex hull is
+well defined even for topologically invalid input.
+
 Trino Geospatial functions support Well-Known Text (WKT), Extended Well-Known
 Text (EWKT), Well-Known Binary (WKB), and Extended Well-Known Binary (EWKB)
 forms of spatial objects:

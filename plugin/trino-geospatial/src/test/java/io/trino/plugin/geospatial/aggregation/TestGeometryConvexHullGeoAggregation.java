@@ -221,6 +221,14 @@ public class TestGeometryConvexHullGeoAggregation
                 "POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 1))",
                 "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
                 "POINT (3 2)");
+
+        // The invalid polygon sits outside the valid one, so its coordinates are hull vertices and a
+        // result that dropped it would be the square's own hull instead.
+        assertAggregatedGeometries(
+                "self-intersecting polygon is repaired after union failure",
+                "POLYGON ((0 0, 2 0, 12 10, 12 12, 10 12, 0 2, 0 0))",
+                "POLYGON ((0 0, 2 2, 0 2, 2 0, 0 0))",
+                "POLYGON ((10 10, 12 10, 12 12, 10 12, 10 10))");
     }
 
     @Test
