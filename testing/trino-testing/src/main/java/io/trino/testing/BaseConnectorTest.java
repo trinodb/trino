@@ -180,6 +180,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -5822,52 +5823,102 @@ public abstract class BaseConnectorTest
 
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
-        ExecutorService executor = newFixedThreadPool(threads);
         try (TestTable table = createTableWithOneIntegerColumn("test_add_column")) {
             String tableName = table.getName();
-
-            List<Future<Optional<String>>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
-                        barrier.await(30, SECONDS);
-                        try {
-                            String columnName = "col" + threadNumber;
-                            getQueryRunner().execute("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " integer");
-                            return Optional.of(columnName);
-                        }
-                        catch (Exception e) {
-                            RuntimeException trinoException = getTrinoExceptionCause(e);
+            ExecutorService executor = newFixedThreadPool(threads);
+            try {
+                // Capture worker stacks to provide diagnostics for resolving flakes in this concurrent test.
+                ConcurrentMap<Integer, Thread> workerThreads = new ConcurrentHashMap<>();
+                List<Future<Optional<String>>> futures = IntStream.range(0, threads)
+                        .mapToObj(threadNumber -> executor.submit(() -> {
+                            workerThreads.put(threadNumber, Thread.currentThread());
                             try {
-                                verifyConcurrentAddColumnFailurePermissible(trinoException);
-                            }
-                            catch (Throwable verifyFailure) {
-                                if (verifyFailure != e) {
-                                    verifyFailure.addSuppressed(e);
+                                barrier.await(30, SECONDS);
+                                try {
+                                    String columnName = "col" + threadNumber;
+                                    getQueryRunner().execute(addColumnQuery(tableName, threadNumber));
+                                    return Optional.of(columnName);
                                 }
-                                throw verifyFailure;
+                                catch (Exception e) {
+                                    RuntimeException trinoException = getTrinoExceptionCause(e);
+                                    try {
+                                        verifyConcurrentAddColumnFailurePermissible(trinoException);
+                                    }
+                                    catch (Throwable verifyFailure) {
+                                        if (verifyFailure != e) {
+                                            verifyFailure.addSuppressed(e);
+                                        }
+                                        throw verifyFailure;
+                                    }
+                                    return Optional.<String>empty();
+                                }
                             }
-                            return Optional.<String>empty();
-                        }
-                    }))
-                    .collect(toImmutableList());
+                            finally {
+                                workerThreads.remove(threadNumber);
+                            }
+                        }))
+                        .collect(toImmutableList());
 
-            List<String> addedColumns = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 30, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
+                long deadline = System.nanoTime() + SECONDS.toNanos(30);
+                List<String> addedColumns = new ArrayList<>();
+                for (int threadNumber = 0; threadNumber < futures.size(); threadNumber++) {
+                    long remainingNanos = deadline - System.nanoTime();
+                    int remainingMillis = (int) Math.max(0, NANOSECONDS.toMillis(remainingNanos));
+                    Optional<Optional<String>> result = tryGetFutureValue(futures.get(threadNumber), remainingMillis, MILLISECONDS);
+                    if (result.isEmpty()) {
+                        throw concurrentAddColumnTimeout(tableName, futures, workerThreads, threadNumber);
+                    }
+                    result.orElseThrow().ifPresent(addedColumns::add);
+                }
 
-            assertThat(query("DESCRIBE " + tableName))
-                    .result()
-                    .projected("Column")
-                    .skippingTypesCheck()
-                    .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
-                            .map(value -> format("'%s'", value))
-                            .collect(joining(",", "VALUES ", "")));
+                assertThat(query("DESCRIBE " + tableName))
+                        .result()
+                        .projected("Column")
+                        .skippingTypesCheck()
+                        .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
+                                .map(value -> format("'%s'", value))
+                                .collect(joining(",", "VALUES ", "")));
+            }
+            finally {
+                executor.shutdownNow();
+                executor.awaitTermination(10, SECONDS);
+            }
         }
-        finally {
-            executor.shutdownNow();
-            executor.awaitTermination(30, SECONDS);
+    }
+
+    private static String addColumnQuery(String tableName, int threadNumber)
+    {
+        return "ALTER TABLE %s ADD COLUMN col%s integer".formatted(tableName, threadNumber);
+    }
+
+    private static AssertionError concurrentAddColumnTimeout(
+            String tableName,
+            List<? extends Future<?>> futures,
+            ConcurrentMap<Integer, Thread> workerThreads,
+            int timedOutThreadNumber)
+    {
+        List<Integer> unfinishedOperations = IntStream.range(0, futures.size())
+                .filter(threadNumber -> !futures.get(threadNumber).isDone())
+                .boxed()
+                .collect(toList());
+        if (unfinishedOperations.isEmpty()) {
+            unfinishedOperations.add(timedOutThreadNumber);
         }
+
+        String unfinishedQueries = unfinishedOperations.stream()
+                .map(threadNumber -> addColumnQuery(tableName, threadNumber))
+                .collect(joining("\n  - ", "\n  - ", ""));
+        AssertionError failure = new AssertionError("Timed out after 30 seconds waiting for concurrent ADD COLUMN operations. Unfinished operations:%s".formatted(unfinishedQueries));
+        unfinishedOperations.forEach(threadNumber -> {
+            Thread workerThread = workerThreads.get(threadNumber);
+            if (workerThread != null) {
+                Exception workerStack = new Exception("Worker thread '%s' executing: %s".formatted(workerThread.getName(), addColumnQuery(tableName, threadNumber)));
+                workerStack.setStackTrace(workerThread.getStackTrace());
+                failure.addSuppressed(workerStack);
+            }
+        });
+        log.error(failure, "Concurrent ADD COLUMN operations did not finish");
+        return failure;
     }
 
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
