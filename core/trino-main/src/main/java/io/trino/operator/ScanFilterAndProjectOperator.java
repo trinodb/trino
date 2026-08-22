@@ -27,6 +27,7 @@ import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
+import io.trino.plugin.base.util.UncheckedCloser;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -34,6 +35,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
@@ -67,6 +69,7 @@ public class ScanFilterAndProjectOperator
         implements WorkProcessorSourceOperator
 {
     private final PageSourceProvider pageSourceProvider;
+    private final MemoryContext pageSourceProviderMemoryContext;
     private final WorkProcessor<Page> pages;
     private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
 
@@ -96,20 +99,22 @@ public class ScanFilterAndProjectOperator
             int minOutputPageRowCount)
     {
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        pages = split.flatTransform(
-                new SplitToPages(
-                        operatorContext.getSession(),
-                        yieldSignal,
-                        pageSourceProvider,
-                        pageProcessor,
-                        table,
-                        tableCredentials,
-                        columns,
-                        dynamicFilter,
-                        types,
-                        operatorContext.aggregateUserMemoryContext(),
-                        minOutputPageSize,
-                        minOutputPageRowCount));
+        SplitToPages splitToPages = new SplitToPages(
+                operatorContext.getSession(),
+                yieldSignal,
+                pageSourceProvider,
+                pageProcessor,
+                table,
+                tableCredentials,
+                columns,
+                dynamicFilter,
+                types,
+                operatorContext.aggregateUserMemoryContext(),
+                minOutputPageSize,
+                minOutputPageRowCount);
+        this.pageSourceProviderMemoryContext = splitToPages.pageSourceProviderMemoryContext::setBytes;
+        pages = split.flatTransform(splitToPages);
+        pageSourceProvider.trackMemoryUsage(pageSourceProviderMemoryContext);
     }
 
     @Override
@@ -169,13 +174,16 @@ public class ScanFilterAndProjectOperator
     @Override
     public void close()
     {
-        if (pageSource != null) {
-            try {
-                pageSource.close();
-                metrics = pageSource.getMetrics();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
+        try (var closer = UncheckedCloser.create()) {
+            closer.register(() -> pageSourceProvider.untrackMemoryUsage(pageSourceProviderMemoryContext));
+            if (pageSource != null) {
+                try {
+                    pageSource.close();
+                    metrics = pageSource.getMetrics();
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
             }
         }
     }
@@ -262,7 +270,7 @@ public class ScanFilterAndProjectOperator
         {
             ConnectorSession connectorSession = session.toConnectorSession();
             return WorkProcessor
-                    .create(new ConnectorPageSourceToPages(pageSourceProviderMemoryContext))
+                    .create(new ConnectorPageSourceToPages())
                     .yielding(yieldSignal::isSet)
                     .flatMap(page -> {
                         WorkProcessor<Page> workProcessor = pageProcessor.createWorkProcessor(
@@ -310,13 +318,6 @@ public class ScanFilterAndProjectOperator
     private class ConnectorPageSourceToPages
             implements WorkProcessor.Process<SourcePage>
     {
-        final LocalMemoryContext pageSourceProviderMemoryContext;
-
-        ConnectorPageSourceToPages(LocalMemoryContext pageSourceProviderMemoryContext)
-        {
-            this.pageSourceProviderMemoryContext = pageSourceProviderMemoryContext;
-        }
-
         @Override
         public ProcessState<SourcePage> process()
         {
@@ -330,7 +331,7 @@ public class ScanFilterAndProjectOperator
             }
 
             SourcePage page = pageSource.getNextSourcePage();
-            pageSourceProviderMemoryContext.setBytes(pageSourceProvider.getMemoryUsage());
+            pageSourceProvider.updateMemoryUsage(pageSourceProviderMemoryContext);
 
             // update operator stats
             processedPositions += page == null ? 0 : page.getPositionCount();

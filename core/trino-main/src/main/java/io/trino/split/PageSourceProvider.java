@@ -36,9 +36,28 @@ public interface PageSourceProvider
             DynamicFilter dynamicFilter,
             MemoryContext memoryContext);
 
-    // TODO (https://github.com/trinodb/trino/issues/29955) replace with MemoryContext
-    default long getMemoryUsage()
-    {
-        return 0;
-    }
+    /**
+     * Registers a memory context as a candidate target for reporting usage of memory owned by this
+     * page source provider and shared across all its page sources (e.g. loaded Iceberg equality
+     * delete filters). A provider instance is shared by all drivers of a pipeline, so the shared
+     * usage is reported into at most one of the tracked contexts at a time, instead of being
+     * counted once per driver. A tracked context claims the reporting role when it first calls
+     * {@link #updateMemoryUsage(MemoryContext)} while there is no active reporter.
+     */
+    default void trackMemoryUsage(MemoryContext memoryContext) {}
+
+    /**
+     * Stops reporting into a context previously registered with {@link #trackMemoryUsage} and
+     * resets it to zero. If the context was the current reporting target, another tracked context
+     * takes over on a subsequent {@link #updateMemoryUsage(MemoryContext)}. Must be called before the
+     * underlying memory context is released.
+     */
+    default void untrackMemoryUsage(MemoryContext memoryContext) {}
+
+    /**
+     * Reports the current shared memory usage of this provider into the supplied context when it
+     * is the active reporting context, or claims the reporting role for it when there is no active
+     * reporter. Calls for other tracked contexts do not poll or report the shared usage.
+     */
+    default void updateMemoryUsage(MemoryContext memoryContext) {}
 }
