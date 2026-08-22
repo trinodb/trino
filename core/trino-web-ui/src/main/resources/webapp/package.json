@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --bun vite",
-    "build": "bun --bun vite build",
+    "build": "NODE_ENV=production bun --bun vite build",
     "typecheck": "bun --bun tsc -b",
     "lint": "bun --bun eslint . --report-unused-disable-directives --max-warnings 0",
     "package": "bun install && bun run build",
