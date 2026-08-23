@@ -19,21 +19,23 @@ import io.airlift.log.Logger;
 
 import javax.naming.NamingException;
 
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.Queue;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
-final class DirectLdapGroupResolver
+final class RecursiveLdapGroupResolver
         implements LdapGroupResolver
 {
-    private static final Logger log = Logger.get(DirectLdapGroupResolver.class);
+    private static final Logger log = Logger.get(RecursiveLdapGroupResolver.class);
 
     private final LdapGroupSearch groupSearch;
     private final String groupSearchMemberPredicate;
 
     @Inject
-    public DirectLdapGroupResolver(
+    public RecursiveLdapGroupResolver(
             LdapGroupSearch groupSearch,
             LdapFilteringGroupProviderConfig filteringConfig)
     {
@@ -44,14 +46,30 @@ final class DirectLdapGroupResolver
     @Override
     public Set<String> resolveGroups(String memberDistinguishedName)
     {
-        try {
-            return groupSearch.searchGroups(memberDistinguishedName, groupSearchMemberPredicate, "search").stream()
-                    .map(LdapGroup::name)
-                    .collect(toImmutableSet());
+        Queue<String> membersToResolve = new ArrayDeque<>();
+        membersToResolve.add(memberDistinguishedName);
+        Set<String> visitedMembers = new HashSet<>();
+        Set<String> groups = new HashSet<>();
+
+        while (!membersToResolve.isEmpty()) {
+            String currentMember = membersToResolve.remove();
+            if (!visitedMembers.add(currentMember)) {
+                continue;
+            }
+
+            try {
+                Set<LdapGroup> groupsForMember = groupSearch.searchGroups(currentMember, groupSearchMemberPredicate, "search");
+                groupsForMember.forEach(group -> {
+                    groups.add(group.name());
+                    membersToResolve.add(group.distinguishedName());
+                });
+            }
+            catch (NamingException e) {
+                log.error(e, "LDAP group search for member [%s] failed", currentMember);
+                return ImmutableSet.of();
+            }
         }
-        catch (NamingException e) {
-            log.error(e, "LDAP group search for member [%s] failed", memberDistinguishedName);
-            return ImmutableSet.of();
-        }
+
+        return ImmutableSet.copyOf(groups);
     }
 }

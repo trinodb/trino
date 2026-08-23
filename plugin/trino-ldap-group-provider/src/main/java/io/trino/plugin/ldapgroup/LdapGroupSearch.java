@@ -30,14 +30,14 @@ import static java.util.Objects.requireNonNull;
 
 final class LdapGroupSearch
 {
-    private static final Logger log = Logger.get(LdapFilteringGroupProvider.class);
+    private static final Logger log = Logger.get(LdapGroupSearch.class);
 
     private final LdapClient ldapClient;
     private final String ldapAdminUser;
     private final String ldapAdminPassword;
     private final String groupBaseDN;
     private final String groupsNameAttribute;
-    private final String combinedGroupSearchFilter;
+    private final String groupsSearchFilter;
 
     @Inject
     public LdapGroupSearch(
@@ -50,16 +50,15 @@ final class LdapGroupSearch
         this.ldapAdminPassword = config.getLdapAdminPassword();
         this.groupBaseDN = filteringConfig.getLdapGroupBaseDN();
         this.groupsNameAttribute = config.getLdapGroupsNameAttribute();
-
-        String groupsSearchMemberAttribute = filteringConfig.getLdapGroupsSearchMemberAttribute();
-        this.combinedGroupSearchFilter = filteringConfig.getLdapGroupsSearchFilter()
-                .map(filter -> String.format("(&(%s)(%s={0}))", filter, groupsSearchMemberAttribute))
-                .orElse(String.format("(%s={0})", groupsSearchMemberAttribute));
+        this.groupsSearchFilter = filteringConfig.getLdapGroupsSearchFilter().orElse(null);
     }
 
-    public Set<LdapGroup> searchGroups(String memberDistinguishedName)
+    public Set<LdapGroup> searchGroups(String memberDistinguishedName, String groupSearchMemberPredicate, String searchDescription)
             throws NamingException
     {
+        String combinedGroupSearchFilter = groupsSearchFilter == null
+                ? String.format("(%s)", groupSearchMemberPredicate)
+                : String.format("(&(%s)(%s))", groupsSearchFilter, groupSearchMemberPredicate);
         return ldapClient.executeLdapQuery(
                 ldapAdminUser,
                 ldapAdminPassword,
@@ -71,7 +70,7 @@ final class LdapGroupSearch
                         .build(),
                 search -> {
                     if (!search.hasMore()) {
-                        log.debug("No groups found using search [pattern=%s, arguments={%s}]", combinedGroupSearchFilter, memberDistinguishedName);
+                        log.debug("No groups found using %s [pattern=%s, arguments={%s}]", searchDescription, combinedGroupSearchFilter, memberDistinguishedName);
                     }
                     return extractGroups(search);
                 });
@@ -81,16 +80,21 @@ final class LdapGroupSearch
             throws NamingException
     {
         ImmutableSet.Builder<LdapGroup> groups = ImmutableSet.builder();
+        boolean missingConfiguredNameAttribute = false;
         while (search.hasMore()) {
             SearchResult groupResult = search.next();
             Attribute groupName = groupResult.getAttributes().get(groupsNameAttribute);
             if (groupName == null) {
-                log.warn("The group object [%s] does not have group name attribute [%s]. Falling back on object full name.", groupResult, groupsNameAttribute);
+                missingConfiguredNameAttribute = true;
+                log.debug("The group object [%s] does not have group name attribute [%s]. Falling back on object full name.", groupResult, groupsNameAttribute);
                 groups.add(new LdapGroup(groupResult.getNameInNamespace(), groupResult.getNameInNamespace()));
             }
             else {
                 groups.add(new LdapGroup(groupResult.getNameInNamespace(), groupName.get().toString()));
             }
+        }
+        if (missingConfiguredNameAttribute) {
+            log.warn("Some LDAP group objects do not have configured group name attribute [%s]. Falling back on object full name.", groupsNameAttribute);
         }
         return groups.build();
     }
