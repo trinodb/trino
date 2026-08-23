@@ -30,6 +30,8 @@ public class LdapGroupProviderModule
 
         if (buildConfigObject(LdapGroupProviderConfig.class).getLdapUseGroupFilter()) {
             configBinder(binder).bindConfig(LdapFilteringGroupProviderConfig.class);
+            binder.bind(LdapGroupSearch.class).in(Scopes.SINGLETON);
+            binder.bind(LdapGroupResolver.class).to(DirectLdapGroupResolver.class).in(Scopes.SINGLETON);
             binder.bind(GroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
         }
         else {
