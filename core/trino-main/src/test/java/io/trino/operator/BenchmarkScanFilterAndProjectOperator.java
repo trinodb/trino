@@ -75,6 +75,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -180,7 +181,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
-                    _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(inputPages),
+                    (_, _) -> (_, _, _, _, _, _, _) -> new FixedPageSource(inputPages),
                     _ -> pageProcessor,
                     TEST_TABLE_HANDLE,
                     Optional.empty(),
@@ -188,7 +189,8 @@ public class BenchmarkScanFilterAndProjectOperator
                     DynamicFilter.EMPTY,
                     types,
                     FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE,
-                    FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT);
+                    FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT,
+                    newSimpleAggregatedMemoryContext());
         }
 
         public TaskContext createTaskContext()

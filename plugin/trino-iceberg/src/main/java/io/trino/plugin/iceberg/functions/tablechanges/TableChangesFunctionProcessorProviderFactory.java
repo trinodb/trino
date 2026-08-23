@@ -20,6 +20,7 @@ import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
@@ -43,7 +44,7 @@ public class TableChangesFunctionProcessorProviderFactory
     @Override
     public TableFunctionProcessorProvider createTableFunctionProcessorProvider()
     {
-        IcebergPageSourceProvider pageSourceProvider = (IcebergPageSourceProvider) icebergPageSourceProviderFactory.createPageSourceProvider();
+        IcebergPageSourceProvider pageSourceProvider = (IcebergPageSourceProvider) icebergPageSourceProviderFactory.createPageSourceProvider(MemoryContext.NO_LIMIT);
         return new TableChangesFunctionProcessorProvider(pageSourceProvider);
     }
 

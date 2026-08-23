@@ -2130,7 +2130,8 @@ public class LocalExecutionPlanner
                             dynamicFilter,
                             getTypes(projections),
                             getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                            getFilterAndProjectMinOutputPageRowCount(session),
+                            context.getTaskContext().aggregateUserMemoryContext());
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
@@ -2172,7 +2173,16 @@ public class LocalExecutionPlanner
             }
 
             Optional<ConnectorTableCredentials> tableCredentials = context.getTaskContext().getTableCredentials(node.getId());
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), tableCredentials, columns.build(), columnTypes.build());
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(
+                    context.getNextOperatorId(),
+                    planNodeId,
+                    node.getId(),
+                    pageSourceManager,
+                    node.getTable(),
+                    tableCredentials,
+                    columns.build(),
+                    columnTypes.build(),
+                    context.getTaskContext().aggregateUserMemoryContext());
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
