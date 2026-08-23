@@ -55,7 +55,7 @@ public class LdapFilteringGroupProvider
     }
 
     /**
-     * Perform an LDAP search for groups, fetching only the names, and returning the name of each group.
+     * Resolve direct and nested LDAP groups for the provided user.
      * Filters groups by user membership AND filter expression {@link LdapFilteringGroupProviderConfig#getLdapGroupsSearchFilter()}.
      * If {@link LdapGroupProviderConfig#getLdapGroupsNameAttribute()} is missing from group document, fallback on full name.
      * Swallows LDAP exceptions.
@@ -90,7 +90,7 @@ public class LdapFilteringGroupProvider
         }
 
         return userDistinguishedName
-                .map(memberDistinguishedName -> ldapGroupResolver.resolveGroups(user, memberDistinguishedName))
+                .map(ldapGroupResolver::resolveGroups)
                 .orElse(ImmutableSet.of());
     }
 }
