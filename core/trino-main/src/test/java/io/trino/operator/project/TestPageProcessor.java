@@ -21,6 +21,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.TestingSourcePage;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
@@ -40,7 +41,9 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -48,6 +51,7 @@ import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.operator.project.PageProcessor.MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.operator.project.PageProcessor.MIN_PAGE_SIZE_IN_BYTES;
+import static io.trino.operator.project.SelectedPositions.positionsList;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -423,6 +427,22 @@ public class TestPageProcessor
         Optional<Page> page = output.next();
         assertThat(page).isPresent();
         assertThat(page.get().getPositionCount()).isEqualTo(rows);
+        assertThat(output.hasNext()).isFalse();
+    }
+
+    @Test
+    public void testIdentityProjectionPreservesDictionaryEncoding()
+    {
+        PageProcessor pageProcessor = new PageProcessor(
+                Optional.of(new PageFilterEvaluator(new TestingPageFilter(positionsList(new int[] {0, 3, 5, 7}, 0, 4)))),
+                ImmutableList.of(new InputPageProjection(1)));
+
+        SourcePage inputPage = SourcePage.create(new Page(createLongSequenceBlock(0, 100), createLongDictionaryBlock(0, 100, 10)));
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
+
+        Page page = output.next().orElseThrow();
+        assertThat(page.getBlock(0)).isInstanceOf(DictionaryBlock.class);
+        assertPageEquals(ImmutableList.of(BIGINT), page, new Page(createLongsBlock(0L, 3L, 5L, 7L)));
         assertThat(output.hasNext()).isFalse();
     }
 
