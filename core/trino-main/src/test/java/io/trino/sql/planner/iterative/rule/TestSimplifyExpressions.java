@@ -275,6 +275,27 @@ public class TestSimplifyExpressions
     }
 
     @Test
+    public void testLargeDisjunction()
+    {
+        Reference symbol = new Reference(BIGINT, "x");
+        ImmutableList.Builder<Expression> disjuncts = ImmutableList.builderWithExpectedSize(25_000);
+        for (long value = 0; value < 25_000; value++) {
+            disjuncts.add(comparison(EQUAL, symbol, new Constant(BIGINT, value)));
+        }
+
+        Expression expression = new Logical(OR, disjuncts.build());
+        assertThat(rewrite(
+                expression,
+                TEST_SESSION,
+                PLANNER_CONTEXT.getMetadata(),
+                emptySymbolAllocator(),
+                PLANNER_CONTEXT.getExpressionOptimizer()))
+                .isEqualTo(new Logical(AND, ImmutableList.of(
+                        comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), symbol),
+                        comparison(LESS_THAN_OR_EQUAL, symbol, new Constant(BIGINT, 24_999L)))));
+    }
+
+    @Test
     public void testExtractCommonPredicatesIsIdempotent()
     {
         Reference first = new Reference(BOOLEAN, "a");

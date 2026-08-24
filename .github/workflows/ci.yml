@@ -215,13 +215,16 @@ jobs:
           action-fixup: none
       - name: Set matrix (dispatch commit checks)
         id: set-matrix
+        env:
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # Make sure the PR branch contains the compile-commit composite job
-          if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) ${{ github.event.pull_request.head.sha }}
+          if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) "${PR_HEAD_SHA}"
           then
             # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
             # This is achieved by adding a tilde (~) after the HEAD sha
-            git log --reverse --pretty=format:'%H,%T,"%s"' refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | ./.github/bin/prepare-check-commits-matrix.py > commit-matrix.json
+            git log --reverse --pretty=format:'%H,%T,"%s"' "refs/remotes/origin/${PR_BASE_REF}..${PR_HEAD_SHA}~" | ./.github/bin/prepare-check-commits-matrix.py > commit-matrix.json
           else
             echo -n '' > commit-matrix.json
           fi
@@ -586,6 +589,10 @@ jobs:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
     timeout-minutes: 60
+    env:
+      MATRIX_MODULES: ${{ matrix.modules }}
+      MATRIX_PROFILE: ${{ matrix.profile }}
+      MATRIX_JDK: ${{ matrix.jdk }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -603,7 +610,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${MATRIX_MODULES}"
       - name: Maven Tests
         id: tests
         if: >-
@@ -619,7 +626,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
-        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+        run: $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" ${MATRIX_PROFILE:+-P "${MATRIX_PROFILE}"}
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
         id: tests-hdfs-isolated
@@ -637,7 +644,7 @@ jobs:
           contains(matrix.modules, 'trino-exchange-filesystem') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
       - name: S3 FileSystem Cloud Tests
         id: tests-s3
         env:
@@ -652,7 +659,7 @@ jobs:
           .github/bin/s3/setup-empty-s3-bucket.sh
           EMPTY_S3_BUCKET=$(cat .github/bin/s3/.bucket-identifier)
           export EMPTY_S3_BUCKET
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
       - name: Cleanup ephemeral S3 buckets
         env:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
@@ -676,7 +683,7 @@ jobs:
           contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '' || env.ABFS_OAUTH_CLIENT_SECRET != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
       - name: GCS FileSystem Cloud Tests
         id: tests-gcs
         env:
@@ -685,7 +692,7 @@ jobs:
           contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
       - name: Cloud Hive Tests
         id: tests-hive
         env:
@@ -717,7 +724,7 @@ jobs:
           contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_ACCESSKEY != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} ${{ format('-P {0}', matrix.profile) }} -pl :trino-delta-lake \
+          $MAVEN test ${MAVEN_TEST} -P "${MATRIX_PROFILE}" -pl :trino-delta-lake \
             -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dtesting.azure-abfs-account="${ABFS_ACCOUNT}" \
             -Dtesting.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
@@ -798,7 +805,7 @@ jobs:
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg ${{ format('-P {0}', matrix.profile) }} \
+          $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg -P "${MATRIX_PROFILE}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}" \
             -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
@@ -841,7 +848,7 @@ jobs:
         run: |
           source .github/bin/redshift/setup-aws-redshift.sh
 
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }} \
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}" \
             -Dtest.redshift.jdbc.user="${REDSHIFT_USER}" \
             -Dtest.redshift.jdbc.password="${REDSHIFT_PASSWORD}" \
             -Dtest.redshift.jdbc.endpoint="${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT}/" \
@@ -865,7 +872,7 @@ jobs:
           # Generate a valid artifact name and make it available to next steps as
           # an environment variable ARTIFACT_NAME
           # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
-          name=$(echo -n "${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
+          name=$(echo -n "${MATRIX_MODULES}, ${MATRIX_PROFILE}, ${MATRIX_JDK}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           # final artifact name can't be longer than 128 characters
           echo "ARTIFACT_NAME=${name:0:100}" >> $GITHUB_ENV
       - name: Upload test results
@@ -906,7 +913,7 @@ jobs:
         if: ${{ failure() && github.event_name == 'merge_group' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/bin/cancel-merge-queue-workflow.sh "test (${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }})"
+        run: .github/bin/cancel-merge-queue-workflow.sh "test (${MATRIX_MODULES}, ${MATRIX_PROFILE}, ${MATRIX_JDK})"
 
   build-pt:
     permissions:
@@ -1008,6 +1015,8 @@ jobs:
       matrix: ${{ fromJson(needs.build-pt.outputs.matrix) }}
     timeout-minutes: 130
     needs: build-pt
+    env:
+      MATRIX_SUITE: ${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -1075,13 +1084,13 @@ jobs:
           declare -a suite_results=()
           declare -a suite_totals=()
           declare -a skipped_suites=()
-          echo "## pt ${{ matrix.suite }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "## pt ${MATRIX_SUITE}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           failed=0
           failed_suites=()
 
-          for suite in ${{ matrix.suite }}; do
+          for suite in ${MATRIX_SUITE}; do
             log_file="logs/${suite}.log"
             echo "### ${suite}" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -1189,7 +1198,7 @@ jobs:
           echo "========================================"
           echo "         PT-JUNIT SUITE SUMMARY         "
           echo "========================================"
-          echo "Suite: ${{ matrix.suite }}"
+          echo "Suite: ${MATRIX_SUITE}"
           echo ""
           for entry in "${suite_results[@]}"; do
             suite_name=${entry%%:*}
@@ -1256,7 +1265,7 @@ jobs:
         if: ${{ failure() && github.event_name == 'merge_group' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/bin/cancel-merge-queue-workflow.sh "pt (${{ matrix.suite }})"
+        run: .github/bin/cancel-merge-queue-workflow.sh "pt (${MATRIX_SUITE})"
 
 
   build-success:

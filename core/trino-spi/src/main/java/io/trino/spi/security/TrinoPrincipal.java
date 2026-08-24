@@ -14,6 +14,7 @@
 package io.trino.spi.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
@@ -30,7 +31,8 @@ public class TrinoPrincipal
     public TrinoPrincipal(@JsonProperty("type") PrincipalType type, @JsonProperty("name") String name)
     {
         this.type = requireNonNull(type, "type is null");
-        this.name = name.toLowerCase(ENGLISH);
+        requireNonNull(name, "name is null");
+        this.name = type == PrincipalType.USER ? name : name.toLowerCase(ENGLISH);
     }
 
     @JsonProperty
@@ -39,10 +41,22 @@ public class TrinoPrincipal
         return type;
     }
 
-    @JsonProperty
-    public String getName()
+    @JsonProperty("name")
+    public String getPrincipalName()
     {
         return name;
+    }
+
+    /**
+     * @deprecated Use {@link #getPrincipalName()} which preserves the original case of the principal name.
+     *         This method lowercases the name, which causes identity mismatches when the principal
+     *         was created with a mixed-case name.
+     */
+    @Deprecated
+    @JsonIgnore
+    public String getName()
+    {
+        return name.toLowerCase(ENGLISH);
     }
 
     @Override
