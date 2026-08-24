@@ -14,14 +14,22 @@
 package io.trino.client.direct;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Key;
 import io.trino.Session;
+import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.QueryInfo;
+import io.trino.execution.QueryManagerConfig;
+import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.server.testing.TestingTrinoServer;
+import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.StandaloneQueryRunner;
+import io.trino.testing.TestingDirectTrinoClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -36,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
@@ -257,6 +266,33 @@ public class TestDirectTrinoClient
         // lineitem@tiny has 60175 rows and ~16 columns, i.e. several MB of spooled output.
         MaterializedResult result = queryRunner.execute(taskRetrySession(), "SELECT * FROM tpch.tiny.lineitem");
         assertThat(result.getMaterializedRows()).hasSize(60175);
+    }
+
+    @Test
+    public void testFaultTolerantExecutionOptOutForcesRetryPolicyNone()
+    {
+        // Opting out restores the legacy behavior: a TASK-retry request is downgraded to NONE so DTC consumes
+        // the streaming exchange. Build the client directly to inspect the query's resolved retry policy.
+        Session session = Session.builder(TEST_SESSION)
+                .setSystemProperty(RETRY_POLICY, TASK.name())
+                .setSystemProperty(DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED, "false")
+                .build();
+
+        TestingTrinoServer coordinator = queryRunner.getCoordinator();
+        TestingDirectTrinoClient directClient = new TestingDirectTrinoClient(
+                coordinator.getDispatchManager(),
+                coordinator.getQueryManager(),
+                coordinator.getInstance(Key.get(QueryManagerConfig.class)),
+                coordinator.getInstance(Key.get(DirectExchangeClientSupplier.class)),
+                coordinator.getInstance(Key.get(ExchangeManagerRegistry.class)),
+                coordinator.getInstance(Key.get(BlockEncodingSerde.class)));
+
+        TestingDirectTrinoClient.Result result = directClient.execute(session, "SELECT nationkey, name FROM tpch.tiny.nation");
+        assertThat(result.result().get().getMaterializedRows()).hasSize(25);
+
+        QueryInfo queryInfo = coordinator.getQueryManager().getFullQueryInfo(result.queryId());
+        assertThat(queryInfo.getSession().getSystemProperties())
+                .containsEntry(RETRY_POLICY, NONE.name());
     }
 
     private Session taskRetrySession()
