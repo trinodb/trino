@@ -360,8 +360,9 @@ public abstract class BaseElasticsearchConnectorTest
 
         assertExplain(
                 "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "nationkey::bigint",
-                "::\\s\\[\\[42\\]\\]");
+                "remotePredicate=.*Term",
+                "field=nationkey",
+                "value=42");
     }
 
     @Test

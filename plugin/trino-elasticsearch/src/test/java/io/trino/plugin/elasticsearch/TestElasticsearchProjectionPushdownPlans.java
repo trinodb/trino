@@ -27,9 +27,9 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
+import io.trino.plugin.elasticsearch.expression.ElasticsearchRemotePredicate;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
@@ -201,9 +201,9 @@ final class TestElasticsearchProjectionPushdownPlans
                                 tableScan(
                                         table -> {
                                             ElasticsearchTableHandle actualTableHandle = (ElasticsearchTableHandle) table;
-                                            TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
                                             return actualTableHandle.columns().equals(ImmutableSet.of(column1Handle, columnX))
-                                                    && constraint.equals(TupleDomain.withColumnDomains(ImmutableMap.of(columnY, Domain.singleValue(BIGINT, 2L))));
+                                                    && actualTableHandle.constraint().isAll()
+                                                    && actualTableHandle.remotePredicate().equals(Optional.of(new ElasticsearchRemotePredicate.Term(columnY.predicateName(), 2L)));
                                         },
                                         TupleDomain.all(),
                                         ImmutableMap.of("col1", equalTo(column1Handle), "x", equalTo(columnX))))));
@@ -215,9 +215,9 @@ final class TestElasticsearchProjectionPushdownPlans
                         tableScan(
                                 table -> {
                                     ElasticsearchTableHandle actualTableHandle = (ElasticsearchTableHandle) table;
-                                    TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
                                     return actualTableHandle.columns().equals(ImmutableSet.of(column0Handle, columnY))
-                                            && constraint.equals(TupleDomain.withColumnDomains(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 5L))));
+                                            && actualTableHandle.constraint().isAll()
+                                            && actualTableHandle.remotePredicate().equals(Optional.of(new ElasticsearchRemotePredicate.Term(columnX.predicateName(), 5L)));
                                 },
                                 TupleDomain.all(),
                                 ImmutableMap.of("col0", equalTo(column0Handle), "y", equalTo(columnY)))));
@@ -246,19 +246,20 @@ final class TestElasticsearchProjectionPushdownPlans
                 .toList();
         assertThat(scans).hasSize(2);
 
-        TupleDomain<ColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
-                ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
+        ElasticsearchRemotePredicate expectedPredicate = new ElasticsearchRemotePredicate.Term(columnX.predicateName(), 2L);
         long projectedAndFilteredScans = scans.stream()
                 .map(scan -> (ElasticsearchTableHandle) scan.getTable().connectorHandle())
                 .filter(handle -> handle.columns().equals(ImmutableSet.of(column0Handle, column1Handle)))
-                .filter(handle -> handle.constraint().equals(expectedConstraint))
+                .filter(handle -> handle.constraint().isAll())
+                .filter(handle -> handle.remotePredicate().equals(Optional.of(expectedPredicate)))
                 .count();
         assertThat(projectedAndFilteredScans).isEqualTo(1);
 
         long joinKeyOnlyScans = scans.stream()
                 .map(scan -> (ElasticsearchTableHandle) scan.getTable().connectorHandle())
                 .filter(handle -> handle.columns().equals(ImmutableSet.of(column1Handle)))
-                .filter(handle -> handle.constraint().equals(TupleDomain.all()))
+                .filter(handle -> handle.constraint().isAll())
+                .filter(handle -> handle.remotePredicate().isEmpty())
                 .count();
         assertThat(joinKeyOnlyScans).isEqualTo(1);
 

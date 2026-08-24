@@ -22,6 +22,7 @@ import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
 import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
+import io.trino.plugin.elasticsearch.expression.ElasticsearchRemotePredicate;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -29,8 +30,10 @@ import io.trino.spi.predicate.ValueSet;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
@@ -75,11 +78,11 @@ public class TestElasticsearchQueryBuilder
                 """
                 {"bool":{"filter":[{"range":{"score":{"gt":65.0,"lte":80.0}}}]}}""");
 
-        // List
+        // Multiple discrete values are emitted as one native terms query, not a bool.should of term clauses.
         assertQueryBuilder(
                 ImmutableMap.of(NAME, Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("alice"), utf8Slice("bob")))),
                 """
-                {"bool":{"filter":[{"bool":{"should":[{"term":{"name":"alice"}},{"term":{"name":"bob"}}]}}]}}""");
+                {"bool":{"filter":[{"terms":{"name":["alice","bob"]}}]}}""");
 
         // all
         assertQueryBuilder(
@@ -104,6 +107,49 @@ public class TestElasticsearchQueryBuilder
                 ImmutableMap.of(AGE, Domain.singleValue(INTEGER, 1L, true)),
                 """
                 {"bool":{"filter":[{"bool":{"should":[{"term":{"age":1}},{"bool":{"must_not":[{"exists":{"field":"age"}}]}}]}}]}}""");
+    }
+
+    @Test
+    public void testLargeDiscreteConstraintUsesSingleTermsQuery()
+            throws IOException
+    {
+        List<Long> values = IntStream.range(0, 2_000)
+                .mapToObj(value -> (long) value)
+                .toList();
+        JsonNode query = buildSearchQuery(
+                TupleDomain.withColumnDomains(Map.of(AGE, Domain.multipleValues(INTEGER, values))),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                Map.of());
+
+        JsonNode filter = query.path("bool").path("filter").get(0);
+        assertThat(filter.has("terms")).isTrue();
+        assertThat(filter.path("terms").path("age")).hasSize(2_000);
+        assertThat(query.toString()).doesNotContain("\"should\"");
+    }
+
+    @Test
+    public void testLegacyAndRemotePredicateComposition()
+            throws IOException
+    {
+        ElasticsearchRemotePredicate remotePredicate = new ElasticsearchRemotePredicate.And(List.of(
+                new ElasticsearchRemotePredicate.Term("status.keyword", "active"),
+                new ElasticsearchRemotePredicate.Term("age", 42L)));
+
+        JsonNode query = buildSearchQuery(
+                TupleDomain.withColumnDomains(Map.of(AGE, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 18L)), false))),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Optional.of(remotePredicate));
+
+        JsonNode filter = query.path("bool").path("filter");
+        assertThat(filter).hasSize(2);
+        assertThat(filter.get(0).path("range").path("age").path("gt").asLong()).isEqualTo(18L);
+        assertThat(filter.get(1).path("bool").path("filter")).hasSize(2);
+        assertThat(query.toString()).contains("status.keyword", "active", "\"age\":42");
     }
 
     @Test
