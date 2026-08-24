@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.client.direct.DirectTrinoClient;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryManagerConfig;
@@ -50,9 +51,9 @@ public class TestingDirectTrinoClient
 {
     private final DirectTrinoClient directTrinoClient;
 
-    public TestingDirectTrinoClient(DispatchManager dispatchManager, QueryManager queryManager, QueryManagerConfig queryManagerConfig, DirectExchangeClientSupplier directExchangeClientSupplier, BlockEncodingSerde blockEncodingSerde)
+    public TestingDirectTrinoClient(DispatchManager dispatchManager, QueryManager queryManager, QueryManagerConfig queryManagerConfig, DirectExchangeClientSupplier directExchangeClientSupplier, ExchangeManagerRegistry exchangeManagerRegistry, BlockEncodingSerde blockEncodingSerde)
     {
-        directTrinoClient = new DirectTrinoClient(dispatchManager, queryManager, queryManagerConfig, directExchangeClientSupplier, blockEncodingSerde);
+        directTrinoClient = new DirectTrinoClient(dispatchManager, queryManager, queryManagerConfig, directExchangeClientSupplier, exchangeManagerRegistry, blockEncodingSerde);
     }
 
     public Result execute(Session session, @Language("SQL") String sql)
