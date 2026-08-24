@@ -76,7 +76,9 @@ final class S3SecurityMappingProvider
                 selectKmsKeyId(mapping, identity),
                 getSseCustomerKey(mapping, identity),
                 mapping.endpoint(),
-                mapping.region()));
+                mapping.region(),
+                Optional.empty(),
+                Optional.empty()));
     }
 
     private Optional<String> selectRole(S3SecurityMapping mapping, ConnectorIdentity identity)
