@@ -72,7 +72,8 @@ public class PageProcessor
         this.identityProjections = !projections.isEmpty() && projections.stream().allMatch(InputPageProjection.class::isInstance);
         this.projections = projections.stream()
                 .map(projection -> {
-                    if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
+                    // input projections preserve the encoding of their input on their own
+                    if (projection.getInputChannels().size() == 1 && projection.isDeterministic() && !(projection instanceof InputPageProjection)) {
                         return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction);
                     }
                     return projection;
