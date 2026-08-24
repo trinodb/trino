@@ -29,7 +29,7 @@ For the current P0 integration branch, implementation is completed first and for
 
 ## P0.1 — Remote Predicate IR
 
-**Status:** IMPLEMENTED — FULL TEST GATE PENDING
+**Status:** COMPLETE — FULL TEST GATE GREEN
 
 ### Objective
 
@@ -72,7 +72,7 @@ APPROXIMATE  remote predicate intentionally uses approximate full-text semantics
 - [x] P0.1d Add an optional remote predicate field to `ElasticsearchTableHandle`.
 - [x] P0.1e Teach `ElasticsearchQueryBuilder` to compose legacy constraints and the new IR.
 - [x] P0.1f Add round-trip/table-handle tests and regression tests.
-- [ ] P0.1g Run full connector test gate and GitHub CI.
+- [x] P0.1g Run full connector test gate and GitHub CI.
 
 ### Acceptance criteria
 
@@ -86,7 +86,7 @@ APPROXIMATE  remote predicate intentionally uses approximate full-text semantics
 
 ## P0.2 — Native Elasticsearch `terms`
 
-**Status:** IMPLEMENTED — FULL TEST GATE PENDING
+**Status:** COMPLETE — FULL TEST GATE GREEN
 
 ### Objective
 
@@ -117,7 +117,7 @@ Large `IN (...)` predicates no longer depend on Elasticsearch's bool-clause limi
 
 ## P0.3 — Primitive Array Exact Pushdown
 
-**Status:** IMPLEMENTED — FULL TEST GATE PENDING
+**Status:** COMPLETE — FULL TEST GATE GREEN
 
 ### Objective
 
@@ -174,13 +174,13 @@ arrays_overlap(tags, ARRAY['telegram', 'facebook'])
 - [x] `text.keyword` case-sensitive membership.
 - [x] analyzed text fallback/residual.
 - [x] whole-array equality remains non-pushdown.
-- [ ] Source arrays containing NULL elements: connector-level regression coverage.
+- [x] Source arrays containing NULL elements: connector-level regression coverage.
 
 ---
 
 ## P0.4 — Dynamic Filter Planner
 
-**Status:** IMPLEMENTED — INTEGRATION GATE PENDING
+**Status:** COMPLETE — INTEGRATION GATE GREEN
 
 ### Objective
 
@@ -215,7 +215,7 @@ elasticsearch.dynamic-filtering.max-query-bytes
 - [x] Correct fallback when value/query budget is exceeded.
 - [x] Analyzed-text dynamic filters are rejected rather than approximated.
 - [x] Configuration defaults and explicit mappings.
-- [ ] Join integration test proving dynamic filtering reaches Elasticsearch and reduces source input.
+- [x] Join integration test proving dynamic filtering reaches Elasticsearch and reduces source input.
 
 ### Correctness invariant
 
@@ -225,7 +225,7 @@ Dynamic filtering never uses approximate analyzed-text matching. A join can re-c
 
 ## P0.5 — Complete Rule-based Predicate Migration
 
-**Status:** IMPLEMENTED — FULL TEST GATE PENDING
+**Status:** COMPLETE — FULL TEST GATE GREEN
 
 ### Objective
 
@@ -258,19 +258,21 @@ Move predicate-specific planning out of the monolithic legacy path and into comp
 
 ## P0 final gate
 
-**Status:** NOT GREEN YET
+**Status:** GREEN
+
+Validated on PR #15 at head `ece12f0dedbaa05b9fee1c50f9659dd03f5f0f69` with GitHub Actions CI run #151 (`32685412482`) completed successfully.
 
 Before P1 starts:
 
-- [ ] Add connector-level source-array NULL-element regression coverage.
-- [ ] Add/verify join integration coverage for dynamic filtering reaching Elasticsearch.
-- [ ] Run focused P0 unit tests.
-- [ ] Run `./mvnw -pl :trino-elasticsearch airstyle:check` and fix formatting as one final batch.
-- [ ] Run `./mvnw -pl :trino-elasticsearch test`.
-- [ ] Inspect and fix compile/API/test failures rather than treating every Maven failure as formatting.
-- [ ] GitHub CI for PR #15 is green.
+- [x] Add connector-level source-array NULL-element regression coverage.
+- [x] Add/verify join integration coverage for dynamic filtering reaching Elasticsearch.
+- [x] Run focused P0 unit tests.
+- [x] Run `./mvnw -pl :trino-elasticsearch airstyle:check` and fix formatting as one final batch.
+- [x] Run `./mvnw -pl :trino-elasticsearch test`.
+- [x] Inspect and fix compile/API/test failures rather than treating every Maven failure as formatting.
+- [x] GitHub CI for PR #15 is green.
 
-No P1 implementation starts before this gate is complete.
+P1 work may now start from this validated P0 baseline.
 
 ---
 
@@ -391,19 +393,13 @@ Trino join
 ## Current execution order
 
 ```text
-P0 implementation batch
-  ├── P0.1 Remote Predicate IR
-  ├── P0.2 Native terms
-  ├── P0.3 Primitive array exact pushdown
-  ├── P0.4 Dynamic Filter Planner
-  └── P0.5 Rule migration
-        -> P0 final Maven / connector / CI gate
-        -> P1.1 any_match
-        -> P1.2 boolean composition
-        -> P1.3 observability
-        -> P1.4 scan execution v2
-        -> P2 hardening
-        -> P3 optional SPI work
+P0 COMPLETE / GREEN
+  -> P1.1 any_match
+  -> P1.2 boolean composition
+  -> P1.3 observability
+  -> P1.4 scan execution v2
+  -> P2 hardening
+  -> P3 optional SPI work
 ```
 
 Update this file after every completed stage, including the tests/CI used to validate completion.
