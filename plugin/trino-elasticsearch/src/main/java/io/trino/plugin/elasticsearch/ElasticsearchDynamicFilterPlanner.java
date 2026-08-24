@@ -15,6 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import io.trino.plugin.elasticsearch.expression.ElasticsearchRemotePredicate;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.nio.charset.StandardCharsets;
@@ -108,12 +109,12 @@ final class ElasticsearchDynamicFilterPlanner
             values = domain.getValues().getDiscreteSet();
         }
         else {
-            List<io.trino.spi.predicate.Range> ranges = domain.getValues().getRanges().getOrderedRanges();
+            List<Range> ranges = domain.getValues().getRanges().getOrderedRanges();
             if (ranges.stream().anyMatch(range -> !range.isSingleValue())) {
                 return ElasticsearchRemotePredicateTranslator.translateDomain(column, domain);
             }
             values = ranges.stream()
-                    .map(io.trino.spi.predicate.Range::getSingleValue)
+                    .map(Range::getSingleValue)
                     .toList();
         }
 

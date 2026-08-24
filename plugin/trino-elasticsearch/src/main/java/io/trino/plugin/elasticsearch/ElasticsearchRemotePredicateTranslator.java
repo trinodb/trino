@@ -28,8 +28,10 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -77,9 +79,9 @@ final class ElasticsearchRemotePredicateTranslator
                 table.schema(),
                 table.index(),
                 TupleDomain.all(),
-                java.util.Map.of(),
-                java.util.Map.of(),
-                java.util.Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
                 table.query(),
                 table.limit(),
                 table.sortOrder(),
@@ -225,7 +227,7 @@ final class ElasticsearchRemotePredicateTranslator
     {
         requireNonNull(predicates, "predicates is null");
         List<ElasticsearchRemotePredicate> flattened = predicates.stream()
-                .flatMap(predicate -> predicate instanceof ElasticsearchRemotePredicate.Or or ? or.predicates().stream() : java.util.stream.Stream.of(predicate))
+                .flatMap(predicate -> predicate instanceof ElasticsearchRemotePredicate.Or or ? or.predicates().stream() : Stream.of(predicate))
                 .toList();
         if (flattened.isEmpty()) {
             return Optional.empty();

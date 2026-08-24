@@ -14,6 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
 import io.trino.plugin.elasticsearch.expression.ElasticsearchExpressionRewrite;
@@ -421,7 +422,7 @@ final class ElasticsearchPredicatePushdownPlanner
 
             Optional<Domain> expectedDomain = RuleBasedElasticsearchMetadata.createLikePrefixDomain(
                     (VarcharType) column.type(),
-                    io.airlift.slice.Slices.utf8Slice(prefix.orElseThrow()));
+                    Slices.utf8Slice(prefix.orElseThrow()));
             if (expectedDomain.isPresent() && actualDomain.equals(expectedDomain.orElseThrow())) {
                 domains.remove(column);
                 changed = true;
