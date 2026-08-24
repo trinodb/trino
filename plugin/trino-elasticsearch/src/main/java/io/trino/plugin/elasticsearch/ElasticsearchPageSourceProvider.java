@@ -15,6 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.inject.Inject;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.expression.ElasticsearchRemotePredicate;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -27,29 +28,33 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.elasticsearch.ElasticsearchSessionProperties.getFullTextPushdownMode;
+import static io.trino.plugin.elasticsearch.ElasticsearchRemotePredicateTranslator.combine;
+import static io.trino.plugin.elasticsearch.ElasticsearchRemotePredicateTranslator.withRemotePredicate;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private static final int DOMAIN_COMPACTION_THRESHOLD = 1000;
-
     private final ElasticsearchClient client;
     private final TypeManager typeManager;
+    private final ElasticsearchDynamicFilterPlanner dynamicFilterPlanner;
 
     @Inject
-    public ElasticsearchPageSourceProvider(ElasticsearchClient client, TypeManager typeManager)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client, TypeManager typeManager, ElasticsearchConfig config)
     {
         this.client = requireNonNull(client, "client is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        requireNonNull(config, "config is null");
+        this.dynamicFilterPlanner = new ElasticsearchDynamicFilterPlanner(
+                config.getDynamicFilteringMaxValues(),
+                config.getDynamicFilteringTermsBatchSize(),
+                config.getDynamicFilteringMaxQueryBytes());
     }
 
     @Override
@@ -82,19 +87,20 @@ public class ElasticsearchPageSourceProvider
                             .collect(toImmutableList()));
         }
 
-        // Fold the dynamic filter (join keys from the build side) into the constraint so it is applied within the Elasticsearch query.
-        // A dynamic filter is always a pre-filter (the join re-checks the key), so analyzed text keys are safe to include as full-text matches.
-        FullTextPushdownMode fullTextMode = getFullTextPushdownMode(session);
+        // Dynamic filters are runtime join filters. Only exact Elasticsearch predicates are allowed here: join
+        // re-checking can remove false positives, but cannot recover rows lost to an approximate false negative.
         TupleDomain<ElasticsearchColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
-                .transformKeys(ElasticsearchColumnHandle.class::cast)
-                .filter((column, _) -> column.supportsPredicates()
-                        || (fullTextMode != FullTextPushdownMode.DISABLED && column.type() instanceof VarcharType));
-        if (!dynamicFilterPredicate.isAll()) {
-            TupleDomain<ColumnHandle> constraint = elasticsearchTable.constraint()
-                    .intersect(dynamicFilterPredicate.transformKeys(ColumnHandle.class::cast))
-                    .simplify(DOMAIN_COMPACTION_THRESHOLD);
-            elasticsearchTable = elasticsearchTable.withConstraint(constraint);
+                .transformKeys(ElasticsearchColumnHandle.class::cast);
+        if (dynamicFilterPredicate.isNone()) {
+            return new EmptyPageSource();
         }
+        Optional<ElasticsearchRemotePredicate> plannedDynamicFilter = dynamicFilterPlanner.plan(dynamicFilterPredicate);
+        if (plannedDynamicFilter.isPresent()) {
+            elasticsearchTable = withRemotePredicate(
+                    elasticsearchTable,
+                    combine(elasticsearchTable.remotePredicate(), plannedDynamicFilter));
+        }
+
         if (elasticsearchTable.constraint().isNone()) {
             return new EmptyPageSource();
         }

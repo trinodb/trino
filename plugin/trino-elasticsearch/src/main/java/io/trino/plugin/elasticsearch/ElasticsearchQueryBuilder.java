@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.plugin.elasticsearch.expression.ElasticsearchRemotePredicate;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -48,6 +49,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
+import static java.util.Objects.requireNonNull;
 
 public final class ElasticsearchQueryBuilder
 {
@@ -55,7 +57,30 @@ public final class ElasticsearchQueryBuilder
 
     private ElasticsearchQueryBuilder() {}
 
+    public static JsonNode buildSearchQuery(ElasticsearchTableHandle table)
+    {
+        requireNonNull(table, "table is null");
+        return buildSearchQuery(
+                table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast),
+                table.query(),
+                table.regexes(),
+                table.prefixes(),
+                table.matchPhrasePrefixes(),
+                table.remotePredicate());
+    }
+
     public static JsonNode buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query, Map<String, String> regexes, Map<String, String> prefixes, Map<String, String> matchPhrasePrefixes)
+    {
+        return buildSearchQuery(constraint, query, regexes, prefixes, matchPhrasePrefixes, Optional.empty());
+    }
+
+    public static JsonNode buildSearchQuery(
+            TupleDomain<ElasticsearchColumnHandle> constraint,
+            Optional<String> query,
+            Map<String, String> regexes,
+            Map<String, String> prefixes,
+            Map<String, String> matchPhrasePrefixes,
+            Optional<ElasticsearchRemotePredicate> remotePredicate)
     {
         ArrayNode filterClauses = JSON.arrayNode();
         ArrayNode mustNotClauses = JSON.arrayNode();
@@ -85,6 +110,7 @@ public final class ElasticsearchQueryBuilder
         // On an analyzed text field a match_phrase_prefix keeps the multi-token prefix as a phrase (unlike a per-token prefix query)
         matchPhrasePrefixes.forEach((name, value) -> filterClauses.add(matchPhrasePrefixQuery(name, value)));
 
+        remotePredicate.ifPresent(predicate -> filterClauses.add(ElasticsearchRemotePredicateQueryBuilder.build(predicate)));
         query.ifPresent(q -> mustClauses.add(queryStringQuery(q)));
 
         if (filterClauses.isEmpty() && mustNotClauses.isEmpty() && mustClauses.isEmpty()) {
@@ -217,41 +243,53 @@ public final class ElasticsearchQueryBuilder
             shouldClauses.forEach(shouldArray::add);
             boolNode.set("should", shouldArray);
             filterClauses.add(JSON.objectNode().set("bool", boolNode));
-            return;
         }
     }
 
     private static List<JsonNode> getShouldClauses(String columnName, Domain domain, Type type)
     {
         ImmutableList.Builder<JsonNode> shouldClauses = ImmutableList.builder();
-        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
-            checkState(!range.isAll(), "Invalid range for column: %s", columnName);
-            if (range.isSingleValue()) {
-                shouldClauses.add(termQuery(columnName, getValue(type, range.getSingleValue())));
+        if (domain.getValues().isDiscreteSet()) {
+            List<Object> values = domain.getValues().getDiscreteSet();
+            if (values.size() == 1) {
+                shouldClauses.add(termQuery(columnName, getValue(type, getOnlyElement(values))));
             }
-            else {
-                ObjectNode rangeNode = JSON.objectNode();
-                if (!range.isLowUnbounded()) {
-                    Object lowBound = getValue(type, range.getLowBoundedValue());
-                    if (range.isLowInclusive()) {
-                        rangeNode.set("gte", toJsonValue(lowBound));
-                    }
-                    else {
-                        rangeNode.set("gt", toJsonValue(lowBound));
-                    }
+            else if (!values.isEmpty()) {
+                shouldClauses.add(termsQuery(columnName, values.stream()
+                        .map(value -> getValue(type, value))
+                        .toList()));
+            }
+        }
+        else {
+            for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+                checkState(!range.isAll(), "Invalid range for column: %s", columnName);
+                if (range.isSingleValue()) {
+                    shouldClauses.add(termQuery(columnName, getValue(type, range.getSingleValue())));
                 }
-                if (!range.isHighUnbounded()) {
-                    Object highBound = getValue(type, range.getHighBoundedValue());
-                    if (range.isHighInclusive()) {
-                        rangeNode.set("lte", toJsonValue(highBound));
+                else {
+                    ObjectNode rangeNode = JSON.objectNode();
+                    if (!range.isLowUnbounded()) {
+                        Object lowBound = getValue(type, range.getLowBoundedValue());
+                        if (range.isLowInclusive()) {
+                            rangeNode.set("gte", toJsonValue(lowBound));
+                        }
+                        else {
+                            rangeNode.set("gt", toJsonValue(lowBound));
+                        }
                     }
-                    else {
-                        rangeNode.set("lt", toJsonValue(highBound));
+                    if (!range.isHighUnbounded()) {
+                        Object highBound = getValue(type, range.getHighBoundedValue());
+                        if (range.isHighInclusive()) {
+                            rangeNode.set("lte", toJsonValue(highBound));
+                        }
+                        else {
+                            rangeNode.set("lt", toJsonValue(highBound));
+                        }
                     }
+                    shouldClauses.add(JSON.objectNode().set(
+                            "range",
+                            JSON.objectNode().set(columnName, rangeNode)));
                 }
-                shouldClauses.add(JSON.objectNode().set(
-                        "range",
-                        JSON.objectNode().set(columnName, rangeNode)));
             }
         }
         if (domain.isNullAllowed()) {
@@ -332,6 +370,15 @@ public final class ElasticsearchQueryBuilder
         return JSON.objectNode().set(
                 "term",
                 JSON.objectNode().set(field, toJsonValue(value)));
+    }
+
+    private static ObjectNode termsQuery(String field, List<Object> values)
+    {
+        ArrayNode jsonValues = JSON.arrayNode();
+        values.forEach(value -> jsonValues.add(toJsonValue(value)));
+        return JSON.objectNode().set(
+                "terms",
+                JSON.objectNode().set(field, jsonValues));
     }
 
     private static ObjectNode regexpQuery(String field, String value)

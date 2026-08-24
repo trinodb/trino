@@ -83,6 +83,9 @@ public class ElasticsearchConfig
     private int statisticsMaxColumns = 32;
     private Duration statisticsRequestTimeout = new Duration(5, SECONDS);
     private Duration dynamicFilteringWaitTimeout = new Duration(5, SECONDS);
+    private int dynamicFilteringMaxValues = 50_000;
+    private int dynamicFilteringTermsBatchSize = 1_000;
+    private int dynamicFilteringMaxQueryBytes = 1_048_576;
     private boolean keywordSubfieldPushdownWithIgnoreAbove;
     private boolean aggregationPushdownEnabled = true;
     private FullTextPushdownMode fullTextPushdownMode = FullTextPushdownMode.DISABLED;
@@ -430,6 +433,48 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
     {
         this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getDynamicFilteringMaxValues()
+    {
+        return dynamicFilteringMaxValues;
+    }
+
+    @Config("elasticsearch.dynamic-filtering.max-values")
+    @ConfigDescription("Maximum number of discrete dynamic-filter values translated into Elasticsearch predicates; larger filters fall back to Trino join evaluation")
+    public ElasticsearchConfig setDynamicFilteringMaxValues(int dynamicFilteringMaxValues)
+    {
+        this.dynamicFilteringMaxValues = dynamicFilteringMaxValues;
+        return this;
+    }
+
+    @Min(1)
+    public int getDynamicFilteringTermsBatchSize()
+    {
+        return dynamicFilteringTermsBatchSize;
+    }
+
+    @Config("elasticsearch.dynamic-filtering.terms-batch-size")
+    @ConfigDescription("Maximum number of values in each Elasticsearch terms clause generated for a dynamic filter")
+    public ElasticsearchConfig setDynamicFilteringTermsBatchSize(int dynamicFilteringTermsBatchSize)
+    {
+        this.dynamicFilteringTermsBatchSize = dynamicFilteringTermsBatchSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getDynamicFilteringMaxQueryBytes()
+    {
+        return dynamicFilteringMaxQueryBytes;
+    }
+
+    @Config("elasticsearch.dynamic-filtering.max-query-bytes")
+    @ConfigDescription("Maximum serialized Elasticsearch predicate size in bytes contributed by dynamic filtering")
+    public ElasticsearchConfig setDynamicFilteringMaxQueryBytes(int dynamicFilteringMaxQueryBytes)
+    {
+        this.dynamicFilteringMaxQueryBytes = dynamicFilteringMaxQueryBytes;
         return this;
     }
 
