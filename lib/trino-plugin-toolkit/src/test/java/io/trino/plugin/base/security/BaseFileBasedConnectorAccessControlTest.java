@@ -675,6 +675,20 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     }
 
     @Test
+    public void testTableProcedureRulesForCheckCanExecute()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("visibility.json");
+
+        accessControl.checkCanExecuteTableProcedure(BOB, new SchemaTableName("bob-schema", "bob-table"), "some_table_procedure");
+        assertDenied(() -> accessControl.checkCanExecuteTableProcedure(BOB, new SchemaTableName("bob-schema", "bob-table"), "another_table_procedure"));
+
+        assertDenied(() -> accessControl.checkCanExecuteTableProcedure(CHARLIE, new SchemaTableName("procedure-schema", "some-table"), "some_table_procedure"));
+
+        assertDenied(() -> accessControl.checkCanExecuteTableProcedure(ALICE, new SchemaTableName("alice-schema", "alice-table"), "some_table_procedure"));
+    }
+
+    @Test
     public void testInvalidRules()
     {
         assertThatThrownBy(() -> createAccessControl("invalid.json"))
