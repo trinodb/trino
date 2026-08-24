@@ -18,7 +18,7 @@ import java.io.IOException;
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 
 public class TestElasticsearch7ConnectorTest
-        extends BaseElasticsearchP0PredicatePushdownTest
+        extends BaseElasticsearchAnyMatchPushdownTest
 {
     public TestElasticsearch7ConnectorTest()
             throws IOException
