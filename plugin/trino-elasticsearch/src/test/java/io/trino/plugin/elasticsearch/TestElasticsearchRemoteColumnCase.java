@@ -13,30 +13,28 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
+import io.trino.plugin.elasticsearch.expression.ElasticsearchRemotePredicate;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.plugin.elasticsearch.FullTextPushdownMode.UNSAFE;
+import static io.trino.plugin.elasticsearch.expression.ElasticsearchRemotePredicate.Enforcement.APPROXIMATE;
+import static io.trino.spi.expression.Constant.TRUE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestElasticsearchRemoteColumnCase
 {
-    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
-
     @Test
     public void testLogicalColumnNameKeepsOriginalRemotePath()
     {
@@ -50,21 +48,25 @@ public class TestElasticsearchRemoteColumnCase
     }
 
     @Test
-    public void testUnsafeFullTextQueryUsesOriginalRemoteFieldCase()
-            throws IOException
+    public void testUnsafeFullTextPredicateIrUsesOriginalRemoteFieldCase()
     {
         ElasticsearchColumnHandle remoteColumn = remoteTextColumn();
-        JsonNode actual = buildSearchQuery(
-                TupleDomain.withColumnDomains(Map.of(remoteColumn, Domain.singleValue(VARCHAR, utf8Slice("sa")))),
-                Optional.empty(),
-                Map.of(),
-                Map.of(),
+        Domain domain = Domain.singleValue(VARCHAR, utf8Slice("sa"));
+        Constraint constraint = new Constraint(
+                TupleDomain.withColumnDomains(Map.<ColumnHandle, Domain>of(remoteColumn, domain)),
+                TRUE,
                 Map.of());
 
-        assertThat(JSON_MAPPER.readTree(actual.toString()))
-                .isEqualTo(JSON_MAPPER.readTree(
-                        """
-                        {"bool":{"filter":[{"match_phrase":{"Ho_ten":"sa"}}]}}"""));
+        ElasticsearchPredicatePushdownPlanner.Result result = ElasticsearchPredicatePushdownPlanner.plan(
+                TestingConnectorSession.builder().build(),
+                constraint,
+                UNSAFE);
+
+        assertThat(result.remainingConstraint().getSummary().isAll()).isTrue();
+        assertThat(result.residualFilter().isAll()).isTrue();
+        assertThat(result.remotePredicate()).contains(new ElasticsearchRemotePredicate.Enforced(
+                new ElasticsearchRemotePredicate.MatchPhrase("Ho_ten", "sa"),
+                APPROXIMATE));
     }
 
     private static ElasticsearchColumnHandle remoteTextColumn()

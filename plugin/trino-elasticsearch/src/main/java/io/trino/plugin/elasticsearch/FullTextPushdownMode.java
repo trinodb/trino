@@ -14,25 +14,27 @@
 package io.trino.plugin.elasticsearch;
 
 /**
- * Controls how predicates and dynamic filters on analyzed {@code text} fields are pushed to Elasticsearch as
- * full-text queries. Because a {@code text} field is tokenized, a full-text match does not have exact SQL
- * equality semantics, so this trades correctness for pushdown and is disabled by default.
+ * Controls how predicates that may require Elasticsearch full-text semantics are pushed down.
+ *
+ * <p>SAFE is a correctness mode, not merely a residual-filter mode. A remote candidate is allowed only when it is
+ * proven not to introduce false negatives for the SQL predicate. Keeping a Trino residual can remove remote false
+ * positives, but it cannot recover rows that Elasticsearch filtered out. Any translation that can lose SQL matches is
+ * therefore available only in UNSAFE mode and is marked APPROXIMATE in the Remote Predicate IR.</p>
  */
 public enum FullTextPushdownMode
 {
     /**
-     * Strict, default. Predicates on analyzed {@code text} fields are left to the engine (exact SQL semantics).
+     * Strict, default. Predicates requiring non-exact full-text semantics are left to Trino.
      */
     DISABLED,
     /**
-     * Push a full-text query as a pre-filter but keep the exact predicate as a residual filter, so the engine
-     * re-applies it. Eliminates false positives; a value that analyzes to nothing (for example a stop word) can
-     * still be dropped, so results are exact only for typical values.
+     * Push only proven no-false-negative candidates and keep the exact SQL predicate as a Trino residual. Analyzed-text
+     * translations are not used merely because a residual exists; they must first satisfy the candidate-safety proof.
      */
     SAFE,
     /**
-     * Push a full-text query and trust the Elasticsearch result (no residual). Fully pushed down and fastest, but
-     * results follow Elasticsearch analysis semantics (tokenization, lowercasing, stemming) and can differ from SQL.
+     * Push a valid Elasticsearch translation and trust the remote result even when analyzer/token semantics can differ
+     * from SQL. Such predicates are marked APPROXIMATE and do not retain an exact residual solely for equivalence.
      */
     UNSAFE,
 }

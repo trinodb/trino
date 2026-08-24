@@ -166,7 +166,7 @@ public class TestElasticsearchPredicatePushdownPlanner
     }
 
     @Test
-    public void testSafeAnalyzedDiscreteDomainKeepsResidual()
+    public void testSafeAnalyzedDiscreteDomainIsPlannerOwnedResidual()
     {
         ElasticsearchColumnHandle column = analyzedTextColumn();
         Domain domain = Domain.singleValue(VARCHAR, utf8Slice("Alpha Beta"));
@@ -181,9 +181,47 @@ public class TestElasticsearchPredicatePushdownPlanner
                 SAFE);
 
         assertThat(result.remainingConstraint().getSummary().isAll()).isTrue();
-        assertThat(result.residualFilter()).isEqualTo(TupleDomain.withColumnDomains(Map.<ColumnHandle, Domain>of(column, domain)));
+        assertThat(result.residualFilter())
+                .isEqualTo(TupleDomain.withColumnDomains(Map.<ColumnHandle, Domain>of(column, domain)));
+        assertThat(result.remotePredicate()).isEmpty();
+    }
+
+    @Test
+    public void testSafeAnalyzedLikeIsPlannerOwnedResidual()
+    {
+        ElasticsearchColumnHandle column = analyzedTextColumn();
+        Call expression = like("value", "%Alpha%");
+
+        ElasticsearchPredicatePushdownPlanner.Result result = ElasticsearchPredicatePushdownPlanner.plan(
+                TestingConnectorSession.builder().build(),
+                expressionConstraint(column, expression),
+                SAFE);
+
+        assertThat(result.remainingConstraint().getExpression()).isEqualTo(TRUE);
+        assertThat(result.residualExpressions()).containsExactly(expression);
+        assertThat(result.remotePredicate()).isEmpty();
+    }
+
+    @Test
+    public void testSafeKeywordRegexpUsesLosslessCandidateAndResidual()
+    {
+        ElasticsearchColumnHandle column = keywordColumn();
+        Call regexp = new Call(
+                BOOLEAN,
+                new FunctionName("regexp_like"),
+                ImmutableList.of(
+                        new Variable("value", VARCHAR),
+                        new Constant(utf8Slice("foo"), VARCHAR)));
+
+        ElasticsearchPredicatePushdownPlanner.Result result = ElasticsearchPredicatePushdownPlanner.plan(
+                TestingConnectorSession.builder().build(),
+                expressionConstraint(column, regexp),
+                SAFE);
+
+        assertThat(result.remainingConstraint().getExpression()).isEqualTo(TRUE);
+        assertThat(result.residualExpressions()).containsExactly(regexp);
         assertThat(result.remotePredicate()).contains(new ElasticsearchRemotePredicate.Enforced(
-                new ElasticsearchRemotePredicate.MatchPhrase("value", "Alpha Beta"),
+                new ElasticsearchRemotePredicate.Regexp("value", ".*(foo).*"),
                 PREFILTER));
     }
 
@@ -191,7 +229,7 @@ public class TestElasticsearchPredicatePushdownPlanner
     public void testUnsafeAnalyzedPrefixLikeRemovesSyntheticRange()
     {
         ElasticsearchColumnHandle column = analyzedTextColumn();
-        Domain syntheticDomain = RuleBasedElasticsearchMetadata.createLikePrefixDomain(VARCHAR, utf8Slice("Alpha"))
+        Domain syntheticDomain = ElasticsearchPredicatePushdownPlanner.createLikePrefixDomain(VARCHAR, utf8Slice("Alpha"))
                 .orElseThrow();
         Constraint constraint = new Constraint(
                 TupleDomain.withColumnDomains(Map.<ColumnHandle, Domain>of(column, syntheticDomain)),

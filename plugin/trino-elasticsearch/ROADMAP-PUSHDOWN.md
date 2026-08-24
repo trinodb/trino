@@ -87,6 +87,8 @@ any_match(values, x -> x > 10 AND x < 20)
 
 The planner must never flatten these scopes into a representation that changes semantics. `ElasticsearchArrayPredicateTranslator` remains responsible for proving same-element safety before lowering an `any_match` predicate to the general Remote Predicate IR.
 
+The same rule applies to ranges. Independent document-scope ranges on one Elasticsearch field must remain independent because different remote values may satisfy different clauses. Range fusion is legal only after an abstraction proves same-value/same-element scope.
+
 ### 4. Table-handle remote predicate state remains authoritative
 
 `ElasticsearchTableHandle` remote predicate state is the durable planner-to-execution contract. Limit, TopN, aggregation, projection, statistics, and scan planning must preserve or deliberately consume that state; none may silently ignore it.
@@ -250,7 +252,7 @@ Permanent invariant: same-element lambda semantics are proven inside the array p
 
 ## P1.2 — Predicate Composition and Translation Contract
 
-**Status:** NEXT
+**Status:** IMPLEMENTED — VALIDATION IN PROGRESS
 
 ### Objective
 
@@ -268,7 +270,8 @@ Predicate-specific translation rules
 Translation result
 ├── Optional<RemotePredicate>
 ├── enforcement/exactness
-├── residual requirement
+├── compatibility remaining
+├── planner-owned residual
 └── diagnostics reason/capability
        │
        ▼
@@ -276,7 +279,7 @@ Boolean composition
 ├── AND
 ├── OR
 ├── normalization
-└── safe NOT when proven
+└── NOT residual until exact semantics are proven
        │
        ▼
 ElasticsearchTableHandle.remotePredicate
@@ -286,12 +289,13 @@ The chosen translation-result and composition APIs are permanent and will be con
 
 ### P1.2a — Define translation-result invariants
 
-- [ ] One result type represents remote predicate plus residual/enforcement information.
-- [ ] EXACT means the translated subtree can be authoritative for that SQL subtree.
-- [ ] PREFILTER always retains the necessary Trino residual.
-- [ ] APPROXIMATE is allowed only under explicit UNSAFE semantics and remains marked in IR.
-- [ ] Unsupported translation is a first-class outcome, not `null`/special-case behavior spread through `applyFilter`.
-- [ ] Same-element array safety remains encapsulated in the array translator.
+- [x] One result type represents remote predicate plus residual/enforcement information.
+- [x] EXACT means the translated subtree can be authoritative for that SQL subtree.
+- [x] PREFILTER always retains the necessary Trino residual and requires a no-false-negative remote candidate.
+- [x] APPROXIMATE is allowed only under explicit UNSAFE semantics and remains marked in IR.
+- [x] Unsupported translation is a first-class outcome, not `null`/special-case behavior spread through `applyFilter`.
+- [x] Compatibility `remaining` and planner-owned `residual` are distinct; legacy code cannot retry a planner-owned rejection.
+- [x] Same-element array safety remains encapsulated in the array translator.
 
 ### P1.2b — AND composition
 
@@ -305,12 +309,12 @@ status = 'ACTIVE' AND score >= 10
 
 Required behavior:
 
-- [ ] Compose independent document-scope remote predicates under IR `And`.
-- [ ] Preserve each subtree's enforcement/residual semantics.
-- [ ] Flatten nested `And` nodes.
-- [ ] Remove identity/single-child boolean nodes.
-- [ ] Merge compatible exact range constraints only when the merge preserves semantics.
-- [ ] Never reinterpret top-level multi-valued-field conjunction as same-element `any_match` semantics.
+- [x] Compose independent document-scope remote predicates under IR `And`.
+- [x] Preserve each subtree's enforcement/residual semantics.
+- [x] Flatten nested `And` nodes.
+- [x] Remove identity/single-child boolean nodes.
+- [x] Preserve independent same-field ranges at document scope; fuse ranges only in a translator that has explicit same-value proof.
+- [x] Never reinterpret top-level multi-valued-field conjunction as same-element `any_match` semantics.
 
 ### P1.2c — OR composition
 
@@ -323,11 +327,12 @@ name LIKE '%foo%' OR name LIKE '%bar%'
 
 Required behavior:
 
-- [ ] Compose OR only when every branch has a remote predicate that cannot introduce false negatives for the SQL OR.
-- [ ] If one OR branch is untranslatable and no safe candidate exists for it, keep the entire OR subtree residual rather than pushing only the translatable branch.
-- [ ] Flatten nested `Or` nodes.
-- [ ] Canonicalize same-field exact `Term`/`Terms` OR into `Terms` when semantics and request-size limits allow.
-- [ ] Preserve enforcement metadata through OR composition.
+- [x] Compose OR only when every branch has a remote predicate that cannot introduce false negatives for the SQL OR, unless explicit UNSAFE approximation semantics apply to every approximate branch.
+- [x] If one OR branch is untranslatable and no safe candidate exists for it, keep the entire OR subtree residual rather than pushing only the translatable branch.
+- [x] Flatten nested `Or` nodes.
+- [x] Canonicalize same-field exact `Term`/`Terms` OR into `Terms` when semantics and request-size limits allow.
+- [x] Preserve enforcement metadata through OR composition.
+- [x] Keep the complete SQL OR residual whenever PREFILTER participates.
 
 Correctness invariant:
 
@@ -342,55 +347,61 @@ A translatable, B not translatable
 
 NOT is part of the permanent composer API, but production lowering is enabled only for forms with proven SQL three-valued-logic equivalence.
 
-- [ ] Define NULL/missing semantics for scalar and multi-valued fields.
-- [ ] Prove whether forms require `Exists(field) AND NOT(predicate)`.
-- [ ] Add exact NOT forms only after proof and tests.
-- [ ] Unsupported NOT remains a normal residual outcome of the same composer; no temporary alternative NOT implementation is introduced.
+- [x] Treat SQL NULL/missing/multi-valued semantics as an explicit proof requirement before remote NOT is enabled.
+- [x] Record that naive Elasticsearch `must_not` is insufficient when missing fields can change SQL three-valued logic.
+- [x] Do not enable an exact NOT form without proof and acceptance coverage; no temporary NOT lowering is introduced.
+- [x] Unsupported/unproven NOT is a planner-owned residual outcome of the same permanent composer API.
 
 ### P1.2e — Planner cleanup
 
-- [ ] `ElasticsearchMetadata.applyFilter` orchestrates translation/composition but does not contain predicate-specific boolean special cases.
-- [ ] No new synthetic `TupleDomain` bridge for new predicates.
-- [ ] No new parallel regex/prefix/full-text maps.
-- [ ] Existing compatibility state is canonicalized at the boundary and not used as a foundation for P1.2 functionality.
+- [x] `RuleBasedElasticsearchMetadata.applyFilter` orchestrates the permanent planner and isolated compatibility boundary rather than implementing boolean predicate rules itself.
+- [x] No new synthetic `TupleDomain` bridge is used for new predicates.
+- [x] No new parallel regex/prefix/full-text maps are introduced as P1.2 architecture.
+- [x] Existing compatibility state is canonicalized at the boundary and is not used as a foundation for P1.2 functionality.
+- [x] Dead synthetic full-text lowering retained only for historical tests was removed.
 
 ### Required tests
 
 Unit:
 
-- [ ] Translation-result invariants.
-- [ ] EXACT/PREFILTER/APPROXIMATE composition matrix.
-- [ ] AND/OR normalization.
-- [ ] Partial-OR rejection.
-- [ ] Same-field range merge safety.
-- [ ] Document-scope vs same-element array regression.
-- [ ] NULL/missing behavior for any enabled NOT form.
+- [x] Translation-result invariants.
+- [x] EXACT/PREFILTER/APPROXIMATE composition matrix.
+- [x] AND/OR normalization.
+- [x] Partial-OR rejection.
+- [x] Same-field range scope safety: independent document-scope ranges are preserved; P1.1 same-element fusion remains isolated.
+- [x] Document-scope vs same-element array regression.
+- [x] Unproven NOT remains residual so Trino preserves NULL/missing semantics.
+- [x] SAFE candidate losslessness and legacy-bypass regression.
 
 Planner:
 
-- [ ] Correct residual retained/removed.
-- [ ] Table handle contains the expected composed IR.
-- [ ] Repeated `applyFilter` calls compose with existing handle predicates rather than replacing them.
+- [x] Correct residual retained/removed.
+- [x] Table handle contains the expected composed IR.
+- [x] Repeated `applyFilter` calls compose with existing handle predicates rather than replacing them.
+- [x] Repeated `applyFilter` does not incorrectly fuse independent same-field document-scope ranges.
 
 DSL:
 
-- [ ] IR renders to one deterministic Elasticsearch bool tree.
-- [ ] Large `Terms` normalization respects request limits.
+- [x] IR renders to one deterministic Elasticsearch bool tree.
+- [x] Large `Terms` normalization respects request limits.
 
-ES7/ES8 integration:
+ES7/ES8 integration coverage implemented:
 
-- [ ] Same-field full-text AND.
-- [ ] Same-field exact AND.
-- [ ] Exact OR.
-- [ ] Mixed translatable/untranslatable OR remains correct.
-- [ ] Array membership conjunction.
-- [ ] `any_match` same-element regression.
-- [ ] NULL/missing documents.
-- [ ] Result comparison against reference Trino execution.
+- [x] Same-field full-text AND under explicit UNSAFE semantics.
+- [x] Same-field exact AND.
+- [x] Exact OR.
+- [x] Mixed translatable/untranslatable OR remains correct.
+- [x] Array membership conjunction.
+- [x] `any_match` same-element regression.
+- [x] NULL/missing documents through cumulative acceptance coverage.
+- [x] Result comparison against Trino query semantics.
+- [x] Custom lowercase + asciifolding analyzer regression proving SAFE cannot use a lossy remote candidate.
 
 ### P1.2 completion gate
 
-P1.2 is complete only when the composition API is suitable unchanged for P1.3 diagnostics and future predicate translators. If P1.3 would require replacing the result/composer model, P1.2 is not complete.
+P1.2 is complete only when the composition API is suitable unchanged for P1.3 diagnostics and future predicate translators. The architecture audit concludes that P1.3 can consume `ElasticsearchPredicateTranslation`, reason codes, enforcement, composer decisions and Remote Predicate IR without replacing the model.
+
+The implementation is complete, but the phase remains **VALIDATION IN PROGRESS** until the final stable head passes focused tests, AirStyle, the complete `:trino-elasticsearch` module, ES7, ES8, Error Prone/compile checks, and final GitHub CI.
 
 ---
 
@@ -581,10 +592,10 @@ P0 COMPLETE / GREEN
 P1.1 any_match COMPLETE / MERGED
   │
   ▼
-P1.2 Predicate Composition + Translation Contract   <- NEXT
+P1.2 Predicate Composition + Translation Contract   <- IMPLEMENTED / VALIDATION IN PROGRESS
   │
   ▼
-P1.3 Permanent Diagnostics / Observability
+P1.3 Permanent Diagnostics / Observability          <- NEXT AFTER P1.2 GATE
   │
   ▼
 P1.4 Stable Search Execution Framework

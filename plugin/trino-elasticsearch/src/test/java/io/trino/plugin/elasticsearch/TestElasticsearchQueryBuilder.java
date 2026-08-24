@@ -47,7 +47,6 @@ public class TestElasticsearchQueryBuilder
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private static final ElasticsearchColumnHandle NAME = new ElasticsearchColumnHandle(ImmutableList.of("name"), VARCHAR, new IndexMetadata.PrimitiveType("text"), new VarcharDecoder.Descriptor("name"), true);
-    private static final ElasticsearchColumnHandle ANALYZED_TEXT = new ElasticsearchColumnHandle(ImmutableList.of("text_column"), VARCHAR, new IndexMetadata.PrimitiveType("text"), new VarcharDecoder.Descriptor("text_column"), false);
     private static final ElasticsearchColumnHandle AGE = new ElasticsearchColumnHandle(ImmutableList.of("age"), INTEGER, new IndexMetadata.PrimitiveType("int"), new IntegerDecoder.Descriptor("age"), true);
     private static final ElasticsearchColumnHandle SCORE = new ElasticsearchColumnHandle(ImmutableList.of("score"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("score"), true);
     private static final ElasticsearchColumnHandle LENGTH = new ElasticsearchColumnHandle(ImmutableList.of("length"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("length"), true);
@@ -66,43 +65,36 @@ public class TestElasticsearchQueryBuilder
     public void testOneConstraint()
             throws IOException
     {
-        // SingleValue
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.singleValue(INTEGER, 1L)),
                 """
                 {"bool":{"filter":[{"term":{"age":1}}]}}""");
 
-        // Range
         assertQueryBuilder(
                 ImmutableMap.of(SCORE, Domain.create(ValueSet.ofRanges(Range.range(DOUBLE, 65.0, false, 80.0, true)), false)),
                 """
                 {"bool":{"filter":[{"range":{"score":{"gt":65.0,"lte":80.0}}}]}}""");
 
-        // Multiple discrete values are emitted as one native terms query, not a bool.should of term clauses.
         assertQueryBuilder(
                 ImmutableMap.of(NAME, Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("alice"), utf8Slice("bob")))),
                 """
                 {"bool":{"filter":[{"terms":{"name":["alice","bob"]}}]}}""");
 
-        // all
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.all(INTEGER)),
                 """
                 {"match_all":{}}""");
 
-        // notNull
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.notNull(INTEGER)),
                 """
                 {"bool":{"filter":[{"exists":{"field":"age"}}]}}""");
 
-        // isNull
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.onlyNull(INTEGER)),
                 """
                 {"bool":{"must_not":[{"exists":{"field":"age"}}]}}""");
 
-        // isNullAllowed
         assertQueryBuilder(
                 ImmutableMap.of(AGE, Domain.singleValue(INTEGER, 1L, true)),
                 """
@@ -130,7 +122,7 @@ public class TestElasticsearchQueryBuilder
     }
 
     @Test
-    public void testLegacyAndRemotePredicateComposition()
+    public void testCompatibilityStateAndRemotePredicateComposition()
             throws IOException
     {
         ElasticsearchRemotePredicate remotePredicate = new ElasticsearchRemotePredicate.And(List.of(
@@ -180,40 +172,10 @@ public class TestElasticsearchQueryBuilder
                 {"bool":{"filter":[{"term":{"age":10}}],"must_not":[{"exists":{"field":"score"}}]}}""");
     }
 
-    @Test
-    public void testMatchPhrase()
-            throws IOException
-    {
-        // A single-value domain on analyzed text is the lowering bridge for an UNSAFE full-text match_phrase.
-        JsonNode actual = buildSearchQuery(
-                TupleDomain.withColumnDomains(Map.of(ANALYZED_TEXT, Domain.singleValue(VARCHAR, utf8Slice("ngô văn")))),
-                Optional.empty(),
-                Map.of(),
-                Map.of(),
-                Map.of());
-        assertThat(JSON_MAPPER.readTree(actual.toString()))
-                .isEqualTo(JSON_MAPPER.readTree(
-                        """
-                        {"bool":{"filter":[{"match_phrase":{"text_column":"ngô văn"}}]}}"""));
-    }
-
-    @Test
-    public void testMatchPhrasePrefix()
-            throws IOException
-    {
-        // A full-text LIKE prefix on analyzed text is translated to a match_phrase_prefix query
-        JsonNode actual = buildSearchQuery(TupleDomain.all(), Optional.empty(), Map.of(), Map.of(), Map.of("text_column", "soome te"));
-        assertThat(JSON_MAPPER.readTree(actual.toString()))
-                .isEqualTo(JSON_MAPPER.readTree(
-                        """
-                        {"bool":{"filter":[{"match_phrase_prefix":{"text_column":"soome te"}}]}}"""));
-    }
-
     private static void assertQueryBuilder(Map<ElasticsearchColumnHandle, Domain> domains, String expected)
             throws IOException
     {
         JsonNode actual = buildSearchQuery(TupleDomain.withColumnDomains(domains), Optional.empty(), Map.of(), Map.of(), Map.of());
-        // Compare as normalized JSON trees to handle numeric type differences (LongNode vs IntNode)
         assertThat(JSON_MAPPER.readTree(actual.toString())).isEqualTo(JSON_MAPPER.readTree(expected));
     }
 }

@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -200,42 +199,12 @@ final class ElasticsearchRemotePredicateTranslator
 
     public static Optional<ElasticsearchRemotePredicate> conjunction(List<ElasticsearchRemotePredicate> predicates)
     {
-        requireNonNull(predicates, "predicates is null");
-        List<ElasticsearchRemotePredicate> flattened = new ArrayList<>();
-        predicates.forEach(predicate -> addConjunct(flattened, predicate));
-        if (flattened.isEmpty()) {
-            return Optional.empty();
-        }
-        if (flattened.size() == 1) {
-            return Optional.of(flattened.getFirst());
-        }
-        return Optional.of(new ElasticsearchRemotePredicate.And(flattened));
-    }
-
-    private static void addConjunct(List<ElasticsearchRemotePredicate> conjuncts, ElasticsearchRemotePredicate predicate)
-    {
-        if (predicate instanceof ElasticsearchRemotePredicate.And and) {
-            and.predicates().forEach(conjunct -> addConjunct(conjuncts, conjunct));
-            return;
-        }
-        if (!conjuncts.contains(predicate)) {
-            conjuncts.add(predicate);
-        }
+        return ElasticsearchRemotePredicateNormalizer.and(predicates);
     }
 
     public static Optional<ElasticsearchRemotePredicate> disjunction(List<ElasticsearchRemotePredicate> predicates)
     {
-        requireNonNull(predicates, "predicates is null");
-        List<ElasticsearchRemotePredicate> flattened = predicates.stream()
-                .flatMap(predicate -> predicate instanceof ElasticsearchRemotePredicate.Or or ? or.predicates().stream() : Stream.of(predicate))
-                .toList();
-        if (flattened.isEmpty()) {
-            return Optional.empty();
-        }
-        if (flattened.size() == 1) {
-            return Optional.of(flattened.getFirst());
-        }
-        return Optional.of(new ElasticsearchRemotePredicate.Or(flattened));
+        return ElasticsearchRemotePredicateNormalizer.or(predicates);
     }
 
     public static ElasticsearchTableHandle withRemotePredicate(ElasticsearchTableHandle table, Optional<ElasticsearchRemotePredicate> predicate)
