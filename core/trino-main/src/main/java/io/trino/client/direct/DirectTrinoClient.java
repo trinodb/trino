@@ -30,6 +30,7 @@ import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.Page;
@@ -48,11 +49,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.trino.SystemSessionProperties.DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED;
+import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.buffer.PagesSerdes.createExchangePagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.RetryPolicy.NONE;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -64,6 +69,8 @@ public class DirectTrinoClient
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
     private final long heartBeatIntervalMillis;
+    private final RetryPolicy configuredRetryPolicy;
+    private final boolean faultTolerantExecutionEnabledByDefault;
 
     public DirectTrinoClient(
             DispatchManager dispatchManager,
@@ -79,10 +86,21 @@ public class DirectTrinoClient
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.heartBeatIntervalMillis = queryManagerConfig.getClientTimeout().toMillis() / 2;
+        this.configuredRetryPolicy = queryManagerConfig.getRetryPolicy();
+        this.faultTolerantExecutionEnabledByDefault = queryManagerConfig.isDirectTrinoClientFaultTolerantExecutionEnabled();
     }
 
     public DispatchQuery execute(SessionContext sessionContext, @Language("SQL") String sql, QueryResultsListener queryResultsListener)
     {
+        // When fault-tolerant execution support is opted out of, fall back to the legacy behavior of forcing
+        // retry_policy=NONE, because DirectExchangeClient cannot consume the spooling exchange used under TASK retry.
+        if (!isFaultTolerantExecutionEnabled(sessionContext)) {
+            String sessionRetryPolicy = sessionContext.getSystemProperties().get(RETRY_POLICY);
+            if (configuredRetryPolicy == TASK || TASK.name().equalsIgnoreCase(sessionRetryPolicy)) {
+                sessionContext = sessionContext.withSystemProperty(RETRY_POLICY, NONE.name());
+            }
+        }
+
         // create the query and wait for it to be dispatched
         QueryId queryId = dispatchManager.createQueryId();
         getQueryFuture(dispatchManager.createQuery(queryId, Span.getInvalid(), Slug.createNew(), sessionContext, sql));
@@ -142,6 +160,17 @@ public class DirectTrinoClient
         }
 
         return dispatchQuery;
+    }
+
+    private boolean isFaultTolerantExecutionEnabled(SessionContext sessionContext)
+    {
+        // The session is not built yet at this point, so read the raw property the client set (if any),
+        // falling back to the configured default. This mirrors how the legacy retry_policy override was resolved.
+        String override = sessionContext.getSystemProperties().get(DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED);
+        if (override != null) {
+            return Boolean.parseBoolean(override);
+        }
+        return faultTolerantExecutionEnabledByDefault;
     }
 
     private ExchangeDataSource createExchangeDataSource(DispatchQuery dispatchQuery)
