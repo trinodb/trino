@@ -62,6 +62,7 @@ class TestDeltaLakeCheckpointsDatabricksCompatibility
     @TestGroup.DeltaLakeDatabricks143
     @TestGroup.DeltaLakeDatabricks154
     @TestGroup.DeltaLakeDatabricks164
+    @TestGroup.DeltaLakeDatabricks173
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     void testDatabricksUsesCheckpointInterval(DeltaLakeDatabricksEnvironment env)
     {

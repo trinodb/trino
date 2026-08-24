@@ -1062,6 +1062,7 @@ jobs:
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
           DATABRICKS_164_JDBC_URL: ${{ vars.DATABRICKS_164_JDBC_URL }}
           DATABRICKS_173_JDBC_URL: ${{ vars.DATABRICKS_173_JDBC_URL }}
+          DATABRICKS_18_JDBC_URL: ${{ vars.DATABRICKS_18_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
@@ -1129,6 +1130,10 @@ jobs:
               SuiteDeltaLakeDatabricks173)
                 availability_env=DATABRICKS_TOKEN
                 required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_173_JDBC_URL)
+                ;;
+              SuiteDeltaLakeDatabricks18)
+                availability_env=DATABRICKS_TOKEN
+                required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_18_JDBC_URL)
                 ;;
             esac
 
