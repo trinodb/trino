@@ -1047,7 +1047,6 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_133_JDBC_URL: ${{ vars.DATABRICKS_133_JDBC_URL }}
           DATABRICKS_143_JDBC_URL: ${{ vars.DATABRICKS_143_JDBC_URL }}
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
           DATABRICKS_164_JDBC_URL: ${{ vars.DATABRICKS_164_JDBC_URL }}
@@ -1099,10 +1098,6 @@ jobs:
               SuiteSnowflake)
                 availability_env=SNOWFLAKE_PASSWORD
                 required_env+=(SNOWFLAKE_URL SNOWFLAKE_USER SNOWFLAKE_PASSWORD SNOWFLAKE_DATABASE SNOWFLAKE_ROLE SNOWFLAKE_WAREHOUSE)
-                ;;
-              SuiteDeltaLakeDatabricks133)
-                availability_env=DATABRICKS_TOKEN
-                required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_133_JDBC_URL)
                 ;;
               SuiteDeltaLakeDatabricks143)
                 availability_env=DATABRICKS_TOKEN
