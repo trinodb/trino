@@ -37,6 +37,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
+import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -219,6 +220,17 @@ public class TestDirectTrinoClient
 
         assertThat(result.getRowCount()).isEqualTo(1);
         assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(1);
+    }
+
+    @Test
+    public void testSelectWithoutFaultTolerantExecution()
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .setSystemProperty(RETRY_POLICY, NONE.name())
+                .build();
+
+        MaterializedResult result = queryRunner.execute(session, "SELECT nationkey, name FROM tpch.tiny.nation");
+        assertThat(result.getMaterializedRows()).hasSize(25);
     }
 
     @Test
