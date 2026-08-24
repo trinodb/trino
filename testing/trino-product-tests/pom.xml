@@ -519,4 +519,63 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>product-test-distribution</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>build-product-test-classpath</id>
+                                <goals>
+                                    <goal>build-classpath</goal>
+                                </goals>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <fileSeparator>/</fileSeparator>
+                                    <includeScope>test</includeScope>
+                                    <outputFile>${project.build.directory}/product-test-distribution/classpath.txt</outputFile>
+                                    <pathSeparator>:</pathSeparator>
+                                    <prefix>lib</prefix>
+                                    <prependGroupId>true</prependGroupId>
+                                    <regenerateFile>true</regenerateFile>
+                                    <skip>false</skip>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>copy-product-test-dependencies</id>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <includeScope>test</includeScope>
+                                    <outputDirectory>${project.build.directory}/product-test-distribution/lib</outputDirectory>
+                                    <prependGroupId>true</prependGroupId>
+                                    <skip>false</skip>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-tests</id>
+                                <configuration>
+                                    <outputDirectory>${project.build.directory}/product-test-distribution/lib</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

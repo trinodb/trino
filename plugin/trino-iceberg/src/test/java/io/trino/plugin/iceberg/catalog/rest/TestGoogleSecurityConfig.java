@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -23,6 +25,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 
 final class TestGoogleSecurityConfig
 {
@@ -31,6 +34,7 @@ final class TestGoogleSecurityConfig
     {
         assertRecordedDefaults(recordDefaults(GoogleSecurityConfig.class)
                 .setProjectId(null)
+                .setJsonKey(null)
                 .setJsonKeyFilePath(null));
     }
 
@@ -46,6 +50,33 @@ final class TestGoogleSecurityConfig
                 .setProjectId("gcp")
                 .setJsonKeyFilePath(config.toString());
 
-        assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected, ImmutableSet.of("gcs.json-key"));
+    }
+
+    @Test
+    void testJsonKeyExplicitPropertyMappings()
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("iceberg.rest-catalog.google-project-id", "gcp")
+                .put("gcs.json-key", "{}")
+                .buildOrThrow();
+
+        GoogleSecurityConfig expected = new GoogleSecurityConfig()
+                .setProjectId("gcp")
+                .setJsonKey("{}");
+
+        assertFullMapping(properties, expected, ImmutableSet.of("gcs.json-key-file-path"));
+    }
+
+    @Test
+    void testValidation()
+    {
+        assertFailsValidation(
+                new GoogleSecurityConfig()
+                        .setJsonKey("{}")
+                        .setJsonKeyFilePath("file.json"),
+                "authMethodValid",
+                "gcs.json-key and gcs.json-key-file-path cannot be set at the same time",
+                AssertTrue.class);
     }
 }

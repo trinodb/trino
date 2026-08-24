@@ -36,7 +36,7 @@ public class AuthenticatedMongoServer
     {
         dockerContainer = new GenericContainer<>("mongo:" + requireNonNull(mongoVersion, "mongoVersion is null"))
                 .withStartupAttempts(3)
-                .waitingFor(Wait.forLogMessage(".*Listening on 0\\.0\\.0\\.0.*", 1))
+                .waitingFor(Wait.forListeningPort())
                 .withEnv("MONGO_INITDB_ROOT_USERNAME", ROOT_USER)
                 .withEnv("MONGO_INITDB_ROOT_PASSWORD", ROOT_PASSWORD)
                 .withEnv("MONGO_INITDB_DATABASE", "admin")

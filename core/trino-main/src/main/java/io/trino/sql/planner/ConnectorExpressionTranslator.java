@@ -34,6 +34,7 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -95,6 +96,7 @@ import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OP
 import static io.trino.spi.expression.StandardFunctions.IDENTICAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LEGACY_CHAR_TO_VARCHAR_CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MODULO_FUNCTION_NAME;
@@ -126,6 +128,7 @@ import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.EngineExpressions.ENGINE_EXPRESSION_FUNCTION_NAME;
+import static io.trino.type.CharVarcharCoercion.LEGACY;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
@@ -337,6 +340,13 @@ public final class ConnectorExpressionTranslator
                 return translateCoalesce(call.getArguments(), lambdaArguments);
             }
             if (CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
+                return translateCast(call.getType(), call.getArguments().get(0), lambdaArguments);
+            }
+
+            if (LEGACY_CHAR_TO_VARCHAR_CAST_FUNCTION_NAME.equals(call.getFunctionName())) {
+                if (call.getArguments().size() != 1 || getCharVarcharCoercion(session) != LEGACY) {
+                    return Optional.empty();
+                }
                 return translateCast(call.getType(), call.getArguments().get(0), lambdaArguments);
             }
 
@@ -767,7 +777,14 @@ public final class ConnectorExpressionTranslator
 
             Optional<ConnectorExpression> translatedExpression = process(node.expression(), context);
             if (translatedExpression.isPresent()) {
-                return Optional.of(new io.trino.spi.expression.Call(node.type(), CAST_FUNCTION_NAME, List.of(translatedExpression.get())));
+                FunctionName functionName = CAST_FUNCTION_NAME;
+                if (getCharVarcharCoercion(session) == LEGACY
+                        && node.expression().type() instanceof CharType
+                        && node.type() instanceof VarcharType) {
+                    // Expose semantically different cast under different name so that connectors can distinguish
+                    functionName = LEGACY_CHAR_TO_VARCHAR_CAST_FUNCTION_NAME;
+                }
+                return Optional.of(new io.trino.spi.expression.Call(node.type(), functionName, List.of(translatedExpression.get())));
             }
 
             return Optional.empty();

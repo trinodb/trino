@@ -489,6 +489,9 @@ following properties:
 * - `iceberg.rest-catalog.security`
   - The type of security to use (default: `NONE`). Possible values are `NONE`, 
     `SIGV4`, `GOOGLE` or `OAUTH2`. `OAUTH2` requires either a `token` or a `credential`.
+    `SIGV4` signs requests with credentials from `s3.iam-role` if configured,
+    otherwise from `s3.aws-access-key` and `s3.aws-secret-key` if set,
+    and otherwise from the AWS default credentials provider chain.
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
@@ -584,7 +587,7 @@ fs.gcs.enabled=true
 gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
-`gcs.json-key-file-path` is optional. When omitted, [Application Default
+`gcs.json-key` and `gcs.json-key-file-path` are optional. When omitted, [Application Default
 Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
 (ADC) are used, which supports GKE Workload Identity and other
 environment-based credential sources.

@@ -277,12 +277,9 @@ public final class HiveQueryRunner
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
                 if (tpchBucketedCatalogEnabled) {
-                    Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                            .putAll(hiveProperties)
-                            .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                            .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
-                            .buildOrThrow();
-                    hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
+                    Map<String, String> hiveBucketedProperties = new HashMap<>(hiveProperties);
+                    hiveBucketedProperties.put("hive.max-split-size", "10kB"); // so that each bucket has multiple splits
+                    hiveBucketedProperties.put("hive.storage-format", "TEXTFILE"); // so that there's no minimum split size for the file
                     hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
                     queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
                 }

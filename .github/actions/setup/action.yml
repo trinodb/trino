@@ -57,7 +57,7 @@ runs:
         shell: bash
         id: bun-version
         run: |
-          bun_version=$(./mvnw -f pom.xml --quiet help:evaluate -Dexpression=dep.frontend-bun.version -DforceStdout --raw-streams)
+          bun_version=$(grep -m 1 '<dep.frontend-bun.version>' "pom.xml" | sed -n 's/.*<dep.frontend-bun.version>\(.*\)<\/dep.frontend-bun.version>.*/\1/p')
           echo "version=$bun_version" >> "${GITHUB_OUTPUT}"
       - name: Cache and Restore local Bun
         id: cache-bun
@@ -146,6 +146,11 @@ runs:
         if: ${{ inputs.java-version != '' }}
         shell: bash
         run: .github/bin/retry ./mvnw -v
+      - name: Preload Maven core extensions
+        # Load maven core extensions with retry.
+        if: ${{ inputs.java-version != '' }}
+        shell: bash
+        run: .github/bin/retry ./mvnw -N -B -U -e --no-transfer-progress help:evaluate -Dexpression=maven.version -DforceStdout
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash

@@ -45,6 +45,7 @@ public class TracingOptionsConfigurer
     {
         return builder.setTransportOptions(HttpTransportOptions.newBuilder()
                 .setHttpTransportFactory(() -> new ApacheHttpTransport(ApacheHttpClientTelemetry.create(openTelemetry).createHttpClient()))
+                .setReadTimeout(BigQueryOptions.getDefaultHttpTransportOptions().getReadTimeout())
                 .build());
     }
 

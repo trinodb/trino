@@ -96,6 +96,13 @@ public final class HiveCatalogPropertiesBuilder
         return putAll(HIVE_PARTITION_PROCEDURE_PROPERTIES);
     }
 
+    // New Hive tables default to PARQUET; pin ORC for tests written against the previous default
+    // (e.g. ACID/transactional tables that require ORC, or assertions on the default storage format).
+    public HiveCatalogPropertiesBuilder withOrcStorageFormat()
+    {
+        return put("hive.storage-format", "ORC");
+    }
+
     public HiveCatalogPropertiesBuilder put(String key, String value)
     {
         properties.put(key, value);

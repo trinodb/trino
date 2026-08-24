@@ -363,7 +363,7 @@ public class UnwrapCastInComparison
                 return unwrapCharToVarcharCast(charType, varcharType, operator, cast.expression(), (Slice) rightValue);
             }
 
-            if (!hasInjectiveImplicitCoercion(sourceType, targetType, rightValue)) {
+            if (!isInjectiveOrderPreservingCastAtValue(sourceType, targetType, rightValue)) {
                 return Optional.empty();
             }
 
@@ -613,7 +613,11 @@ public class UnwrapCastInComparison
                     || isCastOverTrivial(cast.expression()));
         }
 
-        private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)
+        /// Determines whether the cast from `source` to `target` is order-preserving and
+        /// injective at `value` — i.e. at most one value of the source type casts to `value`.
+        ///
+        /// @param value a value of the target type
+        private boolean isInjectiveOrderPreservingCastAtValue(Type source, Type target, Object value)
         {
             if ((source.equals(BIGINT) && target.equals(DOUBLE)) ||
                     (source.equals(BIGINT) && target.equals(REAL)) ||

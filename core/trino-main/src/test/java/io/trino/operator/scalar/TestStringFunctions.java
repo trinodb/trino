@@ -76,7 +76,7 @@ public class TestStringFunctions
     @ScalarFunction(value = "vl", deterministic = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long varcharLength(@LiteralParameter("x") Long param, @SqlType("varchar(x)") Slice slice)
+    public static long varcharLength(@LiteralParameter("x") long param, @SqlType("varchar(x)") Slice slice)
     {
         return param;
     }

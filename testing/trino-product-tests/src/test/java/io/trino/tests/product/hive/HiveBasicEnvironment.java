@@ -18,6 +18,7 @@ import io.trino.testing.containers.HdfsClient;
 import io.trino.testing.containers.MultiNodeTrinoCluster;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Network;
 
 import java.sql.Connection;
@@ -186,7 +187,7 @@ public class HiveBasicEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeHive(String sql)
+    public QueryResult executeHive(@Language("SQL") String sql)
     {
         try (Statement stmt = getHiveSessionConnection().createStatement();
                 ResultSet rs = stmt.executeQuery(sql)) {
@@ -203,7 +204,7 @@ public class HiveBasicEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeHiveUpdate(String sql)
+    public int executeHiveUpdate(@Language("SQL") String sql)
     {
         try (Statement stmt = getHiveSessionConnection().createStatement()) {
             return stmt.executeUpdate(sql);

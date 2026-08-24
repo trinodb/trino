@@ -14,32 +14,19 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Resources;
-import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Test;
+import io.trino.testing.containers.FlociGcp;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.FileAttribute;
-import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Base64;
 
-import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+import static io.trino.testing.containers.FlociGcp.FLOCI_GCP_PROJECT_ID;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -48,54 +35,32 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestIcebergGcsConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private static final Logger LOG = Logger.get(TestIcebergGcsConnectorSmokeTest.class);
+    private final String bucketName = "test-iceberg-gcs-" + randomNameSuffix();
+    private final String schema = "test_iceberg_gcs_connector_smoke_test_" + randomNameSuffix();
 
-    private static final FileAttribute<?> READ_ONLY_PERMISSIONS = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
-    private final String gcpStorageBucket;
-    private final String gcpCredentialKey;
-    private final String schema;
-
-    private HiveHadoop hiveHadoop;
+    private HiveMetastore metastore;
 
     public TestIcebergGcsConnectorSmokeTest()
     {
         super(ORC);
-        this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
-        this.gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
-        this.schema = "test_iceberg_gcs_connector_smoke_test_" + randomNameSuffix();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
-        gcpCredentialsFile.toFile().deleteOnExit();
-        Files.write(gcpCredentialsFile, jsonKeyBytes);
-        String gcpCredentials = new String(jsonKeyBytes, UTF_8);
+        FlociGcp flociGcp = closeAfterClass(new FlociGcp());
+        flociGcp.start();
+        flociGcp.createBucket(bucketName);
 
-        String gcpSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.gcs-template"), UTF_8)
-                .replace("%GCP_CREDENTIALS_FILE_PATH%", "/etc/hadoop/conf/gcp-credentials.json");
-
-        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", READ_ONLY_PERMISSIONS);
-        hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-        Files.writeString(hadoopCoreSiteXmlTempFile, gcpSpecificCoreSiteXmlContent);
-
-        this.hiveHadoop = closeAfterClass(HiveHadoop.builder()
-                .withImage(HIVE3_IMAGE)
-                .withFilesToMount(ImmutableMap.of(
-                        "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(),
-                        "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()))
-                .build());
-        this.hiveHadoop.start();
-
-        return IcebergQueryRunner.builder()
+        QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
-                        .put("iceberg.catalog.type", "hive_metastore")
+                        .put("iceberg.catalog.type", "TESTING_FILE_METASTORE")
                         .put("fs.gcs.enabled", "true")
-                        .put("gcs.json-key", gcpCredentials)
-                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
+                        .put("gcs.auth-type", "SERVICE_ACCOUNT")
+                        .put("gcs.endpoint", flociGcp.getEndpoint().toString())
+                        .put("gcs.json-key", flociGcp.getServiceAccountJson())
+                        .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)
                         .put("iceberg.file-format", format.name())
                         .put("iceberg.register-table-procedure.enabled", "true")
                         .put("iceberg.writer-sort-buffer-size", "1MB")
@@ -107,28 +72,8 @@ public class TestIcebergGcsConnectorSmokeTest
                                 .withSchemaProperties(ImmutableMap.of("location", "'" + schemaPath() + "'"))
                                 .build())
                 .build();
-    }
-
-    @AfterAll
-    public void removeTestData()
-    {
-        try {
-            fileSystem.deleteDirectory(Location.of(schemaPath()));
-        }
-        catch (IOException e) {
-            // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
-            LOG.warn(e, "Failed to clean up GCS test directory: %s", schemaPath());
-        }
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        // GCS tests use the Hive Metastore catalog which does not support renaming schemas
-        return switch (connectorBehavior) {
-            case SUPPORTS_RENAME_SCHEMA -> false;
-            default -> super.hasBehavior(connectorBehavior);
-        };
+        metastore = getHiveMetastore(queryRunner);
+        return queryRunner;
     }
 
     @Override
@@ -140,7 +85,7 @@ public class TestIcebergGcsConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("gs://%s/%s/", gcpStorageBucket, schema);
+        return format("gs://%s/%s/", bucketName, schema);
     }
 
     @Override
@@ -154,23 +99,9 @@ public class TestIcebergGcsConnectorSmokeTest
         }
     }
 
-    @Test
-    @Override
-    public void testRenameSchema()
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
-                "Hive metastore does not support renaming schemas");
-    }
-
     @Override
     protected void dropTableFromCatalog(String tableName)
     {
-        HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
-                        .build(this::closeAfterClass));
         metastore.dropTable(schema, tableName, false);
         assertThat(metastore.getTable(schema, tableName)).isEmpty();
     }
@@ -178,10 +109,6 @@ public class TestIcebergGcsConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
-                        .build(this::closeAfterClass));
         return metastore
                 .getTable(schema, tableName).orElseThrow()
                 .getParameters().get("metadata_location");
