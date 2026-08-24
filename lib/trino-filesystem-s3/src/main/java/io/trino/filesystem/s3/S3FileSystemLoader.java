@@ -177,6 +177,7 @@ final class S3FileSystemLoader
     }
 
     private record S3ClientResources(S3Client client, S3Presigner preSigner)
+            implements AutoCloseable
     {
         private S3ClientResources
         {
@@ -184,7 +185,8 @@ final class S3FileSystemLoader
             requireNonNull(preSigner, "preSigner is null");
         }
 
-        private void close()
+        @Override
+        public void close()
         {
             RuntimeException failure = null;
             try {
