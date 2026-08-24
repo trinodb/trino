@@ -18,11 +18,12 @@ import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
 
-public interface S3SecurityMappingProvider
+final class NoopS3SecurityMappingProvider
+        implements S3SecurityMappingProvider
 {
-    /**
-     * Returns S3 credentials and configuration for the given identity and location.
-     * Empty result indicates cluster defaults should be used.
-     */
-    Optional<S3SecurityMappingResult> getMapping(ConnectorIdentity identity, Location location);
+    @Override
+    public Optional<S3SecurityMappingResult> getMapping(ConnectorIdentity identity, Location location)
+    {
+        return Optional.empty();
+    }
 }
