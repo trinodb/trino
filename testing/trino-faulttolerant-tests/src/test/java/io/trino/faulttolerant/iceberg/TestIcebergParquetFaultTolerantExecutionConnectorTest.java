@@ -65,6 +65,14 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
 
     @Test
     @Override
+    public void testSplitPruningForFilterThroughProjection()
+    {
+        // verifySplitCount depends on operator summaries, which are not collected reliably under FTE
+        abort("operator summaries are not collected reliably under FTE");
+    }
+
+    @Test
+    @Override
     public void testStatsBasedRepartitionDataOnCtas()
     {
         // TODO: figure out why
