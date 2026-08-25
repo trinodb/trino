@@ -13,7 +13,9 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.filesystem.Location;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
@@ -51,7 +53,7 @@ public class TestS3SecurityMapping
                 .setSseCustomerKeyCredentialName(CUSTOMER_KEY_CREDENTIAL_NAME)
                 .setColonReplacement("#");
 
-        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
+        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig, new SecretsResolver(ImmutableMap.of())));
 
         // matches prefix -- mapping provides credentials
         assertMapping(
@@ -311,7 +313,7 @@ public class TestS3SecurityMapping
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
                 .setConfigFile(getResourceFile("security-mapping-with-fallback-to-cluster-default.json"));
 
-        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
+        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig, new SecretsResolver(ImmutableMap.of())));
 
         // matches prefix -- uses the role from the mapping
         assertMapping(
@@ -329,7 +331,7 @@ public class TestS3SecurityMapping
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
                 .setConfigFile(getResourceFile("security-mapping-without-fallback.json"));
 
-        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
+        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig, new SecretsResolver(ImmutableMap.of())));
 
         // matches prefix - return role from the mapping
         assertMapping(
