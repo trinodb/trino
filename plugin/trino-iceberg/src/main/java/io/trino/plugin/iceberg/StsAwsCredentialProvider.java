@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.spi.TrinoException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
@@ -29,6 +30,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
@@ -47,35 +49,53 @@ public class StsAwsCredentialProvider
     public static final String AWS_ROLE_EXTERNAL_ID = "aws_external_id";
     public static final String AWS_IAM_ROLE_SESSION_NAME = "aws_iam_role_session_name";
 
+    // Iceberg REST SigV4 creates a new AuthSession (and calls create()) per catalog
+    // touch. roleArn is static catalog config, so one client per key is enough.
+    // Do not implement AutoCloseable: Iceberg may close per-session providers, which
+    // would shut down a shared client still in use.
+    private static final ConcurrentHashMap<ClientKey, StsAwsCredentialProvider> PROVIDERS = new ConcurrentHashMap<>();
+
     private final AwsCredentialsProvider delegate;
+    private final StsClient stsClient;
 
     public StsAwsCredentialProvider(AwsCredentialsProvider delegate)
     {
+        this(delegate, null);
+    }
+
+    private StsAwsCredentialProvider(AwsCredentialsProvider delegate, StsClient stsClient)
+    {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.stsClient = stsClient;
     }
 
     public static StsAwsCredentialProvider create(Map<String, String> properties)
     {
-        if (properties.containsKey(AWS_IAM_ROLE)) {
-            String accessKey = properties.get(AWS_STS_ACCESS_KEY_ID);
-            String secretAccessKey = properties.get(AWS_STS_SECRET_ACCESS_KEY);
-
-            Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(accessKey, secretAccessKey);
-            return new StsAwsCredentialProvider(StsAssumeRoleCredentialsProvider.builder()
-                    .refreshRequest(request -> request
-                            .roleArn(properties.get(AWS_IAM_ROLE))
-                            .roleSessionName(properties.get(AWS_IAM_ROLE_SESSION_NAME))
-                            .externalId(properties.get(AWS_ROLE_EXTERNAL_ID)))
-                    .stsClient(createStsClient(
-                            properties.get(AWS_STS_ENDPOINT),
-                            properties.get(AWS_STS_REGION),
-                            properties.get(AWS_STS_SIGNER_REGION),
-                            staticCredentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
+        if (!properties.containsKey(AWS_IAM_ROLE)) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "IAM role configs are not configured");
         }
+        return PROVIDERS.computeIfAbsent(ClientKey.from(properties), ignored -> createUncached(properties));
+    }
 
-        throw new TrinoException(ICEBERG_CATALOG_ERROR, "IAM role configs are not configured");
+    private static StsAwsCredentialProvider createUncached(Map<String, String> properties)
+    {
+        String accessKey = properties.get(AWS_STS_ACCESS_KEY_ID);
+        String secretAccessKey = properties.get(AWS_STS_SECRET_ACCESS_KEY);
+        Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(accessKey, secretAccessKey);
+        StsClient stsClient = createStsClient(
+                properties.get(AWS_STS_ENDPOINT),
+                properties.get(AWS_STS_REGION),
+                properties.get(AWS_STS_SIGNER_REGION),
+                staticCredentialsProvider);
+        return new StsAwsCredentialProvider(StsAssumeRoleCredentialsProvider.builder()
+                .refreshRequest(request -> request
+                        .roleArn(properties.get(AWS_IAM_ROLE))
+                        .roleSessionName(properties.get(AWS_IAM_ROLE_SESSION_NAME))
+                        .externalId(properties.get(AWS_ROLE_EXTERNAL_ID)))
+                .stsClient(stsClient)
+                .asyncCredentialUpdateEnabled(true)
+                .build(),
+                stsClient);
     }
 
     @Override
@@ -126,5 +146,41 @@ public class StsAwsCredentialProvider
                 .map(Region::of).ifPresent(sts::region);
         credentialsProvider.ifPresent(sts::credentialsProvider);
         return sts.build();
+    }
+
+    @VisibleForTesting
+    StsClient stsClient()
+    {
+        return stsClient;
+    }
+
+    @VisibleForTesting
+    static void resetCache()
+    {
+        PROVIDERS.clear();
+    }
+
+    private record ClientKey(
+            String roleArn,
+            String externalId,
+            String sessionName,
+            String stsEndpoint,
+            String stsRegion,
+            String signerRegion,
+            String accessKeyId,
+            String secretAccessKey)
+    {
+        static ClientKey from(Map<String, String> properties)
+        {
+            return new ClientKey(
+                    properties.get(AWS_IAM_ROLE),
+                    properties.get(AWS_ROLE_EXTERNAL_ID),
+                    properties.get(AWS_IAM_ROLE_SESSION_NAME),
+                    properties.get(AWS_STS_ENDPOINT),
+                    properties.get(AWS_STS_REGION),
+                    properties.get(AWS_STS_SIGNER_REGION),
+                    properties.get(AWS_STS_ACCESS_KEY_ID),
+                    properties.get(AWS_STS_SECRET_ACCESS_KEY));
+        }
     }
 }
