@@ -13,16 +13,24 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import java.io.IOException;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
-
-public class TestElasticsearch8ConnectorTest
-        extends BaseElasticsearchParallelConnectorTest
+public abstract class BaseElasticsearchParallelConnectorTest
+        extends BaseElasticsearchPredicateCompositionTest
 {
-    public TestElasticsearch8ConnectorTest()
-            throws IOException
+    protected BaseElasticsearchParallelConnectorTest(ElasticsearchServer server)
     {
-        super(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE));
+        super(server);
     }
+
+    @Test
+    @Override
+    @Disabled("Covered by the isolated Elasticsearch metadata suite")
+    public void testSelectInformationSchemaTables() {}
+
+    @Test
+    @Override
+    @Disabled("Covered by the isolated Elasticsearch metadata suite")
+    public void testSelectInformationSchemaColumns() {}
 }

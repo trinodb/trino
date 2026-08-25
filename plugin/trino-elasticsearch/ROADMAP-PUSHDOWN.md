@@ -252,7 +252,7 @@ Permanent invariant: same-element lambda semantics are proven inside the array p
 
 ## P1.2 — Predicate Composition and Translation Contract
 
-**Status:** IMPLEMENTED — VALIDATION IN PROGRESS
+**Status:** COMPLETE — MERGED — GREEN
 
 ### Objective
 
@@ -401,7 +401,28 @@ ES7/ES8 integration coverage implemented:
 
 P1.2 is complete only when the composition API is suitable unchanged for P1.3 diagnostics and future predicate translators. The architecture audit concludes that P1.3 can consume `ElasticsearchPredicateTranslation`, reason codes, enforcement, composer decisions and Remote Predicate IR without replacing the model.
 
-The implementation is complete, but the phase remains **VALIDATION IN PROGRESS** until the final stable head passes focused tests, AirStyle, the complete `:trino-elasticsearch` module, ES7, ES8, Error Prone/compile checks, and final GitHub CI.
+Merged by PR #21 as commit `0abd8631f3feb92839e5d9f54f3dfcebf566e63c`. The focused composition tests, AirStyle, complete `:trino-elasticsearch` module, ES7/ES8 integration suites, Error Prone checks, and GitHub CI passed on the merged implementation.
+
+---
+
+## Production-stable predicate baseline
+
+**Status:** COMPLETE — RELEASE HARDENING GREEN
+
+```text
+P0 Remote Predicate IR and exact pushdown foundation
+ + P1.1 same-element any_match semantics
+ + P1.2 permanent translation/composition contract
+ + isolated catalog-wide metadata test architecture
+ ---------------------------------------------------
+ PRODUCTION-STABLE BASELINE
+```
+
+Catalog-wide and intentionally invalid metadata tests have single ownership in `BaseElasticsearchMetadataTest`. The ES7 and ES8 metadata suites each use an isolated Elasticsearch server and `SAME_THREAD` execution. Normal ES7 and ES8 connector suites remain parallel and retain the full predicate-test hierarchy.
+
+`BaseElasticsearchParallelConnectorTest` exists only to suppress the two catalog-wide information-schema tests inherited from Trino's generic `BaseConnectorTest`; connector-specific metadata implementations are not duplicated in the normal connector hierarchy.
+
+This release boundary does not include runtime observability, metrics, execution lifecycle changes, alternative search strategies, decoder refactoring, or aggregation/statistics redesign. Those remain separate post-baseline phases.
 
 ---
 
@@ -592,7 +613,10 @@ P0 COMPLETE / GREEN
 P1.1 any_match COMPLETE / MERGED
   │
   ▼
-P1.2 Predicate Composition + Translation Contract   <- IMPLEMENTED / VALIDATION IN PROGRESS
+P1.2 Predicate Composition + Translation Contract   <- COMPLETE / MERGED / GREEN
+  │
+  ▼
+PRODUCTION-STABLE BASELINE                          <- P0 + P1.1 + P1.2 + TEST HARDENING
   │
   ▼
 P1.3 Permanent Diagnostics / Observability          <- NEXT AFTER P1.2 GATE

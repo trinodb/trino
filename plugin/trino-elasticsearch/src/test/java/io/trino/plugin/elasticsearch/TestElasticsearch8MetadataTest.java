@@ -17,10 +17,10 @@ import java.io.IOException;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
 
-public class TestElasticsearch8ConnectorTest
-        extends BaseElasticsearchParallelConnectorTest
+public class TestElasticsearch8MetadataTest
+        extends BaseElasticsearchMetadataTest
 {
-    public TestElasticsearch8ConnectorTest()
+    public TestElasticsearch8MetadataTest()
             throws IOException
     {
         super(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE));

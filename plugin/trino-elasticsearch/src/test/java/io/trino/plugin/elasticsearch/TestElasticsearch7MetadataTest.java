@@ -15,14 +15,14 @@ package io.trino.plugin.elasticsearch;
 
 import java.io.IOException;
 
-import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
+import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 
-public class TestElasticsearch8ConnectorTest
-        extends BaseElasticsearchParallelConnectorTest
+public class TestElasticsearch7MetadataTest
+        extends BaseElasticsearchMetadataTest
 {
-    public TestElasticsearch8ConnectorTest()
+    public TestElasticsearch7MetadataTest()
             throws IOException
     {
-        super(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE));
+        super(new ElasticsearchServer(ELASTICSEARCH_7_IMAGE));
     }
 }
