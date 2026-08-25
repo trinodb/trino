@@ -51,7 +51,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -1085,44 +1084,6 @@ public abstract class BaseElasticsearchConnectorTest
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
         assertThat(rows.getTypes())
                 .hasOnlyElementsOfType(VarcharType.class);
-
-        deleteIndex(indexName);
-    }
-
-    @Test
-    public void testAsRawJsonAndIsArraySameFieldException()
-            throws IOException
-    {
-        String indexName = "raw_json_array_exception" + randomNameSuffix();
-
-        @Language("JSON")
-        String mapping =
-                """
-                {
-                  "_meta": {
-                    "trino": {
-                      "array_raw_field": {
-                        "asRawJson": true,
-                        "isArray": true
-                      }
-                    }
-                  },
-                  "properties": {
-                    "array_raw_field": {
-                      "type": "text"
-                    }
-                  }
-                }
-                """;
-
-        createIndex(indexName, mapping);
-
-        assertQueryReturnsEmptyResult("SHOW TABLES LIKE '" + indexName + "'");
-
-        index(indexName, ImmutableMap.of("array_raw_field", "test"));
-
-        assertThatThrownBy(() -> computeActual("SELECT array_raw_field FROM " + indexName))
-                .hasMessage("A column, (array_raw_field) cannot be declared as a Trino array and also be rendered as json.");
 
         deleteIndex(indexName);
     }
@@ -2197,18 +2158,6 @@ public abstract class BaseElasticsearchConnectorTest
                 .matches("SELECT count(*) FROM orders");
     }
 
-    @Test
-    public void testSelectInformationSchemaForMultiIndexAlias()
-            throws IOException
-    {
-        addAlias("nation", "multi_alias");
-        addAlias("region", "multi_alias");
-
-        // No duplicate entries should be found in information_schema.tables or information_schema.columns.
-        testSelectInformationSchemaTables();
-        testSelectInformationSchemaColumns();
-    }
-
     @Test // TODO (https://github.com/trinodb/trino/issues/2428)
     @Disabled
     public void testMultiIndexAlias()
@@ -2219,58 +2168,6 @@ public abstract class BaseElasticsearchConnectorTest
 
         assertThat(query("SELECT count(*) FROM multi_alias"))
                 .matches("SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
-    }
-
-    @Test
-    public void testEmptyIndexWithMappings()
-            throws IOException
-    {
-        String indexName = "test_empty_index_with_mappings";
-
-        @Language("JSON")
-        String mappings =
-                """
-                {
-                  "properties": {
-                    "dummy_column":     { "type": "long" }
-                  }
-                }
-                """;
-
-        createIndex(indexName, mappings);
-
-        assertThat(query(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName)))
-                .matches("VALUES (VARCHAR 'dummy_column')");
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(indexName);
-        assertQueryReturnsEmptyResult("SELECT * FROM " + indexName);
-    }
-
-    @Test
-    public void testEmptyIndexNoMappings()
-            throws IOException
-    {
-        String indexName = "test_empty_index";
-
-        createIndex(indexName);
-        assertTableDoesNotExist(indexName);
-    }
-
-    @Test
-    public void testEmptyAliasNoMappings()
-            throws IOException
-    {
-        String indexName = "test_empty_index_for_alias";
-        String aliasName = "test_empty_alias";
-
-        createIndex(indexName);
-        addAlias(indexName, aliasName);
-        assertTableDoesNotExist(aliasName);
-    }
-
-    @Test
-    public void testMissingIndex()
-    {
-        assertTableDoesNotExist("nonexistent_table");
     }
 
     @Test
@@ -2854,14 +2751,6 @@ public abstract class BaseElasticsearchConnectorTest
             deleteIndex(firstIndex);
             deleteIndex(secondIndex);
         }
-    }
-
-    protected void assertTableDoesNotExist(String name)
-    {
-        String catalogName = getSession().getCatalog().orElseThrow();
-        assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).doesNotContain(name);
-        assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
     protected String indexEndpoint(String index, String docId)

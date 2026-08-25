@@ -33,34 +33,4 @@ public abstract class BaseElasticsearchParallelConnectorTest
     @Override
     @Disabled("Covered by the isolated Elasticsearch metadata suite")
     public void testSelectInformationSchemaColumns() {}
-
-    @Test
-    @Override
-    @Disabled("Covered by the isolated Elasticsearch metadata suite")
-    public void testSelectInformationSchemaForMultiIndexAlias() {}
-
-    @Test
-    @Override
-    @Disabled("Covered by the isolated Elasticsearch metadata suite")
-    public void testAsRawJsonAndIsArraySameFieldException() {}
-
-    @Test
-    @Override
-    @Disabled("Covered by the isolated Elasticsearch metadata suite")
-    public void testEmptyIndexWithMappings() {}
-
-    @Test
-    @Override
-    @Disabled("Covered by the isolated Elasticsearch metadata suite")
-    public void testEmptyIndexNoMappings() {}
-
-    @Test
-    @Override
-    @Disabled("Covered by the isolated Elasticsearch metadata suite")
-    public void testEmptyAliasNoMappings() {}
-
-    @Test
-    @Override
-    @Disabled("Covered by the isolated Elasticsearch metadata suite")
-    public void testMissingIndex() {}
 }
