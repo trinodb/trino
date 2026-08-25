@@ -2,6 +2,7 @@ name: ci
 
 on:
   pull_request:
+  workflow_dispatch:
   merge_group:
   repository_dispatch:
     types: [test-with-secrets-command]
