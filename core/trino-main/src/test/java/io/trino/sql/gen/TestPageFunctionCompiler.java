@@ -25,6 +25,7 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.TestingSourcePage;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -60,6 +61,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
@@ -544,6 +546,56 @@ public class TestPageFunctionCompiler
                 assertThat(BIGINT.getLong(block, position)).isEqualTo(expected[position]);
             }
         }
+    }
+
+    @Test
+    public void testShortCircuitAndFilterSkipsChannelLoad()
+    {
+        Expression filter = new Logical(
+                Logical.Operator.AND,
+                ImmutableList.of(
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 100L)),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_1"), new Constant(BIGINT, 100L))));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+        PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileFilter(filter, layout, SQL_STANDARD, Optional.empty())
+                .get();
+
+        TestingSourcePage allRejected = new TestingSourcePage(3, createLongsBlock(1L, 2L, 3L), createLongsBlock(200L, 201L, 202L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(allRejected)).size()).isEqualTo(0);
+        assertThat(allRejected.wasLoaded(0)).isTrue();
+        assertThat(allRejected.wasLoaded(1)).isFalse();
+
+        TestingSourcePage someAccepted = new TestingSourcePage(3, createLongsBlock(1L, 200L, 3L), createLongsBlock(200L, 201L, 202L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(someAccepted)).size()).isEqualTo(1);
+        assertThat(someAccepted.wasLoaded(1)).isTrue();
+    }
+
+    @Test
+    public void testShortCircuitOrFilterSkipsChannelLoad()
+    {
+        Expression filter = new Logical(
+                Logical.Operator.OR,
+                ImmutableList.of(
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 100L)),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_1"), new Constant(BIGINT, 100L))));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+        PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileFilter(filter, layout, SQL_STANDARD, Optional.empty())
+                .get();
+
+        TestingSourcePage allAccepted = new TestingSourcePage(3, createLongsBlock(101L, 102L, 103L), createLongsBlock(1L, 2L, 3L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(allAccepted)).size()).isEqualTo(3);
+        assertThat(allAccepted.wasLoaded(0)).isTrue();
+        assertThat(allAccepted.wasLoaded(1)).isFalse();
+
+        TestingSourcePage someRejected = new TestingSourcePage(3, createLongsBlock(101L, 2L, 103L), createLongsBlock(1L, 2L, 3L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(someRejected)).size()).isEqualTo(2);
+        assertThat(someRejected.wasLoaded(1)).isTrue();
     }
 
     private static Page createLongBlockPage(long... values)

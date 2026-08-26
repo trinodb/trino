@@ -54,6 +54,7 @@ final class InputReferenceCompiler
             implements BytecodeNode
     {
         private final BytecodeBlock body;
+        private final Variable inputBlock;
         private final BytecodeExpression block;
         private final BytecodeExpression position;
         private final Variable valueBlock;
@@ -68,6 +69,7 @@ final class InputReferenceCompiler
                 callType = Object.class;
             }
 
+            Variable inputBlock = scope.createTempVariable(Block.class);
             Variable valueBlock = scope.createTempVariable(ValueBlock.class);
             Variable valuePosition = scope.createTempVariable(int.class);
 
@@ -93,6 +95,7 @@ final class InputReferenceCompiler
             }
             ifStatement.ifFalse(value);
 
+            this.inputBlock = inputBlock;
             this.block = block;
             this.position = position;
             this.valueBlock = valueBlock;
@@ -129,8 +132,9 @@ final class InputReferenceCompiler
         private BytecodeBlock loadValueBlockAndPosition()
         {
             return new BytecodeBlock()
-                    .append(valueBlock.set(block.invoke("getUnderlyingValueBlock", ValueBlock.class)))
-                    .append(valuePosition.set(block.invoke("getUnderlyingValuePosition", int.class, position)));
+                    .append(inputBlock.set(block))
+                    .append(valueBlock.set(inputBlock.invoke("getUnderlyingValueBlock", ValueBlock.class)))
+                    .append(valuePosition.set(inputBlock.invoke("getUnderlyingValuePosition", int.class, position)));
         }
 
         public BytecodeExpression valueBlockPositionIsNull()
