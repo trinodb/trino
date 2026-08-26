@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.delete;
 
-import com.google.common.primitives.UnsignedInts;
 import org.roaringbitmap.RoaringBitmap;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -118,9 +117,9 @@ public final class RoaringBitmapArray
 
         int currentHigh = startHigh;
         while (currentHigh <= lastHigh) {
-            long start = currentHigh == startHigh ? UnsignedInts.toLong(startLow) : 0L;
+            long start = currentHigh == startHigh ? Integer.toUnsignedLong(startLow) : 0L;
             // RoaringBitmap.add is exclusive the end boundary.
-            long end = currentHigh == endHigh ? UnsignedInts.toLong(endLow) + 1L : 0xFFFFFFFFL + 1L;
+            long end = currentHigh == endHigh ? Integer.toUnsignedLong(endLow) + 1L : 0xFFFFFFFFL + 1L;
             bitmaps[currentHigh].add(start, end);
             currentHigh += 1;
         }

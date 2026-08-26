@@ -101,7 +101,10 @@ public class DynamicFilteringJdbcSplitSource
                 .thenApply(splits -> splits.stream()
                         // attach dynamic filter constraint to JdbcSplit
                         .map(split -> {
-                            JdbcSplit jdbcSplit = (JdbcSplit) split;
+                            // Delegates that want to consume the dynamic filter must produce JdbcSplit or a subclass.
+                            if (!(split instanceof JdbcSplit jdbcSplit)) {
+                                return split;
+                            }
                             // If split was a subclass of JdbcSplit, there would be additional information
                             // that we would need to pass further on.
                             verify(jdbcSplit.getClass() == JdbcSplit.class, "Unexpected split type %s", jdbcSplit);

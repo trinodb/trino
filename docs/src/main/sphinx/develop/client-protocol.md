@@ -59,6 +59,158 @@ The `status` field of the JSON document is for human consumption only, and
 provides a hint about the query state. It cannot be used to tell if the query
 is finished.
 
+(spooling-protocol-flow)=
+## Spooling protocol
+
+By default a client receives results with the direct protocol: the `data` field
+of each `QueryResults` document holds the rows inline. A client can instead opt
+in to the [spooling protocol](protocol-spooling), in which larger results are
+staged to object storage and the client fetches them out of band. The spooling
+protocol must be [enabled and configured on the server](protocol-spooling); the
+client requests it per query. For how to enable the spooling protocol in a
+specific client driver or application, see the [client documentation](/client/client-protocol).
+
+### Requesting the spooling protocol
+
+A client opts in by sending the `X-Trino-Query-Data-Encoding` request header on
+the initial `POST` to `/v1/statement`, with a comma-separated list of the
+encodings it supports, in order of preference, for example:
+
+```
+X-Trino-Query-Data-Encoding: json+zstd,json+lz4,json
+```
+
+If the server has spooling enabled and supports one of the listed encodings, it
+responds with the spooling protocol and echoes the selected encoding in the
+`X-Trino-Query-Data-Encoding` response header. If the header is absent or no
+encoding matches, the server falls back to the direct protocol. A client must
+therefore be prepared to handle both protocols in the response.
+
+### Segments in the response
+
+With the spooling protocol, the `data` field of `QueryResults` is an object
+rather than a list of rows:
+
+```json
+"data": {
+  "encoding": "json+zstd",
+  "segments": [
+    {
+      "type": "inline",
+      "data": "<base64-encoded encoded rows>",
+      "metadata": { "rowOffset": 0, "rowsCount": 10, "segmentSize": 1024 }
+    },
+    {
+      "type": "spooled",
+      "uri": "https://coordinator.example/v1/spooled/download/<id>",
+      "ackUri": "https://coordinator.example/v1/spooled/ack/<id>",
+      "metadata": { "rowOffset": 10, "rowsCount": 5000, "segmentSize": 4194304 },
+      "headers": {
+        "<header-name>": ["<header-value>"]
+      }
+    }
+  ]
+}
+```
+
+A segment is one of two types, distinguished by the `type` field:
+
+- `inline` — the rows are embedded directly in the `data` field of the segment,
+  base64-encoded in the negotiated encoding. No further request is needed.
+- `spooled` — the rows are staged on object storage. The segment carries a `uri`
+  to retrieve the data, an `ackUri` to acknowledge it, and optional `headers`
+  that must be sent with the retrieval and acknowledgement requests. Both `uri`
+  and `ackUri` are opaque absolute URIs that may point at different hosts, so a
+  client must use each as given rather than parsing it or assuming a common host.
+
+Both types carry a `metadata` object describing the segment. A client decodes
+segments in order, using the negotiated encoding, to reconstruct the result rows.
+
+:::{list-table} Segment metadata attributes
+:widths: 25, 15, 45
+:header-rows: 1
+
+* - Attribute
+  - Type
+  - Description
+* - `rowOffset`
+  - number
+  - Absolute offset of the segment's first row within the result set.
+* - `rowsCount`
+  - number
+  - Number of rows in the segment.
+* - `segmentSize`
+  - number
+  - Size of the segment in bytes, as stored or transferred.
+* - `uncompressedSize`
+  - number
+  - Size of the segment in bytes after decompression. Present only for compressed
+    encodings.
+* - `expiresAt`
+  - string
+  - Time after which a spooled segment may no longer be retrievable from storage.
+:::
+
+Early pages of a large result are often returned as `inline` segments even when
+spooling is requested, because small results do not benefit from spooling. The
+server controls this with `protocol.spooling.inlining.enabled`, which defaults to `true`.
+
+### Retrieving a spooled segment
+
+How a client fetches the data for a `spooled` segment depends on the server's
+`protocol.spooling.retrieval-mode`. `STORAGE` is the default, and the other modes
+change where the data is read from:
+
+:::{list-table} Segment retrieval modes
+:widths: 25, 45, 30
+:header-rows: 1
+
+* - Mode
+  - Description
+  - Required client network access
+* - `STORAGE`
+  - The segment `uri` is a pre-signed object storage URI. The client reads the
+    data directly from storage.
+  - Object storage
+* - `COORDINATOR_STORAGE_REDIRECT`
+  - The `uri` points at the coordinator, which responds with a redirect to a
+    pre-signed object storage URI.
+  - Coordinator and object storage
+* - `COORDINATOR_PROXY`
+  - The `uri` points at the coordinator, which reads from storage and streams
+    the data back itself.
+  - Coordinator only
+* - `WORKER_PROXY`
+  - The `uri` points at the coordinator, which redirects to a worker that streams
+    the data back.
+  - Coordinator and workers
+:::
+
+In `STORAGE` and `COORDINATOR_STORAGE_REDIRECT`, the client reads from object
+storage directly, so it must have network access to the configured storage
+location. In `COORDINATOR_PROXY` and `WORKER_PROXY`, the cluster reads from
+storage on the client's behalf, so the client does not need storage access.
+
+A `spooled` segment may include a `headers` map. These headers are opaque to the
+client. It must send them unchanged on the retrieval request, and on the
+acknowledgement request, without interpreting or transforming them.
+
+### Acknowledging a segment
+
+After reading a `spooled` segment, a client must acknowledge processing with a
+`GET` to the segment's `ackUri`, sending the same `headers` that came with the
+segment. This lets the server release the segment from object storage rather than
+waiting for TTL-based cleanup.
+
+The `ackUri`, like the segment `uri`, is opaque. A client issues the `GET` to it
+exactly as provided. An intermediary between the client and Trino, such as a load
+balancer, router, or Trino Gateway, must forward requests to these URIs so that
+segment retrieval and acknowledgement reach their destination.
+
+A correct client acknowledges every segment it reads. Whether the server acts on
+the acknowledgement immediately or falls back to TTL-based cleanup is a
+server-side decision.
+
 ## Important `QueryResults` attributes
 
 The most important attributes of the `QueryResults` JSON document returned by
@@ -204,6 +356,11 @@ requests, just like browser cookies.
   - Provides extra credentials to the connector. The header is a name=value
     string that is saved in the session `Identity` object. The name and value
     are only meaningful to the connector.
+* - `X-Trino-Query-Data-Encoding`
+  - A comma-separated list of the [spooling protocol](spooling-protocol-flow)
+    encodings the client supports, in order of preference. If set and supported
+    by the server, results are returned with the spooling protocol; otherwise the
+    server falls back to the direct protocol.
 :::
 
 ## Client response headers
@@ -263,6 +420,9 @@ subsequent requests to be consistent with the response headers received.
 * - `X-Trino-Clear-Transaction-Id`
   - Instructs the client to clear the `X-Trino-Transaction-Id` request header in
     subsequent requests.
+* - `X-Trino-Query-Data-Encoding`
+  - The [spooling protocol](spooling-protocol-flow) encoding selected by the
+    server, present when the query uses the spooling protocol.
 :::
 
 ## `ProtocolHeaders`

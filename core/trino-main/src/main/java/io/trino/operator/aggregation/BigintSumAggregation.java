@@ -92,7 +92,7 @@ public final class BigintSumAggregation
         {
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum += index.getLong(0, i);
+                    sum = BigintOperators.add(sum, index.getLong(0, i));
                     count++;
                 }
             }
@@ -103,7 +103,7 @@ public final class BigintSumAggregation
         {
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum -= index.getLong(0, i);
+                    sum = BigintOperators.subtract(sum, index.getLong(0, i));
                     count--;
                 }
             }

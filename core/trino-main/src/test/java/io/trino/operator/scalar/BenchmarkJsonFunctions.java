@@ -19,10 +19,10 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.FullConnectorSession;
 import io.trino.jmh.Benchmarks;
-import io.trino.json.ir.IrContextVariable;
-import io.trino.json.ir.IrJsonPath;
-import io.trino.json.ir.IrMemberAccessor;
-import io.trino.json.ir.IrPathNode;
+import io.trino.jsonpath.ir.IrContextVariable;
+import io.trino.jsonpath.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrMemberAccessor;
+import io.trino.jsonpath.ir.IrPathNode;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
@@ -40,7 +40,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARCHAR_TO_JSON;
 import static io.trino.operator.scalar.json.JsonQueryFunction.JSON_QUERY_FUNCTION_NAME;
@@ -165,7 +166,7 @@ public class BenchmarkJsonFunctions
             page = new Page(createChannel(POSITION_COUNT, depth));
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-            Type jsonPath2016Type = PLANNER_CONTEXT.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME));
+            Type jsonPath2016Type = PLANNER_CONTEXT.getTypeManager().getType(TypeId.of(SqlJsonPathType.NAME));
 
             jsonValuePageProcessor = createJsonValuePageProcessor(depth, functionResolution, jsonPath2016Type);
             jsonExtractScalarPageProcessor = createJsonExtractScalarPageProcessor(depth, functionResolution);
@@ -204,7 +205,7 @@ public class BenchmarkJsonFunctions
                             new Lambda(ImmutableList.of(), constantNull(VARCHAR)))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
                     .get();
         }
 
@@ -223,7 +224,7 @@ public class BenchmarkJsonFunctions
                     new Constant(JSON_PATH, new JsonPath(pathString.toString()))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
                     .get();
         }
 
@@ -254,7 +255,7 @@ public class BenchmarkJsonFunctions
                             new Constant(TINYINT, 0L))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonQueryProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonQueryProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
                     .get();
         }
 
@@ -273,7 +274,7 @@ public class BenchmarkJsonFunctions
                     new Constant(JSON_PATH, new JsonPath(pathString.toString()))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
                     .get();
         }
 

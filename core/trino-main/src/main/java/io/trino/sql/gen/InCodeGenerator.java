@@ -30,6 +30,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
@@ -66,15 +67,15 @@ public class InCodeGenerator
     private final ResolvedFunction resolvedHashCodeFunction;
     private final ResolvedFunction resolvedIsIndeterminate;
 
-    public InCodeGenerator(In in, Metadata metadata)
+    public InCodeGenerator(In in, Metadata metadata, CharVarcharCoercion charVarcharCoercion)
     {
         valueExpression = in.value();
         testExpressions = in.valueList();
 
         Type valueType = valueExpression.type();
-        resolvedEqualsFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(valueType, valueType));
-        resolvedHashCodeFunction = metadata.resolveOperator(HASH_CODE, ImmutableList.of(valueType));
-        resolvedIsIndeterminate = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(valueType));
+        resolvedEqualsFunction = metadata.resolveOperator(charVarcharCoercion, EQUAL, ImmutableList.of(valueType, valueType));
+        resolvedHashCodeFunction = metadata.resolveOperator(charVarcharCoercion, HASH_CODE, ImmutableList.of(valueType));
+        resolvedIsIndeterminate = metadata.resolveOperator(charVarcharCoercion, INDETERMINATE, ImmutableList.of(valueType));
     }
 
     enum SwitchGenerationCase
@@ -209,8 +210,7 @@ public class InCodeGenerator
                         .bind(hashCodeMethodHandle);
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(hashCode(<stackValue>))")
-                        .getVariable(value)
-                        .append(invoke(hashCodeBinding, resolvedHashCodeFunction.signature()))
+                        .append(invoke(hashCodeBinding, resolvedHashCodeFunction.signature().getName().functionName(), value))
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .putVariable(expression)
                         .append(switchBuilder.build());

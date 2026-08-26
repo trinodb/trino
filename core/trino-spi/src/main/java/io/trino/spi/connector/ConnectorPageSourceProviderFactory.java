@@ -15,5 +15,14 @@ package io.trino.spi.connector;
 
 public interface ConnectorPageSourceProviderFactory
 {
-    ConnectorPageSourceProvider createPageSourceProvider();
+    /**
+     * Creates a page source provider for a single table scan.
+     *
+     * @param memoryContext reports memory retained by state which the provider shares across the page
+     *         sources it creates, such as Iceberg equality delete filters. The provider reports the total size of
+     *         that state. The engine tolerates concurrent calls from split threads, but the provider is responsible
+     *         for reporting a value consistent with the state it holds. The reservation is given up once every page
+     *         source created by the provider has been closed.
+     */
+    ConnectorPageSourceProvider createPageSourceProvider(MemoryContext memoryContext);
 }

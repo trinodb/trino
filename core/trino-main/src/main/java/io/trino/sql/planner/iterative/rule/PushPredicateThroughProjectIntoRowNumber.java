@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -115,18 +116,18 @@ public class PushPredicateThroughProjectIntoRowNumber
         if (upperBound.isEmpty()) {
             return Result.empty();
         }
-        if (upperBound.getAsInt() <= 0) {
+        if (upperBound.orElseThrow() <= 0) {
             return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols()));
         }
         boolean updatedMaxRowCountPerPartition = false;
-        if (rowNumber.getMaxRowCountPerPartition().isEmpty() || rowNumber.getMaxRowCountPerPartition().get() > upperBound.getAsInt()) {
+        if (rowNumber.getMaxRowCountPerPartition().isEmpty() || rowNumber.getMaxRowCountPerPartition().get() > upperBound.orElseThrow()) {
             rowNumber = new RowNumberNode(
                     rowNumber.getId(),
                     rowNumber.getSource(),
                     rowNumber.getPartitionBy(),
                     rowNumber.isOrderSensitive(),
                     rowNumber.getRowNumberSymbol(),
-                    Optional.of(upperBound.getAsInt()));
+                    Optional.of(upperBound.orElseThrow()));
             project = (ProjectNode) project.replaceChildren(ImmutableList.of(rowNumber));
             updatedMaxRowCountPerPartition = true;
         }
@@ -140,7 +141,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                domainTranslator.toPredicate(newTupleDomain));
+                domainTranslator.toPredicate(getCharVarcharCoercion(context.getSession()), newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }

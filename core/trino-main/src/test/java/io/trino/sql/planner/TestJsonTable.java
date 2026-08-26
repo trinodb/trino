@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.table.json.JsonTable;
@@ -73,7 +73,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.TableFunctionMatcher.TableArgumentValue.Builder.tableArgument;
 import static io.trino.type.Json2016Type.JSON_2016;
-import static io.trino.type.TestJsonPath2016TypeSerialization.JSON_PATH_2016;
+import static io.trino.type.TestSqlJsonPathTypeSerialization.JSON_PATH_2016;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonTable

@@ -30,7 +30,7 @@ export const LinearProgressWithLabel = (props: LinearProgressWithLabelProps) => 
             </Box>
             <>
                 <Box sx={{ width: '100%', mr: 1 }}>
-                    <LinearProgress variant="determinate" color="info" value={value} />
+                    <LinearProgress variant="determinate" color="secondary" value={value} />
                 </Box>
                 <Box sx={{ minWidth: 35 }}>
                     <Typography

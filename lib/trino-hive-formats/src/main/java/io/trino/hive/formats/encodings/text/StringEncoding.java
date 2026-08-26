@@ -13,7 +13,6 @@
  */
 package io.trino.hive.formats.encodings.text;
 
-import com.google.common.primitives.UnsignedBytes;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -51,9 +50,9 @@ public class StringEncoding
             escapeByte = escapeChar;
             escapeBuffer = new DynamicSliceOutput(1024);
             needsEscape = new boolean[256];
-            needsEscape[UnsignedBytes.toInt(escapeByte)] = true;
+            needsEscape[Byte.toUnsignedInt(escapeByte)] = true;
             for (int i = 0; i < separators.length(); i++) {
-                needsEscape[UnsignedBytes.toInt(separators.getByte(i))] = true;
+                needsEscape[Byte.toUnsignedInt(separators.getByte(i))] = true;
             }
         }
     }

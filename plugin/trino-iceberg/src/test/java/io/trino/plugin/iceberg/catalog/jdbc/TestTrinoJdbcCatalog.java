@@ -18,8 +18,6 @@ import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
-import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
@@ -41,7 +39,9 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V1;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
@@ -109,14 +109,15 @@ final class TestTrinoJdbcCatalog
         return new TrinoJdbcCatalog(
                 new CatalogName(CATALOG_NAME),
                 TESTING_TYPE_MANAGER,
-                new IcebergJdbcTableOperationsProvider(HDFS_FILE_SYSTEM_FACTORY, FILE_IO_FACTORY, jdbcClient, new DefaultEncryptionManagerFactory(new IcebergEncryptionConfig())),
+                new IcebergJdbcTableOperationsProvider(HDFS_FILE_SYSTEM_FACTORY, FILE_IO_FACTORY, jdbcClient, ENCRYPTION_MANAGER_FACTORY),
                 jdbcCatalog,
                 jdbcClient,
                 HDFS_FILE_SYSTEM_FACTORY,
                 FILE_IO_FACTORY,
                 useUniqueTableLocations,
                 warehouseLocation.toAbsolutePath().toString(),
-                V1);
+                V1,
+                directExecutor());
     }
 
     private static JdbcCatalog createJdbcCatalog(String jdbcUrl, Path warehouseLocation)
@@ -174,13 +175,5 @@ final class TestTrinoJdbcCatalog
         finally {
             catalog.dropNamespace(SESSION, namespace);
         }
-    }
-
-    @Test
-    @Override
-    public void testSchemaWithInvalidProperties()
-    {
-        // JDBC catalog preserves arbitrary namespace properties
-        // https://github.com/trinodb/trino/issues/29769
     }
 }

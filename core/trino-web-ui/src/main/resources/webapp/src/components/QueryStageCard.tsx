@@ -69,7 +69,8 @@ import {
     parseDuration,
 } from '../utils/utils'
 import { CodeBlock } from './CodeBlock'
-import { styled } from '@mui/material/styles'
+import { styled, useTheme } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 
 interface IQueryStageCard {
     key: string
@@ -110,6 +111,7 @@ const KpiRow = ({ label, value, isLast = false }: { label: string; value: string
 
 export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) => {
     const { stageStats } = stage
+    const theme = useTheme<Theme>()
 
     const [workerTaskPath, setWorkerTaskPath] = useState<WorkerTaskPath | null>(null)
     const [workerTaskJson, setWorkerTaskJson] = useState<string | null>(null)
@@ -268,6 +270,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                 series={[{ data: histogramData, valueFormatter: (value) => `${value} tasks` }]}
                 margin={{ left: 6, right: 0, top: 10, bottom: 6 }}
                 height={112}
+                colors={[theme.palette.secondary.main]}
             />
         )
     }
@@ -296,6 +299,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                 ]}
                 margin={{ left: 6, right: 0, top: 10, bottom: 6 }}
                 height={100}
+                colors={[theme.palette.secondary.main]}
             />
         )
     }

@@ -286,6 +286,33 @@ implementation is used:
     actually encrypted. The equivalent catalog session property is
     `plaintext_files_allowed_for_encrypted_tables`.
   - `false`
+* - `aws.kms.region`
+  - AWS region for KMS. Required when `iceberg.encryption.kms-type` is `AWS`
+    and the region cannot be determined from the environment.
+  -
+* - `aws.kms.endpoint`
+  - KMS API endpoint URL. Use to override the default AWS KMS endpoint.
+  -
+* - `aws.kms.sts.region`
+  - AWS STS signing region for KMS authentication.
+  -
+* - `aws.kms.sts.endpoint`
+  - AWS STS endpoint for KMS authentication.
+  -
+* - `aws.kms.iam-role`
+  - ARN of an IAM role to assume when connecting to KMS.
+  -
+* - `aws.kms.external-id`
+  - External ID for the IAM role trust policy when connecting to KMS.
+  -
+* - `aws.kms.access-key`
+  - AWS access key for KMS authentication. When set,
+    `aws.kms.secret-key` must also be set.
+  -
+* - `aws.kms.secret-key`
+  - AWS secret key for KMS authentication. When set,
+    `aws.kms.access-key` must also be set.
+  -
 :::
 
 (iceberg-fte-support)=
@@ -1087,6 +1114,18 @@ from the table.
 ```sql
 ALTER TABLE test_table EXECUTE drop_extended_stats;
 ```
+
+The output of the query has the following metrics:
+
+:::{list-table} Output
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `removed_statistics_count`
+  - The count of statistics files removed by drop_extended_stats.
+:::
 
 (iceberg-alter-table-set-properties)=
 #### ALTER TABLE SET PROPERTIES
@@ -2145,6 +2184,27 @@ CREATE TABLE example_table (
 
 When trying to insert/update data in the table, the query fails if trying to set
 `NULL` value on a column having the `NOT NULL` constraint.
+
+(iceberg-views)=
+### Views
+
+The Iceberg connector supports {ref}`sql-view-management`.
+
+View properties supply or set metadata for the underlying views. View properties
+are passed to the connector using a `WITH` clause in {doc}`/sql/create-view`
+statements.
+
+:::{list-table} Iceberg view properties
+:width: 100%
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `location`
+  - Optionally specifies the file system location URI for the view metadata
+    files.
+:::
 
 (iceberg-materialized-views)=
 ### Materialized views

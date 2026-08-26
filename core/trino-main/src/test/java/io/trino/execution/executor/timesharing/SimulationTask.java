@@ -14,7 +14,6 @@
 package io.trino.execution.executor.timesharing;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
 import io.trino.execution.executor.TaskHandle;
@@ -22,6 +21,7 @@ import io.trino.execution.executor.timesharing.SimulationController.TaskSpecific
 
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -29,8 +29,8 @@ abstract class SimulationTask
 {
     private final TaskSpecification specification;
 
-    private final Set<SimulationSplit> runningSplits = Sets.newConcurrentHashSet();
-    private final Set<SimulationSplit> completedSplits = Sets.newConcurrentHashSet();
+    private final Set<SimulationSplit> runningSplits = ConcurrentHashMap.newKeySet();
+    private final Set<SimulationSplit> completedSplits = ConcurrentHashMap.newKeySet();
 
     private final TaskHandle taskHandle;
 

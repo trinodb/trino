@@ -489,6 +489,9 @@ following properties:
 * - `iceberg.rest-catalog.security`
   - The type of security to use (default: `NONE`). Possible values are `NONE`, 
     `SIGV4`, `GOOGLE` or `OAUTH2`. `OAUTH2` requires either a `token` or a `credential`.
+    `SIGV4` signs requests with credentials from `s3.iam-role` if configured,
+    otherwise from `s3.aws-access-key` and `s3.aws-secret-key` if set,
+    and otherwise from the AWS default credentials provider chain.
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
@@ -526,6 +529,11 @@ following properties:
     Defaults to `false`.
 * - `iceberg.rest-catalog.view-endpoints-enabled`
   - Enable view endpoints. Defaults to `true`.
+* - `iceberg.rest-catalog.server-assigned-table-location-enabled`
+  - Let the REST catalog server assign locations for created tables instead of
+    computing a default location from the namespace location. Must be enabled
+    for BigLake metastore, which assigns table locations with a random suffix
+    and rejects client-chosen locations. Defaults to `false`.
 * - `iceberg.rest-catalog.signing-name`
   - AWS SigV4 signing service name. Defaults to `execute-api`.
 * - `iceberg.rest-catalog.google-project-id`
@@ -536,6 +544,10 @@ following properties:
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
   - [Duration](prop-type-duration) for which case-insensitive namespace, table, 
     and view names are cached. Defaults to `1m`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching.cache-max-size`
+  - Maximum number of entries per case-insensitive name mapping cache. Applies
+    independently to the namespace cache and the table/view cache. Defaults to
+    `10000`.
 * - `iceberg.rest-catalog.http-headers`
   - Additional *non-sensitive* HTTP headers to include with requests to the REST catalog.
     Example: `Header-1: value 1, Header-2: value 2`.
@@ -574,11 +586,12 @@ iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatal
 iceberg.rest-catalog.security=GOOGLE
 iceberg.rest-catalog.google-project-id=example-project-id
 iceberg.rest-catalog.view-endpoints-enabled=false
+iceberg.rest-catalog.server-assigned-table-location-enabled=true
 fs.gcs.enabled=true
 gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
-`gcs.json-key-file-path` is optional. When omitted, [Application Default
+`gcs.json-key` and `gcs.json-key-file-path` are optional. When omitted, [Application Default
 Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
 (ADC) are used, which supports GKE Workload Identity and other
 environment-based credential sources.

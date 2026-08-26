@@ -34,6 +34,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
 import java.lang.invoke.MethodHandle;
@@ -76,7 +77,7 @@ public final class InSetDynamicFilterGenerator
 
     // Returns empty when the IN predicate is not an eligible long-backed dynamic filter, so the caller
     // falls back to the shared cache path.
-    public static Optional<InSetDynamicFilterGenerator> tryCreate(In in, Map<Symbol, Integer> layout, Metadata metadata, FunctionManager functionManager)
+    public static Optional<InSetDynamicFilterGenerator> tryCreate(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager)
     {
         if (!(in.value() instanceof Reference valueReference) || valueReference.type().getJavaType() != long.class) {
             return Optional.empty();
@@ -99,8 +100,8 @@ public final class InSetDynamicFilterGenerator
         if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, in.valueList())) {
             return Optional.empty();
         }
-        ResolvedFunction resolvedEquals = metadata.resolveOperator(EQUAL, ImmutableList.of(valueType, valueType));
-        ResolvedFunction resolvedHashCode = metadata.resolveOperator(HASH_CODE, ImmutableList.of(valueType));
+        ResolvedFunction resolvedEquals = metadata.resolveOperator(charVarcharCoercion, EQUAL, ImmutableList.of(valueType, valueType));
+        ResolvedFunction resolvedHashCode = metadata.resolveOperator(charVarcharCoercion, HASH_CODE, ImmutableList.of(valueType));
         MethodHandle equalsHandle = functionManager.getScalarFunctionImplementation(resolvedEquals, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle hashCodeHandle = functionManager.getScalarFunctionImplementation(resolvedHashCode, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         LongSet valueSet = (LongSet) toFastutilHashSet(values, valueType, hashCodeHandle, equalsHandle);

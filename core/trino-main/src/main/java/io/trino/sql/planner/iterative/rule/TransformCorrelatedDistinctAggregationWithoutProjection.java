@@ -33,6 +33,7 @@ import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -98,7 +99,7 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
         // decorrelate nested plan
-        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, getCharVarcharCoercion(context.getSession()), context.getSymbolAllocator(), context.getLookup());
         Optional<PlanNodeDecorrelator.DecorrelatedNode> decorrelatedSource = decorrelator.decorrelateFilters(captures.get(AGGREGATION).getSource(), correlatedJoinNode.getCorrelation());
         if (decorrelatedSource.isEmpty()) {
             return Result.empty();

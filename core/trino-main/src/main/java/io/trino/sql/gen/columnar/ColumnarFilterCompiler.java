@@ -45,6 +45,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.MethodTooLargeException;
@@ -75,10 +76,11 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -90,7 +92,7 @@ public class ColumnarFilterCompiler
     private final FunctionManager functionManager;
     private final Metadata metadata;
     // Optional is used to cache failure to generate filter for unsupported cases
-    private final NonEvictableCache<Expression, Optional<Class<? extends ColumnarFilter>>> filterCache;
+    private final NonEvictableCache<CacheKey, Optional<Class<? extends ColumnarFilter>>> filterCache;
     private final CacheStatsMBean filterCacheStats;
     // One generated IN class per (value type, set class), shared across dynamic filters.
     private final NonEvictableCache<InSetDynamicFilterKey, Class<? extends ColumnarFilter>> inSetDynamicFilterCache;
@@ -138,14 +140,14 @@ public class ColumnarFilterCompiler
         return plannerContext;
     }
 
-    public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout)
+    public Optional<Supplier<ColumnarFilter>> generateFilter(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout)
     {
-        return generateFilter(filter, layout, false);
+        return generateFilter(charVarcharCoercion, filter, layout, false);
     }
 
     // dynamicFilter=true routes IN predicates to a separate per-type class, bypassing filterCache so
     // their large value lists are not retained in the cache.
-    public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter)
+    public Optional<Supplier<ColumnarFilter>> generateFilter(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
         // Compact the layout to consecutive indices (0, 1, 2, ...). The compiled filter uses these
         // compact indices to access blocks from the InputChannelsSourcePage, which translates
@@ -157,7 +159,7 @@ public class ColumnarFilterCompiler
         InputChannels inputChannels = result.inputChannels();
 
         if (dynamicFilter && filter instanceof In in) {
-            Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(in, compactLayout, metadata, functionManager);
+            Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(in, compactLayout, metadata, charVarcharCoercion, functionManager);
             if (generator.isPresent()) {
                 return Optional.of(compileInSetDynamicFilter(generator.get(), inputChannels));
             }
@@ -165,11 +167,11 @@ public class ColumnarFilterCompiler
 
         Optional<Class<? extends ColumnarFilter>> filterClass;
         if (filterCache == null) {
-            filterClass = generateFilterInternal(filter, compactLayout);
+            filterClass = generateFilterInternal(charVarcharCoercion, filter, compactLayout);
         }
         else {
             try {
-                filterClass = filterCache.get(filter, () -> generateFilterInternal(filter, compactLayout));
+                filterClass = filterCache.get(new CacheKey(filter, charVarcharCoercion), () -> generateFilterInternal(charVarcharCoercion, filter, compactLayout));
             }
             catch (ExecutionException e) {
                 throw new UncheckedExecutionException(e);
@@ -215,7 +217,9 @@ public class ColumnarFilterCompiler
 
     private record InSetDynamicFilterKey(Type valueType, Class<? extends LongSet> setClass) {}
 
-    private Optional<Class<? extends ColumnarFilter>> generateFilterInternal(Expression filter, Map<Symbol, Integer> layout)
+    private record CacheKey(Expression expression, CharVarcharCoercion charVarcharCoercion) {}
+
+    private Optional<Class<? extends ColumnarFilter>> generateFilterInternal(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout)
     {
         try {
             return switch (filter) {
@@ -226,12 +230,16 @@ public class ColumnarFilterCompiler
                         if (call.arguments().getFirst() instanceof IsNull isNull) {
                             yield Optional.of(createIsNotNullColumnarFilter(isNull));
                         }
+                        if (call.arguments().getFirst() instanceof Reference reference && reference.type().equals(BOOLEAN)) {
+                            yield Optional.of(BooleanColumnarFilter.Negated.class);
+                        }
                         yield Optional.empty();
                     }
                     yield Optional.of(new CallColumnarFilterGenerator(call.function(), call.arguments(), layout, functionManager).generateColumnarFilter());
                 }
                 case IsNull isNull -> Optional.of(createIsNullColumnarFilter(isNull));
-                case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, functionManager).generateColumnarFilter());
+                case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, charVarcharCoercion, functionManager).generateColumnarFilter());
+                case Reference reference when reference.type().equals(BOOLEAN) -> Optional.of(BooleanColumnarFilter.class);
                 default -> Optional.empty();
             };
         }
@@ -261,7 +269,7 @@ public class ColumnarFilterCompiler
     static Class<? extends ColumnarFilter> createClassInstance(CallSiteBinder binder, ClassDefinition classDefinition)
     {
         try {
-            return defineClass(classDefinition, ColumnarFilter.class, binder.getBindings(), ColumnarFilterCompiler.class.getClassLoader());
+            return defineHiddenClass(classDefinition, ColumnarFilter.class, binder.getClassData());
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {

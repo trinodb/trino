@@ -23,8 +23,10 @@ import java.util.Arrays;
 import java.util.function.Predicate;
 
 import static io.trino.spi.block.Bitmap.countTransitions;
+import static io.trino.spi.block.Bitmap.expandBits;
 import static io.trino.spi.block.Bitmap.getBits;
 import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Long.bitCount;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -112,6 +114,13 @@ final class ReaderUtils
                 validBits >>>= validCount;
             }
         }
+        return result;
+    }
+
+    public static long[] unpackBitNulls(long[] values, long[] valueIsValid, int positionCount)
+    {
+        long[] result = new long[wordsForBits(positionCount)];
+        expandBits(values, 0, valueIsValid, 0, result, 0, positionCount);
         return result;
     }
 

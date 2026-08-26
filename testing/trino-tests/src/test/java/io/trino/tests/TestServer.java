@@ -362,7 +362,7 @@ public class TestServer
         String stackTrace = getStackTraceAsString(queryError.getFailureInfo().toException());
         assertThat(stackTrace).containsPattern(proofOfOrigin);
         long versionLines = Splitter.on("\n").splitToStream(stackTrace)
-                .filter(line -> line.contains("at io.trino.$gen.Trino_testversion____"))
+                .filter(line -> line.contains("at io.trino.$gen.Trino_testversion___"))
                 .count();
         if (versionLines != 1) {
             fail(format("Expected version embedded in the stacktrace exactly once, but was %s: %s", versionLines, stackTrace));

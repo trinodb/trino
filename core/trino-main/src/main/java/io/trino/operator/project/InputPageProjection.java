@@ -14,6 +14,9 @@
 package io.trino.operator.project;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 
@@ -48,7 +51,12 @@ public class InputPageProjection
         requireNonNull(selectedPositions, "selectedPositions is null");
 
         if (selectedPositions.isList()) {
-            block = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+            switch (block) {
+                // Avoids unnecessary copying
+                case DictionaryBlock _, RunLengthEncodedBlock _ -> block = block.getPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+                // Avoids creating a masking dictionary block out of a non-dictionary block
+                case ValueBlock _ -> block = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+            }
         }
         else if (selectedPositions.size() == block.getPositionCount()) {
             return block;

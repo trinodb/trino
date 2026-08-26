@@ -13,7 +13,6 @@
  */
 package io.trino.decoder.raw;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -45,6 +44,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class RawColumnDecoder
 {
@@ -146,11 +146,11 @@ public class RawColumnDecoder
             }
 
             if (!(columnType instanceof VarcharType)) {
-                checkArgument(end.isEmpty() || end.getAsInt() - start == fieldType.getSize(),
+                checkArgument(end.isEmpty() || end.orElseThrow() - start == fieldType.getSize(),
                         "Bytes mapping for column '%s' does not match dataFormat '%s'; expected %s bytes but got %s",
                         columnName,
                         fieldType.name(),
-                        end.getAsInt() - start,
+                        end.orElseThrow() - start,
                         fieldType.getSize());
             }
         }
@@ -178,7 +178,7 @@ public class RawColumnDecoder
                     declaredFieldType.name(),
                     columnName,
                     columnType.getDisplayName(),
-                    Joiner.on("/").join(allowedFieldTypes)));
+                    Arrays.stream(allowedFieldTypes).map(Object::toString).collect(joining("/"))));
         }
     }
 

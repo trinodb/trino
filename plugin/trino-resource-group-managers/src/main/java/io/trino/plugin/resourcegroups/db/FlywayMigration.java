@@ -14,6 +14,7 @@
 package io.trino.plugin.resourcegroups.db;
 
 import io.airlift.log.Logger;
+import jakarta.inject.Inject;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 
@@ -23,7 +24,31 @@ public class FlywayMigration
 {
     private static final Logger log = Logger.get(FlywayMigration.class);
 
-    private FlywayMigration() {}
+    private final Flyway flyway;
+    private final boolean runMigrations;
+
+    @Inject
+    public FlywayMigration(DbResourceGroupConfig config)
+    {
+        flyway = Flyway.configure()
+                .dataSource(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword())
+                .locations(getLocation(config.getConfigDbUrl()))
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+        runMigrations = config.isRunMigrationsEnabled();
+    }
+
+    public void migrate()
+    {
+        if (!runMigrations) {
+            log.info("Skipping migrations");
+            return;
+        }
+        log.info("Performing migrations...");
+        MigrateResult migrations = flyway.migrate();
+        log.info("Performed %s migrations", migrations.migrationsExecuted);
+    }
 
     private static String getLocation(String configDbUrl)
     {
@@ -39,23 +64,5 @@ public class FlywayMigration
         // validation is not performed in DbResourceGroupConfig because DB backed
         // resource group tests use the h2 database.
         throw new IllegalArgumentException(format("Invalid JDBC URL: %s. Only PostgreSQL, MySQL, and Oracle are supported.", configDbUrl));
-    }
-
-    public static void migrate(DbResourceGroupConfig config)
-    {
-        if (!config.isRunMigrationsEnabled()) {
-            log.info("Skipping migrations");
-            return;
-        }
-        log.info("Performing migrations...");
-        Flyway flyway = Flyway.configure()
-                .dataSource(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword())
-                .locations(getLocation(config.getConfigDbUrl()))
-                .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .load();
-
-        MigrateResult migrations = flyway.migrate();
-        log.info("Performed %s migrations", migrations.migrationsExecuted);
     }
 }

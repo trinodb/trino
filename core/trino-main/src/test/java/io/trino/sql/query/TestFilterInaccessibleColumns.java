@@ -354,6 +354,23 @@ public class TestFilterInaccessibleColumns
                 .failure().hasMessage("Access Denied: Cannot select from columns [name] in table or view test_catalog.tiny.nation");
     }
 
+    @Test
+    public void testColumnNotFoundSuggestionRespectsAccessControl()
+    {
+        accessControl.reset();
+
+        // Without any restriction, a typo in a column name produces a suggestion
+        assertThat(assertions.query("SELECT coment FROM nation"))
+                .failure()
+                .hasMessage("line 1:8: Column 'coment' cannot be resolved. Did you mean 'comment'?");
+
+        // When SELECT on 'comment' is denied, the suggestion is suppressed
+        accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
+        assertThat(assertions.query("SELECT coment FROM nation"))
+                .failure()
+                .hasMessage("line 1:8: Column 'coment' cannot be resolved");
+    }
+
     private Session user(String user)
     {
         return Session.builder(assertions.getDefaultSession())

@@ -74,12 +74,4 @@ public class ClassLoaderSafeConnectorPageSourceProvider
             return delegate.createPageSource(transaction, session, split, table, tableCredentials, columns, dynamicFilter, memoryContext);
         }
     }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMemoryUsage();
-        }
-    }
 }

@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.system;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.type.RowType;
@@ -98,9 +97,9 @@ public final class PartitionsView
                 """.formatted(
                         hasPartitionColumn ? "partition," : "",
                         hasDataColumn ? ", " + dataAggregationSql : "",
-                        IcebergUtil.quotedName(catalogName),
-                        IcebergUtil.quotedName(schemaName),
-                        IcebergUtil.quotedName(tableName + "$files"),
+                        quoted(catalogName),
+                        quoted(schemaName),
+                        quoted(tableName + "$files"),
                         hasPartitionColumn ? "GROUP BY 1" : "");
 
         return new ConnectorViewDefinition(
@@ -148,7 +147,13 @@ public final class PartitionsView
     private static String buildColumnRowType(String columnName, String trinoTypeDisplayName)
     {
         return "%s ROW(min %2$s, max %2$s, null_count BIGINT, nan_count BIGINT)"
-                .formatted(IcebergUtil.quotedName(columnName), trinoTypeDisplayName);
+                .formatted(quoted(columnName), trinoTypeDisplayName);
+    }
+
+    // identifiers embedded in the generated view SQL are always quoted, since a bare reserved word (e.g. a column named "group") would not parse
+    private static String quoted(String name)
+    {
+        return '"' + name.replace("\"", "\"\"") + '"';
     }
 
     private static Optional<RowType> getMetricsColumnType(TypeManager typeManager, List<NestedField> columns)

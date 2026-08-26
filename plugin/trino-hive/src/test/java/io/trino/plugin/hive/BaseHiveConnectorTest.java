@@ -237,6 +237,10 @@ public abstract class BaseHiveConnectorTest
 
         return builder
                 .addHiveProperty("hive.compression-codec", hiveCompressionCodec)
+                // Several tests here assume ORC: column rename preserving data (ORC reads by index, Parquet by name),
+                // dereference pushdown behavior (see supportsPhysicalPushdown), and SHOW CREATE TABLE default-format output.
+                // TODO exercise the default (PARQUET) format here, overriding only the tests that genuinely require ORC
+                .addHiveProperty("hive.storage-format", "ORC")
                 .addHiveProperty("hive.allow-register-partition-procedure", "true")
                 // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                 .addHiveProperty("hive.writer-sort-buffer-size", "1MB")

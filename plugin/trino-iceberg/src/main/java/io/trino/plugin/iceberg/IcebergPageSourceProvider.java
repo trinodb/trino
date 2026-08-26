@@ -257,6 +257,7 @@ public class IcebergPageSourceProvider
     private final ParquetFooterCache parquetFooterCache;
     private final Optional<BlocksHashFactory> blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
+    private final MemoryContext sharedMemoryContext;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
@@ -270,7 +271,8 @@ public class IcebergPageSourceProvider
             TypeManager typeManager,
             ParquetFooterCache parquetFooterCache,
             Optional<BlocksHashFactory> blocksHashFactory,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            MemoryContext sharedMemoryContext)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -281,7 +283,8 @@ public class IcebergPageSourceProvider
         this.parquetFooterCache = requireNonNull(parquetFooterCache, "parquetFooterCache is null");
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
-        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager, blocksHashFactory);
+        this.sharedMemoryContext = requireNonNull(sharedMemoryContext, "sharedMemoryContext is null");
+        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage);
     }
 
     @Override
@@ -435,17 +438,20 @@ public class IcebergPageSourceProvider
 
         // filter out deleted rows
         if (!deletes.isEmpty()) {
-            Supplier<Optional<PageFilter>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
-                    .getDeletePageFilter(
-                            path,
-                            dataSequenceNumber,
-                            deletes,
-                            requiredColumns,
-                            tableSchema,
-                            readerPageSourceWithRowPositions.startRowPosition(),
-                            readerPageSourceWithRowPositions.endRowPosition(),
-                            deleteFile -> readDeletionVector(fileSystem, deleteFile),
-                            (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext())));
+            Supplier<Optional<PageFilter>> deletePredicate = memoize(() -> {
+                Optional<PageFilter> pageFilter = getDeleteManager(partitionSpec, partitionData)
+                        .getDeletePageFilter(
+                                path,
+                                dataSequenceNumber,
+                                deletes,
+                                requiredColumns,
+                                tableSchema,
+                                readerPageSourceWithRowPositions.startRowPosition(),
+                                readerPageSourceWithRowPositions.endRowPosition(),
+                                deleteFile -> readDeletionVector(fileSystem, deleteFile),
+                                (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext()));
+                return pageFilter;
+            });
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
                 try {
                     Optional<PageFilter> pageFilter = deletePredicate.get();
@@ -464,13 +470,16 @@ public class IcebergPageSourceProvider
         return pageSource;
     }
 
-    @Override
-    public long getMemoryUsage()
+    /**
+     * Delete filters are shared by all splits of the scan, so their size is reported at provider scope,
+     * after each delete file loads. The lock makes the reported value consistent with the filters held at that point.
+     */
+    private synchronized void reportDeleteFilterMemoryUsage()
     {
-        return unpartitionedTableDeleteManager.getEstimatedSizeInBytes() +
+        sharedMemoryContext.setBytes(unpartitionedTableDeleteManager.getEstimatedSizeInBytes() +
                 partitionedDeleteManagers.values().stream()
                         .mapToLong(DeleteManager::getEstimatedSizeInBytes)
-                        .sum();
+                        .sum());
     }
 
     private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
@@ -490,7 +499,7 @@ public class IcebergPageSourceProvider
                         })
                 .apply(partitionData);
 
-        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager, blocksHashFactory));
+        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage));
     }
 
     private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
@@ -835,7 +844,7 @@ public class IcebergPageSourceProvider
                 else if (!fileColumnsByIcebergId.containsKey(column.getBaseColumnIdentity().getId())) {
                     if (column.isRowIdColumn() && fileFirstRowId.isPresent()) {
                         appendRowNumberColumn = true;
-                        transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), -1));
+                        transforms.transform(new RowIdTransform(fileFirstRowId.orElseThrow(), -1));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
                         transforms.constantValue(writeNativeValue(column.getType(), dataSequenceNumber.orElseThrow(() ->
@@ -864,7 +873,7 @@ public class IcebergPageSourceProvider
 
                     if (column.isRowIdColumn() && fileFirstRowId.isPresent()) {
                         appendRowNumberColumn = true;
-                        transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), ordinal));
+                        transforms.transform(new RowIdTransform(fileFirstRowId.orElseThrow(), ordinal));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
                         transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber.orElseThrow(() ->
@@ -1190,7 +1199,7 @@ public class IcebergPageSourceProvider
                 else if (!parquetIdToFieldName.containsKey(column.getBaseColumn().getId())) {
                     if (column.isRowIdColumn() && fileFirstRowId.isPresent()) {
                         appendRowNumberColumn = true;
-                        transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), -1));
+                        transforms.transform(new RowIdTransform(fileFirstRowId.orElseThrow(), -1));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
                         transforms.constantValue(writeNativeValue(column.getType(), dataSequenceNumber.orElseThrow(() ->
@@ -1226,7 +1235,7 @@ public class IcebergPageSourceProvider
                     }
                     if (column.isRowIdColumn() && fileFirstRowId.isPresent()) {
                         appendRowNumberColumn = true;
-                        transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), ordinal));
+                        transforms.transform(new RowIdTransform(fileFirstRowId.orElseThrow(), ordinal));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
                         transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber.orElseThrow(() ->
@@ -1474,7 +1483,7 @@ public class IcebergPageSourceProvider
                 else if (!fileColumnsByIcebergId.containsKey(column.getBaseColumn().getId())) {
                     if (column.isRowIdColumn() && fileFirstRowId.isPresent()) {
                         appendRowNumberColumn = true;
-                        transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), -1));
+                        transforms.transform(new RowIdTransform(fileFirstRowId.orElseThrow(), -1));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
                         transforms.constantValue(writeNativeValue(column.getType(), dataSequenceNumber.orElseThrow(() ->
@@ -1499,7 +1508,7 @@ public class IcebergPageSourceProvider
 
                     if (column.isRowIdColumn() && fileFirstRowId.isPresent()) {
                         appendRowNumberColumn = true;
-                        transforms.transform(new RowIdTransform(fileFirstRowId.getAsLong(), ordinal));
+                        transforms.transform(new RowIdTransform(fileFirstRowId.orElseThrow(), ordinal));
                     }
                     else if (column.isLastUpdatedSequenceNumberColumn()) {
                         transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber.orElseThrow(() ->
@@ -2038,7 +2047,7 @@ public class IcebergPageSourceProvider
                 sourceRowIdBlock = storedSourceRowId;
             }
             else if (fileFirstRowId.isPresent()) {
-                long firstRowId = fileFirstRowId.getAsLong();
+                long firstRowId = fileFirstRowId.orElseThrow();
                 long[] rowIds = new long[positionCount];
                 for (int i = 0; i < positionCount; i++) {
                     if (storedSourceRowId != null && !storedSourceRowId.isNull(i)) {

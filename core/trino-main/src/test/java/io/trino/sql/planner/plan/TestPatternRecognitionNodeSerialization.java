@@ -52,6 +52,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -116,7 +118,7 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testAggregationValuePointerRoundtrip()
     {
-        ResolvedFunction countFunction = createTestingMetadataManager().resolveBuiltinFunction("count", ImmutableList.of());
+        ResolvedFunction countFunction = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "count", ImmutableList.of());
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 countFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(), false),
@@ -124,7 +126,7 @@ public class TestPatternRecognitionNodeSerialization
                 Optional.of(new Symbol(VARCHAR, "classifier")),
                 Optional.of(new Symbol(BIGINT, "match_number"))));
 
-        ResolvedFunction maxFunction = createTestingMetadataManager().resolveBuiltinFunction("max", fromTypes(BIGINT));
+        ResolvedFunction maxFunction = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max", fromTypes(BIGINT));
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
@@ -191,7 +193,7 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testPatternRecognitionNodeRoundtrip()
     {
-        ResolvedFunction rankFunction = createTestingMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
+        ResolvedFunction rankFunction = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "rank", ImmutableList.of());
 
         // test remaining fields inside PatternRecognitionNode specific to pattern recognition:
         // windowFunctions, measures, commonBaseFrame, rowsPerMatch, skipToLabel, skipToPosition, initial, pattern, subsets, variableDefinitions

@@ -119,19 +119,6 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "\\)");
     }
 
-    @Test
-    public void testHiddenPathColumn()
-    {
-        try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
-            String filePath = (String) computeScalar(format("SELECT file_path FROM \"%s$files\"", table.getName()));
-
-            assertQuery("SELECT DISTINCT \"$path\" FROM " + table.getName(), "VALUES " + "'" + filePath + "'");
-
-            // Check whether the "$path" hidden column is correctly evaluated in the filter expression
-            assertQuery(format("SELECT a FROM %s WHERE \"$path\" = '%s'", table.getName(), filePath), "VALUES 1");
-        }
-    }
-
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     @Timeout(120)
@@ -173,7 +160,12 @@ public abstract class BaseIcebergConnectorSmokeTest
             });
             List<String> expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
             assertThat(expectedValues).as("Expected at least one delete operation to pass").hasSizeLessThan(rows.size());
-            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
+            if (expectedValues.isEmpty()) {
+                assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+            }
+            else {
+                assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
+            }
         }
         finally {
             executor.shutdownNow();
@@ -545,37 +537,6 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
-    public void testSortedNationTable()
-    {
-        try (TestTable table = newTrinoTable(
-                "test_sorted_nation_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
-        }
-    }
-
-    @Test
-    public void testFileSortingWithLargerTable()
-    {
-        // Using a larger table forces buffered data to be written to disk
-        try (TestTable table = newTrinoTable(
-                "test_sorted_lineitem_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
-            assertUpdate(
-                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
-                    "VALUES 60175");
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
-        }
-    }
-
-    @Test
     public void testDropTableWithMissingMetadataFile()
             throws Exception
     {
@@ -747,8 +708,6 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertQueryFails(session, "EXPLAIN " + query, failureMessage);
         assertUpdate(session, "DROP TABLE " + tableName);
     }
-
-    protected abstract boolean isFileSorted(Location path, String sortColumnName);
 
     @Test
     public void testTableChangesFunction()

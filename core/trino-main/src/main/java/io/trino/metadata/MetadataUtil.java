@@ -248,8 +248,8 @@ public final class MetadataUtil
     {
         PrincipalType type = principal.getType();
         return switch (type) {
-            case USER -> new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
-            case ROLE -> new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
+            case USER -> new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getPrincipalName()));
+            case ROLE -> new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getPrincipalName()));
         };
     }
 
@@ -265,7 +265,7 @@ public final class MetadataUtil
     public static void checkRoleExists(Session session, Node node, Metadata metadata, TrinoPrincipal principal, Optional<String> catalog)
     {
         if (principal.getType() == ROLE) {
-            checkRoleExists(session, node, metadata, principal.getName(), catalog);
+            checkRoleExists(session, node, metadata, principal.getPrincipalName(), catalog);
         }
     }
 

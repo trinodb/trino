@@ -38,6 +38,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 
 public class TestUnwrapRowSubscript
         extends BaseRuleTest
@@ -88,6 +89,7 @@ public class TestUnwrapRowSubscript
     {
         return new Call(
                 PLANNER_CONTEXT.getMetadata().getCoercion(
+                        SQL_STANDARD,
                         builtinFunctionName("$try_cast"),
                         expression.type(),
                         type),

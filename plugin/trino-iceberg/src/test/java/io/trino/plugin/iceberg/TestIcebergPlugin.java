@@ -190,7 +190,7 @@ public class TestIcebergPlugin
             throws Exception
     {
         ConnectorFactory connectorFactory = getConnectorFactory();
-        File tempFile = File.createTempFile("test-iceberg-plugin-access-control", ".json");
+        File tempFile = Files.createTempFile("test-iceberg-plugin-access-control", ".json").toFile();
         tempFile.deleteOnExit();
         Files.writeString(tempFile.toPath(), "{}");
 

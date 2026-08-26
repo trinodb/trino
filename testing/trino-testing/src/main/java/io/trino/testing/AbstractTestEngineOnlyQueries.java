@@ -22,12 +22,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Ordering;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.concurrent.MoreFutures;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.client.ClientCapabilities;
+import io.trino.dispatcher.DispatchManager;
+import io.trino.execution.QueryManager;
+import io.trino.server.BasicQueryInfo;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeZoneKey;
@@ -56,13 +60,18 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -76,6 +85,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -87,7 +97,11 @@ import static io.trino.tpch.TpchTable.PART_SUPPLIER;
 import static io.trino.tpch.TpchTable.REGION;
 import static io.trino.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
+import static java.lang.Thread.currentThread;
 import static java.util.Collections.nCopies;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -409,6 +423,32 @@ public abstract class AbstractTestEngineOnlyQueries
                 "   CAST('  ' AS varchar(3)), " +
                 "   CAST('   ' AS varchar(3))) t(x) " +
                 "WHERE CAST(x AS char(2)) = CAST('  ' AS char(2))");
+    }
+
+    @Test
+    public void testCharVarcharCoercionSessionProperty()
+    {
+        Session standard = Session.builder(getSession()).setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "false").build();
+        Session legacy = Session.builder(getSession()).setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true").build();
+
+        // CAST(char AS varchar) semantics: standard yields the unpadded value, legacy re-pads to the CHAR length
+        assertThat(query(standard, "SELECT CAST(CAST('abc' AS char(5)) AS varchar(10))"))
+                .matches("VALUES CAST('abc' AS varchar(10))");
+        assertThat(query(legacy, "SELECT CAST(CAST('abc' AS char(5)) AS varchar(10))"))
+                .matches("VALUES CAST('abc  ' AS varchar(10))");
+
+        // implicit coercion direction: standard coerces char to varchar (trailing spaces trimmed), legacy coerces varchar to char (blank-padded)
+        assertThat(query(standard, "SELECT CAST('   ' AS char(3)) = CAST('  ' AS varchar(2))"))
+                .matches("VALUES false");
+        assertThat(query(legacy, "SELECT CAST('   ' AS char(3)) = CAST('  ' AS varchar(2))"))
+                .matches("VALUES true");
+
+        // implicit coercion direction: standard coerces char to varchar
+        assertThat(query(standard, "SELECT CHAR 'abc' a, CHAR 'abcde' UNION ALL SELECT CAST('abcde' AS varchar(5)), CAST('abc' AS varchar(3))"))
+                .matches("VALUES (CAST('abc' AS varchar(5)), CAST('abcde' AS varchar(5))), (CAST('abcde' AS varchar(5)), CAST('abc' AS varchar(5)))");
+        // implicit coercion direction: legacy coerces char to varchar
+        assertThat(query(legacy, "SELECT CHAR 'abc' a, CHAR 'abcde' UNION ALL SELECT CAST('abcde' AS varchar(5)), CAST('abc' AS varchar(3))"))
+                .matches("VALUES (CAST('abc' AS char(5)), CAST('abcde' AS char(5))), (CAST('abcde' AS char(5)), CAST('abc' AS char(5)))");
     }
 
     @Test
@@ -958,7 +998,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQueryFails(
                 "SELECT * FROM lineitem l JOIN (SELECT orderkey_1, custkey FROM orders) o on l.orderkey = o.orderkey_1",
-                "line 1:39: Column 'orderkey_1' cannot be resolved");
+                "line 1:39: Column 'orderkey_1' cannot be resolved.*");
     }
 
     @Test
@@ -3674,8 +3714,8 @@ public abstract class AbstractTestEngineOnlyQueries
             Long orderKeyFractionalWeighted = ((Number) row.getField(5)).longValue();
             Double totalPriceFractionalWeighted = (Double) row.getField(6);
 
-            List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
-            List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
+            List<Long> orderKeys = orderKeyByStatus.get(status).stream().sorted().collect(toImmutableList());
+            List<Double> totalPrices = totalPriceByStatus.get(status).stream().sorted().collect(toImmutableList());
 
             // verify real rank of returned value is within 0.05% of requested rank
             assertThat(orderKey >= orderKeys.get((int) (0.9985 * orderKeys.size()))).isTrue();
@@ -7008,6 +7048,55 @@ public abstract class AbstractTestEngineOnlyQueries
                         .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
             }
         }
+    }
+
+    @Test
+    public void testQueryLoggingCount()
+    {
+        QueryManager queryManager = getQueryRunner().getCoordinator().getQueryManager();
+        executeExclusively(() -> {
+            assertEventually(
+                    new Duration(1, MINUTES),
+                    () -> assertThat(queryManager.getQueries().stream()
+                            .map(BasicQueryInfo::getQueryId)
+                            .map(queryManager::getFullQueryInfo)
+                            .filter(info -> !info.isFinalQueryInfo())
+                            .collect(toList())).isEqualTo(ImmutableList.of()));
+
+            // We cannot simply get the number of completed queries as soon as all the queries are completed, because this counter may not be up-to-date at that point.
+            // The completed queries counter is updated in a final query info listener, which is called eventually.
+            // Therefore, here we wait until the value of this counter gets stable.
+
+            DispatchManager dispatchManager = getQueryRunner().getCoordinator().getDispatchManager();
+            long beforeCompletedQueriesCount = waitUntilStable(() -> dispatchManager.getStats().getCompletedQueries().getTotalCount(), new Duration(5, SECONDS));
+            long beforeSubmittedQueriesCount = dispatchManager.getStats().getSubmittedQueries().getTotalCount();
+            String tableName = "memory.default.test_logging_count" + randomNameSuffix();
+            assertUpdate("CREATE TABLE " + tableName + "(foo_1 int, foo_2_4 int)");
+            assertQueryReturnsEmptyResult("SELECT foo_1, foo_2_4 FROM " + tableName);
+            assertUpdate("DROP TABLE " + tableName);
+            assertQueryFails("SELECT * FROM " + tableName, ".*Table .* does not exist");
+
+            // TODO: Figure out a better way of synchronization
+            assertEventually(
+                    new Duration(1, MINUTES),
+                    () -> assertThat(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount).isEqualTo(4));
+            assertThat(dispatchManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmittedQueriesCount).isEqualTo(4);
+        });
+    }
+
+    private static <T> T waitUntilStable(Supplier<T> computation, Duration timeout)
+    {
+        T lastValue = computation.get();
+        long start = System.nanoTime();
+        while (!currentThread().isInterrupted() && nanosSince(start).compareTo(timeout) < 0) {
+            sleepUninterruptibly(100, MILLISECONDS);
+            T currentValue = computation.get();
+            if (currentValue.equals(lastValue)) {
+                return currentValue;
+            }
+            lastValue = currentValue;
+        }
+        throw new UncheckedTimeoutException();
     }
 
     private static int getNumberMaxDecimalPrecision()

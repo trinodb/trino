@@ -31,15 +31,13 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.Opcodes;
+import io.trino.type.CharVarcharCoercion;
 import org.objectweb.asm.Type;
 
 import java.lang.reflect.Method;
@@ -65,7 +63,7 @@ import static io.trino.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static io.trino.sql.gen.LambdaCapture.LAMBDA_CAPTURE_METHOD;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
@@ -83,7 +81,8 @@ public final class LambdaBytecodeGenerator
             Expression expression,
             FunctionManager functionManager,
             Metadata metadata,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            CharVarcharCoercion charVarcharCoercion)
     {
         Set<Lambda> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
         ImmutableMap.Builder<Lambda, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
@@ -99,7 +98,8 @@ public final class LambdaBytecodeGenerator
                     cachedInstanceBinder,
                     functionManager,
                     metadata,
-                    typeManager);
+                    typeManager,
+                    charVarcharCoercion);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -119,7 +119,8 @@ public final class LambdaBytecodeGenerator
             CachedInstanceBinder cachedInstanceBinder,
             FunctionManager functionManager,
             Metadata metadata,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            CharVarcharCoercion charVarcharCoercion)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
@@ -145,6 +146,7 @@ public final class LambdaBytecodeGenerator
                 functionManager,
                 metadata,
                 typeManager,
+                charVarcharCoercion,
                 compiledLambdaMap,
                 parameters.build());
 
@@ -178,15 +180,9 @@ public final class LambdaBytecodeGenerator
                 .append(boxPrimitiveIfNecessary(scope, returnType))
                 .ret(returnType);
 
-        Handle lambdaAsmHandle = new Handle(
-                Opcodes.H_INVOKEVIRTUAL,
-                method.getThis().getType().getClassName(),
-                method.getName(),
-                method.getMethodDescriptor(),
-                false);
-
         return new CompiledLambda(
-                lambdaAsmHandle,
+                method.getName(),
+                getMethodType(method.getMethodDescriptor()),
                 method.getReturnType(),
                 method.getParameterTypes());
     }
@@ -221,8 +217,10 @@ public final class LambdaBytecodeGenerator
             captureVariableBuilder.add(valueVariable);
         }
 
+        // `this` is captured as Object: a hidden class cannot mention its own name in the
+        // invokedynamic descriptor, so the bootstrap re-casts the receiver via MethodHandle.asType
         List<BytecodeExpression> captureVariables = ImmutableList.<BytecodeExpression>builder()
-                .add(scope.getThis(), scope.getVariable("session"))
+                .add(scope.getThis().cast(Object.class), scope.getVariable("session"))
                 .addAll(captureVariableBuilder.build())
                 .build();
 
@@ -238,7 +236,8 @@ public final class LambdaBytecodeGenerator
                         LAMBDA_CAPTURE_METHOD,
                         ImmutableList.of(
                                 getType(getSingleApplyMethod(lambdaInterface)),
-                                compiledLambda.getLambdaAsmHandle(),
+                                compiledLambda.getMethodName(),
+                                compiledLambda.getMethodAsmType(),
                                 instantiatedMethodAsmType),
                         "apply",
                         type(lambdaInterface),
@@ -247,7 +246,7 @@ public final class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends Supplier<Object>> compileLambdaProvider(Lambda lambdaExpression, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, Class<?> lambdaInterface)
+    public static Class<? extends Supplier<Object>> compileLambdaProvider(Lambda lambdaExpression, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, CharVarcharCoercion charVarcharCoercion, Class<?> lambdaInterface)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
@@ -267,7 +266,8 @@ public final class LambdaBytecodeGenerator
                 lambdaExpression,
                 functionManager,
                 metadata,
-                typeManager);
+                typeManager,
+                charVarcharCoercion);
 
         MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
                 a(PUBLIC),
@@ -291,6 +291,7 @@ public final class LambdaBytecodeGenerator
                 functionManager,
                 metadata,
                 typeManager,
+                charVarcharCoercion,
                 compiledLambdaMap,
                 ImmutableList.of());
 
@@ -336,7 +337,7 @@ public final class LambdaBytecodeGenerator
         constructorBody.ret();
 
         //noinspection unchecked
-        return (Class<? extends Supplier<Object>>) defineClass(lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
+        return (Class<? extends Supplier<Object>>) defineHiddenClass(lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getClassData());
     }
 
     private static Method getSingleApplyMethod(Class<?> lambdaFunctionInterface)
@@ -369,23 +370,31 @@ public final class LambdaBytecodeGenerator
     public static class CompiledLambda
     {
         // lambda method information
-        private final Handle lambdaAsmHandle;
+        private final String methodName;
+        private final Type methodAsmType;
         private final ParameterizedType returnType;
         private final List<ParameterizedType> parameterTypes;
 
         public CompiledLambda(
-                Handle lambdaAsmHandle,
+                String methodName,
+                Type methodAsmType,
                 ParameterizedType returnType,
                 List<ParameterizedType> parameterTypes)
         {
-            this.lambdaAsmHandle = requireNonNull(lambdaAsmHandle, "lambdaAsmHandle is null");
+            this.methodName = requireNonNull(methodName, "methodName is null");
+            this.methodAsmType = requireNonNull(methodAsmType, "methodAsmType is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
             this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
         }
 
-        public Handle getLambdaAsmHandle()
+        public String getMethodName()
         {
-            return lambdaAsmHandle;
+            return methodName;
+        }
+
+        public Type getMethodAsmType()
+        {
+            return methodAsmType;
         }
 
         public ParameterizedType getReturnType()

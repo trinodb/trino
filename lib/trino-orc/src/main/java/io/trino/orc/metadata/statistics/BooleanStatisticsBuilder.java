@@ -46,6 +46,12 @@ public class BooleanStatisticsBuilder
         }
     }
 
+    public void addValues(int valueCount, int trueCount)
+    {
+        nonNullValueCount += valueCount;
+        trueValueCount += trueCount;
+    }
+
     private void addBooleanStatistics(long valueCount, BooleanStatistics value)
     {
         requireNonNull(value, "value is null");

@@ -25,6 +25,8 @@ import io.airlift.tracing.Tracing;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.trino.cache.CacheManagerConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogConnector;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
@@ -196,7 +198,9 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
     @Test
     public void testMultipleTaskUpdatesWithMultipleCatalogPrunes()
     {
-        ConnectorServicesProvider workerConnectorServiceProvider = new WorkerDynamicCatalogManager(MOCK_CATALOG_FACTORY);
+        ConnectorServicesProvider workerConnectorServiceProvider = new WorkerDynamicCatalogManager(
+                MOCK_CATALOG_FACTORY,
+                new CacheManagerRegistry(OpenTelemetry.noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), new CacheManagerConfig()));
         SqlTaskManager workerTaskManager = getWorkerTaskManagerWithConnectorServiceProvider(workerConnectorServiceProvider);
 
         CatalogPruneTask catalogPruneTask = new TestingLocalCatalogPruneTask(

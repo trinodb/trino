@@ -32,7 +32,7 @@ public class BucketPartitionFunction
     {
         this.bucketFunction = requireNonNull(bucketFunction, "bucketFunction is null");
         this.bucketToPartition = bucketToPartition.clone();
-        partitionCount = IntStream.of(bucketToPartition).max().getAsInt() + 1;
+        partitionCount = IntStream.of(bucketToPartition).max().orElseThrow() + 1;
     }
 
     @Override

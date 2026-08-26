@@ -38,6 +38,7 @@ import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -65,6 +66,7 @@ import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
+import static io.trino.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -270,6 +272,39 @@ public class TestSimplifyExpressions
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A55"), new Reference(BOOLEAN, "A56"))),
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A57"), new Reference(BOOLEAN, "A58"))),
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A59"), new Reference(BOOLEAN, "A60"))))));
+    }
+
+    @Test
+    public void testLargeDisjunction()
+    {
+        Reference symbol = new Reference(BIGINT, "x");
+        ImmutableList.Builder<Expression> disjuncts = ImmutableList.builderWithExpectedSize(25_000);
+        for (long value = 0; value < 25_000; value++) {
+            disjuncts.add(comparison(EQUAL, symbol, new Constant(BIGINT, value)));
+        }
+
+        Expression expression = new Logical(OR, disjuncts.build());
+        assertThat(rewrite(
+                expression,
+                TEST_SESSION,
+                PLANNER_CONTEXT.getMetadata(),
+                emptySymbolAllocator(),
+                PLANNER_CONTEXT.getExpressionOptimizer()))
+                .isEqualTo(new Logical(AND, ImmutableList.of(
+                        comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), symbol),
+                        comparison(LESS_THAN_OR_EQUAL, symbol, new Constant(BIGINT, 24_999L)))));
+    }
+
+    @Test
+    public void testExtractCommonPredicatesIsIdempotent()
+    {
+        Reference first = new Reference(BOOLEAN, "a");
+        Reference second = new Reference(BOOLEAN, "b");
+        Reference remaining = new Reference(BOOLEAN, "c");
+        Expression conjunction = new Logical(AND, ImmutableList.of(first, second));
+
+        assertExtractCommonPredicatesIsIdempotent(new Logical(OR, ImmutableList.of(conjunction, remaining)));
+        assertExtractCommonPredicatesIsIdempotent(new Logical(OR, ImmutableList.of(remaining, conjunction)));
     }
 
     @Test
@@ -535,6 +570,12 @@ public class TestSimplifyExpressions
         assertThat(simplified).isEqualTo(normalize(expected));
     }
 
+    private static void assertExtractCommonPredicatesIsIdempotent(Expression expression)
+    {
+        Expression rewritten = extractCommonPredicates(expression);
+        assertThat(extractCommonPredicates(rewritten)).isEqualTo(rewritten);
+    }
+
     @Test
     public void testPushesDownNegationsNumericTypes()
     {
@@ -688,6 +729,6 @@ public class TestSimplifyExpressions
 
     private static Expression not(Expression value)
     {
-        return IrExpressions.not(FUNCTIONS.getMetadata(), value);
+        return IrExpressions.not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
     }
 }

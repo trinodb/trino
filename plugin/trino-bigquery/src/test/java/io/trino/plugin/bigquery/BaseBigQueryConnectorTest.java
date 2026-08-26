@@ -128,6 +128,46 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    @Override // BigQuery connector exposes location property
+    public void testShowCreateSchema()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
+                .isEqualTo(
+                        """
+                        CREATE SCHEMA %s.%s
+                        WITH (
+                           location = 'US'
+                        )""".formatted(getSession().getCatalog().orElseThrow(), schemaName));
+    }
+
+    @Test
+    public void testCreateSchemaWithLocation()
+    {
+        String schemaName = "test_schema_with_location_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = 'us-east1')");
+            assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
+                    .contains("location = 'us-east1'");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
+    public void testCreateSchemaWithInvalidLocation()
+    {
+        String schemaName = "test_schema_with_invalid_location_" + randomNameSuffix();
+        try {
+            assertQueryFails("CREATE SCHEMA " + schemaName + " WITH (location = 'invalid-location')", "Failed to create schema.*");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
     @Disabled // Disable this test because this test is slow and BigQuery connector doesn't support sample pushdown
     @Override
     public void testTableSampleBernoulli() {}
@@ -291,6 +331,15 @@ public abstract class BaseBigQueryConnectorTest
     {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Test
+    @Override
+    public void testCharToVarcharCastCoercionAcrossPushdown()
+    {
+        assertThatThrownBy(super::testCharToVarcharCastCoercionAcrossPushdown)
+                .hasMessage("Unsupported column type: char(5)")
+                .hasStackTraceContaining("SQL: CREATE TABLE test_char_to_varchar_cast");
     }
 
     @Test

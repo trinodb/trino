@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.execution.scheduler.FlatNetworkTopology;
 import io.trino.execution.scheduler.NetworkLocation;
 import io.trino.execution.scheduler.NetworkTopology;
@@ -198,7 +199,7 @@ public class BenchmarkNodeScheduler
         {
             InternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
-            StableHostAddressProvider stableHostAddressProvider = new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig());
+            StableHostAddressProvider stableHostAddressProvider = new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig());
             return switch (policy) {
                 case "uniform" -> new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, stableHostAddressProvider);
                 case "topology" -> new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig(), stableHostAddressProvider);

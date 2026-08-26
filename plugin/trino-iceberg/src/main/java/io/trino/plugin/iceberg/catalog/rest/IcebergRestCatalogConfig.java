@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import org.apache.iceberg.CatalogProperties;
 
@@ -63,9 +64,12 @@ public class IcebergRestCatalogConfig
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
+    private boolean serverAssignedTableLocationEnabled;
     private boolean caseInsensitiveNameMatching;
     private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    // Lightweight identifier mappings; short TTL keeps retained cardinality modest.
+    private long caseInsensitiveNameMatchingCacheMaximumSize = 10_000;
 
     @NotNull
     public URI getBaseUri()
@@ -217,6 +221,19 @@ public class IcebergRestCatalogConfig
         return this;
     }
 
+    public boolean isServerAssignedTableLocationEnabled()
+    {
+        return serverAssignedTableLocationEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.server-assigned-table-location-enabled")
+    @ConfigDescription("Let the REST catalog server assign locations for created tables instead of computing a default location from the namespace location")
+    public IcebergRestCatalogConfig setServerAssignedTableLocationEnabled(boolean serverAssignedTableLocationEnabled)
+    {
+        this.serverAssignedTableLocationEnabled = serverAssignedTableLocationEnabled;
+        return this;
+    }
+
     public boolean isCaseInsensitiveNameMatching()
     {
         return caseInsensitiveNameMatching;
@@ -263,6 +280,20 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    @Min(1)
+    public long getCaseInsensitiveNameMatchingCacheMaximumSize()
+    {
+        return caseInsensitiveNameMatchingCacheMaximumSize;
+    }
+
+    @Config("iceberg.rest-catalog.case-insensitive-name-matching.cache-max-size")
+    @ConfigDescription("Maximum number of entries in the case insensitive object mapping cache")
+    public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingCacheMaximumSize(long caseInsensitiveNameMatchingCacheMaximumSize)
+    {
+        this.caseInsensitiveNameMatchingCacheMaximumSize = caseInsensitiveNameMatchingCacheMaximumSize;
         return this;
     }
 }

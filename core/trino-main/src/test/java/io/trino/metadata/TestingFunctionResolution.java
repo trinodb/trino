@@ -41,6 +41,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -138,17 +139,17 @@ public class TestingFunctionResolution
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        return inTransaction(_ -> metadata.resolveOperator(operatorType, argumentTypes));
+        return inTransaction(session -> metadata.resolveOperator(getCharVarcharCoercion(session), operatorType, argumentTypes));
     }
 
     public ResolvedFunction getCoercion(Type fromType, Type toType)
     {
-        return inTransaction(_ -> metadata.getCoercion(fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(getCharVarcharCoercion(session), fromType, toType));
     }
 
     public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
-        return inTransaction(_ -> metadata.getCoercion(name, fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(getCharVarcharCoercion(session), name, fromType, toType));
     }
 
     public TestingFunctionCallBuilder functionCallBuilder(String name)
@@ -163,13 +164,13 @@ public class TestingFunctionResolution
 
     public ResolvedFunction resolveFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
-        return metadata.resolveBuiltinFunction(name, parameterTypes);
+        return metadata.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, parameterTypes);
     }
 
     public TestingAggregationFunction getAggregateFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
-        return inTransaction(_ -> {
-            ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, parameterTypes);
+        return inTransaction(session -> {
+            ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), name, parameterTypes);
             return new TestingAggregationFunction(
                     resolvedFunction.signature(),
                     resolvedFunction.functionNullability(),

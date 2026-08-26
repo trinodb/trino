@@ -1007,7 +1007,7 @@ public class HiveMetadata
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(usingSystemSecurity ? Optional.empty() : Optional.of(owner.getType()))
-                .setOwnerName(usingSystemSecurity ? Optional.empty() : Optional.of(owner.getName()))
+                .setOwnerName(usingSystemSecurity ? Optional.empty() : Optional.of(owner.getPrincipalName()))
                 .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, session.getQueryId()))
                 .build();
 
@@ -3365,7 +3365,7 @@ public class HiveMetadata
 
         return Optional.of(new HivePartitioningHandle(
                 leftHandle.getBucketingVersion(),
-                commonBucketCount.getAsInt(),
+                commonBucketCount.orElseThrow(),
                 leftHandle.getHiveTypes(),
                 false));
     }

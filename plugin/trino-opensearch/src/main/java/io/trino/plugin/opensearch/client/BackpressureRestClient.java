@@ -23,9 +23,9 @@ import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.opensearch.OpenSearchConfig;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpHost;
 import org.opensearch.client.Node;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
@@ -51,12 +51,13 @@ public class BackpressureRestClient
 {
     private static final Logger log = Logger.get(BackpressureRestClient.class);
 
+    @SuppressWarnings("deprecation")
     private final RestClient delegate;
     private final RetryPolicy<Response> retryPolicy;
     private final TimeStat backpressureStats;
     private final ThreadLocal<Stopwatch> stopwatch = ThreadLocal.withInitial(Stopwatch::createUnstarted);
 
-    public BackpressureRestClient(RestClient delegate, OpenSearchConfig config, TimeStat backpressureStats)
+    public BackpressureRestClient(@SuppressWarnings("deprecation") RestClient delegate, OpenSearchConfig config, TimeStat backpressureStats)
     {
         this.delegate = requireNonNull(delegate, "restClient is null");
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");

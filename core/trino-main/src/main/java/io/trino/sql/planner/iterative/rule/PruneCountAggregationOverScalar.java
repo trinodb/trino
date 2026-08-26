@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -61,7 +62,7 @@ public class PruneCountAggregationOverScalar
         if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
             return Result.empty();
         }
-        FunctionId countFunctionId = metadata.resolveBuiltinFunction("count", ImmutableList.of()).functionId();
+        FunctionId countFunctionId = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "count", ImmutableList.of()).functionId();
         Map<Symbol, AggregationNode.Aggregation> assignments = parent.getAggregations();
         for (Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();

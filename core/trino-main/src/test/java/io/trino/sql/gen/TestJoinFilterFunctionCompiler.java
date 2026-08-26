@@ -32,6 +32,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinFilterFunctionCompiler
@@ -57,17 +58,17 @@ public class TestJoinFilterFunctionCompiler
                 new Symbol(BIGINT, "right_col"), 1);
 
         // First compile: cache miss
-        compiler.compileJoinFilterFunction(JOIN_FILTER, layout, 1);
+        compiler.compileJoinFilterFunction(JOIN_FILTER, layout, 1, SQL_STANDARD);
         assertThat(compiler.getJoinFilterFunctionFactoryStats().getRequestCount()).isEqualTo(1);
         assertThat(compiler.getJoinFilterFunctionFactoryStats().getLoadCount()).isEqualTo(1);
 
         // Second compile with same expression and layout: cache hit
-        compiler.compileJoinFilterFunction(JOIN_FILTER, layout, 1);
+        compiler.compileJoinFilterFunction(JOIN_FILTER, layout, 1, SQL_STANDARD);
         assertThat(compiler.getJoinFilterFunctionFactoryStats().getRequestCount()).isEqualTo(2);
         assertThat(compiler.getJoinFilterFunctionFactoryStats().getLoadCount()).isEqualTo(1);
 
         // Compiled filter produces correct results
-        JoinFilterFunctionFactory factory = compiler.compileJoinFilterFunction(JOIN_FILTER, layout, 1);
+        JoinFilterFunctionFactory factory = compiler.compileJoinFilterFunction(JOIN_FILTER, layout, 1, SQL_STANDARD);
         Page leftPage = createLongBlockPage(10, 1, 5);
         Page rightPage = createLongBlockPage(3, 3, 3);
         // Addresses: packing (pageIndex=0, positionIndex) for the left page
@@ -106,8 +107,8 @@ public class TestJoinFilterFunctionCompiler
                 new Symbol(BIGINT, "x"), 0,
                 new Symbol(BIGINT, "y"), 1);
 
-        compiler.compileJoinFilterFunction(filter1, layout1, 1);
-        compiler.compileJoinFilterFunction(filter2, layout2, 1);
+        compiler.compileJoinFilterFunction(filter1, layout1, 1, SQL_STANDARD);
+        compiler.compileJoinFilterFunction(filter2, layout2, 1, SQL_STANDARD);
 
         // Same positions → cache hit, only one compilation
         assertThat(compiler.getJoinFilterFunctionFactoryStats().getRequestCount()).isEqualTo(2);
@@ -131,8 +132,8 @@ public class TestJoinFilterFunctionCompiler
                 new Symbol(BIGINT, "left_col"), 1,
                 new Symbol(BIGINT, "right_col"), 2);
 
-        compiler.compileJoinFilterFunction(JOIN_FILTER, layout1, 1);
-        compiler.compileJoinFilterFunction(JOIN_FILTER, layout2, 2);
+        compiler.compileJoinFilterFunction(JOIN_FILTER, layout1, 1, SQL_STANDARD);
+        compiler.compileJoinFilterFunction(JOIN_FILTER, layout2, 2, SQL_STANDARD);
 
         // Different positions → cache miss, two compilations
         assertThat(compiler.getJoinFilterFunctionFactoryStats().getRequestCount()).isEqualTo(2);

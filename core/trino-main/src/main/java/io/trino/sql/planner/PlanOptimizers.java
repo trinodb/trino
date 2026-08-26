@@ -65,6 +65,7 @@ import io.trino.sql.planner.iterative.rule.ImplementOffset;
 import io.trino.sql.planner.iterative.rule.ImplementTableFunctionSource;
 import io.trino.sql.planner.iterative.rule.InlineProjectIntoFilter;
 import io.trino.sql.planner.iterative.rule.InlineProjections;
+import io.trino.sql.planner.iterative.rule.LimitBoolOrAggregationSource;
 import io.trino.sql.planner.iterative.rule.MergeExcept;
 import io.trino.sql.planner.iterative.rule.MergeFilters;
 import io.trino.sql.planner.iterative.rule.MergeIntersect;
@@ -217,6 +218,7 @@ import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
 import io.trino.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.trino.sql.planner.iterative.rule.ReorderJoins;
+import io.trino.sql.planner.iterative.rule.ReplaceDecimalSumAndAvgWithSumAndCount;
 import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
@@ -242,6 +244,7 @@ import io.trino.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
 import io.trino.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
+import io.trino.sql.planner.iterative.rule.UnwrapAtTimeZoneInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapRowSubscript;
@@ -376,6 +379,7 @@ public class PlanOptimizers
                 .addAll(new PushCastIntoRow(plannerContext).rules())
                 .addAll(new UnwrapCastInComparison(plannerContext).rules())
                 .addAll(new UnwrapDateTruncInComparison(plannerContext).rules())
+                .addAll(new UnwrapAtTimeZoneInComparison(plannerContext).rules())
                 .addAll(new UnwrapYearInComparison(plannerContext).rules())
                 .addAll(new RemoveDuplicateConditions().rules())
                 .addAll(new CanonicalizeExpressions(plannerContext).rules())
@@ -609,6 +613,7 @@ public class PlanOptimizers
                                 .add(new InlineProjections())
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
                                 .addAll(new PushFilterThroughBoolOrAggregation(plannerContext).rules())
+                                .add(new LimitBoolOrAggregationSource()) // must run after CheckSubqueryNodesAreRewritten
                                 .build()));
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used
@@ -835,6 +840,7 @@ public class PlanOptimizers
                         .add(new InlineProjections())
                         .add(new PushFilterIntoValues(plannerContext))
                         .add(new ReplaceJoinOverConstantWithProject())
+                        .add(new ReplaceDecimalSumAndAvgWithSumAndCount(plannerContext)) // must run after unreferenced columns are pruned
                         .build()));
 
         builder.add(new IterativeOptimizer(

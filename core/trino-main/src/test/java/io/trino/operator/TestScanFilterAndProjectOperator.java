@@ -19,6 +19,10 @@ import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.block.BlockAssertions;
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.connector.TestingColumnHandle;
+import io.trino.execution.TestingPageSourceProvider;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Split;
 import io.trino.metadata.TestingFunctionResolution;
@@ -33,6 +37,8 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.split.PageSourceManager;
+import io.trino.split.PageSourceProvider;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -66,6 +72,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createIntsBlock;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -124,13 +131,13 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections, layout);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
+                (_, _) -> (_, _, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -138,7 +145,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                newSimpleAggregatedMemoryContext());
 
         try (SourceOperator operator = factory.createOperator(driverContext)) {
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -149,6 +157,54 @@ public class TestScanFilterAndProjectOperator
 
             assertThat(actual).containsExactlyElementsOf(expected);
         }
+    }
+
+    @Test
+    public void testSharedMemoryReleasedWithLastReference()
+            throws Exception
+    {
+        AggregatedMemoryContext scanMemoryContext = newSimpleAggregatedMemoryContext();
+        PageSourceProvider pageSourceProvider = createPageSourceProvider(scanMemoryContext);
+
+        Reference col0 = new Reference(BIGINT, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION, Optional.empty(), ImmutableList.of(col0), layout);
+
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                new PlanNodeId("0"),
+                (_, _) -> pageSourceProvider,
+                _ -> pageProcessor.get(),
+                TEST_TABLE_HANDLE,
+                Optional.empty(),
+                ImmutableList.of(new TestingColumnHandle("col0")),
+                DynamicFilter.EMPTY,
+                ImmutableList.of(BIGINT),
+                DataSize.ofBytes(0),
+                0,
+                newSimpleAggregatedMemoryContext());
+
+        SourceOperator operator = factory.createOperator(newDriverContext());
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.noMoreSplits();
+        toPages(operator);
+        assertThat(scanMemoryContext.getBytes()).isEqualTo(1024);
+
+        operator.close();
+        assertThat(scanMemoryContext.getBytes()).isEqualTo(1024);
+
+        factory.noMoreOperators();
+        assertThat(scanMemoryContext.getBytes()).isEqualTo(0);
+    }
+
+    private static PageSourceProvider createPageSourceProvider(AggregatedMemoryContext scanMemoryContext)
+    {
+        return new PageSourceManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, memoryContext -> {
+            memoryContext.setBytes(1024);
+            return new TestingPageSourceProvider();
+        }))
+                .createPageSourceProvider(TEST_CATALOG_HANDLE, scanMemoryContext);
     }
 
     @Test
@@ -169,13 +225,13 @@ public class TestScanFilterAndProjectOperator
                 col0,
                 new Constant(BIGINT, 10L));
         List<Expression> projections = ImmutableList.of(col0);
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections, layout);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION, Optional.of(filter), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(input),
+                (_, _) -> (_, _, _, _, _, _, _) -> new FixedPageSource(input),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -183,7 +239,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.of(64, KILOBYTE),
-                2);
+                2,
+                newSimpleAggregatedMemoryContext());
 
         try (SourceOperator operator = factory.createOperator(newDriverContext())) {
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -218,7 +275,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _, _) -> new SinglePagePageSource(input),
+                (_, _) -> (_, _, _, _, _, _, _) -> new SinglePagePageSource(input),
                 _ -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -226,7 +283,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                newSimpleAggregatedMemoryContext());
 
         try (SourceOperator operator = factory.createOperator(driverContext)) {
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -249,13 +307,13 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections, layout);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                (_, _) -> (_, _, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -263,7 +321,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                newSimpleAggregatedMemoryContext());
 
         try (SourceOperator operator = factory.createOperator(driverContext)) {
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));

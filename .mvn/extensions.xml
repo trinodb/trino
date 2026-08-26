@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <extensions>
     <extension>
+        <groupId>io.github.lenaschoenburg</groupId>
+        <artifactId>branch-scoped-local-repository</artifactId>
+        <version>0.2.0</version>
+    </extension>
+    <extension>
         <groupId>io.takari.maven</groupId>
         <artifactId>takari-smart-builder</artifactId>
         <version>1.1.1</version>

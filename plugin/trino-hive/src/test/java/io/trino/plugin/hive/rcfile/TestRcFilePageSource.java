@@ -44,7 +44,7 @@ final class TestRcFilePageSource
     void testSelectPositionsOnLoadedBlocks()
             throws Exception
     {
-        File file = File.createTempFile("test-select-positions", ".rc");
+        File file = Files.createTempFile("test-select-positions", ".rc").toFile();
         try {
             // columnA has row number values, columnB has row number * 10
             int rowCount = 100;

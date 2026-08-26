@@ -881,7 +881,7 @@ public class TestHttpRemoteTask
                             .orElse(-1L)));
 
             if (dynamicFilterFailureCount.orElse(0) > 0) {
-                dynamicFilterFailureCount = OptionalInt.of(dynamicFilterFailureCount.getAsInt() - 1);
+                dynamicFilterFailureCount = OptionalInt.of(dynamicFilterFailureCount.orElseThrow() - 1);
                 throw dynamicFilterFailure.orElseThrow();
             }
 

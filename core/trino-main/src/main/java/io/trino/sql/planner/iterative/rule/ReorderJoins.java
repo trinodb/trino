@@ -68,6 +68,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.powerSet;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
 import static io.trino.SystemSessionProperties.getMaxReorderedJoins;
@@ -196,7 +197,7 @@ public class ReorderJoins
             ImmutableList.Builder<Expression> residuals = ImmutableList.builder();
             List<Expression> inferenceCandidates = new ArrayList<>();
             for (Expression conjunct : extractConjuncts(filter)) {
-                if (isInferenceCandidate(plannerContext, conjunct) && !mayFail(plannerContext, conjunct)) {
+                if (isInferenceCandidate(plannerContext, getCharVarcharCoercion(session), conjunct) && !mayFail(plannerContext, getCharVarcharCoercion(session), conjunct)) {
                     inferenceCandidates.add(conjunct);
                 }
                 else {
@@ -205,7 +206,7 @@ public class ReorderJoins
             }
 
             this.residuals = residuals.build();
-            this.allFilterInference = new EqualityInference(plannerContext, inferenceCandidates);
+            this.allFilterInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), inferenceCandidates);
         }
 
         public JoinEnumerationResult choose(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols)
@@ -393,7 +394,7 @@ public class ReorderJoins
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
             List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).getScopeEqualities();
-            EqualityInference joinInference = new EqualityInference(plannerContext, joinEqualities);
+            EqualityInference joinInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), joinEqualities);
             joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).getScopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
@@ -595,7 +596,7 @@ public class ReorderJoins
                 Metadata metadata)
         {
             // the number of sources is the number of joins + 1
-            return new JoinNodeFlattener(joinNode, lookup, planNodeIdAllocator, joinLimit + 1, pushProjectionsThroughJoin, metadata)
+            return new JoinNodeFlattener(joinNode, lookup, planNodeIdAllocator, joinLimit + 1, pushProjectionsThroughJoin, session, metadata)
                     .toMultiJoinNode();
         }
 
@@ -608,6 +609,7 @@ public class ReorderJoins
             private final List<Expression> filters = new ArrayList<>();
             private final List<Symbol> outputSymbols;
             private final boolean pushProjectionsThroughJoin;
+            private final Session session;
             private final Metadata metadata;
 
             // if projection was pushed through join during join graph flattening?
@@ -619,6 +621,7 @@ public class ReorderJoins
                     PlanNodeIdAllocator planNodeIdAllocator,
                     int sourceLimit,
                     boolean pushProjectionsThroughJoin,
+                    Session session,
                     Metadata metadata)
             {
                 requireNonNull(node, "node is null");
@@ -627,6 +630,7 @@ public class ReorderJoins
                 this.lookup = requireNonNull(lookup, "lookup is null");
                 this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
                 this.pushProjectionsThroughJoin = pushProjectionsThroughJoin;
+                this.session = requireNonNull(session, "session is null");
                 this.metadata = requireNonNull(metadata, "metadata is null");
 
                 flattenNode(node, sourceLimit);
@@ -668,7 +672,7 @@ public class ReorderJoins
                 flattenNode(joinNode.getLeft(), limit - 1);
                 flattenNode(joinNode.getRight(), limit);
                 joinNode.getCriteria().stream()
-                        .map(clause -> clause.toExpression(metadata))
+                        .map(clause -> clause.toExpression(metadata, getCharVarcharCoercion(session)))
                         .forEach(filters::add);
                 joinNode.getFilter().ifPresent(filters::add);
             }

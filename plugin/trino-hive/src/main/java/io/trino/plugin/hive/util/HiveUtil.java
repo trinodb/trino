@@ -604,7 +604,7 @@ public final class HiveUtil
             columnValue = path;
         }
         else if (isBucketColumnHandle(columnHandle)) {
-            columnValue = String.valueOf(bucketNumber.getAsInt());
+            columnValue = String.valueOf(bucketNumber.orElseThrow());
         }
         else if (isFileSizeColumnHandle(columnHandle)) {
             columnValue = String.valueOf(fileSize);

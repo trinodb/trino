@@ -13,28 +13,40 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.parquet.ParquetMetadataConverter;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveValueWriter
-        extends ValuesWriter
+        implements AutoCloseable
 {
     private Statistics<?> statistics;
     private final PrimitiveType parquetType;
+    // Type with the column order under which statistics are computed, see ParquetMetadataConverter#toTypeDefinedOrder
+    private final PrimitiveType statisticsType;
     private final ValuesWriter valuesWriter;
 
     public PrimitiveValueWriter(PrimitiveType parquetType, ValuesWriter valuesWriter)
     {
         this.parquetType = requireNonNull(parquetType, "parquetType is null");
+        this.statisticsType = ParquetMetadataConverter.toTypeDefinedOrder(parquetType);
         this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
-        this.statistics = Statistics.createStats(parquetType);
+        this.statistics = Statistics.createStats(statisticsType);
+    }
+
+    /// Creates statistics computed with the type-defined column order semantics, see ParquetMetadataConverter#toTypeDefinedOrder
+    public static Statistics<?> createStatistics(PrimitiveType type)
+    {
+        return Statistics.createStats(ParquetMetadataConverter.toTypeDefinedOrder(type));
     }
 
     ValuesWriter getValuesWriter()
@@ -52,7 +64,6 @@ public abstract class PrimitiveValueWriter
         return parquetType.getTypeLength();
     }
 
-    @Override
     public long getBufferedSize()
     {
         return valuesWriter.getBufferedSize();
@@ -67,23 +78,20 @@ public abstract class PrimitiveValueWriter
         };
     }
 
-    @Override
     public BytesInput getBytes()
     {
         return valuesWriter.getBytes();
     }
 
-    @Override
     public Encoding getEncoding()
     {
         return valuesWriter.getEncoding();
     }
 
-    @Override
     public void reset()
     {
         valuesWriter.reset();
-        this.statistics = Statistics.createStats(parquetType);
+        this.statistics = Statistics.createStats(statisticsType);
     }
 
     @Override
@@ -92,29 +100,38 @@ public abstract class PrimitiveValueWriter
         valuesWriter.close();
     }
 
-    @Override
     public DictionaryPage toDictPageAndClose()
     {
         return valuesWriter.toDictPageAndClose();
     }
 
-    @Override
     public void resetDictionary()
     {
         valuesWriter.resetDictionary();
     }
 
-    @Override
     public long getAllocatedSize()
     {
         return valuesWriter.getAllocatedSize();
     }
 
-    @Override
-    public String memUsageString(String prefix)
+    public final void write(Block rawBlock)
     {
-        return valuesWriter.memUsageString(prefix);
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> {
+                ValueBlock valueBlock = rleBlock.getValue();
+                if (!valueBlock.isNull(0)) {
+                    writeRepeated(valueBlock, rleBlock.getPositionCount());
+                }
+            }
+            case DictionaryBlock dictionaryBlock -> writePositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), dictionaryBlock.getRawIdsOffset(), dictionaryBlock.getPositionCount());
+            case ValueBlock valueBlock -> writeValueBlock(valueBlock);
+        }
     }
 
-    public abstract void write(Block block);
+    protected abstract void writeValueBlock(ValueBlock block);
+
+    protected abstract void writeRepeated(ValueBlock block, int count);
+
+    protected abstract void writePositions(ValueBlock block, int[] positions, int offset, int length);
 }

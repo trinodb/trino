@@ -22,7 +22,7 @@ import io.airlift.json.JsonMapperProvider;
 import io.trino.FeaturesConfig;
 import io.trino.block.BlockJsonSerde;
 import io.trino.connector.CatalogServiceProvider;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
@@ -51,7 +51,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.type.TypeDeserializer;
 
@@ -174,7 +174,7 @@ public final class TestingPlannerContext
 
             JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
             JsonCodec<IrJsonPath> irJsonPathJsonCodec = codecFactory.jsonCodec(IrJsonPath.class);
-            typeRegistry.addType(new JsonPath2016Type(irJsonPathJsonCodec));
+            typeRegistry.addType(new SqlJsonPathType(irJsonPathJsonCodec));
 
             return new PlannerContext(
                     metadata,
@@ -184,8 +184,7 @@ public final class TestingPlannerContext
                     functionManager,
                     languageFunctionManager,
                     noopTracer(),
-                    codecFactory.jsonCodec(Expression.class),
-                    featuresConfig);
+                    codecFactory.jsonCodec(Expression.class));
         }
     }
 }

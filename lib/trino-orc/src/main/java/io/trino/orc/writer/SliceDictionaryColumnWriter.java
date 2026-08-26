@@ -55,12 +55,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.stream.LongOutputStream.createLengthOutputStream;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -80,7 +82,7 @@ public class SliceDictionaryColumnWriter
     private final ByteArrayOutputStream dictionaryDataStream;
     private final LongOutputStream dictionaryLengthStream;
 
-    private final DictionaryBuilder dictionary = new DictionaryBuilder(10000);
+    private final DictionaryBuilder dictionary = new DictionaryBuilder(1024);
 
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
 
@@ -217,35 +219,45 @@ public class SliceDictionaryColumnWriter
         for (int i = 0; valueCount > 0 && i < segments.length; i++) {
             int[] segment = segments[i];
             int positionCount = Math.min(valueCount, segment.length);
-            Block block = DictionaryBlock.create(positionCount, dictionary, segment);
-
-            while (block != null) {
-                int chunkPositionCount = block.getPositionCount();
-                Block chunk = block.getRegion(0, chunkPositionCount);
-
-                // avoid chunk with huge logical size
-                while (chunkPositionCount > 1 && chunk.getSizeInBytes() > DIRECT_CONVERSION_CHUNK_MAX_BYTES) {
-                    chunkPositionCount /= 2;
-                    chunk = chunk.getRegion(0, chunkPositionCount);
-                }
-
-                directColumnWriter.writeBlock(chunk);
-                if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
-                    return false;
-                }
-
-                // slice block to only unconverted rows
-                if (chunkPositionCount < block.getPositionCount()) {
-                    block = block.getRegion(chunkPositionCount, block.getPositionCount() - chunkPositionCount);
-                }
-                else {
-                    block = null;
-                }
+            if (!writeDictionaryRowGroup(dictionary, positionCount, segment, maxDirectBytes)) {
+                return false;
             }
-
             valueCount -= positionCount;
         }
         checkState(valueCount == 0);
+        return true;
+    }
+
+    private boolean writeDictionaryRowGroup(Block dictionary, int positionCount, int[] dictionaryIndexes, int maxDirectBytes)
+    {
+        if (positionCount == 0) {
+            return true;
+        }
+        Block block = DictionaryBlock.create(positionCount, dictionary, dictionaryIndexes);
+
+        while (block != null) {
+            int chunkPositionCount = block.getPositionCount();
+            Block chunk = block.getRegion(0, chunkPositionCount);
+
+            // avoid chunk with huge logical size
+            while (chunkPositionCount > 1 && chunk.getSizeInBytes() > DIRECT_CONVERSION_CHUNK_MAX_BYTES) {
+                chunkPositionCount /= 2;
+                chunk = chunk.getRegion(0, chunkPositionCount);
+            }
+
+            directColumnWriter.writeBlock(chunk);
+            if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+                return false;
+            }
+
+            // slice block to only unconverted rows
+            if (chunkPositionCount < block.getPositionCount()) {
+                block = block.getRegion(chunkPositionCount, block.getPositionCount() - chunkPositionCount);
+            }
+            else {
+                block = null;
+            }
+        }
         return true;
     }
 
@@ -313,10 +325,9 @@ public class SliceDictionaryColumnWriter
         }
 
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
-        rowGroups.add(new DictionaryRowGroup(values, rowGroupValueCount, statistics));
+        rowGroups.add(new DictionaryRowGroup(values, rowGroupValueCount, dictionary.getEntryCount(), statistics));
         rowGroupValueCount = 0;
         statisticsBuilder = statisticsBuilderSupplier.get();
-        values = new IntBigArray();
         return ImmutableMap.of(columnId, statistics);
     }
 
@@ -377,12 +388,12 @@ public class SliceDictionaryColumnWriter
             dataStream.recordCheckpoint();
         }
         for (DictionaryRowGroup rowGroup : rowGroups) {
-            IntBigArray dictionaryIndexes = rowGroup.getDictionaryIndexes();
+            int[] dictionaryIndexes = rowGroup.getDictionaryIndexes();
             for (int position = 0; position < rowGroup.getValueCount(); position++) {
-                presentStream.writeBoolean(dictionaryIndexes.get(position) != 0);
+                presentStream.writeBoolean(dictionaryIndexes[position] != 0);
             }
             for (int position = 0; position < rowGroup.getValueCount(); position++) {
-                int originalDictionaryIndex = dictionaryIndexes.get(position);
+                int originalDictionaryIndex = dictionaryIndexes[position];
                 // index zero in original dictionary is reserved for null
                 if (originalDictionaryIndex != 0) {
                     int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
@@ -540,7 +551,7 @@ public class SliceDictionaryColumnWriter
                 (directColumnWriter == null ? 0 : directColumnWriter.getRetainedBytes());
 
         for (DictionaryRowGroup rowGroup : rowGroups) {
-            retainedBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
+            retainedBytes += rowGroup.getRetainedSizeInBytes();
         }
         return retainedBytes;
     }
@@ -572,24 +583,47 @@ public class SliceDictionaryColumnWriter
 
     private static class DictionaryRowGroup
     {
-        private final IntBigArray dictionaryIndexes;
+        private static final int INSTANCE_SIZE = instanceSize(DictionaryRowGroup.class);
+
+        // indexes are packed to the smallest byte width that fits the dictionary size at seal time
+        private final byte[] packedIndexes;
+        private final int bytesPerValue;
         private final int valueCount;
         private final ColumnStatistics columnStatistics;
 
-        public DictionaryRowGroup(IntBigArray dictionaryIndexes, int valueCount, ColumnStatistics columnStatistics)
+        public DictionaryRowGroup(IntBigArray dictionaryIndexes, int valueCount, int dictionaryEntryCount, ColumnStatistics columnStatistics)
         {
             requireNonNull(dictionaryIndexes, "dictionaryIndexes is null");
             checkArgument(valueCount >= 0, "valueCount is negative");
-            requireNonNull(columnStatistics, "columnStatistics is null");
+            checkArgument(dictionaryEntryCount >= 0, "dictionaryEntryCount is negative");
+            this.columnStatistics = requireNonNull(columnStatistics, "columnStatistics is null");
 
-            this.dictionaryIndexes = dictionaryIndexes;
+            this.bytesPerValue = estimateIndexBytesPerValue(dictionaryEntryCount);
             this.valueCount = valueCount;
-            this.columnStatistics = columnStatistics;
+            this.packedIndexes = new byte[multiplyExact(valueCount, bytesPerValue)];
+            int offset = 0;
+            for (int position = 0; position < valueCount; position++) {
+                int index = dictionaryIndexes.get(position);
+                for (int indexByte = 0; indexByte < bytesPerValue; indexByte++) {
+                    packedIndexes[offset] = (byte) (index >>> (8 * indexByte));
+                    offset++;
+                }
+            }
         }
 
-        public IntBigArray getDictionaryIndexes()
+        public int[] getDictionaryIndexes()
         {
-            return dictionaryIndexes;
+            int[] indexes = new int[valueCount];
+            int offset = 0;
+            for (int position = 0; position < valueCount; position++) {
+                int index = 0;
+                for (int indexByte = 0; indexByte < bytesPerValue; indexByte++) {
+                    index |= (packedIndexes[offset] & 0xFF) << (8 * indexByte);
+                    offset++;
+                }
+                indexes[position] = index;
+            }
+            return indexes;
         }
 
         public int getValueCount()
@@ -600,6 +634,13 @@ public class SliceDictionaryColumnWriter
         public ColumnStatistics getColumnStatistics()
         {
             return columnStatistics;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(packedIndexes) +
+                    columnStatistics.getRetainedSizeInBytes();
         }
     }
 }

@@ -34,11 +34,14 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -60,11 +63,12 @@ public final class GenerateEpsgCatalog
     public static void main(String[] args)
             throws Exception
     {
-        if (args.length != 1) {
-            throw new IllegalArgumentException("Usage: GenerateEpsgCatalog <generated-resources-directory>");
+        if (args.length != 2) {
+            throw new IllegalArgumentException("Usage: GenerateEpsgCatalog <generated-resources-directory> <dataset-version>");
         }
 
         Path outputDirectory = Path.of(args[0]);
+        String datasetVersion = args[1];
         // Derby (backing the embedded EPSG dataset) writes derby.log to the JVM working directory
         // by default, which is the repository root when invoked via exec:java. A stray untracked
         // file there makes gitflow-incremental-builder consider the root module changed.
@@ -72,6 +76,18 @@ public final class GenerateEpsgCatalog
         Path resourceDirectory = outputDirectory.resolve("io/trino/geospatial/epsg");
         Files.createDirectories(resourceDirectory);
         Files.deleteIfExists(resourceDirectory.resolve("epsg-catalog.bin.gz"));
+
+        Path catalog = outputDirectory.resolve(CATALOG_RESOURCE);
+        // The stamp is kept outside the generated resource directory so that it is not packaged.
+        Path stamp = outputDirectory.resolveSibling("epsg-catalog.stamp");
+        String fingerprint = fingerprint(datasetVersion);
+        if (Files.isRegularFile(catalog) && Files.isRegularFile(stamp) && fingerprint.equals(Files.readString(stamp, UTF_8))) {
+            System.out.printf("EPSG catalog in %s is up to date%n", catalog);
+            return;
+        }
+        // Remove the stamp first, so that a run failing part way through regenerates next time
+        // instead of leaving a partial catalog looking up to date.
+        Files.deleteIfExists(stamp);
 
         AuthorityFactory authorityFactory = CRS.getAuthorityFactory("EPSG");
         if (!(authorityFactory instanceof CRSAuthorityFactory crsFactory)) {
@@ -95,7 +111,7 @@ public final class GenerateEpsgCatalog
             }
             try {
                 CoordinateReferenceSystem crs = crsFactory.createCoordinateReferenceSystem(code);
-                crsWkts.put(epsgCode.getAsInt(), format.format(crs).getBytes(UTF_8));
+                crsWkts.put(epsgCode.orElseThrow(), format.format(crs).getBytes(UTF_8));
             }
             catch (Exception e) {
                 skippedCrs++;
@@ -114,13 +130,13 @@ public final class GenerateEpsgCatalog
             try {
                 CoordinateOperation operation = operationFactory.createCoordinateOperation(code);
                 byte[] wkt = format.format(operation).getBytes(UTF_8);
-                operationWkts.put(epsgCode.getAsInt(), new OperationEntry(epsgCode.getAsInt(), wkt));
+                operationWkts.put(epsgCode.orElseThrow(), new OperationEntry(epsgCode.orElseThrow(), wkt));
 
                 OptionalInt source = epsgIdentifier(operation.getSourceCRS());
                 OptionalInt target = epsgIdentifier(operation.getTargetCRS());
                 if (source.isPresent() && target.isPresent()) {
-                    operationCodesByPair.computeIfAbsent(new Pair(source.getAsInt(), target.getAsInt()), _ -> new ArrayList<>())
-                            .add(epsgCode.getAsInt());
+                    operationCodesByPair.computeIfAbsent(new Pair(source.orElseThrow(), target.orElseThrow()), _ -> new ArrayList<>())
+                            .add(epsgCode.orElseThrow());
                 }
             }
             catch (Exception e) {
@@ -128,7 +144,6 @@ public final class GenerateEpsgCatalog
             }
         }
 
-        Path catalog = outputDirectory.resolve(CATALOG_RESOURCE);
         writeCatalog(catalog, crsWkts, operationWkts, operationCodesByPair);
         copyResource("META-INF/LICENSE", resourceDirectory.resolve("EPSG-LICENSE.txt"));
         copyResource("META-INF/NOTICE", resourceDirectory.resolve("EPSG-NOTICE.txt"));
@@ -142,6 +157,29 @@ public final class GenerateEpsgCatalog
                 skippedCrs,
                 skippedOperations);
         shutdownBuildTimeServices();
+        Files.writeString(stamp, fingerprint, UTF_8);
+    }
+
+    /**
+     * Fingerprints the inputs that determine the catalog contents: the generator itself, and the
+     * version of the embedded EPSG dataset it reads.
+     */
+    private static String fingerprint(String datasetVersion)
+            throws IOException, NoSuchAlgorithmException
+    {
+        String resource = GenerateEpsgCatalog.class.getName().replace('.', '/') + ".class";
+        byte[] bytecode;
+        try (InputStream input = GenerateEpsgCatalog.class.getClassLoader().getResourceAsStream(resource)) {
+            if (input == null) {
+                throw new IOException("Resource not found: " + resource);
+            }
+            bytecode = input.readAllBytes();
+        }
+
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(bytecode);
+        digest.update(datasetVersion.getBytes(UTF_8));
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     private static void writeCatalog(

@@ -23,6 +23,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.planner.DeterminismEvaluator;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -30,9 +31,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.ir.IrUtils.combinePredicates;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 
 public final class ExtractCommonPredicatesExpressionRewriter
@@ -74,7 +75,13 @@ public final class ExtractCommonPredicatesExpressionRewriter
 
             // Prefer AND LogicalBinaryExpression at the root if possible
             if (context.isRootNode() && simplified instanceof Logical value && value.operator() == OR) {
-                return distributeIfPossible(value);
+                Expression distributed = distributeIfPossible(value);
+                if (logical.operator() == AND && distributed instanceof Logical result && result.operator() == AND) {
+                    // Factoring a root AND only to distribute it back into an AND is ineffective
+                    // and may reorder predicates.
+                    return logical;
+                }
+                return distributed;
             }
 
             return simplified;
@@ -84,10 +91,14 @@ public final class ExtractCommonPredicatesExpressionRewriter
         {
             List<List<Expression>> subPredicates = getSubPredicates(node);
 
-            Set<Expression> commonPredicates = ImmutableSet.copyOf(subPredicates.stream()
-                    .map(this::filterDeterministicPredicates)
-                    .reduce(Sets::intersection)
-                    .orElse(emptySet()));
+            Set<Expression> mutableCommonPredicates = new LinkedHashSet<>();
+            if (!subPredicates.isEmpty()) {
+                mutableCommonPredicates.addAll(filterDeterministicPredicates(subPredicates.getFirst()));
+                for (int index = 1; index < subPredicates.size() && !mutableCommonPredicates.isEmpty(); index++) {
+                    mutableCommonPredicates.retainAll(filterDeterministicPredicates(subPredicates.get(index)));
+                }
+            }
+            Set<Expression> commonPredicates = ImmutableSet.copyOf(mutableCommonPredicates);
 
             List<List<Expression>> uncorrelatedSubPredicates = subPredicates.stream()
                     .map(predicateList -> removeAll(predicateList, commonPredicates))
@@ -143,7 +154,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
                 newBaseExpressions = Math.multiplyExact(subPredicates.stream()
                         .mapToInt(Set::size)
                         .reduce(Math::multiplyExact)
-                        .getAsInt(), subPredicates.size());
+                        .orElseThrow(), subPredicates.size());
             }
             catch (ArithmeticException e) {
                 // Integer overflow from multiplication means there are too many expressions

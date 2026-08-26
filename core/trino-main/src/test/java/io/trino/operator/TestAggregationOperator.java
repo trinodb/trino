@@ -19,8 +19,8 @@ import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
@@ -90,10 +90,10 @@ public class TestAggregationOperator
         List<Page> input = ImmutableList.of(new Page(
                 4,
                 createLongsBlock(1, 2, 3, 4),
-                new ByteArrayBlock(
+                new BitArrayBlock(
                         4,
                         Optional.of(new long[] {0b1100}),
-                        new byte[] {0, 27 /* dirty null */, 0, 75 /* non-zero value is true */})));
+                        new long[] {0b1010 /* dirty null at position 1, true value at position 3 */})));
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
@@ -125,10 +125,10 @@ public class TestAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(distinctFactory));
 
-        ByteArrayBlock trueMaskAllNull = new ByteArrayBlock(
+        BitArrayBlock trueMaskAllNull = new BitArrayBlock(
                 4,
                 Optional.of(new long[] {0}), /* all positions are null */
-                new byte[] {1, 1, 1, 1}); /* non-zero value is true, all masks are true */
+                new long[] {0b1111}); /* all masks are true */
 
         Block trueNullRleMask = RunLengthEncodedBlock.create(trueMaskAllNull.getSingleValueBlock(0), 4);
 

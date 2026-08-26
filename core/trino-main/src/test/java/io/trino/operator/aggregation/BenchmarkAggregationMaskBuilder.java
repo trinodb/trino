@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.spi.Page;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
@@ -23,12 +24,14 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -220,6 +223,65 @@ public class BenchmarkAggregationMaskBuilder
     public Object allBlocksCompiled()
     {
         return allBlocksBuilderCompiled.buildAggregationMask(arguments, Optional.empty());
+    }
+
+    @Benchmark
+    public Object booleanMaskCurrent(BooleanMaskData data)
+    {
+        data.currentMask.reset(data.positionCount);
+        data.currentMask.applyMaskBlock(data.maskBlock);
+        return data.currentMask;
+    }
+
+    @Benchmark
+    public Object booleanMaskCompiled(BooleanMaskData data)
+    {
+        return data.compiledMaskBuilder.buildAggregationMask(data.page, Optional.of(data.maskBlock));
+    }
+
+    @Benchmark
+    public Object booleanMaskScalar(BooleanMaskData data)
+    {
+        return data.scalarMaskBuilder.buildAggregationMask(data.page, Optional.of(data.maskBlock));
+    }
+
+    @State(Scope.Thread)
+    public static class BooleanMaskData
+    {
+        private static final int POSITION_COUNT = 10_000;
+
+        @Param({"0.1", "0.5", "0.9"})
+        public double selectivity;
+
+        @Param({"0.0", "0.1"})
+        public double nullRate;
+
+        private final AggregationMaskBuilder compiledMaskBuilder = compiledMaskBuilder();
+        private final AggregationMaskBuilder scalarMaskBuilder = new HandCodedAggregationMaskBuilder(-1, -1, -1);
+        private final AggregationMask currentMask = AggregationMask.createSelectAll(0);
+
+        private int positionCount;
+        private Page page;
+        private BitArrayBlock maskBlock;
+
+        @Setup
+        public void setup()
+        {
+            positionCount = POSITION_COUNT;
+            page = new Page(positionCount);
+            long[] values = new long[wordsForBits(positionCount)];
+            long[] validity = nullRate == 0 ? null : new long[wordsForBits(positionCount)];
+            Random random = new Random(73462743L);
+            for (int position = 0; position < positionCount; position++) {
+                if (random.nextDouble() < selectivity) {
+                    set(values, 0, position);
+                }
+                if (validity != null && random.nextDouble() >= nullRate) {
+                    set(validity, 0, position);
+                }
+            }
+            maskBlock = new BitArrayBlock(positionCount, Optional.ofNullable(validity), values);
+        }
     }
 
     static void main()

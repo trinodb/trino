@@ -25,8 +25,10 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class HiveExecutorModule
         implements Module
@@ -42,8 +44,14 @@ public class HiveExecutorModule
     @Provides
     @Singleton
     @ForHiveMetadata
-    public ExecutorService createMetadataExecutor(CatalogName catalogName)
+    public ExecutorService createMetadataExecutor(CatalogName catalogName, HiveConfig hiveConfig)
     {
+        // This executor backs blocking metastore/filesystem I/O; every consumer wraps it in its own BoundedExecutor
+        // (metadata enumeration, filesystem operations, metastore drops/updates), so a virtual-thread-per-task executor
+        // caps thread cost while those BoundedExecutors preserve the downstream concurrency limits.
+        if (hiveConfig.isMetadataVirtualThreadsEnabled()) {
+            return newThreadPerTaskExecutor(virtualThreadsNamed("hive-metadata-" + catalogName + "#v%s"));
+        }
         return newCachedThreadPool(daemonThreadsNamed("hive-metadata-" + catalogName + "-%s"));
     }
 

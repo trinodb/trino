@@ -22,6 +22,7 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
@@ -86,6 +87,11 @@ public final class StandaloneQueryRunner
                         .put("query.client.timeout", "10m")
                         .put("exchange.http-client.idle-timeout", "1h")
                         .put("node-scheduler.min-candidates", "1")
+                        // Purge finished-task info quickly so per-task stats are not retained, preserving memory on CI.
+                        // Must stay above task.info-update-interval so the coordinator can fetch a task's final
+                        // TaskInfo (incl. SpoolingOutputStats needed by fault-tolerant execution) before it is evicted.
+                        .put("task.info.max-age", "10s")
+                        .put("task.info-update-interval", "1s")
                         .buildOrThrow());
         serverProcessor.accept(builder);
         this.server = builder.build();
@@ -96,6 +102,7 @@ public final class StandaloneQueryRunner
                 server.getQueryManager(),
                 server.getInstance(Key.get(QueryManagerConfig.class)),
                 server.getInstance(Key.get(DirectExchangeClientSupplier.class)),
+                server.getInstance(Key.get(ExchangeManagerRegistry.class)),
                 server.getInstance(Key.get(BlockEncodingSerde.class)));
     }
 
@@ -331,5 +338,11 @@ public final class StandaloneQueryRunner
     public void loadSpoolingManager(String name, Map<String, String> properties)
     {
         server.loadSpoolingManager(name, properties);
+    }
+
+    @Override
+    public void loadBlobCacheManager(String name, Map<String, String> properties)
+    {
+        server.loadBlobCacheManager(name, properties);
     }
 }

@@ -14,8 +14,6 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Case;
@@ -32,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.mayFail;
@@ -66,7 +65,7 @@ public class ExtractCommonConjunctFromCase
         }
 
         List<Expression> results = branchResults(caseTerm);
-        Set<Expression> common = commonConjuncts(results);
+        Set<Expression> common = commonConjuncts(session, results);
         if (common.isEmpty()) {
             return Optional.empty();
         }
@@ -91,11 +90,11 @@ public class ExtractCommonConjunctFromCase
                 .build();
     }
 
-    private Set<Expression> commonConjuncts(List<Expression> results)
+    private Set<Expression> commonConjuncts(Session session, List<Expression> results)
     {
         // Deterministic, non-failing, non-trivial conjuncts present in every branch, keyed by structural equality.
         Set<Expression> common = extractConjuncts(results.getFirst()).stream()
-                .filter(conjunct -> !conjunct.equals(TRUE) && isDeterministic(conjunct) && !mayFail(context, conjunct))
+                .filter(conjunct -> !conjunct.equals(TRUE) && isDeterministic(conjunct) && !mayFail(context, getCharVarcharCoercion(session), conjunct))
                 .collect(toCollection(LinkedHashSet::new));
 
         for (int branch = 1; branch < results.size() && !common.isEmpty(); branch++) {
@@ -107,6 +106,9 @@ public class ExtractCommonConjunctFromCase
 
     private static Expression removeConjuncts(Expression expression, Set<Expression> removed)
     {
-        return combineConjuncts(Sets.difference(ImmutableSet.copyOf(extractConjuncts(expression)), removed));
+        // Repeated non-deterministic conjuncts are semantically distinct, so every occurrence must survive
+        return combineConjuncts(extractConjuncts(expression).stream()
+                .filter(conjunct -> !removed.contains(conjunct))
+                .collect(toImmutableList()));
     }
 }

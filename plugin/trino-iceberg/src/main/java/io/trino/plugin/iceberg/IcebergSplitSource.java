@@ -333,7 +333,7 @@ public class IcebergSplitSource
         List<ConnectorSplit> splits = new ArrayList<>(maxSize);
         while (splits.size() < maxSize && (fileTasksIterator.hasNext() || fileScanIterator.hasNext())) {
             if (!fileTasksIterator.hasNext()) {
-                if (limit.isPresent() && limit.getAsLong() <= outputRowsLowerBound) {
+                if (limit.isPresent() && limit.orElseThrow() <= outputRowsLowerBound) {
                     finish();
                     break;
                 }
@@ -452,7 +452,7 @@ public class IcebergSplitSource
         BaseFileScanTask fileScanTask = (BaseFileScanTask) fileScanTaskWithDomain.fileScanTask();
         if (fileHasNoDeletions &&
                 maxScannedFileSizeInBytes.isPresent() &&
-                fileScanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.getAsLong()) {
+                fileScanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.orElseThrow()) {
             return true;
         }
 

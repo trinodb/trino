@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -64,6 +63,7 @@ import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -81,7 +81,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
@@ -115,8 +114,8 @@ public class BinPackingNodeAllocatorService
     private final DataSize eagerSpeculativeTasksNodeMemoryOvercommit;
     private final Ticker ticker;
 
-    private final ConcurrentNavigableMap<QueryId, Deque<PendingAcquire>> pendingAcquires = new ConcurrentSkipListMap<>(Ordering.natural().onResultOf(QueryId::id));
-    private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
+    private final ConcurrentNavigableMap<QueryId, Deque<PendingAcquire>> pendingAcquires = new ConcurrentSkipListMap<>(comparing(QueryId::id));
+    private final Set<BinPackingNodeLease> fulfilledAcquires = ConcurrentHashMap.newKeySet();
     private final Duration allowedNoMatchingNodePeriod;
     private final Duration exhaustedNodeWaitPeriod;
     private final boolean optimizedLocalScheduling;
@@ -770,6 +769,7 @@ public class BinPackingNodeAllocatorService
         private final Set<String> nodesWithoutMemory;
         private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
         private final Map<String, Long> speculativeMemoryReserved;
+        private final Map<String, Long> totalFulfilledAcquiresCountByNode;
 
         private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
@@ -818,10 +818,12 @@ public class BinPackingNodeAllocatorService
 
             Map<String, Long> preReservedMemory = new HashMap<>();
             speculativeMemoryReserved = new HashMap<>();
+            totalFulfilledAcquiresCountByNode = new HashMap<>();
             SetMultimap<String, BinPackingNodeLease> fulfilledAcquiresByNode = HashMultimap.create();
             for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
                 InternalNode node = fulfilledAcquire.getAssignedNode();
                 long memoryLease = fulfilledAcquire.getMemoryLease();
+                totalFulfilledAcquiresCountByNode.merge(node.getNodeIdentifier(), 1L, Long::sum);
                 if (ignoreAcquiredSpeculative && fulfilledAcquire.isSpeculative()) {
                     speculativeMemoryReserved.merge(node.getNodeIdentifier(), memoryLease, Long::sum);
                 }
@@ -899,6 +901,21 @@ public class BinPackingNodeAllocatorService
                 return ReserveResult.NONE_MATCHING;
             }
 
+            // result of acquire.getMemoryLease() can change; store memory as a variable, so we have consistent value through this method.
+            long memoryRequirements = acquire.getMemoryLease();
+
+            if (memoryRequirements == 0) {
+                // A task which does not reserve any memory, e.g. one only reading catalog metadata, takes nothing away
+                // from a node's memory pool. It can run on any node regardless of memory pressure; pick the least loaded
+                // one so metadata queries do not pile on a single node. The count includes speculative acquires so
+                // metadata tasks avoid nodes busy with speculative work as well.
+                InternalNode selectedNode = candidates.stream()
+                        .min(comparing(node -> totalFulfilledAcquiresCountByNode.getOrDefault(node.getNodeIdentifier(), 0L)))
+                        .orElseThrow();
+                recordReservation(selectedNode.getNodeIdentifier(), 0);
+                return ReserveResult.reserved(selectedNode);
+            }
+
             candidates = candidates.stream().filter(node -> !nodesWithoutMemory.contains(node.getNodeIdentifier())).collect(toImmutableList());
             if (candidates.isEmpty()) {
                 return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
@@ -912,9 +929,6 @@ public class BinPackingNodeAllocatorService
                     .max(comparator)
                     .orElseThrow();
 
-            // result of acquire.getMemoryLease() can change; store memory as a variable, so we have consistent value through this method.
-            long memoryRequirements = acquire.getMemoryLease();
-
             if (nodesRemainingMemoryRuntimeAdjusted.get(selectedNode.getNodeIdentifier()) >= memoryRequirements || isNodeEmpty(selectedNode.getNodeIdentifier())) {
                 // there is enough unreserved memory on the node
                 // OR
@@ -923,7 +937,7 @@ public class BinPackingNodeAllocatorService
                 // todo: currant logic does not handle heterogenous clusters best. There is a chance that there is a larger node in the cluster but
                 //       with less memory available right now, hence that one was not selected as a candidate.
                 // mark memory reservation
-                subtractFromRemainingMemory(selectedNode.getNodeIdentifier(), memoryRequirements);
+                recordReservation(selectedNode.getNodeIdentifier(), memoryRequirements);
                 return ReserveResult.reserved(selectedNode);
             }
 
@@ -937,7 +951,7 @@ public class BinPackingNodeAllocatorService
             InternalNode fallbackNode = candidates.stream()
                     .max(fallbackComparator)
                     .orElseThrow();
-            subtractFromRemainingMemory(fallbackNode.getNodeIdentifier(), memoryRequirements);
+            recordReservation(fallbackNode.getNodeIdentifier(), memoryRequirements);
             return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
         }
 
@@ -956,7 +970,7 @@ public class BinPackingNodeAllocatorService
             return comparator.thenComparing(node -> -speculativeMemoryReserved.getOrDefault(node.getNodeIdentifier(), 0L));
         }
 
-        private void subtractFromRemainingMemory(String nodeIdentifier, long memoryLease)
+        private void recordReservation(String nodeIdentifier, long memoryLease)
         {
             nodesRemainingMemoryRuntimeAdjusted.compute(
                     nodeIdentifier,
@@ -967,6 +981,7 @@ public class BinPackingNodeAllocatorService
             if (nodesRemainingMemory.get(nodeIdentifier) == 0) {
                 nodesWithoutMemory.add(nodeIdentifier);
             }
+            totalFulfilledAcquiresCountByNode.merge(nodeIdentifier, 1L, Long::sum);
         }
 
         private boolean isNodeEmpty(String nodeIdentifier)

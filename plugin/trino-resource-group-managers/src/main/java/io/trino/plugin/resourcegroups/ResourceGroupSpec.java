@@ -96,7 +96,7 @@ public class ResourceGroupSpec
             if (matcher.matches()) {
                 this.softMemoryLimit = Optional.empty();
                 this.softMemoryLimitFraction = OptionalDouble.of(Double.parseDouble(matcher.group(1)) / 100.0);
-                checkArgument(softMemoryLimitFraction.getAsDouble() <= 1.0, "softMemoryLimit percentage is over 100%");
+                checkArgument(softMemoryLimitFraction.orElseThrow() <= 1.0, "softMemoryLimit percentage is over 100%");
             }
             else {
                 this.softMemoryLimit = Optional.of(DataSize.valueOf(softMemoryLimit.get()));

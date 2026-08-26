@@ -83,6 +83,16 @@ public @interface TestGroup
     @Tag("smoke")
     @interface Smoke {}
 
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
+    @Tag("sql_cancel")
+    @interface SqlCancel {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
+    @Tag("compatibility")
+    @interface Compatibility {}
+
     // JDBC
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
@@ -139,6 +149,11 @@ public @interface TestGroup
     @Retention(RUNTIME)
     @Tag("tls")
     @interface Tls {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
+    @Tag("tls_kerberos")
+    @interface TlsKerberos {}
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
@@ -384,8 +399,8 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
-    @Tag("delta-lake-minio")
-    @interface DeltaLakeMinio {}
+    @Tag("delta-lake-floci")
+    @interface DeltaLakeFloci {}
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)

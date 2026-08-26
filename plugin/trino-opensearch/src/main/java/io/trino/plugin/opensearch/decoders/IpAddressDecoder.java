@@ -15,7 +15,6 @@ package io.trino.plugin.opensearch.decoders;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.opensearch.DecoderDescriptor;
@@ -24,6 +23,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.opensearch.search.SearchHit;
 
+import java.net.InetAddress;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -68,7 +68,7 @@ public class IpAddressDecoder
     {
         byte[] address;
         try {
-            address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
+            address = InetAddress.ofLiteral(slice.toStringUtf8()).getAddress();
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());

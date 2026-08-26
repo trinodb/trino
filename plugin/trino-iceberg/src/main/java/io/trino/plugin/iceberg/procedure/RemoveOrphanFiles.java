@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.procedure;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.filesystem.FileEntry;
@@ -40,11 +39,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergExceptions.isNotFoundException;
 import static io.trino.plugin.iceberg.IcebergUtil.fileName;
 import static io.trino.plugin.iceberg.IcebergUtil.loadAllManifestsFromManifestList;
 import static io.trino.plugin.iceberg.IcebergUtil.loadAllManifestsFromSnapshot;
@@ -71,7 +72,7 @@ public final class RemoveOrphanFiles
         // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
         // representations due to things like double slashes. Using file names may result in retaining files which could be removed.
         // However, in practice Iceberg metadata and data files have UUIDs in their names which makes this unlikely.
-        Set<String> validFileNames = Sets.newConcurrentHashSet();
+        Set<String> validFileNames = ConcurrentHashMap.newKeySet();
         List<Future<?>> manifestScanFutures = new ArrayList<>();
 
         for (Snapshot snapshot : table.snapshots()) {
@@ -99,11 +100,13 @@ public final class RemoveOrphanFiles
                             validFileNames.add(fileName(contentFile.location()));
                         }
                     }
-                    catch (IOException | UncheckedIOException e) {
+                    catch (IOException | UncheckedIOException | NotFoundException e) {
+                        // A missing manifest surfaces as NotFoundException on some file systems and as an
+                        // UncheckedIOException wrapping FileNotFoundException on others (e.g. S3)
+                        if (isNotFoundException(e)) {
+                            throw new TrinoException(ICEBERG_INVALID_METADATA, "Manifest file does not exist: " + manifest.path(), e);
+                        }
                         throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to list manifest file content from " + manifest.path(), e);
-                    }
-                    catch (NotFoundException e) {
-                        throw new TrinoException(ICEBERG_INVALID_METADATA, "Manifest file does not exist: " + manifest.path());
                     }
                 }));
             }

@@ -59,6 +59,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -223,9 +224,9 @@ public class UnwrapCastInComparison
             Type sourceType = source.type();
             // Unwrap each half of the BETWEEN independently, as the lower and upper comparison against the cast.
             Expression low = tryUnwrapCast(GREATER_THAN_OR_EQUAL, cast, range.min())
-                    .orElseGet(() -> comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, cast, range.min()));
+                    .orElseGet(() -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, cast, range.min()));
             Expression high = tryUnwrapCast(LESS_THAN_OR_EQUAL, cast, range.max())
-                    .orElseGet(() -> comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, cast, range.max()));
+                    .orElseGet(() -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, cast, range.max()));
 
             // Unwrapping can collapse a bound to a constant truth value when the literal falls outside the source
             // type range: a never-satisfied bound empties the range, an always-satisfied bound drops out.
@@ -262,13 +263,13 @@ public class UnwrapCastInComparison
                 // The conjunction references the cast source in both halves; bind a non-trivial source once so it is
                 // evaluated a single time, and rebuild each comparison against the bound operand.
                 return Optional.of(bindSourceIfNecessary(source, operand -> and(
-                        comparison(plannerContext.getMetadata(), normalizedLow.operator(), operand, new Constant(sourceType, normalizedLow.value())),
-                        comparison(plannerContext.getMetadata(), normalizedHigh.operator(), operand, new Constant(sourceType, normalizedHigh.value())))));
+                        comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), normalizedLow.operator(), operand, new Constant(sourceType, normalizedLow.value())),
+                        comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), normalizedHigh.operator(), operand, new Constant(sourceType, normalizedHigh.value())))));
             }
             if (compare(sourceType, inclusiveLow.get(), inclusiveHigh.get()) > 0) {
                 return Optional.of(falseIfNotNull(source));
             }
-            return Optional.of(between(plannerContext.getMetadata(), symbolAllocator, source, new Constant(sourceType, inclusiveLow.get()), new Constant(sourceType, inclusiveHigh.get())));
+            return Optional.of(between(plannerContext.getMetadata(), getCharVarcharCoercion(session), symbolAllocator, source, new Constant(sourceType, inclusiveLow.get()), new Constant(sourceType, inclusiveHigh.get())));
         }
 
         private static boolean isNeverSatisfied(Expression bound, Expression source)
@@ -362,7 +363,7 @@ public class UnwrapCastInComparison
                 return unwrapCharToVarcharCast(charType, varcharType, operator, cast.expression(), (Slice) rightValue);
             }
 
-            if (!hasInjectiveImplicitCoercion(sourceType, targetType, rightValue)) {
+            if (!isInjectiveOrderPreservingCastAtValue(sourceType, targetType, rightValue)) {
                 return Optional.empty();
             }
 
@@ -386,7 +387,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            ResolvedFunction sourceToTarget = plannerContext.getMetadata().getCoercion(sourceType, targetType);
+            ResolvedFunction sourceToTarget = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), sourceType, targetType);
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -415,10 +416,10 @@ public class UnwrapCastInComparison
                         // equal to max representable value
                         return Optional.of(switch (operator) {
                             case GREATER_THAN -> falseIfNotNull(cast.expression());
-                            case GREATER_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), EQUAL, cast.expression(), new Constant(sourceType, max));
+                            case GREATER_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, cast.expression(), new Constant(sourceType, max));
                             case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
-                            case LESS_THAN -> comparison(plannerContext.getMetadata(), NOT_EQUAL, cast.expression(), new Constant(sourceType, max));
-                            case EQUAL, NOT_EQUAL, IDENTICAL -> comparison(plannerContext.getMetadata(), operator, cast.expression(), new Constant(sourceType, max));
+                            case LESS_THAN -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), NOT_EQUAL, cast.expression(), new Constant(sourceType, max));
+                            case EQUAL, NOT_EQUAL, IDENTICAL -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), operator, cast.expression(), new Constant(sourceType, max));
                         });
                     }
 
@@ -439,10 +440,10 @@ public class UnwrapCastInComparison
                         // equal to min representable value
                         return Optional.of(switch (operator) {
                             case LESS_THAN -> falseIfNotNull(cast.expression());
-                            case LESS_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), EQUAL, cast.expression(), new Constant(sourceType, min));
+                            case LESS_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, cast.expression(), new Constant(sourceType, min));
                             case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
-                            case GREATER_THAN -> comparison(plannerContext.getMetadata(), NOT_EQUAL, cast.expression(), new Constant(sourceType, min));
-                            case EQUAL, NOT_EQUAL, IDENTICAL -> comparison(plannerContext.getMetadata(), operator, cast.expression(), new Constant(sourceType, min));
+                            case GREATER_THAN -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), NOT_EQUAL, cast.expression(), new Constant(sourceType, min));
+                            case EQUAL, NOT_EQUAL, IDENTICAL -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), operator, cast.expression(), new Constant(sourceType, min));
                         });
                     }
                 }
@@ -450,7 +451,7 @@ public class UnwrapCastInComparison
 
             ResolvedFunction targetToSource;
             try {
-                targetToSource = plannerContext.getMetadata().getCoercion(targetType, sourceType);
+                targetToSource = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), targetType, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do
@@ -484,13 +485,13 @@ public class UnwrapCastInComparison
                         case IDENTICAL -> FALSE;
                         case LESS_THAN, LESS_THAN_OR_EQUAL -> {
                             if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMin(), literalInSourceType) == 0) {
-                                yield comparison(plannerContext.getMetadata(), EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
+                                yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                             }
-                            yield comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
+                            yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                         }
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // larger than the next value in the source type
-                        case GREATER_THAN, GREATER_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), GREATER_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
+                        case GREATER_THAN, GREATER_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
                     });
                 }
 
@@ -502,15 +503,15 @@ public class UnwrapCastInComparison
                         case IDENTICAL -> FALSE;
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // smaller than the next value in the source type
-                        case LESS_THAN, LESS_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), LESS_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
+                        case LESS_THAN, LESS_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL -> sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0 ?
-                                comparison(plannerContext.getMetadata(), EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType)) :
-                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
+                                comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType)) :
+                                comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                     });
                 }
             }
 
-            return Optional.of(comparison(plannerContext.getMetadata(), operator, cast.expression(), new Constant(sourceType, literalInSourceType)));
+            return Optional.of(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), operator, cast.expression(), new Constant(sourceType, literalInSourceType)));
         }
 
         private Optional<Expression> unwrapCharToVarcharCast(CharType charType, VarcharType varcharType, ComparisonOperator operator, Expression charExpression, Slice value)
@@ -533,8 +534,8 @@ public class UnwrapCastInComparison
             ResolvedFunction varcharToChar;
             ResolvedFunction charToVarchar;
             try {
-                varcharToChar = plannerContext.getMetadata().getCoercion(varcharType, charType);
-                charToVarchar = plannerContext.getMetadata().getCoercion(charType, varcharType);
+                varcharToChar = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), varcharType, charType);
+                charToVarchar = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), charType, varcharType);
             }
             catch (OperatorNotFoundException e) {
                 return Optional.empty();
@@ -552,7 +553,7 @@ public class UnwrapCastInComparison
             // char(n). In that case CAST(c AS varchar) = v is equivalent to c = CAST(v AS char(n)); otherwise no char
             // value's (trimmed) varchar form can equal the literal, so the equality is unsatisfiable.
             if (value.equals(coerce(literalInChar, charToVarchar))) {
-                return Optional.of(comparison(plannerContext.getMetadata(), operator, charExpression, new Constant(charType, literalInChar)));
+                return Optional.of(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), operator, charExpression, new Constant(charType, literalInChar)));
             }
             return Optional.of(switch (operator) {
                 case EQUAL -> falseIfNotNull(charExpression);
@@ -566,7 +567,7 @@ public class UnwrapCastInComparison
         {
             ResolvedFunction targetToSource;
             try {
-                targetToSource = plannerContext.getMetadata().getCoercion(DATE, sourceType);
+                targetToSource = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), DATE, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
@@ -577,19 +578,19 @@ public class UnwrapCastInComparison
 
             return switch (operator) {
                 case EQUAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
-                        and(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, dateTimestamp),
-                                comparison(plannerContext.getMetadata(), LESS_THAN, operand, nextDateTimestamp))));
+                        and(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, operand, nextDateTimestamp))));
                 case NOT_EQUAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
-                        or(comparison(plannerContext.getMetadata(), LESS_THAN, operand, dateTimestamp),
-                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, nextDateTimestamp))));
-                case LESS_THAN -> Optional.of(comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, dateTimestamp));
-                case LESS_THAN_OR_EQUAL -> Optional.of(comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, nextDateTimestamp));
-                case GREATER_THAN -> Optional.of(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
-                case GREATER_THAN_OR_EQUAL -> Optional.of(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
+                        or(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, operand, nextDateTimestamp))));
+                case LESS_THAN -> Optional.of(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, timestampExpression, dateTimestamp));
+                case LESS_THAN_OR_EQUAL -> Optional.of(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN -> Optional.of(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN_OR_EQUAL -> Optional.of(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
                 case IDENTICAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
-                        and(not(plannerContext.getMetadata(), new IsNull(operand)),
-                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, dateTimestamp),
-                                comparison(plannerContext.getMetadata(), LESS_THAN, operand, nextDateTimestamp))));
+                        and(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(operand)),
+                                comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, operand, nextDateTimestamp))));
             };
         }
 
@@ -612,7 +613,11 @@ public class UnwrapCastInComparison
                     || isCastOverTrivial(cast.expression()));
         }
 
-        private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)
+        /// Determines whether the cast from `source` to `target` is order-preserving and
+        /// injective at `value` — i.e. at most one value of the source type casts to `value`.
+        ///
+        /// @param value a value of the target type
+        private boolean isInjectiveOrderPreservingCastAtValue(Type source, Type target, Object value)
         {
             if ((source.equals(BIGINT) && target.equals(DOUBLE)) ||
                     (source.equals(BIGINT) && target.equals(REAL)) ||
@@ -678,7 +683,7 @@ public class UnwrapCastInComparison
                 return false;
             }
 
-            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion()).canCoerce(source, target);
+            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session)).canCoerce(source, target);
             if (source instanceof VarcharType sourceVarchar && target instanceof CharType targetChar) {
                 if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
                     // Truncation, not injective.
@@ -721,7 +726,7 @@ public class UnwrapCastInComparison
 
         public Expression trueIfNotNull(Expression argument)
         {
-            return or(not(plannerContext.getMetadata(), new IsNull(argument)), new Constant(BOOLEAN, null));
+            return or(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(argument)), new Constant(BOOLEAN, null));
         }
     }
 

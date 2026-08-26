@@ -37,6 +37,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -91,8 +92,8 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.functionName(), fromTypeDescriptors(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeDescriptor()));
-        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction("ST_Envelope", fromTypeDescriptors(GEOMETRY_TYPE_SIGNATURE));
+        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), NAME.functionName(), fromTypeDescriptors(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeDescriptor()));
+        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "ST_Envelope", fromTypeDescriptors(GEOMETRY_TYPE_SIGNATURE));
 
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
@@ -107,7 +108,7 @@ public class RewriteSpatialPartitioningAggregation
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    envelopeAssignments.put(envelopeSymbol, BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(context.getSession()))
                             .setName("ST_Envelope")
                             .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry)
                             .build());

@@ -48,6 +48,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -223,8 +224,8 @@ public class UnwrapDateTruncInComparison
                     if (!rightValueAtRangeLow) {
                         yield falseIfNotNull(argument);
                     }
-                    yield between(
-                            plannerContext.getMetadata(),
+                    yield between(plannerContext.getMetadata(),
+                            getCharVarcharCoercion(session),
                             symbolAllocator,
                             argument,
                             new Constant(rightType, rangeLow),
@@ -234,8 +235,9 @@ public class UnwrapDateTruncInComparison
                     if (!rightValueAtRangeLow) {
                         yield trueIfNotNull(argument);
                     }
-                    yield not(plannerContext.getMetadata(), between(
+                    yield not(plannerContext.getMetadata(), getCharVarcharCoercion(session), between(
                             plannerContext.getMetadata(),
+                            getCharVarcharCoercion(session),
                             symbolAllocator,
                             argument,
                             new Constant(rightType, rangeLow),
@@ -246,9 +248,9 @@ public class UnwrapDateTruncInComparison
                         yield FALSE;
                     }
                     yield and(
-                            not(plannerContext.getMetadata(), new IsNull(argument)),
-                            between(
-                                    plannerContext.getMetadata(),
+                            not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(argument)),
+                            between(plannerContext.getMetadata(),
+                                    getCharVarcharCoercion(session),
                                     symbolAllocator,
                                     argument,
                                     new Constant(rightType, rangeLow),
@@ -256,28 +258,28 @@ public class UnwrapDateTruncInComparison
                 }
                 case LESS_THAN -> {
                     if (rightValueAtRangeLow) {
-                        yield comparison(plannerContext.getMetadata(), LESS_THAN, argument, new Constant(rightType, rangeLow));
+                        yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, argument, new Constant(rightType, rangeLow));
                     }
-                    yield comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case LESS_THAN_OR_EQUAL -> {
-                    yield comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN -> {
-                    yield comparison(plannerContext.getMetadata(), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
                     if (rightValueAtRangeLow) {
-                        yield comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
+                        yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
                     }
-                    yield comparison(plannerContext.getMetadata(), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
             });
         }
 
         public Expression trueIfNotNull(Expression argument)
         {
-            return or(not(plannerContext.getMetadata(), new IsNull(argument)), new Constant(BOOLEAN, null));
+            return or(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(argument)), new Constant(BOOLEAN, null));
         }
 
         private Object calculateRangeEndInclusive(Object rangeStart, Type type, SupportedUnit rangeUnit)
@@ -286,7 +288,9 @@ public class UnwrapDateTruncInComparison
                 LocalDate date = LocalDate.ofEpochDay((long) rangeStart);
                 LocalDate endExclusive = switch (rangeUnit) {
                     case HOUR, DAY -> throw new UnsupportedOperationException("Unsupported type and unit: %s, %s".formatted(type, rangeUnit));
+                    case WEEK -> date.plusWeeks(1);
                     case MONTH -> date.plusMonths(1);
+                    case QUARTER -> date.plusMonths(3);
                     case YEAR -> date.plusYears(1);
                 };
                 return endExclusive.toEpochDay() - 1;
@@ -301,7 +305,9 @@ public class UnwrapDateTruncInComparison
                     LocalDateTime endExclusive = switch (rangeUnit) {
                         case HOUR -> dateTime.plusHours(1);
                         case DAY -> dateTime.plusDays(1);
+                        case WEEK -> dateTime.plusWeeks(1);
                         case MONTH -> dateTime.plusMonths(1);
+                        case QUARTER -> dateTime.plusMonths(3);
                         case YEAR -> dateTime.plusYears(1);
                     };
                     verify(endExclusive.getNano() == 0, "Unexpected nanos in %s, value not rounded to %s", endExclusive, rangeUnit);
@@ -336,7 +342,9 @@ public class UnwrapDateTruncInComparison
     {
         HOUR,
         DAY,
+        WEEK,
         MONTH,
+        QUARTER,
         YEAR,
     }
 }

@@ -32,6 +32,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getJoinMultiClauseIndependenceFactor;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
@@ -181,7 +182,7 @@ public class JoinStatsRule
         // clause separately because stats estimates would be way off.
         List<PlanNodeStatsEstimateWithClause> knownEstimates = clauses.stream()
                 .map(clause -> {
-                    Expression predicate = comparison(metadata, EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
+                    Expression predicate = comparison(metadata, getCharVarcharCoercion(session), EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
                     return new PlanNodeStatsEstimateWithClause(filterStatsCalculator.filterStats(stats, predicate, session), clause);
                 })
                 .collect(toImmutableList());

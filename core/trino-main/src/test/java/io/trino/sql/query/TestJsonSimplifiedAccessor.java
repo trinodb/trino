@@ -450,6 +450,45 @@ public class TestJsonSimplifiedAccessor
     }
 
     @Test
+    public void testItemMethodOnNestedMember()
+    {
+        // A dotted chain of two or more members before an item method (no subscript to break the
+        // run) parses as a FunctionCall with an over-long name; it must still resolve as an item
+        // method rather than being rejected as an invalid function name.
+        assertThat(assertions.query(
+                """
+                SELECT j.o.qty.integer()
+                FROM (VALUES (JSON '{"o":{"qty":3}}')) AS t(j)
+                """))
+                .matches("VALUES INTEGER '3'");
+
+        assertThat(assertions.query(
+                """
+                SELECT j.o.amt.decimal(18, 2)
+                FROM (VALUES (JSON '{"o":{"amt":19.95}}')) AS t(j)
+                """))
+                .matches("VALUES CAST(19.95 AS DECIMAL(18, 2))");
+
+        assertThat(assertions.query(
+                """
+                SELECT j.c.name.string()
+                FROM (VALUES (JSON '{"c":{"name":"Ada"}}')) AS t(j)
+                """))
+                .matches("VALUES CAST('Ada' AS VARCHAR)");
+    }
+
+    @Test
+    public void testItemMethodOnDeeplyNestedMember()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT j.a.b.c.d.integer()
+                FROM (VALUES (JSON '{"a":{"b":{"c":{"d":42}}}}')) AS t(j)
+                """))
+                .matches("VALUES INTEGER '42'");
+    }
+
+    @Test
     public void testArrayWildcardAccessor()
     {
         assertThat(assertions.query(

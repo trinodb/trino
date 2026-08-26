@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.operator.DeleteAndInsertMergeProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
@@ -67,8 +68,8 @@ public class TestDeleteAndInsertMergeProcessor
                 makeVarcharArrayBlock(null, "Dave"), // customer
                 new IntArrayBlock(2, Optional.of(new long[] {0b10}), new int[] {0, 11}), // purchases
                 makeVarcharArrayBlock(null, "Devon"), // address
-                new ByteArrayBlock(2, Optional.of(new long[] {0b10}), new byte[] {0, 1}), // "present" boolean
-                new ByteArrayBlock(2, Optional.of(new long[] {0b10}), new byte[] {0, DELETE_OPERATION_NUMBER}), // "present" boolean
+                new BitArrayBlock(2, Optional.of(new long[] {0b10}), new long[] {0b10}), // "present" boolean
+                new ByteArrayBlock(2, Optional.of(new long[] {0b10}), new byte[] {0, DELETE_OPERATION_NUMBER}), // operation number
                 new IntArrayBlock(2, Optional.of(new long[] {0b10}), new int[] {0, 0}),
         };
         Page inputPage = new Page(

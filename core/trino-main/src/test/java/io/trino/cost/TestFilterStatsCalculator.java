@@ -44,7 +44,9 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.function.Consumer;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.FILTER_CONJUNCTION_INDEPENDENCE_FACTOR;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -927,6 +929,6 @@ public class TestFilterStatsCalculator
 
     private Expression not(Expression value)
     {
-        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), value);
+        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
     }
 }

@@ -70,7 +70,7 @@ class TestResultRowsDecoder
             throws Exception
     {
         try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser("[[2137], [1337]]")) {
-            assertThat(eagerlyMaterialize(decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree())))))
+            assertThat(eagerlyMaterialize(decoder.toRows(fromQueryData(JsonQueryData.copyFrom(parser)))))
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337));
         }
     }
@@ -91,7 +91,7 @@ class TestResultRowsDecoder
     {
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8)));
         try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser(stream)) {
-            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree()))).iterator();
+            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(JsonQueryData.copyFrom(parser))).iterator();
             assertThat(stream.getCount()).isEqualTo(16);
             iterator.next();
             assertThat(stream.getCount()).isEqualTo(16);
@@ -104,7 +104,7 @@ class TestResultRowsDecoder
     {
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8)));
         try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser(stream)) {
-            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree()))).iterator();
+            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(JsonQueryData.copyFrom(parser))).iterator();
             assertThat(stream.getCount()).isEqualTo(16);
             iterator.next();
             assertThat(stream.getCount()).isEqualTo(16);

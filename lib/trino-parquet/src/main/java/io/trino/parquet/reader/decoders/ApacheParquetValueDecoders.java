@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.flat.BitBuffer;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.ValuesReader;
 
@@ -21,9 +22,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 
-import static io.trino.parquet.ParquetReaderUtils.castToByte;
-import static java.lang.Double.doubleToLongBits;
-import static java.lang.Float.floatToIntBits;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.set;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -34,7 +36,7 @@ public class ApacheParquetValueDecoders
     private ApacheParquetValueDecoders() {}
 
     public static final class BooleanApacheParquetValueDecoder
-            implements ValueDecoder<byte[]>
+            implements ValueDecoder<BitBuffer>
     {
         private final ValuesReader delegate;
 
@@ -59,10 +61,15 @@ public class ApacheParquetValueDecoders
         }
 
         @Override
-        public void read(byte[] values, int offset, int length)
+        public void read(BitBuffer values, int offset, int length)
         {
             for (int i = offset; i < offset + length; i++) {
-                values[i] = castToByte(delegate.readBoolean());
+                if (delegate.readBoolean()) {
+                    set(values.getValues(), 0, i);
+                }
+                else {
+                    clear(values.getValues(), 0, i);
+                }
             }
         }
 
@@ -93,7 +100,8 @@ public class ApacheParquetValueDecoders
         public void read(long[] values, int offset, int length)
         {
             for (int i = offset; i < offset + length; i++) {
-                values[i] = doubleToLongBits(delegate.readDouble());
+                // Raw conversion preserves NaN payloads, matching the PLAIN decoder behavior
+                values[i] = doubleToRawLongBits(delegate.readDouble());
             }
         }
 
@@ -124,7 +132,8 @@ public class ApacheParquetValueDecoders
         public void read(int[] values, int offset, int length)
         {
             for (int i = offset; i < offset + length; i++) {
-                values[i] = floatToIntBits(delegate.readFloat());
+                // Raw conversion preserves NaN payloads, matching the PLAIN decoder behavior
+                values[i] = floatToRawIntBits(delegate.readFloat());
             }
         }
 

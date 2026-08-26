@@ -22,6 +22,7 @@ import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.blob.cache.memory.MemoryBlobCachePlugin;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -86,6 +87,7 @@ public final class IcebergQueryRunner
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.iceberg", Level.OFF);
+        logging.setLevel("net.snowflake.client.internal.core", Level.WARN);
     }
 
     public static Builder builder()
@@ -193,6 +195,8 @@ public final class IcebergQueryRunner
 
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
                 queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, Optional::empty, () -> additionalOverrideModule));
+                queryRunner.installPlugin(new MemoryBlobCachePlugin());
+                queryRunner.loadBlobCacheManager("memory", Map.of("fs.memory-cache.max-size", "128MB"));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
                 schemaInitializer.ifPresent(initializer -> initializer.accept(queryRunner));
 

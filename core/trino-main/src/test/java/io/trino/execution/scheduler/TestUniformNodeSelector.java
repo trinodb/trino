@@ -22,6 +22,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.testing.TestingTicker;
 import io.trino.Session;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.execution.MockRemoteTaskFactory;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
@@ -99,7 +100,7 @@ public class TestUniformNodeSelector
                 .setIncludeCoordinator(false);
 
         // contents of taskMap indicate the node-task map for the current stage
-        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig())));
+        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig())));
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(session);
         remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
@@ -140,7 +141,7 @@ public class TestUniformNodeSelector
                 NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
                 false,
                 queueSizeAdjuster,
-                new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig()));
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig()));
 
         for (int i = 0; i < 20; i++) {
             splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit()));
@@ -313,7 +314,7 @@ public class TestUniformNodeSelector
                 NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
                 true,
                 new UniformNodeSelector.QueueSizeAdjuster(1000, 10000, new TestingTicker()),
-                new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig()));
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig()));
 
         Split rigidSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(node1.getHostAndPort())));
         splits.add(rigidSplit);

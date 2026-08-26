@@ -506,8 +506,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         (_, stageInfo) -> stageInfo.withSubStages(
                                 sourceFragments.stream()
                                         .map(sourceFragment -> {
-                                            StageInfo stageInfo1 = reportedStageInfos.get(sourceFragment);
-                                            return stageInfo1.stageId();
+                                            StageInfo fragmentStageInfo = reportedStageInfos.get(sourceFragment);
+                                            return fragmentStageInfo.stageId();
                                         })
                                         .collect(toImmutableList())));
             });
@@ -1729,8 +1729,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                         }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
                         case CANCELED, ABORTED, FAILED -> scheduledExecutorService.schedule(() -> {
                             if (!finalTaskInfoReceived.get()) {
+                                log.error("Did not receive final task info for task %s after it %s; internal inconsistency; finalizing task info locally and marking task failed in scheduler", task.getTaskId(), taskStatus.state());
+                                task.forceFinalizationUsingTaskStatus();
                                 if (taskCompletedEventSent.compareAndSet(false, true)) {
-                                    log.error("Did not receive final task info for task %s after it %s; internal inconsistency; marking task failed in scheduler to unblock query progression", task.getTaskId(), taskStatus.state());
                                     eventQueue.add(new RemoteTaskCompletedEvent(taskStatus));
                                 }
                             }
@@ -1779,7 +1780,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 if (!outputBufferStatus.exchangeSinkInstanceHandleUpdateRequired()) {
                     return;
                 }
-                long remoteVersion = outputBufferStatus.outputBuffersVersion().getAsLong();
+                long remoteVersion = outputBufferStatus.outputBuffersVersion().orElseThrow();
                 while (true) {
                     long localVersion = respondedToVersion.get();
                     if (remoteVersion <= localVersion) {

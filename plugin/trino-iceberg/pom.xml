@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>483-SNAPSHOT</version>
+        <version>484-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -16,7 +16,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.108.1</dep.nessie.version>
+        <dep.nessie.version>0.108.4</dep.nessie.version>
         <dep.keycloak.version>26.0.8</dep.keycloak.version>
     </properties>
 
@@ -201,7 +201,7 @@
 
         <dependency>
             <groupId>net.snowflake</groupId>
-            <artifactId>snowflake-jdbc</artifactId>
+            <artifactId>snowflake-jdbc-thin</artifactId>
         </dependency>
 
         <dependency>
@@ -212,7 +212,7 @@
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-java</artifactId>
-            <version>9.0.0</version>
+            <version>${dep.datasketches.version}</version>
         </dependency>
 
         <dependency>
@@ -255,6 +255,14 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-snowflake</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- The uber jar bundles unshaded Conscrypt 2.5.2 classes that break TLS in
+                         Google Cloud libraries; replaced with snowflake-jdbc-thin -->
+                    <groupId>net.snowflake</groupId>
+                    <artifactId>snowflake-jdbc</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -440,13 +448,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.cloud.gcs.analytics</groupId>
-            <artifactId>gcs-analytics-core</artifactId>
-            <version>1.2.3</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
             <scope>runtime</scope>
@@ -582,6 +583,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
         </dependency>
@@ -601,12 +608,6 @@
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-netty-shaded</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.minio</groupId>
-            <artifactId>minio</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -643,6 +644,17 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-blackhole</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-blob-cache-alluxio</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-blob-cache-memory</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -918,11 +930,7 @@
                         <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                        <ignoredResourcePattern>org/conscrypt/conscrypt.properties</ignoredResourcePattern>
                     </ignoredResourcePatterns>
-                    <ignoredClassPatterns>
-                        <ignoredClassPattern>org.conscrypt.*</ignoredClassPattern>
-                    </ignoredClassPatterns>
                 </configuration>
             </plugin>
             <plugin>
@@ -956,10 +964,6 @@
                                 <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</exclude>
-                                <exclude>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
@@ -1019,10 +1023,6 @@
                             <includes>
                                 <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
-                                <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>

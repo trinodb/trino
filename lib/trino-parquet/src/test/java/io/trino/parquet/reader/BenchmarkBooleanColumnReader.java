@@ -25,23 +25,28 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.openjdk.jmh.annotations.Param;
 
+import java.util.Arrays;
 import java.util.Random;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE;
+import static io.trino.parquet.reader.TestData.generateMixedData;
 import static java.lang.String.format;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 
 public class BenchmarkBooleanColumnReader
         extends AbstractColumnReaderBenchmark<boolean[]>
 {
-    private static final Random RANDOM = new Random(23423523L);
+    private static final Random DATA_RANDOM = new Random(23423523L);
 
     @Param({
             "PLAIN",
             "RLE",
     })
     public ParquetEncoding encoding;
+
+    @Param
+    public DataGenerator dataGenerator;
 
     @Override
     protected PrimitiveField createPrimitiveField()
@@ -76,11 +81,54 @@ public class BenchmarkBooleanColumnReader
     @Override
     protected boolean[] generateDataBatch(int size)
     {
-        boolean[] batch = new boolean[size];
-        for (int i = 0; i < size; i++) {
-            batch[i] = RANDOM.nextBoolean();
-        }
-        return batch;
+        return dataGenerator.generate(size);
+    }
+
+    public enum DataGenerator
+    {
+        RANDOM {
+            @Override
+            boolean[] generate(int size)
+            {
+                boolean[] values = new boolean[size];
+                for (int i = 0; i < size; i++) {
+                    values[i] = DATA_RANDOM.nextBoolean();
+                }
+                return values;
+            }
+        },
+        ONLY_TRUE {
+            @Override
+            boolean[] generate(int size)
+            {
+                boolean[] values = new boolean[size];
+                Arrays.fill(values, true);
+                return values;
+            }
+        },
+        ONLY_FALSE {
+            @Override
+            boolean[] generate(int size)
+            {
+                return new boolean[size];
+            }
+        },
+        SMALL_GROUPS {
+            @Override
+            boolean[] generate(int size)
+            {
+                return generateMixedData(DATA_RANDOM, size, 23);
+            }
+        },
+        LARGE_GROUPS {
+            @Override
+            boolean[] generate(int size)
+            {
+                return generateMixedData(DATA_RANDOM, size, 127);
+            }
+        };
+
+        abstract boolean[] generate(int size);
     }
 
     static void main()
