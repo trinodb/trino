@@ -36,6 +36,7 @@ public class SketchFunctionsConnectorFactory
                 .functions(Estimate.class)
                 .functions(Union.class)
                 .functions(UnionWithParams.class)
+                .functions(ANotB.class)
                 .build();
 
         return new SketchFunctionsConnector(new SketchMetadata(bundle), bundle);
