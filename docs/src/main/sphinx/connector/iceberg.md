@@ -712,11 +712,13 @@ nested directories, or `false` to ignore them.
 #### Add files
 
 The connector can add files from tables or locations to an existing Iceberg
-table if `iceberg.add-files-procedure.enabled` is set to `true` for the catalog.
+table.
 
 Use the procedure `add_files_from_table` to add existing files from a Hive table
 in the current catalog, or `add_files` to add existing files from a specified
-location, to an existing Iceberg table.
+location, to an existing Iceberg table. The `add_files_from_table` procedure is
+always available; `add_files` procedure additionally requires
+`iceberg.add-files-procedure.enabled` to be set to `true`.
  
 The data files must be the Parquet, ORC, or Avro file format.
 
