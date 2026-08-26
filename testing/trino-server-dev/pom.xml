@@ -18,7 +18,7 @@
              restricted to the development server and are not shipped in the tarball.
              Keep dep.maven.version in sync with maven-model in the root pom. -->
         <dep.maven.version>3.9.16</dep.maven.version>
-        <dep.maven-resolver.version>2.0.21</dep.maven-resolver.version>
+        <dep.maven-resolver.version>2.0.22</dep.maven-resolver.version>
     </properties>
 
     <dependencies>
