@@ -101,6 +101,7 @@ public class BenchmarkTopNOperator
                     new PlanNodeId("test"),
                     types,
                     Integer.valueOf(topN),
+                    sortChannels,
                     orderingCompiler.compilePageWithPositionComparator(
                             sortTypes,
                             sortChannels,
