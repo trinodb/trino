@@ -26,8 +26,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
-public class SketchStateSerializer
-        implements AccumulatorStateSerializer<SketchState>
+public class IntersectionStateSerializer
+        implements AccumulatorStateSerializer<IntersectionState>
 {
     @Override
     public Type getSerializedType()
@@ -36,36 +36,30 @@ public class SketchStateSerializer
     }
 
     @Override
-    public void serialize(SketchState state, BlockBuilder out)
+    public void serialize(IntersectionState state, BlockBuilder out)
     {
-        if (state.getSketch() == null) {
+        Slice sketch = state.getSketch();
+        if (sketch == null) {
             out.appendNull();
+            return;
         }
-        else {
-            Slice slice = state.getSketch();
-
-            Slice serialized = Slices.allocate(SIZE_OF_LONG + SIZE_OF_INT + SIZE_OF_INT + slice.length());
-            SliceOutput sliceOutput = serialized.getOutput();
-            sliceOutput.appendInt(state.getNominalEntries());
-            sliceOutput.appendLong(state.getSeed());
-
-            sliceOutput.appendInt(slice.length());
-            sliceOutput.appendBytes(slice);
-
-            VARBINARY.writeSlice(out, sliceOutput.slice());
-        }
+        Slice serialized = Slices.allocate(SIZE_OF_LONG + SIZE_OF_INT + sketch.length());
+        SliceOutput sliceOutput = serialized.getOutput();
+        sliceOutput.appendLong(state.getSeed());
+        sliceOutput.appendInt(sketch.length());
+        sliceOutput.appendBytes(sketch);
+        VARBINARY.writeSlice(out, sliceOutput.slice());
     }
 
     @Override
-    public void deserialize(Block block, int index, SketchState state)
+    public void deserialize(Block block, int index, IntersectionState state)
     {
         Slice slice = VARBINARY.getSlice(block, index);
         SliceInput input = slice.getInput();
-
-        state.setNominalEntries(input.readInt());
         state.setSeed(input.readLong());
-
         int sketchLength = input.readInt();
-        state.addSketch(input.readSlice(sketchLength));
+        // setSketch overwrites any prior content so a scratch state reused across positions is not
+        // intersected with stale data (which would incorrectly collapse the result toward empty).
+        state.setSketch(input.readSlice(sketchLength));
     }
 }
