@@ -53,15 +53,24 @@ public class TestConnectorSessionFunctions
         return DistributedQueryRunner.builder(testSessionBuilder().build())
                 .setAdditionalSetup(queryRunner -> {
                     queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                            .withFunctions(List.of(FunctionMetadata.scalarBuilder("multiply")
-                                    .signature(Signature.builder()
-                                            .argumentType(BIGINT)
-                                            .returnType(BIGINT)
-                                            .build())
-                                    .nullable()
-                                    .argumentNullability(true)
-                                    .hidden()
-                                    .build()))
+                            .withFunctions(List.of(
+                                    FunctionMetadata.scalarBuilder("multiply")
+                                            .signature(Signature.builder()
+                                                    .argumentType(BIGINT)
+                                                    .returnType(BIGINT)
+                                                    .build())
+                                            .nullable()
+                                            .argumentNullability(true)
+                                            .hidden()
+                                            .build(),
+                                    FunctionMetadata.scalarBuilder("multiply_nonnull")
+                                            .signature(Signature.builder()
+                                                    .argumentType(BIGINT)
+                                                    .returnType(BIGINT)
+                                                    .build())
+                                            .nullable()
+                                            .hidden()
+                                            .build()))
                             .withFunctionProvider(Optional.of(new FunctionProvider()
                             {
                                 @Override
@@ -99,6 +108,18 @@ public class TestConnectorSessionFunctions
     public void testNullableObjectReturnWithColumnArgument()
     {
         assertQuery("SELECT mock.default.multiply(nationkey) FROM tpch.tiny.nation WHERE nationkey = 1", "VALUES 2");
+    }
+
+    @Test
+    public void testNullableObjectArgumentWithExpression()
+    {
+        assertQuery("SELECT mock.default.multiply(nationkey + length(name)) FROM tpch.tiny.nation WHERE nationkey = 1", "VALUES 20");
+    }
+
+    @Test
+    public void testNullableObjectArgumentWithNonNullableExpression()
+    {
+        assertQuery("SELECT mock.default.multiply_nonnull(nationkey + length(name)) FROM tpch.tiny.nation WHERE nationkey = 1", "VALUES 20");
     }
 
     public static Object multiply(ConnectorSession session, Object value)

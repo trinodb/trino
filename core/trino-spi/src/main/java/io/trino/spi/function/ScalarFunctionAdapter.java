@@ -326,8 +326,9 @@ public final class ScalarFunctionAdapter
         if (expectedArgumentConvention == NEVER_NULL) {
             if (actualArgumentConvention == BOXED_NULLABLE) {
                 // if actual argument is boxed primitive, change method handle to accept a primitive and then box to actual method
-                if (isWrapperType(methodHandle.type().parameterType(parameterIndex))) {
-                    MethodType targetType = methodHandle.type().changeParameterType(parameterIndex, unwrap(methodHandle.type().parameterType(parameterIndex)));
+                Class<?> argumentJavaType = argumentType.getJavaType();
+                if (argumentJavaType.isPrimitive()) {
+                    MethodType targetType = methodHandle.type().changeParameterType(parameterIndex, argumentJavaType);
                     methodHandle = explicitCastArguments(methodHandle, targetType);
                 }
                 return methodHandle;
@@ -400,7 +401,10 @@ public final class ScalarFunctionAdapter
             }
 
             if (actualArgumentConvention == BOXED_NULLABLE) {
-                return collectArguments(methodHandle, parameterIndex, boxedToNullFlagFilter(methodHandle.type().parameterType(parameterIndex)));
+                return collectArguments(
+                        methodHandle,
+                        parameterIndex,
+                        boxedToNullFlagFilter(methodHandle.type().parameterType(parameterIndex), argumentType.getJavaType()));
             }
         }
 
@@ -747,13 +751,12 @@ public final class ScalarFunctionAdapter
         }
     }
 
-    private static MethodHandle boxedToNullFlagFilter(Class<?> argumentType)
+    private static MethodHandle boxedToNullFlagFilter(Class<?> actualArgumentType, Class<?> expectedArgumentType)
     {
         // Start with identity
-        MethodHandle handle = identity(argumentType);
-        // if argument is a primitive, box it
-        if (isWrapperType(argumentType)) {
-            handle = explicitCastArguments(handle, handle.type().changeParameterType(0, unwrap(argumentType)));
+        MethodHandle handle = identity(actualArgumentType);
+        if (actualArgumentType != expectedArgumentType) {
+            handle = explicitCastArguments(handle, handle.type().changeParameterType(0, expectedArgumentType));
         }
         // Add boolean null flag
         handle = dropArguments(handle, 1, boolean.class);
