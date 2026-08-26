@@ -207,7 +207,7 @@
         <dep.okhttp.version>5.5.0</dep.okhttp.version>
         <dep.okio.version>3.18.1</dep.okio.version>
         <dep.parquet.version>1.18.0</dep.parquet.version>
-        <dep.protobuf.version>4.35.1</dep.protobuf.version>
+        <dep.protobuf.version>4.36.0</dep.protobuf.version>
         <dep.sis.version>1.6</dep.sis.version>
         <dep.snowflake.version>4.3.3</dep.snowflake.version>
         <dep.swagger.version>2.2.54</dep.swagger.version>
