@@ -556,8 +556,7 @@ jobs:
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-snowflake }
-            # TODO re-enable Snowflake cloud tests https://github.com/trinodb/trino/issues/30823
-            # - { modules: plugin/trino-snowflake, profile: cloud-tests }
+            - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
