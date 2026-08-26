@@ -250,10 +250,11 @@ public final class ScalarFunctionAdapter
             InvocationReturnConvention actualReturnConvention,
             InvocationReturnConvention expectedReturnConvention)
     {
+        if (actualReturnConvention == NULLABLE_RETURN) {
+            methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(wrap(returnType.getJavaType())));
+        }
+
         if (actualReturnConvention == expectedReturnConvention) {
-            if (actualReturnConvention == NULLABLE_RETURN) {
-                return explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(wrap(returnType.getJavaType())));
-            }
             return methodHandle;
         }
 
@@ -310,6 +311,9 @@ public final class ScalarFunctionAdapter
         }
 
         if (actualArgumentConvention == expectedArgumentConvention) {
+            if (actualArgumentConvention == BOXED_NULLABLE) {
+                methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeParameterType(parameterIndex, wrap(argumentType.getJavaType())));
+            }
             return methodHandle;
         }
         if (actualArgumentConvention == IN_OUT) {

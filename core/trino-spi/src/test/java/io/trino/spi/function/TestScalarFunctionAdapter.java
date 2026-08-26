@@ -103,13 +103,14 @@ class TestScalarFunctionAdapter
     public void testAdaptNullableReturnToBlockBuilder()
             throws Throwable
     {
-        // adapt identity(Double):Double to identity(Double, BlockBuilder):void
+        // adapt identity(Object):Object to identity(Double, BlockBuilder):void
         MethodHandle adaptedMethodHandle = ScalarFunctionAdapter.adapt(
-                identity(Double.class),
+                identity(Object.class),
                 DOUBLE,
                 ImmutableList.of(DOUBLE),
                 simpleConvention(NULLABLE_RETURN, BOXED_NULLABLE),
                 simpleConvention(BLOCK_BUILDER, BOXED_NULLABLE));
+        assertThat(adaptedMethodHandle.type()).isEqualTo(methodType(void.class, Double.class, BlockBuilder.class));
 
         // verify non-null and null value are written to the block
         BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(1);
