@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
@@ -45,6 +46,8 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -125,6 +128,8 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout;
+    private final CreateTable createTable;
+    private final BeginCreateTable beginCreateTable;
     private final BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges;
@@ -186,6 +191,8 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout,
+            CreateTable createTable,
+            BeginCreateTable beginCreateTable,
             BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType,
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges,
@@ -243,6 +250,8 @@ public class MockConnectorFactory
         this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
+        this.createTable = requireNonNull(createTable, "createTable is null");
+        this.beginCreateTable = requireNonNull(beginCreateTable, "beginCreateTable is null");
         this.getSupportedType = requireNonNull(getSupportedType, "getSupportedType is null");
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
@@ -310,6 +319,8 @@ public class MockConnectorFactory
                 redirectTable,
                 getInsertLayout,
                 getNewTableLayout,
+                createTable,
+                beginCreateTable,
                 getSupportedType,
                 getTableProperties,
                 listTablePrivileges,
@@ -370,6 +381,18 @@ public class MockConnectorFactory
                 ConnectorTableHandle handle,
                 List<ConnectorExpression> projections,
                 Map<String, ColumnHandle> assignments);
+    }
+
+    @FunctionalInterface
+    public interface CreateTable
+    {
+        void apply(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode);
+    }
+
+    @FunctionalInterface
+    public interface BeginCreateTable
+    {
+        ConnectorOutputTableHandle apply(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace);
     }
 
     @FunctionalInterface
@@ -461,6 +484,8 @@ public class MockConnectorFactory
         private ApplyJoin applyJoin = (_, _, _, _, _, _, _, _) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
+        private CreateTable createTable = (_, _, _) -> {};
+        private BeginCreateTable beginCreateTable = (_, tableMetadata, _, _, _) -> new MockConnectorOutputTableHandle(tableMetadata.getTable());
         private BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType = (_, _) -> Optional.empty();
         private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties = defaultGetTableProperties();
         private BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges = defaultListTablePrivileges();
@@ -689,6 +714,18 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withCreateTable(CreateTable createTable)
+        {
+            this.createTable = requireNonNull(createTable, "createTable is null");
+            return this;
+        }
+
+        public Builder withBeginCreateTable(BeginCreateTable beginCreateTable)
+        {
+            this.beginCreateTable = requireNonNull(beginCreateTable, "beginCreateTable is null");
+            return this;
+        }
+
         public Builder withGetSupportedType(BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType)
         {
             this.getSupportedType = requireNonNull(getSupportedType, "getSupportedType is null");
@@ -908,6 +945,8 @@ public class MockConnectorFactory
                     redirectTable,
                     getInsertLayout,
                     getNewTableLayout,
+                    createTable,
+                    beginCreateTable,
                     getSupportedType,
                     getTableProperties,
                     listTablePrivileges,
