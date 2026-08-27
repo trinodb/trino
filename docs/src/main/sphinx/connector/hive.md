@@ -1209,7 +1209,7 @@ SELECT * FROM example.web."page_views$partitions";
     [projection.${columnName}.format](https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html).
   -
 * - `partition_projection_interval_unit`
-  - Used with `partition_projection_type=DATA`. The date column projection range
+  - Used with `partition_projection_type` set to `DATE`. The date column projection range
     interval unit given in `partition_projection_interval`. Mapped from the AWS
     Athena table property
     [projection.${columnName}.interval.unit](https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html).
