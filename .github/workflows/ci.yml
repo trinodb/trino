@@ -415,6 +415,7 @@ jobs:
             !:trino-opensearch,
             !:trino-oracle,
             !:trino-orc,
+            !:trino-paimon,
             !:trino-parquet,
             !:trino-pinot,
             !:trino-postgresql,
@@ -502,6 +503,7 @@ jobs:
             - modules:
                 - lib/trino-orc
                 - lib/trino-parquet
+                - plugin/trino-paimon
             - modules:
                 - lib/trino-filesystem
                 - lib/trino-filesystem-azure
