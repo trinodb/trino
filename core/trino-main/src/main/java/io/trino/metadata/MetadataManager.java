@@ -25,7 +25,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
@@ -127,6 +126,7 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
@@ -157,6 +157,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
@@ -204,7 +205,6 @@ public final class MetadataManager
     private final LanguageFunctionManager languageFunctionManager;
     private final TableFunctionRegistry tableFunctionRegistry;
     private final TypeManager typeManager;
-    private final TypeCoercion typeCoercion;
     private final CatalogManager catalogManager;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
@@ -218,15 +218,12 @@ public final class MetadataManager
             LanguageFunctionManager languageFunctionManager,
             TableFunctionRegistry tableFunctionRegistry,
             TypeManager typeManager,
-            CatalogManager catalogManager,
-            FeaturesConfig featuresConfig)
+            CatalogManager catalogManager)
     {
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        boolean legacyVarcharToCharCoercion = requireNonNull(featuresConfig, "featuresConfig is null").isLegacyVarcharToCharCoercion();
-        functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog, legacyVarcharToCharCoercion);
-        this.typeCoercion = new TypeCoercion(typeManager::getType, legacyVarcharToCharCoercion);
+        functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
@@ -349,6 +346,33 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
         Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getTableHandleForExecute(
+                session.toConnectorSession(catalogHandle),
+                new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogHandle.getCatalogName().toString()),
+                tableHandle.connectorHandle(),
+                procedure,
+                executeProperties,
+                getRetryPolicy(session).getRetryMode());
+
+        return executeHandle.map(handle -> new TableExecuteHandle(
+                catalogHandle,
+                tableHandle.transaction(),
+                tableHandle.connectorHandle(),
+                handle));
+    }
+
+    @Override
+    public Optional<TableExecuteHandle> getTableHandleForMaterializedViewExecute(Session session, TableHandle tableHandle, String procedure, Map<String, Object> executeProperties)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableHandle, "tableHandle is null");
+        requireNonNull(procedure, "procedure is null");
+        requireNonNull(executeProperties, "executeProperties is null");
+
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+        Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getTableHandleForMaterializedViewExecute(
                 session.toConnectorSession(catalogHandle),
                 new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogHandle.getCatalogName().toString()),
                 tableHandle.connectorHandle(),
@@ -1184,6 +1208,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, getCharVarcharCoercion(session));
         return metadata.getSupportedType(session.toConnectorSession(catalogHandle), tableProperties, type)
                 .map(newType -> {
                     if (!typeCoercion.isCompatible(newType, type)) {
@@ -2682,33 +2707,33 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
     {
-        return functionResolver.resolveBuiltinFunction(name, parameterTypes);
+        return functionResolver.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
     }
 
     @Override
-    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        return functionResolver.resolveOperator(operatorType, argumentTypes);
+        return functionResolver.resolveOperator(charVarcharCoercion, operatorType, argumentTypes);
     }
 
     @Override
-    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
     {
-        return functionResolver.resolveCoercion(operatorType, fromType, toType);
+        return functionResolver.resolveCoercion(charVarcharCoercion, operatorType, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // coercion can only be resolved for builtin functions
         if (!isBuiltinFunctionName(name)) {
             throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", name));
         }
 
-        return functionResolver.resolveCoercion(name.functionName(), fromType, toType);
+        return functionResolver.resolveCoercion(charVarcharCoercion, name.functionName(), fromType, toType);
     }
 
     @Override

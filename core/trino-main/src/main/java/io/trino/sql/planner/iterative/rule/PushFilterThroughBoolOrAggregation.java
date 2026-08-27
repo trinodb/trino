@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.predicate.Domain.singleValue;
@@ -252,7 +253,7 @@ public class PushFilterThroughBoolOrAggregation
 
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(boolOrSymbol));
         Expression newPredicate = combineConjuncts(
-                new DomainTranslator(plannerContext.getMetadata()).toPredicate(newTupleDomain),
+                new DomainTranslator(plannerContext.getMetadata()).toPredicate(getCharVarcharCoercion(context.getSession()), newTupleDomain),
                 remainingExpression);
         if (!newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterSource, newPredicate));

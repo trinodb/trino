@@ -45,6 +45,7 @@ import java.util.concurrent.Future;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergExceptions.isNotFoundException;
 import static io.trino.plugin.iceberg.IcebergUtil.fileName;
 import static io.trino.plugin.iceberg.IcebergUtil.loadAllManifestsFromManifestList;
 import static io.trino.plugin.iceberg.IcebergUtil.loadAllManifestsFromSnapshot;
@@ -99,11 +100,13 @@ public final class RemoveOrphanFiles
                             validFileNames.add(fileName(contentFile.location()));
                         }
                     }
-                    catch (IOException | UncheckedIOException e) {
+                    catch (IOException | UncheckedIOException | NotFoundException e) {
+                        // A missing manifest surfaces as NotFoundException on some file systems and as an
+                        // UncheckedIOException wrapping FileNotFoundException on others (e.g. S3)
+                        if (isNotFoundException(e)) {
+                            throw new TrinoException(ICEBERG_INVALID_METADATA, "Manifest file does not exist: " + manifest.path(), e);
+                        }
                         throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to list manifest file content from " + manifest.path(), e);
-                    }
-                    catch (NotFoundException e) {
-                        throw new TrinoException(ICEBERG_INVALID_METADATA, "Manifest file does not exist: " + manifest.path());
                     }
                 }));
             }

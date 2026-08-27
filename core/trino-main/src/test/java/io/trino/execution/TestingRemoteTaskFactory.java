@@ -309,6 +309,9 @@ public class TestingRemoteTaskFactory
         }
 
         @Override
+        public void forceFinalizationUsingTaskStatus() {}
+
+        @Override
         public PartitionedSplitsInfo getQueuedPartitionedSplitsInfo()
         {
             return PartitionedSplitsInfo.forZeroSplits();

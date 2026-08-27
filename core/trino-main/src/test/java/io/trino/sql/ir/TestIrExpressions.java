@@ -21,9 +21,12 @@ import io.trino.sql.ir.IrExpressions.Between;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrExpressions.NullIf;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -59,6 +62,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIrExpressions
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(VARCHAR));
     private static final ResolvedFunction SPLIT_PART = FUNCTIONS.resolveFunction("split_part", fromTypes(VARCHAR, VARCHAR, BIGINT));
@@ -68,21 +72,21 @@ public class TestIrExpressions
     @Test
     public void testMayBeNullConstantsAndReferences()
     {
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Constant(BIGINT, 1L))).isFalse();
-        assertThat(mayBeNull(PLANNER_CONTEXT, constantNull(BIGINT))).isTrue();
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Reference(BIGINT, "x"))).isTrue();
-        assertThat(mayBeNull(PLANNER_CONTEXT, new IsNull(new Reference(BIGINT, "x")))).isFalse();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Constant(BIGINT, 1L))).isFalse();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, constantNull(BIGINT))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Reference(BIGINT, "x"))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "x")))).isFalse();
     }
 
     @Test
     public void testMayBeNullCall()
     {
-        assertThat(mayBeNull(PLANNER_CONTEXT, not(PLANNER_CONTEXT.getMetadata(), TRUE))).isFalse();
-        assertThat(mayBeNull(PLANNER_CONTEXT, not(PLANNER_CONTEXT.getMetadata(), constantNull(BOOLEAN)))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, TRUE))).isFalse();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, constantNull(BOOLEAN)))).isTrue();
 
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Call(LENGTH, ImmutableList.of(new Constant(VARCHAR, utf8Slice("hello")))))).isFalse();
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Call(LENGTH, ImmutableList.of(constantNull(VARCHAR))))).isTrue();
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Call(SPLIT_PART, ImmutableList.of(
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(LENGTH, ImmutableList.of(new Constant(VARCHAR, utf8Slice("hello")))))).isFalse();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(LENGTH, ImmutableList.of(constantNull(VARCHAR))))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(SPLIT_PART, ImmutableList.of(
                 new Constant(VARCHAR, utf8Slice("hello")),
                 new Constant(VARCHAR, utf8Slice("x")),
                 new Constant(BIGINT, 1L))))).isTrue();
@@ -91,37 +95,37 @@ public class TestIrExpressions
     @Test
     public void testMayBeNullCast()
     {
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Cast(new Constant(INTEGER, 1L), BIGINT))).isFalse();
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Cast(constantNull(INTEGER), BIGINT))).isTrue();
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(INTEGER, 1L), BIGINT))).isFalse();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(constantNull(INTEGER), BIGINT))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
     }
 
     @Test
     public void testMayBeNullStructuralExpressions()
     {
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Coalesce(new Constant(BIGINT, 1L), constantNull(BIGINT)))).isFalse();
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Coalesce(constantNull(BIGINT), constantNull(BIGINT)))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Coalesce(new Constant(BIGINT, 1L), constantNull(BIGINT)))).isFalse();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Coalesce(constantNull(BIGINT), constantNull(BIGINT)))).isTrue();
 
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Case(
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Case(
                 ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "condition"), new Constant(BIGINT, 1L))),
                 new Constant(BIGINT, 2L)))).isFalse();
-        assertThat(mayBeNull(PLANNER_CONTEXT, new Case(
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Case(
                 ImmutableList.of(new WhenClause(TRUE, constantNull(BIGINT))),
                 new Constant(BIGINT, 1L)))).isTrue();
 
-        assertThat(mayBeNull(PLANNER_CONTEXT, comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
-        assertThat(mayBeNull(PLANNER_CONTEXT, comparison(IDENTICAL, new Reference(BIGINT, "x"), constantNull(BIGINT)))).isFalse();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BIGINT, "x"), constantNull(BIGINT)))).isFalse();
     }
 
     @Test
     public void testMayReturnNullOnNonNullInput()
     {
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Reference(BIGINT, "x"))).isFalse();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Reference(INTEGER, "x"), BIGINT))).isFalse();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, nullIf(emptySymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Reference(BIGINT, "x"))).isFalse();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Reference(INTEGER, "x"), BIGINT))).isFalse();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, nullIf(emptySymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
     }
 
     @Test
@@ -148,7 +152,7 @@ public class TestIrExpressions
 
         // Non-comparison expressions decode to null.
         assertThat(matchComparison(new Reference(BIGINT, "x"))).isNull();
-        assertThat(matchComparison(not(metadata, TRUE))).isNull();
+        assertThat(matchComparison(not(metadata, CHAR_VARCHAR_COERCION, TRUE))).isNull();
         assertThat(matchComparison(new Call(LENGTH, ImmutableList.of(new Constant(VARCHAR, utf8Slice("hello")))))).isNull();
     }
 

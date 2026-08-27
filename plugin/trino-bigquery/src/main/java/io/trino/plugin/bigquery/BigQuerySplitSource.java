@@ -208,7 +208,7 @@ public class BigQuerySplitSource
                     .filter(column -> !projectedColumnsNames.contains(column.name()))
                     .forEach(projectedColumnHandles::add));
         }
-        ReadSession readSession = createReadSession(session, remoteTableId, ImmutableList.copyOf(projectedColumnHandles.build()), filter);
+        ReadSession readSession = createReadSession(session, type, remoteTableId, ImmutableList.copyOf(projectedColumnHandles.build()), filter);
 
         String schemaString = getSchemaAsString(readSession);
         return readSession.getStreamsList().stream()
@@ -217,10 +217,10 @@ public class BigQuerySplitSource
     }
 
     @VisibleForTesting
-    ReadSession createReadSession(ConnectorSession session, TableId remoteTableId, List<BigQueryColumnHandle> columns, Optional<String> filter)
+    ReadSession createReadSession(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, List<BigQueryColumnHandle> columns, Optional<String> filter)
     {
         ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, viewExpiration, maxReadRowsRetries, getMaxParallelism(session));
-        return readSessionCreator.create(session, remoteTableId, columns, filter, workerCountSupplier.getAsInt());
+        return readSessionCreator.create(session, type, remoteTableId, columns, filter, workerCountSupplier.getAsInt());
     }
 
     private static List<String> getProjectedColumnNames(List<BigQueryColumnHandle> columns)

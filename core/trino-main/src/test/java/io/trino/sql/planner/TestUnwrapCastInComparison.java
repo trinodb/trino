@@ -41,6 +41,7 @@ import java.util.List;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -204,7 +205,7 @@ public class TestUnwrapCastInComparison
 
     private Expression not(Expression value)
     {
-        return IrExpressions.not(FUNCTIONS.getMetadata(), value);
+        return IrExpressions.not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
     }
 
     @Test
@@ -908,7 +909,7 @@ public class TestUnwrapCastInComparison
                 TEST_SESSION,
                 FUNCTIONS.getPlannerContext(),
                 symbolAllocator,
-                IrExpressions.between(FUNCTIONS.getMetadata(), symbolAllocator, new Cast(source, DOUBLE), new Constant(DOUBLE, 1.1), new Constant(DOUBLE, 2.2)));
+                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), symbolAllocator, new Cast(source, DOUBLE), new Constant(DOUBLE, 1.1), new Constant(DOUBLE, 2.2)));
     }
 
     private void testRemoveFilter(String inputType, String inputPredicate)

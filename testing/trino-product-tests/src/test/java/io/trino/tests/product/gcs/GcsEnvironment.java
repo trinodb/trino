@@ -19,6 +19,7 @@ import io.trino.testing.containers.SparkIcebergContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
 import io.trino.tests.product.TableFormatsTestEnvironment;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -182,7 +183,7 @@ public class GcsEnvironment
     }
 
     @Override
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
         try {
             return executeWithRetry(() -> {

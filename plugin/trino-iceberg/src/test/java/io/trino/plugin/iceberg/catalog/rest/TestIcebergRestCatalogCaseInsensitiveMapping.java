@@ -243,6 +243,151 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertQueryFails("SELECT * FROM " + viewName2, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseViewName2));
     }
 
+    @Test
+    void testCachedTableMappingHidesExternallyRecreatedTable()
+    {
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
+        String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
+        createDir(namespaceLocation);
+
+        String tableName = "MiXeD_CaSe_ReCrEaTeD_" + randomNameSuffix();
+        String lowercaseTableName = tableName.toLowerCase(ENGLISH);
+
+        // Creating the table resolves its name through the mapping cache while it
+        // does not yet exist remotely, populating the cache with the requested name as-is.
+        String initialLocation = namespaceLocation + "/" + lowercaseTableName + "_initial";
+        assertUpdate("CREATE TABLE " + lowercaseTableName + " (a integer) WITH (location = '" + initialLocation + "')");
+
+        // Drop it on the backend and recreate it under a mixed-case remote name, so the remote name
+        // no longer matches what the cached entry points at.
+        assertThat(backend.dropTable(TableIdentifier.of(NAMESPACE, lowercaseTableName), true)).isTrue();
+
+        String recreatedLocation = namespaceLocation + "/" + lowercaseTableName + "_recreated";
+        createDir(recreatedLocation);
+        createDir(recreatedLocation + "/data");
+        createDir(recreatedLocation + "/metadata");
+        backend.buildTable(TableIdentifier.of(NAMESPACE, tableName), new Schema(required(1, "a", Types.IntegerType.get())))
+                .withLocation(recreatedLocation)
+                .createTransaction()
+                .commitTransaction();
+
+        // A stale mapping would still point at the old lowercase remote name and hide the
+        // externally recreated table; resolution must find the mixed-case table instead.
+        assertUpdate("DROP TABLE " + lowercaseTableName);
+    }
+
+    @Test
+    void testLoadTableProbeDoesNotPolluteViewMapping()
+    {
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
+        String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
+        createDir(namespaceLocation);
+
+        String viewName = "MiXed_CaSe_LoAd_TaBlE_PrObE_vIeW_" + randomNameSuffix();
+        String lowercaseViewName = viewName.toLowerCase(ENGLISH);
+        String viewLocation = namespaceLocation + "/" + lowercaseViewName;
+        createDir(viewLocation);
+        createDir(viewLocation + "/data");
+        createDir(viewLocation + "/metadata");
+        backend.buildView(TableIdentifier.of(NAMESPACE, viewName))
+                .withQuery("trino", "SELECT BIGINT '92' value")
+                .withSchema(new Schema(required(1, "value", Types.LongType.get())))
+                .withDefaultNamespace(NAMESPACE)
+                .withLocation(viewLocation)
+                .createOrReplace();
+
+        assertQueryFails("SELECT * FROM \"" + lowercaseViewName + "$history\"", ".*does not exist");
+        assertQuery("SELECT * FROM " + lowercaseViewName, "VALUES (92)");
+
+        assertUpdate("DROP VIEW " + lowercaseViewName);
+    }
+
+    @Test
+    void testViewPropertiesIgnoreStaleNameMapping()
+    {
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
+        String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
+        createDir(namespaceLocation);
+
+        String viewName = "MiXed_CaSe_ViEw_PrOpErTiEs_" + randomNameSuffix();
+        String lowercaseViewName = viewName.toLowerCase(ENGLISH);
+
+        // Creating the view resolves its name through the mapping cache (getCached=true) while it does
+        // not yet exist remotely, caching the name as-is. This entry is never invalidated.
+        assertUpdate("CREATE VIEW " + lowercaseViewName + " AS SELECT BIGINT '67' value");
+
+        // Drop it on the backend and recreate it under a mixed-case remote name, so the cached entry
+        // now points at a lowercase remote view that no longer exists.
+        backend.dropView(TableIdentifier.of(NAMESPACE, lowercaseViewName));
+
+        String recreatedLocation = namespaceLocation + "/" + lowercaseViewName + "_recreated";
+        createDir(recreatedLocation);
+        createDir(recreatedLocation + "/data");
+        createDir(recreatedLocation + "/metadata");
+        backend.buildView(TableIdentifier.of(NAMESPACE, viewName))
+                .withQuery("trino", "SELECT BIGINT '67' value")
+                .withSchema(new Schema(required(1, "value", Types.LongType.get())))
+                .withDefaultNamespace(NAMESPACE)
+                .withLocation(recreatedLocation)
+                .createOrReplace();
+
+        // getViewProperties must resolve the view name with getCached=false. If it trusted the cache,
+        // it would load the stale lowercase mapping, miss the recreated mixed-case view, and fail to
+        // report its location.
+        assertThat((String) computeScalar("SHOW CREATE VIEW " + lowercaseViewName))
+                .contains("location = '" + recreatedLocation + "'");
+
+        backend.dropView(TableIdentifier.of(NAMESPACE, viewName));
+    }
+
+    @Test
+    void testCaseInsensitiveCollisionBetweenTableAndView()
+    {
+        // A remote backend that is case-sensitive can hold a table and a view whose names differ
+        // only by case (the Iceberg spec forbids a table and view sharing the *same* name, but not
+        // case-variants). With case-insensitive matching enabled, both collapse to a single Trino
+        // name and Trino cannot address them separately.
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
+        String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
+        createDir(namespaceLocation);
+
+        String suffix = randomNameSuffix();
+        String lowercaseName = "cross_type_collision_" + suffix;
+        TableIdentifier remoteTable = TableIdentifier.of(NAMESPACE, "CROSS_TYPE_COLLISION_" + suffix);
+        TableIdentifier remoteView = TableIdentifier.of(NAMESPACE, lowercaseName);
+
+        String tableLocation = namespaceLocation + "/" + lowercaseName + "_table";
+        createDir(tableLocation);
+        createDir(tableLocation + "/data");
+        createDir(tableLocation + "/metadata");
+        backend.buildTable(remoteTable, new Schema(required(1, "t_val", Types.LongType.get())))
+                .withLocation(tableLocation)
+                .createTransaction()
+                .commitTransaction();
+
+        String viewLocation = namespaceLocation + "/" + lowercaseName + "_view";
+        createDir(viewLocation);
+        createDir(viewLocation + "/data");
+        createDir(viewLocation + "/metadata");
+        backend.buildView(remoteView)
+                .withQuery("trino", "SELECT BIGINT '7' AS v_val")
+                .withSchema(new Schema(required(1, "v_val", Types.LongType.get())))
+                .withDefaultNamespace(NAMESPACE)
+                .withLocation(viewLocation)
+                .createOrReplace();
+
+        // The analyzer resolves views before tables (StatementAnalyzer resolves
+        // materialized view -> view -> table), so the query binds to the view and the
+        // colliding table is unreachable: it returns the view's column/value, not the table's.
+        assertThat(computeActual("DESCRIBE " + lowercaseName).getMaterializedRows())
+                .singleElement()
+                .satisfies(row -> assertThat(row.getField(0)).isEqualTo("v_val"));
+        assertQuery("SELECT * FROM " + lowercaseName, "VALUES CAST(7 AS BIGINT)");
+
+        assertUpdate("DROP VIEW " + lowercaseName);
+        assertUpdate("DROP TABLE " + lowercaseName);
+    }
+
     private String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns " +

@@ -31,6 +31,7 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DeleteFile;
@@ -313,7 +314,7 @@ public class DefaultDeletionVectorWriter
     // TODO (https://github.com/trinodb/trino/issues/29957) memory usage reporting
     private ConnectorPageSource openDeleteFilePageSource(ConnectorSession session, DeleteFile deleteFile, TrinoFileSystem fileSystem)
     {
-        return pageSourceProviderFactory.createPageSourceProvider().openDeleteFile(
+        return pageSourceProviderFactory.createPageSourceProvider(MemoryContext.NO_LIMIT).openDeleteFile(
                 session,
                 fileSystem,
                 io.trino.plugin.iceberg.delete.DeleteFile.fromIceberg(deleteFile),

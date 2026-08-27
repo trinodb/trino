@@ -27,8 +27,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
-import org.apache.hc.core5.http.HttpHost;
-import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
 
 import java.util.HashMap;
@@ -38,6 +36,7 @@ import java.util.Map;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
+import static io.trino.plugin.opensearch.RestClientUtils.createClient;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -104,6 +103,7 @@ public final class OpenSearchQueryRunner
         }
 
         @Override
+        @SuppressWarnings("deprecation")
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -120,7 +120,7 @@ public final class OpenSearchQueryRunner
 
                 LOG.info("Loading data...");
                 long startTime = System.nanoTime();
-                try (RestHighLevelClient client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())))) {
+                try (RestHighLevelClient client = createClient(address)) {
                     for (TpchTable<?> table : initialTables) {
                         loadTpchTopic(client, queryRunner.getClient(), table);
                     }

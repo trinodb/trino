@@ -192,6 +192,7 @@ public class QueryStateMachine
     private final AtomicReference<List<RoutineInfo>> routines = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<Map<String, Metrics>> catalogMetadataMetrics = new AtomicReference<>(ImmutableMap.of());
     private final AtomicReference<Map<String, Metrics>> exchangeMetrics = new AtomicReference<>(ImmutableMap.of());
+    private final AtomicReference<Map<String, Long>> callResult = new AtomicReference<>();
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final WarningCollector warningCollector;
@@ -1081,6 +1082,16 @@ public class QueryStateMachine
     {
         requireNonNull(routines, "routines is null");
         this.routines.set(ImmutableList.copyOf(routines));
+    }
+
+    public void setCallResult(Map<String, Long> metrics)
+    {
+        callResult.set(ImmutableMap.copyOf(metrics));
+    }
+
+    public Optional<Map<String, Long>> callResult()
+    {
+        return Optional.ofNullable(callResult.get());
     }
 
     private DynamicFiltersStats getDynamicFiltersStats()

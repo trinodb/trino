@@ -26,6 +26,7 @@ develop/password-authenticator
 develop/certificate-authenticator
 develop/header-authenticator
 develop/group-provider
+develop/secrets-provider
 develop/event-listener
 develop/client-protocol
 ```

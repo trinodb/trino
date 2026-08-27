@@ -53,7 +53,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
                 .setConfigDbUrl(container.getJdbcUrl())
                 .setConfigDbUser(container.getUsername())
                 .setConfigDbPassword(container.getPassword());
-        FlywayMigration.migrate(config);
+        new FlywayMigration(config).migrate();
         verifyResourceGroupsSchema(0);
 
         dropAllTables();
@@ -71,7 +71,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
                 .setConfigDbUrl(container.getJdbcUrl())
                 .setConfigDbUser(container.getUsername())
                 .setConfigDbPassword(container.getPassword());
-        FlywayMigration.migrate(config);
+        new FlywayMigration(config).migrate();
         verifyResourceGroupsSchema(0);
         String t1Drop = "DROP TABLE t1";
         String t2Drop = "DROP TABLE t2";
@@ -90,7 +90,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
                 .setConfigDbUser(container.getUsername())
                 .setConfigDbPassword(container.getPassword())
                 .setRunMigrationsEnabled(false);
-        FlywayMigration.migrate(config);
+        new FlywayMigration(config).migrate();
         assertThat(tableExists("resource_groups")).isFalse();
         assertThat(tableExists("resource_groups_global_properties")).isFalse();
     }
@@ -102,7 +102,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
                 .setConfigDbUrl(container.getJdbcUrl())
                 .setConfigDbUser(container.getUsername())
                 .setConfigDbPassword(container.getPassword());
-        FlywayMigration.migrate(config);
+        new FlywayMigration(config).migrate();
         String cpuInsert = "INSERT INTO resource_groups_global_properties VALUES ('cpu_quota_period', '1h')";
         String dataInsert = "INSERT INTO resource_groups_global_properties VALUES ('physical_data_scan_quota_period', '1h')";
         Handle handle = jdbi.open();

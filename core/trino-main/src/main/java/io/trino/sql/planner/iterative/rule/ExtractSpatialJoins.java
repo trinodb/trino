@@ -79,9 +79,11 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getSpatialPartitioningTableName;
 import static io.trino.SystemSessionProperties.isSpatialJoinEnabled;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -312,7 +314,7 @@ public class ExtractSpatialJoins
 
         Optional<Symbol> newRadiusSymbol = newRadiusSymbol(context, radius);
         Expression newRadius = toExpression(newRadiusSymbol, radius);
-        Expression newComparison = comparison(plannerContext.getMetadata(), comparison.operator(), distance, newRadius);
+        Expression newComparison = comparison(plannerContext.getMetadata(), getCharVarcharCoercion(context.getSession()), comparison.operator(), distance, newRadius);
 
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
         PlanNode newRightNode = newRadiusSymbol.map(symbol -> addProjection(context, rightNode, symbol, radius)).orElse(rightNode);
@@ -447,38 +449,43 @@ public class ExtractSpatialJoins
 
         Optional<KdbTree> kdbTree = Optional.empty();
         try (SplitSource splitSource = splitManager.getSplits(session, session.getQuerySpan(), tableHandle, DynamicFilter.EMPTY, alwaysTrue())) {
-            PageSourceProvider statefulPageSourceProvider = pageSourceManager.createPageSourceProvider(tableHandle.catalogHandle());
-            while (!Thread.currentThread().isInterrupted()) {
-                SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(1000));
-                List<Split> splits = splitBatch.getSplits();
+            PageSourceProvider statefulPageSourceProvider = pageSourceManager.createPageSourceProvider(tableHandle.catalogHandle(), newSimpleAggregatedMemoryContext());
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(1000));
+                    List<Split> splits = splitBatch.getSplits();
 
-                for (Split split : splits) {
-                    try (ConnectorPageSource pageSource = statefulPageSourceProvider.createPageSource(session, split, tableHandle, tableCredentials, ImmutableList.of(kdbTreeColumn), DynamicFilter.EMPTY, MemoryContext.NO_LIMIT)) {
-                        do {
-                            getFutureValue(pageSource.isBlocked());
-                            SourcePage page = pageSource.getNextSourcePage();
-                            if (page != null && page.getPositionCount() > 0) {
-                                checkSpatialPartitioningTable(kdbTree.isEmpty(), "Expected exactly one row for table %s, but found more", name);
-                                checkSpatialPartitioningTable(page.getPositionCount() == 1, "Expected exactly one row for table %s, but found %s rows", name, page.getPositionCount());
-                                Slice slice = VARCHAR.getSlice(page.getBlock(0), 0);
-                                try {
-                                    kdbTree = Optional.of(KdbTreeUtils.fromJson(slice));
-                                }
-                                catch (IllegalArgumentException e) {
-                                    checkSpatialPartitioningTable(false, "Invalid JSON string for KDB tree: %s", e.getMessage());
+                    for (Split split : splits) {
+                        try (ConnectorPageSource pageSource = statefulPageSourceProvider.createPageSource(session, split, tableHandle, tableCredentials, ImmutableList.of(kdbTreeColumn), DynamicFilter.EMPTY, MemoryContext.NO_LIMIT)) {
+                            do {
+                                getFutureValue(pageSource.isBlocked());
+                                SourcePage page = pageSource.getNextSourcePage();
+                                if (page != null && page.getPositionCount() > 0) {
+                                    checkSpatialPartitioningTable(kdbTree.isEmpty(), "Expected exactly one row for table %s, but found more", name);
+                                    checkSpatialPartitioningTable(page.getPositionCount() == 1, "Expected exactly one row for table %s, but found %s rows", name, page.getPositionCount());
+                                    Slice slice = VARCHAR.getSlice(page.getBlock(0), 0);
+                                    try {
+                                        kdbTree = Optional.of(KdbTreeUtils.fromJson(slice));
+                                    }
+                                    catch (IllegalArgumentException e) {
+                                        checkSpatialPartitioningTable(false, "Invalid JSON string for KDB tree: %s", e.getMessage());
+                                    }
                                 }
                             }
+                            while (!pageSource.isFinished());
                         }
-                        while (!pageSource.isFinished());
+                        catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
                     }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                }
 
-                if (splitBatch.isLastBatch()) {
-                    break;
+                    if (splitBatch.isLastBatch()) {
+                        break;
+                    }
                 }
+            }
+            finally {
+                statefulPageSourceProvider.release();
             }
         }
 
@@ -576,7 +583,7 @@ public class ExtractSpatialJoins
         }
 
         TypeDescriptor typeDescriptor = new TypeDescriptor(KDB_TREE_TYPENAME);
-        BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(context.getSession()))
                 .setName("spatial_partitions")
                 .addArgument(typeDescriptor, new Cast(new Constant(VARCHAR, KdbTreeUtils.toJson(kdbTree)), plannerContext.getTypeManager().getType(typeDescriptor)))
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);

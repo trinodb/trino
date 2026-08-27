@@ -97,6 +97,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
             <scope>test</scope>
         </dependency>
@@ -230,6 +236,27 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.block.DictionaryBlock io.trino.spi.block.DictionaryBlock::compact()</old>
+                                    <new>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::compact()</new>
+                                    <justification>Dictionary compaction can produce a simpler block representation.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.DictionaryBlock&gt; io.trino.spi.block.DictionaryBlock::compactRelatedBlocks(java.util.List&lt;io.trino.spi.block.DictionaryBlock&gt;)</old>
+                                    <new>method java.util.List&lt;? extends io.trino.spi.block.Block&gt; io.trino.spi.block.DictionaryBlock::compactRelatedBlocks(java.util.List&lt;io.trino.spi.block.DictionaryBlock&gt;)</new>
+                                    <justification>Related dictionary compaction can produce simpler block representations.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.connector.ConnectorPageSourceProvider::getMemoryUsage()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSourceProvider io.trino.spi.connector.ConnectorPageSourceProviderFactory::createPageSourceProvider()</old>
+                                    <new>method io.trino.spi.connector.ConnectorPageSourceProvider io.trino.spi.connector.ConnectorPageSourceProviderFactory::createPageSourceProvider(io.trino.spi.connector.MemoryContext)</new>
+                                </item>
                                 <item>
                                     <code>java.method.visibilityIncreased</code>
                                     <old>method int io.trino.spi.block.ArrayBlock::getOffsetBase()</old>
@@ -535,6 +562,14 @@
                                     <ignore>true</ignore>
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.security.TrinoPrincipal::getName()</old>
+                                    <new>method java.lang.String io.trino.spi.security.TrinoPrincipal::getName()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty</annotation>
+                                    <justification>getName() is deprecated and replaced by getPrincipalName() which preserves the original case of USER principal names. The @JsonProperty annotation is moved to getPrincipalName() so that JSON serialization reflects the stored name verbatim.</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

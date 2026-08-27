@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
@@ -34,8 +35,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Base64;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
@@ -76,10 +75,8 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
-        gcpCredentialsFile.toFile().deleteOnExit();
-        Files.write(gcpCredentialsFile, GCS_JSON_KEY_BYTES);
-        String projectId = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES).get("project_id").asText();
+        JsonNode gcsJson = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES);
+        String projectId = gcsJson.get("project_id").asText();
 
         return IcebergQueryRunner.builder(SCHEMA)
                 .addIcebergProperty("iceberg.file-format", format.name())
@@ -95,7 +92,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("fs.gcs.enabled", "true")
-                .addIcebergProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())
+                .addIcebergProperty("gcs.json-key", gcsJson.toString())
                 .setSchemaInitializer(SchemaInitializer.builder()
                         .withSchemaName(SCHEMA)
                         .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -244,57 +241,6 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
                 .hasMessage("Failed to create transaction")
                 .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
-    }
-
-    // TODO: https://github.com/trinodb/trino/issues/30440
-    // Enable the register table tests below once BigLake metastore accepts registering metadata under the suffixed table locations it assigns at creation
-    @Test
-    @Override
-    public void testRegisterTableWithTableLocation()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRegisterTableWithComments()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRegisterTableWithShowCreateTable()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRegisterTableWithReInsert()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRegisterTableWithMetadataFile()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testUnregisterTable()
-    {
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    public void testRepeatUnregisterTable()
-    {
-        abort("skipped");
     }
 
     @Test

@@ -83,7 +83,7 @@
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
-            <version>7.5.3</version>
+            <version>8.0.0</version>
         </dependency>
 
         <dependency>
@@ -137,6 +137,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
             <scope>test</scope>
         </dependency>
 

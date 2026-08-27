@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
@@ -36,6 +37,7 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
 
 import java.util.HashSet;
@@ -47,6 +49,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -81,18 +84,20 @@ public class RemoveUnsupportedDynamicFilters
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(), ImmutableSet.of());
+        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(context.session()), ImmutableSet.of());
         return result.getNode();
     }
 
     private class Rewriter
             extends PlanVisitor<PlanWithConsumedDynamicFilters, Set<DynamicFilterId>>
     {
+        private final CharVarcharCoercion charVarcharCoercion;
         private final TypeCoercion typeCoercion;
 
-        public Rewriter()
+        public Rewriter(Session session)
         {
-            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
+            this.charVarcharCoercion = getCharVarcharCoercion(session);
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
         }
 
         @Override
@@ -320,7 +325,7 @@ public class RemoveUnsupportedDynamicFilters
         private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
         {
             try {
-                plannerContext.getMetadata().getCoercion(SATURATED_FLOOR_CAST, fromType, toType);
+                plannerContext.getMetadata().getCoercion(charVarcharCoercion, SATURATED_FLOOR_CAST, fromType, toType);
             }
             catch (OperatorNotFoundException e) {
                 return false;

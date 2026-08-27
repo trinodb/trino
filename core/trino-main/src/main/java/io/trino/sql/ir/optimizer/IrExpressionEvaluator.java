@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -230,7 +231,7 @@ public class IrExpressionEvaluator
         }
 
         ConnectorSession connectorSession = session.toConnectorSession();
-        ResolvedFunction equals = metadata.resolveOperator(EQUAL, ImmutableList.of(expression.value().type(), expression.value().type()));
+        ResolvedFunction equals = metadata.resolveOperator(getCharVarcharCoercion(session), EQUAL, ImmutableList.of(expression.value().type(), expression.value().type()));
 
         boolean hasNull = false;
 
@@ -264,7 +265,7 @@ public class IrExpressionEvaluator
     private Object evaluateOperator(OperatorType operator, Type leftType, Type rightType, Object left, Object right, Session session)
     {
         return functionInvoker.invoke(
-                metadata.resolveOperator(operator, ImmutableList.of(leftType, rightType)),
+                metadata.resolveOperator(getCharVarcharCoercion(session), operator, ImmutableList.of(leftType, rightType)),
                 session.toConnectorSession(),
                 Arrays.asList(left, right));
     }
@@ -284,7 +285,7 @@ public class IrExpressionEvaluator
     private Object evaluateInternal(Cast cast, Session session, Map<String, Object> bindings)
     {
         return functionInvoker.invoke(
-                metadata.getCoercion(cast.expression().type(), cast.type()),
+                metadata.getCoercion(getCharVarcharCoercion(session), cast.expression().type(), cast.type()),
                 session.toConnectorSession(),
                 singletonList(evaluate(cast.expression(), session, bindings)));
     }

@@ -42,6 +42,7 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -264,6 +265,11 @@ public class QueryManager
     public Optional<Plan> getQueryPlan(QueryId queryId)
     {
         return queryTracker.getQuery(queryId).getQueryPlan();
+    }
+
+    public Optional<Map<String, Long>> getCallResult(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).callResult();
     }
 
     public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)

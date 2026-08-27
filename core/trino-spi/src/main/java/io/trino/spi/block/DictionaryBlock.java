@@ -28,11 +28,29 @@ import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A dictionary block maps each position to a position in an underlying dictionary.
+ * <p>
+ * A dictionary block and its underlying dictionary both contain at least two positions.
+ * <p>
+ * Methods returning {@link Block} may return a simpler equivalent representation:
+ * <ul>
+ * <li>empty and single-position results are returned directly from the dictionary;</li>
+ * <li>multi-position results backed by a single-entry or run-length encoded dictionary are
+ * represented as a {@link RunLengthEncodedBlock};</li>
+ * <li>compacted identity mappings are returned directly as the underlying value block; and</li>
+ * <li>nested dictionaries are flattened to a single dictionary layer.</li>
+ * </ul>
+ * Callers should not assume the returned block is a {@link DictionaryBlock}.
+ */
 public final class DictionaryBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = instanceSize(DictionaryBlock.class) + instanceSize(DictionaryId.class);
     private static final int NULL_NOT_FOUND = -1;
+    private static final byte SEQUENTIAL_IDS_UNCHECKED = 0;
+    private static final byte SEQUENTIAL_IDS = 1;
+    private static final byte NON_SEQUENTIAL_IDS = 2;
 
     private final int positionCount;
     private final ValueBlock dictionary;
@@ -41,8 +59,10 @@ public final class DictionaryBlock
     private final long retainedSizeInBytes;
     private volatile long sizeInBytes = -1;
     private volatile int uniqueIds = -1;
-    // isSequentialIds is only valid when uniqueIds is computed
-    private volatile boolean isSequentialIds;
+    // SEQUENTIAL_IDS_UNCHECKED means the ids have not been inspected. The computed states are valid
+    // independently from uniqueIds because some construction paths know only one fact. countUniqueIds
+    // publishes uniqueIds before the computed sequential state.
+    private volatile byte sequentialIdsState = SEQUENTIAL_IDS_UNCHECKED;
     private final DictionaryId dictionarySourceId;
     private final boolean mayHaveNull;
 
@@ -61,11 +81,8 @@ public final class DictionaryBlock
 
     static Block createInternal(int idsOffset, int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
     {
-        if (positionCount == 0) {
-            return dictionary.copyRegion(0, 0);
-        }
-        if (positionCount == 1) {
-            return dictionary.getRegion(ids[idsOffset], 1);
+        if (dictionary instanceof ValueBlock valueBlock) {
+            return createInternal(idsOffset, positionCount, valueBlock, ids, false, SEQUENTIAL_IDS_UNCHECKED, dictionarySourceId);
         }
 
         // if dictionary is an RLE then this can just be a new RLE
@@ -73,25 +90,44 @@ public final class DictionaryBlock
             return RunLengthEncodedBlock.create(rle.getValue(), positionCount);
         }
 
-        if (dictionary instanceof ValueBlock valueBlock) {
-            return new DictionaryBlock(idsOffset, positionCount, valueBlock, ids, false, false, dictionarySourceId);
-        }
-
         // unwrap dictionary in dictionary
         int[] newIds = new int[positionCount];
         for (int position = 0; position < positionCount; position++) {
             newIds[position] = dictionary.getUnderlyingValuePosition(ids[idsOffset + position]);
         }
-        return new DictionaryBlock(0, positionCount, dictionary.getUnderlyingValueBlock(), newIds, false, false, randomDictionaryId());
+        return createInternal(0, positionCount, dictionary.getUnderlyingValueBlock(), newIds, false, SEQUENTIAL_IDS_UNCHECKED, randomDictionaryId());
     }
 
-    private DictionaryBlock(int idsOffset, int positionCount, ValueBlock dictionary, int[] ids, boolean dictionaryIsCompacted, boolean isSequentialIds, DictionaryId dictionarySourceId)
+    private static Block createInternal(int idsOffset, int positionCount, ValueBlock dictionary, int[] ids, boolean dictionaryIsCompacted, byte sequentialIdsState, DictionaryId dictionarySourceId)
+    {
+        if (positionCount == 0) {
+            return dictionary.copyRegion(0, 0);
+        }
+        if (positionCount == 1) {
+            return dictionary.getRegion(ids[idsOffset], 1);
+        }
+
+        // A dictionary with a single entry contains the same value at every position.
+        if (dictionary.getPositionCount() == 1) {
+            return RunLengthEncodedBlock.create(dictionary, positionCount);
+        }
+
+        return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, dictionaryIsCompacted, sequentialIdsState, dictionarySourceId);
+    }
+
+    private DictionaryBlock(int idsOffset, int positionCount, ValueBlock dictionary, int[] ids, boolean dictionaryIsCompacted, byte sequentialIdsState, DictionaryId dictionarySourceId)
     {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
 
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
+        }
+        if (positionCount < 2) {
+            throw new IllegalArgumentException("positionCount must be at least 2");
+        }
+        if (dictionary.getPositionCount() < 2) {
+            throw new IllegalArgumentException("dictionary must have at least 2 positions");
         }
 
         this.idsOffset = idsOffset;
@@ -104,16 +140,13 @@ public final class DictionaryBlock
         this.ids = ids;
         this.dictionarySourceId = requireNonNull(dictionarySourceId, "dictionarySourceId is null");
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(ids);
-        this.mayHaveNull = positionCount > 0 && dictionary.mayHaveNull();
+        this.mayHaveNull = dictionary.mayHaveNull();
 
         if (dictionaryIsCompacted) {
             this.uniqueIds = dictionary.getPositionCount();
         }
 
-        if (isSequentialIds && !dictionaryIsCompacted) {
-            throw new IllegalArgumentException("sequential ids flag is only valid for compacted dictionary");
-        }
-        this.isSequentialIds = isSequentialIds;
+        this.sequentialIdsState = sequentialIdsState;
     }
 
     public int[] getRawIds()
@@ -155,23 +188,22 @@ public final class DictionaryBlock
     {
         int uniqueIds = 0;
         boolean[] used = new boolean[dictionary.getPositionCount()];
-        // nested dictionaries are assumed not to have sequential ids
-        boolean isSequentialIds = true;
+        boolean sequentialIds = true;
         int previousPosition = -1;
         for (int i = 0; i < positionCount; i++) {
             int position = ids[idsOffset + i];
             // Avoid branching
             uniqueIds += used[position] ? 0 : 1;
             used[position] = true;
-            if (isSequentialIds) {
+            if (sequentialIds) {
                 // this branch is predictable and will switch paths at most once while looping
-                isSequentialIds = previousPosition < position;
+                sequentialIds = previousPosition < position;
                 previousPosition = position;
             }
         }
 
         this.uniqueIds = uniqueIds;
-        this.isSequentialIds = isSequentialIds;
+        this.sequentialIdsState = sequentialIds ? SEQUENTIAL_IDS : NON_SEQUENTIAL_IDS;
     }
 
     @Override
@@ -181,6 +213,13 @@ public final class DictionaryBlock
             // Calculation of getRegionSizeInBytes is expensive in this class.
             // On the other hand, getSizeInBytes result is cached.
             return getSizeInBytes();
+        }
+
+        if (length == 0) {
+            return 0;
+        }
+        if (length == 1) {
+            return dictionary.getRegionSizeInBytes(getId(positionOffset), 1);
         }
 
         double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
@@ -241,13 +280,13 @@ public final class DictionaryBlock
             // discovered that all positions are unique, so return the unwrapped underlying dictionary directly
             return compactDictionary;
         }
-        return new DictionaryBlock(
+        return createInternal(
                 0,
                 length,
                 compactDictionary,
                 newIds,
                 true, // new dictionary is compact
-                false,
+                NON_SEQUENTIAL_IDS,
                 randomDictionaryId());
     }
 
@@ -260,7 +299,7 @@ public final class DictionaryBlock
             return this;
         }
 
-        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, false, dictionarySourceId);
+        return createInternal(idsOffset + positionOffset, length, dictionary, ids, false, SEQUENTIAL_IDS_UNCHECKED, dictionarySourceId);
     }
 
     @Override
@@ -274,7 +313,7 @@ public final class DictionaryBlock
         }
         // Avoid repeated volatile reads to the uniqueIds field
         int uniqueIds = this.uniqueIds;
-        if (length <= 1 || (uniqueIds == dictionary.getPositionCount() && isSequentialIds)) {
+        if (length <= 1 || (uniqueIds == dictionary.getPositionCount() && sequentialIdsState == SEQUENTIAL_IDS)) {
             // copy the contiguous range directly via copyRegion
             return dictionary.copyRegion(getId(position), length);
         }
@@ -287,20 +326,21 @@ public final class DictionaryBlock
         if (newIds == ids) {
             return this;
         }
-        return new DictionaryBlock(
+        DictionaryBlock result = (DictionaryBlock) createInternal(
                 0,
                 length,
                 dictionary,
                 newIds,
                 false,
-                false,
-                randomDictionaryId()).compact();
+                SEQUENTIAL_IDS_UNCHECKED,
+                randomDictionaryId());
+        return result.compact();
     }
 
     @Override
     public boolean mayHaveNull()
     {
-        return mayHaveNull && dictionary.mayHaveNull();
+        return mayHaveNull;
     }
 
     @Override
@@ -328,20 +368,30 @@ public final class DictionaryBlock
         boolean isCompact = length >= dictionary.getPositionCount() && isCompact();
         boolean[] usedIds = isCompact ? new boolean[dictionary.getPositionCount()] : null;
         int uniqueIds = 0;
+        boolean sequentialIds = true;
+        int previousId = -1;
         for (int i = 0; i < length; i++) {
             int id = getId(positions[offset + i]);
             newIds[i] = id;
             if (usedIds != null) {
                 uniqueIds += usedIds[id] ? 0 : 1;
                 usedIds[id] = true;
+                if (sequentialIds) {
+                    sequentialIds = previousId < id;
+                    previousId = id;
+                }
             }
         }
         // All positions must have been referenced in order to be compact
         isCompact &= (usedIds != null && usedIds.length == uniqueIds);
-        DictionaryBlock result = new DictionaryBlock(0, newIds.length, dictionary, newIds, isCompact, false, getDictionarySourceId());
-        if (usedIds != null && !isCompact) {
+        byte sequentialIdsState = SEQUENTIAL_IDS_UNCHECKED;
+        if (isCompact) {
+            sequentialIdsState = sequentialIds ? SEQUENTIAL_IDS : NON_SEQUENTIAL_IDS;
+        }
+        Block result = createInternal(0, newIds.length, dictionary, newIds, isCompact, sequentialIdsState, getDictionarySourceId());
+        if (result instanceof DictionaryBlock dictionaryBlock && usedIds != null && !isCompact) {
             // resulting dictionary is not compact, but we know the number of unique ids and which positions are used
-            result.uniqueIds = uniqueIds;
+            dictionaryBlock.uniqueIds = uniqueIds;
         }
         return result;
     }
@@ -373,7 +423,12 @@ public final class DictionaryBlock
             newIds[idsOffset + positionCount] = nullIndex;
         }
 
-        return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, isCompact(), false, getDictionarySourceId());
+        boolean compact = isCompact();
+        byte sequentialIdsState = SEQUENTIAL_IDS_UNCHECKED;
+        if (compact) {
+            sequentialIdsState = nullIndex == NULL_NOT_FOUND ? this.sequentialIdsState : NON_SEQUENTIAL_IDS;
+        }
+        return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, compact, sequentialIdsState, getDictionarySourceId());
     }
 
     @Override
@@ -409,7 +464,8 @@ public final class DictionaryBlock
         }
 
         if (newDictionary instanceof ValueBlock valueBlock) {
-            return new DictionaryBlock(idsOffset, positionCount, valueBlock, ids, isCompact(), false, dictionarySourceId);
+            boolean compact = isCompact();
+            return new DictionaryBlock(idsOffset, positionCount, valueBlock, ids, compact, sequentialIdsState, dictionarySourceId);
         }
         if (newDictionary instanceof RunLengthEncodedBlock rle) {
             return RunLengthEncodedBlock.create(rle.getValue(), positionCount);
@@ -420,16 +476,18 @@ public final class DictionaryBlock
         for (int position = 0; position < positionCount; position++) {
             newIds[position] = newDictionary.getUnderlyingValuePosition(getIdUnchecked(position));
         }
-        return new DictionaryBlock(0, positionCount, newDictionary.getUnderlyingValueBlock(), newIds, false, false, randomDictionaryId());
+        return new DictionaryBlock(0, positionCount, newDictionary.getUnderlyingValueBlock(), newIds, false, SEQUENTIAL_IDS_UNCHECKED, randomDictionaryId());
     }
 
     boolean isSequentialIds()
     {
-        if (uniqueIds == -1) {
+        byte sequentialIdsState = this.sequentialIdsState;
+        if (sequentialIdsState == SEQUENTIAL_IDS_UNCHECKED) {
             countUniqueIds();
+            sequentialIdsState = this.sequentialIdsState;
         }
 
-        return isSequentialIds;
+        return sequentialIdsState == SEQUENTIAL_IDS;
     }
 
     int getUniqueIds()
@@ -465,9 +523,12 @@ public final class DictionaryBlock
         return uniqueIds == dictionary.getPositionCount();
     }
 
-    public DictionaryBlock compact()
+    public Block compact()
     {
         if (isCompact()) {
+            if (isSequentialIds()) {
+                return dictionary;
+            }
             return this;
         }
 
@@ -492,27 +553,20 @@ public final class DictionaryBlock
             return this;
         }
 
-        // compact the dictionary
-        int[] newIds = new int[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            int newId = remapIndex[getId(i)];
-            if (newId == -1) {
-                throw new IllegalStateException("reference to a non-existent key");
-            }
-            newIds[i] = newId;
-        }
         try {
             ValueBlock compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy.elements(), 0, dictionaryPositionsToCopy.size());
-            return new DictionaryBlock(
+            if (dictionaryPositionsToCopy.size() == positionCount) {
+                return compactDictionary;
+            }
+
+            int[] newIds = getNewIds(positionCount, this, remapIndex);
+            return createInternal(
                     0,
                     positionCount,
                     compactDictionary,
                     newIds,
                     true,
-                    // Copied dictionary positions match ids sequence. Therefore new
-                    // compact dictionary block has sequential ids only if single position
-                    // is not used more than once.
-                    uniqueIds == positionCount,
+                    NON_SEQUENTIAL_IDS,
                     randomDictionaryId());
         }
         catch (UnsupportedOperationException e) {
@@ -525,9 +579,15 @@ public final class DictionaryBlock
      * Compact the dictionary down to only the used positions for a set of
      * blocks that have been projected from the same dictionary.
      */
-    public static List<DictionaryBlock> compactRelatedBlocks(List<DictionaryBlock> blocks)
+    public static List<? extends Block> compactRelatedBlocks(List<DictionaryBlock> blocks)
     {
         DictionaryBlock firstDictionaryBlock = blocks.get(0);
+        for (DictionaryBlock dictionaryBlock : blocks) {
+            if (!firstDictionaryBlock.getDictionarySourceId().equals(dictionaryBlock.getDictionarySourceId())) {
+                throw new IllegalArgumentException("dictionarySourceIds must be the same");
+            }
+        }
+
         Block dictionary = firstDictionaryBlock.getDictionary();
 
         int positionCount = firstDictionaryBlock.getPositionCount();
@@ -550,35 +610,44 @@ public final class DictionaryBlock
 
         // entire dictionary is referenced
         if (numberOfIndexes == dictionarySize) {
+            if (numberOfIndexes == positionCount && firstDictionaryBlock.isSequentialIds()) {
+                List<Block> outputBlocks = new ArrayList<>(blocks.size());
+                for (DictionaryBlock dictionaryBlock : blocks) {
+                    outputBlocks.add(dictionaryBlock.getDictionary());
+                }
+                return outputBlocks;
+            }
             return blocks;
         }
 
         // compact the dictionaries
-        int[] newIds = getNewIds(positionCount, firstDictionaryBlock, remapIndex);
-        List<DictionaryBlock> outputDictionaryBlocks = new ArrayList<>(blocks.size());
+        boolean isIdentity = numberOfIndexes == positionCount;
+        int[] newIds = isIdentity ? null : getNewIds(positionCount, firstDictionaryBlock, remapIndex);
+        List<Block> outputBlocks = new ArrayList<>(blocks.size());
         DictionaryId newDictionaryId = randomDictionaryId();
         for (DictionaryBlock dictionaryBlock : blocks) {
-            if (!firstDictionaryBlock.getDictionarySourceId().equals(dictionaryBlock.getDictionarySourceId())) {
-                throw new IllegalArgumentException("dictionarySourceIds must be the same");
-            }
-
             try {
                 ValueBlock compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
-                outputDictionaryBlocks.add(new DictionaryBlock(
-                        0,
-                        positionCount,
-                        compactDictionary,
-                        newIds,
-                        true,
-                        false,
-                        newDictionaryId));
+                if (isIdentity) {
+                    outputBlocks.add(compactDictionary);
+                }
+                else {
+                    outputBlocks.add(createInternal(
+                            0,
+                            positionCount,
+                            compactDictionary,
+                            newIds,
+                            true,
+                            NON_SEQUENTIAL_IDS,
+                            newDictionaryId));
+                }
             }
             catch (UnsupportedOperationException e) {
                 // ignore if copy positions is not supported for the dictionary
-                outputDictionaryBlocks.add(dictionaryBlock);
+                outputBlocks.add(dictionaryBlock);
             }
         }
-        return outputDictionaryBlocks;
+        return outputBlocks;
     }
 
     private static int[] getNewIds(int positionCount, DictionaryBlock dictionaryBlock, int[] remapIndex)

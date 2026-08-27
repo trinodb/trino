@@ -33,6 +33,7 @@ import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +55,8 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.CharVarcharCoercion.LEGACY;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -154,9 +157,11 @@ public final class SystemSessionProperties
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
+    public static final String LEGACY_VARCHAR_TO_CHAR_COERCION = "legacy_varchar_to_char_coercion";
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
     public static final String RETRY_POLICY = "retry_policy";
+    public static final String DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED = "direct_trino_client_fault_tolerant_execution_enabled";
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
     public static final String MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY = "max_tasks_waiting_for_execution_per_query";
@@ -772,6 +777,11 @@ public final class SystemSessionProperties
                         featuresConfig.isLegacyCatalogRoles(),
                         true),
                 booleanProperty(
+                        LEGACY_VARCHAR_TO_CHAR_COERCION,
+                        "Implicitly coerce varchar to char, instead of char to varchar",
+                        featuresConfig.isLegacyVarcharToCharCoercion(),
+                        true),
+                booleanProperty(
                         INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED,
                         "Use smaller load factor for small hash arrays in order to improve performance",
                         featuresConfig.isIncrementalHashArrayLoadFactorEnabled(),
@@ -792,6 +802,11 @@ public final class SystemSessionProperties
                             }
                         },
                         true),
+                booleanProperty(
+                        DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED,
+                        "Allow DirectTrinoClient to consume results of queries running under fault-tolerant execution; when disabled such queries are forced to retry_policy=NONE",
+                        queryManagerConfig.isDirectTrinoClientFaultTolerantExecutionEnabled(),
+                        false),
                 integerProperty(
                         QUERY_RETRY_ATTEMPTS,
                         "Maximum number of query retry attempts",
@@ -1722,6 +1737,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(LEGACY_CATALOG_ROLES, Boolean.class);
     }
 
+    public static CharVarcharCoercion getCharVarcharCoercion(Session session)
+    {
+        return session.getSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, Boolean.class) ? LEGACY : SQL_STANDARD;
+    }
+
     public static boolean isIncrementalHashArrayLoadFactorEnabled(Session session)
     {
         return session.getSystemProperty(INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED, Boolean.class);
@@ -1735,6 +1755,11 @@ public final class SystemSessionProperties
     public static RetryPolicy getRetryPolicy(Session session)
     {
         return session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
+    }
+
+    public static boolean isDirectTrinoClientFaultTolerantExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static int getQueryRetryAttempts(Session session)

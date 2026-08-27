@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -113,7 +114,7 @@ public class BenchmarkArrayIntersect
                     new Reference(arrayType, "$col_1")));
 
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(
+            pageProcessor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, ImmutableMap.of(
                     new Symbol(arrayType, "$col_0"), 0,
                     new Symbol(arrayType, "$col_1"), 1)).get();
 

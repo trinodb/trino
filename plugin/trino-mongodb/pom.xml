@@ -15,7 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <mongo-java.version>5.9.1</mongo-java.version>
+        <mongo-java.version>5.10.0</mongo-java.version>
     </properties>
 
     <dependencies>
@@ -149,6 +149,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
             <scope>test</scope>
         </dependency>
 

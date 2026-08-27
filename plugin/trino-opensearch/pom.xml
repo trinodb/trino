@@ -16,7 +16,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.opensearch.version>3.7.0</dep.opensearch.version>
+        <dep.opensearch.version>3.8.0</dep.opensearch.version>
     </properties>
 
     <dependencies>

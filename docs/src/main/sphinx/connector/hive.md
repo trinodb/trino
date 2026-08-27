@@ -125,7 +125,7 @@ Hive connector documentation.
   - `false`
 * - `hive.storage-format`
   - The default file format used when creating new tables.
-  - `ORC`
+  - `PARQUET`
 * - `hive.orc.use-column-names`
   - Access ORC columns by name. By default, columns in ORC files are accessed by
     their ordinal position in the Hive table definition. The equivalent catalog
