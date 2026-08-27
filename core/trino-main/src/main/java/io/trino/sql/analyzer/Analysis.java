@@ -148,6 +148,7 @@ public class Analysis
     private Optional<Boolean> tableExecuteReadsData;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Session> namedQuerySessions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Pivot>, PivotAnalysis> pivotAnalyses = new LinkedHashMap<>();
 
@@ -953,6 +954,19 @@ public class Analysis
         requireNonNull(query, "query is null");
 
         namedQueries.put(NodeRef.of(tableReference), query);
+    }
+
+    public void registerNamedQuerySession(Table tableReference, Session querySession)
+    {
+        requireNonNull(tableReference, "tableReference is null");
+        requireNonNull(querySession, "querySession is null");
+
+        namedQuerySessions.put(NodeRef.of(tableReference), querySession);
+    }
+
+    public Optional<Session> getNamedQuerySession(Table table)
+    {
+        return Optional.ofNullable(namedQuerySessions.get(NodeRef.of(table)));
     }
 
     public void registerPivotAnalysis(Pivot pivot, PivotAnalysis analysis)

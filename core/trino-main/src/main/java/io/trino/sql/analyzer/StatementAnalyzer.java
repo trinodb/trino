@@ -2801,13 +2801,18 @@ class StatementAnalyzer
                 }
 
                 analysis.registerTableForView(table, name, isMaterializedView);
-                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+                ViewOwnerContext ownerContext = viewOwnerContext(owner, catalog, schema, path);
+                RelationType descriptor = analyzeView(query, name, ownerContext, table);
                 analysis.unregisterTableForView();
 
                 checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
                         .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
 
                 analysis.registerNamedQuery(table, query);
+                if (isMaterializedView) {
+                    // Plan the inlined definition as the owner. Regular views keep the caller session so current_user is the invoker.
+                    analysis.registerNamedQuerySession(table, ownerContext.session());
+                }
             }
 
             Scope accessControlScope = Scope.builder()
@@ -5728,14 +5733,10 @@ class StatementAnalyzer
         private RelationType analyzeView(
                 Query query,
                 QualifiedObjectName name,
-                Optional<String> catalog,
-                Optional<String> schema,
-                Optional<Identity> owner,
-                List<CatalogSchemaName> path,
+                ViewOwnerContext ownerContext,
                 Table node)
         {
             try {
-                ViewOwnerContext ownerContext = viewOwnerContext(owner, catalog, schema, path);
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(ownerContext.accessControl())
                         .createStatementAnalyzer(analysis, ownerContext.session(), warningCollector, CorrelationSupport.ALLOWED);

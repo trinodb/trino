@@ -306,13 +306,17 @@ class RelationPlanner
 
         RelationPlan plan;
         if (namedQuery != null) {
+            Session querySession = analysis.getNamedQuerySession(node).orElse(session);
+            RelationPlanner queryPlanner = querySession == session
+                    ? this
+                    : new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, querySession, recursiveSubqueries);
             RelationPlan subPlan;
             if (analysis.isExpandableQuery(namedQuery)) {
-                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, querySession, recursiveSubqueries)
                         .planExpand(namedQuery);
             }
             else {
-                subPlan = process(namedQuery, null);
+                subPlan = queryPlanner.process(namedQuery, null);
             }
 
             // Add implicit coercions if view query produces types that don't match the declared output types
