@@ -241,6 +241,7 @@ public class TestSqlKeywords
                         "PRIVILEGES",
                         "PROPERTIES",
                         "PRUNE",
+                        "QUALIFY",
                         "QUOTES",
                         "RANGE",
                         "READ",
