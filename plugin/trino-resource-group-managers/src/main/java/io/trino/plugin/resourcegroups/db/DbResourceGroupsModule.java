@@ -15,11 +15,14 @@ package io.trino.plugin.resourcegroups.db;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 import org.jdbi.v3.core.Jdbi;
+
+import javax.sql.DataSource;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -31,7 +34,6 @@ public class DbResourceGroupsModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(DbResourceGroupConfig.class);
-        binder.bind(FlywayMigration.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupsDao.class).toProvider(DaoProvider.class).in(Scopes.SINGLETON);
         binder.bind(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupConfigurationManager.class).to(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
@@ -40,8 +42,28 @@ public class DbResourceGroupsModule
 
     @Provides
     @Singleton
-    public static Jdbi create(DbResourceGroupConfig config)
+    public static DataSource createDataSource(DbResourceGroupConfig config)
     {
-        return Jdbi.create(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword());
+        String url = config.getConfigDbUrl();
+        SupportedDatabase.requireSupported(url);
+        return DriverDataSource.create(url, config.getConfigDbUser(), config.getConfigDbPassword());
+    }
+
+    @Provides
+    @Singleton
+    public static DatabaseMigrator createMigrator(Provider<DataSource> dataSource, DbResourceGroupConfig config)
+    {
+        if (config.isRunMigrationsEnabled()) {
+            String migrationLocation = SupportedDatabase.requireSupported(config.getConfigDbUrl()).getMigrationLocation();
+            return new FlywayDatabaseMigrator(dataSource.get(), migrationLocation);
+        }
+        return new NoOpDatabaseMigrator();
+    }
+
+    @Provides
+    @Singleton
+    public static Jdbi createJdbi(DataSource dataSource)
+    {
+        return Jdbi.create(dataSource);
     }
 }
