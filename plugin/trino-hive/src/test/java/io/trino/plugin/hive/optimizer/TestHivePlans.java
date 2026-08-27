@@ -25,6 +25,7 @@ import io.trino.plugin.hive.TestingHiveConnectorFactory;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
@@ -48,6 +49,7 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.SystemSessionProperties.ALLOW_UNSAFE_PUSHDOWN;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
@@ -58,6 +60,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -332,6 +335,63 @@ public class TestHivePlans
                                                 exchange(REMOTE,
                                                         REPLICATE,
                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))));
+    }
+
+    @Test
+    public void testUnsafePushdownPreservesConjunctOrder()
+    {
+        // Unsafe pushdown places may-fail conjuncts below the join in their written position.
+        Session unsafePushdown = Session.builder(noJoinReordering())
+                .setSystemProperty(ALLOW_UNSAFE_PUSHDOWN, "true")
+                .build();
+        assertDistributedPlan(
+                "SELECT l.str_col FROM table_unpartitioned l JOIN table_unpartitioned r ON l.int_col = r.int_col " +
+                        "WHERE l.int_col % l.int_col >= 0 AND l.str_col LIKE '%t%'",
+                unsafePushdown,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_COL", "R_INT_COL")
+                                .left(
+                                        exchange(REMOTE, REPARTITION,
+                                                filter(
+                                                        new Logical(AND, ImmutableList.of(
+                                                                comparison(GREATER_THAN_OR_EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "L_INT_COL"), new Reference(INTEGER, "L_INT_COL"))), new Constant(INTEGER, 0L)),
+                                                                new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile("%t%", Optional.empty())))))),
+                                                        tableScan("table_unpartitioned", Map.of("L_STR_COL", "str_col", "L_INT_COL", "int_col")))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION,
+                                                        filter(
+                                                                comparison(GREATER_THAN_OR_EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "R_INT_COL"), new Reference(INTEGER, "R_INT_COL"))), new Constant(INTEGER, 0L)),
+                                                                tableScan("table_unpartitioned", Map.of("R_INT_COL", "int_col")))))))));
+    }
+
+    @Test
+    public void testUnsafePushdownMayFailEqualityJoinsInference()
+    {
+        // A may-fail equality feeds equality inference, so the left filter holds a derived equality.
+        Session unsafePushdown = Session.builder(noJoinReordering())
+                .setSystemProperty(ALLOW_UNSAFE_PUSHDOWN, "true")
+                .build();
+        assertDistributedPlan(
+                "SELECT l.str_col FROM table_unpartitioned l JOIN table_unpartitioned r ON l.int_col = r.int_col " +
+                        "WHERE CAST(l.str_col AS integer) = r.int_col AND l.str_col LIKE '%t%'",
+                unsafePushdown,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_COL", "R_INT_COL")
+                                .left(
+                                        exchange(REMOTE, REPARTITION,
+                                                filter(
+                                                        new Logical(AND, ImmutableList.of(
+                                                                comparison(EQUAL, new Cast(new Reference(createVarcharType(5), "L_STR_COL"), INTEGER), new Reference(INTEGER, "L_INT_COL")),
+                                                                new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile("%t%", Optional.empty())))))),
+                                                        tableScan("table_unpartitioned", Map.of("L_STR_COL", "str_col", "L_INT_COL", "int_col")))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
+                                                        tableScan("table_unpartitioned", Map.of("R_INT_COL", "int_col"))))))));
     }
 
     // Disable join ordering so that expected plans are well defined.
