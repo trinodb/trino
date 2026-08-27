@@ -58,6 +58,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.types.TypeUtil;
@@ -92,6 +93,7 @@ import static io.trino.plugin.iceberg.procedure.MigrationUtils.buildDataFiles;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -249,7 +251,12 @@ public class MigrateProcedure
                     .build();
             metastore.replaceTable(schemaName, tableName, newTable, principalPrivileges, ImmutableMap.of());
 
-            transaction.commitTransaction();
+            try {
+                transaction.commitTransaction();
+            }
+            catch (CommitFailedException e) {
+                throw new TrinoException(TRANSACTION_CONFLICT, "Failed to migrate table", e);
+            }
             log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
 
             return ImmutableMap.<String, Long>builder()
