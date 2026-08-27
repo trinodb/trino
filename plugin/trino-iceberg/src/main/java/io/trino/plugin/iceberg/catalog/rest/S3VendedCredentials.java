@@ -20,11 +20,23 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ENDPOINT_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_PATH_STYLE_ACCESS_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_REGION_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static java.util.Objects.requireNonNull;
 
-record S3VendedCredentials(String accessKey, String secretKey, String sessionToken, Optional<Instant> expirationTime)
+record S3VendedCredentials(
+        String accessKey,
+        String secretKey,
+        String sessionToken,
+        Optional<Instant> expirationTime,
+        Optional<String> region,
+        Optional<String> endpoint,
+        Optional<String> crossRegionAccessEnabled,
+        Optional<String> pathStyleAccess)
         implements VendedCredentials
 {
     public S3VendedCredentials
@@ -33,6 +45,10 @@ record S3VendedCredentials(String accessKey, String secretKey, String sessionTok
         requireNonNull(secretKey, "secretKey is null");
         requireNonNull(sessionToken, "sessionToken is null");
         requireNonNull(expirationTime, "expirationTime is null");
+        requireNonNull(region, "region is null");
+        requireNonNull(endpoint, "endpoint is null");
+        requireNonNull(crossRegionAccessEnabled, "crossRegionAccessEnabled is null");
+        requireNonNull(pathStyleAccess, "pathStyleAccess is null");
     }
 
     @Override
@@ -44,10 +60,14 @@ record S3VendedCredentials(String accessKey, String secretKey, String sessionTok
     @Override
     public Map<String, String> toExtraCredentials()
     {
-        return ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder()
                 .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, accessKey)
                 .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, secretKey)
-                .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, sessionToken)
-                .buildOrThrow();
+                .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, sessionToken);
+        region.ifPresent(value -> builder.put(EXTRA_CREDENTIALS_REGION_PROPERTY, value));
+        endpoint.ifPresent(value -> builder.put(EXTRA_CREDENTIALS_ENDPOINT_PROPERTY, value));
+        crossRegionAccessEnabled.ifPresent(value -> builder.put(EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY, value));
+        pathStyleAccess.ifPresent(value -> builder.put(EXTRA_CREDENTIALS_PATH_STYLE_ACCESS_PROPERTY, value));
+        return builder.buildOrThrow();
     }
 }
