@@ -21,6 +21,7 @@ import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemConstants;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
@@ -72,6 +73,7 @@ public class IcebergRestCatalogFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
+        ConnectorIdentity enrichedIdentity = enrichIdentityWithObjectTags(identity, fileIoProperties);
         if (vendedCredentialsEnabled) {
             return new IcebergRestCatalogFileSystem(new IcebergRestCatalogFileSystemLoader()
             {
@@ -83,19 +85,20 @@ public class IcebergRestCatalogFileSystemFactory
                     }
                     CachedVendedCredentialsProviders cached = uncheckedCacheGet(
                             vendedCredentialsProvidersCache,
-                            createVendedCredentialsCacheKey(identity, fileIoProperties, this.storageCredentials),
+                            createVendedCredentialsCacheKey(enrichedIdentity, fileIoProperties, this.storageCredentials),
                             () -> createVendedCredentialsProviders(fileIoProperties, this.storageCredentials));
 
-                    return getTrinoFileSystem(location, identity, cached);
+                    return getTrinoFileSystem(location, enrichedIdentity, cached);
                 }
             });
         }
-        return fileSystemFactory.create(identity);
+        return fileSystemFactory.create(enrichedIdentity);
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, IcebergTableCredentials tableCredentials)
     {
+        ConnectorIdentity enrichedIdentity = enrichIdentityWithObjectTags(identity, tableCredentials.fileIoProperties());
         if (vendedCredentialsEnabled) {
             return new IcebergRestCatalogFileSystem(new IcebergRestCatalogFileSystemLoader()
             {
@@ -107,14 +110,14 @@ public class IcebergRestCatalogFileSystemFactory
                     }
                     CachedVendedCredentialsProviders cached = uncheckedCacheGet(
                             vendedCredentialsProvidersCache,
-                            createVendedCredentialsCacheKey(identity, tableCredentials.fileIoProperties(), tableCredentials.storageCredentials()),
+                            createVendedCredentialsCacheKey(enrichedIdentity, tableCredentials.fileIoProperties(), tableCredentials.storageCredentials()),
                             () -> createVendedCredentialsProviders(tableCredentials.fileIoProperties(), tableCredentials.storageCredentials()));
 
-                    return getTrinoFileSystem(location, identity, cached);
+                    return getTrinoFileSystem(location, enrichedIdentity, cached);
                 }
             });
         }
-        return fileSystemFactory.create(identity);
+        return fileSystemFactory.create(enrichedIdentity);
     }
 
     private TrinoFileSystem getTrinoFileSystem(Location location, ConnectorIdentity identity, CachedVendedCredentialsProviders cached)
@@ -136,9 +139,10 @@ public class IcebergRestCatalogFileSystemFactory
                 .withEnabledSystemRoles(identity.getEnabledSystemRoles())
                 .withConnectorRole(identity.getConnectorRole())
                 .withExtraCredentials(ImmutableMap.<String, String>builder()
+                        .putAll(identity.getExtraCredentials())
                         .putAll(cached.extraCredentials())
                         .putAll(ImmutableMap.copyOf(vendedCredentials.map(VendedCredentials::toExtraCredentials).orElse(ImmutableMap.of())))
-                        .buildOrThrow())
+                        .buildKeepingLast())
                 .build();
 
         return fileSystemFactory.create(identityWithExtraCredentials);
@@ -313,6 +317,24 @@ public class IcebergRestCatalogFileSystemFactory
             }
         }
         return Optional.empty();
+    }
+
+    private static ConnectorIdentity enrichIdentityWithObjectTags(ConnectorIdentity identity, Map<String, String> fileIoProperties)
+    {
+        String objectTags = fileIoProperties.get("s3.object-tags");
+        if (objectTags == null) {
+            return identity;
+        }
+        return ConnectorIdentity.forUser(identity.getUser())
+                .withGroups(identity.getGroups())
+                .withPrincipal(identity.getPrincipal())
+                .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                .withConnectorRole(identity.getConnectorRole())
+                .withExtraCredentials(ImmutableMap.<String, String>builder()
+                        .putAll(identity.getExtraCredentials())
+                        .put(S3FileSystemConstants.EXTRA_CREDENTIALS_OBJECT_TAGS, objectTags)
+                        .buildOrThrow())
+                .build();
     }
 
     private static void addOptionalProperty(
