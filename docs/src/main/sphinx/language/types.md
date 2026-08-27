@@ -152,7 +152,7 @@ Example literals: `NUMBER '10.3'`, `NUMBER '1234567890'`,
 ## Exact numeric
 
 Exact numeric values can be expressed as numeric literals such as `1.1`, and
-are supported by the `DECIMAL` data type.
+are supported by the `DECIMAL` and `NUMERIC` data types.
 
 Underscore characters are ignored within literal values, and can be used to
 increase readability. For example, decimal `123_456.789_123` is equivalent to
@@ -162,17 +162,18 @@ underscores, and underscores beside the comma (`.`) are not permitted.
 Leading zeros in literal values are permitted and ignored. For example,
 `000123.456` is equivalent to `123.456`.
 
-### `DECIMAL`
+### `DECIMAL` or `NUMERIC`
 
 A exact decimal number. Precision up to 38 digits is supported but performance
-is best up to 18 digits.
+is best up to 18 digits. The names `DECIMAL` and `NUMERIC` can both be used for
+this type. Declared columns and `CAST` results still report `decimal(p, s)`.
 
 The decimal type takes two literal parameters:
 
 - **precision** - total number of digits
 - **scale** - number of digits in fractional part. Scale is optional and defaults to 0.
 
-Example type definitions: `DECIMAL(10,3)`, `DECIMAL(20)`
+Example type definitions: `DECIMAL(10,3)`, `NUMERIC(10,3)`, `DECIMAL(20)`
 
 Example literals: `DECIMAL '10.3'`, `DECIMAL '1234567890'`, `1.1`
 
