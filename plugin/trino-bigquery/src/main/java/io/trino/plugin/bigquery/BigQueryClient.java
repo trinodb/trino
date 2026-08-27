@@ -103,6 +103,12 @@ public class BigQueryClient
             .onRetry(event -> log.debug("Getting destination table failed, retrying: %s", event.getLastException()))
             .handleIf(BigQueryUtil::isRetryable)
             .build();
+    private static final RetryPolicy<Object> LISTING_TABLES_RETRY_POLICY = RetryPolicy.builder()
+            .withMaxRetries(3)
+            .withBackoff(100, 2000, ChronoUnit.MILLIS)
+            .onRetry(event -> log.debug("Listing tables failed, retrying: %s", event.getLastException()))
+            .handleIf(e -> e instanceof BigQueryException exception && exception.getCode() == 503)
+            .build();
 
     // BigQuery has different table_type in `INFORMATION_SCHEMA` than API responses that returns TableDefinition.Type
     // see https://cloud.google.com/bigquery/docs/information-schema-tables#schema
@@ -400,7 +406,8 @@ public class BigQueryClient
         // BigQuery.listTables returns partial information on each table. See javadoc for more details.
         Iterable<Table> allTables;
         try {
-            allTables = bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(metadataPageSize)).iterateAll();
+            allTables = Failsafe.with(LISTING_TABLES_RETRY_POLICY)
+                    .get(() -> bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(metadataPageSize)).iterateAll());
         }
         catch (BigQueryException e) {
             throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
