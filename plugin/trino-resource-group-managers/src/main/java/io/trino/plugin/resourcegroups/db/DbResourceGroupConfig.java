@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -33,12 +34,14 @@ public class DbResourceGroupConfig
     private Duration refreshInterval = new Duration(1, SECONDS);
     private boolean runMigrationsEnabled = true;
 
+    @NotNull
     public String getConfigDbUrl()
     {
         return configUrl;
     }
 
     @Config("resource-groups.config-db-url")
+    @ConfigDescription("JDBC URL of the resource-groups configuration database")
     public DbResourceGroupConfig setConfigDbUrl(String configUrl)
     {
         this.configUrl = configUrl;

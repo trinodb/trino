@@ -54,8 +54,6 @@ public class DbResourceGroupConfigurationManagerFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        injector.getInstance(FlywayMigration.class).migrate();
-
         return injector.getInstance(DbResourceGroupConfigurationManager.class);
     }
 }
