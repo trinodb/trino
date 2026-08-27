@@ -294,6 +294,7 @@ class TestDeltaLakeWriteDatabricksCompatibilityDatabricks
     }
 
     @Test
+    @TestGroup.DeltaLakeExclude143
     @TestGroup.DeltaLakeExclude173
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     void testTrinoVacuumRemoveChangeDataFeedFiles(DeltaLakeDatabricksEnvironment env)
