@@ -311,6 +311,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshot
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getTableStatisticsMaxTotalManifestSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isBucketExecutionEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isIncrementalRefreshEnabled;
@@ -3932,7 +3933,8 @@ public class IcebergMetadata
                     return tableStatisticsReader.getTableStatistics(
                             originalHandle,
                             projectedColumns,
-                            icebergTable);
+                            icebergTable,
+                            getTableStatisticsMaxTotalManifestSize(session));
                 },
                 originalHandle.getProjectedColumns());
     }

@@ -1276,6 +1276,45 @@ public class TestIcebergStatistics
                 """);
     }
 
+    @Test
+    public void testTableStatisticsMaxTotalManifestSize()
+    {
+        String tableName = "test_table_statistics_max_total_manifest_size_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                VALUES
+                  ('a', null, 3.0, 0.0, null, 1, 3),
+                  (null, null, null, null, 3.0, null, null)
+                """);
+
+        // Any real manifest exceeds one byte, so this forces the limit. The nulls fraction is still
+        // reported because TableScanStatsRule derives it from the distinct value count and row count.
+        assertQuery(
+                withMaxTotalManifestSize(getSession(), "1B"),
+                "SHOW STATS FOR " + tableName,
+                """
+                VALUES
+                  ('a', null, 3.0, 0.0, null, null, null),
+                  (null, null, null, null, 3.0, null, null)
+                """);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private static Session withMaxTotalManifestSize(Session session, String maxTotalManifestSize)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, "table_statistics_max_total_manifest_size", maxTotalManifestSize)
+                .build();
+    }
+
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName))
