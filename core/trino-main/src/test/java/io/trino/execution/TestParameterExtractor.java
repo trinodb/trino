@@ -64,4 +64,13 @@ public class TestParameterExtractor
 
         assertThat(ParameterExtractor.getParameterCount(statement)).isEqualTo(1);
     }
+
+    @Test
+    public void testCreateMaterializedView()
+    {
+        Statement statement = sqlParser.createStatement("CREATE MATERIALIZED VIEW mv WITH (partitioning = ARRAY[?]) AS SELECT c1 FROM test_table");
+        assertThat(ParameterExtractor.extractParameters(statement))
+                .containsExactly(new Parameter(new NodeLocation(1, 56), 0));
+        assertThat(ParameterExtractor.getParameterCount(statement)).isEqualTo(1);
+    }
 }

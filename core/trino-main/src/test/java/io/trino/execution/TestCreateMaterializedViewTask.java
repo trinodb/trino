@@ -212,6 +212,27 @@ class TestCreateMaterializedViewTask
     }
 
     @Test
+    void testCreateMaterializedViewWithParameterizedProperty()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog(TEST_CATALOG_NAME)
+                .setSchema("schema")
+                .addPreparedStatement("stmt", "CREATE MATERIALIZED VIEW IF NOT EXISTS mv_parameterized_property WITH (foo = ?) AS SELECT * FROM mock_table")
+                .build();
+
+        queryRunner.execute(session, "EXECUTE stmt USING 'property_value'");
+
+        queryRunner.inTransaction(transactionSession -> {
+            SchemaTableName viewName = SchemaTableName.schemaTableName("schema", "mv_parameterized_property");
+            Optional<ConnectorMaterializedViewDefinition> definitionOptional = metadata.getMaterializedView(transactionSession.toConnectorSession(), viewName);
+            assertThat(definitionOptional).isPresent();
+            Map<String, Object> properties = metadata.getMaterializedViewProperties(transactionSession.toConnectorSession(), viewName, definitionOptional.get());
+            assertThat(properties.get("foo")).isEqualTo("property_value");
+            return null;
+        });
+    }
+
+    @Test
     public void testCreateDenyPermission()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
