@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.common.collect.ImmutableMultimap;
@@ -37,6 +38,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 
+import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -125,6 +127,19 @@ public class BigQueryConnectorModule
         public static BigQueryLabelFactory labelFactory(BigQueryConfig config)
         {
             return new BigQueryLabelFactory(config.getQueryLabelName(), new FormatInterpolator<>(config.getQueryLabelFormat(), SessionInterpolatedValues.values()));
+        }
+
+        @Provides
+        @Singleton
+        @ForBigQueryWriter
+        public static RetrySettings provideRetrySettings(BigQueryConfig config)
+        {
+            return RetrySettings.newBuilder()
+                    .setMaxAttempts(config.getWriteRetryMaxAttempts())
+                    .setInitialRetryDelayDuration(Duration.ofMillis(config.getWriteRetryInitialDelay().toMillis()))
+                    .setRetryDelayMultiplier(1.3)
+                    .setMaxRetryDelayDuration(Duration.ofMillis(config.getWriteRetryMaxDelay().toMillis()))
+                    .build();
         }
 
         @Provides
