@@ -2100,7 +2100,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         HiveMergeTableHandle mergeHandle = (HiveMergeTableHandle) mergeTableHandle;
         HiveInsertTableHandle insertHandle = mergeHandle.getInsertHandle();
@@ -2132,6 +2132,7 @@ public class HiveMetadata
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.finishMerge(session, table.getDatabaseName(), table.getTableName(), writeInfo.writePath(), partitionMergeResults, partitions);
+        return Optional.empty();
     }
 
     @Override

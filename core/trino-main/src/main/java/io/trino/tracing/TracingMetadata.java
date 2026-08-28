@@ -893,14 +893,14 @@ public class TracingMetadata
     }
 
     @Override
-    public void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishMerge", tableHandle.tableHandle().catalogHandle().getCatalogName());
         if (span.isRecording()) {
             span.setAttribute(TrinoAttributes.TABLE, tableHandle.tableHandle().connectorHandle().toString());
         }
         try (var _ = scopedSpan(span)) {
-            delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
+            return delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
         }
     }
 
