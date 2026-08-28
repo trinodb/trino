@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
@@ -35,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -1380,6 +1382,82 @@ public class TestIcebergStatistics
                   ('c2', null, 1.0, 0.0, null, null, null),
                   (null, null, null, null, 1.0, null, null)
                 """);
+    }
+
+    @Test
+    public void testTableStatisticsMaxTotalManifestSize()
+    {
+        String tableName = "test_table_statistics_max_total_manifest_size_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                VALUES
+                  ('a', null, 3.0, 0.0, null, 1, 3),
+                  (null, null, null, null, 3.0, null, null)
+                """);
+
+        // The limit does not apply to unpartitioned tables
+        assertQuery(
+                withMaxTotalManifestSize(getSession(), "1B"),
+                "SHOW STATS FOR " + tableName,
+                """
+                VALUES
+                  ('a', null, 3.0, 0.0, null, 1, 3),
+                  (null, null, null, null, 3.0, null, null)
+                """);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        String partitionedTableName = "test_table_statistics_max_total_manifest_size_partitioned_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + partitionedTableName + " (a integer, b integer) WITH (partitioning = ARRAY['b'])");
+        assertUpdate("INSERT INTO " + partitionedTableName + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + partitionedTableName + " VALUES (2, 20)", 1);
+
+        assertQuery(
+                "SHOW STATS FOR " + partitionedTableName,
+                """
+                VALUES
+                  ('a', null, 2.0, 0.0, null, 1, 2),
+                  ('b', null, 2.0, 0.0, null, 10, 20),
+                  (null, null, null, null, 2.0, null, null)
+                """);
+
+        // Above the limit only one of the two manifests is read, so the range covers a single row
+        Session sampling = withMaxTotalManifestSize(getSession(), "1B");
+        MaterializedRow sampled = showStatsRow(sampling, partitionedTableName, "a");
+        assertThat(sampled.getField(5)).isEqualTo(sampled.getField(6));
+
+        // A $partition filter cannot be evaluated on the manifest list. The matching row count of the
+        // manifest that is not read is extrapolated, or unknown when the one that is read has no match.
+        MaterializedRow withPartitionFilter = showStatsRow(sampling, "(SELECT * FROM " + partitionedTableName + " WHERE \"$partition\".b = 10)", null);
+        assertThat(withPartitionFilter.getField(4)).isIn(2.0, null);
+
+        // Manifests written before the partitioning was removed are still sampled
+        assertUpdate("ALTER TABLE " + partitionedTableName + " SET PROPERTIES partitioning = ARRAY[]");
+        sampled = showStatsRow(sampling, partitionedTableName, "a");
+        assertThat(sampled.getField(5)).isEqualTo(sampled.getField(6));
+
+        assertUpdate("DROP TABLE " + partitionedTableName);
+    }
+
+    private MaterializedRow showStatsRow(Session session, String relation, String columnName)
+    {
+        return computeActual(session, "SHOW STATS FOR " + relation).getMaterializedRows().stream()
+                .filter(row -> Objects.equals(row.getField(0), columnName))
+                .collect(onlyElement());
+    }
+
+    private static Session withMaxTotalManifestSize(Session session, String maxTotalManifestSize)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, "table_statistics_max_total_manifest_size", maxTotalManifestSize)
+                .build();
     }
 
     private long getCurrentSnapshotId(String tableName)

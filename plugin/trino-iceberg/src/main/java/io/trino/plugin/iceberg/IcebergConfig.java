@@ -75,6 +75,7 @@ public class IcebergConfig
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
+    private DataSize tableStatisticsMaxTotalManifestSize = DataSize.of(64, MEGABYTE);
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
@@ -266,6 +267,20 @@ public class IcebergConfig
     public IcebergConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
     {
         this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTableStatisticsMaxTotalManifestSize()
+    {
+        return tableStatisticsMaxTotalManifestSize;
+    }
+
+    @Config("iceberg.table-statistics-max-total-manifest-size")
+    @ConfigDescription("Maximum total size of the data manifests to read statistics from; above this limit statistics of partitioned tables are estimated from a sample of the manifests")
+    public IcebergConfig setTableStatisticsMaxTotalManifestSize(DataSize tableStatisticsMaxTotalManifestSize)
+    {
+        this.tableStatisticsMaxTotalManifestSize = tableStatisticsMaxTotalManifestSize;
         return this;
     }
 

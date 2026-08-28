@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -44,6 +45,7 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.ManifestEvaluator;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.puffin.StandardBlobTypes;
@@ -70,6 +72,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
+import static com.google.common.hash.Hashing.murmur3_128;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
@@ -80,10 +83,14 @@ import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Long.parseLong;
+import static java.lang.Math.max;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
+import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 
 public final class TableStatisticsReader
 {
@@ -109,7 +116,8 @@ public final class TableStatisticsReader
     public TableStatistics getTableStatistics(
             IcebergTableHandle tableHandle,
             Set<IcebergColumnHandle> projectedColumns,
-            Table icebergTable)
+            Table icebergTable,
+            DataSize maxTotalManifestSize)
     {
         return makeTableStatistics(
                 typeManager,
@@ -118,7 +126,8 @@ public final class TableStatisticsReader
                 tableHandle.getEnforcedPredicate(),
                 tableHandle.getUnenforcedPredicate(),
                 projectedColumns,
-                icebergPlanningExecutor);
+                icebergPlanningExecutor,
+                maxTotalManifestSize);
     }
 
     @VisibleForTesting
@@ -129,7 +138,8 @@ public final class TableStatisticsReader
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
             Set<IcebergColumnHandle> projectedColumns,
-            ExecutorService icebergPlanningExecutor)
+            ExecutorService icebergPlanningExecutor,
+            DataSize maxTotalManifestSize)
     {
         if (snapshot.isEmpty()) {
             // No snapshot, so no data.
@@ -178,6 +188,24 @@ public final class TableStatisticsReader
                 })
                 .collect(toImmutableList());
 
+        // Decoding cost scales with manifest size, which the manifest list records
+        long totalManifestSizeInBytes = filteredManifests.stream()
+                .mapToLong(ManifestFile::length)
+                .sum();
+        ManifestSample manifestSample = new ManifestSample(filteredManifests, 0, 1);
+        // Unpartitioned manifests are rarely large. Sampling relies on the manifest list row counts.
+        if (filteredManifests.stream().anyMatch(manifest -> icebergTable.specs().get(manifest.partitionSpecId()).isPartitioned())
+                && totalManifestSizeInBytes > maxTotalManifestSize.toBytes()
+                && filteredManifests.stream().allMatch(manifest -> manifest.addedRowsCount() != null && manifest.existingRowsCount() != null)) {
+            manifestSample = sampleManifests(
+                    icebergTable,
+                    filteredManifests,
+                    effectivePredicate,
+                    partitionFieldPredicate.isAll() && pathDomain.isAll(),
+                    maxTotalManifestSize.toBytes());
+        }
+        List<ManifestFile> manifestsToDecode = manifestSample.manifests();
+
         ImmutableList.Builder<Types.NestedField> columnsBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
         for (Types.NestedField column : icebergTable.schema().columns()) {
@@ -191,8 +219,8 @@ public final class TableStatisticsReader
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, columnTypes, typeManager);
 
         // Decode small manifest sets inline to avoid bottlenecking small scans on resource contention in the shared planning pool
-        if (filteredManifests.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
-            for (ManifestFile manifestFile : filteredManifests) {
+        if (manifestsToDecode.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
+            for (ManifestFile manifestFile : manifestsToDecode) {
                 collectManifestStatistics(icebergStatisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionFieldPredicate, pathDomain);
             }
         }
@@ -200,7 +228,7 @@ public final class TableStatisticsReader
             // Aggregate each manifest into its own accumulator on the planning pool and merge it into the result
             // as soon as it is done. Data files are consumed on the thread that decodes them and partial results
             // are not retained after merging, so memory usage stays independent of the number of data files.
-            List<Callable<Void>> tasks = filteredManifests.stream()
+            List<Callable<Void>> tasks = manifestsToDecode.stream()
                     .map(manifestFile -> (Callable<Void>) () -> {
                         IcebergStatistics.Builder statisticsBuilder = new IcebergStatistics.Builder(columns, columnTypes, typeManager);
                         collectManifestStatistics(statisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionFieldPredicate, pathDomain);
@@ -220,10 +248,16 @@ public final class TableStatisticsReader
         }
 
         IcebergStatistics summary = icebergStatisticsBuilder.build();
+        // Decoded rows scaled up to all straddling manifests, plus the rows of skipped manifests
+        double recordCount = manifestSample.skippedRowCount() + (summary.recordCount() * manifestSample.straddlingScale());
 
         if (summary.recordCount() == 0) {
+            if (manifestSample.straddlingScale() > 1) {
+                // Nothing matched in the sample, so there is nothing to extrapolate from
+                return TableStatistics.empty();
+            }
             return TableStatistics.builder()
-                    .setRowCount(Estimate.of(0))
+                    .setRowCount(Estimate.of(recordCount))
                     .build();
         }
 
@@ -237,7 +271,8 @@ public final class TableStatisticsReader
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
-        double recordCount = summary.recordCount();
+        double decodedRecordCount = summary.recordCount();
+        double sampleScale = recordCount / decodedRecordCount;
         for (IcebergColumnHandle columnHandle : projectedColumns) {
             if (columnHandle.isMetadataColumn()) {
                 columnHandleBuilder.put(columnHandle, ColumnStatistics.empty());
@@ -247,7 +282,7 @@ public final class TableStatisticsReader
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
             Long nullCount = summary.nullCounts().get(fieldId);
             if (nullCount != null) {
-                columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
+                columnBuilder.setNullsFraction(Estimate.of(nullCount / decodedRecordCount));
             }
             if (idToType.get(columnHandle.getId()) instanceof Types.FixedType fixedType) {
                 long columnSize = fixedType.length();
@@ -274,7 +309,8 @@ public final class TableStatisticsReader
                             // In the future better heuristic could be used here
                             columnSize = (long) (columnSize * 1.4);
                         }
-                        columnBuilder.setDataSize(Estimate.of(columnSize));
+                        // Column sizes cover only the decoded data files
+                        columnBuilder.setDataSize(Estimate.of(columnSize * sampleScale));
                     }
                 }
             }
@@ -370,6 +406,68 @@ public final class TableStatisticsReader
                 return verifyNotNull(snapshot.parentId(), "snapshot.parentId()");
             }
         };
+    }
+
+    /**
+     * @param skippedRowCount rows in manifests inside the filter that are not decoded
+     * @param straddlingScale ratio of rows in all manifests straddling the filter to rows in the decoded ones
+     */
+    private record ManifestSample(List<ManifestFile> manifests, long skippedRowCount, double straddlingScale) {}
+
+    /**
+     * Samples manifests up to the limit. Manifests straddling the filter are sampled first, as their
+     * matching row count is known only by decoding them.
+     */
+    private static ManifestSample sampleManifests(
+            Table icebergTable,
+            List<ManifestFile> filteredManifests,
+            TupleDomain<IcebergColumnHandle> effectivePredicate,
+            boolean partitionBoundsSufficient,
+            long maxTotalManifestSizeInBytes)
+    {
+        // Manifests that cannot contain rows outside the filter are inside it
+        Expression outsideFilter = effectivePredicate.getDomains().orElseThrow().entrySet().stream()
+                .filter(entry -> !entry.getKey().isMetadataColumn())
+                .map(entry -> toIcebergExpression(TupleDomain.withColumnDomains(ImmutableMap.of(entry.getKey(), entry.getValue().complement()))))
+                .reduce(alwaysFalse(), Expressions::or);
+        Map<Integer, ManifestEvaluator> outsideFilterEvaluators = icebergTable.specs().values().stream()
+                .collect(toImmutableMap(PartitionSpec::specId, spec -> ManifestEvaluator.forRowFilter(outsideFilter, spec, true)));
+        Map<Boolean, List<ManifestFile>> manifestsByInside = filteredManifests.stream()
+                // Order by path hash, so that the sample is stable and spread across commits
+                .sorted(comparingLong(manifestFile -> murmur3_128().hashUnencodedChars(manifestFile.path()).asLong()))
+                // Partition bounds cannot answer $partition and $path filters
+                .collect(partitioningBy(manifestFile -> partitionBoundsSufficient && !outsideFilterEvaluators.get(manifestFile.partitionSpecId()).eval(manifestFile)));
+
+        // Always decode at least one manifest
+        long budgetInBytes = max(maxTotalManifestSizeInBytes, 1);
+        ImmutableList.Builder<ManifestFile> manifests = ImmutableList.builder();
+        long selectedSizeInBytes = 0;
+        long straddlingRowCount = 0;
+        long decodedStraddlingRowCount = 0;
+        for (ManifestFile manifestFile : manifestsByInside.get(false)) {
+            long rowCount = manifestFile.addedRowsCount() + manifestFile.existingRowsCount();
+            straddlingRowCount += rowCount;
+            if (selectedSizeInBytes < budgetInBytes) {
+                manifests.add(manifestFile);
+                selectedSizeInBytes += manifestFile.length();
+                decodedStraddlingRowCount += rowCount;
+            }
+        }
+        long skippedRowCount = 0;
+        for (ManifestFile manifestFile : manifestsByInside.get(true)) {
+            if (selectedSizeInBytes < budgetInBytes) {
+                manifests.add(manifestFile);
+                selectedSizeInBytes += manifestFile.length();
+            }
+            else {
+                skippedRowCount += manifestFile.addedRowsCount() + manifestFile.existingRowsCount();
+            }
+        }
+        double straddlingScale = 1;
+        if (decodedStraddlingRowCount > 0) {
+            straddlingScale = (double) straddlingRowCount / decodedStraddlingRowCount;
+        }
+        return new ManifestSample(manifests.build(), skippedRowCount, straddlingScale);
     }
 
     private static void collectManifestStatistics(

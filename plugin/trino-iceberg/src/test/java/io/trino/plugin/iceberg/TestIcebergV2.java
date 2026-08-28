@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -104,6 +105,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
@@ -115,6 +118,7 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -144,6 +148,7 @@ import static org.apache.iceberg.formats.FormatModelRegistry.positionDeleteWrite
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.offset;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -1485,7 +1490,8 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    DataSize.ofBytes(Long.MAX_VALUE));
             assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
@@ -1496,7 +1502,8 @@ public class TestIcebergV2
                             IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    DataSize.ofBytes(Long.MAX_VALUE));
             assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
             IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
@@ -1508,7 +1515,8 @@ public class TestIcebergV2
                     TupleDomain.withColumnDomains(ImmutableMap.of(
                             column, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
                     ImmutableSet.of(column),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    DataSize.ofBytes(Long.MAX_VALUE));
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
         }
     }
@@ -1529,7 +1537,8 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    DataSize.ofBytes(Long.MAX_VALUE));
             assertThat(withNoProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withNoProjectedColumns.getColumnStatistics()).isEmpty();
 
@@ -1541,7 +1550,8 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(column),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    DataSize.ofBytes(Long.MAX_VALUE));
             assertThat(withProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withProjectedColumns.getColumnStatistics()).containsOnlyKeys(column);
             assertThat(withProjectedColumns.getColumnStatistics().get(column))
@@ -1559,7 +1569,8 @@ public class TestIcebergV2
                     TupleDomain.withColumnDomains(ImmutableMap.of(
                             IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
                     ImmutableSet.of(column),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    DataSize.ofBytes(Long.MAX_VALUE));
             assertThat(withPartitionFilterAndProjectedColumn.getRowCount().getValue()).isEqualTo(3.0);
             assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics()).containsOnlyKeys(column);
             assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics().get(column))
@@ -1589,6 +1600,119 @@ public class TestIcebergV2
             TableStatistics statistics = tableStatistics(testTable.getName(), ImmutableSet.of(column));
             assertThat(statistics.getRowCount()).isEqualTo(Estimate.of(0));
             assertThat(statistics.getColumnStatistics()).isEmpty();
+        }
+    }
+
+    @Test
+    public void testStatsMaxTotalManifestSize()
+    {
+        IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
+        IcebergColumnHandle partitionColumn = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build();
+        try (TestTable testTable = newTrinoTable("test_stats_max_total_manifest_size_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+            // The first manifest holds only b = 10, the second one both b = 10 and b = 20
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
+            // The limit counts only data manifests
+            long totalManifestSize = (long) computeScalar("SELECT sum(length) FROM \"" + testTable.getName() + "$manifests\" WHERE content = 0");
+
+            // At the limit, all manifests are read
+            TableStatistics atLimit = tableStatistics(testTable.getName(), ImmutableSet.of(column), DataSize.ofBytes(totalManifestSize));
+            assertThat(atLimit.getRowCount().getValue()).isEqualTo(4.0);
+            assertThat(atLimit.getColumnStatistics().get(column))
+                    .isEqualTo(ColumnStatistics.builder()
+                            .setNullsFraction(Estimate.zero())
+                            .setDistinctValuesCount(Estimate.of(4.0))
+                            .setRange(new DoubleRange(1.0, 300.0))
+                            .build());
+
+            // Above the limit, one manifest is read and the row count of the other comes from the manifest list
+            TableStatistics aboveLimit = tableStatistics(testTable.getName(), ImmutableSet.of(column), DataSize.ofBytes(1));
+            assertThat(aboveLimit.getRowCount().getValue()).isEqualTo(4.0);
+            assertThat(aboveLimit.getColumnStatistics()).containsOnlyKeys(column);
+            assertThat(aboveLimit.getColumnStatistics().get(column))
+                    .isIn(
+                            ColumnStatistics.builder()
+                                    .setNullsFraction(Estimate.zero())
+                                    .setDistinctValuesCount(Estimate.of(4.0))
+                                    .setRange(new DoubleRange(1.0, 10.0))
+                                    .build(),
+                            ColumnStatistics.builder()
+                                    .setNullsFraction(Estimate.zero())
+                                    .setDistinctValuesCount(Estimate.of(4.0))
+                                    .setRange(new DoubleRange(200.0, 300.0))
+                                    .build());
+
+            // One manifest is read even without any budget
+            TableStatistics withoutBudget = tableStatistics(testTable.getName(), ImmutableSet.of(column), DataSize.ofBytes(0));
+            assertThat(withoutBudget.getRowCount().getValue()).isEqualTo(4.0);
+            assertThat(withoutBudget.getColumnStatistics()).containsOnlyKeys(column);
+
+            // Only the second manifest straddles b = 10, so it is the one read. The first one wholly matches.
+            TableStatistics withPartitionFilter = tableStatistics(
+                    testTable.getName(),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, Domain.singleValue(INTEGER, 10L))),
+                    ImmutableSet.of(column),
+                    DataSize.ofBytes(1));
+            assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
+            assertThat(withPartitionFilter.getColumnStatistics().get(column))
+                    .isEqualTo(ColumnStatistics.builder()
+                            .setNullsFraction(Estimate.zero())
+                            .setDistinctValuesCount(Estimate.of(4.0))
+                            .setRange(new DoubleRange(200.0, 200.0))
+                            .build());
+
+            // No manifest wholly matches b <> 10, as the first one is pruned
+            TableStatistics withPartitionRangeFilter = tableStatistics(
+                    testTable.getName(),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 10L), Range.greaterThan(INTEGER, 10L)), false))),
+                    ImmutableSet.of(column),
+                    DataSize.ofBytes(1));
+            assertThat(withPartitionRangeFilter.getRowCount().getValue()).isEqualTo(1.0);
+            assertThat(withPartitionRangeFilter.getColumnStatistics().get(column).getRange()).contains(new DoubleRange(300.0, 300.0));
+
+            // A $path filter makes every manifest straddle. Both are read, as the limit is exceeded only by the last one.
+            String path = (String) computeScalar("SELECT file_path FROM \"" + testTable.getName() + "$files\" WHERE partition.b = 20");
+            TableStatistics withPathFilter = tableStatistics(
+                    testTable.getName(),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(pathColumnHandle(), Domain.singleValue(VARCHAR, utf8Slice(path)))),
+                    ImmutableSet.of(column),
+                    DataSize.ofBytes(totalManifestSize - 1));
+            assertThat(withPathFilter.getRowCount().getValue()).isEqualTo(1.0);
+            assertThat(withPathFilter.getColumnStatistics().get(column))
+                    .isEqualTo(ColumnStatistics.builder()
+                            .setNullsFraction(Estimate.zero())
+                            .setDistinctValuesCount(Estimate.of(4.0))
+                            .setRange(new DoubleRange(300.0, 300.0))
+                            .build());
+        }
+    }
+
+    @Test
+    public void testStatsMaxTotalManifestSizeExtrapolation()
+    {
+        IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(VARCHAR).build();
+        IcebergColumnHandle partitionColumn = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build();
+        try (TestTable testTable = newTrinoTable("test_stats_max_total_manifest_size_extrapolation_", "(a VARCHAR, b INT) WITH (partitioning = ARRAY['b'])")) {
+            // Identical manifests, so that the estimates do not depend on which one is sampled
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES ('one', 10), (NULL, 10), ('three', 20)", 3);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES ('one', 10), (NULL, 10), ('three', 20)", 3);
+
+            TableStatistics full = tableStatistics(testTable.getName(), ImmutableSet.of(column), DataSize.ofBytes(Long.MAX_VALUE));
+            TableStatistics sampled = tableStatistics(testTable.getName(), ImmutableSet.of(column), DataSize.ofBytes(1));
+            assertThat(sampled.getRowCount().getValue()).isEqualTo(6.0);
+            assertThat(sampled.getColumnStatistics().get(column).getNullsFraction()).isEqualTo(Estimate.of(1.0 / 3));
+            // The data size of the sampled manifest is scaled up to the whole table
+            assertThat(sampled.getColumnStatistics().get(column).getDataSize().getValue())
+                    .isCloseTo(full.getColumnStatistics().get(column).getDataSize().getValue(), offset(2.0));
+
+            // Both manifests straddle b = 10. One is read, and its matching row ratio is applied to the other.
+            TableStatistics withPartitionFilter = tableStatistics(
+                    testTable.getName(),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, Domain.singleValue(INTEGER, 10L))),
+                    ImmutableSet.of(column),
+                    DataSize.ofBytes(1));
+            assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(4.0);
+            assertThat(withPartitionFilter.getColumnStatistics().get(column).getNullsFraction()).isEqualTo(Estimate.of(0.5));
         }
     }
 
@@ -1634,15 +1758,26 @@ public class TestIcebergV2
 
     private TableStatistics tableStatistics(String tableName, Set<IcebergColumnHandle> projectedColumns)
     {
+        return tableStatistics(tableName, projectedColumns, DataSize.ofBytes(Long.MAX_VALUE));
+    }
+
+    private TableStatistics tableStatistics(String tableName, Set<IcebergColumnHandle> projectedColumns, DataSize maxTotalManifestSize)
+    {
+        return tableStatistics(tableName, TupleDomain.all(), projectedColumns, maxTotalManifestSize);
+    }
+
+    private TableStatistics tableStatistics(String tableName, TupleDomain<IcebergColumnHandle> enforcedConstraint, Set<IcebergColumnHandle> projectedColumns, DataSize maxTotalManifestSize)
+    {
         OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
         return TableStatisticsReader.makeTableStatistics(
                 TESTING_TYPE_MANAGER,
                 loadTable(tableName),
                 snapshotId,
-                TupleDomain.all(),
+                enforcedConstraint,
                 TupleDomain.all(),
                 projectedColumns,
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                maxTotalManifestSize);
     }
 
     @Test
