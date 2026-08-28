@@ -552,7 +552,7 @@ public class SqlQueryExecution
                                     getRetryDelayScaleFactor(getSession()))))
                     .create();
             case NONE -> pipelinedSchedulerFactory(plan).create();
-            case TASK -> createFaultTolerantScheduler(plan, tableStatsProvider);
+            case TASK -> faultTolerantSchedulerFactory(plan, tableStatsProvider).create();
         };
 
         queryScheduler.set(scheduler);
@@ -587,9 +587,9 @@ public class SqlQueryExecution
                 coordinatorTaskManager);
     }
 
-    private EventDrivenFaultTolerantQueryScheduler createFaultTolerantScheduler(PlanRoot plan, CachingTableStatsProvider tableStatsProvider)
+    private EventDrivenFaultTolerantQueryScheduler.Factory faultTolerantSchedulerFactory(PlanRoot plan, CachingTableStatsProvider tableStatsProvider)
     {
-        return new EventDrivenFaultTolerantQueryScheduler(
+        return new EventDrivenFaultTolerantQueryScheduler.Factory(
                 stateMachine,
                 plannerContext.getMetadata(),
                 remoteTaskFactory,

@@ -69,6 +69,8 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.SpoolingOutputBuffers;
 import io.trino.execution.buffer.SpoolingOutputStats;
+import io.trino.execution.recovery.FailQuery;
+import io.trino.execution.recovery.FailureRecoveryStrategy;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
 import io.trino.execution.scheduler.OutputDataSizeEstimate;
 import io.trino.execution.scheduler.QueryScheduler;
@@ -214,6 +216,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
     private static final Logger log = Logger.get(EventDrivenFaultTolerantQueryScheduler.class);
 
+    private final FailureRecoveryStrategy failureRecoveryStrategy;
     private final QueryStateMachine queryStateMachine;
     private final Metadata metadata;
     private final RemoteTaskFactory remoteTaskFactory;
@@ -246,7 +249,8 @@ public class EventDrivenFaultTolerantQueryScheduler
     @GuardedBy("this")
     private Scheduler scheduler;
 
-    public EventDrivenFaultTolerantQueryScheduler(
+    private EventDrivenFaultTolerantQueryScheduler(
+            FailureRecoveryStrategy failureRecoveryStrategy,
             QueryStateMachine queryStateMachine,
             Metadata metadata,
             RemoteTaskFactory remoteTaskFactory,
@@ -302,6 +306,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
 
         stageRegistry = new StageRegistry(queryStateMachine, originalPlan);
+
+        this.failureRecoveryStrategy = requireNonNull(failureRecoveryStrategy, "failureRecoveryStrategy is null");
     }
 
     @Override
@@ -381,7 +387,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     maxPartitionCount,
                     stageEstimationForEagerParentEnabled,
                     adaptivePlanner,
-                    nodePartitioningManager::getBucketCount);
+                    nodePartitioningManager::getBucketCount,
+                    failureRecoveryStrategy);
             queryExecutor.submit(scheduler::run);
         }
         catch (Throwable t) {
@@ -789,6 +796,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final SchedulingDelayer schedulingDelayer;
 
         private boolean queryOutputSet;
+        private final FailureRecoveryStrategy failureRecoveryStrategy;
 
         public Scheduler(
                 QueryStateMachine queryStateMachine,
@@ -821,7 +829,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 int maxPartitionCount,
                 boolean stageEstimationForEagerParentEnabled,
                 Optional<AdaptivePlanner> adaptivePlanner,
-                LocalExchangeBucketCountProvider bucketCountProvider)
+                LocalExchangeBucketCountProvider bucketCountProvider,
+                FailureRecoveryStrategy failureRecoveryStrategy)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -836,6 +845,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.memoryEstimatorFactory = requireNonNull(memoryEstimatorFactory, "memoryEstimatorFactory is null");
             this.outputStatsEstimator = requireNonNull(outputStatsEstimator, "outputStatsEstimator is null");
+            this.failureRecoveryStrategy = requireNonNull(failureRecoveryStrategy, "failureRecoveryStrategy is null");
             this.partitioningSchemeFactory = requireNonNull(partitioningSchemeFactory, "partitioningSchemeFactory is null");
             this.exchangeManager = requireNonNull(exchangeManager, "exchangeManager is null");
             this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
@@ -911,7 +921,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             failure = closeAndAddSuppressed(failure, nodeAllocator);
 
             failure.ifPresent(fail -> {
-                queryStateMachine.transitionToFailed(fail);
+                ErrorCode errorCode = fail instanceof TrinoException trinoException ? trinoException.getErrorCode() : null;
+                if (!failureRecoveryStrategy.handleFailure(fail, errorCode, queryStateMachine::transitionToFailed)) {
+                    queryStateMachine.transitionToFailed(fail);
+                }
                 schedulerSpan.addEvent("scheduler_failure", Attributes.of(FAILURE_MESSAGE, fail.getMessage()));
             });
             schedulerSpan.end();
@@ -1088,7 +1101,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                     taskFailures.forEach(taskFailure -> failure.addSuppressed(new RuntimeException("Task " + taskFailure.getKey() + " failed", taskFailure.getValue())));
 
-                    queryStateMachine.transitionToFailed(failure);
+                    ErrorCode errorCode = failure instanceof TrinoException trinoException ? trinoException.getErrorCode() : null;
+                    if (!failureRecoveryStrategy.handleFailure(failure, errorCode, queryStateMachine::transitionToFailed)) {
+                        queryStateMachine.transitionToFailed(failure);
+                    }
                     return true;
                 }
             }
@@ -1121,7 +1137,10 @@ public class EventDrivenFaultTolerantQueryScheduler
                     @Override
                     public void onFailure(Throwable t)
                     {
-                        queryStateMachine.transitionToFailed(t);
+                        ErrorCode errorCode = t instanceof TrinoException trinoException ? trinoException.getErrorCode() : null;
+                        if (!failureRecoveryStrategy.handleFailure(t, errorCode, queryStateMachine::transitionToFailed)) {
+                            queryStateMachine.transitionToFailed(t);
+                        }
                     }
                 }, queryExecutor);
                 queryOutputSet = true;
@@ -1724,7 +1743,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                         case FINISHED -> scheduledExecutorService.schedule(() -> {
                             if (!finalTaskInfoReceived.get()) {
                                 log.error("Did not receive final task info for task %s after it FINISHED; internal inconsistency; failing query", task.getTaskId());
-                                queryStateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "Did not receive final task info for task after it finished; failing query"));
+                                Throwable failure = new TrinoException(GENERIC_INTERNAL_ERROR, "Did not receive final task info for task after it finished; failing query");
+                                ErrorCode errorCode = failure instanceof TrinoException trinoException ? trinoException.getErrorCode() : null;
+                                if (!failureRecoveryStrategy.handleFailure(failure, errorCode, queryStateMachine::transitionToFailed)) {
+                                    queryStateMachine.transitionToFailed(failure);
+                                }
                             }
                         }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
                         case CANCELED, ABORTED, FAILED -> scheduledExecutorService.schedule(() -> {
@@ -3746,6 +3769,116 @@ public class EventDrivenFaultTolerantQueryScheduler
                     .add("executionClass", executionClass)
                     .add("waitingForSinkInstanceHandle", waitingForSinkInstanceHandle)
                     .toString();
+        }
+    }
+
+    /**
+     * Builds an {@link EventDrivenFaultTolerantQueryScheduler}. Uses {@link FailQuery#INSTANCE} as the
+     * failure recovery strategy — FTE terminal failures are not retried by default.
+     */
+    public static final class Factory
+    {
+        private final QueryStateMachine queryStateMachine;
+        private final Metadata metadata;
+        private final RemoteTaskFactory remoteTaskFactory;
+        private final TaskDescriptorStorage taskDescriptorStorage;
+        private final EventDrivenTaskSourceFactory taskSourceFactory;
+        private final boolean summarizeTaskInfo;
+        private final NodeTaskMap nodeTaskMap;
+        private final ExecutorService queryExecutor;
+        private final ScheduledExecutorService scheduledExecutorService;
+        private final Tracer tracer;
+        private final SplitSchedulerStats schedulerStats;
+        private final PartitionMemoryEstimatorFactory memoryEstimatorFactory;
+        private final OutputStatsEstimatorFactory outputStatsEstimatorFactory;
+        private final NodePartitioningManager nodePartitioningManager;
+        private final ExchangeManager exchangeManager;
+        private final ExchangeMetricsCollector exchangeMetricsCollector;
+        private final NodeAllocatorService nodeAllocatorService;
+        private final InternalNodeManager nodeManager;
+        private final DynamicFilterService dynamicFilterService;
+        private final TaskExecutionStats taskExecutionStats;
+        private final AdaptivePlanner adaptivePlanner;
+        private final StageExecutionStats stageExecutionStats;
+        private final SubPlan originalPlan;
+
+        public Factory(
+                QueryStateMachine queryStateMachine,
+                Metadata metadata,
+                RemoteTaskFactory remoteTaskFactory,
+                TaskDescriptorStorage taskDescriptorStorage,
+                EventDrivenTaskSourceFactory taskSourceFactory,
+                boolean summarizeTaskInfo,
+                NodeTaskMap nodeTaskMap,
+                ExecutorService queryExecutor,
+                ScheduledExecutorService scheduledExecutorService,
+                Tracer tracer,
+                SplitSchedulerStats schedulerStats,
+                PartitionMemoryEstimatorFactory memoryEstimatorFactory,
+                OutputStatsEstimatorFactory outputStatsEstimatorFactory,
+                NodePartitioningManager nodePartitioningManager,
+                ExchangeManager exchangeManager,
+                ExchangeMetricsCollector exchangeMetricsCollector,
+                NodeAllocatorService nodeAllocatorService,
+                InternalNodeManager nodeManager,
+                DynamicFilterService dynamicFilterService,
+                TaskExecutionStats taskExecutionStats,
+                AdaptivePlanner adaptivePlanner,
+                StageExecutionStats stageExecutionStats,
+                SubPlan originalPlan)
+        {
+            this.queryStateMachine = queryStateMachine;
+            this.metadata = metadata;
+            this.remoteTaskFactory = remoteTaskFactory;
+            this.taskDescriptorStorage = taskDescriptorStorage;
+            this.taskSourceFactory = taskSourceFactory;
+            this.summarizeTaskInfo = summarizeTaskInfo;
+            this.nodeTaskMap = nodeTaskMap;
+            this.queryExecutor = queryExecutor;
+            this.scheduledExecutorService = scheduledExecutorService;
+            this.tracer = tracer;
+            this.schedulerStats = schedulerStats;
+            this.memoryEstimatorFactory = memoryEstimatorFactory;
+            this.outputStatsEstimatorFactory = outputStatsEstimatorFactory;
+            this.nodePartitioningManager = nodePartitioningManager;
+            this.exchangeManager = exchangeManager;
+            this.exchangeMetricsCollector = exchangeMetricsCollector;
+            this.nodeAllocatorService = nodeAllocatorService;
+            this.nodeManager = nodeManager;
+            this.dynamicFilterService = dynamicFilterService;
+            this.taskExecutionStats = taskExecutionStats;
+            this.adaptivePlanner = adaptivePlanner;
+            this.stageExecutionStats = stageExecutionStats;
+            this.originalPlan = originalPlan;
+        }
+
+        public EventDrivenFaultTolerantQueryScheduler create()
+        {
+            return new EventDrivenFaultTolerantQueryScheduler(
+                    FailQuery.INSTANCE,
+                    queryStateMachine,
+                    metadata,
+                    remoteTaskFactory,
+                    taskDescriptorStorage,
+                    taskSourceFactory,
+                    summarizeTaskInfo,
+                    nodeTaskMap,
+                    queryExecutor,
+                    scheduledExecutorService,
+                    tracer,
+                    schedulerStats,
+                    memoryEstimatorFactory,
+                    outputStatsEstimatorFactory,
+                    nodePartitioningManager,
+                    exchangeManager,
+                    exchangeMetricsCollector,
+                    nodeAllocatorService,
+                    nodeManager,
+                    dynamicFilterService,
+                    taskExecutionStats,
+                    adaptivePlanner,
+                    stageExecutionStats,
+                    originalPlan);
         }
     }
 }
