@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -31,11 +32,13 @@ public class BigQueryPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final BigQueryWriteClientFactory clientFactory;
+    private final RetrySettings retrySettings;
 
     @Inject
-    public BigQueryPageSinkProvider(BigQueryWriteClientFactory clientFactory)
+    public BigQueryPageSinkProvider(BigQueryWriteClientFactory clientFactory, @ForBigQueryWriter RetrySettings retrySettings)
     {
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+        this.retrySettings = requireNonNull(retrySettings, "retrySettings is null");
     }
 
     @Override
@@ -49,6 +52,7 @@ public class BigQueryPageSinkProvider
         BigQueryOutputTableHandle handle = (BigQueryOutputTableHandle) outputTableHandle;
         return new BigQueryPageSink(
                 clientFactory.create(session),
+                retrySettings,
                 handle.remoteTableName(),
                 handle.columnNames(),
                 handle.columnTypes(),
@@ -68,6 +72,7 @@ public class BigQueryPageSinkProvider
         BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertTableHandle;
         return new BigQueryPageSink(
                 clientFactory.create(session),
+                retrySettings,
                 handle.remoteTableName(),
                 handle.columnNames(),
                 handle.columnTypes(),
