@@ -50,6 +50,7 @@ import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.recovery.BackoffPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionSchedule;
 import io.trino.execution.scheduler.policy.StagesScheduleResult;
@@ -149,8 +150,6 @@ import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Failures.toFailure;
-import static java.lang.Math.min;
-import static java.lang.Math.pow;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -180,11 +179,8 @@ public class PipelinedQueryScheduler
     private final CoordinatorStagesScheduler coordinatorStagesScheduler;
 
     private final RetryPolicy retryPolicy;
-    private final int maxQueryRetryAttempts;
+    private final BackoffPolicy backoffPolicy;
     private final AtomicInteger currentAttempt = new AtomicInteger();
-    private final Duration retryInitialDelay;
-    private final Duration retryMaxDelay;
-    private final double retryDelayScaleFactor;
     private final Span schedulerSpan;
 
     @GuardedBy("this")
@@ -256,10 +252,11 @@ public class PipelinedQueryScheduler
 
         retryPolicy = getRetryPolicy(queryStateMachine.getSession());
         verify(retryPolicy == NONE || retryPolicy == QUERY, "unexpected retry policy: %s", retryPolicy);
-        maxQueryRetryAttempts = getQueryRetryAttempts(queryStateMachine.getSession());
-        retryInitialDelay = getRetryInitialDelay(queryStateMachine.getSession());
-        retryMaxDelay = getRetryMaxDelay(queryStateMachine.getSession());
-        retryDelayScaleFactor = getRetryDelayScaleFactor(queryStateMachine.getSession());
+        backoffPolicy = new BackoffPolicy(
+                getQueryRetryAttempts(queryStateMachine.getSession()),
+                getRetryInitialDelay(queryStateMachine.getSession()),
+                getRetryMaxDelay(queryStateMachine.getSession()),
+                getRetryDelayScaleFactor(queryStateMachine.getSession()));
     }
 
     @Override
@@ -369,7 +366,7 @@ public class PipelinedQueryScheduler
                         .orElseGet(() -> new StageFailureInfo(toFailure(new VerifyException("distributedStagesScheduler failed but failure cause is not present")), Optional.empty()));
                 ErrorCode errorCode = stageFailureInfo.getFailureInfo().errorCode();
                 if (shouldRetry(errorCode)) {
-                    long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(retryDelayScaleFactor, currentAttempt.get())), retryMaxDelay.toMillis());
+                    long delayInMillis = backoffPolicy.delayFor(currentAttempt.get()).toMillis();
                     currentAttempt.incrementAndGet();
                     scheduleRetryWithDelay(delayInMillis);
                 }
@@ -391,7 +388,7 @@ public class PipelinedQueryScheduler
 
     private boolean shouldRetry(ErrorCode errorCode)
     {
-        return retryPolicy == RetryPolicy.QUERY && currentAttempt.get() < maxQueryRetryAttempts && isRetryable(errorCode);
+        return retryPolicy == RetryPolicy.QUERY && currentAttempt.get() < backoffPolicy.maxRetries() && isRetryable(errorCode);
     }
 
     private void scheduleRetryWithDelay(long delayInMillis)
