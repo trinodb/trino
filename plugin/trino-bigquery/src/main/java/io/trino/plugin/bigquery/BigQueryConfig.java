@@ -404,30 +404,6 @@ public class BigQueryConfig
         return this;
     }
 
-    @AssertTrue(message = "View expiration duration must be longer than view cache TTL")
-    public boolean isValidViewExpireDuration()
-    {
-        return viewExpireDuration.toMillis() > viewsCacheTtl.toMillis();
-    }
-
-    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.skip-view-materialization is enabled")
-    public boolean isValidViewsWhenEnabledSkipViewMaterialization()
-    {
-        return !skipViewMaterialization || viewsEnabled;
-    }
-
-    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.view-materialization-with-filter is enabled")
-    public boolean isValidViewsEnableWhenViewMaterializationWithFilter()
-    {
-        return !viewMaterializationWithFilter || viewsEnabled;
-    }
-
-    @AssertTrue(message = "bigquery.case-insensitive-name-matching config must be enabled when bigquery.case-insensitive-name-matching.cache-ttl is set")
-    public boolean isValidCaseInsensitiveNameMatchingCacheTtl()
-    {
-        return caseInsensitiveNameMatchingCacheTtl.isZero() || caseInsensitiveNameMatching;
-    }
-
     @Min(0)
     public int getWriteRetryMaxAttempts()
     {
@@ -470,5 +446,29 @@ public class BigQueryConfig
     {
         this.writeRetryMaxDelay = writeRetryMaxDelay;
         return this;
+    }
+
+    @AssertTrue(message = "View expiration duration must be longer than view cache TTL")
+    public boolean isValidViewExpireDuration()
+    {
+        return viewExpireDuration.toMillis() > viewsCacheTtl.toMillis();
+    }
+
+    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.skip-view-materialization is enabled")
+    public boolean isValidViewsWhenEnabledSkipViewMaterialization()
+    {
+        return !skipViewMaterialization || viewsEnabled;
+    }
+
+    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.view-materialization-with-filter is enabled")
+    public boolean isValidViewsEnableWhenViewMaterializationWithFilter()
+    {
+        return !viewMaterializationWithFilter || viewsEnabled;
+    }
+
+    @AssertTrue(message = "bigquery.case-insensitive-name-matching config must be enabled when bigquery.case-insensitive-name-matching.cache-ttl is set")
+    public boolean isValidCaseInsensitiveNameMatchingCacheTtl()
+    {
+        return caseInsensitiveNameMatchingCacheTtl.isZero() || caseInsensitiveNameMatching;
     }
 }
