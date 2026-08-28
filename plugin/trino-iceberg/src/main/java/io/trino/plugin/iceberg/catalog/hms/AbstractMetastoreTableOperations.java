@@ -36,8 +36,6 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
-import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
@@ -92,11 +90,6 @@ public abstract class AbstractMetastoreTableOperations
             table = getTable();
         }
 
-        if (!isMaterializedViewStorageTable && (isTrinoView(table) || isTrinoMaterializedView(table))) {
-            // this is a Hive view or Trino/Presto view, or Trino materialized view, hence not a table
-            // TODO table operations should not be constructed for views (remove exception-driven code path)
-            throw new TableNotFoundException(getSchemaTableName());
-        }
         if (!isMaterializedViewStorageTable && !isIcebergTable(table)) {
             throw new UnknownTableTypeException(getSchemaTableName());
         }
