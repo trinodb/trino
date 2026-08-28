@@ -122,6 +122,7 @@ import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.execution.QueryState.STARTING;
+import static io.trino.execution.recovery.RetryableErrorClassifier.isRetryable;
 import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.EMPTY;
 import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.ONE;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
@@ -136,9 +137,6 @@ import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.operator.output.SkewedPartitionRebalancer.getSkewedBucketCount;
-import static io.trino.spi.ErrorType.EXTERNAL;
-import static io.trino.spi.ErrorType.INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
@@ -393,21 +391,7 @@ public class PipelinedQueryScheduler
 
     private boolean shouldRetry(ErrorCode errorCode)
     {
-        return retryPolicy == RetryPolicy.QUERY && currentAttempt.get() < maxQueryRetryAttempts && isRetryableErrorCode(errorCode);
-    }
-
-    private static boolean isRetryableErrorCode(ErrorCode errorCode)
-    {
-        if (errorCode == null) {
-            return true;
-        }
-
-        if (errorCode.isFatal()) {
-            return false;
-        }
-        return errorCode.getType() == INTERNAL_ERROR
-                || errorCode.getType() == EXTERNAL
-                || errorCode.getCode() == CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode();
+        return retryPolicy == RetryPolicy.QUERY && currentAttempt.get() < maxQueryRetryAttempts && isRetryable(errorCode);
     }
 
     private void scheduleRetryWithDelay(long delayInMillis)
