@@ -525,11 +525,10 @@ so it can match values that Trino, which compares `varchar` with NO PAD and is a
 case-sensitive, treats as different. Pushdown on character columns is restricted accordingly:
 
 - On `CHAR` and `NCHAR` columns with a case-sensitive collation, `=`, `<>`, `IN`, and `NOT IN`
-  against a literal are pushed down. Between two such columns, `IN` and `NOT IN` are pushed down as
-  a filter.
-- On all other character columns, `=`, `<>`, `IN`, and `NOT IN` are not pushed down between two
-  columns or as a join condition, and against a literal `=` and `IN` are pushed only as a pre-filter
-  with Trino re-applying the comparison, so the query is not fully pushed down.
+  against a literal are pushed down. Between two such columns, `IN`, `NOT IN`, and `NULLIF` are
+  pushed down as a filter.
+- On all other character columns, only `=` and `IN` against a literal are pushed down, and only as
+  a pre-filter with Trino re-applying the comparison, so the query is not fully pushed down.
 - `=` and `<>` between two character columns are not pushed down as a join condition.
 - Range predicates, such as `>` or `BETWEEN`, are never pushed down on character columns.
 

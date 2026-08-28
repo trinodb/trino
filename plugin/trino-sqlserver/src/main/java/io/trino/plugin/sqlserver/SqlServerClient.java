@@ -336,6 +336,7 @@ public class SqlServerClient
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .add(new RewriteSqlServerIn())
+                .add(new RewriteSqlServerNullIf())
                 .add(new RewriteLikeWithCaseSensitivity())
                 .add(new RewriteLikeEscapeWithCaseSensitivity())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
@@ -355,7 +356,6 @@ public class SqlServerClient
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
-                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
