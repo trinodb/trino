@@ -4645,6 +4645,20 @@ public class TestDeltaLakeConnectorTest
         testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.9999995'");
         testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.999999499999'");
         testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.9999994'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.9 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.56 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.4896 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.89356 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.1234567 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.12345678 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456789 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.1234567891 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.12345678912 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456789123 UTC'");
+        testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '2020-09-27 12:34:56.123 America/New_York'");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'ab '");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'A'");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'é'");
@@ -4660,6 +4674,15 @@ public class TestDeltaLakeConnectorTest
                 "AS SELECT %s ts WITH NO DATA".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6)");
             assertTimestampNtzFeature(testTable.getName());
+        }
+    }
+
+    private void testTimestampWithTimeZoneCoercionOnCreateTableAsSelectWithNoData(@Language("SQL") String actualValue)
+    {
+        try (TestTable testTable = newTrinoTable(
+                "test_timestamp_tz_coercion_on_create_table_as_select_with_no_data",
+                "AS SELECT %s ts WITH NO DATA".formatted(actualValue))) {
+            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6) with time zone");
         }
     }
 
@@ -4876,6 +4899,21 @@ public class TestDeltaLakeConnectorTest
         testAddColumnWithTypeCoercion("timestamp(10)", "timestamp(6)");
         testAddColumnWithTypeCoercion("timestamp(11)", "timestamp(6)");
         testAddColumnWithTypeCoercion("timestamp(12)", "timestamp(6)");
+
+        testAddColumnWithTypeCoercion("timestamp with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(0) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(1) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(2) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(3) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(4) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(5) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(6) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(7) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(8) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(9) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(10) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(11) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(12) with time zone", "timestamp(6) with time zone");
 
         testAddColumnWithTypeCoercion("char(1)", "varchar");
 
