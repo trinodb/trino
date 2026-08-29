@@ -270,6 +270,173 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    /**
+     * @see trino481.timestamp_tz_millis_checkpoint
+     */
+    @Test
+    public void testReadTimestampWithTimeZoneCheckpointWrittenByLegacyTrino()
+            throws Exception
+    {
+        String tableName = "test_legacy_tz_millis_checkpoint_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("trino481/timestamp_tz_millis_checkpoint").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // The active files and their statistics come from the legacy checkpoint, whose stats_parsed struct is millisecond-encoded
+        assertThat(query("SELECT id, ts FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE)), " +
+                        "(4, TIMESTAMP '2024-11-05 09:15:45.789000 UTC')");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE ts = TIMESTAMP '2024-11-05 09:15:45.789 UTC'"))
+                .matches("VALUES 4");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE ts > TIMESTAMP '2024-06-01 00:00:00 UTC'"))
+                .matches("VALUES 2, 4");
+
+        // Two more commits reach the checkpoint interval, so the new checkpoint is built from the legacy statistics plus a microsecond file
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, TIMESTAMP '2025-03-01 08:15:00.123456 UTC')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, TIMESTAMP '2025-03-01 08:15:00.123 UTC')", 1);
+        assertThat(tableLocation.resolve("_delta_log/00000000000000000004.checkpoint.parquet")).exists();
+
+        assertThat(query("SELECT id, ts FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE)), " +
+                        "(4, TIMESTAMP '2024-11-05 09:15:45.789000 UTC'), " +
+                        "(5, TIMESTAMP '2025-03-01 08:15:00.123456 UTC'), " +
+                        "(6, TIMESTAMP '2025-03-01 08:15:00.123000 UTC')");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE ts = TIMESTAMP '2024-11-05 09:15:45.789 UTC'"))
+                .matches("VALUES 4");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE ts = TIMESTAMP '2025-03-01 08:15:00.123456 UTC'"))
+                .matches("VALUES 5");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE ts > TIMESTAMP '2025-03-01 08:15:00.123 UTC'"))
+                .matches("VALUES 5");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see trino481.timestamp_tz_millis_partitioned
+     */
+    @Test
+    public void testReadTimestampWithTimeZonePartitionWrittenByLegacyTrino()
+            throws Exception
+    {
+        String tableName = "test_legacy_tz_millis_partitioned_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("trino481/timestamp_tz_millis_partitioned").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Version 2 is a legacy checkpoint whose partitionValues_parsed struct is millisecond-encoded
+        assertThat(query("SELECT id, part FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE)), " +
+                        "(4, TIMESTAMP '2024-11-05 09:15:45.789000 UTC')");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part = TIMESTAMP '2024-06-20 16:45:30.456 UTC'"))
+                .matches("VALUES 2");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part > TIMESTAMP '2024-06-01 00:00:00 UTC'"))
+                .matches("VALUES 2, 4");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part IS NULL"))
+                .matches("VALUES 3");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2"))
+                .contains("/part=2024-06-20 16%3A45%3A30.456/");
+
+        // Version 1 predates the checkpoint, so its partition values come from the JSON log only
+        assertThat(query("SELECT id, part FROM " + tableName + " FOR VERSION AS OF 1"))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE))");
+        assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 1 WHERE part = TIMESTAMP '2024-01-15 10:30:00.123 UTC'"))
+                .matches("VALUES 1");
+
+        // Two more commits reach the checkpoint interval, so the new checkpoint carries both legacy and microsecond partitions
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, TIMESTAMP '2025-03-01 08:15:00.123456 UTC')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, TIMESTAMP '2025-03-01 08:15:00.123 UTC')", 1);
+        assertThat(tableLocation.resolve("_delta_log/00000000000000000004.checkpoint.parquet")).exists();
+
+        assertThat(query("SELECT id, part FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE)), " +
+                        "(4, TIMESTAMP '2024-11-05 09:15:45.789000 UTC'), " +
+                        "(5, TIMESTAMP '2025-03-01 08:15:00.123456 UTC'), " +
+                        "(6, TIMESTAMP '2025-03-01 08:15:00.123000 UTC')");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part = TIMESTAMP '2024-11-05 09:15:45.789 UTC'"))
+                .matches("VALUES 4");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part = TIMESTAMP '2025-03-01 08:15:00.123456 UTC'"))
+                .matches("VALUES 5");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 5"))
+                .contains("/part=2025-03-01 08%3A15%3A00.123456/");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see databricks192.timestamp_tz_partition
+     */
+    @Test
+    public void testReadTimestampWithTimeZonePartitionWrittenByDatabricks()
+            throws Exception
+    {
+        String tableName = "test_databricks_tz_partition_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks192/timestamp_tz_partition").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Version 2 is a checkpoint whose partitionValues_parsed struct stores the partition as INT96, and the data files carry the partition column too
+        assertThat(query("SELECT id, part FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE)), " +
+                        "(4, TIMESTAMP '2024-11-05 09:15:45.789000 UTC')");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part = TIMESTAMP '2024-06-20 16:45:30.456 UTC'"))
+                .matches("VALUES 2");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part > TIMESTAMP '2024-06-01 00:00:00 UTC'"))
+                .matches("VALUES 2, 4");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part IS NULL"))
+                .matches("VALUES 3");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2"))
+                .contains("/part=2024-06-20 16%3A45%3A30.456/");
+
+        // Version 1 predates the checkpoint, so its partition values come from the JSON log in Databricks' 2024-01-15T10:30:00.123000Z form
+        assertThat(query("SELECT id, part FROM " + tableName + " FOR VERSION AS OF 1"))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE))");
+        assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 1 WHERE part = TIMESTAMP '2024-01-15 10:30:00.123 UTC'"))
+                .matches("VALUES 1");
+
+        // Two more commits reach the checkpoint interval, so the new checkpoint carries both Databricks and Trino partitions
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, TIMESTAMP '2025-03-01 08:15:00.123456 UTC')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, TIMESTAMP '2025-03-01 08:15:00.123 UTC')", 1);
+        assertThat(tableLocation.resolve("_delta_log/00000000000000000004.checkpoint.parquet")).exists();
+
+        assertThat(query("SELECT id, part FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, TIMESTAMP '2024-01-15 10:30:00.123000 UTC'), " +
+                        "(2, TIMESTAMP '2024-06-20 16:45:30.456000 UTC'), " +
+                        "(3, CAST(NULL AS TIMESTAMP(6) WITH TIME ZONE)), " +
+                        "(4, TIMESTAMP '2024-11-05 09:15:45.789000 UTC'), " +
+                        "(5, TIMESTAMP '2025-03-01 08:15:00.123456 UTC'), " +
+                        "(6, TIMESTAMP '2025-03-01 08:15:00.123000 UTC')");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part = TIMESTAMP '2024-11-05 09:15:45.789 UTC'"))
+                .matches("VALUES 4");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part = TIMESTAMP '2025-03-01 08:15:00.123456 UTC'"))
+                .matches("VALUES 5");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 5"))
+                .contains("/part=2025-03-01 08%3A15%3A00.123456/");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testDescribeTable()
     {
