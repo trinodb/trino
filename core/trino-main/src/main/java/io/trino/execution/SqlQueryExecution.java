@@ -33,6 +33,8 @@ import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
+import io.trino.execution.recovery.BackoffPolicy;
+import io.trino.execution.recovery.RetryingRecoveryStrategy;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.PipelinedQueryScheduler;
 import io.trino.execution.scheduler.QueryScheduler;
@@ -96,6 +98,10 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
+import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
+import static io.trino.SystemSessionProperties.getRetryInitialDelay;
+import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.ParameterExtractor.bindParameters;
@@ -535,7 +541,17 @@ public class SqlQueryExecution
 
         RetryPolicy retryPolicy = getRetryPolicy(getSession());
         QueryScheduler scheduler = switch (retryPolicy) {
-            case QUERY, NONE -> createPipelinedScheduler(plan);
+            case QUERY -> pipelinedSchedulerFactory(plan)
+                    .withFailureRecoveryStrategy(pipelinedScheduler -> new RetryingRecoveryStrategy(
+                            (_, delay) -> pipelinedScheduler.retry(delay),
+                            stateMachine::isDone,
+                            new BackoffPolicy(
+                                    getQueryRetryAttempts(getSession()),
+                                    getRetryInitialDelay(getSession()),
+                                    getRetryMaxDelay(getSession()),
+                                    getRetryDelayScaleFactor(getSession()))))
+                    .create();
+            case NONE -> pipelinedSchedulerFactory(plan).create();
             case TASK -> createFaultTolerantScheduler(plan, tableStatsProvider);
         };
 
@@ -547,9 +563,9 @@ public class SqlQueryExecution
         });
     }
 
-    private PipelinedQueryScheduler createPipelinedScheduler(PlanRoot plan)
+    private PipelinedQueryScheduler.Factory pipelinedSchedulerFactory(PlanRoot plan)
     {
-        return new PipelinedQueryScheduler(
+        return new PipelinedQueryScheduler.Factory(
                 stateMachine,
                 plan.getRoot(),
                 nodePartitioningManager,

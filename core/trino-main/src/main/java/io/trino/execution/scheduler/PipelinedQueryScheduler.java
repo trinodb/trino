@@ -50,7 +50,8 @@ import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
-import io.trino.execution.recovery.BackoffPolicy;
+import io.trino.execution.recovery.FailQuery;
+import io.trino.execution.recovery.FailureRecoveryStrategy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionSchedule;
 import io.trino.execution.scheduler.policy.StagesScheduleResult;
@@ -97,6 +98,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -116,14 +118,9 @@ import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
-import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
-import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
-import static io.trino.SystemSessionProperties.getRetryInitialDelay;
-import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.execution.QueryState.STARTING;
-import static io.trino.execution.recovery.RetryableErrorClassifier.isRetryable;
 import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.EMPTY;
 import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.ONE;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
@@ -179,19 +176,21 @@ public class PipelinedQueryScheduler
     private final CoordinatorStagesScheduler coordinatorStagesScheduler;
 
     private final RetryPolicy retryPolicy;
-    private final BackoffPolicy backoffPolicy;
     private final AtomicInteger currentAttempt = new AtomicInteger();
     private final Span schedulerSpan;
 
     @GuardedBy("this")
     private boolean started;
 
+    private final FailureRecoveryStrategy failureRecoveryStrategy;
+
     @GuardedBy("this")
     private final AtomicReference<DistributedStagesScheduler> distributedStagesScheduler = new AtomicReference<>();
     @GuardedBy("this")
     private Future<Void> distributedStagesSchedulingTask;
 
-    public PipelinedQueryScheduler(
+    private PipelinedQueryScheduler(
+            Function<PipelinedQueryScheduler, FailureRecoveryStrategy> failureRecoveryStrategyFactory,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             NodePartitioningManager nodePartitioningManager,
@@ -252,11 +251,16 @@ public class PipelinedQueryScheduler
 
         retryPolicy = getRetryPolicy(queryStateMachine.getSession());
         verify(retryPolicy == NONE || retryPolicy == QUERY, "unexpected retry policy: %s", retryPolicy);
-        backoffPolicy = new BackoffPolicy(
-                getQueryRetryAttempts(queryStateMachine.getSession()),
-                getRetryInitialDelay(queryStateMachine.getSession()),
-                getRetryMaxDelay(queryStateMachine.getSession()),
-                getRetryDelayScaleFactor(queryStateMachine.getSession()));
+        this.failureRecoveryStrategy = requireNonNull(failureRecoveryStrategyFactory.apply(this), "failureRecoveryStrategy is null");
+    }
+
+    /**
+     * Re-run the distributed stages of this query in place after the given delay.
+     */
+    public void retry(Duration delay)
+    {
+        currentAttempt.incrementAndGet();
+        scheduleRetryWithDelay(delay.toMillis());
     }
 
     @Override
@@ -365,30 +369,24 @@ public class PipelinedQueryScheduler
                 StageFailureInfo stageFailureInfo = distributedStagesScheduler.getFailureCause()
                         .orElseGet(() -> new StageFailureInfo(toFailure(new VerifyException("distributedStagesScheduler failed but failure cause is not present")), Optional.empty()));
                 ErrorCode errorCode = stageFailureInfo.getFailureInfo().errorCode();
-                if (shouldRetry(errorCode)) {
-                    long delayInMillis = backoffPolicy.delayFor(currentAttempt.get()).toMillis();
-                    currentAttempt.incrementAndGet();
-                    scheduleRetryWithDelay(delayInMillis);
-                }
-                else {
+                Throwable cause = stageFailureInfo.getFailureInfo().toException();
+                Consumer<Throwable> failQuery = failure -> {
                     stageManager.getDistributedStagesInTopologicalOrder().forEach(stage -> {
                         if (stageFailureInfo.getFailedStageId().isPresent() && stageFailureInfo.getFailedStageId().get().equals(stage.getStageId())) {
-                            stage.fail(stageFailureInfo.getFailureInfo().toException());
+                            stage.fail(failure);
                         }
                         else {
                             stage.abort();
                         }
                     });
-                    queryStateMachine.transitionToFailed(stageFailureInfo.getFailureInfo().toException());
+                    queryStateMachine.transitionToFailed(failure);
+                };
+                if (!failureRecoveryStrategy.handleFailure(cause, errorCode, failQuery)) {
+                    failQuery.accept(cause);
                 }
             }
         });
         return Optional.of(distributedStagesScheduler);
-    }
-
-    private boolean shouldRetry(ErrorCode errorCode)
-    {
-        return retryPolicy == RetryPolicy.QUERY && currentAttempt.get() < backoffPolicy.maxRetries() && isRetryable(errorCode);
     }
 
     private void scheduleRetryWithDelay(long delayInMillis)
@@ -1585,6 +1583,109 @@ public class PipelinedQueryScheduler
         {
             this.handle = requireNonNull(handle, "handle cannot be null");
             this.partitionCount = partitionCount;
+        }
+    }
+
+    /**
+     * Builds a {@link PipelinedQueryScheduler} with a {@link FailureRecoveryStrategy} wired at construction time.
+     * The strategy is supplied as a function of the scheduler so it can close over the not-yet-constructed instance
+     * (e.g. to call {@link #retry(Duration)}). Defaults to {@link FailQuery#INSTANCE} when no strategy is provided.
+     */
+    public static final class Factory
+    {
+        private final QueryStateMachine queryStateMachine;
+        private final SubPlan plan;
+        private final NodePartitioningManager nodePartitioningManager;
+        private final NodeScheduler nodeScheduler;
+        private final RemoteTaskFactory remoteTaskFactory;
+        private final boolean summarizeTaskInfo;
+        private final int splitBatchSize;
+        private final ExecutorService queryExecutor;
+        private final ScheduledExecutorService schedulerExecutor;
+        private final InternalNodeManager nodeManager;
+        private final NodeTaskMap nodeTaskMap;
+        private final ExecutionPolicy executionPolicy;
+        private final Tracer tracer;
+        private final SplitSchedulerStats schedulerStats;
+        private final DynamicFilterService dynamicFilterService;
+        private final TableExecuteContextManager tableExecuteContextManager;
+        private final Metadata metadata;
+        private final SplitSourceFactory splitSourceFactory;
+        private final SqlTaskManager coordinatorTaskManager;
+
+        private Function<PipelinedQueryScheduler, FailureRecoveryStrategy> failureRecoveryStrategyFactory = _ -> FailQuery.INSTANCE;
+
+        public Factory(
+                QueryStateMachine queryStateMachine,
+                SubPlan plan,
+                NodePartitioningManager nodePartitioningManager,
+                NodeScheduler nodeScheduler,
+                RemoteTaskFactory remoteTaskFactory,
+                boolean summarizeTaskInfo,
+                int splitBatchSize,
+                ExecutorService queryExecutor,
+                ScheduledExecutorService schedulerExecutor,
+                InternalNodeManager nodeManager,
+                NodeTaskMap nodeTaskMap,
+                ExecutionPolicy executionPolicy,
+                Tracer tracer,
+                SplitSchedulerStats schedulerStats,
+                DynamicFilterService dynamicFilterService,
+                TableExecuteContextManager tableExecuteContextManager,
+                Metadata metadata,
+                SplitSourceFactory splitSourceFactory,
+                SqlTaskManager coordinatorTaskManager)
+        {
+            this.queryStateMachine = queryStateMachine;
+            this.plan = plan;
+            this.nodePartitioningManager = nodePartitioningManager;
+            this.nodeScheduler = nodeScheduler;
+            this.remoteTaskFactory = remoteTaskFactory;
+            this.summarizeTaskInfo = summarizeTaskInfo;
+            this.splitBatchSize = splitBatchSize;
+            this.queryExecutor = queryExecutor;
+            this.schedulerExecutor = schedulerExecutor;
+            this.nodeManager = nodeManager;
+            this.nodeTaskMap = nodeTaskMap;
+            this.executionPolicy = executionPolicy;
+            this.tracer = tracer;
+            this.schedulerStats = schedulerStats;
+            this.dynamicFilterService = dynamicFilterService;
+            this.tableExecuteContextManager = tableExecuteContextManager;
+            this.metadata = metadata;
+            this.splitSourceFactory = splitSourceFactory;
+            this.coordinatorTaskManager = coordinatorTaskManager;
+        }
+
+        public Factory withFailureRecoveryStrategy(Function<PipelinedQueryScheduler, FailureRecoveryStrategy> factory)
+        {
+            this.failureRecoveryStrategyFactory = requireNonNull(factory, "factory is null");
+            return this;
+        }
+
+        public PipelinedQueryScheduler create()
+        {
+            return new PipelinedQueryScheduler(
+                    failureRecoveryStrategyFactory,
+                    queryStateMachine,
+                    plan,
+                    nodePartitioningManager,
+                    nodeScheduler,
+                    remoteTaskFactory,
+                    summarizeTaskInfo,
+                    splitBatchSize,
+                    queryExecutor,
+                    schedulerExecutor,
+                    nodeManager,
+                    nodeTaskMap,
+                    executionPolicy,
+                    tracer,
+                    schedulerStats,
+                    dynamicFilterService,
+                    tableExecuteContextManager,
+                    metadata,
+                    splitSourceFactory,
+                    coordinatorTaskManager);
         }
     }
 }
