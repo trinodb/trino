@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.Optional;
 
@@ -89,10 +90,11 @@ public final class ClassLoaderSafeConnectorPageSinkProvider
             ConnectorSession session,
             ConnectorMergeTableHandle mergeHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
-            ConnectorPageSinkId pageSinkId)
+            ConnectorPageSinkId pageSinkId,
+            MemoryContext memoryContext)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return new ClassLoaderSafeConnectorMergeSink(delegate.createMergeSink(transactionHandle, session, mergeHandle, tableCredentials, pageSinkId), classLoader);
+            return new ClassLoaderSafeConnectorMergeSink(delegate.createMergeSink(transactionHandle, session, mergeHandle, tableCredentials, pageSinkId, memoryContext), classLoader);
         }
     }
 }

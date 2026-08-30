@@ -32,6 +32,7 @@ import static io.trino.plugin.base.logging.FormatInterpolator.hasValidPlaceholde
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig("bigquery.parallelism")
 public class BigQueryConfig
@@ -66,6 +67,9 @@ public class BigQueryConfig
     private boolean projectionPushDownEnabled = true;
     private int metadataParallelism = Math.min(Runtime.getRuntime().availableProcessors(), MAX_METADATA_PARALLELISM);
     private Optional<Integer> maxParallelism = Optional.empty();
+    private int writeRetryMaxAttempts = 5;
+    private Duration writeRetryInitialDelay = new Duration(500, MILLISECONDS);
+    private Duration writeRetryMaxDelay = new Duration(30, SECONDS);
 
     public Optional<String> getProjectId()
     {
@@ -397,6 +401,50 @@ public class BigQueryConfig
     public BigQueryConfig setMaxParallelism(Integer maxParallelism)
     {
         this.maxParallelism = Optional.ofNullable(maxParallelism);
+        return this;
+    }
+
+    @Min(0)
+    public int getWriteRetryMaxAttempts()
+    {
+        return writeRetryMaxAttempts;
+    }
+
+    @Config("bigquery.write-retry-max-attempts")
+    @ConfigDescription("The maximum number of attempts for a Storage Write API append request, including the initial attempt")
+    public BigQueryConfig setWriteRetryMaxAttempts(int writeRetryMaxAttempts)
+    {
+        this.writeRetryMaxAttempts = writeRetryMaxAttempts;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getWriteRetryInitialDelay()
+    {
+        return writeRetryInitialDelay;
+    }
+
+    @Config("bigquery.write-retry-initial-delay")
+    @ConfigDescription("The initial backoff delay before retrying a failed Storage Write API append request")
+    public BigQueryConfig setWriteRetryInitialDelay(Duration writeRetryInitialDelay)
+    {
+        this.writeRetryInitialDelay = writeRetryInitialDelay;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getWriteRetryMaxDelay()
+    {
+        return writeRetryMaxDelay;
+    }
+
+    @Config("bigquery.write-retry-max-delay")
+    @ConfigDescription("The maximum backoff delay between retries of a failed Storage Write API append request")
+    public BigQueryConfig setWriteRetryMaxDelay(Duration writeRetryMaxDelay)
+    {
+        this.writeRetryMaxDelay = writeRetryMaxDelay;
         return this;
     }
 

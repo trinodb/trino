@@ -14,25 +14,26 @@
 package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
-import io.trino.tests.product.deltalake.DeltaLakeDatabricks173Environment;
+import io.trino.tests.product.deltalake.DeltaLakeDatabricks18Environment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public final class SuiteDeltaLakeDatabricks173
+public final class SuiteDeltaLakeDatabricks18
 {
-    private SuiteDeltaLakeDatabricks173() {}
+    private SuiteDeltaLakeDatabricks18() {}
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         System.setProperty("trino.product-test.environment-mode", "STRICT");
 
         List<TestRunResult> results = new ArrayList<>();
-        results.add(SuiteRunner.forEnvironment(DeltaLakeDatabricks173Environment.class)
+        results.add(SuiteRunner.forEnvironment(DeltaLakeDatabricks18Environment.class)
                 .includeTag(TestGroup.ConfiguredFeatures.class)
-                .includeTag(TestGroup.DeltaLakeDatabricks173.class)
+                .includeTag(TestGroup.DeltaLakeDatabricks.class)
+                .excludeTag(TestGroup.DeltaLakeExclude18.class)
                 .run());
 
         SuiteRunner.printSummary(results);

@@ -295,6 +295,43 @@ public class TestIcebergPlugin
     }
 
     @Test
+    public void testRestCatalogVendedCredentialsRequiresNativeFilesystem()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "rest",
+                                "iceberg.rest-catalog.uri", "https://foo:1234",
+                                "iceberg.rest-catalog.vended-credentials-enabled", "true",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Vended credentials require a native cloud filesystem to be enabled");
+    }
+
+    @Test
+    public void testRestCatalogVendedCredentialsRequiresS3ForS3Warehouse()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "rest",
+                                "iceberg.rest-catalog.uri", "https://foo:1234",
+                                "iceberg.rest-catalog.warehouse", "s3://bucket/warehouse",
+                                "iceberg.rest-catalog.vended-credentials-enabled", "true",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Vended credentials require fs.s3.enabled=true");
+    }
+
+    @Test
     public void testRestCatalogHttpHeaders()
     {
         ConnectorFactory factory = getConnectorFactory();
