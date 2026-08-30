@@ -71,10 +71,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.computeLevel;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -411,24 +413,11 @@ public class TimeSharingTaskExecutor
     private void splitFinished(PrioritizedSplitRunner split)
     {
         completedSplitsPerLevel.incrementAndGet(split.getPriority().getLevel());
+        long wallNanos = nanoTime() - split.getCreatedNanos();
+        boolean intermediate;
         synchronized (this) {
             allSplits.remove(split);
-
-            long wallNanos = System.nanoTime() - split.getCreatedNanos();
-            splitWallTime.add(Duration.succinctNanos(wallNanos));
-
-            if (intermediateSplits.remove(split)) {
-                intermediateSplitWallTime.add(wallNanos);
-                intermediateSplitScheduledTime.add(split.getScheduledNanos());
-                intermediateSplitWaitTime.add(split.getWaitNanos());
-                intermediateSplitCpuTime.add(split.getCpuTimeNanos());
-            }
-            else {
-                leafSplitWallTime.add(wallNanos);
-                leafSplitScheduledTime.add(split.getScheduledNanos());
-                leafSplitWaitTime.add(split.getWaitNanos());
-                leafSplitCpuTime.add(split.getCpuTimeNanos());
-            }
+            intermediate = intermediateSplits.remove(split);
 
             TimeSharingTaskHandle taskHandle = split.getTaskHandle();
             taskHandle.splitComplete(split);
@@ -438,7 +427,21 @@ public class TimeSharingTaskExecutor
             addNewEntrants();
             recordLeafSplitsSize();
         }
-        // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
+        // record wall time stats and call destroy outside of the synchronized block;
+        // the stat sinks are thread safe and this lock is heavily contended
+        splitWallTime.add(succinctNanos(wallNanos));
+        if (intermediate) {
+            intermediateSplitWallTime.add(wallNanos);
+            intermediateSplitScheduledTime.add(split.getScheduledNanos());
+            intermediateSplitWaitTime.add(split.getWaitNanos());
+            intermediateSplitCpuTime.add(split.getCpuTimeNanos());
+        }
+        else {
+            leafSplitWallTime.add(wallNanos);
+            leafSplitScheduledTime.add(split.getScheduledNanos());
+            leafSplitWaitTime.add(split.getWaitNanos());
+            leafSplitCpuTime.add(split.getCpuTimeNanos());
+        }
         split.destroy();
     }
 
