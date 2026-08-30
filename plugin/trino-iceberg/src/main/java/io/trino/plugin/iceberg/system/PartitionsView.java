@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Types.NestedField;
@@ -89,10 +90,12 @@ public final class PartitionsView
             dataAggregationSql = "";
         }
 
+        // The $files table has one row per content file, so delete files have to be excluded to keep reporting data file metrics only
         String viewSql =
                 """
                 SELECT %s SUM(record_count) AS record_count, COUNT(*) AS file_count, SUM(file_size_in_bytes) AS total_size%s
                 FROM %s.%s.%s
+                WHERE content = %d
                 %s
                 """.formatted(
                         hasPartitionColumn ? "partition," : "",
@@ -100,6 +103,7 @@ public final class PartitionsView
                         quoted(catalogName),
                         quoted(schemaName),
                         quoted(tableName + "$files"),
+                        FileContent.DATA.id(),
                         hasPartitionColumn ? "GROUP BY 1" : "");
 
         return new ConnectorViewDefinition(

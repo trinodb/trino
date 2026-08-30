@@ -180,6 +180,39 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testPartitionsTableWithDeleteFiles()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_partitions_delete_files_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = testTable.getName();
+            Table icebergTable = loadTable(tableName);
+
+            assertThat(query("SELECT sum(record_count), sum(file_count) FROM \"" + tableName + "$partitions\""))
+                    .matches("VALUES (BIGINT '25', BIGINT '5')");
+
+            // Write a position delete file
+            assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+            // Write an equality delete file
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Long[] {2L})),
+                    ImmutableMap.of("regionkey", 2L),
+                    Optional.empty());
+
+            // The $files table reports the delete files, but $partitions must keep aggregating data files only
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != " + FileContent.DATA.id()))
+                    .matches("VALUES BIGINT '2'");
+            assertThat(query("SELECT sum(record_count), sum(file_count) FROM \"" + tableName + "$partitions\""))
+                    .matches("VALUES (BIGINT '25', BIGINT '5')");
+            assertThat(query("SELECT sum(total_size) FROM \"" + tableName + "$partitions\""))
+                    .matches("SELECT sum(file_size_in_bytes) FROM \"" + tableName + "$files\" WHERE content = " + FileContent.DATA.id());
+        }
+    }
+
+    @Test
     public void testPartitionsTableWithNan()
     {
         assertQuery("SELECT count(*) FROM test_schema.test_table_nan", "VALUES 6");
