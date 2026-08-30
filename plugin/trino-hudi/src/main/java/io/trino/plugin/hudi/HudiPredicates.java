@@ -29,6 +29,10 @@ public class HudiPredicates
 
     public static HudiPredicates from(TupleDomain<ColumnHandle> predicate)
     {
+        if (predicate.isNone()) {
+            return new HudiPredicates(TupleDomain.none(), TupleDomain.none());
+        }
+
         Map<HiveColumnHandle, Domain> partitionColumnPredicates = new HashMap<>();
         Map<HiveColumnHandle, Domain> regularColumnPredicates = new HashMap<>();
 
