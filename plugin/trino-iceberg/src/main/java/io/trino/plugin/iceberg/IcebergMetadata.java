@@ -121,6 +121,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -3510,6 +3511,15 @@ public class IcebergMetadata
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         catalog.renameView(session, source, target);
+    }
+
+    @Override
+    public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        if (getView(session, viewName).isEmpty()) {
+            throw new ViewNotFoundException(viewName);
+        }
+        catalog.createView(session, viewName, viewDefinition, catalog.getViewProperties(session, viewName), true);
     }
 
     @Override
