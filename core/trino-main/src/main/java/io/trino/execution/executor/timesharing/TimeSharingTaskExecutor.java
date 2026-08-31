@@ -397,7 +397,7 @@ public class TimeSharingTaskExecutor
                         // add the runner to the handle so it can be destroyed if the task is canceled
                         if (handle.recordIntermediateSplit(prioritizedSplitRunner)) {
                             // Note: we do not record queued time for intermediate splits
-                            startIntermediateSplit(prioritizedSplitRunner);
+                            startIntermediateSplit(prioritizedSplitRunner, pendingUpdates);
                         }
                         else {
                             splitsToDestroy.add(prioritizedSplitRunner);
@@ -485,8 +485,8 @@ public class TimeSharingTaskExecutor
                 return;
             }
 
-            startSplit(split);
             pendingUpdates.recordSplitQueuedNanos(nanoTime() - split.getCreatedNanos());
+            startSplit(split, pendingUpdates);
         }
         recordLeafSplitsSize(pendingUpdates);
     }
@@ -507,20 +507,21 @@ public class TimeSharingTaskExecutor
             }
 
             pendingUpdates.recordSplitQueuedNanos(nanoTime() - split.getCreatedNanos());
-            startSplit(split);
+            startSplit(split, pendingUpdates);
         }
     }
 
-    private synchronized void startIntermediateSplit(PrioritizedSplitRunner split)
+    private synchronized void startIntermediateSplit(PrioritizedSplitRunner split, PendingUpdates pendingUpdates)
     {
-        startSplit(split);
+        startSplit(split, pendingUpdates);
         intermediateSplits.add(split);
     }
 
-    private synchronized void startSplit(PrioritizedSplitRunner split)
+    private synchronized void startSplit(PrioritizedSplitRunner split, PendingUpdates pendingUpdates)
     {
         allSplits.add(split);
-        waitingSplits.offer(split);
+        // deferred to PendingUpdates.flush(); the queue has its own lock that need not nest inside the executor lock
+        pendingUpdates.offerSplit(split);
     }
 
     private synchronized PrioritizedSplitRunner pollNextSplitWorker()
@@ -561,15 +562,26 @@ public class TimeSharingTaskExecutor
         this.lastLeafSplitsSize = allSplits.size() - intermediateSplits.size();
     }
 
-    // Collects stat samples produced while holding the executor lock; flush() feeds the
-    // internally synchronized stat sinks after the lock is released.
+    // Collects updates produced while holding the executor lock and applies them in flush()
+    // after the lock is released: offers of started splits to the waiting queue, and
+    // samples for the internally synchronized stat sinks.
     private class PendingUpdates
     {
+        @Nullable
+        private ArrayList<PrioritizedSplitRunner> splitsToOffer;
         @Nullable
         private LongArrayList splitQueuedNanos;
         // interleaved (leafSplitsCount, timeWeight) pairs
         @Nullable
         private LongArrayList leafSplitsSizeSamples;
+
+        void offerSplit(PrioritizedSplitRunner split)
+        {
+            if (splitsToOffer == null) {
+                splitsToOffer = new ArrayList<>();
+            }
+            splitsToOffer.add(split);
+        }
 
         void recordSplitQueuedNanos(long queuedNanos)
         {
@@ -603,6 +615,15 @@ public class TimeSharingTaskExecutor
                     leafSplitsSize.add(leafSplitsSizeSamples.getLong(i), leafSplitsSizeSamples.getLong(i + 1));
                 }
                 leafSplitsSizeSamples = null;
+            }
+            if (splitsToOffer != null) {
+                for (PrioritizedSplitRunner split : splitsToOffer) {
+                    // best-effort; a split destroyed after this check is still offered and later discarded by TaskRunner via isFinished()
+                    if (!split.isDestroyed()) {
+                        waitingSplits.offer(split);
+                    }
+                }
+                splitsToOffer = null;
             }
         }
     }
