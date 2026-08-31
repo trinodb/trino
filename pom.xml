@@ -212,7 +212,7 @@
         <dep.snowflake.version>4.3.3</dep.snowflake.version>
         <dep.swagger.version>2.2.54</dep.swagger.version>
         <dep.takari.version>2.3.4</dep.takari.version>
-        <dep.tcnative.version>2.0.81.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.83.Final</dep.tcnative.version>
         <dep.testng.version>7.8.0</dep.testng.version>
         <dep.zookeeper.version>3.9.5</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
