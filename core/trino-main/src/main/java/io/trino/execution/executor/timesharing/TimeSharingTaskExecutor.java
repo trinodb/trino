@@ -39,6 +39,8 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.tracing.TrinoAttributes;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -301,9 +303,15 @@ public class TimeSharingTaskExecutor
         }
 
         // replace blocked splits that were terminated
-        synchronized (this) {
-            addNewEntrants();
-            recordLeafSplitsSize();
+        PendingUpdates pendingUpdates = new PendingUpdates();
+        try {
+            synchronized (this) {
+                addNewEntrants(pendingUpdates);
+                recordLeafSplitsSize(pendingUpdates);
+            }
+        }
+        finally {
+            pendingUpdates.flush();
         }
     }
 
@@ -315,21 +323,27 @@ public class TimeSharingTaskExecutor
     private boolean doRemoveTask(TimeSharingTaskHandle taskHandle)
     {
         List<PrioritizedSplitRunner> splits;
-        synchronized (this) {
-            tasks.remove(taskHandle);
+        PendingUpdates pendingUpdates = new PendingUpdates();
+        try {
+            synchronized (this) {
+                tasks.remove(taskHandle);
 
-            // Task is already destroyed
-            if (taskHandle.isDestroyed()) {
-                return false;
+                // Task is already destroyed
+                if (taskHandle.isDestroyed()) {
+                    return false;
+                }
+
+                splits = taskHandle.destroy();
+                // stop tracking splits (especially blocked splits which may never unblock)
+                allSplits.removeAll(splits);
+                intermediateSplits.removeAll(splits);
+                blockedSplits.keySet().removeAll(splits);
+                waitingSplits.removeAll(splits);
+                recordLeafSplitsSize(pendingUpdates);
             }
-
-            splits = taskHandle.destroy();
-            // stop tracking splits (especially blocked splits which may never unblock)
-            allSplits.removeAll(splits);
-            intermediateSplits.removeAll(splits);
-            blockedSplits.keySet().removeAll(splits);
-            waitingSplits.removeAll(splits);
-            recordLeafSplitsSize();
+        }
+        finally {
+            pendingUpdates.flush();
         }
 
         // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
@@ -351,58 +365,64 @@ public class TimeSharingTaskExecutor
         TimeSharingTaskHandle handle = (TimeSharingTaskHandle) taskHandle;
         List<PrioritizedSplitRunner> splitsToDestroy = new ArrayList<>();
         List<ListenableFuture<Void>> finishedFutures = new ArrayList<>(taskSplits.size());
-        synchronized (this) {
-            for (SplitRunner taskSplit : taskSplits) {
-                TaskId taskId = handle.getTaskId();
-                int splitId = handle.getNextSplitId();
+        PendingUpdates pendingUpdates = new PendingUpdates();
+        try {
+            synchronized (this) {
+                for (SplitRunner taskSplit : taskSplits) {
+                    TaskId taskId = handle.getTaskId();
+                    int splitId = handle.getNextSplitId();
 
-                Span splitSpan = tracer.spanBuilder(intermediate ? "split (intermediate)" : "split (leaf)")
-                        .setParent(Context.current().with(taskSplit.getPipelineSpan()))
-                        .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
-                        .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
-                        .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
-                        .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.stageId() + "-" + taskSplit.getPipelineId())
-                        .setAttribute(TrinoAttributes.SPLIT_ID, taskId + "-" + splitId)
-                        .startSpan();
+                    Span splitSpan = tracer.spanBuilder(intermediate ? "split (intermediate)" : "split (leaf)")
+                            .setParent(Context.current().with(taskSplit.getPipelineSpan()))
+                            .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                            .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
+                            .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
+                            .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.stageId() + "-" + taskSplit.getPipelineId())
+                            .setAttribute(TrinoAttributes.SPLIT_ID, taskId + "-" + splitId)
+                            .startSpan();
 
-                PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
-                        handle,
-                        splitId,
-                        taskSplit,
-                        splitSpan,
-                        tracer,
-                        ticker,
-                        globalCpuTimeMicros,
-                        globalScheduledTimeMicros,
-                        blockedQuantaWallTime,
-                        unblockedQuantaWallTime);
+                    PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
+                            handle,
+                            splitId,
+                            taskSplit,
+                            splitSpan,
+                            tracer,
+                            ticker,
+                            globalCpuTimeMicros,
+                            globalScheduledTimeMicros,
+                            blockedQuantaWallTime,
+                            unblockedQuantaWallTime);
 
-                if (intermediate) {
-                    // add the runner to the handle so it can be destroyed if the task is canceled
-                    if (handle.recordIntermediateSplit(prioritizedSplitRunner)) {
-                        // Note: we do not record queued time for intermediate splits
-                        startIntermediateSplit(prioritizedSplitRunner);
+                    if (intermediate) {
+                        // add the runner to the handle so it can be destroyed if the task is canceled
+                        if (handle.recordIntermediateSplit(prioritizedSplitRunner)) {
+                            // Note: we do not record queued time for intermediate splits
+                            startIntermediateSplit(prioritizedSplitRunner);
+                        }
+                        else {
+                            splitsToDestroy.add(prioritizedSplitRunner);
+                        }
                     }
                     else {
-                        splitsToDestroy.add(prioritizedSplitRunner);
+                        // add this to the work queue for the task
+                        if (handle.enqueueSplit(prioritizedSplitRunner)) {
+                            // if task is under the limit for guaranteed splits, start one
+                            scheduleTaskIfNecessary(handle, pendingUpdates);
+                            // if globally we have more resources, start more
+                            addNewEntrants(pendingUpdates);
+                        }
+                        else {
+                            splitsToDestroy.add(prioritizedSplitRunner);
+                        }
                     }
-                }
-                else {
-                    // add this to the work queue for the task
-                    if (handle.enqueueSplit(prioritizedSplitRunner)) {
-                        // if task is under the limit for guaranteed splits, start one
-                        scheduleTaskIfNecessary(handle);
-                        // if globally we have more resources, start more
-                        addNewEntrants();
-                    }
-                    else {
-                        splitsToDestroy.add(prioritizedSplitRunner);
-                    }
-                }
 
-                finishedFutures.add(prioritizedSplitRunner.getFinishedFuture());
+                    finishedFutures.add(prioritizedSplitRunner.getFinishedFuture());
+                }
+                recordLeafSplitsSize(pendingUpdates);
             }
-            recordLeafSplitsSize();
+        }
+        finally {
+            pendingUpdates.flush();
         }
         for (PrioritizedSplitRunner split : splitsToDestroy) {
             split.destroy();
@@ -415,19 +435,25 @@ public class TimeSharingTaskExecutor
         completedSplitsPerLevel.incrementAndGet(split.getPriority().getLevel());
         long wallNanos = nanoTime() - split.getCreatedNanos();
         boolean intermediate;
-        synchronized (this) {
-            allSplits.remove(split);
-            intermediate = intermediateSplits.remove(split);
+        PendingUpdates pendingUpdates = new PendingUpdates();
+        try {
+            synchronized (this) {
+                allSplits.remove(split);
+                intermediate = intermediateSplits.remove(split);
 
-            TimeSharingTaskHandle taskHandle = split.getTaskHandle();
-            taskHandle.splitComplete(split);
+                TimeSharingTaskHandle taskHandle = split.getTaskHandle();
+                taskHandle.splitComplete(split);
 
-            scheduleTaskIfNecessary(taskHandle);
+                scheduleTaskIfNecessary(taskHandle, pendingUpdates);
 
-            addNewEntrants();
-            recordLeafSplitsSize();
+                addNewEntrants(pendingUpdates);
+                recordLeafSplitsSize(pendingUpdates);
+            }
         }
-        // record wall time stats and call destroy outside of the synchronized block;
+        finally {
+            pendingUpdates.flush();
+        }
+        // record wall time stats and call destroy outside the synchronized block;
         // the stat sinks are thread safe and this lock is heavily contended
         splitWallTime.add(succinctNanos(wallNanos));
         if (intermediate) {
@@ -445,7 +471,7 @@ public class TimeSharingTaskExecutor
         split.destroy();
     }
 
-    private synchronized void scheduleTaskIfNecessary(TimeSharingTaskHandle taskHandle)
+    private synchronized void scheduleTaskIfNecessary(TimeSharingTaskHandle taskHandle, PendingUpdates pendingUpdates)
     {
         // if task has less than the minimum guaranteed splits running,
         // immediately schedule new splits for this task.  This assures
@@ -460,12 +486,12 @@ public class TimeSharingTaskExecutor
             }
 
             startSplit(split);
-            splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
+            pendingUpdates.recordSplitQueuedNanos(nanoTime() - split.getCreatedNanos());
         }
-        recordLeafSplitsSize();
+        recordLeafSplitsSize(pendingUpdates);
     }
 
-    private synchronized void addNewEntrants()
+    private synchronized void addNewEntrants(PendingUpdates pendingUpdates)
     {
         // Ignore intermediate splits when checking minimumNumberOfDrivers.
         // Otherwise with (for example) minimumNumberOfDrivers = 100, 200 intermediate splits
@@ -480,7 +506,7 @@ public class TimeSharingTaskExecutor
                 break;
             }
 
-            splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
+            pendingUpdates.recordSplitQueuedNanos(nanoTime() - split.getCreatedNanos());
             startSplit(split);
         }
     }
@@ -522,17 +548,63 @@ public class TimeSharingTaskExecutor
         return null;
     }
 
-    private synchronized void recordLeafSplitsSize()
+    private synchronized void recordLeafSplitsSize(PendingUpdates pendingUpdates)
     {
         long now = ticker.read();
         long timeDifference = now - this.lastLeafSplitsSizeRecordTime;
         if (timeDifference > 0) {
-            this.leafSplitsSize.add(lastLeafSplitsSize, timeDifference);
+            pendingUpdates.recordLeafSplitsSizeSample(lastLeafSplitsSize, timeDifference);
             this.lastLeafSplitsSizeRecordTime = now;
         }
         // always record new lastLeafSplitsSize as it might have changed
         // even if timeDifference is 0
         this.lastLeafSplitsSize = allSplits.size() - intermediateSplits.size();
+    }
+
+    // Collects stat samples produced while holding the executor lock; flush() feeds the
+    // internally synchronized stat sinks after the lock is released.
+    private class PendingUpdates
+    {
+        @Nullable
+        private LongArrayList splitQueuedNanos;
+        // interleaved (leafSplitsCount, timeWeight) pairs
+        @Nullable
+        private LongArrayList leafSplitsSizeSamples;
+
+        void recordSplitQueuedNanos(long queuedNanos)
+        {
+            if (splitQueuedNanos == null) {
+                splitQueuedNanos = new LongArrayList();
+            }
+            splitQueuedNanos.add(queuedNanos);
+        }
+
+        void recordLeafSplitsSizeSample(long leafSplitsCount, long timeWeight)
+        {
+            if (leafSplitsSizeSamples == null) {
+                leafSplitsSizeSamples = new LongArrayList();
+            }
+            leafSplitsSizeSamples.add(leafSplitsCount);
+            leafSplitsSizeSamples.add(timeWeight);
+        }
+
+        @SuppressWarnings("checkstyle:IllegalToken")
+        void flush()
+        {
+            assert !Thread.holdsLock(TimeSharingTaskExecutor.this) : "Cannot flush while holding the executor lock";
+            if (splitQueuedNanos != null) {
+                for (int i = 0; i < splitQueuedNanos.size(); i++) {
+                    splitQueuedTime.add(succinctNanos(splitQueuedNanos.getLong(i)));
+                }
+                splitQueuedNanos = null;
+            }
+            if (leafSplitsSizeSamples != null) {
+                for (int i = 0; i < leafSplitsSizeSamples.size(); i += 2) {
+                    leafSplitsSize.add(leafSplitsSizeSamples.getLong(i), leafSplitsSizeSamples.getLong(i + 1));
+                }
+                leafSplitsSizeSamples = null;
+            }
+        }
     }
 
     private class TaskRunner
