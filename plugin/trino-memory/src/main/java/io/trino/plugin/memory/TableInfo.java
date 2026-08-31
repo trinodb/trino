@@ -36,7 +36,8 @@ public record TableInfo(
         List<ColumnInfo> columns,
         boolean truncated,
         Map<HostAddress, MemoryDataFragment> dataFragments,
-        Optional<String> comment)
+        Optional<String> comment,
+        List<String> primaryKeys)
 {
     public TableInfo
     {
@@ -45,6 +46,7 @@ public record TableInfo(
         columns = ImmutableList.copyOf(columns);
         dataFragments = ImmutableMap.copyOf(dataFragments);
         requireNonNull(comment, "comment is null");
+        primaryKeys = ImmutableList.copyOf(primaryKeys);
     }
 
     @JsonIgnore
@@ -62,7 +64,9 @@ public record TableInfo(
                         .map(ColumnInfo::getMetadata)
                         .collect(toImmutableList()),
                 ImmutableMap.of(),
-                comment);
+                comment,
+                ImmutableList.of(),
+                primaryKeys);
     }
 
     @JsonIgnore

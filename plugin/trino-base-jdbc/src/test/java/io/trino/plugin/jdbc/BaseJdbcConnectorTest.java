@@ -149,7 +149,7 @@ public abstract class BaseJdbcConnectorTest
     {
         return switch (connectorBehavior) {
             // not supported by DefaultJdbcMetadata
-            case SUPPORTS_CREATE_VIEW, SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_DEFAULT_COLUMN_VALUE -> false;
+            case SUPPORTS_CREATE_VIEW, SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_DEFAULT_COLUMN_VALUE, SUPPORTS_PRIMARY_KEY_CONSTRAINT -> false;
 
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
