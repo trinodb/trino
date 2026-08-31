@@ -30,6 +30,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
@@ -527,6 +528,36 @@ public class TestTimeSharingTaskExecutor
         ticker.increment(1, TimeUnit.SECONDS);
         taskExecutor.enqueueSplits(testTaskHandle, true, ImmutableList.of(driver1));
         assertThat(taskExecutor.getLeafSplitsSize().getAllTime().getMax()).isEqualTo(2.0);
+    }
+
+    @Test
+    public void testSplitQueuedTimeRecordedPerStartedLeafSplit()
+            throws Exception
+    {
+        TestingTicker ticker = new TestingTicker();
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 8, 3, 4, ticker);
+        taskExecutor.start();
+        try {
+            TaskHandle taskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            List<ListenableFuture<Void>> futures = new ArrayList<>(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0),
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0),
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0),
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0))));
+            futures.addAll(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0),
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0))));
+            for (ListenableFuture<Void> future : futures) {
+                future.get(10, SECONDS);
+            }
+
+            assertThat(taskExecutor.getSplitQueuedTime().getAllTime().snapshot().count()).isEqualTo(4.0);
+            taskExecutor.removeTask(taskHandle);
+        }
+        finally {
+            taskExecutor.stop();
+        }
     }
 
     private void assertSplitStates(int endIndex, TestingJob[] splits)
