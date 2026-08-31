@@ -783,7 +783,8 @@ a object storage path specified with the required `location` parameter. The
 files must use the specified `format`, with `ORC` and `PARQUET` as valid values.
 The target Iceberg table must use the same format as the added files. The
 procedure does not validate file schemas for compatibility with the target
-Iceberg table. The `location` property is supported for partitioned tables.
+Iceberg table. The `location` property is not supported for partitioned
+tables.
 
 The following examples copy `ORC`-format files from the location
 `s3://my-bucket/a/path` into the Iceberg table `iceberg_customer_orders` in the
