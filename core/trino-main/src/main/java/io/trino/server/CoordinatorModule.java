@@ -46,6 +46,8 @@ import io.trino.dispatcher.QueuedStatementResource;
 import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
 import io.trino.exchange.ExchangeMetricsCollector;
+import io.trino.execution.CallProcedureRequest;
+import io.trino.execution.CallProcedureResponse;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
@@ -60,6 +62,7 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.QueryPreparer;
+import io.trino.execution.RemoteCallProcedureTask;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SessionPropertyEvaluator;
 import io.trino.execution.StageInfo;
@@ -428,6 +431,12 @@ public class CoordinatorModule
         executionPolicyBinder.addBinding("phased").to(PhasedExecutionPolicy.class);
 
         install(new QueryExecutionFactoryModule());
+
+        // distributed CALL statement dispatch
+        jsonCodecBinder(binder).bindJsonCodec(CallProcedureRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(CallProcedureResponse.class);
+        binder.bind(RemoteCallProcedureTask.class).in(Scopes.SINGLETON);
+        install(internalHttpClientModule("call-procedure", ForCallProcedure.class).build());
 
         // cleanup
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForStatementResource.class));

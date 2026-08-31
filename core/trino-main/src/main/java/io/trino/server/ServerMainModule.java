@@ -39,6 +39,8 @@ import io.trino.block.BlockJsonSerde;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.exchange.ExchangeMetricsCollector;
+import io.trino.execution.CallProcedureRequest;
+import io.trino.execution.CallProcedureResponse;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.FailureInjector;
@@ -256,6 +258,12 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
+
+        // call procedure (worker-side execution of CALL statements)
+        jaxrsBinder(binder).bind(CallProcedureResource.class);
+        jsonCodecBinder(binder).bindJsonCodec(CallProcedureRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(CallProcedureResponse.class);
+
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TableExecuteContextManager.class).in(Scopes.SINGLETON);
 

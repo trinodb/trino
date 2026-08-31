@@ -36,6 +36,7 @@ public class Procedure
     private final List<Argument> arguments;
     private final boolean requireNamedArguments;
     private final MethodHandle methodHandle;
+    private final boolean executeOnWorker;
 
     public Procedure(String schema, String name, List<Argument> arguments, MethodHandle methodHandle)
     {
@@ -44,11 +45,17 @@ public class Procedure
 
     public Procedure(String schema, String name, List<Argument> arguments, MethodHandle methodHandle, boolean requireNamedArguments)
     {
+        this(schema, name, arguments, methodHandle, requireNamedArguments, false);
+    }
+
+    public Procedure(String schema, String name, List<Argument> arguments, MethodHandle methodHandle, boolean requireNamedArguments, boolean executeOnWorker)
+    {
         this.schema = checkNotNullOrEmpty(schema, "schema").toLowerCase(ENGLISH);
         this.name = checkNotNullOrEmpty(name, "name").toLowerCase(ENGLISH);
         this.arguments = List.copyOf(requireNonNull(arguments, "arguments is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.requireNamedArguments = requireNamedArguments;
+        this.executeOnWorker = executeOnWorker;
 
         Set<String> names = new HashSet<>();
         for (Argument argument : arguments) {
@@ -95,6 +102,11 @@ public class Procedure
     public boolean requiresNamedArguments()
     {
         return requireNamedArguments;
+    }
+
+    public boolean executesOnWorker()
+    {
+        return executeOnWorker;
     }
 
     @Override

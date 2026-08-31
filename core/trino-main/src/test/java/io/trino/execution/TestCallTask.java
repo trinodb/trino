@@ -21,6 +21,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
@@ -144,7 +145,18 @@ public class TestCallTask
             PlannerContext plannerContext = plannerContextBuilder()
                     .withTransactionManager(transactionManager)
                     .build();
-            new CallTask(transactionManager, plannerContext, accessControl, procedureRegistry)
+            new CallTask(
+                    transactionManager,
+                    plannerContext,
+                    accessControl,
+                    procedureRegistry,
+                    CatalogManager.NO_CATALOGS,
+                    () -> {
+                        throw new UnsupportedOperationException();
+                    },
+                    () -> {
+                        throw new UnsupportedOperationException();
+                    })
                     .execute(
                             new Call(new NodeLocation(1, 1), QualifiedName.of("testing_procedure"), ImmutableList.of()),
                             stateMachine(transactionManager, plannerContext.getMetadata(), accessControl),

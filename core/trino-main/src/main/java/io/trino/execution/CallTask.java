@@ -14,20 +14,28 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
+import io.trino.execution.scheduler.NodeScheduler;
+import io.trino.execution.scheduler.NodeSelector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.node.InternalNode;
 import io.trino.security.AccessControl;
-import io.trino.security.InjectedConnectorAccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorAccessControl;
-import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.eventlistener.RoutineInfo;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.Type;
@@ -42,29 +50,29 @@ import io.trino.sql.tree.Parameter;
 import io.trino.transaction.TransactionManager;
 
 import java.lang.invoke.MethodType;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class CallTask
@@ -74,14 +82,27 @@ public class CallTask
     private final PlannerContext plannerContext;
     private final AccessControl accessControl;
     private final ProcedureRegistry procedureRegistry;
+    private final CatalogManager catalogManager;
+    private final Provider<NodeScheduler> nodeScheduler;
+    private final Provider<RemoteCallProcedureTask> remoteCallProcedureTask;
 
     @Inject
-    public CallTask(TransactionManager transactionManager, PlannerContext plannerContext, AccessControl accessControl, ProcedureRegistry procedureRegistry)
+    public CallTask(
+            TransactionManager transactionManager,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            ProcedureRegistry procedureRegistry,
+            CatalogManager catalogManager,
+            Provider<NodeScheduler> nodeScheduler,
+            Provider<RemoteCallProcedureTask> remoteCallProcedureTask)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
+        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
+        this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
+        this.remoteCallProcedureTask = requireNonNull(remoteCallProcedureTask, "remoteCallProcedureTask is null");
     }
 
     @Override
@@ -166,7 +187,7 @@ public class CallTask
             Type type = argument.getType();
             Object value = evaluateConstant(expression, type, parameterLookup, plannerContext, session, accessControl);
 
-            values[index] = toTypeObjectValue(type, value);
+            values[index] = value;
         }
 
         // fill values with optional arguments defaults
@@ -175,7 +196,7 @@ public class CallTask
 
             if (!names.containsKey(argument.getName())) {
                 verify(argument.isOptional());
-                values[i] = toTypeObjectValue(argument.getType(), argument.getDefaultValue());
+                values[i] = argument.getDefaultValue();
             }
         }
 
@@ -188,48 +209,111 @@ public class CallTask
             }
         }
 
-        // insert session argument
-        List<Object> arguments = new ArrayList<>();
-        Iterator<Object> valuesIterator = asList(values).iterator();
-        for (Class<?> type : methodType.parameterList()) {
-            if (ConnectorSession.class.equals(type)) {
-                arguments.add(session.toConnectorSession(catalogHandle));
-            }
-            else if (ConnectorAccessControl.class.equals(type)) {
-                arguments.add(new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), procedureName.catalogName()));
-            }
-            else {
-                arguments.add(valuesIterator.next());
-            }
-        }
-
         accessControl.checkCanExecuteProcedure(session.toSecurityContext(), procedureName);
         stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.objectName(), session.getUser())));
 
-        try {
-            Object result = procedure.getMethodHandle().invokeWithArguments(arguments);
-            if (procedure.getMethodHandle().type().returnType() == Map.class && result != null) {
-                @SuppressWarnings("unchecked")
-                Map<String, Long> metrics = (Map<String, Long>) result;
-                if (!metrics.isEmpty()) {
-                    stateMachine.setCallResult(metrics);
-                }
-            }
+        if (procedure.executesOnWorker()) {
+            return callOnWorker(procedure, values, session, catalogHandle, procedureName, stateMachine);
         }
-        catch (Throwable t) {
-            if (t instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throwIfInstanceOf(t, TrinoException.class);
-            throw new TrinoException(PROCEDURE_CALL_FAILED, t);
-        }
+
+        Optional<Map<String, Long>> metrics = ProcedureInvoker.invoke(procedure, values, session, catalogHandle, accessControl, procedureName);
+        metrics.ifPresent(stateMachine::setCallResult);
 
         return immediateVoidFuture();
     }
 
-    private static Object toTypeObjectValue(Type type, Object value)
+    private ListenableFuture<Void> callOnWorker(
+            Procedure procedure,
+            Object[] values,
+            Session session,
+            CatalogHandle catalogHandle,
+            QualifiedObjectName procedureName,
+            QueryStateMachine stateMachine)
     {
-        Block block = writeNativeValue(type, value);
-        return type.getObjectValue(block, 0);
+        NodeSelector nodeSelector = nodeScheduler.get().createNodeSelector(session);
+        int clusterSize = nodeSelector.allNodes().size();
+        if (clusterSize == 0) {
+            throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run procedure " + procedureName);
+        }
+        List<InternalNode> nodes = nodeSelector.selectRandomNodes(clusterSize, ImmutableSet.of()).stream()
+                .filter(node -> !node.isCoordinator())
+                .collect(toImmutableList());
+        if (nodes.isEmpty()) {
+            throw new TrinoException(NO_NODES_AVAILABLE, "No worker nodes available to run procedure " + procedureName);
+        }
+
+        CatalogProperties catalogProperties = catalogManager.getCatalogProperties(catalogHandle)
+                .orElseThrow(() -> new TrinoException(PROCEDURE_CALL_FAILED, "Catalog properties not found for " + catalogHandle));
+
+        ImmutableList.Builder<NullableValue> argumentValues = ImmutableList.builderWithExpectedSize(values.length);
+        for (int i = 0; i < values.length; i++) {
+            argumentValues.add(new NullableValue(procedure.getArguments().get(i).getType(), values[i]));
+        }
+
+        CallProcedureRequest request = new CallProcedureRequest(
+                catalogHandle,
+                catalogProperties,
+                procedureName.asSchemaTableName(),
+                argumentValues.build(),
+                session.toSessionRepresentation());
+
+        SettableFuture<Void> result = SettableFuture.create();
+        callOnNode(nodes.iterator(), request, procedureName, stateMachine, result);
+        return result;
+    }
+
+    /**
+     * Attempts the call on successive candidate nodes, retrying only when a node reports that it
+     * has not yet loaded the target catalog (catalogs propagate to workers asynchronously, so this
+     * is a transient, expected condition rather than a procedure failure). Any other failure fails
+     * fast, since procedures are not assumed to be idempotent.
+     */
+    private void callOnNode(
+            Iterator<InternalNode> candidateNodes,
+            CallProcedureRequest request,
+            QualifiedObjectName procedureName,
+            QueryStateMachine stateMachine,
+            SettableFuture<Void> result)
+    {
+        if (!candidateNodes.hasNext()) {
+            result.setException(new TrinoException(PROCEDURE_CALL_FAILED, "No node has loaded catalog for procedure " + procedureName));
+            return;
+        }
+        InternalNode node = candidateNodes.next();
+
+        ListenableFuture<JsonResponse<CallProcedureResponse>> future = remoteCallProcedureTask.get().call(node, request);
+        Futures.addCallback(future, new FutureCallback<>()
+        {
+            @Override
+            public void onSuccess(JsonResponse<CallProcedureResponse> response)
+            {
+                try {
+                    if (!response.hasValue()) {
+                        result.setException(new TrinoException(PROCEDURE_CALL_FAILED, "Failed to call procedure " + procedureName + " on node " + node + ": HTTP " + response.getStatusCode()));
+                        return;
+                    }
+                    CallProcedureResponse callProcedureResponse = response.getValue();
+                    if (callProcedureResponse.catalogNotLoaded()) {
+                        callOnNode(candidateNodes, request, procedureName, stateMachine, result);
+                        return;
+                    }
+                    if (callProcedureResponse.failure().isPresent()) {
+                        result.setException(callProcedureResponse.failure().get().toException());
+                        return;
+                    }
+                    callProcedureResponse.metrics().ifPresent(stateMachine::setCallResult);
+                    result.set(null);
+                }
+                catch (Throwable t) {
+                    result.setException(t);
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                result.setException(new TrinoException(PROCEDURE_CALL_FAILED, "Failed to call procedure " + procedureName + " on node " + node, t));
+            }
+        }, directExecutor());
     }
 }
