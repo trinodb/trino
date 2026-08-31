@@ -25,6 +25,8 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
+import io.trino.FullConnectorSession;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.BlockBuilder;
@@ -67,10 +69,24 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.insertArguments;
+import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.stream.Collectors.joining;
 
 public final class BytecodeUtils
 {
+    private static final MethodHandle TO_CONNECTOR_SESSION;
+
+    static {
+        try {
+            TO_CONNECTOR_SESSION = lookup().findStatic(FullConnectorSession.class, "toConnectorSession", methodType(ConnectorSession.class, ConnectorSession.class, CatalogHandle.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     private static final CharMatcher DISALLOWED_IDENTIFIER_CHARS = CharMatcher.inRange('a', 'z')
             .or(CharMatcher.inRange('A', 'Z'))
             .or(CharMatcher.inRange('0', '9'))
@@ -180,7 +196,8 @@ public final class BytecodeUtils
             ResolvedFunction resolvedFunction,
             FunctionManager functionManager,
             List<BytecodeNode> arguments,
-            CallSiteBinder binder)
+            CallSiteBinder binder,
+            BytecodeNode session)
     {
         return generateInvocation(
                 scope,
@@ -188,7 +205,8 @@ public final class BytecodeUtils
                 resolvedFunction.functionNullability(),
                 invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 arguments,
-                binder);
+                binder,
+                session);
     }
 
     public static BytecodeNode generateInvocation(
@@ -197,7 +215,8 @@ public final class BytecodeUtils
             FunctionNullability functionNullability,
             Function<InvocationConvention, ScalarFunctionImplementation> functionImplementationProvider,
             List<BytecodeNode> arguments,
-            CallSiteBinder binder)
+            CallSiteBinder binder,
+            BytecodeNode session)
     {
         return generateFullInvocation(
                 scope,
@@ -211,7 +230,8 @@ public final class BytecodeUtils
                 arguments.stream()
                         .map(BytecodeUtils::simpleArgument)
                         .collect(toImmutableList()),
-                binder);
+                binder,
+                session);
     }
 
     private static Function<Optional<Class<?>>, BytecodeNode> simpleArgument(BytecodeNode argument)
@@ -228,7 +248,8 @@ public final class BytecodeUtils
             FunctionManager functionManager,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
-            CallSiteBinder binder)
+            CallSiteBinder binder,
+            BytecodeNode session)
     {
         return generateFullInvocation(
                 scope,
@@ -240,7 +261,8 @@ public final class BytecodeUtils
                 invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 instanceFactory,
                 argumentCompilers,
-                binder);
+                binder,
+                session);
     }
 
     private static BytecodeNode generateFullInvocation(
@@ -251,7 +273,8 @@ public final class BytecodeUtils
             Function<InvocationConvention, ScalarFunctionImplementation> functionImplementationProvider,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
-            CallSiteBinder binder)
+            CallSiteBinder binder,
+            BytecodeNode session)
     {
         verify(argumentIsFunctionType.size() == argumentCompilers.size());
         List<InvocationArgumentConvention> argumentConventions = new ArrayList<>();
@@ -315,7 +338,7 @@ public final class BytecodeUtils
                 instanceIsBound = true;
             }
             else if (type == ConnectorSession.class) {
-                block.append(scope.getVariable("session"));
+                block.append(session);
             }
             else {
                 switch (invocationConvention.getArgumentConvention(realParameterIndex)) {
@@ -468,6 +491,15 @@ public final class BytecodeUtils
                 .condition(condition)
                 .ifTrue(wasNull)
                 .ifFalse(notNull);
+    }
+
+    /**
+     * Returns an expression that rebinds {@code session} to {@code catalogHandle}, so that a
+     * connector function reads session properties from its own catalog.
+     */
+    public static BytecodeExpression bindConnectorSession(CallSiteBinder binder, CatalogHandle catalogHandle, BytecodeExpression session)
+    {
+        return invoke(binder.bind(insertArguments(TO_CONNECTOR_SESSION, 1, catalogHandle)), "toConnectorSession", session);
     }
 
     public static BytecodeExpression invoke(Binding binding, String name, BytecodeExpression... parameters)
