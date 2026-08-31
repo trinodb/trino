@@ -305,7 +305,7 @@ public class IrExpressionEvaluator
 
     private Object evaluateInternal(Call call, Session session, Map<String, Object> bindings)
     {
-        return functionInvoker.invoke(call.function(), session.toConnectorSession(), call.arguments().stream()
+        return functionInvoker.invoke(call.function(), session.toConnectorSession(call.function().catalogHandle()), call.arguments().stream()
                 .map(argument -> evaluate(argument, session, bindings))
                 .collect(toList()));
     }
