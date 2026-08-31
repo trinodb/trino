@@ -18,6 +18,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -30,18 +31,29 @@ import static java.util.Objects.requireNonNull;
  */
 @ThreadSafe
 final class TaskControl
+        implements Reservable
 {
     private final Group group;
     private final int id;
     private final Ticker ticker;
+
+    /**
+     * Whether this task currently holds a concurrency slot. Kept here rather than in a set
+     * inside {@link Reservation} so that acquiring and releasing a slot costs a single CAS.
+     */
+    private final AtomicBoolean reserved = new AtomicBoolean();
 
     private final Lock lock = new ReentrantLock();
 
     @GuardedBy("lock")
     private final Condition wakeup = lock.newCondition();
 
-    @GuardedBy("lock")
-    private boolean ready;
+    /**
+     * Written only while holding {@code lock}, so that it stays consistent with the wakeup
+     * condition, but declared volatile so {@link #isReady()} can read it without contending
+     * for the lock.
+     */
+    private volatile boolean ready;
 
     @GuardedBy("lock")
     private boolean blocked;
@@ -49,8 +61,12 @@ final class TaskControl
     @GuardedBy("lock")
     private boolean cancelled;
 
-    @GuardedBy("lock")
-    private State state;
+    /**
+     * Written only while holding {@code lock}, and only by the task thread, but declared
+     * volatile so {@link #getState()} can read it without contending for the lock. That read
+     * happens on every yield and every block, where it only serves to check a precondition.
+     */
+    private volatile State state;
 
     private volatile long periodStart;
     private final LongAdder startNanos = new LongAdder();
@@ -76,6 +92,18 @@ final class TaskControl
         return id;
     }
 
+    @Override
+    public boolean tryMarkReserved()
+    {
+        return reserved.compareAndSet(false, true);
+    }
+
+    @Override
+    public boolean tryMarkReleased()
+    {
+        return reserved.compareAndSet(true, false);
+    }
+
     public void setThread(Thread thread)
     {
         this.thread = thread;
@@ -88,14 +116,15 @@ final class TaskControl
             cancelled = true;
             wakeup.signal();
 
-            // TODO: it should be possible to interrupt the thread, but
-            //       it appears that it's not safe to do so. It can cause the query
-            //       to get stuck (e.g., AbstractDistributedEngineOnlyQueries.testSelectiveLimit)
-            //
-            //       Thread thread = this.thread;
-            //       if (thread != null) {
-            //           thread.interrupt();
-            //       }
+            // Only interrupt while the task owns its thread. In every other state the thread is
+            // either parked in awaitReady()/awaitUnblock(), which the signal above releases, or
+            // it has finished and been handed back to the pool, where an interrupt would land on
+            // whatever unrelated split it picked up next. State is written under this same lock,
+            // so observing RUNNING here means the thread is inside the task's runner.
+            Thread thread = this.thread;
+            if (state == State.RUNNING && thread != null) {
+                thread.interrupt();
+            }
         }
         finally {
             lock.unlock();
@@ -138,13 +167,7 @@ final class TaskControl
 
     public boolean isReady()
     {
-        lock.lock();
-        try {
-            return ready;
-        }
-        finally {
-            lock.unlock();
-        }
+        return ready;
     }
 
     /**
@@ -291,13 +314,7 @@ final class TaskControl
 
     public State getState()
     {
-        lock.lock();
-        try {
-            return state;
-        }
-        finally {
-            lock.unlock();
-        }
+        return state;
     }
 
     public long elapsed()

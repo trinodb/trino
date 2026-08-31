@@ -22,6 +22,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.util.PowerOfTwo;
 import jakarta.validation.constraints.DecimalMax;
@@ -114,6 +115,8 @@ public class TaskManagerConfig
 
     private BigDecimal levelTimeMultiplier = TWO;
 
+    private int schedulerShards = FairScheduler.DEFAULT_SHARDS;
+
     @Config("experimental.thread-per-driver-scheduler-enabled")
     public TaskManagerConfig setThreadPerDriverSchedulerEnabled(boolean enabled)
     {
@@ -124,6 +127,20 @@ public class TaskManagerConfig
     public boolean isThreadPerDriverSchedulerEnabled()
     {
         return threadPerDriverSchedulerEnabled;
+    }
+
+    @Min(1)
+    public int getSchedulerShards()
+    {
+        return schedulerShards;
+    }
+
+    @Config("experimental.thread-per-driver-scheduler-shards")
+    @ConfigDescription("Number of independent partitions of the split scheduling queue. Values above 1 reduce lock contention at the cost of making fair-share scheduling exact only within a partition")
+    public TaskManagerConfig setSchedulerShards(int schedulerShards)
+    {
+        this.schedulerShards = schedulerShards;
+        return this;
     }
 
     @MinDuration("1ms")
