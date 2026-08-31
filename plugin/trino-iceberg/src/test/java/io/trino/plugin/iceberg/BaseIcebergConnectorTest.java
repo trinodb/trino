@@ -53,8 +53,10 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -126,6 +128,7 @@ import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRI
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -162,6 +165,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -1283,6 +1287,55 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("DROP TABLE " + sourceTable);
         assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test // regression test for https://github.com/trinodb/trino/issues/30639
+    public void testMergeWithPartitionedJoinAndUnmodifiedRows()
+    {
+        // The join with a bucket-partitioned target is colocated with the table partitioning, so
+        // the target and source AssignUniqueId nodes execute in the same stage and must not
+        // assign the same id to different rows
+        try (TestTable target = newTrinoTable(
+                "test_merge_unique_id_target_",
+                "WITH (partitioning = ARRAY['bucket(k1, 16)', 'bucket(k2, 8)']) AS " +
+                        "SELECT 'a-' || CAST(i AS varchar) AS k1, 'b-' || CAST(i AS varchar) AS k2, " +
+                        "'UPDATED' AS value, TIMESTAMP '2026-01-01 00:00:00.000000' AS updated_at " +
+                        "FROM UNNEST(sequence(1, 20)) t(i)");
+                // Every fifth source row matches a target row, so matched and unmatched rows are
+                // interleaved and each AssignUniqueId driver assigns its first ids to both kinds
+                TestTable source = newTrinoTable(
+                        "test_merge_unique_id_source_",
+                        "AS SELECT " +
+                                "IF(i % 5 = 0, 'a-' || CAST(i / 5 AS varchar), 'x-' || CAST(i AS varchar)) AS k1, " +
+                                "IF(i % 5 = 0, 'b-' || CAST(i / 5 AS varchar), 'y-' || CAST(i AS varchar)) AS k2, " +
+                                "'DELETED' AS value, TIMESTAMP '2026-01-01 00:00:00.000000' AS updated_at " +
+                                "FROM UNNEST(sequence(1, 100)) t(i)")) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, BUCKET_EXECUTION_ENABLED, "true")
+                    .build();
+
+            // Every row is excluded by a WHEN condition, so the merge must change nothing
+            // instead of failing with MERGE_TARGET_ROW_MULTIPLE_MATCHES
+            assertUpdate(
+                    session,
+                    "MERGE INTO %s t USING %s s ".formatted(target.getName(), source.getName()) +
+                            "ON t.k1 = s.k1 AND t.k2 = s.k2 " +
+                            "WHEN MATCHED AND s.updated_at > t.updated_at THEN UPDATE SET value = s.value, updated_at = s.updated_at " +
+                            "WHEN NOT MATCHED AND s.value <> 'DELETED' THEN INSERT (k1, k2, value, updated_at) VALUES (s.k1, s.k2, s.value, s.updated_at)",
+                    0,
+                    // Both AssignUniqueId nodes must be reachable from the join without crossing a
+                    // remote exchange, otherwise the test no longer exercises a shared task
+                    plan -> {
+                        JoinNode join = (JoinNode) searchFrom(plan.getRoot()).where(JoinNode.class::isInstance).findOnlyElement();
+                        assertThat(searchFrom(join)
+                                .recurseOnlyWhen(planNode -> !(planNode instanceof ExchangeNode exchange && exchange.getScope() == REMOTE))
+                                .where(AssignUniqueId.class::isInstance)
+                                .count())
+                                .isEqualTo(2);
+                    });
+            assertQuery("SELECT count(*) FROM " + target.getName(), "VALUES 20");
+        }
     }
 
     @Test
