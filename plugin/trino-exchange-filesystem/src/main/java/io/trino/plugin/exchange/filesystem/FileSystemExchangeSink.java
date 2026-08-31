@@ -14,7 +14,6 @@
 package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -184,6 +183,7 @@ public class FileSystemExchangeSink
         if (closed) {
             return failedFuture(new IllegalStateException("Exchange sink has already closed"));
         }
+        closed = true;
 
         ListenableFuture<Void> finishFuture = asVoid(Futures.allAsList(
                 writersMap.values().stream().map(BufferedStorageWriter::finish).collect(toImmutableList())));
@@ -192,20 +192,7 @@ public class FileSystemExchangeSink
                 finishFuture,
                 _ -> exchangeStorage.createEmptyFile(outputDirectory.resolve(COMMITTED_MARKER_FILE_NAME)),
                 directExecutor());
-        Futures.addCallback(finishFuture, new FutureCallback<>()
-        {
-            @Override
-            public void onSuccess(Void result)
-            {
-                closed = true;
-            }
-
-            @Override
-            public void onFailure(Throwable ignored)
-            {
-                abort();
-            }
-        }, directExecutor());
+        addExceptionCallback(finishFuture, _ -> abortInternal());
 
         return stats.getExchangeSinkFinish().record(toCompletableFuture(finishFuture));
     }
@@ -218,6 +205,11 @@ public class FileSystemExchangeSink
         }
         closed = true;
 
+        return abortInternal();
+    }
+
+    private CompletableFuture<Void> abortInternal()
+    {
         ListenableFuture<Void> abortFuture = asVoid(Futures.allAsList(
                 writersMap.values().stream().map(BufferedStorageWriter::abort).collect(toImmutableList())));
         addSuccessCallback(abortFuture, this::destroy);
