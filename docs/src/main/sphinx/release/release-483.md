@@ -194,6 +194,14 @@
 * Fix incorrect results for queries with a filter on `char` columns in ORC files.
   ({issue}`30187`)
 
+## Paimon connector
+
+* Add the Paimon connector with support for Apache Paimon 2.0 catalogs using
+  filesystem, JDBC, or Hive metastore metadata catalogs. ({issue}`24636`)
+* Add support for reading and writing Paimon tables through Trino's native file
+  system, Parquet, and ORC implementations, including schema evolution,
+  time travel, system tables, and incremental table changes.
+
 ## SQL Server connector
 
 * Fix query failure when reading a table with hidden columns using a `LIMIT`.

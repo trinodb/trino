@@ -99,6 +99,10 @@ oracle:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-oracle/**'
 
+paimon:
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-paimon/**'
+
 pinot:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-pinot/**'

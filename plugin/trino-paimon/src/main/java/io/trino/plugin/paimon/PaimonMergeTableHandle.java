@@ -1,0 +1,72 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.paimon;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
+import io.trino.spi.connector.ConnectorTableHandle;
+
+import static java.util.Objects.requireNonNull;
+
+public class PaimonMergeTableHandle
+        implements ConnectorMergeTableHandle
+{
+    private final PaimonTableHandle tableHandle;
+    private final boolean metadataDeleteFallback;
+
+    @JsonCreator
+    public PaimonMergeTableHandle(
+            @JsonProperty(value = "tableHandle", required = true) PaimonTableHandle tableHandle,
+            @JsonProperty(value = "metadataDeleteFallback", required = true) Boolean metadataDeleteFallback)
+    {
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.metadataDeleteFallback = requireNonNull(metadataDeleteFallback, "metadataDeleteFallback is null");
+    }
+
+    public PaimonMergeTableHandle(PaimonTableHandle tableHandle)
+    {
+        this(tableHandle, false);
+    }
+
+    public static PaimonMergeTableHandle forMetadataDeleteFallback(PaimonTableHandle tableHandle)
+    {
+        return new PaimonMergeTableHandle(tableHandle, true);
+    }
+
+    @JsonAnySetter
+    public void rejectUnknownJsonField(String name, Object value)
+    {
+        PaimonHandleJsonUtils.rejectUnknownHandleJsonField("PaimonMergeTableHandle", name, value);
+    }
+
+    @Override
+    @JsonProperty
+    public ConnectorTableHandle getTableHandle()
+    {
+        return tableHandle;
+    }
+
+    PaimonTableHandle paimonTableHandle()
+    {
+        return tableHandle;
+    }
+
+    @JsonProperty
+    public boolean isMetadataDeleteFallback()
+    {
+        return metadataDeleteFallback;
+    }
+}
