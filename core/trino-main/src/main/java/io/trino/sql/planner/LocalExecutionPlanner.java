@@ -303,6 +303,7 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -686,6 +687,8 @@ public class LocalExecutionPlanner
 
         // this is shared with all subContexts
         private final AtomicInteger nextPipelineId;
+        // this is shared with all subContexts; see AssignUniqueIdOperator.Factory for the rationale
+        private final AtomicLong assignUniqueIdValuePool;
 
         private int nextOperatorId;
         private boolean inputDriver = true;
@@ -696,19 +699,22 @@ public class LocalExecutionPlanner
             this(taskContext,
                     new ArrayList<>(),
                     Optional.empty(),
-                    new AtomicInteger(0));
+                    new AtomicInteger(0),
+                    new AtomicLong());
         }
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
-                AtomicInteger nextPipelineId)
+                AtomicInteger nextPipelineId,
+                AtomicLong assignUniqueIdValuePool)
         {
             this.taskContext = taskContext;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
             this.nextPipelineId = nextPipelineId;
+            this.assignUniqueIdValuePool = assignUniqueIdValuePool;
         }
 
         public void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
@@ -802,6 +808,11 @@ public class LocalExecutionPlanner
             return nextOperatorId++;
         }
 
+        private AtomicLong getAssignUniqueIdValuePool()
+        {
+            return assignUniqueIdValuePool;
+        }
+
         private boolean isInputDriver()
         {
             return inputDriver;
@@ -815,12 +826,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId, assignUniqueIdValuePool);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId, assignUniqueIdValuePool);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -3645,7 +3656,8 @@ public class LocalExecutionPlanner
 
             OperatorFactory operatorFactory = AssignUniqueIdOperator.createOperatorFactory(
                     context.getNextOperatorId(),
-                    node.getId());
+                    node.getId(),
+                    context.getAssignUniqueIdValuePool());
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 

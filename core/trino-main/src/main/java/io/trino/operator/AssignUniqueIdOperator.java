@@ -37,9 +37,9 @@ public class AssignUniqueIdOperator
     private static final long ROW_IDS_PER_REQUEST = 1L << 20L;
     private static final long MAX_ROW_ID = 1L << 40L;
 
-    public static OperatorFactory createOperatorFactory(int operatorId, PlanNodeId planNodeId)
+    public static OperatorFactory createOperatorFactory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, valuePool));
     }
 
     private static class Factory
@@ -48,12 +48,9 @@ public class AssignUniqueIdOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private boolean closed;
+        // The unique id embeds only the stage and partition of the task, so all AssignUniqueId
+        // operators in a task must draw row ids from a single pool for their ids to be distinct
         private final AtomicLong valuePool;
-
-        private Factory(int operatorId, PlanNodeId planNodeId)
-        {
-            this(operatorId, planNodeId, new AtomicLong());
-        }
 
         private Factory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool)
         {
