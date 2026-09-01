@@ -401,9 +401,16 @@ def build_matrix_json(
 ) -> dict[str, Any]:
     includes = []
     for config_item in configs:
+        when = config_item.when
         if config_item.matches_event(github_context):
-            # If the schedule says these tests should run, run all of them
-            includes.extend(config_item.build_matrix_includes())
+            # Still filter to impacted when impact data exists, so we don't include jobs whose
+            # own Maven Install step will see the same GIB data and skip installing the module.
+            if impacted_modules and (when is None or when.impacted):
+                includes.extend(
+                    config_item.build_impacted_matrix_includes(impacted_modules)
+                )
+            else:
+                includes.extend(config_item.build_matrix_includes())
         else:
             # Otherwise, filter to impacted
             includes.extend(
@@ -605,6 +612,11 @@ class TestBuild(unittest.TestCase):
                 build_matrix_json(configs, {"a"}, context),
                 {"include": [{"modules": "a", "name": "test (a)"}]},
                 f"default runs on {event_name} with impact",
+            )
+            self.assertEqual(
+                build_matrix_json(configs, {"b"}, context),
+                {},
+                f"default doesn't run on {event_name} when a different module is impacted",
             )
 
         context = {"event_name": "schedule", "event": {"schedule": "0 0 * * *"}}
