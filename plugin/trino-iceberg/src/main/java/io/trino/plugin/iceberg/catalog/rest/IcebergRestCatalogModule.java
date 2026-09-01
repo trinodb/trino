@@ -106,5 +106,8 @@ public class IcebergRestCatalogModule
             }
             default -> throw new TrinoException(CONFIGURATION_INVALID, "Vended credentials do not support warehouse locations with the %s scheme".formatted(scheme));
         }
+        if (restCatalogConfig.isVendedCredentialsEnabled() && icebergConfig.isRegisterViewProcedureEnabled()) {
+            throw new TrinoException(NOT_SUPPORTED, "Using the `register_view` procedure with vended credentials is currently not supported");
+        }
     }
 }
