@@ -61,6 +61,13 @@ public class TestTransactionLogParser
     }
 
     @Test
+    void testReadPartitionTimestampWithZoneSubMicrosecond()
+    {
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.0000001")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, UTC_KEY));
+        assertThat(readPartitionTimestampWithZone("1970-01-01 00:00:00.123456789")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(123, 456_000_000, UTC_KEY));
+    }
+
+    @Test
     void testReadPartitionTimestampWithZoneIso8601()
     {
         assertThat(readPartitionTimestampWithZone("1970-01-01T00:00:00.000000Z")).isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, UTC_KEY));
