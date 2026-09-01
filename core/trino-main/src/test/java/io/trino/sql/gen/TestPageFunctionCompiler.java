@@ -422,11 +422,63 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testRowConstructorWithMixedEncodedInputs()
+    {
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT;
+        int middleField = fieldCount / 2;
+        List<Expression> fields = new ArrayList<>(nCopies(fieldCount, new Reference(BIGINT, "$col_0")));
+        fields.set(0, ADD_10_EXPRESSION);
+        fields.set(middleField, new Reference(BIGINT, "$col_1"));
+        fields.set(fieldCount - 1, ADD_10_EXPRESSION);
+
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, BIGINT));
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        new Row(fields, rowType),
+                        ImmutableMap.of(
+                                new Symbol(BIGINT, "$col_0"), 0,
+                                new Symbol(BIGINT, "$col_1"), 1),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        Page page = new Page(
+                DictionaryBlock.create(5, createLongsBlock(10L, null, 30L), new int[] {2, 0, 1, 2, 0}),
+                RunLengthEncodedBlock.create(createLongsBlock(7L), 5));
+        Block result = project(projection, page, SelectedPositions.positionsRange(1, 3));
+
+        List<Long> firstExpected = new ArrayList<>(nCopies(fieldCount, 10L));
+        firstExpected.set(0, 20L);
+        firstExpected.set(middleField, 7L);
+        firstExpected.set(fieldCount - 1, 20L);
+        List<Long> secondExpected = new ArrayList<>(nCopies(fieldCount, null));
+        secondExpected.set(middleField, 7L);
+        List<Long> thirdExpected = new ArrayList<>(nCopies(fieldCount, 30L));
+        thirdExpected.set(0, 40L);
+        thirdExpected.set(middleField, 7L);
+        thirdExpected.set(fieldCount - 1, 40L);
+
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(firstExpected);
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(secondExpected);
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(thirdExpected);
+    }
+
+    @Test
+    public void testRowConstructorReusesInputBlocksWithPrivateJavaType()
+    {
+        assertRowConstructorReusesInputBlocksWithPrivateJavaType(MEGAMORPHIC_FIELD_COUNT);
+    }
+
+    @Test
     public void testLargeRowConstructorReusesInputBlocksWithPrivateJavaType()
+    {
+        assertRowConstructorReusesInputBlocksWithPrivateJavaType(MEGAMORPHIC_FIELD_COUNT + 1);
+    }
+
+    private void assertRowConstructorReusesInputBlocksWithPrivateJavaType(int fieldCount)
     {
         HiddenFunctions hiddenFunctions = createHiddenFunctions();
         HiddenType hiddenType = (HiddenType) hiddenFunctions.type();
-        int fieldCount = MEGAMORPHIC_FIELD_COUNT + 1;
         RowType rowType = RowType.anonymous(nCopies(fieldCount, hiddenType));
         Expression row = new Row(nCopies(fieldCount, new Reference(hiddenType, "$col_0")), rowType);
         PageProjection projection = createFunctionResolution(hiddenType).getPageFunctionCompiler()
