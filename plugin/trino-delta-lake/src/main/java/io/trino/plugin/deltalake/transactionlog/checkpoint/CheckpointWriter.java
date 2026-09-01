@@ -49,6 +49,7 @@ import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -74,6 +75,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.dese
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
@@ -460,7 +462,9 @@ public class CheckpointWriter
     {
         RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
         RowType valuesFieldType = (RowType) valuesField.getType();
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson));
+        // round a maximum up when squeezing it into a millisecond-granular field
+        boolean roundUp = fieldName.equals("maxValues");
+        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson, roundUp));
     }
 
     private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
@@ -487,7 +491,7 @@ public class CheckpointWriter
         });
     }
 
-    private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson)
+    private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson, boolean roundUp)
     {
         return valuesOptional.map(
                 values -> {
@@ -503,6 +507,15 @@ public class CheckpointWriter
                                         Type type = fieldTypes.get(entry.getKey());
                                         Object value = entry.getValue();
                                         if (isJson) {
+                                            if (type == TIMESTAMP_MILLIS && value instanceof String string) {
+                                                Instant instant = Instant.parse(string);
+                                                long epochMillis = instant.toEpochMilli();
+                                                // this field is millisecond-granular, so a truncated maximum must cover its whole millisecond
+                                                if (roundUp && instant.getNano() % NANOSECONDS_PER_MILLISECOND != 0) {
+                                                    epochMillis++;
+                                                }
+                                                return multiplyExact(epochMillis, MICROSECONDS_PER_MILLISECOND);
+                                            }
                                             return jsonValueToTrinoValue(type, value);
                                         }
                                         if (type == TIMESTAMP_MILLIS) {
