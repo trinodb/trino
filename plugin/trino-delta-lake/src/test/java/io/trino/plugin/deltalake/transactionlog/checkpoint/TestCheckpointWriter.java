@@ -424,6 +424,62 @@ public class TestCheckpointWriter
     }
 
     @Test
+    public void testJsonStatsTimestampMaximumRoundsUpInCheckpointStruct()
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of(
+                        "delta.checkpoint.writeStatsAsStruct", "true",
+                        "delta.checkpoint.writeStatsAsJson", "false"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePathJson",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.of("{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
+                        "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
+                        "\"nullCount\":{\"ts\":0}}"),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(addFileEntry),
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+
+        File targetFile = Files.createTempFile("testJsonStatsMaxRoundsUp-", ".checkpoint.parquet").toFile();
+        targetFile.deleteOnExit();
+        String targetPath = "file://" + targetFile.getAbsolutePath();
+        targetFile.delete(); // file must not exist when writer is called
+        writer.write(entries, createOutputFile(targetPath));
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
+        DeltaLakeParquetFileStatistics readStats = (DeltaLakeParquetFileStatistics) getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
+        // the struct field is millisecond-granular: the minimum floors, the maximum must cover its whole millisecond
+        assertThat(readStats.getMinValues().orElseThrow())
+                .isEqualTo(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600123L, 0, UTC_KEY)));
+        assertThat(readStats.getMaxValues().orElseThrow())
+                .isEqualTo(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600124L, 0, UTC_KEY)));
+    }
+
+    @Test
     public void testDisablingRowStatistics()
             throws IOException
     {
