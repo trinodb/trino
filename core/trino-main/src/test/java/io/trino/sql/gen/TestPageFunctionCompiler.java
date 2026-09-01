@@ -35,6 +35,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -55,6 +56,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
@@ -71,6 +73,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -393,6 +396,149 @@ public class TestPageFunctionCompiler
         assertThat(rowType.getObjectValue(result, 0)).isEqualTo(asList(10L, 7L, null));
         assertThat(rowType.getObjectValue(result, 1)).isEqualTo(asList(null, 7L, null));
         assertThat(rowType.getObjectValue(result, 2)).isEqualTo(asList(30L, 7L, null));
+    }
+
+    @Test
+    public void testLargeRowConstructorWithEncodedInputReferences()
+    {
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT + 1;
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, BIGINT));
+        Expression row = new Row(nCopies(fieldCount, new Reference(BIGINT, "$col_0")), rowType);
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        row,
+                        ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        Page page = new Page(DictionaryBlock.create(5, createLongsBlock(10L, null, 30L), new int[] {2, 0, 1, 2, 0}));
+        Block result = project(projection, page, SelectedPositions.positionsRange(1, 3));
+
+        assertThat(result.getPositionCount()).isEqualTo(3);
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(nCopies(fieldCount, 10L));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(nCopies(fieldCount, null));
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(nCopies(fieldCount, 30L));
+    }
+
+    @Test
+    public void testLargeRowConstructorReusesInputBlocksWithPrivateJavaType()
+    {
+        HiddenFunctions hiddenFunctions = createHiddenFunctions();
+        HiddenType hiddenType = (HiddenType) hiddenFunctions.type();
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT + 1;
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, hiddenType));
+        Expression row = new Row(nCopies(fieldCount, new Reference(hiddenType, "$col_0")), rowType);
+        PageProjection projection = createFunctionResolution(hiddenType).getPageFunctionCompiler()
+                .compileProjection(
+                        row,
+                        ImmutableMap.of(new Symbol(hiddenType, "$col_0"), 0),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        BlockBuilder inputBuilder = hiddenType.createBlockBuilder(null, 2);
+        hiddenType.writeObject(inputBuilder, createHiddenValue(hiddenFunctions));
+        inputBuilder.appendNull();
+        Page page = new Page(inputBuilder.build());
+
+        hiddenType.resetGetObjectCalls();
+        hiddenType.resetCreateBlockBuilderCalls();
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(hiddenType.getObjectCalls()).isZero();
+        assertThat(hiddenType.getCreateBlockBuilderCalls()).isZero();
+
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(nCopies(fieldCount, 42));
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(nCopies(fieldCount, null));
+        assertThat(hiddenType.getObjectCalls()).isZero();
+        assertThat(hiddenType.getCreateBlockBuilderCalls()).isZero();
+    }
+
+    @Test
+    public void testLargeRowConstructorWithMixedEncodedInputs()
+    {
+        // Exercise mixed direct and computed fields in both the first and last partial row constructors
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT * 16 + 1;
+        int middleField = fieldCount / 2;
+        int nullField = fieldCount - 2;
+        int trailingComputedField = fieldCount - 1;
+        List<Expression> fields = new ArrayList<>(nCopies(fieldCount, new Reference(BIGINT, "$col_0")));
+        fields.set(0, ADD_10_EXPRESSION);
+        fields.set(middleField, new Reference(BIGINT, "$col_1"));
+        fields.set(nullField, new Reference(BIGINT, "$col_2"));
+        fields.set(trailingComputedField, ADD_10_EXPRESSION);
+
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, BIGINT));
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        new Row(fields, rowType),
+                        ImmutableMap.of(
+                                new Symbol(BIGINT, "$col_0"), 0,
+                                new Symbol(BIGINT, "$col_1"), 1,
+                                new Symbol(BIGINT, "$col_2"), 2),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        Page page = new Page(
+                DictionaryBlock.create(5, createLongsBlock(10L, null, 30L), new int[] {2, 0, 1, 2, 0}),
+                RunLengthEncodedBlock.create(createLongsBlock(7L), 5),
+                RunLengthEncodedBlock.create(createLongsBlock((Long) null), 5));
+        Block result = project(projection, page, SelectedPositions.positionsRange(1, 3));
+
+        List<Long> firstExpected = new ArrayList<>(nCopies(fieldCount, 10L));
+        firstExpected.set(0, 20L);
+        firstExpected.set(middleField, 7L);
+        firstExpected.set(nullField, null);
+        firstExpected.set(trailingComputedField, 20L);
+        List<Long> secondExpected = new ArrayList<>(nCopies(fieldCount, null));
+        secondExpected.set(middleField, 7L);
+        List<Long> thirdExpected = new ArrayList<>(nCopies(fieldCount, 30L));
+        thirdExpected.set(0, 40L);
+        thirdExpected.set(middleField, 7L);
+        thirdExpected.set(nullField, null);
+        thirdExpected.set(trailingComputedField, 40L);
+
+        assertThat(rowType.getObjectValue(result, 0)).isEqualTo(firstExpected);
+        assertThat(rowType.getObjectValue(result, 1)).isEqualTo(secondExpected);
+        assertThat(rowType.getObjectValue(result, 2)).isEqualTo(thirdExpected);
+    }
+
+    @Test
+    public void testLargeRowConstructorInHighArityLambda()
+    {
+        // The receiver, session, and 252 lambda arguments consume 254 of the 255 JVM parameter slots.
+        int lambdaArgumentCount = 252;
+        List<Symbol> lambdaArguments = new ArrayList<>(lambdaArgumentCount);
+        for (int i = 0; i < lambdaArgumentCount; i++) {
+            lambdaArguments.add(new Symbol(BIGINT, "argument_" + i));
+        }
+
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT + 1;
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, BIGINT));
+        Expression lambdaBody = new Row(
+                nCopies(fieldCount, new Reference(BIGINT, lambdaArguments.getLast().name())),
+                rowType);
+        Lambda lambda = new Lambda(lambdaArguments, lambdaBody);
+        List<Expression> boundValues = new ArrayList<>(nCopies(lambdaArgumentCount - 1, new Constant(BIGINT, 0L)));
+        Bind boundLambda = new Bind(boundValues, lambda);
+
+        ArrayType inputArrayType = new ArrayType(BIGINT);
+        ArrayType outputArrayType = new ArrayType(rowType);
+        ResolvedFunction transform = FUNCTION_RESOLUTION.resolveFunction(
+                ARRAY_TRANSFORM_NAME,
+                fromTypes(inputArrayType, new FunctionType(ImmutableList.of(BIGINT), rowType)));
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(transform, new Reference(inputArrayType, "$col_0"), boundLambda),
+                        ImmutableMap.of(new Symbol(inputArrayType, "$col_0"), 0),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        Page page = createSingleArrayPage(inputArrayType, 11);
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(outputArrayType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(nCopies(fieldCount, 11L)));
     }
 
     @Test
@@ -802,6 +948,8 @@ public class TestPageFunctionCompiler
 
         private final Constructor<?> constructor;
         private final Field valueField;
+        private int createBlockBuilderCalls;
+        private int getObjectCalls;
 
         private HiddenType(Class<?> javaType)
         {
@@ -833,12 +981,40 @@ public class TestPageFunctionCompiler
         @Override
         public Object getObject(Block block, int position)
         {
+            getObjectCalls++;
             try {
                 return constructor.newInstance(getSlice(block, position).getInt(0));
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        @Override
+        public VariableWidthBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+        {
+            createBlockBuilderCalls++;
+            return super.createBlockBuilder(blockBuilderStatus, expectedEntries);
+        }
+
+        private void resetCreateBlockBuilderCalls()
+        {
+            createBlockBuilderCalls = 0;
+        }
+
+        private int getCreateBlockBuilderCalls()
+        {
+            return createBlockBuilderCalls;
+        }
+
+        private void resetGetObjectCalls()
+        {
+            getObjectCalls = 0;
+        }
+
+        private int getObjectCalls()
+        {
+            return getObjectCalls;
         }
 
         @Override
