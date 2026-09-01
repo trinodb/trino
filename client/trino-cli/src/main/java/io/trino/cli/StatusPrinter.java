@@ -22,10 +22,15 @@ import io.trino.client.StatementClient;
 import io.trino.client.StatementStats;
 import org.jline.terminal.Attributes;
 import org.jline.terminal.Terminal;
+import org.jline.terminal.impl.AbstractUnixSysTerminal;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStyle;
+import org.jline.utils.NonBlockingReader;
 
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.OptionalInt;
@@ -58,6 +63,16 @@ public class StatusPrinter
 {
     private static final int CTRL_C = 3;
     private static final int CTRL_P = 16;
+
+    // A timed read on terminal.reader() that expires leaves JLine's pump thread blocked
+    // in a read on the tty, where it steals the next keystroke typed into an external
+    // process spawned afterwards, such as the pager. None of the JLine stream wrappers
+    // report available(), so poll the stdin file descriptor directly and only issue a
+    // read once a byte is queued, so that it completes without parking the pump thread.
+    // This only applies to terminals reading the process stdin: AbstractUnixSysTerminal
+    // is created only when stdin is a tty and always reads FileDescriptor.in. Other
+    // terminals (Windows console, /dev/tty fallback, dumb) keep the timed read.
+    private static final InputStream RAW_TERMINAL_INPUT = new FileInputStream(FileDescriptor.in);
 
     private final long start = System.nanoTime();
     private final StatementClient client;
@@ -471,6 +486,14 @@ Spilled: 20GB
     private static int readKey(Terminal terminal)
     {
         try {
+            if (terminal instanceof AbstractUnixSysTerminal) {
+                if (RAW_TERMINAL_INPUT.available() == 0) {
+                    return NonBlockingReader.READ_EXPIRED;
+                }
+                // a byte is queued, so the read returns immediately; the generous timeout
+                // only covers pump thread scheduling delays
+                return terminal.reader().read(100L);
+            }
             return terminal.reader().read(1L);
         }
         catch (IOException e) {
