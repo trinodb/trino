@@ -319,6 +319,21 @@ public abstract class BaseIcebergSystemTables
         }
     }
 
+    @Test
+    public void testMetadataTablesForNonExistentTable()
+    {
+        String tableName = "nonexistent_table";
+        for (TableType tableType : TableType.values()) {
+            if (tableType == TableType.DATA || tableType == TableType.MATERIALIZED_VIEW_STORAGE) {
+                continue;
+            }
+            String metadataTable = tableNameWithType(tableName, tableType);
+            assertThat(query("SELECT * FROM test_schema.\"" + metadataTable + "\""))
+                    .describedAs(tableType.name())
+                    .failure().hasMessageMatching(".* Table '.*.\"" + tableName + "\\$" + tableType.name().toLowerCase(ENGLISH) + "\"' does not exist");
+        }
+    }
+
     // Create the table with the Iceberg API so that it has no snapshot (Trino CREATE TABLE would add an empty one)
     private void createTableWithoutSnapshot(SchemaTableName tableName)
     {

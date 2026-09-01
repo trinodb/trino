@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.MemoryContext;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,10 +35,10 @@ public class ClassLoaderSafeConnectorPageSourceProviderFactory
     }
 
     @Override
-    public ConnectorPageSourceProvider createPageSourceProvider()
+    public ConnectorPageSourceProvider createPageSourceProvider(MemoryContext memoryContext)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return new ClassLoaderSafeConnectorPageSourceProvider(delegate.createPageSourceProvider(), classLoader);
+            return new ClassLoaderSafeConnectorPageSourceProvider(delegate.createPageSourceProvider(memoryContext), classLoader);
         }
     }
 }

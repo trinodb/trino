@@ -21,6 +21,7 @@ import io.trino.client.StatementClientFactory;
 import io.trino.client.uri.TrinoUri;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.spi.QueryId;
 import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,9 +30,12 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.ZoneId;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static io.trino.client.uri.HttpClientFactory.toHttpClientBuilder;
+import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -55,7 +59,6 @@ public class TestServerAbandonedQueries
 
     @Test
     public void testAbandonedQueries()
-            throws InterruptedException
     {
         TrinoUri trinoUri = TrinoUri.builder()
                 .setUri(server.getBaseUrl())
@@ -67,13 +70,15 @@ public class TestServerAbandonedQueries
                 .source("test")
                 .timeZone(ZoneId.of("UTC"))
                 .user(Optional.of("user"))
-                .heartbeatInterval(new Duration(1, TimeUnit.SECONDS))
+                .heartbeatInterval(new Duration(100, MILLISECONDS))
                 .build();
 
         try (StatementClient client = StatementClientFactory.newStatementClient(httpClient, session, "SELECT * FROM tpch.sf1.nation")) {
             client.advance();
-            // heartbeat is expected every 1 second, the check runs every second, plus one second padding
-            Thread.sleep(3000);
+            assertEventually(new Duration(10, SECONDS), () -> assertThat(server.getQueryManager()
+                    .getQueryInfo(new QueryId(client.currentStatusInfo().getId()))
+                    .getErrorCode())
+                    .isEqualTo(ABANDONED_QUERY.toErrorCode()));
             client.advance();
             assertThat(client.currentStatusInfo().getError().getMessage())
                     .contains("was abandoned by the client, as it may have exited or stopped checking for query results");

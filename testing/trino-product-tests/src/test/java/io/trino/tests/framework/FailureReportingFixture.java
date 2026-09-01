@@ -11,20 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.mongodb;
+package io.trino.tests.framework;
 
-import io.trino.testing.QueryRunner;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-public class TestMongo4LatestConnectorSmokeTest
-        extends BaseMongoConnectorSmokeTest
+import java.io.IOException;
+
+class FailureReportingFixture
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    @ParameterizedTest(name = "failing invocation [{index}] value={0}")
+    @ValueSource(strings = "test-value")
+    void failingTest(String value)
     {
-        MongoServer server = closeAfterClass(new MongoServer("4.4.1"));
-        return MongoQueryRunner.builder(server)
-                .setInitialTables(REQUIRED_TPCH_TABLES)
-                .build();
+        RuntimeException failure = new RuntimeException("outer failure", new IOException("root failure"));
+        failure.addSuppressed(new IllegalStateException("suppressed failure"));
+        throw failure;
     }
 }

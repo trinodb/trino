@@ -22,10 +22,10 @@ import org.junit.jupiter.api.BeforeAll;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
@@ -61,7 +61,7 @@ public abstract class BaseJdbcConnectionCreationTest
 
     protected void assertJdbcConnections(Session session, @Language("SQL") String query, int expectedJdbcConnectionsCount, Optional<String> errorMessage)
     {
-        int before = connectionFactory.openConnections.get();
+        int before = connectionFactory.connectionCreationCount();
         if (errorMessage.isPresent()) {
             assertQueryFails(query, errorMessage.get());
         }
@@ -72,8 +72,19 @@ public abstract class BaseJdbcConnectionCreationTest
                     .build();
             getQueryRunner().execute(querySession, query);
         }
-        int after = connectionFactory.openConnections.get();
-        assertThat(after - before).isEqualTo(expectedJdbcConnectionsCount);
+        int after = connectionFactory.connectionCreationCount();
+        try {
+            assertThat(after - before)
+                    .as("JDBC connections created for query: %s", query)
+                    .isEqualTo(expectedJdbcConnectionsCount);
+        }
+        catch (AssertionError failure) {
+            connectionFactory.addConnectionCreationStackTraces(failure, before, after);
+            throw failure;
+        }
+        finally {
+            connectionFactory.clearConnectionCreationStackTraces(after);
+        }
         connectionFactory.assertThatNoConnectionHasLeaked();
     }
 
@@ -82,8 +93,9 @@ public abstract class BaseJdbcConnectionCreationTest
     {
         // Map from connection to a fake exception (holds stacktrace) pointing to the place where the connection was created
         private final Map<Connection, Exception> connectionCreations = synchronizedMap(new IdentityHashMap<>());
-        private final AtomicInteger openConnections = new AtomicInteger();
+        private final Map<Integer, Exception> connectionCreationStackTraces = new HashMap<>();
         private final ConnectionFactory delegate;
+        private int createdConnections;
 
         public ConnectionCountingConnectionFactory(DriverConnectionFactory delegate)
         {
@@ -94,9 +106,9 @@ public abstract class BaseJdbcConnectionCreationTest
         public Connection openConnection(ConnectorSession session)
                 throws SQLException
         {
-            openConnections.incrementAndGet();
+            Exception connectionCreation = recordConnectionCreation();
             Connection connection = delegate.openConnection(session);
-            Exception previous = connectionCreations.put(connection, new Exception("STACKTRACE"));
+            Exception previous = connectionCreations.put(connection, connectionCreation);
             if (previous != null) {
                 // connectionCreations do not support two connections at a time yet
                 IllegalStateException exception = new IllegalStateException("Two connections are opened for same session");
@@ -125,6 +137,34 @@ public abstract class BaseJdbcConnectionCreationTest
                     super.close();
                 }
             };
+        }
+
+        private synchronized int connectionCreationCount()
+        {
+            return createdConnections;
+        }
+
+        private synchronized Exception recordConnectionCreation()
+        {
+            createdConnections++;
+            Exception connectionCreation = new Exception("JDBC connection creation %s".formatted(createdConnections));
+            connectionCreationStackTraces.put(createdConnections, connectionCreation);
+            return connectionCreation;
+        }
+
+        private synchronized void addConnectionCreationStackTraces(AssertionError failure, int before, int after)
+        {
+            for (int connectionNumber = before + 1; connectionNumber <= after; connectionNumber++) {
+                Exception connectionCreation = connectionCreationStackTraces.get(connectionNumber);
+                if (connectionCreation != null) {
+                    failure.addSuppressed(connectionCreation);
+                }
+            }
+        }
+
+        private synchronized void clearConnectionCreationStackTraces(int throughConnectionNumber)
+        {
+            connectionCreationStackTraces.keySet().removeIf(connectionNumber -> connectionNumber <= throughConnectionNumber);
         }
 
         private void assertThatNoConnectionHasLeaked()

@@ -19,6 +19,7 @@ import io.trino.testing.containers.IcebergRestCatalogContainer;
 import io.trino.testing.containers.SparkIcebergContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -33,6 +34,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.Map;
+
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 
 /**
  * Spark/Iceberg with REST Catalog product test environment for interoperability testing.
@@ -192,12 +195,16 @@ public class SparkIcebergRestEnvironment
      * @return the query result
      */
     @Override
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);
@@ -211,11 +218,15 @@ public class SparkIcebergRestEnvironment
      * @return the number of affected rows, or 0 for DDL statements
      */
     @Override
-    public int executeSparkUpdate(String sql)
+    public int executeSparkUpdate(@Language("SQL") String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement()) {
-            return stmt.executeUpdate(sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement()) {
+                    return stmt.executeUpdate(sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark update: " + sql, e);

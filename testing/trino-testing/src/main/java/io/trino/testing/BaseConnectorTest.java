@@ -85,6 +85,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -179,6 +180,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -417,6 +419,44 @@ public abstract class BaseConnectorTest
             assertQuery(
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
                     "VALUES (4, 'x')");
+        }
+    }
+
+    @Test
+    public void testCharToVarcharCastCoercionAcrossPushdown()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = newTrinoTable(
+                "test_char_to_varchar_cast",
+                """
+                (k, v) AS VALUES
+                   (0, CAST(NULL AS char(5))),
+                   (1, CAST('' AS char(5))),
+                   (2, CAST('ab' AS char(5))),
+                   (3, CAST('abc' AS char(5))),
+                   (4, CAST('abcde' AS char(5)))
+                """)) {
+            for (boolean legacy : List.of(false, true)) {
+                try {
+                    Session session = Session.builder(getSession()).setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, Boolean.toString(legacy)).build();
+                    // Test potential CAST(char AS varchar) projection pushdown
+                    assertThat(query(session, "SELECT k, CAST(v AS varchar(1)) FROM " + table.getName())).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k, CAST(v AS varchar(3)) FROM " + table.getName())).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k, CAST(v AS varchar(6)) FROM " + table.getName())).hasCorrectResultsRegardlessOfPushdown();
+
+                    // Test potential CAST(char AS varchar) predicate pushdown
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(2)) = CAST('ab' AS varchar(3))")).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(6)) = CAST('abc' AS varchar(6))")).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(6)) = CAST('abc ' AS varchar(6))")).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(6)) = CAST('abc  ' AS varchar(6))")).hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query(session, "SELECT k FROM " + table.getName() + " WHERE CAST(v AS varchar(6)) = CAST('abc   ' AS varchar(6))")).hasCorrectResultsRegardlessOfPushdown();
+                }
+                catch (Throwable t) {
+                    t.addSuppressed(new Exception("Using %s=%s".formatted(LEGACY_VARCHAR_TO_CHAR_COERCION, legacy)));
+                    throw t;
+                }
+            }
         }
     }
 
@@ -972,7 +1012,7 @@ public abstract class BaseConnectorTest
     public void testView()
     {
         if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
-            assertQueryFails("CREATE VIEW nation_v AS SELECT * FROM nation", "This connector does not support creating views");
+            assertQueryFails("CREATE VIEW nation_v_" + randomNameSuffix() + " AS SELECT * FROM nation", "This connector does not support creating views");
             return;
         }
 
@@ -5783,52 +5823,102 @@ public abstract class BaseConnectorTest
 
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
-        ExecutorService executor = newFixedThreadPool(threads);
         try (TestTable table = createTableWithOneIntegerColumn("test_add_column")) {
             String tableName = table.getName();
-
-            List<Future<Optional<String>>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
-                        barrier.await(30, SECONDS);
-                        try {
-                            String columnName = "col" + threadNumber;
-                            getQueryRunner().execute("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " integer");
-                            return Optional.of(columnName);
-                        }
-                        catch (Exception e) {
-                            RuntimeException trinoException = getTrinoExceptionCause(e);
+            ExecutorService executor = newFixedThreadPool(threads);
+            try {
+                // Capture worker stacks to provide diagnostics for resolving flakes in this concurrent test.
+                ConcurrentMap<Integer, Thread> workerThreads = new ConcurrentHashMap<>();
+                List<Future<Optional<String>>> futures = IntStream.range(0, threads)
+                        .mapToObj(threadNumber -> executor.submit(() -> {
+                            workerThreads.put(threadNumber, Thread.currentThread());
                             try {
-                                verifyConcurrentAddColumnFailurePermissible(trinoException);
-                            }
-                            catch (Throwable verifyFailure) {
-                                if (verifyFailure != e) {
-                                    verifyFailure.addSuppressed(e);
+                                barrier.await(30, SECONDS);
+                                try {
+                                    String columnName = "col" + threadNumber;
+                                    getQueryRunner().execute(addColumnQuery(tableName, threadNumber));
+                                    return Optional.of(columnName);
                                 }
-                                throw verifyFailure;
+                                catch (Exception e) {
+                                    RuntimeException trinoException = getTrinoExceptionCause(e);
+                                    try {
+                                        verifyConcurrentAddColumnFailurePermissible(trinoException);
+                                    }
+                                    catch (Throwable verifyFailure) {
+                                        if (verifyFailure != e) {
+                                            verifyFailure.addSuppressed(e);
+                                        }
+                                        throw verifyFailure;
+                                    }
+                                    return Optional.<String>empty();
+                                }
                             }
-                            return Optional.<String>empty();
-                        }
-                    }))
-                    .collect(toImmutableList());
+                            finally {
+                                workerThreads.remove(threadNumber);
+                            }
+                        }))
+                        .collect(toImmutableList());
 
-            List<String> addedColumns = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 30, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
+                long deadline = System.nanoTime() + SECONDS.toNanos(30);
+                List<String> addedColumns = new ArrayList<>();
+                for (int threadNumber = 0; threadNumber < futures.size(); threadNumber++) {
+                    long remainingNanos = deadline - System.nanoTime();
+                    int remainingMillis = (int) Math.max(0, NANOSECONDS.toMillis(remainingNanos));
+                    Optional<Optional<String>> result = tryGetFutureValue(futures.get(threadNumber), remainingMillis, MILLISECONDS);
+                    if (result.isEmpty()) {
+                        throw concurrentAddColumnTimeout(tableName, futures, workerThreads, threadNumber);
+                    }
+                    result.orElseThrow().ifPresent(addedColumns::add);
+                }
 
-            assertThat(query("DESCRIBE " + tableName))
-                    .result()
-                    .projected("Column")
-                    .skippingTypesCheck()
-                    .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
-                            .map(value -> format("'%s'", value))
-                            .collect(joining(",", "VALUES ", "")));
+                assertThat(query("DESCRIBE " + tableName))
+                        .result()
+                        .projected("Column")
+                        .skippingTypesCheck()
+                        .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
+                                .map(value -> format("'%s'", value))
+                                .collect(joining(",", "VALUES ", "")));
+            }
+            finally {
+                executor.shutdownNow();
+                executor.awaitTermination(10, SECONDS);
+            }
         }
-        finally {
-            executor.shutdownNow();
-            executor.awaitTermination(30, SECONDS);
+    }
+
+    private static String addColumnQuery(String tableName, int threadNumber)
+    {
+        return "ALTER TABLE %s ADD COLUMN col%s integer".formatted(tableName, threadNumber);
+    }
+
+    private static AssertionError concurrentAddColumnTimeout(
+            String tableName,
+            List<? extends Future<?>> futures,
+            ConcurrentMap<Integer, Thread> workerThreads,
+            int timedOutThreadNumber)
+    {
+        List<Integer> unfinishedOperations = IntStream.range(0, futures.size())
+                .filter(threadNumber -> !futures.get(threadNumber).isDone())
+                .boxed()
+                .collect(toList());
+        if (unfinishedOperations.isEmpty()) {
+            unfinishedOperations.add(timedOutThreadNumber);
         }
+
+        String unfinishedQueries = unfinishedOperations.stream()
+                .map(threadNumber -> addColumnQuery(tableName, threadNumber))
+                .collect(joining("\n  - ", "\n  - ", ""));
+        AssertionError failure = new AssertionError("Timed out after 30 seconds waiting for concurrent ADD COLUMN operations. Unfinished operations:%s".formatted(unfinishedQueries));
+        unfinishedOperations.forEach(threadNumber -> {
+            Thread workerThread = workerThreads.get(threadNumber);
+            if (workerThread != null) {
+                Exception workerStack = new Exception("Worker thread '%s' executing: %s".formatted(workerThread.getName(), addColumnQuery(tableName, threadNumber)));
+                workerStack.setStackTrace(workerThread.getStackTrace());
+                failure.addSuppressed(workerStack);
+            }
+        });
+        log.error(failure, "Concurrent ADD COLUMN operations did not finish");
+        return failure;
     }
 
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)

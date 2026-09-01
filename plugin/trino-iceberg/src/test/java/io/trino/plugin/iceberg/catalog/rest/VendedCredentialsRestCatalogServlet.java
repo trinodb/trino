@@ -16,8 +16,8 @@ package io.trino.plugin.iceberg.catalog.rest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.hc.core5.http.ContentType;
+import org.apache.iceberg.rest.QuotedETagRestCatalogServlet;
 import org.apache.iceberg.rest.RESTCatalogAdapter;
-import org.apache.iceberg.rest.RESTCatalogServlet;
 import org.apache.iceberg.rest.credentials.ImmutableCredential;
 import org.apache.iceberg.rest.responses.ImmutableLoadCredentialsResponse;
 import org.apache.iceberg.rest.responses.LoadCredentialsResponse;
@@ -28,10 +28,10 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Extends {@link RESTCatalogServlet} to handle the {@code GET .../credentials} custom endpoint.
+ * Extends {@link QuotedETagRestCatalogServlet} to handle the {@code GET .../credentials} custom endpoint.
  */
 public abstract class VendedCredentialsRestCatalogServlet
-        extends RESTCatalogServlet
+        extends QuotedETagRestCatalogServlet
 {
     private final AtomicInteger vendedCredentialsRefreshCount = new AtomicInteger();
 

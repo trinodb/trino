@@ -30,9 +30,11 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -59,6 +61,7 @@ import static io.trino.transaction.InMemoryTransactionManager.createTestTransact
 
 public class TestCanonicalizeExpressionRewriter
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
@@ -73,8 +76,8 @@ public class TestCanonicalizeExpressionRewriter
     public void testRewriteIsNotNullPredicate()
     {
         assertRewritten(
-                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(BIGINT, "x"))),
-                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(BIGINT, "x"))));
+                not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "x"))),
+                not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "x"))));
     }
 
     @Test
@@ -176,7 +179,7 @@ public class TestCanonicalizeExpressionRewriter
     private static void assertCanonicalizedDate(Type type, String symbolName)
     {
         Call date = new Call(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("date", fromTypes(type)),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "date", fromTypes(type)),
                 ImmutableList.of(new Reference(type, symbolName)));
         assertRewritten(date, new Cast(new Reference(VARCHAR, symbolName), DATE));
     }
@@ -185,7 +188,7 @@ public class TestCanonicalizeExpressionRewriter
     {
         assertExpressionEquals(
                 transaction(TRANSACTION_MANAGER, PLANNER_CONTEXT.getMetadata(), ACCESS_CONTROL).execute(TEST_SESSION, _ -> {
-                    return rewrite(from, PLANNER_CONTEXT);
+                    return rewrite(from, PLANNER_CONTEXT, CHAR_VARCHAR_COERCION);
                 }),
                 to,
                 SymbolAliases.builder()

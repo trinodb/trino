@@ -56,7 +56,7 @@ public class TestProcedureCreation
     }
 
     @Test
-    public void shouldThrowExceptionWhenProcedureIsNonVoid()
+    public void shouldThrowExceptionWhenReturnTypeIsInvalid()
     {
         assertThatThrownBy(() -> new Procedure(
                 "schema",
@@ -64,7 +64,7 @@ public class TestProcedureCreation
                 ImmutableList.of(),
                 methodHandle(Procedures.class, "funWithoutArguments")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Method must return void");
+                .hasMessage("Method must return void or Map<String, Long>");
     }
 
     @Test

@@ -158,6 +158,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
             <scope>test</scope>
         </dependency>

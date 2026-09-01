@@ -26,10 +26,12 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
@@ -67,14 +69,14 @@ public class DistributeComparisonOverCase
             if (matchNullIf(caseTerm) != null) {
                 return Optional.empty();
             }
-            return Optional.of(distribute(comparison.operator(), caseTerm, comparison.right()));
+            return Optional.of(distribute(session, comparison.operator(), caseTerm, comparison.right()));
         }
 
         if (comparison.right() instanceof Case caseTerm && (comparison.left() instanceof Reference || comparison.left() instanceof Constant)) {
             if (matchNullIf(caseTerm) != null) {
                 return Optional.empty();
             }
-            return Optional.of(distribute(flipOperator(comparison.operator()), caseTerm, comparison.left()));
+            return Optional.of(distribute(session, flipOperator(comparison.operator()), caseTerm, comparison.left()));
         }
 
         return Optional.empty();
@@ -91,14 +93,15 @@ public class DistributeComparisonOverCase
         };
     }
 
-    private Expression distribute(ComparisonOperator operator, Case caseTerm, Expression target)
+    private Expression distribute(Session session, ComparisonOperator operator, Case caseTerm, Expression target)
     {
+        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
         return new Case(
                 caseTerm.whenClauses().stream()
                         .map(clause -> new WhenClause(
                                 clause.getOperand(),
-                                comparison(metadata, operator, clause.getResult(), target)))
+                                comparison(metadata, charVarcharCoercion, operator, clause.getResult(), target)))
                         .toList(),
-                comparison(metadata, operator, caseTerm.defaultValue(), target));
+                comparison(metadata, charVarcharCoercion, operator, caseTerm.defaultValue(), target));
     }
 }

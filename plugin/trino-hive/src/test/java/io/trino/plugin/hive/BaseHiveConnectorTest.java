@@ -237,6 +237,10 @@ public abstract class BaseHiveConnectorTest
 
         return builder
                 .addHiveProperty("hive.compression-codec", hiveCompressionCodec)
+                // Several tests here assume ORC: column rename preserving data (ORC reads by index, Parquet by name),
+                // dereference pushdown behavior (see supportsPhysicalPushdown), and SHOW CREATE TABLE default-format output.
+                // TODO exercise the default (PARQUET) format here, overriding only the tests that genuinely require ORC
+                .addHiveProperty("hive.storage-format", "ORC")
                 .addHiveProperty("hive.allow-register-partition-procedure", "true")
                 // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                 .addHiveProperty("hive.writer-sort-buffer-size", "1MB")
@@ -4525,6 +4529,19 @@ public abstract class BaseHiveConnectorTest
                 "heXlloXworld\nbyeXworld", // the first line contains an unescaped separator character which leads to inconsistent reading of its content
                 "VALUES ('he', 'llo'), ('bye', 'world')",
                 ImmutableList.of("textfile_field_separator = 'X'"));
+    }
+
+    @Test
+    public void testCreateExternalTableWithLastColumnTakesRest()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_with_last_column_takes_rest",
+                "helloXworldXextra\nbyeXworldXstuff", // the last column absorbs the remainder of the line, separator characters included
+                "VALUES ('hello', 'worldXextra'), ('bye', 'worldXstuff')",
+                ImmutableList.of(
+                        "last_column_takes_rest = true",
+                        "textfile_field_separator = 'X'"));
     }
 
     @Test

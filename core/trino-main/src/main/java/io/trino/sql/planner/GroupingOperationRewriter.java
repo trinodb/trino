@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -37,6 +38,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
@@ -51,7 +53,8 @@ public final class GroupingOperationRewriter
             List<Set<Integer>> groupingSets,
             Map<NodeRef<io.trino.sql.tree.Expression>, ResolvedField> columnReferenceFields,
             Optional<Symbol> groupIdSymbol,
-            Metadata metadata)
+            Metadata metadata,
+            Session session)
     {
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 
@@ -90,11 +93,11 @@ public final class GroupingOperationRewriter
 
         // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
         return new Call(
-                metadata.resolveOperator(OperatorType.SUBSCRIPT, ImmutableList.of(new ArrayType(type), BIGINT)),
+                metadata.resolveOperator(getCharVarcharCoercion(session), OperatorType.SUBSCRIPT, ImmutableList.of(new ArrayType(type), BIGINT)),
                 ImmutableList.of(
                         new Array(type, groupingResults),
                         new Call(
-                                metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
+                                metadata.resolveOperator(getCharVarcharCoercion(session), OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
                                 ImmutableList.of(groupIdSymbol.get().toSymbolReference(), new Constant(BIGINT, 1L)))));
     }
 

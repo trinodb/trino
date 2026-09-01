@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 
@@ -48,7 +49,7 @@ public final class VersionFunction
     }
 
     @Override
-    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(nodeVersion);
         return new ChoicesSpecializedSqlScalarFunction(

@@ -19,6 +19,7 @@ import io.trino.testing.containers.SparkIcebergContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
 import io.trino.tests.product.TableFormatsTestEnvironment;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hadoopMetastoreUri;
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
 import static io.trino.tests.product.iceberg.IcebergCatalogPropertiesBuilder.icebergCatalog;
@@ -181,12 +183,16 @@ public class GcsEnvironment
     }
 
     @Override
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);

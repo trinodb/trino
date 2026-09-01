@@ -123,7 +123,7 @@ final class TestIcebergAddFilesProcedure
 
         String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
         assertQueryFails(
-                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')",
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'PARQUET')",
                 ".*NULL value not allowed for NOT NULL column: x");
         assertQueryFails(
                 "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')",
@@ -466,7 +466,7 @@ final class TestIcebergAddFilesProcedure
         String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
         String directory = Location.of(path).parentDirectory().toString();
 
-        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + directory + "', 'ORC')");
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + directory + "', 'PARQUET')");
 
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1, 2");
 
@@ -487,7 +487,7 @@ final class TestIcebergAddFilesProcedure
         String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
 
         assertUpdate(
-                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')",
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'PARQUET')",
                 "VALUES ('added_data_files', 1)");
 
         assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2");
@@ -626,13 +626,13 @@ final class TestIcebergAddFilesProcedure
         assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " AS SELECT 2 x", 1);
         String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
 
-        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')");
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'PARQUET')");
 
         assertQueryFails(
-                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')",
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'PARQUET')",
                 ".*File already exists.*");
         assertQueryFails(
-                "ALTER TABLE " + icebergTableName + " EXECUTE add_files(location=>'" + path + "', format=>'ORC')",
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files(location=>'" + path + "', format=>'PARQUET')",
                 ".*File already exists.*");
         assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2");
 

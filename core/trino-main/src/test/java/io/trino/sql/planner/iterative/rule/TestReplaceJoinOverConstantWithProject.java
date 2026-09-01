@@ -28,6 +28,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -303,7 +305,7 @@ public class TestReplaceJoinOverConstantWithProject
     public void testNonDeterministicValues()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
@@ -314,7 +316,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .doesNotFire();
 
         Call uuidFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction("uuid", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "uuid", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())

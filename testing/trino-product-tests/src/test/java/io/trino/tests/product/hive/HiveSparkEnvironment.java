@@ -19,6 +19,7 @@ import io.trino.testing.containers.SparkIcebergContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 
@@ -29,6 +30,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
 
 /**
@@ -127,12 +129,16 @@ public class HiveSparkEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);
@@ -145,11 +151,15 @@ public class HiveSparkEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeSparkUpdate(String sql)
+    public int executeSparkUpdate(@Language("SQL") String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement()) {
-            return stmt.executeUpdate(sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement()) {
+                    return stmt.executeUpdate(sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark update: " + sql, e);
@@ -174,7 +184,7 @@ public class HiveSparkEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeHive(String sql)
+    public QueryResult executeHive(@Language("SQL") String sql)
     {
         try (Connection conn = createHiveConnection();
                 Statement stmt = conn.createStatement();
@@ -192,7 +202,7 @@ public class HiveSparkEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeHiveUpdate(String sql)
+    public int executeHiveUpdate(@Language("SQL") String sql)
     {
         try (Connection conn = createHiveConnection();
                 Statement stmt = conn.createStatement()) {

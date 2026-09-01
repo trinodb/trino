@@ -98,7 +98,7 @@ public class FunctionsAuthorization
                     schemaFunctionName.schemaName(),
                     schemaFunctionName.functionName(),
                     trinoPrincipal.getType().toString(),
-                    trinoPrincipal.getName());
+                    trinoPrincipal.getPrincipalName());
         }
         return table.build().cursor();
     }

@@ -385,8 +385,8 @@ public final class DecimalCasts
     public static long longDecimalToSmallint(Int128 decimal, long precision, long scale, Int128 tenToScale)
     {
         try {
-            Int128 decimal1 = rescale(decimal, DecimalConversions.intScale(-scale));
-            return Shorts.checkedCast(decimal1.toLongExact());
+            Int128 rescaled = rescale(decimal, DecimalConversions.intScale(-scale));
+            return Shorts.checkedCast(rescaled.toLongExact());
         }
         catch (ArithmeticException | IllegalArgumentException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to SMALLINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));

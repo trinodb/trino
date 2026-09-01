@@ -73,7 +73,8 @@ public class SystemPageSourceProvider
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.connectorPageSourceProvider = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null")
-                .map(ConnectorPageSourceProviderFactory::createPageSourceProvider);
+                // system tables hold no state shared across page sources, so there is nothing to account for
+                .map(factory -> factory.createPageSourceProvider(MemoryContext.NO_LIMIT));
     }
 
     @Override
@@ -132,8 +133,8 @@ public class SystemPageSourceProvider
         TupleDomain<Integer> newConstraint = systemSplit.getConstraint().transformKeys(columnHandle ->
                 columnsByName.get(((SystemColumnHandle) columnHandle).columnName()));
 
-        ConnectorAccessControl accessControl1 = new InjectedConnectorAccessControl(
-                accessControl,
+        ConnectorAccessControl accessControl = new InjectedConnectorAccessControl(
+                this.accessControl,
                 new SecurityContext(
                         systemTransaction.getTransactionId(),
                         ((FullConnectorSession) session).getSession().getIdentity(),
@@ -155,7 +156,7 @@ public class SystemPageSourceProvider
                             systemTransaction.getConnectorTransactionHandle(),
                             session,
                             newConstraint,
-                            accessControl1),
+                            accessControl),
                     userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
@@ -167,7 +168,7 @@ public class SystemPageSourceProvider
                             newConstraint,
                             requiredColumns.build(),
                             systemSplit,
-                            accessControl1),
+                            accessControl),
                     userToSystemFieldIndex.build()));
         }
     }

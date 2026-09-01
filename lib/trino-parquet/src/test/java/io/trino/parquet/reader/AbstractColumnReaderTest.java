@@ -89,7 +89,7 @@ public abstract class AbstractColumnReaderTest
         Block actual = reader.readPrimitive().getBlock();
         assertThat(actual.mayHaveNull()).isFalse();
         if (shouldProduceDictionaryForType(field.getType())) {
-            assertThat(actual).isInstanceOf(DictionaryBlock.class);
+            assertThat(actual).isInstanceOf(RunLengthEncodedBlock.class);
         }
         format.assertBlock(values, actual);
     }
@@ -160,7 +160,7 @@ public abstract class AbstractColumnReaderTest
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         if (shouldProduceDictionaryForType(field.getType())) {
-            assertThat(actual).isInstanceOf(DictionaryBlock.class);
+            assertThat(actual).isInstanceOf(RunLengthEncodedBlock.class);
             assertThat(actual.mayHaveNull()).isFalse();
         }
         format.assertBlock(values, actual);

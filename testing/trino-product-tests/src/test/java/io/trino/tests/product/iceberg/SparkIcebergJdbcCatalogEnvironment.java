@@ -18,6 +18,7 @@ import io.trino.testing.containers.HadoopContainer;
 import io.trino.testing.containers.SparkIcebergContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -33,6 +34,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Map;
 
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static java.util.Map.entry;
 
 /**
@@ -183,41 +185,6 @@ public class SparkIcebergJdbcCatalogEnvironment
         return DriverManager.getConnection(jdbcUrl, POSTGRESQL_USER, POSTGRESQL_PASSWORD);
     }
 
-    /**
-     * Executes a SQL query against PostgreSQL and returns the result.
-     *
-     * @param sql the SQL query to execute
-     * @return the query result
-     */
-    public QueryResult executePostgresql(String sql)
-    {
-        try (Connection conn = createPostgresqlConnection();
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException("Failed to execute PostgreSQL query: " + sql, e);
-        }
-    }
-
-    /**
-     * Executes a DDL or DML statement against PostgreSQL.
-     *
-     * @param sql the SQL statement to execute
-     * @return the number of affected rows, or 0 for DDL statements
-     */
-    public int executePostgresqlUpdate(String sql)
-    {
-        try (Connection conn = createPostgresqlConnection();
-                Statement stmt = conn.createStatement()) {
-            return stmt.executeUpdate(sql);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException("Failed to execute PostgreSQL update: " + sql, e);
-        }
-    }
-
     // Spark JDBC methods
 
     /**
@@ -237,11 +204,15 @@ public class SparkIcebergJdbcCatalogEnvironment
      * @return the query result
      */
     @Override
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
-        try (Statement stmt = sparkConnection().createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
+        try {
+            return executeWithRetry(() -> {
+                try (Statement stmt = sparkConnection().createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);
@@ -255,10 +226,14 @@ public class SparkIcebergJdbcCatalogEnvironment
      * @return the number of affected rows, or 0 for DDL statements
      */
     @Override
-    public int executeSparkUpdate(String sql)
+    public int executeSparkUpdate(@Language("SQL") String sql)
     {
-        try (Statement stmt = sparkConnection().createStatement()) {
-            return stmt.executeUpdate(sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Statement stmt = sparkConnection().createStatement()) {
+                    return stmt.executeUpdate(sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark update: " + sql, e);

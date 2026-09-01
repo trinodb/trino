@@ -44,6 +44,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
@@ -87,8 +88,8 @@ public class SetOperationNodeTranslator
         this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
-        this.countFunction = metadata.resolveBuiltinFunction("count", fromTypes(BOOLEAN));
-        this.rowNumberFunction = metadata.resolveBuiltinFunction("row_number", ImmutableList.of());
+        this.countFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", fromTypes(BOOLEAN));
+        this.rowNumberFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "row_number", ImmutableList.of());
     }
 
     public TranslationResult makeSetContainmentPlanForAll(SetOperationNode node)

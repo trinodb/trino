@@ -112,6 +112,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>jaxrs</artifactId>
         </dependency>
 
@@ -328,7 +333,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>10.5.0</version>
+            <version>10.5.1</version>
         </dependency>
 
         <dependency>

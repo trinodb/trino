@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
@@ -93,7 +94,7 @@ public class ImplementIntersectAll
 
         // compute expected multiplicity for every row
         checkState(result.getCountSymbols().size() > 0, "IntersectNode translation result has no count symbols");
-        ResolvedFunction least = metadata.resolveBuiltinFunction("least", fromTypes(BIGINT, BIGINT));
+        ResolvedFunction least = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "least", fromTypes(BIGINT, BIGINT));
 
         Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {
@@ -101,7 +102,7 @@ public class ImplementIntersectAll
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = comparison(metadata, LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), minCount);
+        Expression removeExtraRows = comparison(metadata, getCharVarcharCoercion(context.getSession()), LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), minCount);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 result.getPlanNode(),

@@ -47,6 +47,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -56,7 +57,9 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -81,6 +84,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public class TestMultipleDistinctAggregationsToSubqueries
         extends BaseRuleTest
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final String MOCK_CATALOG = "mock_catalog";
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
@@ -562,7 +566,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.filter(
                                             new PlanNodeId(filterId),
-                                            not(ruleTester.getMetadata(), new IsNull(new Reference(VARCHAR, "filterInput"))),
+                                            not(ruleTester.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(VARCHAR, "filterInput"))),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
                                                     .setTableHandle(testTableHandle(ruleTester))
@@ -598,7 +602,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.filter(
                                             new PlanNodeId(filterId),
-                                            not(ruleTester.getMetadata(), new IsNull(new Reference(VARCHAR, "filterInput"))),
+                                            not(ruleTester.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(VARCHAR, "filterInput"))),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
                                                     .setTableHandle(testTableHandle(ruleTester))
@@ -624,7 +628,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        not(ruleTester.getMetadata(), new IsNull(new Reference(BIGINT, "left_filterInput"))),
+                                                        not(ruleTester.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "left_filterInput"))),
                                                         tableScan(
                                                                 TABLE_SCHEMA.getTableName(),
                                                                 ImmutableMap.of(
@@ -637,7 +641,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        not(ruleTester.getMetadata(), new IsNull(new Reference(BIGINT, "right_filterInput"))),
+                                                        not(ruleTester.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "right_filterInput"))),
                                                         tableScan(
                                                                 TABLE_SCHEMA.getTableName(),
                                                                 ImmutableMap.of(

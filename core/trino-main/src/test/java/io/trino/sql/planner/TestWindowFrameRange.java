@@ -59,6 +59,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestWindowFrameRange
@@ -66,10 +67,10 @@ public class TestWindowFrameRange
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction FAIL = FUNCTIONS.resolveFunction("fail", fromTypes(INTEGER, VARCHAR));
-    private static final ResolvedFunction ADD_DECIMAL_10_0 = createTestingMetadataManager().resolveOperator(OperatorType.ADD, ImmutableList.of(createDecimalType(10, 0), createDecimalType(10, 0)));
-    private static final ResolvedFunction SUBTRACT_DECIMAL_10_0 = createTestingMetadataManager().resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(createDecimalType(10, 0), createDecimalType(10, 0)));
-    private static final ResolvedFunction ADD_INTEGER = createTestingMetadataManager().resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
-    private static final ResolvedFunction SUBTRACT_INTEGER = createTestingMetadataManager().resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_DECIMAL_10_0 = createTestingMetadataManager().resolveOperator(SQL_STANDARD, OperatorType.ADD, ImmutableList.of(createDecimalType(10, 0), createDecimalType(10, 0)));
+    private static final ResolvedFunction SUBTRACT_DECIMAL_10_0 = createTestingMetadataManager().resolveOperator(SQL_STANDARD, OperatorType.SUBTRACT, ImmutableList.of(createDecimalType(10, 0), createDecimalType(10, 0)));
+    private static final ResolvedFunction ADD_INTEGER = createTestingMetadataManager().resolveOperator(SQL_STANDARD, OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction SUBTRACT_INTEGER = createTestingMetadataManager().resolveOperator(SQL_STANDARD, OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
 
     @Test
     public void testFramePrecedingWithSortKeyCoercions()

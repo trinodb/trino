@@ -24,6 +24,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
@@ -72,7 +73,7 @@ public class MapToJsonCast
     }
 
     @Override
-    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         MapType mapType = (MapType) boundSignature.getArgumentType(0);
         Type keyType = mapType.getKeyType();

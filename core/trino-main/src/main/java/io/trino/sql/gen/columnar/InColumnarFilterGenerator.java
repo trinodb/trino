@@ -47,6 +47,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
@@ -103,7 +104,7 @@ public class InColumnarFilterGenerator
     private final MethodHandle equalsMethodHandle;
     private final MethodHandle hashCodeMethodHandle;
 
-    public InColumnarFilterGenerator(In in, Map<Symbol, Integer> layout, Metadata metadata, FunctionManager functionManager)
+    public InColumnarFilterGenerator(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager)
     {
         checkArgument(!in.valueList().isEmpty(), "At least one value is required in IN list");
         if (!(in.value() instanceof Reference)) {
@@ -125,9 +126,9 @@ public class InColumnarFilterGenerator
                 .collect(toImmutableList());
 
         Type valueType = valueReference.type();
-        ResolvedFunction resolvedEqualsFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(valueType, valueType));
-        ResolvedFunction resolvedHashCodeFunction = metadata.resolveOperator(HASH_CODE, ImmutableList.of(valueType));
-        ResolvedFunction resolvedIsIndeterminate = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(valueType));
+        ResolvedFunction resolvedEqualsFunction = metadata.resolveOperator(charVarcharCoercion, EQUAL, ImmutableList.of(valueType, valueType));
+        ResolvedFunction resolvedHashCodeFunction = metadata.resolveOperator(charVarcharCoercion, HASH_CODE, ImmutableList.of(valueType));
+        ResolvedFunction resolvedIsIndeterminate = metadata.resolveOperator(charVarcharCoercion, INDETERMINATE, ImmutableList.of(valueType));
         equalsMethodHandle = functionManager.getScalarFunctionImplementation(resolvedEqualsFunction, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
         hashCodeMethodHandle = functionManager.getScalarFunctionImplementation(resolvedHashCodeFunction, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle indeterminateMethodHandle = functionManager.getScalarFunctionImplementation(resolvedIsIndeterminate, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();

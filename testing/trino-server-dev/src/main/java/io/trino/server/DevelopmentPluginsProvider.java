@@ -15,10 +15,8 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.airlift.resolver.ArtifactResolver;
-import io.airlift.resolver.DefaultArtifact;
 import io.trino.server.PluginManager.PluginsProvider;
-import org.sonatype.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.Artifact;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,14 +45,14 @@ import static java.util.Objects.requireNonNull;
 public class DevelopmentPluginsProvider
         implements PluginsProvider
 {
-    private final ArtifactResolver resolver;
+    private final MavenArtifactResolver resolver;
     private final List<String> plugins;
     private final Executor executor;
 
     @Inject
     public DevelopmentPluginsProvider(DevelopmentLoaderConfig config, @ForStartup Executor executor)
     {
-        this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
+        this.resolver = new MavenArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
         this.plugins = ImmutableList.copyOf(config.getPlugins());
         this.executor = requireNonNull(executor, "executor is null");
     }
@@ -93,7 +91,7 @@ public class DevelopmentPluginsProvider
             return buildClassLoaderFromDirectory(file, classLoaderFactory);
         }
         else {
-            return buildClassLoaderFromCoordinates(plugin, classLoaderFactory);
+            return createClassLoader(resolver.resolveArtifacts(plugin), classLoaderFactory);
         }
     }
 
@@ -130,14 +128,6 @@ public class DevelopmentPluginsProvider
             jars = paths.map(pathToUrl).collect(toImmutableList());
         }
         return classLoaderFactory.apply(jars);
-    }
-
-    private PluginClassLoader buildClassLoaderFromCoordinates(String coordinates, Function<List<URL>, PluginClassLoader> classLoaderFactory)
-            throws IOException
-    {
-        Artifact rootArtifact = new DefaultArtifact(coordinates);
-        List<Artifact> artifacts = resolver.resolveArtifacts(rootArtifact);
-        return createClassLoader(artifacts, classLoaderFactory);
     }
 
     private static PluginClassLoader createClassLoader(List<Artifact> artifacts, Function<List<URL>, PluginClassLoader> classLoaderFactory)

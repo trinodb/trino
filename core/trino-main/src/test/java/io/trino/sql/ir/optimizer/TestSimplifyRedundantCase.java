@@ -26,10 +26,13 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCase;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -47,6 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyRedundantCase
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
 
@@ -63,7 +67,7 @@ public class TestSimplifyRedundantCase
                 new Case(
                         ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "x"), FALSE)),
                         TRUE)))
-                .isEqualTo(Optional.of(not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE))));
+                .isEqualTo(Optional.of(not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE))));
 
         assertThat(optimize(
                 new Case(
@@ -89,7 +93,7 @@ public class TestSimplifyRedundantCase
                 new Case(
                         ImmutableList.of(new WhenClause(comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), FALSE)),
                         TRUE)))
-                .isEqualTo(Optional.of(not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE))));
+                .isEqualTo(Optional.of(not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE))));
 
         assertThat(optimize(
                 new Case(
@@ -102,7 +106,7 @@ public class TestSimplifyRedundantCase
                         IrUtils.or(
                                 comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE),
                                 IrUtils.and(
-                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "y"), TRUE)),
+                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "y"), TRUE)),
                                         comparison(IDENTICAL, new Reference(BOOLEAN, "z"), TRUE)))));
 
         assertThat(optimize(
@@ -116,8 +120,8 @@ public class TestSimplifyRedundantCase
                         IrUtils.or(
                                 comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE),
                                 IrUtils.and(
-                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "y"), TRUE)),
-                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "z"), TRUE))))));
+                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "y"), TRUE)),
+                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "z"), TRUE))))));
 
         assertThat(optimize(
                 new Case(
@@ -130,8 +134,8 @@ public class TestSimplifyRedundantCase
                 .isEqualTo(Optional.of(IrUtils.or(
                         comparison(IDENTICAL, new Reference(BOOLEAN, "a1"), TRUE),
                         IrUtils.and(
-                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "a2"), TRUE)),
-                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "a3"), TRUE)),
+                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "a2"), TRUE)),
+                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "a3"), TRUE)),
                                 IrUtils.or(
                                         comparison(IDENTICAL, new Reference(BOOLEAN, "a4"), TRUE),
                                         TRUE)))));
@@ -146,11 +150,11 @@ public class TestSimplifyRedundantCase
                         TRUE)))
                 .isEqualTo(Optional.of(
                         IrUtils.and(
-                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "a1"), TRUE)),
-                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "a2"), TRUE)),
+                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "a1"), TRUE)),
+                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "a2"), TRUE)),
                                 IrUtils.or(
                                         comparison(IDENTICAL, new Reference(BOOLEAN, "a3"), TRUE),
-                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), comparison(IDENTICAL, new Reference(BOOLEAN, "a4"), TRUE))))));
+                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, comparison(IDENTICAL, new Reference(BOOLEAN, "a4"), TRUE))))));
 
         assertThat(optimize(
                 new Case(

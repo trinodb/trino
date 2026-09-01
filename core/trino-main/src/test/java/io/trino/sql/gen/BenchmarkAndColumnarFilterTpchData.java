@@ -52,6 +52,8 @@ import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -104,6 +106,7 @@ public class BenchmarkAndColumnarFilterTpchData
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         List<? extends Expression> projections = ImmutableList.of(new Reference(DOUBLE, COL_EXTENDED_PRICE));
         processor = expressionCompiler.compilePageProcessor(
+                        getCharVarcharCoercion(TEST_SESSION),
                         columnarEvaluationEnabled,
                         true,
                         Optional.of(filterExpression),

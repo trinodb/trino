@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
@@ -41,13 +43,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.lang.Double.isNaN;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTimeSharingTaskExecutor
 {
@@ -529,6 +535,100 @@ public class TestTimeSharingTaskExecutor
         assertThat(taskExecutor.getLeafSplitsSize().getAllTime().getMax()).isEqualTo(2.0);
     }
 
+    @Test
+    public void testSplitQueuedTimeRecordedPerStartedLeafSplit()
+            throws Exception
+    {
+        TestingTicker ticker = new TestingTicker();
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 8, 3, 4, ticker);
+        taskExecutor.start();
+        try {
+            TaskHandle taskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            List<ListenableFuture<Void>> futures = new ArrayList<>(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0),
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0),
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0),
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0))));
+            futures.addAll(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0),
+                    new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0))));
+            for (ListenableFuture<Void> future : futures) {
+                future.get(10, SECONDS);
+            }
+
+            assertThat(taskExecutor.getSplitQueuedTime().getAllTime().snapshot().count()).isEqualTo(4.0);
+            taskExecutor.removeTask(taskHandle);
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testStartedSplitOfferedWhenEnqueueFails()
+            throws Exception
+    {
+        TestingTicker ticker = new TestingTicker();
+        AtomicInteger splitSpansCreated = new AtomicInteger();
+        Tracer throwingTracer = spanName -> {
+            if (spanName.startsWith("split") && splitSpansCreated.incrementAndGet() == 2) {
+                throw new RuntimeException("tracer failure");
+            }
+            return noopTracer().spanBuilder(spanName);
+        };
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 8, 3, 4, new Duration(10, MINUTES), testingVersionEmbedder(), throwingTracer, new MultilevelSplitQueue(2), ticker);
+        taskExecutor.start();
+        try {
+            TaskHandle taskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TestingJob driver1 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0);
+            TestingJob driver2 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 0);
+
+            assertThatThrownBy(() -> taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver1, driver2)))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("tracer failure");
+
+            // first split was started before the failure; flush in the finally block offers it to the wait queue
+            driver1.getCompletedFuture().get(10, SECONDS);
+            assertThat(driver2.isStarted()).isFalse();
+            taskExecutor.removeTask(taskHandle);
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testDestroyedBlockedSplitIsDiscardedAfterReoffer()
+            throws Exception
+    {
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 8, 3, 4, new TestingTicker());
+        taskExecutor.start();
+        try {
+            TaskHandle taskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            BlockedSplit split = new BlockedSplit();
+            taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(split));
+            assertEventually(new Duration(10, SECONDS), () -> assertThat(taskExecutor.getBlockedSplits()).isEqualTo(1));
+
+            // destroys the blocked split; the registered unblock listener still re-offers it to the wait queue
+            taskExecutor.removeTask(taskHandle);
+            split.unblock();
+
+            // the destroyed split drains through TaskRunner without reviving
+            assertEventually(new Duration(10, SECONDS), () -> {
+                assertThat(taskExecutor.getWaitingSplits()).isEqualTo(0);
+                assertThat(taskExecutor.getBlockedSplits()).isEqualTo(0);
+                assertThat(taskExecutor.getRunningSplits()).isEqualTo(0);
+                assertThat(taskExecutor.getTotalSplits()).isEqualTo(0);
+            });
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
     private void assertSplitStates(int endIndex, TestingJob[] splits)
     {
         // assert that splits up to and including endIndex are all started
@@ -659,6 +759,57 @@ public class TestTimeSharingTaskExecutor
         public Future<Void> getCompletedFuture()
         {
             return completed;
+        }
+    }
+
+    private static class BlockedSplit
+            implements SplitRunner
+    {
+        private final SettableFuture<Void> blocked = SettableFuture.create();
+        private volatile boolean closed;
+
+        @Override
+        public int getPipelineId()
+        {
+            return 0;
+        }
+
+        @Override
+        public Span getPipelineSpan()
+        {
+            return Span.getInvalid();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return closed;
+        }
+
+        @Override
+        public ListenableFuture<Void> processFor(Duration duration)
+        {
+            if (closed) {
+                return immediateVoidFuture();
+            }
+            return blocked;
+        }
+
+        @Override
+        public String getInfo()
+        {
+            return "blocked split";
+        }
+
+        @Override
+        public void close()
+        {
+            closed = true;
+        }
+
+        public void unblock()
+        {
+            blocked.set(null);
         }
     }
 }

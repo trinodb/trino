@@ -22,9 +22,11 @@ runs:
           exit 1
       - name: Verify commit
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'repository_dispatch' &&
+              github.event.client_payload.pull_request.head.sha || '' }}
         run: |
-          expected=${{ github.event_name == 'repository_dispatch' &&
-                github.event.client_payload.pull_request.head.sha || '' }}
+          expected="${EXPECTED_SHA}"
           actual=$(git log -1 --format='%H')
           if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
             echo >&2 "Expected to checkout $expected but got $actual"
@@ -48,60 +50,57 @@ runs:
       - name: Configure Docker Hub mirror
         shell: bash
         run: ./.github/bin/configure-docker-hub-mirror.sh
-      - uses: actions/setup-java@v5.6.0
+      - uses: actions/setup-java@v5.7.0
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
       - name: Get Bun version from parent pom
         shell: bash
+        id: bun-version
         run: |
           bun_version=$(grep -m 1 '<dep.frontend-bun.version>' "pom.xml" | sed -n 's/.*<dep.frontend-bun.version>\(.*\)<\/dep.frontend-bun.version>.*/\1/p')
-          if [ -n "$bun_version" ]; then
-            echo "bun version is ${bun_version}"
-            echo "BUN_VERSION=$bun_version" >>${GITHUB_ENV}
-            exit 0
-          fi
+          echo "version=$bun_version" >> "${GITHUB_OUTPUT}"
       - name: Cache and Restore local Bun
         id: cache-bun
-        if: ${{ format('{0}', inputs.cache) == 'true' && env.BUN_VERSION != '' }}
+        if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: .bun
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-bun-
       - name: Restore local Bun
         id: cache_restore-bun
-        if: ${{ format('{0}', inputs.cache) == 'restore' && env.BUN_VERSION != '' }}
+        if: ${{ format('{0}', inputs.cache) == 'restore' }}
         uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
           path: .bun
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-bun-
       - name: Cache and Restore bun packages
         id: cache-bun-packages
-        if: ${{ format('{0}', inputs.cache) == 'true' && env.BUN_VERSION != '' }}
+        if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: ~/.bun
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}-packages-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-
+            ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}-packages-
       - name: Restore bun packages
         id: cache-restore-bun-packages
-        if: ${{ format('{0}', inputs.cache) == 'restore' && env.BUN_VERSION != '' }}
+        if: ${{ format('{0}', inputs.cache) == 'restore' }}
         uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
           path: ~/.bun
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}-packages-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-
+            ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun-version.outputs.version }}-packages-
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
@@ -149,6 +148,11 @@ runs:
         if: ${{ inputs.java-version != '' }}
         shell: bash
         run: .github/bin/retry ./mvnw -v
+      - name: Preload Maven core extensions
+        # Load maven core extensions with retry.
+        if: ${{ inputs.java-version != '' }}
+        shell: bash
+        run: .github/bin/retry ./mvnw -N -B -U -e --no-transfer-progress help:evaluate -Dexpression=maven.version -DforceStdout
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash

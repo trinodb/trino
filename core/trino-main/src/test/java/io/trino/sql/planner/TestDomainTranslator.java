@@ -55,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -1545,6 +1546,23 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(equal(cast(C_CHAR, charType), cast(stringLiteral("abc12345678"), charType)));
     }
 
+    @Test
+    public void testCastCharToVarcharComparison()
+    {
+        // With the default coercion (deprecated.legacy-varchar-to-char-coercion disabled),
+        // CAST(char AS varchar) trims trailing spaces and is not monotonic with respect to the two
+        // orderings: char(10) 'abc' + U+0001 sorts below char(10) 'abc ' (char comparison pads
+        // with spaces, and U+0001 is below space), while their varchar forms 'abc' + U+0001 and
+        // 'abc' compare the other way around. The cast must not be peeled off the symbol side
+        // (isImplicitCoercion returns false for it), so the whole comparison stays as a residual
+        // filter instead of becoming a domain on the char column.
+        Type castType = createVarcharType(10);
+        assertUnsupportedPredicate(equal(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(greaterThan(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc\u0001"))));
+        assertUnsupportedPredicate(lessThanOrEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc\u0001"))));
+        assertUnsupportedPredicate(lessThan(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc "))));
+    }
+
     private void assertPredicateIsAlwaysTrue(Expression expression)
     {
         assertPredicateTranslates(expression, TupleDomain.all(), TRUE);
@@ -1584,7 +1602,7 @@ public class TestDomainTranslator
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return domainTranslator.toPredicate(tupleDomain);
+        return domainTranslator.toPredicate(getCharVarcharCoercion(TEST_SESSION), tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -1747,7 +1765,7 @@ public class TestDomainTranslator
 
     private static Expression not(Expression expression)
     {
-        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), expression);
+        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), expression);
     }
 
     private static Expression comparison(ComparisonOperator operator, Expression expression1, Expression expression2)

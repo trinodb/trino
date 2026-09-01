@@ -334,6 +334,15 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    @Override
+    public void testCharToVarcharCastCoercionAcrossPushdown()
+    {
+        assertThatThrownBy(super::testCharToVarcharCastCoercionAcrossPushdown)
+                .hasMessage("Unsupported column type: char(5)")
+                .hasStackTraceContaining("SQL: CREATE TABLE test_char_to_varchar_cast");
+    }
+
+    @Test
     public void testEmptyProjectionTable()
     {
         testEmptyProjection(

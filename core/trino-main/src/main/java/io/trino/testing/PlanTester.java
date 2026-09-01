@@ -418,8 +418,7 @@ public class PlanTester
                 languageFunctionManager,
                 tableFunctionRegistry,
                 typeManager,
-                catalogManager,
-                new FeaturesConfig());
+                catalogManager);
         JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager),
@@ -442,7 +441,7 @@ public class PlanTester
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer, expressionCodec, new FeaturesConfig());
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer, expressionCodec);
         this.evaluator = new InternalConnectorExpressionEvaluator(plannerContext);
         NodeInfo nodeInfo = new NodeInfo("test");
         catalogFactory.setCatalogFactory(new DefaultCatalogFactory(

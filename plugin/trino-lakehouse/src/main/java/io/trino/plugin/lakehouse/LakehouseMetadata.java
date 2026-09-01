@@ -188,6 +188,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForMaterializedViewExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
+    {
+        return forHandle(tableHandle).getTableHandleForMaterializedViewExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
+    }
+
+    @Override
     public Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
     {
         return forHandle(tableHandle).getColumnHandlesForTableExecute(connectorSession, tableHandle, connectorTableExecuteHandle);

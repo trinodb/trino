@@ -1411,16 +1411,21 @@ public class TestIcebergV2
     public void testStatsManifestDecoding()
     {
         int threshold = TableStatisticsReader.INLINE_MANIFEST_DECODE_THRESHOLD;
+        IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
         try (TestTable testTable = newTrinoTable("test_stats_manifest_decoding_", "(a INT)")) {
             for (int i = 0; i < threshold - 1; i++) {
                 assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (" + i + ")", 1);
             }
+            // manifests are decoded inline and accumulated into a single set of statistics
             assertThat(manifestCount(testTable.getName())).isLessThan(threshold);
             assertThat(tableRowCountFromStatistics(testTable.getName())).isEqualTo(threshold - 1);
+            assertThat(columnRangeFromStatistics(testTable.getName(), column)).contains(new DoubleRange(0, threshold - 2));
 
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (100)", 1);
+            // manifests are decoded in parallel and the per-manifest statistics merged
             assertThat(manifestCount(testTable.getName())).isGreaterThanOrEqualTo(threshold);
             assertThat(tableRowCountFromStatistics(testTable.getName())).isEqualTo(threshold);
+            assertThat(columnRangeFromStatistics(testTable.getName(), column)).contains(new DoubleRange(0, 100));
         }
     }
 
@@ -1431,16 +1436,28 @@ public class TestIcebergV2
 
     private double tableRowCountFromStatistics(String tableName)
     {
+        return tableStatistics(tableName, ImmutableSet.of()).getRowCount().getValue();
+    }
+
+    private Optional<DoubleRange> columnRangeFromStatistics(String tableName, IcebergColumnHandle column)
+    {
+        return tableStatistics(tableName, ImmutableSet.of(column))
+                .getColumnStatistics()
+                .get(column)
+                .getRange();
+    }
+
+    private TableStatistics tableStatistics(String tableName, Set<IcebergColumnHandle> projectedColumns)
+    {
         OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
-        TableStatistics statistics = TableStatisticsReader.makeTableStatistics(
+        return TableStatisticsReader.makeTableStatistics(
                 TESTING_TYPE_MANAGER,
                 loadTable(tableName),
                 snapshotId,
                 TupleDomain.all(),
                 TupleDomain.all(),
-                ImmutableSet.of(),
+                projectedColumns,
                 newDirectExecutorService());
-        return statistics.getRowCount().getValue();
     }
 
     @Test

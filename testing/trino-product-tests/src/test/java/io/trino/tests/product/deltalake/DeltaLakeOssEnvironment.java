@@ -19,6 +19,7 @@ import io.trino.testing.containers.SparkDeltaContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 
@@ -29,6 +30,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
+
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 
 /**
  * Single-node Delta Lake environment with Spark, Hive Metastore, and Floci storage.
@@ -126,23 +129,31 @@ public class DeltaLakeOssEnvironment
         return DriverManager.getConnection(spark.getJdbcUrl(), "hive", "");
     }
 
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
-        try (Connection connection = createSparkConnection();
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(sql)) {
-            return QueryResult.forResultSet(resultSet);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection connection = createSparkConnection();
+                        Statement statement = connection.createStatement();
+                        ResultSet resultSet = statement.executeQuery(sql)) {
+                    return QueryResult.forResultSet(resultSet);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);
         }
     }
 
-    public int executeSparkUpdate(String sql)
+    public int executeSparkUpdate(@Language("SQL") String sql)
     {
-        try (Connection connection = createSparkConnection();
-                Statement statement = connection.createStatement()) {
-            return statement.executeUpdate(sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection connection = createSparkConnection();
+                        Statement statement = connection.createStatement()) {
+                    return statement.executeUpdate(sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark update: " + sql, e);

@@ -6,6 +6,10 @@ on:
   repository_dispatch:
     types: [test-with-secrets-command]
 
+# Default for all jobs; jobs that need more declare their own permissions block, which fully replaces this one.
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
@@ -17,6 +21,7 @@ env:
   MAVEN: ./mvnw
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_ARGS: "--global-settings ${{ github.workspace }}/.mvn/settings-ci.xml"
   MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
   MAVEN_COMPILE_COMMITS: "-B --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress"
   MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
@@ -46,7 +51,7 @@ concurrency:
 
 jobs:
   check-commit-messages:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -55,27 +60,53 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: airlift/github-actions/check-commit-messages@1652e24519f5c7cec59d841070bf9beffadabdf9 # v1
+      - uses: airlift/github-actions/check-commit-messages@1652e24519f5c7cec59d841070bf9beffadabdf9
         with:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
+  zizmor:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        with:
+          inputs: .github
+          # Version of the zizmor tool to install and run
+          version: 1.29.0
+          # Fail the job and annotate the PR instead of reporting to GitHub Advanced Security
+          advanced-security: false
+          annotations: true
+
   path-filters:
+    permissions:
+      pull-requests: read # to list changed files of the PR
     runs-on: ubuntu-latest
     outputs:
+      ci: ${{ steps.filter.outputs.ci }}
       docs: ${{ steps.filter.outputs.docs }}
       non_docs: ${{ steps.filter.outputs.non_docs }}
     steps:
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         if: github.event_name == 'pull_request'
         with:
           # Note: `docs` output is currently unused. The docs changes are tested by maven-checks job, leveraging GIB impact analysis.
           # TODO remove use of non_docs filters and remove `path-filters` job. Use GIB impact analysis to guard job skipping.
           filters: |
+            ci: '.github/**'
             docs: 'docs/**'
             non_docs: '!docs/**'
 
   maven-checks:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     runs-on: ubuntu-latest
     name: maven-checks ${{ matrix.java-version }}
     strategy:
@@ -90,6 +121,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -120,6 +152,9 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "maven-checks ${{ matrix.java-version }}"
 
   artifact-checks:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -128,6 +163,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -171,6 +207,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
+          persist-credentials: false
       - name: Block illegal commits
         uses: trinodb/github-actions/block-commits@c2991972560c5219d9ae5fb68c0c9d687ffcdd10
         with:
@@ -178,13 +215,16 @@ jobs:
           action-fixup: none
       - name: Set matrix (dispatch commit checks)
         id: set-matrix
+        env:
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # Make sure the PR branch contains the compile-commit composite job
-          if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) ${{ github.event.pull_request.head.sha }}
+          if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) "${PR_HEAD_SHA}"
           then
             # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
             # This is achieved by adding a tilde (~) after the HEAD sha
-            git log --reverse --pretty=format:'%H,%T,"%s"' refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | ./.github/bin/prepare-check-commits-matrix.py > commit-matrix.json
+            git log --reverse --pretty=format:'%H,%T,"%s"' "refs/remotes/origin/${PR_BASE_REF}..${PR_HEAD_SHA}~" | ./.github/bin/prepare-check-commits-matrix.py > commit-matrix.json
           else
             echo -n '' > commit-matrix.json
           fi
@@ -205,6 +245,7 @@ jobs:
         if: matrix.commit != ''
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
+          persist-credentials: false
           ref: ${{ matrix.commit }}
       # This composite job must be entirely standalone, and checked out from the correct commit before being executed.
       # It can't accept any parameters defined in this workflow, because the values of those parameters would always be taken from
@@ -216,6 +257,9 @@ jobs:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
   error-prone-checks:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -224,6 +268,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -251,6 +296,9 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "error-prone-checks"
 
   test-jdbc-compatibility:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -259,6 +307,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout tags so version in Manifest is set properly
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -298,6 +347,9 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "test-jdbc-compatibility"
 
   test-other-modules:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -306,6 +358,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -391,6 +444,12 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "test-other-modules"
 
   build-test-matrix:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure, read run info in update-check
+      checks: write # to update the PR check for test-with-secrets runs (update-check)
+      contents: read
+      issues: write # to comment on the PR for test-with-secrets runs (update-check)
+      pull-requests: write # commenting on a PR is governed by this permission, not issues (update-check)
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -400,6 +459,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -423,88 +483,20 @@ jobs:
           $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies
       - name: Set matrix
         id: set-matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
         run: |
           # GIB doesn't run on master, so make sure the file always exist
           touch gib-impacted.log
-          cat <<EOF > .github/test-matrix.yaml
-          include:
-            - modules:
-                - client/trino-jdbc
-                - core/trino-spi
-                - core/trino-web-ui
-            - modules:
-                - plugin/trino-base-jdbc
-                - plugin/trino-faker
-                - plugin/trino-geospatial
-                - plugin/trino-memory
-                - plugin/trino-openlineage
-                - plugin/trino-thrift
-            - modules:
-                - lib/trino-orc
-                - lib/trino-parquet
-            - modules:
-                - lib/trino-filesystem
-                - lib/trino-filesystem-azure
-                - lib/trino-filesystem-gcs
-                - lib/trino-filesystem-manager
-                - lib/trino-filesystem-s3
-                - lib/trino-hdfs
-                - lib/trino-hive-formats
-                - plugin/trino-blob-cache-alluxio
-                - plugin/trino-blob-cache-memory
-            - { modules: core/trino-main }
-            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
-            - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
-            - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
-            - { modules: plugin/trino-bigquery }
-            - { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
-            - { modules: plugin/trino-cassandra }
-            - { modules: plugin/trino-clickhouse }
-            - { modules: plugin/trino-delta-lake }
-            - { modules: plugin/trino-delta-lake, profile: cloud-tests }
-            - { modules: plugin/trino-delta-lake, profile: fte-tests }
-            - { modules: plugin/trino-druid }
-            - { modules: plugin/trino-duckdb }
-            - { modules: plugin/trino-elasticsearch }
-            - { modules: plugin/trino-exchange-filesystem, profile: cloud-tests }
-            - { modules: plugin/trino-exasol }
-            - { modules: plugin/trino-google-sheets }
-            - { modules: plugin/trino-google-sheets, profile: cloud-tests }
-            - { modules: plugin/trino-hive }
-            - { modules: plugin/trino-hive, profile: cloud-tests }
-            - { modules: plugin/trino-hive, profile: fte-tests }
-            - { modules: plugin/trino-hive, profile: test-parquet }
-            - { modules: plugin/trino-hudi }
-            - { modules: plugin/trino-iceberg }
-            - { modules: plugin/trino-iceberg, profile: cloud-tests }
-            - { modules: plugin/trino-iceberg, profile: fte-tests }
-            - { modules: plugin/trino-iceberg, profile: floci-and-avro }
-            - { modules: plugin/trino-ignite }
-            - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-lakehouse }
-            - { modules: plugin/trino-mariadb }
-            - { modules: plugin/trino-mongodb }
-            - { modules: plugin/trino-mysql }
-            - { modules: plugin/trino-opensearch }
-            - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-pinot }
-            - { modules: plugin/trino-postgresql }
-            - { modules: plugin/trino-redis }
-            - { modules: plugin/trino-redshift }
-            - { modules: plugin/trino-redshift, profile: cloud-tests }
-            - { modules: plugin/trino-redshift, profile: fte-tests }
-            - { modules: plugin/trino-resource-group-managers }
-            - { modules: plugin/trino-singlestore }
-            - { modules: plugin/trino-snowflake }
-            - { modules: plugin/trino-snowflake, profile: cloud-tests }
-            - { modules: plugin/trino-sqlserver }
-            - { modules: testing/trino-faulttolerant-tests, profile: default }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: testing/trino-tests }
-          EOF
-          ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
+          ./.github/bin/build-matrix-schedule-aware.py build \
+            --schedule-config ./.github/schedule-config.yml \
+            --impacted gib-impacted.log \
+            --event-name "$EVENT_NAME" \
+            --event-schedule "$EVENT_SCHEDULE" \
+            --pr-labels "$PR_LABELS" \
+            --verbose > matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
@@ -514,6 +506,13 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "build-test-matrix"
 
   test:
+    name: ${{ matrix.name != '' && matrix.name || format('test ({0}, {1})', matrix.modules, matrix.profile) }}
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure, read run info in update-check
+      checks: write # to update the PR check for test-with-secrets runs (update-check)
+      contents: read
+      issues: write # to comment on the PR for test-with-secrets runs (update-check)
+      pull-requests: write # commenting on a PR is governed by this permission, not issues (update-check)
     runs-on: 'ubuntu-latest'
     needs: build-test-matrix
     if: needs.build-test-matrix.outputs.matrix != '{}'
@@ -521,10 +520,15 @@ jobs:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
     timeout-minutes: 60
+    env:
+      MATRIX_MODULES: ${{ matrix.modules }}
+      MATRIX_PROFILE: ${{ matrix.profile }}
+      MATRIX_JDK: ${{ matrix.jdk }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -537,7 +541,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${MATRIX_MODULES}"
       - name: Maven Tests
         id: tests
         if: >-
@@ -553,7 +557,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
-        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+        run: $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" ${MATRIX_PROFILE:+-P "${MATRIX_PROFILE}"}
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
         id: tests-hdfs-isolated
@@ -571,7 +575,7 @@ jobs:
           contains(matrix.modules, 'trino-exchange-filesystem') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
       - name: S3 FileSystem Cloud Tests
         id: tests-s3
         env:
@@ -586,7 +590,7 @@ jobs:
           .github/bin/s3/setup-empty-s3-bucket.sh
           EMPTY_S3_BUCKET=$(cat .github/bin/s3/.bucket-identifier)
           export EMPTY_S3_BUCKET
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
       - name: Cleanup ephemeral S3 buckets
         env:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
@@ -610,7 +614,7 @@ jobs:
           contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '' || env.ABFS_OAUTH_CLIENT_SECRET != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
       - name: GCS FileSystem Cloud Tests
         id: tests-gcs
         env:
@@ -619,7 +623,7 @@ jobs:
           contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
       - name: Cloud Hive Tests
         id: tests-hive
         env:
@@ -651,7 +655,7 @@ jobs:
           contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_ACCESSKEY != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} ${{ format('-P {0}', matrix.profile) }} -pl :trino-delta-lake \
+          $MAVEN test ${MAVEN_TEST} -P "${MATRIX_PROFILE}" -pl :trino-delta-lake \
             -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dtesting.azure-abfs-account="${ABFS_ACCOUNT}" \
             -Dtesting.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
@@ -732,7 +736,7 @@ jobs:
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg ${{ format('-P {0}', matrix.profile) }} \
+          $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg -P "${MATRIX_PROFILE}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}" \
             -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
@@ -775,7 +779,7 @@ jobs:
         run: |
           source .github/bin/redshift/setup-aws-redshift.sh
 
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }} \
+          $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}" \
             -Dtest.redshift.jdbc.user="${REDSHIFT_USER}" \
             -Dtest.redshift.jdbc.password="${REDSHIFT_PASSWORD}" \
             -Dtest.redshift.jdbc.endpoint="${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT}/" \
@@ -799,7 +803,7 @@ jobs:
           # Generate a valid artifact name and make it available to next steps as
           # an environment variable ARTIFACT_NAME
           # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
-          name=$(echo -n "${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
+          name=$(echo -n "${MATRIX_MODULES}, ${MATRIX_PROFILE}, ${MATRIX_JDK}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           # final artifact name can't be longer than 128 characters
           echo "ARTIFACT_NAME=${name:0:100}" >> $GITHUB_ENV
       - name: Upload test results
@@ -840,9 +844,12 @@ jobs:
         if: ${{ failure() && github.event_name == 'merge_group' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/bin/cancel-merge-queue-workflow.sh "test (${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }})"
+        run: .github/bin/cancel-merge-queue-workflow.sh "test (${MATRIX_MODULES}, ${MATRIX_PROFILE}, ${MATRIX_JDK})"
 
   build-pt:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -852,6 +859,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -864,7 +872,18 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -P product-test-distribution -pl '!:trino-docs'
+      - name: Determine impacted Maven modules
+        if: >-
+          github.event_name == 'pull_request' &&
+          needs.path-filters.outputs.ci != 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs'
+          # If GIB does not create the output, an empty file conservatively produces a full matrix.
+          touch gib-impacted.log
       - name: Build Trino Docker image for product tests
         run: |
           cd core/docker
@@ -880,15 +899,30 @@ jobs:
             client/trino-cli/target/*-executable.jar
             product-tests-trino-image.tar.gz
           retention-days: 1
-      - name: Product tests Maven artifacts
+      - name: Product test distribution
         uses: actions/upload-artifact@v7
         with:
-          name: product tests m2 io.trino
-          path: ~/.m2/repository/io/trino
+          name: product test distribution
+          path: |
+            testing/trino-product-tests/target/product-test-distribution
+            testing/trino-product-tests/target/iceberg-spark-runtime.jar
           retention-days: 1
+      - name: Build product-test matrix from impacted modules
+        if: >-
+          github.event_name == 'pull_request' &&
+          needs.path-filters.outputs.ci != 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: .github/bin/build-pt-matrix.py -v -i gib-impacted.log > matrix.json
+      - name: Build full product-test matrix
+        if: >-
+          github.event_name != 'pull_request' ||
+          needs.path-filters.outputs.ci == 'true' ||
+          contains(github.event.pull_request.labels.*.name, 'tests:all') ||
+          contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: .github/bin/build-pt-matrix.py -v > matrix.json
       - id: set-matrix
         run: |
-          .github/bin/build-pt-matrix.py > matrix.json
           echo "PT matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
@@ -898,18 +932,27 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "build-pt"
 
   pt:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure, read run info in update-check
+      checks: write # to update the PR check for test-with-secrets runs (update-check)
+      contents: read
+      issues: write # to comment on the PR for test-with-secrets runs (update-check)
+      pull-requests: write # commenting on a PR is governed by this permission, not issues (update-check)
     runs-on: 'ubuntu-latest'
-    name: pt (${{ matrix.bucket }})
+    name: pt (${{ matrix.suite }})
     if: needs.build-pt.outputs.matrix != '{}'
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-pt.outputs.matrix) }}
     timeout-minutes: 130
     needs: build-pt
+    env:
+      MATRIX_SUITE: ${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+          persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -922,24 +965,21 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: product tests and server tarball
-      - name: Product tests Maven artifacts
+      - name: Product test distribution
         uses: actions/download-artifact@v8
         with:
-          name: product tests m2 io.trino
-          path: ~/.m2/repository/io/trino
+          name: product test distribution
+          path: testing/trino-product-tests/target
       - name: Load Trino Docker image for product tests
         run: |
           gzip -dc product-tests-trino-image.tar.gz | docker load
           version=$($MAVEN -f pom.xml --quiet help:evaluate -Dexpression=project.version -DforceStdout --raw-streams)
-          docker tag "product-tests-trino:${version}-amd64" trinodb/trino:latest
-      - name: Compile JUnit product test suites
-        run: |
-          $MAVEN -pl testing/trino-product-tests -Dair.check.skip-all=true -DskipTests test-compile
+          docker tag "product-tests-trino:${version}-amd64" trino:for-product-tests
       - name: Product Tests (JUnit suites)
         id: tests
         shell: bash
         env:
-          TRINO_PRODUCT_TESTS_IMAGE: trinodb/trino:latest
+          TRINO_PRODUCT_TESTS_IMAGE: "trino:for-product-tests"
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
           ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
@@ -953,6 +993,7 @@ jobs:
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
           DATABRICKS_164_JDBC_URL: ${{ vars.DATABRICKS_164_JDBC_URL }}
           DATABRICKS_173_JDBC_URL: ${{ vars.DATABRICKS_173_JDBC_URL }}
+          DATABRICKS_18_JDBC_URL: ${{ vars.DATABRICKS_18_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
@@ -966,16 +1007,22 @@ jobs:
         run: |
           mkdir -p logs
 
+          # Suites load checked-in configuration from paths relative to the repository root.
+          product_test_distribution=testing/trino-product-tests/target/product-test-distribution
+          test_jar=("${product_test_distribution}"/lib/trino-product-tests-*-tests.jar)
+          product_test_classpath=$(< "${product_test_distribution}/classpath.txt")
+          product_test_classpath="${product_test_distribution}/${product_test_classpath//:/:${product_test_distribution}/}"
+
           declare -a suite_results=()
           declare -a suite_totals=()
           declare -a skipped_suites=()
-          echo "## pt ${{ matrix.bucket }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "## pt ${MATRIX_SUITE}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           failed=0
           failed_suites=()
 
-          for suite in ${{ matrix.suites }}; do
+          for suite in ${MATRIX_SUITE}; do
             log_file="logs/${suite}.log"
             echo "### ${suite}" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -1015,6 +1062,10 @@ jobs:
                 availability_env=DATABRICKS_TOKEN
                 required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_173_JDBC_URL)
                 ;;
+              SuiteDeltaLakeDatabricks18)
+                availability_env=DATABRICKS_TOKEN
+                required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_18_JDBC_URL)
+                ;;
             esac
 
             if [ -n "${availability_env}" ] && [ -z "${!availability_env:-}" ] && [ -z "${CI_SKIP_SECRETS_PRESENCE_CHECKS:-}" ]; then
@@ -1045,10 +1096,12 @@ jobs:
               fi
             fi
             set +e
-            $MAVEN -pl testing/trino-product-tests -Dair.check.skip-all=true -DskipTests exec:java \
-              -Dexec.classpathScope=test \
+            java \
+              -Xmx512M \
+              -XX:+ExitOnOutOfMemoryError \
               -Dtrino.product-tests.image="${TRINO_PRODUCT_TESTS_IMAGE}" \
-              -Dexec.mainClass=io.trino.tests.product.suite.${suite} \
+              -cp "${test_jar[0]}:${product_test_classpath}" \
+              io.trino.tests.product.suite.${suite} \
               | tee "${log_file}"
             rc=${PIPESTATUS[0]}
             set -e
@@ -1079,9 +1132,9 @@ jobs:
 
           echo ""
           echo "========================================"
-          echo "        PT-JUNIT BUCKET SUMMARY         "
+          echo "         PT-JUNIT SUITE SUMMARY         "
           echo "========================================"
-          echo "Bucket: ${{ matrix.bucket }}"
+          echo "Suite: ${MATRIX_SUITE}"
           echo ""
           for entry in "${suite_results[@]}"; do
             suite_name=${entry%%:*}
@@ -1129,7 +1182,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pt (${{ matrix.bucket }})
+          name: pt (${{ matrix.suite }})
           path: logs/
           retention-days: 7
       - name: Update PR check
@@ -1148,7 +1201,7 @@ jobs:
         if: ${{ failure() && github.event_name == 'merge_group' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/bin/cancel-merge-queue-workflow.sh "pt (${{ matrix.bucket }})"
+        run: .github/bin/cancel-merge-queue-workflow.sh "pt (${MATRIX_SUITE})"
 
 
   build-success:
@@ -1168,6 +1221,7 @@ jobs:
       - test
       - test-jdbc-compatibility
       - test-other-modules
+      - zizmor
     steps:
       - name: "Check results"
         run: |
@@ -1185,3 +1239,4 @@ jobs:
           echo '${{ needs.test.result }}' | grep -xE 'success|skipped' || { echo 'Job "test" failed' >&2; exit 1; }
           echo '${{ needs.test-jdbc-compatibility.result }}' | grep -xE 'success|skipped' || { echo 'Job "test-jdbc-compatibility" failed' >&2; exit 1; }
           echo '${{ needs.test-other-modules.result }}' | grep -xE 'success|skipped' || { echo 'Job "test-other-modules" failed' >&2; exit 1; }
+          echo '${{ needs.zizmor.result }}' | grep -xE 'success|skipped' || { echo 'Job "zizmor" failed' >&2; exit 1; }

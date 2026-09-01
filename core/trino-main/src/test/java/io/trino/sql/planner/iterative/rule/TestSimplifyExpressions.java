@@ -38,6 +38,7 @@ import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -271,6 +272,27 @@ public class TestSimplifyExpressions
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A55"), new Reference(BOOLEAN, "A56"))),
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A57"), new Reference(BOOLEAN, "A58"))),
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A59"), new Reference(BOOLEAN, "A60"))))));
+    }
+
+    @Test
+    public void testLargeDisjunction()
+    {
+        Reference symbol = new Reference(BIGINT, "x");
+        ImmutableList.Builder<Expression> disjuncts = ImmutableList.builderWithExpectedSize(25_000);
+        for (long value = 0; value < 25_000; value++) {
+            disjuncts.add(comparison(EQUAL, symbol, new Constant(BIGINT, value)));
+        }
+
+        Expression expression = new Logical(OR, disjuncts.build());
+        assertThat(rewrite(
+                expression,
+                TEST_SESSION,
+                PLANNER_CONTEXT.getMetadata(),
+                emptySymbolAllocator(),
+                PLANNER_CONTEXT.getExpressionOptimizer()))
+                .isEqualTo(new Logical(AND, ImmutableList.of(
+                        comparison(LESS_THAN_OR_EQUAL, new Constant(BIGINT, 0L), symbol),
+                        comparison(LESS_THAN_OR_EQUAL, symbol, new Constant(BIGINT, 24_999L)))));
     }
 
     @Test
@@ -707,6 +729,6 @@ public class TestSimplifyExpressions
 
     private static Expression not(Expression value)
     {
-        return IrExpressions.not(FUNCTIONS.getMetadata(), value);
+        return IrExpressions.not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
     }
 }

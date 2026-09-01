@@ -51,6 +51,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
@@ -66,6 +67,7 @@ import static java.util.Objects.requireNonNull;
 public final class LiteralInterpreter
 {
     private final PlannerContext plannerContext;
+    private final Session session;
     private final ConnectorSession connectorSession;
     private final InterpretedFunctionInvoker functionInvoker;
 
@@ -74,6 +76,7 @@ public final class LiteralInterpreter
     public LiteralInterpreter(PlannerContext plannerContext, Session session)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
     }
@@ -148,10 +151,10 @@ public final class LiteralInterpreter
                         boolean isJson = JSON.equals(type);
                         ResolvedFunction resolvedFunction;
                         if (isJson) {
-                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction("json_parse", fromTypes(VARCHAR));
+                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "json_parse", fromTypes(VARCHAR));
                         }
                         else {
-                            resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
+                            resolvedFunction = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), VARCHAR, type);
                         }
                         return evaluatedNode -> functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
                     });

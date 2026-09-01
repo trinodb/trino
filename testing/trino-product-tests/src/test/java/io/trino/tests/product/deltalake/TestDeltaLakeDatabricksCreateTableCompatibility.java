@@ -31,8 +31,10 @@ import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DAT
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getColumnCommentOnDatabricks;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getColumnCommentOnTrino;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getTableCommentOnDatabricks;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getTableCommentOnTrino;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_183_RUNTIME_VERSION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -64,13 +66,14 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
                     """
                     CREATE TABLE spark_catalog.default.%s (
                       integer INT,
-                      string STRING,
+                      string %s,
                       timetz TIMESTAMP)
                     USING delta
                     LOCATION 's3://%s/%s'
                     %s\
                     """,
                     tableName,
+                    getDatabricksStringColumnType(env),
                     env.getBucketName(),
                     tableDirectory,
                     getDatabricksDefaultTableProperties());
@@ -107,7 +110,7 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
                     """
                     CREATE TABLE spark_catalog.default.%s (
                       integer INT,
-                      string STRING,
+                      string %s,
                       timetz TIMESTAMP)
                     USING delta
                     PARTITIONED BY (string)
@@ -115,6 +118,7 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
                     %s\
                     """,
                     tableName,
+                    getDatabricksStringColumnType(env),
                     env.getBucketName(),
                     tableDirectory,
                     getDatabricksDefaultTableProperties());
@@ -149,13 +153,14 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
                     """
                     CREATE TABLE spark_catalog.default.%s (
                       integer INT,
-                      string STRING,
+                      string %s,
                       timetz TIMESTAMP)
                     USING delta
                     LOCATION 's3://%s/%s'
                     %s\
                     """,
                     tableName,
+                    getDatabricksStringColumnType(env),
                     env.getBucketName(),
                     tableDirectory,
                     getDatabricksDefaultTableProperties());
@@ -196,7 +201,7 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
                     """
                     CREATE TABLE spark_catalog.default.%s (
                       integer INT,
-                      string STRING,
+                      string %s,
                       timetz TIMESTAMP)
                     USING delta
                     PARTITIONED BY (string)
@@ -204,6 +209,7 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
                     %s\
                     """,
                     tableName,
+                    getDatabricksStringColumnType(env),
                     env.getBucketName(),
                     tableDirectory,
                     getDatabricksDefaultTableProperties());
@@ -397,6 +403,14 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
         finally {
             dropDeltaTableWithRetry(env, "default." + tableName);
         }
+    }
+
+    private static String getDatabricksStringColumnType(DeltaLakeDatabricksEnvironment env)
+    {
+        if (getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_183_RUNTIME_VERSION)) {
+            return "STRING COLLATE UTF8_BINARY";
+        }
+        return "STRING";
     }
 
     private static String getDatabricksDefaultTableProperties()

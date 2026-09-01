@@ -34,7 +34,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -378,6 +380,6 @@ public class TestUnwrapYearInComparison
 
     private static Expression not(Expression value)
     {
-        return IrExpressions.not(FUNCTIONS.getMetadata(), value);
+        return IrExpressions.not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
     }
 }

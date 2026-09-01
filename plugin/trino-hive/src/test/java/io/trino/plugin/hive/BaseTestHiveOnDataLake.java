@@ -650,7 +650,8 @@ abstract class BaseTestHiveOnDataLake
                         "    col1 varchar, " +
                         "    col2 varchar, " +
                         "    regionkey bigint) " +
-                        "    WITH (partitioned_by=ARRAY['regionkey'])",
+                        // ORC so the file-size thresholds below hit the intended S3 multipart-upload code paths
+                        "    WITH (format='ORC', partitioned_by=ARRAY['regionkey'])",
                 testTable));
 
         long partSizeInBytes = HIVE_S3_STREAMING_PART_SIZE.toBytes();

@@ -75,6 +75,7 @@ public class QueryManagerConfig
     private int maxQueuedQueries = 5000;
 
     private boolean determinePartitionCountForWriteEnabled;
+    private boolean directTrinoClientFaultTolerantExecutionEnabled = true;
     private int maxHashPartitionCount = 100;
     private int minHashPartitionCount = 4;
     private int minHashPartitionCountForWrite = 50;
@@ -240,6 +241,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setDeterminePartitionCountForWriteEnabled(boolean determinePartitionCountForWriteEnabled)
     {
         this.determinePartitionCountForWriteEnabled = determinePartitionCountForWriteEnabled;
+        return this;
+    }
+
+    public boolean isDirectTrinoClientFaultTolerantExecutionEnabled()
+    {
+        return directTrinoClientFaultTolerantExecutionEnabled;
+    }
+
+    @Config("direct-trino-client.fault-tolerant-execution-enabled")
+    @ConfigDescription("Allow DirectTrinoClient to consume results of queries running under fault-tolerant execution; when disabled such queries are forced to retry_policy=NONE")
+    public QueryManagerConfig setDirectTrinoClientFaultTolerantExecutionEnabled(boolean directTrinoClientFaultTolerantExecutionEnabled)
+    {
+        this.directTrinoClientFaultTolerantExecutionEnabled = directTrinoClientFaultTolerantExecutionEnabled;
         return this;
     }
 

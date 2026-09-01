@@ -20,8 +20,11 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -42,10 +45,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestExpressionVerifier
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+
     @Test
     public void test()
     {
-        Expression actual = not(PLANNER_CONTEXT.getMetadata(), new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "orderkey"), new Constant(INTEGER, 3L)), comparison(EQUAL, new Reference(INTEGER, "custkey"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "orderkey"), new Constant(INTEGER, 10L)))));
+        Expression actual = not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "orderkey"), new Constant(INTEGER, 3L)), comparison(EQUAL, new Reference(INTEGER, "custkey"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "orderkey"), new Constant(INTEGER, 10L)))));
 
         SymbolAliases symbolAliases = SymbolAliases.builder()
                 .put("X", new Reference(INTEGER, "orderkey"))
@@ -54,11 +59,11 @@ public class TestExpressionVerifier
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
-        assertThat(verifier.process(actual, not(PLANNER_CONTEXT.getMetadata(), new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "X"), new Constant(INTEGER, 3L)), comparison(EQUAL, new Reference(INTEGER, "Y"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "X"), new Constant(INTEGER, 10L))))))).isTrue();
-        assertThatThrownBy(() -> verifier.process(actual, not(PLANNER_CONTEXT.getMetadata(), new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "X"), new Constant(INTEGER, 3L)), comparison(EQUAL, new Reference(INTEGER, "Y"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "Z"), new Constant(INTEGER, 10L)))))))
+        assertThat(verifier.process(actual, not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "X"), new Constant(INTEGER, 3L)), comparison(EQUAL, new Reference(INTEGER, "Y"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "X"), new Constant(INTEGER, 10L))))))).isTrue();
+        assertThatThrownBy(() -> verifier.process(actual, not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "X"), new Constant(INTEGER, 3L)), comparison(EQUAL, new Reference(INTEGER, "Y"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "Z"), new Constant(INTEGER, 10L)))))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("missing expression for alias Z");
-        assertThat(verifier.process(actual, not(PLANNER_CONTEXT.getMetadata(), new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "X"), new Constant(INTEGER, 3L)), comparison(EQUAL, new Reference(INTEGER, "X"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "X"), new Constant(INTEGER, 10L))))))).isFalse();
+        assertThat(verifier.process(actual, not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "X"), new Constant(INTEGER, 3L)), comparison(EQUAL, new Reference(INTEGER, "X"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "X"), new Constant(INTEGER, 10L))))))).isFalse();
     }
 
     @Test

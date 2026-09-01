@@ -19,15 +19,20 @@ import io.trino.testing.containers.SparkHudiContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+
+import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 /**
  * Hudi product test environment for interoperability testing.
@@ -53,6 +58,9 @@ import java.util.Map;
 public class HudiEnvironment
         extends ProductTestEnvironment
 {
+    private static final Path CONFIG_DIR = Path.of("testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/environment/multinode-hudi");
+    private static final String JVM_CONFIG_TARGET = "/etc/trino/jvm.config";
+
     static {
         // Ensure the Hive JDBC driver is loaded for Spark Thrift Server connections
         try {
@@ -107,6 +115,7 @@ public class HudiEnvironment
                         "hive.config.resources", "/etc/trino/hdfs-site.xml",
                         "hive.hudi-catalog-name", "hudi"))
                 .build();
+        trino.withCopyFileToContainer(forHostPath(CONFIG_DIR.resolve("jvm.config").toString()), JVM_CONFIG_TARGET);
         TrinoProductTestContainer.startAndWait(trino);
     }
 
@@ -127,12 +136,16 @@ public class HudiEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)) {
-            return QueryResult.forResultSet(rs);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                    return QueryResult.forResultSet(rs);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark query: " + sql, e);
@@ -145,11 +158,15 @@ public class HudiEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeSparkUpdate(String sql)
+    public int executeSparkUpdate(@Language("SQL") String sql)
     {
-        try (Connection conn = createSparkConnection();
-                Statement stmt = conn.createStatement()) {
-            return stmt.executeUpdate(sql);
+        try {
+            return executeWithRetry(() -> {
+                try (Connection conn = createSparkConnection();
+                        Statement stmt = conn.createStatement()) {
+                    return stmt.executeUpdate(sql);
+                }
+            });
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Spark update: " + sql, e);

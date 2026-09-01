@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
-import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
@@ -28,8 +27,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.List;
 import java.util.Optional;
@@ -79,13 +76,16 @@ public class ReadSessionCreator
         this.maxParallelism = maxParallelism;
     }
 
-    public ReadSession create(ConnectorSession session, TableId remoteTable, List<BigQueryColumnHandle> selectedFields, Optional<String> filter, int currentWorkerCount)
+    public ReadSession create(
+            ConnectorSession session,
+            TableDefinition.Type type,
+            TableId tableId,
+            List<BigQueryColumnHandle> selectedFields,
+            Optional<String> filter,
+            int currentWorkerCount)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
-        TableInfo tableDetails = client.getTable(remoteTable)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTable.getDataset(), remoteTable.getTable())));
-
-        TableInfo actualTable = getActualTable(client, tableDetails, selectedFields, isViewMaterializationWithFilter(session) ? filter : Optional.empty());
+        TableId actualTableId = getActualTableId(client, type, tableId, selectedFields, isViewMaterializationWithFilter(session) ? filter : Optional.empty());
 
         List<String> filteredSelectedFields = selectedFields.stream()
                 .map(BigQueryColumnHandle::getQualifiedName)
@@ -109,7 +109,7 @@ public class ReadSessionCreator
                     .setParent("projects/" + client.getParentProjectId())
                     .setReadSession(ReadSession.newBuilder()
                             .setDataFormat(format)
-                            .setTable(toTableResourceName(actualTable.getTableId()))
+                            .setTable(toTableResourceName(actualTableId))
                             .setReadOptions(readOptions));
             if (maxParallelism.isPresent()) {
                 int maxStreamCount = maxParallelism.get();
@@ -141,16 +141,15 @@ public class ReadSessionCreator
         return format("projects/%s/datasets/%s/tables/%s", tableId.getProject(), tableId.getDataset(), tableId.getTable());
     }
 
-    private TableInfo getActualTable(
+    private TableId getActualTableId(
             BigQueryClient client,
-            TableInfo remoteTable,
+            TableDefinition.Type tableType,
+            TableId tableId,
             List<BigQueryColumnHandle> requiredColumns,
             Optional<String> filter)
     {
-        TableDefinition tableDefinition = remoteTable.getDefinition();
-        TableDefinition.Type tableType = tableDefinition.getType();
         if (tableType == TABLE || tableType == SNAPSHOT || tableType == EXTERNAL) {
-            return remoteTable;
+            return tableId;
         }
         if (tableType == VIEW || tableType == MATERIALIZED_VIEW) {
             if (!viewEnabled) {
@@ -159,13 +158,13 @@ public class ReadSessionCreator
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
-            return client.getCachedTable(viewExpiration, remoteTable, requiredColumns, filter);
+            return client.getCachedTable(viewExpiration, tableId, requiredColumns, filter).getTableId();
         }
         // Storage API doesn't support reading other table types (materialized views, non-biglake external tables)
         throw new TrinoException(NOT_SUPPORTED, format(
                 "Table type '%s' of table '%s.%s' is not supported",
                 tableType,
-                remoteTable.getTableId().getDataset(),
-                remoteTable.getTableId().getTable()));
+                tableId.getDataset(),
+                tableId.getTable()));
     }
 }

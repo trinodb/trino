@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -55,7 +56,8 @@ public final class PositionDeleteReader
             OptionalLong startRowPosition,
             OptionalLong endRowPosition,
             DeletePageSourceProvider deletePageSourceProvider,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            MemoryContext memoryContext)
     {
         if (positionDeleteFiles.isEmpty()) {
             return Optional.empty();
@@ -83,6 +85,9 @@ public final class PositionDeleteReader
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
+                // report after each file so that concurrent loads get memory pool pushback
+                // before the whole set is read
+                memoryContext.setBytes(deletionVector.retainedSizeInBytes());
             }
         }
 

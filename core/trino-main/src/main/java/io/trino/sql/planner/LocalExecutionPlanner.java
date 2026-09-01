@@ -322,6 +322,7 @@ import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getDynamicRowFilterSelectivityThreshold;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
@@ -1569,7 +1570,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            return pageFunctionCompiler.compileProjection(rewritten, inputLayout.buildOrThrow(), Optional.empty());
+            return pageFunctionCompiler.compileProjection(rewritten, inputLayout.buildOrThrow(), getCharVarcharCoercion(session), Optional.empty());
         }
 
         private ValueAccessors preparePhysicalValuePointers(
@@ -1715,7 +1716,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            return pageFunctionCompiler.compileProjection(argument, inputLayout.buildOrThrow(), Optional.empty());
+            return pageFunctionCompiler.compileProjection(argument, inputLayout.buildOrThrow(), getCharVarcharCoercion(session), Optional.empty());
         }
 
         @Override
@@ -2106,6 +2107,7 @@ public class LocalExecutionPlanner
                             filterReorderingEnabled));
                 }
                 Function<DynamicFilter, PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                        getCharVarcharCoercion(session),
                         columnarFilterEvaluationEnabled,
                         filterReorderingEnabled,
                         staticFilters,
@@ -2128,7 +2130,8 @@ public class LocalExecutionPlanner
                             dynamicFilter,
                             getTypes(projections),
                             getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                            getFilterAndProjectMinOutputPageRowCount(session),
+                            context.getTaskContext().aggregateUserMemoryContext());
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
@@ -2170,7 +2173,16 @@ public class LocalExecutionPlanner
             }
 
             Optional<ConnectorTableCredentials> tableCredentials = context.getTaskContext().getTableCredentials(node.getId());
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), tableCredentials, columns.build(), columnTypes.build());
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(
+                    context.getNextOperatorId(),
+                    planNodeId,
+                    node.getId(),
+                    pageSourceManager,
+                    node.getTable(),
+                    tableCredentials,
+                    columns.build(),
+                    columnTypes.build(),
+                    context.getTaskContext().aggregateUserMemoryContext());
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
@@ -2439,6 +2451,7 @@ public class LocalExecutionPlanner
                         nonLookupOutputChannels,
                         indexSource.getTypes(),
                         pageFunctionCompiler,
+                        getCharVarcharCoercion(session),
                         blockTypeOperators));
             }
 
@@ -3179,7 +3192,7 @@ public class LocalExecutionPlanner
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
 
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(filterExpression, joinSourcesLayout, buildLayout.size());
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(filterExpression, joinSourcesLayout, buildLayout.size(), getCharVarcharCoercion(session));
         }
 
         private Map<Symbol, Integer> createJoinSourcesLayout(Map<Symbol, Integer> lookupSourceLayout, Map<Symbol, Integer> probeSourceLayout)
@@ -3939,7 +3952,7 @@ public class LocalExecutionPlanner
                     // the same mechanism in project and filter expression should be used here.
                     verify(lambdaExpression.arguments().size() == functionType.getArgumentTypes().size());
 
-                    Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambdaExpression, plannerContext.getFunctionManager(), metadata, plannerContext.getTypeManager(), lambdaInterfaces.get(i));
+                    Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambdaExpression, plannerContext.getFunctionManager(), metadata, plannerContext.getTypeManager(), getCharVarcharCoercion(session), lambdaInterfaces.get(i));
                     try {
                         lambdaProviders.add(lambdaProviderClass.getConstructor(ConnectorSession.class).newInstance(session.toConnectorSession()));
                     }

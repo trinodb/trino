@@ -77,6 +77,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
             <scope>test</scope>
         </dependency>
@@ -169,6 +175,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
             <scope>test</scope>
         </dependency>
 

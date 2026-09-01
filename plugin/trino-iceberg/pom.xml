@@ -16,7 +16,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.108.3</dep.nessie.version>
+        <dep.nessie.version>0.108.4</dep.nessie.version>
         <dep.keycloak.version>26.0.8</dep.keycloak.version>
     </properties>
 
@@ -212,7 +212,7 @@
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-java</artifactId>
-            <version>9.0.0</version>
+            <version>${dep.datasketches.version}</version>
         </dependency>
 
         <dependency>
@@ -448,13 +448,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.cloud.gcs.analytics</groupId>
-            <artifactId>gcs-analytics-core</artifactId>
-            <version>1.2.3</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
             <scope>runtime</scope>
@@ -585,6 +578,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -965,10 +964,6 @@
                                 <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</exclude>
-                                <exclude>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
@@ -1028,10 +1023,6 @@
                             <includes>
                                 <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
-                                <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>

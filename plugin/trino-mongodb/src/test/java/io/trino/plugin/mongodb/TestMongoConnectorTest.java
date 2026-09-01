@@ -1896,7 +1896,7 @@ public class TestMongoConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Invalid database name");
+        assertThat(e).hasMessageContaining("Invalid namespace specified");
     }
 
     @Override

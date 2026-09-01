@@ -121,6 +121,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -1658,16 +1659,12 @@ public class IcebergMetadata
         if (!sortOrder.isSorted()) {
             return new SortFieldInfo(SortOrder.unsorted().orderId(), ImmutableList.of());
         }
-        Set<Integer> baseColumnFieldIds = schema.columns().stream()
-                .map(Types.NestedField::fieldId)
-                .collect(toImmutableSet());
-
         ImmutableList.Builder<TrinoSortField> sortFields = ImmutableList.builder();
         for (SortField sortField : sortOrder.fields()) {
             if (!sortField.transform().isIdentity()) {
                 continue;
             }
-            if (!baseColumnFieldIds.contains(sortField.sourceId())) {
+            if (schema.accessorForField(sortField.sourceId()) == null) {
                 continue;
             }
 
@@ -2249,10 +2246,7 @@ public class IcebergMetadata
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         return switch (executeHandle.procedureId()) {
             case OPTIMIZE_MANIFESTS -> executeOptimizeManifests(session, executeHandle);
-            case DROP_EXTENDED_STATS -> {
-                executeDropExtendedStats(session, executeHandle);
-                yield ImmutableMap.of();
-            }
+            case DROP_EXTENDED_STATS -> executeDropExtendedStats(session, executeHandle);
             case ROLLBACK_TO_SNAPSHOT -> {
                 executeRollbackToSnapshot(session, executeHandle);
                 yield ImmutableMap.of();
@@ -2282,7 +2276,7 @@ public class IcebergMetadata
         return optimizeManifests(icebergTable, icebergScanExecutor);
     }
 
-    private void executeDropExtendedStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    private Map<String, Long> executeDropExtendedStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         checkArgument(executeHandle.procedureHandle() instanceof IcebergDropExtendedStatsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
 
@@ -2290,17 +2284,18 @@ public class IcebergMetadata
             Table icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
             beginTransaction(icebergTable);
             UpdateStatistics updateStatistics = transaction.updateStatistics();
-            for (StatisticsFile statisticsFile : icebergTable.statisticsFiles()) {
+            List<StatisticsFile> statisticsFiles = icebergTable.statisticsFiles();
+            for (StatisticsFile statisticsFile : statisticsFiles) {
                 updateStatistics.removeStatistics(statisticsFile.snapshotId());
             }
             updateStatistics.commit();
             commitTransaction(transaction, "drop extended stats");
+            transaction = null;
+            return ImmutableMap.of("removed_statistics_count", (long) statisticsFiles.size());
         }
         catch (NotFoundException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, e);
         }
-
-        transaction = null;
     }
 
     private void executeRollbackToSnapshot(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
@@ -3350,7 +3345,6 @@ public class IcebergMetadata
 
         // Ensure a row that is updated by this commit was not deleted by a separate commit
         rowDelta.validateDeletedFiles();
-        rowDelta.validateNoConflictingDeleteFiles();
         rowDelta.scanManifestsWith(icebergScanExecutor);
 
         int formatVersion = table.getFormatVersion();
@@ -3360,6 +3354,7 @@ public class IcebergMetadata
         ImmutableList.Builder<String> referencedDataFiles = ImmutableList.builder();
         List<DeletionVectorInfo> deletionVectorInfos = new ArrayList<>();
         boolean hasDeleteTasks = false;
+        boolean hasDataTasks = false;
 
         // Commit tasks are deserialized and converted one at a time to bound coordinator memory for writes producing many files
         for (Slice fragment : fragments) {
@@ -3368,6 +3363,7 @@ public class IcebergMetadata
             domainCollector.add(task, partitionSpec);
             switch (task.content()) {
                 case DATA -> {
+                    hasDataTasks = true;
                     DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                             .withPath(task.path())
                             .withFormat(task.fileFormat().toIceberg())
@@ -3436,6 +3432,11 @@ public class IcebergMetadata
 
         if (hasDeleteTasks) {
             rowDelta.validateDataFilesExist(referencedDataFiles.build());
+        }
+        if (hasDataTasks) {
+            // Iceberg requires this for UPDATE and MERGE only. Deleting a row that a concurrent commit also deleted is idempotent.
+            // A commit writing data files is an UPDATE or a MERGE, a commit writing only position deletes is a DELETE.
+            rowDelta.validateNoConflictingDeleteFiles();
         }
         if (!deletionVectorInfos.isEmpty()) {
             deletionVectorWriter.writeDeletionVectors(session, icebergTable, table, deletionVectorInfos, rowDelta);
@@ -3509,6 +3510,15 @@ public class IcebergMetadata
     }
 
     @Override
+    public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        if (getView(session, viewName).isEmpty()) {
+            throw new ViewNotFoundException(viewName);
+        }
+        catalog.createView(session, viewName, viewDefinition, catalog.getViewProperties(session, viewName), true);
+    }
+
+    @Override
     public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
     {
         catalog.setViewPrincipal(session, viewName, principal);
@@ -3535,10 +3545,9 @@ public class IcebergMetadata
     @Override
     public boolean isView(ConnectorSession session, SchemaTableName viewName)
     {
-        Optional<ConnectorViewDefinition> systemView = getRawSystemView(session, viewName);
-
-        if (systemView.isPresent()) {
-            return true;
+        if (isIcebergTableName(viewName.getTableName()) && !isDataTable(viewName.getTableName())) {
+            Optional<ConnectorViewDefinition> systemView = getRawSystemView(session, viewName);
+            return systemView.isPresent();
         }
 
         try {
@@ -3555,10 +3564,8 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        Optional<ConnectorViewDefinition> systemView = getRawSystemView(session, viewName);
-
-        if (systemView.isPresent()) {
-            return systemView;
+        if (isIcebergTableName(viewName.getTableName()) && !isDataTable(viewName.getTableName())) {
+            return getRawSystemView(session, viewName);
         }
 
         return catalog.getView(session, viewName);
@@ -4138,7 +4145,10 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        return catalog.getMaterializedView(session, viewName);
+        if (isIcebergTableName(viewName.getTableName()) && isDataTable(viewName.getTableName())) {
+            return catalog.getMaterializedView(session, viewName);
+        }
+        return Optional.empty();
     }
 
     @Override

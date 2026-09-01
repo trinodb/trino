@@ -14,14 +14,15 @@
 package io.trino.tests.product;
 
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 
 public interface TableFormatsTestEnvironment
 {
-    QueryResult executeTrino(String sql);
+    QueryResult executeTrino(@Language("SQL") String sql);
 
-    int executeTrinoUpdate(String sql);
+    int executeTrinoUpdate(@Language("SQL") String sql);
 
-    QueryResult executeSpark(String sql);
+    QueryResult executeSpark(@Language("SQL") String sql);
 
     String getWarehouseDirectory();
 }
