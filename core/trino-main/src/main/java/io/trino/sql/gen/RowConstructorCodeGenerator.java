@@ -262,9 +262,6 @@ public class RowConstructorCodeGenerator
     public static SqlRow createSqlRowFromFieldBlocksForSingleRow(Block[] fieldBlocks)
     {
         for (int i = 0; i < fieldBlocks.length; i++) {
-            if (fieldBlocks[i] == null) {
-                throw new IllegalArgumentException(format("field block is null for field %s", i));
-            }
             if (fieldBlocks[i].getPositionCount() != 1) {
                 throw new IllegalArgumentException(format("field block must only contain a single position, found: %s positions", fieldBlocks[i].getPositionCount()));
             }
