@@ -81,7 +81,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.parseDouble;
@@ -204,7 +204,8 @@ public final class TransactionLogParser
             zonedDateTime = ZonedDateTime.parse(timestamp, ISO_ZONED_DATE_TIME);
         }
         Instant instant = zonedDateTime.toInstant();
-        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(instant.getEpochSecond(), (long) instant.getNano() * PICOSECONDS_PER_NANOSECOND, UTC_KEY);
+        long fractionMicros = instant.getNano() / NANOSECONDS_PER_MICROSECOND;
+        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(instant.getEpochSecond(), fractionMicros * PICOSECONDS_PER_MICROSECOND, UTC_KEY);
     }
 
     public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader, Function<String, LongTimestampWithTimeZone> timestampWithZoneReader)
