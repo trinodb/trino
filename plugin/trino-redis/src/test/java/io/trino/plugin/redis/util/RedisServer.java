@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.redis.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import org.testcontainers.containers.GenericContainer;
 import redis.clients.jedis.Connection;
@@ -20,6 +21,7 @@ import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.Protocol;
 import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.SslOptions;
+import redis.clients.jedis.util.SafeEncoder;
 
 import java.io.Closeable;
 import java.io.File;
@@ -49,15 +51,20 @@ public class RedisServer
 
     public RedisServer(String version, boolean setAccessControl)
     {
-        this(version, setAccessControl, false);
+        this(version, setAccessControl, false, false);
     }
 
     public static RedisServer createTlsServer()
     {
-        return new RedisServer(LATEST_VERSION, false, true);
+        return new RedisServer(LATEST_VERSION, false, true, false);
     }
 
-    private RedisServer(String version, boolean setAccessControl, boolean tls)
+    public static RedisServer createClusterServer()
+    {
+        return new RedisServer(LATEST_VERSION, false, false, true);
+    }
+
+    private RedisServer(String version, boolean setAccessControl, boolean tls, boolean cluster)
     {
         container = new GenericContainer<>("redis:" + version)
                 .withExposedPorts(PORT);
@@ -66,6 +73,15 @@ public class RedisServer
         }
         if (tls) {
             configureTls(container);
+        }
+        if (cluster) {
+            container.withCommand("redis-server", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf", "--cluster-node-timeout", "5000");
+            // Publish the Redis port on the same host port. A runtime CONFIG SET of
+            // cluster-announce-port is not reliably reflected in the CLUSTER NODES "myself" entry
+            // on Redis 7.0, so the connector would otherwise discover the internal port 6379 and
+            // fail to connect. Binding host 6379 -> container 6379 makes the advertised address
+            // (127.0.0.1:6379) reachable from the test JVM.
+            container.setPortBindings(ImmutableList.of(PORT + ":" + PORT));
         }
         container.start();
 
@@ -82,6 +98,9 @@ public class RedisServer
                 .build();
         if (setAccessControl) {
             aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
+        }
+        if (cluster) {
+            initializeCluster();
         }
     }
 
@@ -128,6 +147,49 @@ public class RedisServer
             connection.sendCommand(Protocol.Command.ACL, args);
             connection.getStatusCodeReply();
         }
+    }
+
+    // Turns the single container into a one-node Redis Cluster that owns all 16384 slots.
+    // The Redis port is published on the same host port (see setPortBindings above), so the address
+    // returned by CLUSTER NODES (127.0.0.1:6379) is reachable from the test JVM. This exercises the
+    // full cluster code path (node discovery, per-node scan, pipelined single-key fetch) in CI
+    // without the node-address advertisement problems of a multi-container cluster.
+    private void initializeCluster()
+    {
+        String announceIp = container.getHost();
+        if (announceIp.equals("localhost")) {
+            announceIp = "127.0.0.1";
+        }
+        int announcePort = container.getMappedPort(PORT);
+        try (Connection connection = redisClient.getPool().getResource()) {
+            connection.sendCommand(Protocol.Command.CONFIG, "SET", "cluster-announce-ip", announceIp);
+            connection.getStatusCodeReply();
+            connection.sendCommand(Protocol.Command.CONFIG, "SET", "cluster-announce-port", Integer.toString(announcePort));
+            connection.getStatusCodeReply();
+            connection.sendCommand(Protocol.Command.CLUSTER, "ADDSLOTSRANGE", "0", "16383");
+            connection.getStatusCodeReply();
+            waitForClusterReady(connection);
+        }
+    }
+
+    private static void waitForClusterReady(Connection connection)
+    {
+        long deadlineMillis = System.currentTimeMillis() + 30_000;
+        while (System.currentTimeMillis() < deadlineMillis) {
+            connection.sendCommand(Protocol.Command.CLUSTER, "INFO");
+            String info = SafeEncoder.encode((byte[]) connection.getOne());
+            if (info != null && info.contains("cluster_state:ok")) {
+                return;
+            }
+            try {
+                Thread.sleep(200);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for Redis cluster to be ready", e);
+            }
+        }
+        throw new IllegalStateException("Redis cluster did not become ready within 30 seconds");
     }
 
     private static void configureTls(GenericContainer<?> container)

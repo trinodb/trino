@@ -24,6 +24,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestingTrinoClient;
 import io.trino.testing.ResultsSession;
 import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.RedisClusterClient;
 
 import java.util.List;
 import java.util.Map;
@@ -43,10 +44,12 @@ public class RedisLoader
         extends AbstractTestingTrinoClient<Void>
 {
     private final RedisClient client;
+    private final RedisClusterClient redisClusterClient;
     private final String tableName;
     private final String dataFormat;
     private final AtomicLong count = new AtomicLong();
     private final JsonEncoder jsonEncoder;
+    private final boolean clusterMode;
 
     public RedisLoader(
             TestingTrinoServer trinoServer,
@@ -55,11 +58,48 @@ public class RedisLoader
             String tableName,
             String dataFormat)
     {
+        this(trinoServer, defaultSession, client, null, tableName, dataFormat, false);
+    }
+
+    public RedisLoader(
+            TestingTrinoServer trinoServer,
+            Session defaultSession,
+            RedisClient client,
+            String tableName,
+            String dataFormat,
+            boolean clusterMode)
+    {
+        this(trinoServer, defaultSession, client, null, tableName, dataFormat, clusterMode);
+    }
+
+    public RedisLoader(
+            TestingTrinoServer trinoServer,
+            Session defaultSession,
+            RedisClusterClient redisClusterClient,
+            String tableName,
+            String dataFormat,
+            boolean clusterMode)
+    {
+        this(trinoServer, defaultSession, null, redisClusterClient, tableName, dataFormat, clusterMode);
+    }
+
+    private RedisLoader(
+            TestingTrinoServer trinoServer,
+            Session defaultSession,
+            RedisClient client,
+            RedisClusterClient redisClusterClient,
+            String tableName,
+            String dataFormat,
+            boolean clusterMode)
+    {
         super(trinoServer, defaultSession);
-        this.client = requireNonNull(client, "client is null");
+        this.client = client;
+        this.redisClusterClient = redisClusterClient;
         this.tableName = tableName;
         this.dataFormat = dataFormat;
+        this.clusterMode = clusterMode;
         jsonEncoder = new JsonEncoder();
+        checkState(clusterMode ? redisClusterClient != null : client != null, "client or redisClusterClient must be non-null");
     }
 
     @Override
@@ -100,16 +140,18 @@ public class RedisLoader
                                 builder.put(columns.get(i).getName(), value);
                             }
                         }
-                        client.set(redisKey, jsonEncoder.toString(builder.buildOrThrow()));
+                        setClusterAware(redisKey, jsonEncoder.toString(builder.buildOrThrow()));
                     }
                     case "hash" -> {
-                        // add keys to zset
-                        String redisZset = "keyset:" + tableName;
-                        client.zadd(redisZset, count.get(), redisKey);
+                        // add keys to zset (only in standalone mode; zset not supported in cluster)
+                        if (!clusterMode) {
+                            String redisZset = "keyset:" + tableName;
+                            client.zadd(redisZset, (double) count.get(), redisKey);
+                        }
 
                         // add values to Hash
                         for (int i = 0; i < fields.size(); i++) {
-                            client.hset(redisKey, columns.get(i).getName(), fields.get(i).toString());
+                            hsetClusterAware(redisKey, columns.get(i).getName(), fields.get(i).toString());
                         }
                     }
                     default -> throw new AssertionError("unhandled value type: " + dataFormat);
@@ -145,6 +187,26 @@ public class RedisLoader
                 return value;
             }
             throw new AssertionError("unhandled type: " + type);
+        }
+
+        private void setClusterAware(String key, String value)
+        {
+            if (clusterMode) {
+                redisClusterClient.set(key, value);
+            }
+            else {
+                client.set(key, value);
+            }
+        }
+
+        private void hsetClusterAware(String key, String field, String value)
+        {
+            if (clusterMode) {
+                redisClusterClient.hset(key, field, value);
+            }
+            else {
+                client.hset(key, field, value);
+            }
         }
     }
 }

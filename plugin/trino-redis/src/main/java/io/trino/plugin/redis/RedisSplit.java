@@ -20,8 +20,10 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -52,6 +54,8 @@ public final class RedisSplit
 
     private final TupleDomain<ColumnHandle> constraint;
 
+    private final Optional<List<String>> clusterKeys;
+
     @JsonCreator
     public RedisSplit(
             @JsonProperty("schemaName") String schemaName,
@@ -62,7 +66,8 @@ public final class RedisSplit
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("start") long start,
             @JsonProperty("end") long end,
-            @JsonProperty("nodes") List<HostAddress> nodes)
+            @JsonProperty("nodes") List<HostAddress> nodes,
+            @Nullable @JsonProperty("clusterKeys") List<String> clusterKeys)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -75,6 +80,9 @@ public final class RedisSplit
         this.end = end;
         this.valueDataType = toRedisDataType(valueDataFormat);
         this.keyDataType = toRedisDataType(keyDataFormat);
+        this.clusterKeys = clusterKeys == null
+                ? Optional.empty()
+                : Optional.of(ImmutableList.copyOf(clusterKeys));
     }
 
     @JsonProperty
@@ -141,6 +149,18 @@ public final class RedisSplit
         return end;
     }
 
+    @JsonProperty
+    @Nullable
+    public List<String> getClusterKeys()
+    {
+        return clusterKeys.orElse(null);
+    }
+
+    public Optional<List<String>> getClusterKeysOptional()
+    {
+        return clusterKeys;
+    }
+
     @Override
     public List<HostAddress> getAddresses()
     {
@@ -157,7 +177,8 @@ public final class RedisSplit
                 + estimatedSizeOf(keyName)
                 + estimatedSizeOf(valueDataFormat)
                 + estimatedSizeOf(nodes, HostAddress::getRetainedSizeInBytes)
-                + constraint.getRetainedSizeInBytes(columnHandle -> ((RedisColumnHandle) columnHandle).getRetainedSizeInBytes());
+                + constraint.getRetainedSizeInBytes(columnHandle -> ((RedisColumnHandle) columnHandle).getRetainedSizeInBytes())
+                + clusterKeys.map(keys -> estimatedSizeOf(keys, key -> estimatedSizeOf(key))).orElse(0L);
     }
 
     public static RedisDataType toRedisDataType(String dataFormat)
@@ -182,6 +203,7 @@ public final class RedisSplit
                 .add("end", end)
                 .add("nodes", nodes)
                 .add("constraint", constraint)
+                .add("clusterKeys", clusterKeys.orElse(null))
                 .toString();
     }
 }
