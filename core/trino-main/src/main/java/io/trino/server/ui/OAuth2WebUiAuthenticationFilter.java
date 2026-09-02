@@ -34,6 +34,7 @@ import jakarta.ws.rs.core.Response;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -58,6 +59,7 @@ public class OAuth2WebUiAuthenticationFilter
     private final TokenPairSerializer tokenPairSerializer;
     private final Optional<Duration> tokenExpiration;
     private final UserMapping userMapping;
+    private final Optional<String> groupsField;
 
     @Inject
     public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Client client, TokenPairSerializer tokenPairSerializer, @ForRefreshTokens Optional<Duration> tokenExpiration, OAuth2Config oauth2Config)
@@ -68,6 +70,7 @@ public class OAuth2WebUiAuthenticationFilter
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
         this.principalField = oauth2Config.getPrincipalField();
+        groupsField = requireNonNull(oauth2Config.getGroupsField(), "groupsField is null");
     }
 
     @Override
@@ -108,6 +111,8 @@ public class OAuth2WebUiAuthenticationFilter
             String principalName = (String) principal;
             Identity.Builder builder = Identity.forUser(userMapping.mapUser(principalName));
             builder.withPrincipal(new BasicPrincipal(principalName));
+            groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
+                    .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
             setAuthenticatedIdentity(request, builder.build());
         }
         catch (UserMappingException e) {
