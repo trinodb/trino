@@ -518,7 +518,7 @@ public class HiveKerberosEnvironment
      */
     protected HadoopContainer createKerberosBaseHadoopContainer()
     {
-        return new HadoopContainer();
+        return HadoopContainer.kerberized();
     }
 
     /**
@@ -610,13 +610,6 @@ public class HiveKerberosEnvironment
                echo "=== Verifying Kerberos files exist ==="
                ls -la /etc/krb5.conf
                ls -la ${KEYTAB_DIR}/
-
-               echo "=== Ensuring Kerberos workstation tools are available ==="
-               if ! command -v kinit >/dev/null 2>&1; then
-                   yum install -y -q krb5-workstation
-               else
-                   echo "krb5-workstation already present; skipping yum install"
-               fi
 
                echo "=== Configuring supervisord child process environment for Kerberos ==="
                # Add JAVA_TOOL_OPTIONS to each supervisord program config so JVM processes can find krb5.conf
