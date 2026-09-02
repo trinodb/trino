@@ -14,6 +14,7 @@
     <description>Trino - Engine</description>
 
     <properties>
+        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --enable-native-access=ALL-UNNAMED</air.test.jvm.additional-arguments>
         <!-- TODO enable @GuardedBy checks in trino-main -->
         <trino.error-prone.guarded-by>WARN</trino.error-prone.guarded-by>
     </properties>
@@ -178,6 +179,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>vthreadtime</artifactId>
         </dependency>
 
         <dependency>
