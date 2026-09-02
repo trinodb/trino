@@ -693,7 +693,7 @@ public class OracleClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> format("%s FETCH FIRST %s ROWS ONLY", sql, limit));
+        return Optional.of((sql, limit) -> format("SELECT * FROM (%s) WHERE ROWNUM <= %s", sql, limit));
     }
 
     @Override
