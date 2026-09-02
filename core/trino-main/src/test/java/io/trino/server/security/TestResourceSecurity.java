@@ -1173,6 +1173,7 @@ public class TestResourceSecurity
                     new PreparedStatementEncoder(new ProtocolConfig()),
                     createTestingMetadataManager(),
                     _ -> ImmutableSet.of(),
+                    _ -> ImmutableMap.of(),
                     accessControl,
                     new ProtocolConfig(),
                     QueryDataEncoder.EncoderSelector.noEncoder());
