@@ -75,6 +75,7 @@ final class TestOpaAccessControlFiltering
                             "resource": {
                                 "user": {
                                     "user": "user-one",
+                                    "principal": "user-one",
                                     "groups": []
                                 }
                             }
@@ -87,6 +88,7 @@ final class TestOpaAccessControlFiltering
                             "resource": {
                                 "user": {
                                     "user": "user-two",
+                                    "principal": "user-two",
                                     "groups": []
                                 }
                             }
