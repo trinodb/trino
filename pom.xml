@@ -184,7 +184,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>446</dep.airlift.version>
+        <dep.airlift.version>447</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.2</dep.avro.version>
@@ -616,6 +616,12 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
+                <artifactId>guice</artifactId>
+                <version>${dep.airlift.guice.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.3</version>
             </dependency>
@@ -637,7 +643,7 @@
                 <artifactId>discovery-server</artifactId>
                 <version>1.37</version>
                 <exclusions>
-                    <!-- exclude shaded guice dependency as we bring classes only variant -->
+                    <!-- exclude shaded guice dependency as we use the io.airlift:guice fork -->
                     <exclusion>
                         <groupId>com.google.inject</groupId>
                         <artifactId>guice</artifactId>
@@ -2438,6 +2444,9 @@
                                     <exclude>org.apache.logging.log4j:log4j-core</exclude>
                                     <!-- 1.x versions are banned due to https://www.cve.org/CVERecord?id=CVE-2022-1471 -->
                                     <exclude>org.yaml:snakeyaml</exclude>
+                                    <!-- use the io.airlift:guice fork -->
+                                    <exclude>com.google.inject:guice</exclude>
+                                    <exclude>aopalliance:aopalliance</exclude>
                                     <!-- use Guice version -->
                                     <exclude>javax.inject:javax.inject</exclude>
                                     <!-- use Jakarta version -->
