@@ -4532,6 +4532,19 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCreateExternalTableWithLastColumnTakesRest()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_with_last_column_takes_rest",
+                "helloXworldXextra\nbyeXworldXstuff", // the last column absorbs the remainder of the line, separator characters included
+                "VALUES ('hello', 'worldXextra'), ('bye', 'worldXstuff')",
+                ImmutableList.of(
+                        "last_column_takes_rest = true",
+                        "textfile_field_separator = 'X'"));
+    }
+
+    @Test
     public void testCreateExternalTableWithFieldSeparatorEscape()
             throws Exception
     {

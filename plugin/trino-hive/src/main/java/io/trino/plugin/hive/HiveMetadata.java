@@ -236,6 +236,7 @@ import static io.trino.plugin.hive.HiveTableProperties.CSV_ESCAPE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_QUOTE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.LAST_COLUMN_TAKES_REST;
 import static io.trino.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
@@ -264,6 +265,7 @@ import static io.trino.plugin.hive.HiveTableProperties.getParquetBloomFilterColu
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTableProperties.getRegexPattern;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
+import static io.trino.plugin.hive.HiveTableProperties.isLastColumnTakesRest;
 import static io.trino.plugin.hive.HiveTableProperties.isRegexCaseInsensitive;
 import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
@@ -378,6 +380,7 @@ public class HiveMetadata
     private static final String TEXT_FIELD_SEPARATOR_KEY = SerdeConstants.FIELD_DELIM;
     private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = SerdeConstants.ESCAPE_CHAR;
     private static final String NULL_FORMAT_KEY = SerdeConstants.SERIALIZATION_NULL_FORMAT;
+    private static final String LAST_COLUMN_TAKES_REST_KEY = SerdeConstants.SERIALIZATION_LAST_COLUMN_TAKES_REST;
 
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String AVRO_SCHEMA_LITERAL_KEY = "avro.schema.literal";
@@ -759,6 +762,8 @@ public class HiveMetadata
         // Multi-format property
         getSerdeProperty(table, NULL_FORMAT_KEY)
                 .ifPresent(nullFormat -> properties.put(NULL_FORMAT_PROPERTY, nullFormat));
+        getSerdeProperty(table, LAST_COLUMN_TAKES_REST_KEY)
+                .ifPresent(lastColumnTakesRest -> properties.put(LAST_COLUMN_TAKES_REST, parseBoolean(lastColumnTakesRest)));
 
         // Textfile specific properties
         getSerdeProperty(table, TEXT_FIELD_SEPARATOR_KEY)
@@ -1213,13 +1218,18 @@ public class HiveMetadata
             }
         });
 
-        // null_format is allowed in textfile, rctext, and sequencefile
-        Set<HiveStorageFormat> allowsNullFormat = ImmutableSet.of(
+        // null_format and last_column_takes_rest are allowed in textfile, rctext, and sequencefile
+        Set<HiveStorageFormat> allowsLazySimpleSerdeProperties = ImmutableSet.of(
                 HiveStorageFormat.TEXTFILE, HiveStorageFormat.RCTEXT, HiveStorageFormat.SEQUENCEFILE);
         getNullFormat(tableMetadata.getProperties())
                 .ifPresent(format -> {
-                    checkFormatForProperty(hiveStorageFormat, allowsNullFormat, NULL_FORMAT_PROPERTY);
+                    checkFormatForProperty(hiveStorageFormat, allowsLazySimpleSerdeProperties, NULL_FORMAT_PROPERTY);
                     tableProperties.put(NULL_FORMAT_KEY, format);
+                });
+        isLastColumnTakesRest(tableMetadata.getProperties())
+                .ifPresent(lastColumnTakesRest -> {
+                    checkFormatForProperty(hiveStorageFormat, allowsLazySimpleSerdeProperties, LAST_COLUMN_TAKES_REST);
+                    tableProperties.put(LAST_COLUMN_TAKES_REST_KEY, String.valueOf(lastColumnTakesRest));
                 });
 
         // Textfile-specific properties
