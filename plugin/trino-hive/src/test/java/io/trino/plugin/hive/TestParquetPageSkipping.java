@@ -16,38 +16,25 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.Session;
-import io.trino.execution.QueryStats;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.operator.OperatorStats;
-import io.trino.spi.QueryId;
-import io.trino.spi.metrics.Count;
-import io.trino.spi.metrics.Metric;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
-import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URL;
-import java.util.Map;
 import java.util.UUID;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
-import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPageSkipping
-        extends AbstractTestQueryFramework
+        extends BaseTestParquetPageSkipping
 {
     private TrinoFileSystem fileSystem;
 
@@ -68,101 +55,24 @@ public class TestParquetPageSkipping
         return queryRunner;
     }
 
-    @Test
-    public void testRowGroupPruningFromPageIndexes()
-            throws Exception
-    {
-        Location dataFile = copyInDataFile("parquet_page_skipping/orders_sorted_by_totalprice/data.parquet");
-
-        String tableName = "test_row_group_pruning_" + randomNameSuffix();
-        assertUpdate(
-                """
-                CREATE TABLE %s (
-                   orderkey bigint,
-                   custkey bigint,
-                   orderstatus varchar(1),
-                   totalprice double,
-                   orderdate date,
-                   orderpriority varchar(15),
-                   clerk varchar(15),
-                   shippriority integer,
-                   comment varchar(79),
-                   rvalues double array)
-                WITH (
-                   format = 'PARQUET',
-                   external_location = '%s')
-                """.formatted(tableName, dataFile.parentDirectory()));
-
-        int rowCount = assertColumnIndexResults("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'");
-        assertThat(rowCount).isGreaterThan(0);
-
-        // `totalprice BETWEEN 51890 AND 51900` is chosen to lie between min/max values of row group
-        // but outside page level min/max boundaries to trigger pruning of row group using column index
-        assertRowGroupPruning("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 51890 AND 51900 AND orderkey > 0");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testPageSkippingWithNonSequentialOffsets()
+    @Override
+    protected String createTableWithDataFile(String tableNamePrefix, String columnsDefinition, String resourceFileName)
             throws IOException
     {
-        Location dataFile = copyInDataFile("parquet_page_skipping/random/data.parquet");
-        String tableName = "test_random_" + randomNameSuffix();
+        Location dataFile = copyInDataFile(resourceFileName);
+        String tableName = tableName(tableNamePrefix);
         assertUpdate(format(
-                "CREATE TABLE %s (col double) WITH (format = 'PARQUET', external_location = '%s')",
+                "CREATE TABLE %s %s WITH (format = 'PARQUET', external_location = '%s')",
                 tableName,
+                columnsDefinition,
                 dataFile.parentDirectory()));
-        // These queries select a subset of pages which are stored at non-sequential offsets
-        // This reproduces the issue identified in https://github.com/trinodb/trino/issues/9097
-        for (double i = 0; i < 1; i += 0.1) {
-            assertColumnIndexResults(format("SELECT * FROM %s WHERE col BETWEEN %f AND %f", tableName, i - 0.00001, i + 0.00001));
-        }
-        assertUpdate("DROP TABLE " + tableName);
+        return tableName;
     }
 
-    @Test
-    public void testFilteringOnColumnNameWithDot()
-            throws IOException
+    @Override
+    protected String timestampMillisType()
     {
-        Location dataFile = copyInDataFile("parquet_page_skipping/column_name_with_dot/data.parquet");
-
-        String nameInSql = "\"a.dot\"";
-        String tableName = "test_column_name_with_dot_" + randomNameSuffix();
-
-        assertUpdate(format(
-                "CREATE TABLE %s (key varchar(50), %s varchar(50)) WITH (format = 'PARQUET', external_location = '%s')",
-                tableName,
-                nameInSql,
-                dataFile.parentDirectory()));
-
-        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
-        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testUnsupportedColumnIndex()
-            throws IOException
-    {
-        String tableName = "test_unsupported_column_index_" + randomNameSuffix();
-
-        // Test for https://github.com/trinodb/trino/issues/16801
-        Location dataFile = copyInDataFile("parquet_page_skipping/unsupported_column_index/data.parquet");
-        assertUpdate(format(
-                "CREATE TABLE %s (stime timestamp(3), btime timestamp(3), detail varchar) WITH (format = 'PARQUET', external_location = '%s')",
-                tableName,
-                dataFile.parentDirectory()));
-
-        assertQuery(
-                "SELECT * FROM " + tableName + " WHERE btime >= timestamp '2023-03-27 13:30:00'",
-                "VALUES ('2023-03-31 18:00:00.000', '2023-03-31 18:00:00.000', 'record_1')");
-
-        assertQuery(
-                "SELECT * FROM " + tableName + " WHERE detail = 'record_2'",
-                "VALUES ('2023-03-31 18:00:00.000', null, 'record_2')");
-
-        assertUpdate("DROP TABLE " + tableName);
+        return "timestamp(3)";
     }
 
     @Test
@@ -215,108 +125,6 @@ public class TestParquetPageSkipping
             assertColumnIndexResults(format("SELECT orderkey, orderdate FROM %s WHERE %s IN (%s, %s, %s, %s)", tableName, sortByColumn, lowValue, middleLowValue, middleHighValue, highValue));
         }
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testFilteringWithColumnIndex()
-            throws IOException
-    {
-        Location dataFile = copyInDataFile("parquet_page_skipping/lineitem_sorted_by_suppkey/data.parquet");
-        String tableName = "test_page_filtering_" + randomNameSuffix();
-        assertUpdate(format(
-                "CREATE TABLE %s (suppkey bigint, extendedprice decimal(12, 2), shipmode varchar(10), comment varchar(44)) " +
-                        "WITH (format = 'PARQUET', external_location = '%s')",
-                tableName,
-                dataFile.parentDirectory()));
-
-        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey = 10");
-        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey BETWEEN 25 AND 35");
-        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey >= 60");
-        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey <= 40");
-        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey IN (25, 35, 50, 80)");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    private void verifyFilteringWithColumnIndex(@Language("SQL") String query)
-    {
-        QueryRunner queryRunner = getDistributedQueryRunner();
-        MaterializedResultWithPlan resultWithoutColumnIndex = queryRunner.executeWithPlan(
-                noParquetColumnIndexFiltering(getSession()),
-                query);
-        QueryStats queryStatsWithoutColumnIndex = getQueryStats(resultWithoutColumnIndex.queryId());
-        assertThat(queryStatsWithoutColumnIndex.getPhysicalInputPositions()).isGreaterThan(0);
-        Map<String, Metric<?>> metricsWithoutColumnIndex = getScanOperatorStats(resultWithoutColumnIndex.queryId())
-                .getConnectorMetrics()
-                .getMetrics();
-        assertThat(metricsWithoutColumnIndex).doesNotContainKey(COLUMN_INDEX_ROWS_FILTERED);
-
-        MaterializedResultWithPlan resultWithColumnIndex = queryRunner.executeWithPlan(getSession(), query);
-        QueryStats queryStatsWithColumnIndex = getQueryStats(resultWithColumnIndex.queryId());
-        assertThat(queryStatsWithColumnIndex.getPhysicalInputPositions()).isGreaterThan(0);
-        assertThat(queryStatsWithColumnIndex.getPhysicalInputPositions())
-                .isLessThan(queryStatsWithoutColumnIndex.getPhysicalInputPositions());
-        Map<String, Metric<?>> metricsWithColumnIndex = getScanOperatorStats(resultWithColumnIndex.queryId())
-                .getConnectorMetrics()
-                .getMetrics();
-        assertThat(metricsWithColumnIndex).containsKey(COLUMN_INDEX_ROWS_FILTERED);
-        assertThat(((Count<?>) metricsWithColumnIndex.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
-                .isGreaterThan(0);
-
-        assertEqualsIgnoreOrder(resultWithColumnIndex.result(), resultWithoutColumnIndex.result());
-    }
-
-    private int assertColumnIndexResults(String query)
-    {
-        MaterializedResult withColumnIndexing = computeActual(query);
-        MaterializedResult withoutColumnIndexing = computeActual(noParquetColumnIndexFiltering(getSession()), query);
-        assertEqualsIgnoreOrder(withColumnIndexing, withoutColumnIndexing);
-        return withoutColumnIndexing.getRowCount();
-    }
-
-    private void assertRowGroupPruning(@Language("SQL") String sql)
-    {
-        assertQueryStats(
-                noParquetColumnIndexFiltering(getSession()),
-                sql,
-                queryStats -> {
-                    assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0);
-                    assertThat(queryStats.getProcessedInputPositions()).isEqualTo(queryStats.getPhysicalInputPositions());
-                },
-                results -> assertThat(results.getRowCount()).isEqualTo(0));
-
-        assertQueryStats(
-                getSession(),
-                sql,
-                queryStats -> {
-                    assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0);
-                    assertThat(queryStats.getProcessedInputPositions()).isEqualTo(0);
-                },
-                results -> assertThat(results.getRowCount()).isEqualTo(0));
-    }
-
-    private Session noParquetColumnIndexFiltering(Session session)
-    {
-        return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "parquet_use_column_index", "false")
-                .build();
-    }
-
-    private QueryStats getQueryStats(QueryId queryId)
-    {
-        return getDistributedQueryRunner().getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats();
-    }
-
-    private OperatorStats getScanOperatorStats(QueryId queryId)
-    {
-        return getQueryStats(queryId)
-                .getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
-                .collect(onlyElement());
     }
 
     private void buildSortedTables(String tableName, String sortByColumnName, String sortByColumnType)
