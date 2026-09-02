@@ -24,6 +24,7 @@ import io.trino.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateSetAggregation;
 import io.trino.operator.aggregation.ApproximateSetGenericAggregation;
+import io.trino.operator.aggregation.ApproximateSetWithMaxErrorAggregation;
 import io.trino.operator.aggregation.ArbitraryAggregationFunction;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BigintAverageAggregations;
@@ -436,6 +437,7 @@ public final class SystemFunctionBundle
                 .aggregates(RealGeometricMeanAggregations.class)
                 .aggregates(MergeHyperLogLogAggregation.class)
                 .aggregates(ApproximateSetAggregation.class)
+                .aggregates(ApproximateSetWithMaxErrorAggregation.class)
                 .aggregates(ApproximateSetGenericAggregation.class)
                 .aggregates(TDigestAggregationFunction.class)
                 .aggregates(DoubleQuantileDigestAggregationFunction.class)
