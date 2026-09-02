@@ -20,12 +20,14 @@ import com.google.common.io.Resources;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.parquet.Column;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -40,6 +42,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.MessageType;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -52,11 +57,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
+import static io.trino.parquet.ParquetTypeUtils.constructField;
+import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
+import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
+import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
+import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
+import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -66,6 +78,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class TestParquetReader
 {
@@ -140,14 +153,7 @@ public class TestParquetReader
                 ParquetReaderOptions.defaultOptions());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         assertThat(parquetMetadata.getBlocks()).hasSize(2);
-        // The predicate and the file are prepared so that page indexes will result in non-overlapping row ranges and eliminate the entire first row group
-        // while the second row group still has to be read
-        TupleDomain<String> predicate = TupleDomain.withColumnDomains(
-                ImmutableMap.of(
-                        "l_shipdate", Domain.multipleValues(DATE, ImmutableList.of(LocalDate.of(1993, 1, 1).toEpochDay(), LocalDate.of(1997, 1, 1).toEpochDay())),
-                        "l_commitdate", Domain.create(ValueSet.ofRanges(Range.greaterThan(DATE, LocalDate.of(1995, 1, 1).toEpochDay())), false)));
-
-        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ParquetReaderOptions.defaultOptions(), newSimpleAggregatedMemoryContext(), types, columnNames, predicate)) {
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ParquetReaderOptions.defaultOptions(), newSimpleAggregatedMemoryContext(), types, columnNames, sortedLineitemPageSkippingPredicate())) {
             SourcePage page = reader.nextPage();
             int rowsRead = 0;
             while (page != null) {
@@ -160,6 +166,46 @@ public class TestParquetReader
             // Column index should filter at least the first row group
             assertThat(((Count<?>) metrics.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
                     .isGreaterThanOrEqualTo(parquetMetadata.getBlocks().get(0).rowCount());
+        }
+    }
+
+    @Test
+    public void testRowNumbersWithColumnIndex()
+            throws URISyntaxException, IOException
+    {
+        List<String> columnNames = ImmutableList.of("l_shipdate", "l_commitdate", "l_comment");
+        List<Type> types = ImmutableList.of(DATE, DATE, VARCHAR);
+        ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
+        File file = new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(new FileParquetDataSource(file, options), Optional.empty());
+
+        List<Slice> comments = new ArrayList<>();
+        try (ParquetReader reader = createParquetReader(new FileParquetDataSource(file, options), parquetMetadata, options, newSimpleAggregatedMemoryContext(), types, columnNames, TupleDomain.all())) {
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                Block comment = page.getBlock(2);
+                for (int position = 0; position < comment.getPositionCount(); position++) {
+                    comments.add(VARCHAR.getSlice(comment, position));
+                }
+            }
+        }
+
+        try (ParquetReader reader = createParquetReaderWithRowNumbers(new FileParquetDataSource(file, options), parquetMetadata, options, types, columnNames, sortedLineitemPageSkippingPredicate())) {
+            int rowsRead = 0;
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                rowsRead += page.getPositionCount();
+                // Drop the first position twice before loading the row number block
+                for (int i = 0; i < 2 && page.getPositionCount() > 1; i++) {
+                    int[] positions = IntStream.range(0, page.getPositionCount()).toArray();
+                    page.selectPositions(positions, 1, page.getPositionCount() - 1);
+                }
+                Block comment = page.getBlock(2);
+                Block rowNumber = page.getBlock(3);
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    assertThat(VARCHAR.getSlice(comment, position)).isEqualTo(comments.get(toIntExact(BIGINT.getLong(rowNumber, position))));
+                }
+            }
+            assertThat(rowsRead).isEqualTo(2387);
+            assertThat(reader.getMetrics().getMetrics()).containsKey(COLUMN_INDEX_ROWS_FILTERED);
         }
     }
 
@@ -205,6 +251,60 @@ public class TestParquetReader
             assertThat(blockValues(page.getBlock(0))).containsExactly(firstRow + 3, firstRow + 5);
             assertThat(blockValues(page.getBlock(1))).containsExactly((firstRow + 3) * 10, (firstRow + 5) * 10);
         }
+    }
+
+    // The predicate and the sorted file are prepared so that page indexes result in non-overlapping row ranges
+    // which eliminate the entire first row group while the second row group still has to be read
+    private static TupleDomain<String> sortedLineitemPageSkippingPredicate()
+    {
+        return TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        "l_shipdate", Domain.multipleValues(DATE, ImmutableList.of(LocalDate.of(1993, 1, 1).toEpochDay(), LocalDate.of(1997, 1, 1).toEpochDay())),
+                        "l_commitdate", Domain.create(ValueSet.ofRanges(Range.greaterThan(DATE, LocalDate.of(1995, 1, 1).toEpochDay())), false)));
+    }
+
+    private static ParquetReader createParquetReaderWithRowNumbers(
+            ParquetDataSource dataSource,
+            ParquetMetadata parquetMetadata,
+            ParquetReaderOptions options,
+            List<Type> types,
+            List<String> columnNames,
+            TupleDomain<String> predicate)
+            throws IOException
+    {
+        MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();
+        MessageColumnIO messageColumnIO = getColumnIO(fileSchema, fileSchema);
+        ImmutableList.Builder<Column> columnFields = ImmutableList.builder();
+        for (int i = 0; i < types.size(); i++) {
+            columnFields.add(new Column(columnNames.get(i), constructField(types.get(i), lookupColumnByName(messageColumnIO, columnNames.get(i))).orElseThrow()));
+        }
+        Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+        TupleDomain<ColumnDescriptor> parquetTupleDomain = predicate.transformKeys(columnName -> descriptorsByPath.get(ImmutableList.of(columnName)));
+        TupleDomainParquetPredicate parquetPredicate = buildPredicate(fileSchema, parquetTupleDomain, descriptorsByPath, UTC);
+        List<RowGroupInfo> rowGroups = getFilteredRowGroups(
+                0,
+                dataSource.getEstimatedSize(),
+                dataSource,
+                parquetMetadata,
+                ImmutableList.of(parquetTupleDomain),
+                ImmutableList.of(parquetPredicate),
+                descriptorsByPath,
+                UTC,
+                1000,
+                options);
+        return new ParquetReader(
+                Optional.empty(),
+                columnFields.build(),
+                true,
+                rowGroups,
+                dataSource,
+                UTC,
+                newSimpleAggregatedMemoryContext(),
+                options,
+                RuntimeException::new,
+                Optional.of(parquetPredicate),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static List<Long> blockValues(Block block)

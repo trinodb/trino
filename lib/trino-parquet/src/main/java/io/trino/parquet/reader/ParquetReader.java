@@ -75,6 +75,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.PrimitiveIterator;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
@@ -134,6 +135,10 @@ public class ParquetReader
      * Index in the current group of the next row
      */
     private long nextRowInGroup;
+    // Row indexes within the current row group selected by the column index filter, null when every row is read
+    private PrimitiveIterator.OfLong currentGroupSelectedRows;
+    // File row numbers of the current batch, null unless the row number column is requested and the column index filter selected the rows
+    private long[] currentBatchRowNumbers;
     private int batchSize;
     private int nextBatchSize = INITIAL_BATCH_SIZE;
     private final Map<Integer, ColumnReader> columnReaders;
@@ -290,6 +295,8 @@ public class ParquetReader
         private final int expectedPageId = currentPageId;
         private final Block[] blocks = new Block[columnFields.size() + (appendRowNumberColumn ? 1 : 0)];
         private final int rowNumberColumnIndex = appendRowNumberColumn ? columnFields.size() : -1;
+        private final long batchStartRow = lastBatchStartRow();
+        private final long[] batchRowNumbers = currentBatchRowNumbers;
         private SelectedPositions selectedPositions;
 
         private long sizeInBytes;
@@ -323,6 +330,7 @@ public class ParquetReader
         {
             return INSTANCE_SIZE +
                     sizeOf(blocks) +
+                    sizeOf(batchRowNumbers) +
                     selectedPositions.retainedSizeInBytes();
         }
 
@@ -331,6 +339,9 @@ public class ParquetReader
         {
             consumer.accept(this, INSTANCE_SIZE);
             consumer.accept(blocks, sizeOf(blocks));
+            if (batchRowNumbers != null) {
+                consumer.accept(batchRowNumbers, sizeOf(batchRowNumbers));
+            }
             consumer.accept(selectedPositions, selectedPositions.retainedSizeInBytes());
             for (Block block : blocks) {
                 if (block != null) {
@@ -352,7 +363,7 @@ public class ParquetReader
             Block block = blocks[channel];
             if (block == null) {
                 if (channel == rowNumberColumnIndex) {
-                    block = selectedPositions.createRowNumberBlock(lastBatchStartRow());
+                    block = selectedPositions.createRowNumberBlock(batchStartRow, batchRowNumbers);
                 }
                 else {
                     try {
@@ -417,12 +428,17 @@ public class ParquetReader
             return block.getPositions(positions, 0, positionCount);
         }
 
-        public Block createRowNumberBlock(long startRowNumber)
+        public Block createRowNumberBlock(long batchStartRow, @Nullable long[] batchRowNumbers)
         {
             long[] rowNumbers = new long[positionCount];
             for (int i = 0; i < positionCount; i++) {
                 int position = positions == null ? i : positions[i];
-                rowNumbers[i] = startRowNumber + position;
+                if (batchRowNumbers == null) {
+                    rowNumbers[i] = batchStartRow + position;
+                }
+                else {
+                    rowNumbers[i] = batchRowNumbers[position];
+                }
             }
             return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
         }
@@ -465,8 +481,21 @@ public class ParquetReader
         batchSize = toIntExact(min(batchSize, currentGroupRowCount - nextRowInGroup));
 
         nextRowInGroup += batchSize;
+        currentBatchRowNumbers = null;
+        if (appendRowNumberColumn && currentGroupSelectedRows != null) {
+            currentBatchRowNumbers = selectedBatchRowNumbers();
+        }
         columnReaders.values().forEach(reader -> reader.prepareNextRead(batchSize));
         return batchSize;
+    }
+
+    private long[] selectedBatchRowNumbers()
+    {
+        long[] rowNumbers = new long[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+            rowNumbers[i] = firstRowIndexInGroup + currentGroupSelectedRows.nextLong();
+        }
+        return rowNumbers;
     }
 
     private boolean advanceToNextRowGroup()
@@ -491,6 +520,7 @@ public class ParquetReader
         firstRowIndexInGroup = rowGroupInfo.fileRowOffset();
         currentGroupRowCount = currentBlockMetadata.getRowCount();
         FilteredRowRanges currentGroupRowRanges = blockRowRanges[currentRowGroup];
+        currentGroupSelectedRows = null;
         log.debug("advanceToNextRowGroup dataSource %s, currentRowGroup %d, rowRanges %s, currentBlockMetadata %s", dataSource.getId(), currentRowGroup, currentGroupRowRanges, currentBlockMetadata);
         if (currentGroupRowRanges != null) {
             long rowCount = currentGroupRowRanges.getRowCount();
@@ -501,6 +531,7 @@ public class ParquetReader
                 return advanceToNextRowGroup();
             }
             currentGroupRowCount = rowCount;
+            currentGroupSelectedRows = currentGroupRowRanges.getParquetRowRanges().iterator();
         }
         nextRowInGroup = 0L;
         initializeColumnReaders();
