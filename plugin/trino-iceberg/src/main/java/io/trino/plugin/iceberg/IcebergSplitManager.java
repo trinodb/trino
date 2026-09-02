@@ -43,11 +43,13 @@ import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.SnapshotUtil;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isSplitSourceAsyncEnabled;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
@@ -106,6 +108,11 @@ public class IcebergSplitManager
         InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
         Scan scan = getScan(icebergMetadata, icebergTable, table, metricsReporter, icebergPlanningExecutor);
 
+        // Inline production bounds the manifest planning work a query keeps in flight in the shared split manager pool
+        Optional<ListeningExecutorService> asyncExecutor = isSplitSourceAsyncEnabled(session)
+                ? Optional.of(splitSourceExecutor)
+                : Optional.empty();
+
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,
                 session,
@@ -119,7 +126,7 @@ public class IcebergSplitManager
                 getMinimumAssignedSplitWeight(session),
                 splitAffinityProvider,
                 metricsReporter,
-                splitSourceExecutor,
+                asyncExecutor,
                 dynamicFilterColumns,
                 evaluator);
 
