@@ -34,6 +34,7 @@ public final class Output
     private final String schema;
     private final String table;
     private final Optional<List<OutputColumn>> columns;
+    private final Optional<Object> connectorInfo;
 
     @JsonCreator
     public Output(
@@ -41,13 +42,15 @@ public final class Output
             @JsonProperty("catalogVersion") CatalogVersion catalogVersion,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
-            @JsonProperty("columns") Optional<List<OutputColumn>> columns)
+            @JsonProperty("columns") Optional<List<OutputColumn>> columns,
+            @JsonProperty("connectorInfo") Optional<Object> connectorInfo)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = columns.map(ImmutableList::copyOf);
+        this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
     }
 
     @JsonProperty
@@ -78,6 +81,12 @@ public final class Output
     public Optional<List<OutputColumn>> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public Optional<Object> getConnectorInfo()
+    {
+        return connectorInfo;
     }
 
     @Override

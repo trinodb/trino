@@ -2459,6 +2459,10 @@ public class IcebergMetadata
     @Override
     public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        if (tableHandle instanceof CorruptedIcebergTableHandle) {
+            return Optional.empty();
+        }
+
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         List<String> partitionFields = icebergTableHandle.getSpecId().isPresent() ?
                 PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), icebergTableHandle.getPartitionSpecJsons().get(icebergTableHandle.getSpecId().orElseThrow()))
