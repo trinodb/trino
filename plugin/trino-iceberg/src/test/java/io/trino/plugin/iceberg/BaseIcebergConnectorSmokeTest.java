@@ -62,6 +62,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_BRANCH;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -70,6 +71,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -95,6 +97,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_BRANCH -> true;
             case SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -924,6 +927,48 @@ public abstract class BaseIcebergConnectorSmokeTest
     protected AutoCloseable createSparkIcebergTable(String schema)
     {
         return () -> {};
+    }
+
+    @Test
+    public void testBranchOperations()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_branch_operations_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
+                .matches("VALUES VARCHAR '" + MAIN_BRANCH + "'");
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
+                .matches("VALUES VARCHAR '" + MAIN_BRANCH + "', VARCHAR 'test_branch'");
+
+        assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES (2, 'b')", 1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+
+        assertUpdate("DROP BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
+                .matches("VALUES VARCHAR '" + MAIN_BRANCH + "'");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private long getMostRecentSnapshotId(String tableName)
