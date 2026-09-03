@@ -261,6 +261,7 @@ public class MockThriftMetastoreClient
 
     @Override
     public void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }
