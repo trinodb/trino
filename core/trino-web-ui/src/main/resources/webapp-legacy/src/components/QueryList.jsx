@@ -188,7 +188,7 @@ export class QueryListItem extends React.Component {
                             </div>
                             <div className="col-xs-4 text-right">
                                 <a
-                                    href={'/ui/api/query/' + query.queryId + '?pretty'}
+                                    href={'../api/query/' + query.queryId + '?pretty'}
                                     target="_blank"
                                     data-toggle="tooltip"
                                     data-placement="bottom"
@@ -498,7 +498,7 @@ export class QueryList extends React.Component {
         clearTimeout(this.searchTimeoutId)
 
         $.get(
-            '/ui/api/query',
+            '../api/query',
             function (queryList) {
                 const queryMap = queryList.reduce(function (map, query) {
                     map[query.queryId] = query
