@@ -356,32 +356,37 @@ public final class OkHttpUtil
     private static KeyStore loadSystemKeyStore(Optional<String> keyStoreType)
             throws IOException, GeneralSecurityException
     {
-        return loadSystemStore(keyStoreType, KEYSTORE_MACOS, KEYSTORE_WINDOWS_MY);
+        Optional<String> systemStoreType = getSystemStoreType(keyStoreType, KEYSTORE_WINDOWS_MY);
+        KeyStore store = KeyStore.getInstance(systemStoreType.orElseGet(KeyStore::getDefaultType));
+        store.load(null, null);
+        return store;
     }
 
     private static KeyStore loadSystemTrustStore(Optional<String> trustStoreType)
             throws IOException, GeneralSecurityException
     {
-        return loadSystemStore(trustStoreType, KEYSTORE_MACOS, KEYSTORE_WINDOWS_ROOT);
+        Optional<String> systemStoreType = getSystemStoreType(trustStoreType, KEYSTORE_WINDOWS_ROOT);
+        if (systemStoreType.isPresent()) {
+            KeyStore store = KeyStore.getInstance(systemStoreType.get());
+            store.load(null, null);
+            return store;
+        }
+        return null;
     }
 
-    private static KeyStore loadSystemStore(Optional<String> storeType, String mac, String windows)
-            throws IOException, GeneralSecurityException
+    private static Optional<String> getSystemStoreType(Optional<String> storeType, String windows)
     {
         String osName = Optional.ofNullable(StandardSystemProperty.OS_NAME.value()).orElse("");
-        Optional<String> systemStoreType = storeType;
-        if (!systemStoreType.isPresent()) {
-            if (osName.contains("Windows")) {
-                systemStoreType = Optional.of(windows);
-            }
-            else if (osName.contains("Mac")) {
-                systemStoreType = Optional.of(mac);
-            }
+        if (storeType.isPresent()) {
+            return storeType;
         }
-
-        KeyStore store = KeyStore.getInstance(systemStoreType.orElseGet(KeyStore::getDefaultType));
-        store.load(null, null);
-        return store;
+        if (osName.contains("Windows")) {
+            return Optional.of(windows);
+        }
+        if (osName.contains("Mac")) {
+            return Optional.of(KEYSTORE_MACOS);
+        }
+        return Optional.empty();
     }
 
     public static void setupKerberos(
