@@ -41,6 +41,33 @@ public class TestAggregation
     }
 
     @Test
+    public void testDecimalAverageWithScaledOverflow()
+    {
+        assertThat(assertions.query("SELECT avg(x) FROM UNNEST(CAST(ARRAY[0.9, 0.9] AS array(decimal(38,38)))) t(x)"))
+                .matches("VALUES CAST(0.9 AS decimal(38,38))");
+    }
+
+    @Test
+    public void testDecimalAverageWithoutOverflow()
+    {
+        assertThat(assertions.query("SELECT avg(x) FROM UNNEST(CAST(ARRAY[0.8, 0.8] AS array(decimal(38,38)))) t(x)"))
+                .matches("VALUES CAST(0.8 AS decimal(38,38))");
+    }
+
+    @Test
+    public void testDecimalAverageWithScaledOverflowAndZeroValues()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT avg(x)
+                FROM UNNEST(concat(
+                    ARRAY[DECIMAL '9000000000000000000000000000000000000.0', DECIMAL '9000000000000000000000000000000000000.0'],
+                    repeat(CAST(0 AS decimal(38,1)), 98))) t(x)
+                """))
+                .matches("VALUES CAST(DECIMAL '180000000000000000000000000000000000.0' AS decimal(38,1))");
+    }
+
+    @Test
     public void testQuantifiedComparison()
     {
         assertThat(assertions.query("SELECT v > ALL (VALUES 1) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
