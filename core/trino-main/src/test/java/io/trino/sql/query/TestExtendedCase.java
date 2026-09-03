@@ -221,6 +221,57 @@ public class TestExtendedCase
     }
 
     @Test
+    public void testNullOperandInFilter()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM UNNEST(ARRAY[NULL, 1]) t(x)
+                WHERE CASE CAST(NULL AS integer) WHEN IS NOT DISTINCT FROM x THEN true ELSE false END
+                """))
+                .matches("VALUES CAST(NULL AS integer)");
+    }
+
+    @Test
+    public void testNullOperandInFilterWithTrueDefault()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM UNNEST(ARRAY[NULL, 1]) t(x)
+                WHERE CASE CAST(NULL AS integer) WHEN IS NOT DISTINCT FROM x THEN false ELSE true END
+                """))
+                .matches("VALUES 1");
+    }
+
+    @Test
+    public void testNullOperandControls()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT x, CASE CAST(NULL AS integer) WHEN IS NOT DISTINCT FROM x THEN true ELSE false END
+                FROM UNNEST(ARRAY[NULL, 1]) t(x)
+                """))
+                .matches("VALUES (CAST(NULL AS integer), true), (1, false)");
+
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM UNNEST(ARRAY[NULL, 1]) t(x)
+                WHERE CASE WHEN CAST(NULL AS integer) IS NOT DISTINCT FROM x THEN true ELSE false END
+                """))
+                .matches("VALUES CAST(NULL AS integer)");
+
+        assertThat(assertions.query(
+                """
+                SELECT x
+                FROM UNNEST(ARRAY[NULL, 1]) t(x)
+                WHERE CASE CAST(NULL AS integer) WHEN x THEN false ELSE true END
+                """))
+                .matches("VALUES CAST(NULL AS integer), 1");
+    }
+
+    @Test
     public void testTypeReconciliation()
     {
         // The operand is evaluated once, so all clauses must agree on a single operand type. The
