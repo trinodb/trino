@@ -50,7 +50,6 @@ import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MOD
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -504,26 +503,16 @@ public abstract class BaseTestOracleTypeMapping
     }
 
     /**
-     * Test Oracle's {@code NUMBER} without precision and scale specified, which is a floating-point decimal type.
+     * Test Oracle's {@code NUMBER} without precision and scale specified. Without an explicitly configured
+     * legacy default scale/rounding mode, the column is unsupported (pre-480 behavior) rather than mapped to
+     * the {@code NumberType.NUMBER} SPI type, which is not consistently understood by all JDBC clients.
      */
     @Test
     public void testNumberWithoutPrecisionAndScaleReadMapping()
     {
-        SqlDataTypeTest.create()
-                .addRoundTrip("number", "1", NUMBER, "NUMBER '1'")
-                .addRoundTrip("number", "99", NUMBER, "NUMBER '99'")
-                .addRoundTrip("number", "9999999999999999999999999999.999999999", NUMBER, "NUMBER '9999999999999999999999999999.999999999'") // max
-                .addRoundTrip("number", "-9999999999999999999999999999.999999999", NUMBER, "NUMBER '-9999999999999999999999999999.999999999'") // min
-                // Oracle stores 40 decimal digits
-                .addRoundTrip("number", "12345678901234567890123456789012345678911234567890", NUMBER, "NUMBER '12345678901234567890123456789012345678910000000000'")
-                .addRoundTrip("number", "-12345678901234567890123456789012345678911234567890", NUMBER, "NUMBER '-12345678901234567890123456789012345678910000000000'")
-                .addRoundTrip("number", "123456789012345678901234567890.123456789112345678901234567890", NUMBER, "NUMBER '123456789012345678901234567890.1234567891'")
-                .addRoundTrip("number", "-123456789012345678901234567890.123456789112345678901234567890", NUMBER, "NUMBER '-123456789012345678901234567890.1234567891'")
-                .addRoundTrip("number", "0.00000000000000000000000000000000000001", NUMBER, "NUMBER '0.00000000000000000000000000000000000001'")
-                .addRoundTrip("number", "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000001", NUMBER, "NUMBER '0.00000000000000000000000000000000000000000000000000000000000000000000000000000000001'")
-                .addRoundTrip("number", "999999999999999999999999999999999999999999999999", NUMBER, "NUMBER '1e+48'")
-                .addRoundTrip("number", "CAST(NULL AS NUMBER)", NUMBER, "CAST(NULL AS NUMBER)")
-                .execute(getQueryRunner(), oracleCreateAndInsert("no_prec_and_scale"));
+        try (TestTable table = oracleTable("no_prec_and_scale", "col NUMBER", "(1)")) {
+            assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
+        }
 
         // legacy mode
         SqlDataTypeTest.create()
@@ -532,19 +521,6 @@ public abstract class BaseTestOracleTypeMapping
                 .addRoundTrip("number", "9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // max
                 .addRoundTrip("number", "-9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('-9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // min
                 .execute(getQueryRunner(), number(9), oracleCreateAndInsert("no_prec_and_scale"));
-    }
-
-    @Test
-    public void testTrinoNumber()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("number", "NUMBER '1.1'", NUMBER)
-                .addRoundTrip("number", "NUMBER '-1.1'", NUMBER)
-                .addRoundTrip("number", "NUMBER '12345678901234567890123456700000000000'", NUMBER)
-                .addRoundTrip("number", "NUMBER '123456789012345678901234e100'", NUMBER)
-                .addRoundTrip("number", "NUMBER '123456789012345678901234e-100'", NUMBER)
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_trino_number"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_trino_number"));
     }
 
     @Test

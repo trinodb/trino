@@ -124,7 +124,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.numberColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.numberWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
@@ -604,7 +603,10 @@ public class OracleClient
                             longDecimalWriteFunction(decimalType),
                             FULL_PUSHDOWN));
                 }
-                yield Optional.of(numberColumnMapping());
+                // Unconstrained NUMBER without an explicitly configured legacy default scale/rounding mode:
+                // treat the column as unsupported, matching the connector's pre-480 behavior. Mapping it to
+                // the newer NumberType.NUMBER SPI type is not consistently understood by all JDBC clients.
+                yield Optional.empty();
             }
 
             case OracleTypes.CHAR, OracleTypes.NCHAR -> {
