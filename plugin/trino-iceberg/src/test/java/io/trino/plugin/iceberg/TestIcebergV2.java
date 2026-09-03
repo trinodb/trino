@@ -57,7 +57,6 @@ import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
@@ -1602,9 +1601,8 @@ public class TestIcebergV2
     @Test
     public void testReadingSnapshotReferenceAfterSchemaEvolution()
     {
-        try (TestTable table = newTrinoTable("test_reading_snapshot_reference_schema_", "(id integer, data varchar)")) {
+        try (TestTable table = newTrinoTable("test_reading_snapshot_reference_schema_", "(id integer, data varchar)", ImmutableList.of("(1, 'a')"))) {
             String tableName = table.getName();
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
 
             Table icebergTable = loadTable(tableName);
             long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
@@ -1632,7 +1630,7 @@ public class TestIcebergV2
             // Branches read with the table's current schema
             assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
                     .matches("VALUES (1, CAST(NULL AS double))");
-            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF '" + SnapshotRef.MAIN_BRANCH + "'"))
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'main'"))
                     .matches("VALUES (1, CAST(NULL AS double))");
 
             // Tags and snapshot IDs read with the schema of the snapshot they point to
@@ -1640,6 +1638,35 @@ public class TestIcebergV2
                     .matches("VALUES (1, VARCHAR 'a')");
             assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId))
                     .matches("VALUES (1, VARCHAR 'a')");
+        }
+    }
+
+    @Test
+    public void testReadingSnapshotReferenceAfterPartitionEvolution()
+    {
+        try (TestTable table = newTrinoTable("test_reading_snapshot_reference_partition_", "(id integer, part integer)", ImmutableList.of("(1, 10)"))) {
+            String tableName = table.getName();
+
+            Table icebergTable = loadTable(tableName);
+            long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
+            icebergTable.manageSnapshots()
+                    .createTag("test-tag", refSnapshotId)
+                    .createBranch("test-branch", refSnapshotId)
+                    .commit();
+
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['part']");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 20)", 1);
+
+            // Partition evolution is metadata-only; the refs still point at the
+            // pre-evolution snapshot, so only the old data is visible through them
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
+                    .matches("VALUES (1, 10)");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-tag'"))
+                    .matches("VALUES (1, 10)");
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE part = 10"))
+                    .matches("VALUES 1");
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (1, 10), (2, 20)");
         }
     }
 
