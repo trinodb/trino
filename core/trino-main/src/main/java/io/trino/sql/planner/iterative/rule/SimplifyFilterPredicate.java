@@ -22,6 +22,7 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
@@ -236,6 +237,10 @@ public class SimplifyFilterPredicate
 
     private Expression isFalseOrNullPredicate(Session session, Expression expression)
     {
+        if (isDeterministic(expression)) {
+            // Keep deterministic comparisons visible to domain extraction after expression simplification.
+            return Logical.or(new IsNull(expression), not(metadata, getCharVarcharCoercion(session), expression));
+        }
         return not(metadata, getCharVarcharCoercion(session), comparison(metadata, getCharVarcharCoercion(session), IDENTICAL, expression, TRUE));
     }
 }
