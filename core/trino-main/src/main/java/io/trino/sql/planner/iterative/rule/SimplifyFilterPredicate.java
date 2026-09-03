@@ -212,10 +212,6 @@ public class SimplifyFilterPredicate
     {
         Optional<Expression> defaultValue = Optional.of(caseExpression.defaultValue());
 
-        if (caseExpression.operand() instanceof Constant literal && literal.value() == null) {
-            return defaultValue;
-        }
-
         List<Expression> results = caseExpression.clauses().stream()
                 .map(MatchClause::result)
                 .collect(toImmutableList());
