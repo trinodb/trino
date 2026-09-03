@@ -91,6 +91,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -455,7 +456,7 @@ public final class ThriftHiveMetastore
             setTableColumnStatistics(databaseName, tableName, metastoreColumnStatistics);
         }
         Set<String> removedColumnStatistics = difference(currentStatistics.columnStatistics().keySet(), updatedStatistics.columnStatistics().keySet());
-        removedColumnStatistics.forEach(column -> deleteTableColumnStatistics(databaseName, tableName, column));
+        deleteTableColumnStatistics(databaseName, tableName, removedColumnStatistics);
     }
 
     private PartitionStatistics getCurrentTableStatistics(Table table)
@@ -499,21 +500,32 @@ public final class ThriftHiveMetastore
         }
     }
 
-    private void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
+    private void deleteTableColumnStatistics(String databaseName, String tableName, Collection<String> columnNames)
     {
+        if (columnNames.isEmpty()) {
+            return;
+        }
+        // each column is removed once deleted so a retry skips it
+        Set<String> remainingColumns = new LinkedHashSet<>(columnNames);
         try {
             retry()
-                    .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
+                    .stopOn(InvalidObjectException.class, MetaException.class, InvalidInputException.class)
                     .stopOnIllegalExceptions()
                     .run("deleteTableColumnStatistics", stats.getDeleteTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            client.deleteTableColumnStatistics(databaseName, tableName, columnName);
+                            Iterator<String> columns = remainingColumns.iterator();
+                            while (columns.hasNext()) {
+                                try {
+                                    client.deleteTableColumnStatistics(databaseName, tableName, columns.next());
+                                }
+                                catch (NoSuchObjectException _) {
+                                    // already deleted, for example by an earlier attempt whose response was lost
+                                }
+                                columns.remove();
+                            }
                         }
                         return null;
                     }));
-        }
-        catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), e);
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -556,7 +568,7 @@ public final class ThriftHiveMetastore
         setPartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.columnStatistics());
 
         Set<String> removedStatistics = difference(currentColumnStats.keySet(), updatedStatistics.columnStatistics().keySet());
-        removedStatistics.forEach(column -> deletePartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, column));
+        deletePartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, removedStatistics);
     }
 
     private void setPartitionColumnStatistics(
@@ -599,21 +611,32 @@ public final class ThriftHiveMetastore
         }
     }
 
-    private void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
+    private void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, Collection<String> columnNames)
     {
+        if (columnNames.isEmpty()) {
+            return;
+        }
+        // each column is removed once deleted so a retry skips it
+        Set<String> remainingColumns = new LinkedHashSet<>(columnNames);
         try {
             retry()
-                    .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
+                    .stopOn(InvalidObjectException.class, MetaException.class, InvalidInputException.class)
                     .stopOnIllegalExceptions()
                     .run("deletePartitionColumnStatistics", stats.getDeletePartitionColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            client.deletePartitionColumnStatistics(databaseName, tableName, partitionName, columnName);
+                            Iterator<String> columns = remainingColumns.iterator();
+                            while (columns.hasNext()) {
+                                try {
+                                    client.deletePartitionColumnStatistics(databaseName, tableName, partitionName, columns.next());
+                                }
+                                catch (NoSuchObjectException _) {
+                                    // already deleted, for example by an earlier attempt whose response was lost
+                                }
+                                columns.remove();
+                            }
                         }
                         return null;
                     }));
-        }
-        catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), e);
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1256,9 +1279,13 @@ public final class ThriftHiveMetastore
                 ImmutableList.copyOf(columnsWithMissingStatistics))
                 .getOrDefault(partitionName, ImmutableList.of());
 
-        for (ColumnStatisticsObj statistics : statisticsToBeRemoved) {
-            deletePartitionColumnStatistics(databaseName, tableName, partitionName, statistics.getColName());
-        }
+        deletePartitionColumnStatistics(
+                databaseName,
+                tableName,
+                partitionName,
+                statisticsToBeRemoved.stream()
+                        .map(ColumnStatisticsObj::getColName)
+                        .collect(toImmutableList()));
     }
 
     @Override
