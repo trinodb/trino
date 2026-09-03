@@ -576,6 +576,14 @@
                                     <old>method io.trino.spi.connector.ConnectorMergeSink io.trino.spi.connector.ConnectorPageSinkProvider::createMergeSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
                                     <new>method io.trino.spi.connector.ConnectorMergeSink io.trino.spi.connector.ConnectorPageSinkProvider::createMergeSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId, io.trino.spi.connector.MemoryContext)</new>
                                 </item>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>class io.trino.spi.expression.ConnectorExpression</old>
+                                    <new>class io.trino.spi.expression.ConnectorExpression</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <justification>Lambda was missing a JSON subtype registration; adding it is backwards compatible</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
