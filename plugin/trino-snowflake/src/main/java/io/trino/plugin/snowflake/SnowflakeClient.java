@@ -386,10 +386,10 @@ public class SnowflakeClient
     }
 
     @Override
-    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columnNames, List<String> columnDefinitions, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT = %s", quoted(remoteTableName), join(", ", columns), snowflakeVarcharLiteral(tableMetadata.getComment().orElse(""))));
+        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT = %s", quoted(remoteTableName), join(", ", columnDefinitions), snowflakeVarcharLiteral(tableMetadata.getComment().orElse(""))));
     }
 
     @Override
