@@ -98,6 +98,10 @@ public class ReplaceRedundantJoinWithSource
                                       .orElse(node.getRight())) :
                     Result.empty();
             case FULL -> {
+                // A filter can leave the scalar source unmatched, adding a null row to the result.
+                if (node.getFilter().isPresent()) {
+                    yield Result.empty();
+                }
                 if (leftSourceScalarWithNoOutputs && rightCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
                             .orElse(node.getRight()));

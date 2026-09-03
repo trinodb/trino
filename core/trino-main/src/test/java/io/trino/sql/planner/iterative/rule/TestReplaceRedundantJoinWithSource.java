@@ -212,15 +212,22 @@ public class TestReplaceRedundantJoinWithSource
                 .matches(
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null)))));
 
-        // in case of outer join, filter does not affect the result
+        // If no row satisfies the filter, FULL join must preserve the unmatched scalar row.
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(FULL,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT)),
                                 comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
-                .matches(
-                        values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null)))));
+                .doesNotFire();
+
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p ->
+                        p.join(FULL,
+                                p.values(10, p.symbol("a", BIGINT)),
+                                p.values(1),
+                                comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
+                .doesNotFire();
 
         // Right source is scalar with no outputs. Left source cannot be determined to be at least scalar.
         // In such case, FULL join cannot be replaced with left source. The result would be incorrect
