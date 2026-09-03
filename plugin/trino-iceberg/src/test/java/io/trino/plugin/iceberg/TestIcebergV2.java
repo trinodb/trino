@@ -1603,15 +1603,16 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_reading_snapshot_reference_schema_", "(id integer, data varchar)", ImmutableList.of("(1, 'a')"))) {
             String tableName = table.getName();
-
-            Table icebergTable = loadTable(tableName);
-            long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
-            icebergTable.manageSnapshots()
-                    .createTag("test-tag", refSnapshotId)
-                    .createBranch("test-branch", refSnapshotId)
-                    .commit();
+            long refSnapshotId = createTagAndBranchAtCurrentSnapshot(tableName);
 
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN data TO payload");
+
+            // A filter on the renamed column resolves through the same schema the scan is bound to
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE payload = 'a'"))
+                    .matches("VALUES 1");
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'main' WHERE payload = 'a'"))
+                    .matches("VALUES 1");
+
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN data varchar");
 
             // Branch reads resolve names against the table's current schema and match data by field ID,
@@ -1620,6 +1621,8 @@ public class TestIcebergV2
                     .matches("VALUES VARCHAR 'a'");
             assertThat(query("SELECT data FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
                     .matches("VALUES CAST(NULL AS varchar)");
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE data = 'a'"))
+                    .returnsEmptyResult();
             assertThat(query("SELECT data FROM " + tableName + " FOR VERSION AS OF 'test-tag'"))
                     .matches("VALUES VARCHAR 'a'");
 
@@ -1642,17 +1645,33 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testReadingBranchReferenceWithDeleteFilesAfterSchemaEvolution()
+    {
+        try (TestTable table = newTrinoTable("test_reading_branch_reference_delete_files_", "(id integer, data varchar)", ImmutableList.of("(1, 'a')", "(2, 'b')"))) {
+            String tableName = table.getName();
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            createTagAndBranchAtCurrentSnapshot(tableName);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'c')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN extra double");
+
+            // A filter on a column added after the branch head binds against the table's current schema,
+            // including when the branch head carries delete files
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE extra IS NULL"))
+                    .matches("VALUES 2");
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE extra = 1.0"))
+                    .returnsEmptyResult();
+            assertQueryFails("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-tag' WHERE extra IS NULL",
+                    ".*Column 'extra' cannot be resolved");
+        }
+    }
+
+    @Test
     public void testReadingSnapshotReferenceAfterPartitionEvolution()
     {
         try (TestTable table = newTrinoTable("test_reading_snapshot_reference_partition_", "(id integer, part integer)", ImmutableList.of("(1, 10)"))) {
             String tableName = table.getName();
-
-            Table icebergTable = loadTable(tableName);
-            long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
-            icebergTable.manageSnapshots()
-                    .createTag("test-tag", refSnapshotId)
-                    .createBranch("test-branch", refSnapshotId)
-                    .commit();
+            createTagAndBranchAtCurrentSnapshot(tableName);
 
             assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['part']");
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 20)", 1);
@@ -2148,6 +2167,17 @@ public class TestIcebergV2
         operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(2));
 
         return table;
+    }
+
+    private long createTagAndBranchAtCurrentSnapshot(String tableName)
+    {
+        Table icebergTable = loadTable(tableName);
+        long snapshotId = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createTag("test-tag", snapshotId)
+                .createBranch("test-branch", snapshotId)
+                .commit();
+        return snapshotId;
     }
 
     private BaseTable loadTable(String tableName)
