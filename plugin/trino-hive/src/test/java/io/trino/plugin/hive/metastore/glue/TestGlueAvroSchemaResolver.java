@@ -35,8 +35,8 @@ import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.metastore.glue.GlueAvroSchemaResolver.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.glue.GlueAvroSchemaResolver.withColumnsFromAvroSchema;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -200,7 +200,8 @@ final class TestGlueAvroSchemaResolver
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("local:///does/not/exist.avsc");
 
-        // A schema url that is not a valid location fails as an IllegalArgumentException rather than an IOException
+        // A schema url that is not a valid location escapes as an IllegalArgumentException, which
+        // GlueHiveMetastore#resolveAvroSchemaColumns does not catch
         Table malformedUrl = avroTable(ImmutableMap.of(AVRO_SCHEMA_URL_KEY, "not a valid location"), ImmutableMap.of());
         assertThatThrownBy(() -> withColumnsFromAvroSchema(FILE_SYSTEM, malformedUrl))
                 .isInstanceOf(IllegalArgumentException.class)

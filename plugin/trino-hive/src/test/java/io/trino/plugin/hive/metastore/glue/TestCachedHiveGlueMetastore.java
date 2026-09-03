@@ -45,7 +45,9 @@ import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
+import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
@@ -54,6 +56,8 @@ import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -91,6 +95,7 @@ public class TestCachedHiveGlueMetastore
     private GlueMetastoreStats glueStats;
     private GlueClient glueClient;
     private String warehouseLocation;
+    private String avroSchemaUrl;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -100,6 +105,8 @@ public class TestCachedHiveGlueMetastore
         String bucketName = "test-cached-hive-glue-metastore-" + randomNameSuffix();
         floci.createBucket(bucketName);
         warehouseLocation = "s3://%s/glue".formatted(bucketName);
+        floci.putObject(bucketName, AVRO_SCHEMA.getBytes(UTF_8), "glue/envelope.avsc");
+        avroSchemaUrl = "%s/envelope.avsc".formatted(warehouseLocation);
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
                         .setCatalog("hive")
@@ -225,6 +232,27 @@ public class TestCachedHiveGlueMetastore
     }
 
     @Test
+    void testListingDoesNotCacheUnresolvedAvroColumns()
+    {
+        String tableName = "test_avro_listing_" + randomNameSuffix();
+        // The schema is fetched from S3 through the metastore's own file system, the wiring an avro.schema.url table depends on
+        createTableWithDriftedColumns(tableName, AVRO, ImmutableList.of(), ImmutableMap.of(AVRO_SCHEMA_URL_KEY, avroSchemaUrl));
+        try {
+            // Populate the cache through a listing before the table is ever loaded directly
+            assertThat(metastore.getTables(testSchema))
+                    .extracting(tableInfo -> tableInfo.tableName().getTableName())
+                    .contains(tableName);
+
+            assertThat(metastore.getTable(testSchema, tableName).orElseThrow().getDataColumns())
+                    .extracting(Column::getName)
+                    .containsExactly("event_id", "amount");
+        }
+        finally {
+            metastore.dropTable(testSchema, tableName, false);
+        }
+    }
+
+    @Test
     void testResolvesPartitionColumnsForAvroTableWithSchemaSet()
     {
         String tableName = "test_avro_partitions_" + randomNameSuffix();
@@ -266,6 +294,26 @@ public class TestCachedHiveGlueMetastore
                             .isEqualTo(STORED_COLUMNS));
             assertThat(metastore.getPartition(table, PARTITION_VALUES).orElseThrow().getColumns())
                     .isEqualTo(STORED_COLUMNS);
+        }
+        finally {
+            metastore.dropTable(testSchema, tableName, false);
+        }
+    }
+
+    @Test
+    void testUnresolvableAvroSchemaFailsTableLoad()
+    {
+        String tableName = "test_avro_missing_schema_" + randomNameSuffix();
+        createTableWithDriftedColumns(tableName, AVRO, ImmutableList.of(), ImmutableMap.of(AVRO_SCHEMA_URL_KEY, "%s/missing.avsc".formatted(warehouseLocation)));
+        try {
+            // Loading the table fails rather than falling back to the columns stored in Glue
+            assertTrinoExceptionThrownBy(() -> metastore.getTable(testSchema, tableName))
+                    .hasErrorCode(HIVE_INVALID_METADATA)
+                    .hasMessageContaining("Failed to resolve the Avro schema of table %s.%s".formatted(testSchema, tableName));
+
+            // HIVE_INVALID_METADATA is an EXTERNAL error, so HiveMetadata#streamTableColumns skips this table
+            // instead of failing the listing for the whole schema
+            assertQuery("SELECT count(*) FROM information_schema.columns WHERE table_name = '%s'".formatted(tableName), "VALUES 0");
         }
         finally {
             metastore.dropTable(testSchema, tableName, false);

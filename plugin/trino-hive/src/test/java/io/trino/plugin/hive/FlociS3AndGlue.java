@@ -44,6 +44,11 @@ public final class FlociS3AndGlue
         floci.createBucket(bucketName);
     }
 
+    public void putObject(String bucketName, byte[] contents, String key)
+    {
+        floci.putObject(bucketName, contents, key);
+    }
+
     public S3Client createS3Client()
     {
         return S3Client.builder()
