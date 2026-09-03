@@ -164,6 +164,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEFAULT_COLUMN_VALUE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -298,6 +300,33 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_DEFAULT_COLUMN_VALUE -> formatVersion >= 3;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    @Override // Overriden because with Iceberg default value is used when inserting a new column.
+    public void testAddDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        try (TestTable table = newTrinoTable("test_default_value", "(w int)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN x int DEFAULT 123");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 1", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y varchar DEFAULT 'default varchar'");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123, 'default varchar'), (2, 123, 'default varchar')");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN z char(15) DEFAULT 'default char'");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 3", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123, 'default varchar', 'default char'), (2, 123, 'default varchar', 'default char'), (3, 123, 'default varchar', 'default char')");
+        }
     }
 
     @Test

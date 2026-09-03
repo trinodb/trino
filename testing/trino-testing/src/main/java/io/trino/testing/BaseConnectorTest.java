@@ -2797,12 +2797,24 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
 
-        try (TestTable table = newTrinoTable("test_default_value", "(x int)")) {
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int DEFAULT 123");
-            assertUpdate("INSERT INTO " + table.getName() + "(x) VALUES 1", 1);
+        try (TestTable table = newTrinoTable("test_default_value", "(w int)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN x int DEFAULT 123");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 1", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES (1, 123)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y varchar DEFAULT 'default varchar'");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123, null), (2, 123, 'default varchar')");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN z char(15) DEFAULT 'default char'");
+            assertUpdate("INSERT INTO " + table.getName() + "(w) VALUES 3", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123, null, null), (2, 123, 'default varchar', null), (3, 123, 'default varchar', 'default char   ')");
         }
     }
 

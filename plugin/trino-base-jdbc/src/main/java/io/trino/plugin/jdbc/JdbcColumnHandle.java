@@ -41,11 +41,12 @@ public final class JdbcColumnHandle
     private final Type columnType;
     private final boolean nullable;
     private final Optional<String> comment;
+    private final Optional<String> defaultValue;
 
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty(), Optional.empty());
     }
 
     /**
@@ -58,13 +59,15 @@ public final class JdbcColumnHandle
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("defaultValue") Optional<String> defaultValue)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
+        this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
     }
 
     @JsonProperty
@@ -97,6 +100,12 @@ public final class JdbcColumnHandle
         return comment;
     }
 
+    @JsonProperty
+    public Optional<String> getDefaultValue()
+    {
+        return defaultValue;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
@@ -104,6 +113,7 @@ public final class JdbcColumnHandle
                 .setType(columnType)
                 .setNullable(nullable)
                 .setComment(comment)
+                .setDefaultValue(defaultValue)
                 .build();
     }
 
@@ -152,6 +162,7 @@ public final class JdbcColumnHandle
                 + sizeOf(nullable)
                 + estimatedSizeOf(columnName)
                 + sizeOf(comment, SizeOf::estimatedSizeOf)
+                + sizeOf(defaultValue, SizeOf::estimatedSizeOf)
                 + jdbcTypeHandle.getRetainedSizeInBytes();
     }
 
@@ -172,6 +183,7 @@ public final class JdbcColumnHandle
         private Type columnType;
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
+        private Optional<String> defaultValue = Optional.empty();
 
         public Builder() {}
 
@@ -182,6 +194,7 @@ public final class JdbcColumnHandle
             this.columnType = handle.getColumnType();
             this.nullable = handle.isNullable();
             this.comment = handle.getComment();
+            this.defaultValue = handle.getDefaultValue();
         }
 
         public Builder setColumnName(String columnName)
@@ -214,6 +227,12 @@ public final class JdbcColumnHandle
             return this;
         }
 
+        public Builder setDefaultValue(Optional<String> defaultValue)
+        {
+            this.defaultValue = defaultValue;
+            return this;
+        }
+
         public JdbcColumnHandle build()
         {
             return new JdbcColumnHandle(
@@ -221,7 +240,8 @@ public final class JdbcColumnHandle
                     jdbcTypeHandle,
                     columnType,
                     nullable,
-                    comment);
+                    comment,
+                    defaultValue);
         }
     }
 }
