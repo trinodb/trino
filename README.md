@@ -26,6 +26,24 @@
   /></a>
 </p>
 
+## APHP fork
+
+This repository is [APHP](https://www.aphp.fr/)'s fork of
+[trinodb/trino](https://github.com/trinodb/trino), based on the official
+release `483`. It carries a small set of patches restoring backward
+compatibility that upstream removed in `483`:
+
+* `deprecated.http-server.authentication.oauth2.groups-field` configuration
+  property (removed upstream, restored here).
+* `ROWNUM`-based `LIMIT` pushdown for the Oracle connector, for compatibility
+  with Oracle versions older than 12c (upstream switched to the ANSI
+  `FETCH FIRST` syntax).
+* Unconstrained Oracle `NUMBER` columns (no declared precision/scale) treated
+  as unsupported by default, restoring the connector's pre-480 behavior.
+
+See the `main` branch's commit history for details on each change. For
+everything else, refer to upstream Trino's own documentation below.
+
 ## Development
 
 See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about development and release process,
