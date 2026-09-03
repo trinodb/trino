@@ -79,7 +79,7 @@ public class IcebergTableHandle
     // ANALYZE only. Coordinator-only
     private final Optional<Boolean> forAnalyze;
 
-    // Branch the table was resolved through, if any. Coordinator-only
+    // Branch the table was resolved through, if any
     private final Optional<String> branch;
 
     @JsonCreator
@@ -100,7 +100,8 @@ public class IcebergTableHandle
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("branch") Optional<String> branch)
     {
         return new IcebergTableHandle(
                 schemaName,
@@ -124,7 +125,7 @@ public class IcebergTableHandle
                 Optional.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),
-                Optional.empty());
+                branch);
     }
 
     public IcebergTableHandle(
@@ -309,6 +310,7 @@ public class IcebergTableHandle
         return forAnalyze;
     }
 
+    @JsonProperty
     public Optional<String> getBranch()
     {
         return branch;
