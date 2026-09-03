@@ -608,7 +608,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new InlineProjectIntoFilter())
-                                .add(new SimplifyFilterPredicate(metadata))
+                                .add(new SimplifyFilterPredicate(plannerContext))
                                 .addAll(columnPruningRules)
                                 .add(new InlineProjections())
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
