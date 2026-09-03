@@ -91,7 +91,10 @@ public class CreateViewTask
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
 
         Session session = stateMachine.getSession();
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName originalName = createQualifiedObjectName(session, statement, statement.getName());
+
+        // Resolve view redirection
+        QualifiedObjectName name = metadata.getRedirectedViewName(session, originalName).orElse(originalName);
 
         accessControl.checkCanCreateView(session.toSecurityContext(), name);
 
