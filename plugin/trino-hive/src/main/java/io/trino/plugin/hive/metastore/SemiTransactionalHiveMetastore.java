@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -117,7 +118,6 @@ import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
 import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_SOME_COLUMNS;
-import static io.trino.metastore.StatisticsUpdateMode.UNDO_MERGE_INCREMENTAL;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -170,8 +170,6 @@ public class SemiTransactionalHiveMetastore
     private static final Map<AcidOperation, ActionType> ACID_OPERATION_ACTION_TYPES = ImmutableMap.of(
             AcidOperation.INSERT, ActionType.INSERT_EXISTING,
             AcidOperation.MERGE, ActionType.MERGE);
-
-    private static final boolean SHOULD_MERGE_STATISTICS = true;
 
     private final HiveMetastore delegate;
     private final TypeManager typeManager;
@@ -559,7 +557,7 @@ public class SemiTransactionalHiveMetastore
         // When creating a table, it should never have partition actions. This is just a validation check.
         checkNoPartitionAction(table.getDatabaseName(), table.getTableName());
         Action<TableAndMore> oldTableAction = tableActions.get(table.getSchemaTableName());
-        TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentLocation, files, ignoreExisting, statistics, statistics, cleanExtraOutputFilesOnCommit);
+        TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentLocation, files, ignoreExisting, statistics, PartitionStatistics.empty(), statistics, cleanExtraOutputFilesOnCommit);
         if (oldTableAction == null) {
             tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, session.getIdentity(), session.getQueryId()));
             return;
@@ -664,7 +662,7 @@ public class SemiTransactionalHiveMetastore
             if (isAcidTransactionRunning()) {
                 table = Table.builder(table).setWriteId(OptionalLong.of(getRequiredAcidTransaction().getWriteId())).build();
             }
-            PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName, Optional.empty());
+            PartitionStatistics currentStatistics = getExistingTableStatistics(table);
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -676,6 +674,7 @@ public class SemiTransactionalHiveMetastore
                                     Optional.of(fileNames),
                                     false,
                                     MERGE_INCREMENTAL.updatePartitionStatistics(currentStatistics, statisticsUpdate),
+                                    currentStatistics,
                                     statisticsUpdate,
                                     cleanExtraOutputFilesOnCommit),
                             session.getIdentity(),
@@ -743,6 +742,7 @@ public class SemiTransactionalHiveMetastore
             Table table = getExistingTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
             PrincipalPrivileges principalPrivileges = table.getOwner().isEmpty() ? NO_PRIVILEGES :
                     buildInitialPrivilegeSet(table.getOwner().get());
+            PartitionStatistics currentStatistics = getExistingTableStatistics(table);
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -751,6 +751,7 @@ public class SemiTransactionalHiveMetastore
                                     table,
                                     Optional.of(principalPrivileges),
                                     Optional.of(currentLocation),
+                                    currentStatistics,
                                     partitionUpdateAndMergeResults),
                             session.getIdentity(),
                             session.getQueryId()));
@@ -910,7 +911,7 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
-                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, SHOULD_MERGE_STATISTICS, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
+                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, files, statistics, PartitionStatistics.empty(), statistics, OVERWRITE_ALL, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
             return;
         }
         switch (oldPartitionAction.type()) {
@@ -920,7 +921,7 @@ public class SemiTransactionalHiveMetastore
                 }
                 partitionActionsOfTable.put(
                         partition.getValues(),
-                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, SHOULD_MERGE_STATISTICS, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
+                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, files, statistics, PartitionStatistics.empty(), statistics, OVERWRITE_ALL, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
             }
             case ADD, ALTER, INSERT_EXISTING, MERGE -> throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
         }
@@ -1001,8 +1002,9 @@ public class SemiTransactionalHiveMetastore
                                         partitionInfo.currentLocation(),
                                         Optional.of(partitionInfo.fileNames()),
                                         partitionInfo.statisticsUpdateMode().updatePartitionStatistics(currentStatistics, partitionInfo.statisticsUpdate()),
+                                        currentStatistics,
                                         partitionInfo.statisticsUpdate(),
-                                        partitionInfo.statisticsUpdateMode() != OVERWRITE_ALL,
+                                        partitionInfo.statisticsUpdateMode(),
                                         cleanExtraOutputFilesOnCommit),
                                 session.getIdentity(),
                                 session.getQueryId()));
@@ -1120,6 +1122,20 @@ public class SemiTransactionalHiveMetastore
     private synchronized String getRequiredTableOwner(String databaseName, String tableName)
     {
         return getExistingTable(databaseName, tableName).getOwner().orElseThrow();
+    }
+
+    // statistics stored in the metastore, bypassing this transaction's view and the Spark statistics fallback
+    private PartitionStatistics getExistingTableStatistics(Table table)
+    {
+        Set<String> columnNames = table.getDataColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableSet());
+        if (columnNames.isEmpty()) {
+            return new PartitionStatistics(getHiveBasicStatistics(table.getParameters()), ImmutableMap.of());
+        }
+        return new PartitionStatistics(
+                getHiveBasicStatistics(table.getParameters()),
+                delegate.getTableColumnStatistics(table.getDatabaseName(), table.getTableName(), columnNames));
     }
 
     private Table getExistingTable(String databaseName, String tableName)
@@ -1642,6 +1658,12 @@ public class SemiTransactionalHiveMetastore
                     .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, "The table that this transaction modified was deleted in another transaction. " + table.getSchemaTableName()));
             Location oldTableLocation = Location.of(oldTable.getStorage().getLocation());
             tablesToInvalidate.add(oldTable);
+            // undo restores the old column statistics before undoAlterTable swaps the old table back, so both tables must share a schema
+            if (!table.getDataColumns().equals(oldTable.getDataColumns())) {
+                throw new TrinoException(TRANSACTION_CONFLICT, "The data columns of the table that this transaction modified were changed in another transaction. " + table.getSchemaTableName());
+            }
+            // read before the directory renames below, since a file metastore keeps table metadata inside the data directory
+            PartitionStatistics oldTableStatistics = getExistingTableStatistics(oldTable);
 
             cleanExtraOutputFiles(identity, queryId, tableAndMore);
 
@@ -1686,8 +1708,9 @@ public class SemiTransactionalHiveMetastore
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     table.getSchemaTableName(),
                     Optional.empty(),
+                    oldTableStatistics,
                     tableAndMore.getStatisticsUpdate(),
-                    false));
+                    OVERWRITE_ALL));
         }
 
         private void prepareAddTable(ConnectorIdentity identity, String queryId, TableAndMore tableAndMore)
@@ -1764,8 +1787,9 @@ public class SemiTransactionalHiveMetastore
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     table.getSchemaTableName(),
                     Optional.empty(),
+                    tableAndMore.getStatisticsBeforeUpdate(),
                     tableAndMore.getStatisticsUpdate(),
-                    true));
+                    MERGE_INCREMENTAL));
 
             if (isAcidTransactionRunning()) {
                 AcidTransaction transaction = getRequiredAcidTransaction();
@@ -1790,8 +1814,9 @@ public class SemiTransactionalHiveMetastore
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     table.getSchemaTableName(),
                     Optional.empty(),
+                    tableAndMore.getStatisticsBeforeUpdate(),
                     tableAndMore.getStatisticsUpdate(),
-                    true));
+                    MERGE_INCREMENTAL));
 
             updateTableWriteId(table.getDatabaseName(), table.getTableName(), transaction.getAcidTransactionId(), transaction.getWriteId(), OptionalLong.empty());
         }
@@ -1986,8 +2011,9 @@ public class SemiTransactionalHiveMetastore
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     partition.getSchemaTableName(),
                     Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
+                    partitionAndMore.statisticsBeforeUpdate(),
                     partitionAndMore.statisticsUpdate(),
-                    partitionAndMore.mergeStatistic()));
+                    partitionAndMore.statisticsUpdateMode()));
         }
 
         private void executeCleanupTasksForAbort(Collection<DeclaredIntentionToWrite> declaredIntentionsToWrite)
@@ -2726,7 +2752,11 @@ public class SemiTransactionalHiveMetastore
         private final Optional<Location> currentLocation; // unpartitioned table only
         private final Optional<List<String>> fileNames;
         private final boolean ignoreExisting;
+        // statistics visible to reads within the transaction
         private final PartitionStatistics statistics;
+        // statistics stored in the metastore before the transaction, empty for a table the transaction creates
+        private final PartitionStatistics statisticsBeforeUpdate;
+        // statistics of the data written by the transaction
         private final PartitionStatistics statisticsUpdate;
         private final boolean cleanExtraOutputFilesOnCommit;
 
@@ -2737,6 +2767,7 @@ public class SemiTransactionalHiveMetastore
                 Optional<List<String>> fileNames,
                 boolean ignoreExisting,
                 PartitionStatistics statistics,
+                PartitionStatistics statisticsBeforeUpdate,
                 PartitionStatistics statisticsUpdate,
                 boolean cleanExtraOutputFilesOnCommit)
         {
@@ -2746,6 +2777,7 @@ public class SemiTransactionalHiveMetastore
             this.fileNames = requireNonNull(fileNames, "fileNames is null");
             this.ignoreExisting = ignoreExisting;
             this.statistics = requireNonNull(statistics, "statistics is null");
+            this.statisticsBeforeUpdate = requireNonNull(statisticsBeforeUpdate, "statisticsBeforeUpdate is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
             this.cleanExtraOutputFilesOnCommit = cleanExtraOutputFilesOnCommit;
 
@@ -2784,6 +2816,11 @@ public class SemiTransactionalHiveMetastore
             return statistics;
         }
 
+        public PartitionStatistics getStatisticsBeforeUpdate()
+        {
+            return statisticsBeforeUpdate;
+        }
+
         public PartitionStatistics getStatisticsUpdate()
         {
             return statisticsUpdate;
@@ -2804,6 +2841,7 @@ public class SemiTransactionalHiveMetastore
                     .add("fileNames", fileNames)
                     .add("ignoreExisting", ignoreExisting)
                     .add("statistics", statistics)
+                    .add("statisticsBeforeUpdate", statisticsBeforeUpdate)
                     .add("statisticsUpdate", statisticsUpdate)
                     .add("cleanExtraOutputFilesOnCommit", cleanExtraOutputFilesOnCommit)
                     .toString();
@@ -2815,9 +2853,14 @@ public class SemiTransactionalHiveMetastore
     {
         private final List<PartitionUpdateAndMergeResults> partitionMergeResults;
 
-        public TableAndMergeResults(Table table, Optional<PrincipalPrivileges> principalPrivileges, Optional<Location> currentLocation, List<PartitionUpdateAndMergeResults> partitionMergeResults)
+        public TableAndMergeResults(
+                Table table,
+                Optional<PrincipalPrivileges> principalPrivileges,
+                Optional<Location> currentLocation,
+                PartitionStatistics statisticsBeforeUpdate,
+                List<PartitionUpdateAndMergeResults> partitionMergeResults)
         {
-            super(table, principalPrivileges, currentLocation, Optional.empty(), false, PartitionStatistics.empty(), PartitionStatistics.empty(), false); // retries are not supported for transactional tables
+            super(table, principalPrivileges, currentLocation, Optional.empty(), false, PartitionStatistics.empty(), statisticsBeforeUpdate, PartitionStatistics.empty(), false); // retries are not supported for transactional tables
             this.partitionMergeResults = requireNonNull(partitionMergeResults, "partitionMergeResults is null");
         }
 
@@ -2833,13 +2876,20 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    /**
+     * @param statistics statistics visible to reads within the transaction
+     * @param statisticsBeforeUpdate statistics stored in the metastore before the transaction, empty for a partition the transaction creates
+     * @param statisticsUpdate statistics of the data written by the transaction
+     * @param statisticsUpdateMode how statisticsUpdate is applied to the metastore statistics on commit
+     */
     private record PartitionAndMore(
             Partition partition,
             Location currentLocation,
             Optional<List<String>> fileNames,
             PartitionStatistics statistics,
+            PartitionStatistics statisticsBeforeUpdate,
             PartitionStatistics statisticsUpdate,
-            boolean mergeStatistic,
+            StatisticsUpdateMode statisticsUpdateMode,
             boolean cleanExtraOutputFilesOnCommit)
     {
         private PartitionAndMore
@@ -2848,7 +2898,9 @@ public class SemiTransactionalHiveMetastore
             requireNonNull(currentLocation, "currentLocation is null");
             requireNonNull(fileNames, "fileNames is null");
             requireNonNull(statistics, "statistics is null");
+            requireNonNull(statisticsBeforeUpdate, "statisticsBeforeUpdate is null");
             requireNonNull(statisticsUpdate, "statisticsUpdate is null");
+            requireNonNull(statisticsUpdateMode, "statisticsUpdateMode is null");
         }
 
         public List<String> getFileNames()
@@ -3127,26 +3179,49 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    private static class UpdateStatisticsOperation
+    @VisibleForTesting
+    static class UpdateStatisticsOperation
     {
         private final SchemaTableName tableName;
         private final Optional<String> partitionName;
-        private final PartitionStatistics statistics;
-        private final boolean merge;
+        // statistics stored in the metastore before this transaction, restored by undo
+        private final PartitionStatistics statisticsBeforeUpdate;
+        private final PartitionStatistics statisticsUpdate;
+        private final StatisticsUpdateMode mode;
 
-        private boolean done;
+        private boolean started;
 
-        public UpdateStatisticsOperation(SchemaTableName tableName, Optional<String> partitionName, PartitionStatistics statistics, boolean merge)
+        public UpdateStatisticsOperation(
+                SchemaTableName tableName,
+                Optional<String> partitionName,
+                PartitionStatistics statisticsBeforeUpdate,
+                PartitionStatistics statisticsUpdate,
+                StatisticsUpdateMode mode)
         {
             this.tableName = requireNonNull(tableName, "tableName is null");
             this.partitionName = requireNonNull(partitionName, "partitionName is null");
-            this.statistics = requireNonNull(statistics, "statistics is null");
-            this.merge = merge;
+            this.statisticsBeforeUpdate = requireNonNull(statisticsBeforeUpdate, "statisticsBeforeUpdate is null");
+            this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
+            this.mode = requireNonNull(mode, "mode is null");
         }
 
         public void run(HiveMetastore metastore, AcidTransaction transaction)
         {
-            StatisticsUpdateMode mode = merge ? MERGE_INCREMENTAL : OVERWRITE_ALL;
+            // undo restores the snapshot even after a partial failure
+            started = true;
+            updateStatistics(metastore, transaction, mode, statisticsUpdate);
+        }
+
+        public void undo(HiveMetastore metastore, AcidTransaction transaction)
+        {
+            if (!started) {
+                return;
+            }
+            updateStatistics(metastore, transaction, OVERWRITE_ALL, statisticsBeforeUpdate);
+        }
+
+        private void updateStatistics(HiveMetastore metastore, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statistics)
+        {
             if (partitionName.isPresent()) {
                 metastore.updatePartitionStatistics(
                         metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
@@ -3156,24 +3231,6 @@ public class SemiTransactionalHiveMetastore
             }
             else {
                 metastore.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), transaction.getOptionalWriteId(), mode, statistics);
-            }
-            done = true;
-        }
-
-        public void undo(HiveMetastore metastore, AcidTransaction transaction)
-        {
-            if (!done) {
-                return;
-            }
-            if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(
-                        metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                                .orElseThrow(() -> new TableNotFoundException(tableName)),
-                        UNDO_MERGE_INCREMENTAL,
-                        ImmutableMap.of(partitionName.get(), statistics));
-            }
-            else {
-                metastore.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), transaction.getOptionalWriteId(), UNDO_MERGE_INCREMENTAL, statistics);
             }
         }
 
