@@ -980,7 +980,8 @@ public class GlueHiveMetastore
         String databaseName = table.getDatabaseName();
         String tableName = table.getTableName();
         PartitionName partitionName = new PartitionName(partitionValues);
-        return glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName));
+        return glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName))
+                .map(partition -> withAvroSchemaColumns(table, partition));
     }
 
     private Optional<Partition> getPartition(String databaseName, String tableName, PartitionName partitionName)
@@ -1008,7 +1009,32 @@ public class GlueHiveMetastore
                 .map(PartitionName::new)
                 .collect(toImmutableList());
         return getPartitionsByNames(table.getDatabaseName(), table.getTableName(), names).entrySet().stream()
-                .collect(toImmutableMap(entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()), Entry::getValue));
+                .collect(toImmutableMap(
+                        entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()),
+                        entry -> entry.getValue().map(partition -> withAvroSchemaColumns(table, partition))));
+    }
+
+    /**
+     * Mirrors {@link #resolveAvroSchemaColumns} at the partition level. For Avro tables backed by
+     * {@code avro.schema.url}/{@code avro.schema.literal}, the {@code .avsc} file is authoritative for every
+     * partition — partitions carry no independent schema. Glue's stored per-partition columns can drift from the
+     * {@code .avsc} exactly as the table's stored columns do; without this, {@code getTableInternal} resolves the
+     * table columns from the {@code .avsc} but leaves each partition's stored columns as Glue's stale values, and
+     * {@code HiveSplitManager} rejects the partition with {@code HIVE_PARTITION_SCHEMA_MISMATCH} whenever the two
+     * disagree. The Thrift metastore client does not hit this because it resolves both levels from the
+     * {@code .avsc}.
+     * <p>
+     * Reuses the table's already-resolved columns rather than re-reading the {@code .avsc} per partition — cheaper,
+     * and keeps a single source of truth with {@link #resolveAvroSchemaColumns}.
+     */
+    static Partition withAvroSchemaColumns(Table table, Partition partition)
+    {
+        if (!GlueAvroSchemaResolver.isAvroTableWithSchemaSet(table)) {
+            return partition;
+        }
+        return Partition.builder(partition)
+                .setColumns(table.getDataColumns())
+                .build();
     }
 
     private Map<PartitionName, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, Collection<PartitionName> partitionNames)
