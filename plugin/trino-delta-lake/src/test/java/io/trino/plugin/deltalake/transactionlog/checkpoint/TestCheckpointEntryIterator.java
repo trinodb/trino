@@ -29,6 +29,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -913,7 +914,7 @@ public class TestCheckpointEntryIterator
                                 ImmutableMap.of("part_key", "2023-01-01 00:00:00"),
                                 1000,
                                 true,
-                                Optional.empty()))
+                                Optional.of(new DeletionVectorEntry("p", "file:///deletion_vector.bin", OptionalInt.of(1), 34, 1))))
                 .collect(toImmutableSet());
 
         CheckpointEntries entries = new CheckpointEntries(
@@ -955,7 +956,9 @@ public class TestCheckpointEntryIterator
 
         assertThat(Iterators.size(metadataAndProtocolEntryIterator)).isEqualTo(2);
         assertThat(Iterators.size(addEntryIterator)).isEqualTo(1);
-        assertThat(Iterators.size(removeEntryIterator)).isEqualTo(numRemoveEntries);
+        assertThat(ImmutableList.copyOf(removeEntryIterator))
+                .extracting(DeltaLakeTransactionLogEntry::getRemove)
+                .containsExactlyInAnyOrderElementsOf(removeEntries);
         assertThat(Iterators.size(txnEntryIterator)).isEqualTo(0);
 
         assertThat(metadataAndProtocolEntryIterator.getCompletedPositions().orElseThrow()).isEqualTo(3L);
