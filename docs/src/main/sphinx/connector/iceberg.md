@@ -1912,6 +1912,99 @@ The `COMMENT` option is supported for adding table columns through the
 The connector supports the command {doc}`COMMENT </sql/comment>` for setting
 comments on existing entities.
 
+(iceberg-branch-management)=
+#### Branch management
+
+A *branch* is a named reference to an Iceberg snapshot that advances as you
+write to it. Writes to a branch do not affect `main` or other branches.
+
+Use {doc}`CREATE BRANCH </sql/create-branch>` to create a branch at the
+table's current snapshot. Use `FROM` to start from another branch:
+
+```sql
+CREATE BRANCH audit IN TABLE example.testdb.customer_orders;
+
+CREATE BRANCH audit IN TABLE example.testdb.customer_orders FROM dev;
+```
+
+Use `OR REPLACE` to update an existing branch to the specified snapshot.
+Replacement preserves the existing branch-specific retention settings:
+
+```sql
+CREATE OR REPLACE BRANCH audit IN TABLE example.testdb.customer_orders FROM dev;
+```
+
+The connector does not support branch retention properties in the
+`CREATE BRANCH` `WITH` clause.
+
+Use {doc}`SHOW BRANCHES </sql/show-branches>` to list the branches of a
+table:
+
+```sql
+SHOW BRANCHES IN TABLE example.testdb.customer_orders;
+```
+
+```text
+ Branch
+--------
+ main
+ audit
+ dev
+```
+
+The `$refs` table in [](iceberg-metadata-tables) also lists the snapshot
+and retention settings for each branch and tag.
+
+Use {doc}`ALTER BRANCH </sql/alter-branch>` to fast-forward a branch to
+another branch's current snapshot. For example, apply the changes from
+`audit` to `main`:
+
+```sql
+ALTER BRANCH main IN TABLE example.testdb.customer_orders FAST FORWARD TO audit;
+```
+
+Use {doc}`DROP BRANCH </sql/drop-branch>` to remove a branch. The `main`
+branch cannot be dropped:
+
+```sql
+DROP BRANCH audit IN TABLE example.testdb.customer_orders;
+```
+
+`INSERT`, `UPDATE`, `DELETE`, and `MERGE` accept a `table@branch` target to
+write to a specific branch instead of `main`:
+
+```sql
+INSERT INTO example.testdb.customer_orders@audit
+VALUES (1, DATE '2022-01-01', 'a');
+
+UPDATE example.testdb.customer_orders@audit
+SET status = 'closed'
+WHERE order_date < DATE '2022-01-01';
+
+DELETE FROM example.testdb.customer_orders@audit
+WHERE status = 'cancelled';
+
+MERGE INTO example.testdb.customer_orders@audit t
+USING customer_orders_updates s
+ON t.order_id = s.order_id
+WHEN MATCHED THEN UPDATE SET status = s.status
+WHEN NOT MATCHED THEN INSERT (order_id, order_date, status) VALUES (s.order_id, s.order_date, s.status);
+```
+
+Branch names in `table@branch` are identifiers. With `FOR VERSION AS OF`,
+branch names are string literals.
+
+To read a branch, use [](iceberg-time-travel) with the branch name.
+`SELECT` does not support `table@branch`:
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR VERSION AS OF 'audit';
+```
+
+Branches use the current table schema, including later schema changes. Tags use
+the schema of their referenced snapshot. See [](iceberg-time-travel).
+
 (iceberg-tables)=
 #### Partitioned tables
 
@@ -2114,6 +2207,8 @@ FROM example.testdb.customer_orders FOR VERSION AS OF 'test-branch';
 
 Branches use the current table schema. Tags, snapshot IDs, and timestamps use the
 schema of the snapshot they resolve to.
+
+See [](iceberg-branch-management) to create, list, and write to branches.
 
 ##### Rolling back to a previous snapshot
 
