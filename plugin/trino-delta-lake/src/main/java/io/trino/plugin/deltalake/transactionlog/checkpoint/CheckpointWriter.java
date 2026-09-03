@@ -450,7 +450,7 @@ public class CheckpointWriter
         ((RowBlockBuilder) entryBlockBuilder).buildEntry(builders -> {
             writeString(builders.get(0), type, 0, "storageType", deletionVector.get().storageType());
             writeString(builders.get(1), type, 1, "pathOrInlineDv", deletionVector.get().pathOrInlineDv());
-            writeLong(builders.get(2), type, 2, "offset", (long) deletionVector.get().offset().orElse(0));
+            writeLong(builders.get(2), type, 2, "offset", deletionVector.get().offset().isPresent() ? (long) deletionVector.get().offset().getAsInt() : null);
             writeLong(builders.get(3), type, 3, "sizeInBytes", (long) deletionVector.get().sizeInBytes());
             writeLong(builders.get(4), type, 4, "cardinality", deletionVector.get().cardinality());
         });
@@ -544,6 +544,7 @@ public class CheckpointWriter
             writeStringMap(fieldBuilders.get(1), entryType, 1, "partitionValues", removeFileEntry.partitionValues());
             writeLong(fieldBuilders.get(2), entryType, 2, "deletionTimestamp", removeFileEntry.deletionTimestamp());
             writeBoolean(fieldBuilders.get(3), entryType, 3, "dataChange", removeFileEntry.dataChange());
+            writeDeletionVector(fieldBuilders.get(4), entryType, removeFileEntry.deletionVector(), 4);
         });
 
         // null for others

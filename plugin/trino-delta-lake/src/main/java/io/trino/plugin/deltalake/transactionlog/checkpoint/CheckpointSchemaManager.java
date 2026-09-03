@@ -90,7 +90,8 @@ public class CheckpointSchemaManager
                 RowType.field("path", VARCHAR),
                 RowType.field("partitionValues", stringMap),
                 RowType.field("deletionTimestamp", BIGINT),
-                RowType.field("dataChange", BOOLEAN)));
+                RowType.field("dataChange", BOOLEAN),
+                RowType.field("deletionVector", DELETION_VECTORS_TYPE)));
 
         sidecarEntryType = RowType.from(ImmutableList.<RowType.Field>builder()
                 .add(RowType.field("path", VARCHAR))
