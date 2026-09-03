@@ -13,17 +13,16 @@
  */
 package io.trino.plugin.resourcegroups.db;
 
-import org.testcontainers.containers.JdbcDatabaseContainer;
-import org.testcontainers.postgresql.PostgreSQLContainer;
+import io.airlift.log.Logger;
 
-public class TestDbResourceGroupsPostgresqlFlywayMigration
-        extends BaseTestDbResourceGroupsFlywayMigration
+final class NoOpDatabaseMigrator
+        implements DatabaseMigrator
 {
+    private static final Logger log = Logger.get(NoOpDatabaseMigrator.class);
+
     @Override
-    protected final JdbcDatabaseContainer<?> startContainer()
+    public void migrate()
     {
-        JdbcDatabaseContainer<?> container = new PostgreSQLContainer("postgres:11");
-        container.start();
-        return container;
+        log.info("Skipping migrations");
     }
 }
