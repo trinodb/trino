@@ -50,6 +50,32 @@ public class TestExpressions
     }
 
     @Test
+    public void testContinuousInValuesWithNull()
+    {
+        // UNNEST keeps the operand nonconstant while the IN predicate is optimized.
+        assertThat(assertions.query(
+                """
+                SELECT x, x IN (1, 2, NULL), x NOT IN (1, 2, NULL), x IN (1, 2), x NOT IN (1, 2)
+                FROM UNNEST(ARRAY[NULL, 0, 1, 2, 3]) t(x)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (NULL, NULL, NULL, NULL, NULL),
+                            (0, NULL, NULL, false, true),
+                            (1, true, false, true, false),
+                            (2, true, false, true, false),
+                            (3, NULL, NULL, false, true)
+                        """);
+
+        assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[NULL, 0, 1, 2, 3]) t(x) WHERE x IN (1, 2, NULL)"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[NULL, 0, 1, 2, 3]) t(x) WHERE x NOT IN (1, 2, NULL)"))
+                .returnsEmptyResult();
+    }
+
+    @Test
     public void testInShortCircuit()
     {
         // Because of the failing in-list item 5 / 0, the in-predicate cannot be simplified.
