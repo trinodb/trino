@@ -160,7 +160,7 @@ public final class DecimalAverageAggregation
         long overflow = state.getOverflow();
         if (overflow != 0) {
             BigDecimal sum = new BigDecimal(Int128.valueOf(decimal[offset], decimal[offset + 1]).toBigInteger(), type.getScale());
-            sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow))));
+            sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow)), type.getScale()));
 
             BigDecimal count = BigDecimal.valueOf(state.getLong());
             return Decimals.encodeScaledValue(sum.divide(count, type.getScale(), HALF_UP), type.getScale());
