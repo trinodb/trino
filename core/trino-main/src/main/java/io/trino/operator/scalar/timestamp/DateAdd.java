@@ -30,6 +30,7 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
+import static java.lang.Math.addExact;
 
 @Description("Add the specified amount of time to the given timestamp")
 @ScalarFunction("date_add")
@@ -55,7 +56,7 @@ public final class DateAdd
                 epochMillis = round(epochMillis, (int) (3 - precision));
             }
 
-            return scaleEpochMillisToMicros(epochMillis) + microsOfMilli;
+            return addExact(scaleEpochMillisToMicros(epochMillis), microsOfMilli);
         }
         catch (IllegalArgumentException | ArithmeticException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e.getMessage());
