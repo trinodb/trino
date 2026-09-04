@@ -34,7 +34,7 @@ class TestWriteToHiveTransactionalTableInTrino
     void testInsertIntoUnpartitionedTable(HiveStorageFormatsEnvironment env)
     {
         String tableName = "unpartitioned_transactional_insert";
-        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT) WITH (transactional = true)", tableName));
+        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT) WITH (transactional = true, format = 'ORC')", tableName));
         try {
             env.executeTrinoUpdate(format("INSERT INTO hive.default.%s VALUES (11)", tableName));
             assertThat(env.executeTrino(format("SELECT * FROM hive.default.%s", tableName))).containsOnly(row(11));
@@ -48,7 +48,7 @@ class TestWriteToHiveTransactionalTableInTrino
     void testInsertIntoPartitionedTable(HiveStorageFormatsEnvironment env)
     {
         String tableName = "partitioned_transactional_insert";
-        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT, column2 INT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
+        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT, column2 INT) WITH (transactional = true, format = 'ORC', partitioned_by = ARRAY['column2'])", tableName));
         try {
             env.executeTrinoUpdate(format("INSERT INTO hive.default.%s VALUES (11, 12), (111, 121)", tableName));
             assertThat(env.executeTrino(format("SELECT * FROM hive.default.%s", tableName))).containsOnly(row(11, 12), row(111, 121));
@@ -62,7 +62,7 @@ class TestWriteToHiveTransactionalTableInTrino
     void testInsertIntoNonPartitionedTable(HiveStorageFormatsEnvironment env)
     {
         String tableName = "non_partitioned_transactional_insert";
-        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT, column2 INT) WITH (transactional = true)", tableName));
+        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT, column2 INT) WITH (transactional = true, format = 'ORC')", tableName));
         try {
             env.executeTrinoUpdate(format("INSERT INTO hive.default.%s VALUES (11, 12), (111, 121)", tableName));
             assertThat(env.executeTrino(format("SELECT * FROM hive.default.%s", tableName))).containsOnly(row(11, 12), row(111, 121));
@@ -76,7 +76,7 @@ class TestWriteToHiveTransactionalTableInTrino
     void testUpdateOnUnpartitionedTable(HiveStorageFormatsEnvironment env)
     {
         String tableName = "unpartitioned_transactional_update";
-        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT) WITH (transactional = true)", tableName));
+        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT) WITH (transactional = true, format = 'ORC')", tableName));
         try {
             env.executeTrinoUpdate(format("INSERT INTO hive.default.%s VALUES (11)", tableName));
             assertThat(env.executeTrino(format("SELECT * FROM hive.default.%s", tableName))).containsOnly(row(11));
@@ -92,7 +92,7 @@ class TestWriteToHiveTransactionalTableInTrino
     void testUpdateOnPartitionedTable(HiveStorageFormatsEnvironment env)
     {
         String tableName = "partitioned_transactional_update";
-        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT, column2 INT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
+        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT, column2 INT) WITH (transactional = true, format = 'ORC', partitioned_by = ARRAY['column2'])", tableName));
         try {
             env.executeTrinoUpdate(format("INSERT INTO hive.default.%s VALUES (11, 12), (111, 121)", tableName));
             assertThat(env.executeTrino(format("SELECT * FROM hive.default.%s", tableName))).containsOnly(row(11, 12), row(111, 121));
@@ -110,7 +110,7 @@ class TestWriteToHiveTransactionalTableInTrino
     void testDeleteOnUnpartitionedTable(HiveStorageFormatsEnvironment env)
     {
         String tableName = "unpartitioned_transactional_delete";
-        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT) WITH (transactional = true)", tableName));
+        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT) WITH (transactional = true, format = 'ORC')", tableName));
         try {
             env.executeTrinoUpdate(format("INSERT INTO hive.default.%s VALUES (11)", tableName));
             assertThat(env.executeTrino(format("SELECT * FROM hive.default.%s", tableName))).containsOnly(row(11));
@@ -126,7 +126,7 @@ class TestWriteToHiveTransactionalTableInTrino
     void testDeleteOnPartitionedTable(HiveStorageFormatsEnvironment env)
     {
         String tableName = "partitioned_transactional_delete";
-        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT, column2 INT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
+        env.executeTrinoUpdate(format("CREATE TABLE hive.default.%s (column1 INT, column2 INT) WITH (transactional = true, format = 'ORC', partitioned_by = ARRAY['column2'])", tableName));
         try {
             env.executeTrinoUpdate(format("INSERT INTO hive.default.%s VALUES (11, 12), (111, 121)", tableName));
             assertThat(env.executeTrino(format("SELECT * FROM hive.default.%s", tableName))).containsOnly(row(11, 12), row(111, 121));
