@@ -17,13 +17,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.hive.thrift.metastore.ColumnStatisticsData;
+import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.hive.thrift.metastore.LongColumnStatsData;
 import io.trino.hive.thrift.metastore.MetaException;
 import io.trino.hive.thrift.metastore.NoSuchObjectException;
+import io.trino.hive.thrift.metastore.Partition;
 import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.metastore.HiveColumnStatistics;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.spi.TrinoException;
 import org.apache.thrift.TException;
@@ -39,10 +42,14 @@ import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metastore.HiveBasicStatistics.createEmptyStatistics;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_COLUMN;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
+import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
+import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION2;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_TABLE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,6 +58,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestThriftHiveMetastore
 {
     private static final List<String> COLUMNS = ImmutableList.of("a", "b", "c");
+    private static final String PARTITION_COLUMN = "key";
+    private static final PartitionStatistics EMPTY_STATISTICS = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
+    private static final PartitionStatistics COLUMN_STATISTICS = new PartitionStatistics(
+            createEmptyStatistics(),
+            ImmutableMap.of(TEST_COLUMN, HiveColumnStatistics.createIntegerColumnStatistics(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.of(0), OptionalLong.of(5))));
 
     private final List<AutoCloseable> resources = new ArrayList<>();
 
@@ -87,15 +99,68 @@ final class TestThriftHiveMetastore
         assertThat(client.deleteAttempts).containsExactly("a", "b", "c");
     }
 
+    @Test
+    void testUpdatePartitionStatisticsUsesBulkRequests()
+    {
+        RecordingClient client = new RecordingClient(ImmutableMap.of());
+        createMetastore(client).updatePartitionStatistics(partitionedTable(), OVERWRITE_ALL, ImmutableMap.of(TEST_PARTITION1, COLUMN_STATISTICS, TEST_PARTITION2, COLUMN_STATISTICS));
+        assertThat(client.partitionCalls).containsExactly(
+                "getPartitionsByNames[key=testpartition1, key=testpartition2]",
+                "close",
+                "getPartitionColumnStatistics[key=testpartition1, key=testpartition2]",
+                "close",
+                "alterPartitions[key=testpartition1, key=testpartition2]",
+                "close",
+                "setPartitionsColumnStatistics[key=testpartition1, key=testpartition2]",
+                "close");
+    }
+
+    @Test
+    void testUpdatePartitionStatisticsDeletesRemovedColumnStatisticsOnOneConnection()
+    {
+        RecordingClient client = new RecordingClient(ImmutableMap.of());
+        createMetastore(client).updatePartitionStatistics(partitionedTable(), OVERWRITE_ALL, ImmutableMap.of(TEST_PARTITION1, EMPTY_STATISTICS, TEST_PARTITION2, EMPTY_STATISTICS));
+        assertThat(client.partitionCalls).containsExactly(
+                "getPartitionsByNames[key=testpartition1, key=testpartition2]",
+                "close",
+                "getPartitionColumnStatistics[key=testpartition1, key=testpartition2]",
+                "close",
+                "alterPartitions[key=testpartition1, key=testpartition2]",
+                "close",
+                "deletePartitionColumnStatistics key=testpartition1.column",
+                "deletePartitionColumnStatistics key=testpartition2.column",
+                "close");
+    }
+
+    @Test
+    void testUpdatePartitionStatisticsFailsForMissingPartition()
+    {
+        RecordingClient client = new RecordingClient(ImmutableMap.of());
+        assertThatThrownBy(() -> createMetastore(client).updatePartitionStatistics(partitionedTable(), OVERWRITE_ALL, ImmutableMap.of(TEST_PARTITION1, EMPTY_STATISTICS, "key=missing", EMPTY_STATISTICS)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("No partition found for names: key=testpartition1, key=missing");
+        assertThat(client.partitionCalls).containsExactly("getPartitionsByNames[key=testpartition1, key=missing]", "close");
+    }
+
     private void clearColumnStatistics(ThriftMetastoreClient client)
     {
-        ThriftMetastore metastore = testingThriftHiveMetastoreBuilder()
+        createMetastore(client).updateTableStatistics(TEST_DATABASE, TEST_TABLE, OptionalLong.empty(), OVERWRITE_ALL, EMPTY_STATISTICS);
+    }
+
+    private ThriftMetastore createMetastore(ThriftMetastoreClient client)
+    {
+        return testingThriftHiveMetastoreBuilder()
                 .metastoreClient(client)
                 .thriftMetastoreConfig(new ThriftMetastoreConfig()
                         .setMinBackoffDelay(new Duration(1, MILLISECONDS))
                         .setMaxBackoffDelay(new Duration(1, MILLISECONDS)))
                 .build(resources::add);
-        metastore.updateTableStatistics(TEST_DATABASE, TEST_TABLE, OptionalLong.empty(), OVERWRITE_ALL, new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
+    }
+
+    private static Table partitionedTable()
+    {
+        StorageDescriptor storage = new StorageDescriptor(ImmutableList.of(new FieldSchema(TEST_COLUMN, "bigint", "")), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
+        return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, storage, ImmutableList.of(new FieldSchema(PARTITION_COLUMN, "string", "")), ImmutableMap.of(), "", "", MANAGED_TABLE.name());
     }
 
     private static final class RecordingClient
@@ -103,6 +168,7 @@ final class TestThriftHiveMetastore
     {
         private final Map<String, TException> pendingFailures;
         private final List<String> deleteAttempts = new ArrayList<>();
+        private final List<String> partitionCalls = new ArrayList<>();
 
         RecordingClient(Map<String, TException> failures)
         {
@@ -114,6 +180,51 @@ final class TestThriftHiveMetastore
                 columnStatistics.put(column, data);
             }
             mockColumnStats(TEST_DATABASE, TEST_TABLE, columnStatistics);
+            ColumnStatisticsData partitionColumnStatistics = new ColumnStatisticsData();
+            partitionColumnStatistics.setLongStats(new LongColumnStatsData());
+            mockPartitionColumnStats(TEST_DATABASE, TEST_TABLE, TEST_PARTITION2, ImmutableMap.of(TEST_COLUMN, partitionColumnStatistics));
+        }
+
+        @Override
+        public void close()
+        {
+            partitionCalls.add("close");
+        }
+
+        @Override
+        public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> names)
+                throws TException
+        {
+            partitionCalls.add("getPartitionsByNames" + names);
+            return super.getPartitionsByNames(databaseName, tableName, names);
+        }
+
+        @Override
+        public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> partitionNames, List<String> columnNames)
+                throws TException
+        {
+            partitionCalls.add("getPartitionColumnStatistics" + partitionNames);
+            return super.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames);
+        }
+
+        @Override
+        public void alterPartitions(String databaseName, String tableName, List<Partition> partitions)
+        {
+            partitionCalls.add("alterPartitions" + partitions.stream()
+                    .map(partition -> makePartName(ImmutableList.of(PARTITION_COLUMN), partition.getValues()))
+                    .collect(toImmutableList()));
+        }
+
+        @Override
+        public void setPartitionsColumnStatistics(String databaseName, String tableName, Map<String, List<ColumnStatisticsObj>> partitionStatistics)
+        {
+            partitionCalls.add("setPartitionsColumnStatistics" + ImmutableList.copyOf(partitionStatistics.keySet()));
+        }
+
+        @Override
+        public void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
+        {
+            partitionCalls.add("deletePartitionColumnStatistics " + partitionName + "." + columnName);
         }
 
         @Override

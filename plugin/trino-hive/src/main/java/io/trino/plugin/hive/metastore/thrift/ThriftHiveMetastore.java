@@ -114,6 +114,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.hive.thrift.metastore.HiveObjectType.TABLE;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -137,6 +138,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 @ThreadSafe
 public final class ThriftHiveMetastore
@@ -536,39 +538,102 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, String partitionName, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
-        List<Partition> partitions = getPartitionsByNames(table.getDbName(), table.getTableName(), ImmutableList.of(partitionName));
-        if (partitions.isEmpty()) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, "No partition found for name: " + partitionName);
+        if (partitionUpdates.isEmpty()) {
+            return;
         }
-        if (partitions.size() != 1) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, "Metastore returned multiple partitions for name: " + partitionName);
+        String databaseName = table.getDbName();
+        String tableName = table.getTableName();
+        List<String> partitionColumnNames = table.getPartitionKeys().stream()
+                .map(FieldSchema::getName)
+                .collect(toImmutableList());
+        Map<String, Partition> partitions = getPartitionsByNames(databaseName, tableName, ImmutableList.copyOf(partitionUpdates.keySet())).stream()
+                .collect(toImmutableMap(partition -> makePartName(partitionColumnNames, partition.getValues()), identity()));
+        Set<String> missingPartitions = difference(partitionUpdates.keySet(), partitions.keySet());
+        if (missingPartitions.size() == 1) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "No partition found for name: " + getOnlyElement(missingPartitions));
         }
-        Partition originalPartition = getOnlyElement(partitions);
+        if (!missingPartitions.isEmpty()) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "No partition found for names: " + String.join(", ", missingPartitions));
+        }
+        Set<String> columnNames = table.getSd().getCols().stream()
+                .map(FieldSchema::getName)
+                .collect(toImmutableSet());
+        Map<String, Map<String, HiveColumnStatistics>> currentColumnStatistics = getPartitionColumnStatistics(databaseName, tableName, partitionUpdates.keySet(), columnNames);
 
-        HiveBasicStatistics currentBasicStats = getHiveBasicStatistics(originalPartition.getParameters());
-        Map<String, HiveColumnStatistics> currentColumnStats = getPartitionColumnStatistics(
-                table.getDbName(),
-                table.getTableName(),
-                ImmutableSet.of(partitionName),
-                table.getSd().getCols().stream()
-                        .map(FieldSchema::getName)
-                        .collect(toImmutableSet()))
-                .getOrDefault(partitionName, ImmutableMap.of());
-        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(new PartitionStatistics(currentBasicStats, currentColumnStats), statisticsUpdate);
+        List<PartitionStatisticsUpdate> updates = partitionUpdates.entrySet().stream()
+                .map(entry -> preparePartitionStatisticsUpdate(
+                        entry.getKey(),
+                        partitions.get(entry.getKey()),
+                        currentColumnStatistics.getOrDefault(entry.getKey(), ImmutableMap.of()),
+                        mode,
+                        entry.getValue()))
+                .collect(toImmutableList());
 
-        Partition modifiedPartition = originalPartition.deepCopy();
-        HiveBasicStatistics basicStatistics = updatedStatistics.basicStatistics();
-        modifiedPartition.setParameters(updateStatisticsParameters(modifiedPartition.getParameters(), basicStatistics));
-        alterPartitionWithoutStatistics(table.getDbName(), table.getTableName(), modifiedPartition);
+        alterPartitionsWithoutStatistics(databaseName, tableName, updates.stream()
+                .map(PartitionStatisticsUpdate::partition)
+                .collect(toImmutableList()));
+        setPartitionsColumnStatistics(databaseName, tableName, updates.stream()
+                .filter(update -> !update.columnStatistics().isEmpty())
+                .collect(toImmutableMap(PartitionStatisticsUpdate::partitionName, PartitionStatisticsUpdate::columnStatistics)));
+        deletePartitionColumnStatistics(databaseName, tableName, updates.stream()
+                .flatMap(update -> update.removedColumnStatistics().stream()
+                        .map(columnName -> new PartitionColumn(update.partitionName(), columnName)))
+                .collect(toImmutableList()));
+    }
 
+    private static PartitionStatisticsUpdate preparePartitionStatisticsUpdate(
+            String partitionName,
+            Partition partition,
+            Map<String, HiveColumnStatistics> currentColumnStatistics,
+            StatisticsUpdateMode mode,
+            PartitionStatistics statisticsUpdate)
+    {
+        PartitionStatistics currentStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), currentColumnStatistics);
+        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
+        Partition modifiedPartition = partition.deepCopy();
+        modifiedPartition.setParameters(updateStatisticsParameters(modifiedPartition.getParameters(), updatedStatistics.basicStatistics()));
         Map<String, HiveType> columns = modifiedPartition.getSd().getCols().stream()
                 .collect(toImmutableMap(FieldSchema::getName, schema -> HiveType.valueOf(schema.getType())));
-        setPartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.columnStatistics());
+        return new PartitionStatisticsUpdate(
+                partitionName,
+                modifiedPartition,
+                toMetastoreColumnStatistics(columns, updatedStatistics.columnStatistics()),
+                ImmutableSet.copyOf(difference(currentColumnStatistics.keySet(), updatedStatistics.columnStatistics().keySet())));
+    }
 
-        Set<String> removedStatistics = difference(currentColumnStats.keySet(), updatedStatistics.columnStatistics().keySet());
-        deletePartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, removedStatistics);
+    private record PartitionStatisticsUpdate(String partitionName, Partition partition, List<ColumnStatisticsObj> columnStatistics, Set<String> removedColumnStatistics) {}
+
+    private record PartitionColumn(String partitionName, String columnName) {}
+
+    private void alterPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class, InvalidOperationException.class, MetaException.class)
+                    .stopOnIllegalExceptions()
+                    .run("alterPartitions", stats.getAlterPartition().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            client.alterPartitions(databaseName, tableName, partitions);
+                        }
+                        return null;
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private static List<ColumnStatisticsObj> toMetastoreColumnStatistics(Map<String, HiveType> columns, Map<String, HiveColumnStatistics> columnStatistics)
+    {
+        return columnStatistics.entrySet().stream()
+                .filter(entry -> columns.containsKey(entry.getKey()))
+                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), columns.get(entry.getKey()), entry.getValue()))
+                .collect(toImmutableList());
     }
 
     private void setPartitionColumnStatistics(
@@ -578,12 +643,36 @@ public final class ThriftHiveMetastore
             Map<String, HiveType> columns,
             Map<String, HiveColumnStatistics> columnStatistics)
     {
-        List<ColumnStatisticsObj> metastoreColumnStatistics = columnStatistics.entrySet().stream()
-                .filter(entry -> columns.containsKey(entry.getKey()))
-                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), columns.get(entry.getKey()), entry.getValue()))
-                .collect(toImmutableList());
+        List<ColumnStatisticsObj> metastoreColumnStatistics = toMetastoreColumnStatistics(columns, columnStatistics);
         if (!metastoreColumnStatistics.isEmpty()) {
             setPartitionColumnStatistics(databaseName, tableName, partitionName, metastoreColumnStatistics);
+        }
+    }
+
+    private void setPartitionsColumnStatistics(String databaseName, String tableName, Map<String, List<ColumnStatisticsObj>> partitionStatistics)
+    {
+        if (partitionStatistics.isEmpty()) {
+            return;
+        }
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
+                    .stopOnIllegalExceptions()
+                    .run("setPartitionsColumnStatistics", stats.getSetPartitionColumnStatistics().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            client.setPartitionsColumnStatistics(databaseName, tableName, partitionStatistics);
+                        }
+                        return null;
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), e);
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
         }
     }
 
@@ -613,21 +702,29 @@ public final class ThriftHiveMetastore
 
     private void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, Collection<String> columnNames)
     {
-        if (columnNames.isEmpty()) {
+        deletePartitionColumnStatistics(databaseName, tableName, columnNames.stream()
+                .map(columnName -> new PartitionColumn(partitionName, columnName))
+                .collect(toImmutableList()));
+    }
+
+    private void deletePartitionColumnStatistics(String databaseName, String tableName, Collection<PartitionColumn> partitionColumns)
+    {
+        if (partitionColumns.isEmpty()) {
             return;
         }
         // each column is removed once deleted so a retry skips it
-        Set<String> remainingColumns = new LinkedHashSet<>(columnNames);
+        Set<PartitionColumn> remainingColumns = new LinkedHashSet<>(partitionColumns);
         try {
             retry()
                     .stopOn(InvalidObjectException.class, MetaException.class, InvalidInputException.class)
                     .stopOnIllegalExceptions()
                     .run("deletePartitionColumnStatistics", stats.getDeletePartitionColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            Iterator<String> columns = remainingColumns.iterator();
+                            Iterator<PartitionColumn> columns = remainingColumns.iterator();
                             while (columns.hasNext()) {
+                                PartitionColumn column = columns.next();
                                 try {
-                                    client.deletePartitionColumnStatistics(databaseName, tableName, partitionName, columns.next());
+                                    client.deletePartitionColumnStatistics(databaseName, tableName, column.partitionName(), column.columnName());
                                 }
                                 catch (NoSuchObjectException _) {
                                     // already deleted, for example by an earlier attempt whose response was lost
