@@ -14,18 +14,24 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HivePrincipal;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +45,7 @@ import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,11 +60,14 @@ final class TestFileHiveMetastore
             throws IOException
     {
         tempDir = createTempDirectory("test");
-        LocalFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(tempDir);
+        metastore = createMetastore(tempDir);
+    }
 
-        metastore = new FileHiveMetastore(
+    private static HiveMetastore createMetastore(Path directory)
+    {
+        return new FileHiveMetastore(
                 new NodeVersion("testversion"),
-                fileSystemFactory,
+                new LocalFileSystemFactory(directory),
                 false,
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory("local:///")
@@ -76,6 +86,26 @@ final class TestFileHiveMetastore
     protected HiveMetastore getMetastore()
     {
         return metastore;
+    }
+
+    @Test
+    void testReadRoleGrantsFile()
+            throws IOException
+    {
+        Path directory = createTempDirectory("test");
+        try {
+            try (InputStream roleGrants = Resources.getResource(getClass(), "role_grants.json").openStream()) {
+                Files.copy(roleGrants, directory.resolve(".roleGrants"));
+            }
+
+            assertThat(createMetastore(directory).listRoleGrants(new HivePrincipal(USER, "alice")))
+                    .containsExactlyInAnyOrder(
+                            new RoleGrant(new TrinoPrincipal(USER, "alice"), "public", false),
+                            new RoleGrant(new TrinoPrincipal(USER, "alice"), "admin", true));
+        }
+        finally {
+            deleteRecursively(directory, ALLOW_INSECURE);
+        }
     }
 
     @Test

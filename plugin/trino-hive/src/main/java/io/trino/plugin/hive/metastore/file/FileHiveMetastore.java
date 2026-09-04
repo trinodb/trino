@@ -161,7 +161,7 @@ public class FileHiveMetastore
     private final JsonCodec<List<PermissionMetadata>> permissionsCodec = listJsonCodec(PermissionMetadata.class);
     private final JsonCodec<LanguageFunction> functionCodec = jsonCodec(LanguageFunction.class);
     private final JsonCodec<List<String>> rolesCodec = listJsonCodec(String.class);
-    private final JsonCodec<List<RoleGrant>> roleGrantsCodec = listJsonCodec(RoleGrant.class);
+    private final JsonCodec<List<HiveRoleGrant>> roleGrantsCodec = listJsonCodec(HiveRoleGrant.class);
 
     public FileHiveMetastore(NodeVersion nodeVersion, TrinoFileSystemFactory fileSystemFactory, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
@@ -1025,13 +1025,17 @@ public class FileHiveMetastore
     @GuardedBy("this")
     private Set<RoleGrant> readRoleGrantsFile()
     {
-        return ImmutableSet.copyOf(readFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec).orElse(ImmutableList.of()));
+        return readFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec).orElse(ImmutableList.of()).stream()
+                .map(HiveRoleGrant::toRoleGrant)
+                .collect(toImmutableSet());
     }
 
     @GuardedBy("this")
     private void writeRoleGrantsFile(Set<RoleGrant> roleGrants)
     {
-        writeFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec, ImmutableList.copyOf(roleGrants), true);
+        writeFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec, roleGrants.stream()
+                .map(HiveRoleGrant::fromRoleGrant)
+                .collect(toImmutableList()), true);
     }
 
     private synchronized Optional<List<String>> getAllPartitionNames(String databaseName, String tableName)
