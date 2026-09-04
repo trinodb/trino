@@ -32,6 +32,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -3130,6 +3131,18 @@ public class TestTimestamp
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageMatching("Value cannot fit in an int: .*");
 
+        // the sub-millisecond part is added back after the result has been scaled to microseconds, and that addition can overflow
+        assertThat(assertions.expression("date_add('millisecond', 9223372036854775, TIMESTAMP '1970-01-01 00:00:00.000807')")).matches("TIMESTAMP '294247-01-10 04:00:54.775807'");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('millisecond', 9223372036854775, TIMESTAMP '1970-01-01 00:00:00.000808')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('month', 1, TIMESTAMP '294246-12-10 04:00:54.775999')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('month', 1, TIMESTAMP '294246-12-10 04:00:54.775999999999')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+
         assertTrinoExceptionThrownBy(assertions.expression("date_diff('foo', TIMESTAMP '2001-01-31 19:34:55', TIMESTAMP '2005-09-10 13:31:00')")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("'foo' is not a valid TIMESTAMP field");
@@ -3310,6 +3323,36 @@ public class TestTimestamp
 
         assertThat(assertions.operator(ADD, "INTERVAL '3' year", "TIMESTAMP '2001-1-22 03:04:05.321'"))
                 .matches("TIMESTAMP '2004-01-22 03:04:05.321'");
+
+        // the sub-millisecond part is added back after the result has been scaled to microseconds, and that addition can overflow
+        assertThat(assertions.operator(ADD, "TIMESTAMP '294246-12-10 04:00:54.775807'", "INTERVAL '1' month"))
+                .matches("TIMESTAMP '294247-01-10 04:00:54.775807'");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '294246-12-10 04:00:54.775808'", "INTERVAL '1' month")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '294246-12-10 04:00:54.775808000000'", "INTERVAL '1' month")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "INTERVAL '1' month", "TIMESTAMP '294246-12-10 04:00:54.775808'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        // joda rejects the month arithmetic itself
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '2020-01-01 00:00:00'", "INTERVAL '178956970' year")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+
+        // adding a day-to-second interval can push the timestamp past the largest representable value
+        assertThat(assertions.operator(ADD, "TIMESTAMP '294247-01-10 04:00:53.775807'", "INTERVAL '1' second"))
+                .matches("TIMESTAMP '294247-01-10 04:00:54.775807'");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '294247-01-10 04:00:54.775807'", "INTERVAL '1' second")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '294247-01-10 04:00:54.775807000000'", "INTERVAL '1' second")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "INTERVAL '1' second", "TIMESTAMP '294247-01-10 04:00:54.775807'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
     }
 
     @Test
