@@ -21,6 +21,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -144,6 +145,13 @@ public class S3FileSystemConfig
 
     private String awsAccessKey;
     private String awsSecretKey;
+    private String keystorePath;
+    private String keystoreType = "JCEKS";
+    private String keystorePassword;
+    private String keystoreEntryPassword;
+    private String keystoreBucketKeyPrefix;
+    private String awsAccessKeyAlias;
+    private String awsSecretKeyAlias;
     private String endpoint;
     private String region;
     private boolean pathStyleAccess;
@@ -202,6 +210,110 @@ public class S3FileSystemConfig
     {
         this.awsSecretKey = awsSecretKey;
         return this;
+    }
+
+    @FileExists
+    public String getKeystorePath()
+    {
+        return keystorePath;
+    }
+
+    @Config("s3.keystore.path")
+    @ConfigDescription("Path to a Java KeyStore file (JCEKS) containing S3 credential aliases")
+    public S3FileSystemConfig setKeystorePath(String keystorePath)
+    {
+        this.keystorePath = keystorePath;
+        return this;
+    }
+
+    public String getKeystoreType()
+    {
+        return keystoreType;
+    }
+
+    @Config("s3.keystore.type")
+    @ConfigDescription("Java KeyStore type (default JCEKS)")
+    public S3FileSystemConfig setKeystoreType(String keystoreType)
+    {
+        this.keystoreType = keystoreType;
+        return this;
+    }
+
+    public String getKeystorePassword()
+    {
+        return keystorePassword;
+    }
+
+    @Config("s3.keystore.password")
+    @ConfigDescription("Password for the keystore file. Defaults to HADOOP_CREDSTORE_PASSWORD environment variable or 'none'")
+    @ConfigSecuritySensitive
+    public S3FileSystemConfig setKeystorePassword(String keystorePassword)
+    {
+        this.keystorePassword = keystorePassword;
+        return this;
+    }
+
+    public String getKeystoreEntryPassword()
+    {
+        return keystoreEntryPassword;
+    }
+
+    @Config("s3.keystore.entry-password")
+    @ConfigDescription("Password protecting individual keystore entries. Defaults to s3.keystore.password")
+    @ConfigSecuritySensitive
+    public S3FileSystemConfig setKeystoreEntryPassword(String keystoreEntryPassword)
+    {
+        this.keystoreEntryPassword = keystoreEntryPassword;
+        return this;
+    }
+
+    public String getKeystoreBucketKeyPrefix()
+    {
+        return keystoreBucketKeyPrefix;
+    }
+
+    @Config("s3.keystore.bucket-key-prefix")
+    @ConfigDescription("Prefix for per-bucket credential aliases. Access and secret key aliases are resolved as <prefix><bucket>.access.key and <prefix><bucket>.secret.key. Cannot be combined with s3.aws-access-key-alias and s3.aws-secret-key-alias, or with s3.security-mapping.enabled")
+    public S3FileSystemConfig setKeystoreBucketKeyPrefix(String keystoreBucketKeyPrefix)
+    {
+        this.keystoreBucketKeyPrefix = keystoreBucketKeyPrefix;
+        return this;
+    }
+
+    public String getAwsAccessKeyAlias()
+    {
+        return awsAccessKeyAlias;
+    }
+
+    @Config("s3.aws-access-key-alias")
+    @ConfigDescription("Keystore alias for the S3 access key when using s3.keystore.path")
+    public S3FileSystemConfig setAwsAccessKeyAlias(String awsAccessKeyAlias)
+    {
+        this.awsAccessKeyAlias = awsAccessKeyAlias;
+        return this;
+    }
+
+    public String getAwsSecretKeyAlias()
+    {
+        return awsSecretKeyAlias;
+    }
+
+    @Config("s3.aws-secret-key-alias")
+    @ConfigDescription("Keystore alias for the S3 secret key when using s3.keystore.path")
+    public S3FileSystemConfig setAwsSecretKeyAlias(String awsSecretKeyAlias)
+    {
+        this.awsSecretKeyAlias = awsSecretKeyAlias;
+        return this;
+    }
+
+    public boolean isKeystoreConfigured()
+    {
+        return keystorePath != null;
+    }
+
+    public boolean isKeystoreBucketPrefixConfigured()
+    {
+        return keystorePath != null && keystoreBucketKeyPrefix != null;
     }
 
     public String getEndpoint()
@@ -439,18 +551,65 @@ public class S3FileSystemConfig
         return (authType == S3AuthType.IAM_ROLE) == (iamRole != null);
     }
 
-    @AssertTrue(message = "s3.auth-type=ANONYMOUS and s3.auth-type=WEB_IDENTITY cannot be used with other authentication properties (s3.aws-access-key, s3.aws-secret-key, s3.external-id, s3.sts.endpoint, s3.sts.region)")
+    @AssertTrue(message = "s3.auth-type=ANONYMOUS and s3.auth-type=WEB_IDENTITY cannot be used with other authentication properties (s3.aws-access-key, s3.aws-secret-key, s3.aws-access-key-alias, s3.aws-secret-key-alias, s3.keystore.path, s3.external-id, s3.sts.endpoint, s3.sts.region)")
     public boolean isCredentialFreeAuthTypeValid()
     {
         // s3.external-id and s3.sts.* remain allowed under DEFAULT for security-mapping roles.
         if (authType == S3AuthType.ANONYMOUS || authType == S3AuthType.WEB_IDENTITY) {
             return awsAccessKey == null &&
                     awsSecretKey == null &&
+                    awsAccessKeyAlias == null &&
+                    awsSecretKeyAlias == null &&
+                    keystorePath == null &&
                     externalId == null &&
                     stsEndpoint == null &&
                     stsRegion == null;
         }
         return true;
+    }
+
+    @AssertTrue(message = "s3.aws-access-key and s3.aws-secret-key must be configured together")
+    public boolean isPlaintextCredentialsValid()
+    {
+        return (awsAccessKey == null) == (awsSecretKey == null);
+    }
+
+    @AssertTrue(message = "plaintext and alias S3 credentials cannot be mixed")
+    public boolean isPlaintextAndAliasCredentialsValid()
+    {
+        boolean hasPlaintext = awsAccessKey != null || awsSecretKey != null;
+        boolean hasAlias = awsAccessKeyAlias != null || awsSecretKeyAlias != null || keystorePath != null;
+        return !(hasPlaintext && hasAlias);
+    }
+
+    @AssertTrue(message = "s3.keystore.path requires s3.aws-access-key-alias and s3.aws-secret-key-alias, or s3.keystore.bucket-key-prefix")
+    public boolean isKeystoreConfigurationValid()
+    {
+        if (keystorePath == null) {
+            return keystoreBucketKeyPrefix == null &&
+                    awsAccessKeyAlias == null &&
+                    awsSecretKeyAlias == null;
+        }
+        return (awsAccessKeyAlias != null && awsSecretKeyAlias != null) ||
+                keystoreBucketKeyPrefix != null;
+    }
+
+    @AssertTrue(message = "s3.keystore.bucket-key-prefix requires s3.keystore.path")
+    public boolean isKeystoreBucketPrefixValid()
+    {
+        if (keystoreBucketKeyPrefix == null) {
+            return true;
+        }
+        return keystorePath != null;
+    }
+
+    @AssertTrue(message = "s3.aws-access-key-alias and s3.aws-secret-key-alias cannot be used with s3.keystore.bucket-key-prefix")
+    public boolean isKeystoreGlobalAliasAndBucketPrefixMutuallyExclusive()
+    {
+        if (keystoreBucketKeyPrefix == null) {
+            return true;
+        }
+        return awsAccessKeyAlias == null && awsSecretKeyAlias == null;
     }
 
     public Optional<SignerType> getSignerType()
