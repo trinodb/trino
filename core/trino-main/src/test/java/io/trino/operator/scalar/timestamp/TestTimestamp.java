@@ -3322,6 +3322,18 @@ public class TestTimestamp
 
         assertThat(assertions.operator(ADD, "INTERVAL '3' year", "TIMESTAMP '2001-1-22 03:04:05.321'"))
                 .matches("TIMESTAMP '2004-01-22 03:04:05.321'");
+
+        // the sub-millisecond part is added back after the result has been scaled to microseconds, and that addition can overflow
+        assertThat(assertions.operator(ADD, "TIMESTAMP '294246-12-10 04:00:54.775807'", "INTERVAL '1' month"))
+                .matches("TIMESTAMP '294247-01-10 04:00:54.775807'");
+        assertThatThrownBy(() -> assertions.operator(ADD, "TIMESTAMP '294246-12-10 04:00:54.775808'", "INTERVAL '1' month").evaluate())
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.operator(ADD, "TIMESTAMP '294246-12-10 04:00:54.775808000000'", "INTERVAL '1' month").evaluate())
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.operator(ADD, "INTERVAL '1' month", "TIMESTAMP '294246-12-10 04:00:54.775808'").evaluate())
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.operator(ADD, "INTERVAL '1' month", "TIMESTAMP '294246-12-10 04:00:54.775808000000'").evaluate())
+                .hasMessage("long overflow");
     }
 
     @Test
@@ -3332,6 +3344,11 @@ public class TestTimestamp
 
         assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2001-1-22 03:04:05.321'", "INTERVAL '3' month"))
                 .matches("TIMESTAMP '2000-10-22 03:04:05.321'");
+
+        // subtracting from the smallest representable timestamp underflows
+        String minTimestamp = "date_add('millisecond', -9223372036854775, TIMESTAMP '1970-01-01 00:00:00.000000')";
+        assertThatThrownBy(() -> assertions.operator(SUBTRACT, minTimestamp, "INTERVAL '1' month").evaluate())
+                .hasMessage("long overflow");
     }
 
     @Test
