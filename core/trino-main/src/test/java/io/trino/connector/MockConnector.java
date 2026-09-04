@@ -36,6 +36,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -106,6 +107,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.Type;
 
@@ -836,6 +838,21 @@ public class MockConnector
         {
             return Optional.empty();
         }
+
+        @Override
+        public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
+        {
+            return new ConnectorAnalyzeMetadata(tableHandle, TableStatisticsMetadata.empty());
+        }
+
+        @Override
+        public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return tableHandle;
+        }
+
+        @Override
+        public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics) {}
 
         @Override
         public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
