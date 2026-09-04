@@ -13,13 +13,17 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
@@ -58,6 +62,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -481,25 +486,29 @@ public class TransactionLogAccess
     {
         List<Transaction> transactions = tableSnapshot.getTransactions();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
-        try (Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
-                session,
-                ImmutableSet.of(ADD),
-                checkpointSchemaManager,
-                typeManager,
-                fileSystem,
-                fileFormatDataSourceStats,
-                Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
-                partitionConstraint,
-                Optional.of(addStatsMinMaxColumnFilter),
-                new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
-            return activeAddEntries(checkpointEntries, transactions, fileSystem)
-                    .filter(partitionConstraint.isAll()
-                            ? _ -> true
-                            : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow()));
-        }
-        catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error reading transaction log for " + tableSnapshot.getTable(), e);
-        }
+        Supplier<Stream<DeltaLakeTransactionLogEntry>> checkpointEntriesSupplier = () -> {
+            try {
+                return tableSnapshot.getCheckpointTransactionLogEntries(
+                        session,
+                        ImmutableSet.of(ADD),
+                        checkpointSchemaManager,
+                        typeManager,
+                        fileSystem,
+                        fileFormatDataSourceStats,
+                        Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
+                        partitionConstraint,
+                        Optional.of(addStatsMinMaxColumnFilter),
+                        new BoundedExecutor(executorService, checkpointProcessingParallelism));
+            }
+            catch (IOException e) {
+                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error reading transaction log for " + tableSnapshot.getTable(), e);
+            }
+        };
+
+        return activeAddEntries(checkpointEntriesSupplier, transactions, fileSystem)
+                .filter(partitionConstraint.isAll()
+                        ? _ -> true
+                        : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow()));
     }
 
     public static List<DeltaLakeColumnMetadata> columnsWithStats(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TypeManager typeManager)
@@ -518,48 +527,158 @@ public class TransactionLogAccess
                 .collect(toImmutableList());
     }
 
-    private Stream<AddFileEntry> activeAddEntries(Stream<DeltaLakeTransactionLogEntry> checkpointEntries, List<Transaction> transactions, TrinoFileSystem fileSystem)
+    @VisibleForTesting
+    static Stream<AddFileEntry> activeAddEntries(
+            Supplier<Stream<DeltaLakeTransactionLogEntry>> checkpointEntriesSupplier,
+            List<Transaction> transactions,
+            TrinoFileSystem fileSystem)
     {
-        Map<FileEntryKey, AddFileEntry> activeJsonEntries = new LinkedHashMap<>();
-        HashSet<FileEntryKey> removedFiles = new HashSet<>();
+        // Replay the JSON tail newest first and defer the checkpoint until it is needed. This
+        // lets a short-circuiting consumer stop before reconstructing the full snapshot.
+        ActiveAddEntriesIterator iterator = new ActiveAddEntriesIterator(checkpointEntriesSupplier, transactions, fileSystem);
+        return Streams.stream(iterator)
+                .onClose(iterator::close);
+    }
 
-        // The json entries containing the last few entries in the log need to be applied on top of the parquet snapshot:
-        // - Any files which have been removed need to be excluded
-        // - Any files with newer add actions need to be updated with the most recent metadata
-        transactions.forEach(transaction -> {
+    private record FileEntryKey(String path, Optional<String> deletionVectorId) {}
+
+    private static FileEntryKey fileEntryKey(AddFileEntry addFileEntry)
+    {
+        return new FileEntryKey(addFileEntry.getPath(), addFileEntry.getDeletionVector().map(DeletionVectorEntry::uniqueId));
+    }
+
+    private static FileEntryKey fileEntryKey(RemoveFileEntry removeFileEntry)
+    {
+        return new FileEntryKey(removeFileEntry.path(), removeFileEntry.deletionVector().map(DeletionVectorEntry::uniqueId));
+    }
+
+    private static final class ActiveAddEntriesIterator
+            extends AbstractIterator<AddFileEntry>
+            implements AutoCloseable
+    {
+        private final Supplier<Stream<DeltaLakeTransactionLogEntry>> checkpointEntriesSupplier;
+        private final Iterator<Transaction> transactions;
+        private final TrinoFileSystem fileSystem;
+        private final Set<FileEntryKey> addFilesFromJson = new HashSet<>();
+        private final Set<FileEntryKey> removedFiles = new HashSet<>();
+
+        private Iterator<AddFileEntry> currentAddEntries = ImmutableList.<AddFileEntry>of().iterator();
+        @GuardedBy("this")
+        @Nullable
+        private Stream<DeltaLakeTransactionLogEntry> checkpointEntries;
+        @Nullable
+        private Iterator<DeltaLakeTransactionLogEntry> checkpointIterator;
+        private volatile boolean closed;
+
+        private ActiveAddEntriesIterator(
+                Supplier<Stream<DeltaLakeTransactionLogEntry>> checkpointEntriesSupplier,
+                List<Transaction> transactions,
+                TrinoFileSystem fileSystem)
+        {
+            this.checkpointEntriesSupplier = requireNonNull(checkpointEntriesSupplier, "checkpointEntriesSupplier is null");
+            this.transactions = requireNonNull(transactions, "transactions is null").reversed().iterator();
+            this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        }
+
+        @Override
+        protected AddFileEntry computeNext()
+        {
+            if (closed) {
+                return endOfData();
+            }
+
+            try {
+                while (true) {
+                    if (currentAddEntries.hasNext()) {
+                        return currentAddEntries.next();
+                    }
+
+                    if (transactions.hasNext()) {
+                        currentAddEntries = loadActiveAddEntries(transactions.next());
+                        continue;
+                    }
+
+                    if (checkpointIterator == null) {
+                        Stream<DeltaLakeTransactionLogEntry> acquiredCheckpointEntries = checkpointEntriesSupplier.get();
+                        synchronized (this) {
+                            if (closed) {
+                                acquiredCheckpointEntries.close();
+                                return endOfData();
+                            }
+                            checkpointEntries = acquiredCheckpointEntries;
+                            checkpointIterator = checkpointEntries.iterator();
+                        }
+                    }
+                    while (checkpointIterator.hasNext()) {
+                        AddFileEntry addFileEntry = checkpointIterator.next().getAdd();
+                        if (addFileEntry == null) {
+                            continue;
+                        }
+
+                        FileEntryKey key = fileEntryKey(addFileEntry);
+                        if (!removedFiles.contains(key) && !addFilesFromJson.contains(key)) {
+                            return addFileEntry;
+                        }
+                    }
+
+                    close();
+                    return endOfData();
+                }
+            }
+            catch (RuntimeException | Error e) {
+                try {
+                    close();
+                }
+                catch (RuntimeException | Error closeFailure) {
+                    e.addSuppressed(closeFailure);
+                }
+                throw e;
+            }
+        }
+
+        private Iterator<AddFileEntry> loadActiveAddEntries(Transaction transaction)
+        {
             Map<FileEntryKey, AddFileEntry> addFilesInTransaction = new LinkedHashMap<>();
             Set<FileEntryKey> removedFilesInTransaction = new HashSet<>();
+
             try (Stream<DeltaLakeTransactionLogEntry> entries = transaction.transactionEntries().getEntries(fileSystem)) {
                 entries.forEach(deltaLakeTransactionLogEntry -> {
                     if (deltaLakeTransactionLogEntry.getAdd() != null) {
                         AddFileEntry add = deltaLakeTransactionLogEntry.getAdd();
-                        addFilesInTransaction.put(new FileEntryKey(add.getPath(), add.getDeletionVector().map(DeletionVectorEntry::uniqueId)), add);
+                        addFilesInTransaction.put(fileEntryKey(add), add);
                     }
                     else if (deltaLakeTransactionLogEntry.getRemove() != null) {
-                        RemoveFileEntry remove = deltaLakeTransactionLogEntry.getRemove();
-                        removedFilesInTransaction.add(new FileEntryKey(remove.path(), remove.deletionVector().map(DeletionVectorEntry::uniqueId)));
+                        removedFilesInTransaction.add(fileEntryKey(deltaLakeTransactionLogEntry.getRemove()));
                     }
                 });
             }
 
-            // Process 'remove' entries first because deletion vectors register both 'add' and 'remove' entries and the 'add' entry should be kept
+            // Process a transaction as a unit so an add in the same transaction as a remove
+            // keeps the current forward-replay semantics. Compacted log files are already action
+            // reconciled and can be treated as a single transaction.
+            List<AddFileEntry> activeAddEntries = addFilesInTransaction.entrySet().stream()
+                    .filter(entry -> !removedFiles.contains(entry.getKey()) && !addFilesFromJson.contains(entry.getKey()))
+                    .map(Map.Entry::getValue)
+                    .collect(toImmutableList());
+
             removedFiles.addAll(removedFilesInTransaction);
-            removedFilesInTransaction.forEach(activeJsonEntries::remove);
-            activeJsonEntries.putAll(addFilesInTransaction);
-        });
+            addFilesFromJson.addAll(addFilesInTransaction.keySet());
 
-        Stream<AddFileEntry> filteredCheckpointEntries = checkpointEntries
-                .map(DeltaLakeTransactionLogEntry::getAdd)
-                .filter(Objects::nonNull)
-                .filter(addEntry -> {
-                    FileEntryKey key = new FileEntryKey(addEntry.getPath(), addEntry.getDeletionVector().map(DeletionVectorEntry::uniqueId));
-                    return !removedFiles.contains(key) && !activeJsonEntries.containsKey(key);
-                });
+            return activeAddEntries.iterator();
+        }
 
-        return Stream.concat(filteredCheckpointEntries, activeJsonEntries.values().stream());
+        @Override
+        public synchronized void close()
+        {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (checkpointEntries != null) {
+                checkpointEntries.close();
+            }
+        }
     }
-
-    private record FileEntryKey(String path, Optional<String> deletionVectorId) {}
 
     public MetadataAndProtocolEntries getMetadataAndProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
     {
