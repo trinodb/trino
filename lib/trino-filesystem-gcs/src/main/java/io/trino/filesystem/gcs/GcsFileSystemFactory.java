@@ -13,13 +13,17 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.cloud.storage.Storage;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -31,6 +35,9 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class GcsFileSystemFactory
         implements TrinoFileSystemFactory
 {
+    private static final String AUDIT_QUERY_ID_HEADER = "x-goog-custom-audit-trino-query-id";
+    private static final String AUDIT_USER_HEADER = "x-goog-custom-audit-trino-user";
+
     private final int readBlockSizeBytes;
     private final long writeBlockSizeBytes;
     private final int pageSize;
@@ -60,6 +67,22 @@ public class GcsFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint);
+        return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint, ImmutableMap.of());
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorSession session)
+    {
+        Storage storage = storageFactory.create(session.getIdentity());
+        return new GcsFileSystem(executorService, storage, readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint, auditHeaders(session.getQueryId(), session.getUser()));
+    }
+
+    static Map<String, String> auditHeaders(String queryId, String user)
+    {
+        // Custom audit headers (x-goog-custom-audit-*) are surfaced in GCS Cloud Audit Logs.
+        // See: https://cloud.google.com/storage/docs/audit-logging#custom-audit-info
+        return ImmutableMap.of(
+                AUDIT_QUERY_ID_HEADER, queryId,
+                AUDIT_USER_HEADER, user);
     }
 }

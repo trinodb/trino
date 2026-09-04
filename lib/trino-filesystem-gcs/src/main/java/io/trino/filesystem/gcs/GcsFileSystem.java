@@ -66,7 +66,6 @@ import static com.google.common.collect.Iterables.partition;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
-import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
 import static io.trino.filesystem.gcs.GcsUtils.keySha256Checksum;
 import static java.util.Objects.requireNonNull;
@@ -82,8 +81,9 @@ public class GcsFileSystem
     private final int pageSize;
     private final int batchSize;
     private final Optional<String> endpoint;
+    private final Map<String, String> auditHeaders;
 
-    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize, Optional<String> endpoint)
+    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize, Optional<String> endpoint, Map<String, String> auditHeaders)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -92,6 +92,7 @@ public class GcsFileSystem
         this.pageSize = pageSize;
         this.batchSize = batchSize;
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
+        this.auditHeaders = ImmutableMap.copyOf(auditHeaders);
     }
 
     @Override
@@ -99,7 +100,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.empty(), auditHeaders);
     }
 
     @Override
@@ -107,7 +108,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.of(key));
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.of(key), auditHeaders);
     }
 
     @Override
@@ -115,7 +116,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.empty(), auditHeaders);
     }
 
     @Override
@@ -123,7 +124,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.of(key));
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.of(key), auditHeaders);
     }
 
     @Override
@@ -131,7 +132,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.empty(), auditHeaders);
     }
 
     @Override
@@ -139,7 +140,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.of(key));
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.of(key), auditHeaders);
     }
 
     @Override
@@ -147,7 +148,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.empty());
+        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.empty(), auditHeaders);
     }
 
     @Override
@@ -155,7 +156,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.of(key));
+        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.of(key), auditHeaders);
     }
 
     @Override
@@ -164,7 +165,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        getBlob(storage, gcsLocation).ifPresent(Blob::delete);
+        storage.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()), Storage.BlobSourceOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
     }
 
     @Override
@@ -177,7 +178,7 @@ public class GcsFileSystem
                 StorageBatch batch = storage.batch();
                 for (Location location : locationBatch) {
                     GcsLocation gcsLocation = new GcsLocation(location);
-                    batch.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()));
+                    batch.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()), Storage.BlobSourceOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
                 }
                 batchFutures.add(executorService.submit(batch::submit));
             }
@@ -199,7 +200,7 @@ public class GcsFileSystem
             for (List<Blob> blobBatch : partition(getPage(gcsLocation).iterateAll(), batchSize)) {
                 StorageBatch batch = storage.batch();
                 for (Blob blob : blobBatch) {
-                    batch.delete(blob.getBlobId());
+                    batch.delete(blob.getBlobId(), Storage.BlobSourceOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
                 }
                 batchFutures.add(executorService.submit(batch::submit));
             }
@@ -272,6 +273,7 @@ public class GcsFileSystem
         }
         optionsBuilder.addAll(Arrays.asList(blobListOptions));
         optionsBuilder.add(pageSize(this.pageSize));
+        optionsBuilder.add(BlobListOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
         return storage.list(location.bucket(), optionsBuilder.toArray(BlobListOption[]::new));
     }
 
@@ -309,7 +311,7 @@ public class GcsFileSystem
 
     private boolean bucketExists(String bucket)
     {
-        return storage.get(bucket) != null;
+        return storage.get(bucket, Storage.BucketGetOption.extraHeaders(ImmutableMap.copyOf(auditHeaders))) != null;
     }
 
     @Override
@@ -389,17 +391,15 @@ public class GcsFileSystem
         }
     }
 
-    private static Map<String, String> preSignedHeaders(Optional<EncryptionKey> key)
+    private Map<String, String> preSignedHeaders(Optional<EncryptionKey> key)
     {
-        if (key.isEmpty()) {
-            return ImmutableMap.of();
-        }
-
-        EncryptionKey encryption = key.get();
-        ImmutableMap.Builder<String, String> headers = ImmutableMap.builderWithExpectedSize(3);
-        headers.put("x-goog-encryption-algorithm", encryption.algorithm());
-        headers.put("x-goog-encryption-key", encodedKey(encryption));
-        headers.put("x-goog-encryption-key-sha256", keySha256Checksum(encryption));
+        ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
+        headers.putAll(auditHeaders);
+        key.ifPresent(encryption -> {
+            headers.put("x-goog-encryption-algorithm", encryption.algorithm());
+            headers.put("x-goog-encryption-key", encodedKey(encryption));
+            headers.put("x-goog-encryption-key-sha256", keySha256Checksum(encryption));
+        });
         return headers.buildOrThrow();
     }
 

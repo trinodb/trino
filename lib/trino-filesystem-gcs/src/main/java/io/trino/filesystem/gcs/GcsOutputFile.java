@@ -21,6 +21,7 @@ import com.google.cloud.storage.Storage.BlobWriteOption;
 import com.google.cloud.storage.StorageException;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
@@ -29,6 +30,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,14 +47,16 @@ public class GcsOutputFile
     private final Storage storage;
     private final long writeBlockSizeBytes;
     private final Optional<EncryptionKey> key;
+    private final Map<String, String> auditHeaders;
 
-    public GcsOutputFile(GcsLocation location, Storage storage, long writeBlockSizeBytes, Optional<EncryptionKey> key)
+    public GcsOutputFile(GcsLocation location, Storage storage, long writeBlockSizeBytes, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
         checkArgument(writeBlockSizeBytes >= 0, "writeBlockSizeBytes is negative");
         this.writeBlockSizeBytes = writeBlockSizeBytes;
         this.key = requireNonNull(key, "key is null");
+        this.auditHeaders = ImmutableMap.copyOf(auditHeaders);
     }
 
     @Override
@@ -121,6 +125,7 @@ public class GcsOutputFile
             options.add(BlobWriteOption.doesNotExist());
         }
         key.ifPresent(encryption -> options.add(BlobWriteOption.encryptionKey(encodedKey(encryption))));
+        options.add(BlobWriteOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
         return options.build().toArray(new BlobWriteOption[0]);
     }
 
@@ -131,6 +136,7 @@ public class GcsOutputFile
             options.add(BlobTargetOption.doesNotExist());
         }
         key.ifPresent(encryption -> options.add(BlobTargetOption.encryptionKey(encodedKey(encryption))));
+        options.add(BlobTargetOption.extraHeaders(ImmutableMap.copyOf(auditHeaders)));
         return options.build().toArray(new BlobTargetOption[0]);
     }
 
