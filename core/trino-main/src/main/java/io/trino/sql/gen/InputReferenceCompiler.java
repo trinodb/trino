@@ -14,7 +14,6 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.BytecodeVisitor;
@@ -24,11 +23,19 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import org.objectweb.asm.MethodVisitor;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 
 /**
@@ -38,19 +45,22 @@ final class InputReferenceCompiler
 {
     private InputReferenceCompiler() {}
 
-    public static BytecodeNode generateInputReference(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
+    public static BytecodeNode generateInputReference(TypeOperators typeOperators, CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
     {
-        return new InputReferenceNode(callSiteBinder, scope, type, block, position);
+        return new InputReferenceNode(typeOperators, callSiteBinder, scope, type, block, position);
     }
 
     static class InputReferenceNode
             implements BytecodeNode
     {
-        private final BytecodeNode body;
+        private final BytecodeBlock body;
+        private final Variable inputBlock;
         private final BytecodeExpression block;
         private final BytecodeExpression position;
+        private final Variable valueBlock;
+        private final Variable valuePosition;
 
-        private InputReferenceNode(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
+        private InputReferenceNode(TypeOperators typeOperators, CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
         {
             // Generate body based on block and position
             Variable wasNullVariable = scope.getVariable("wasNull");
@@ -59,24 +69,39 @@ final class InputReferenceCompiler
                 callType = Object.class;
             }
 
+            Variable inputBlock = scope.createTempVariable(Block.class);
+            Variable valueBlock = scope.createTempVariable(ValueBlock.class);
+            Variable valuePosition = scope.createTempVariable(int.class);
+
             IfStatement ifStatement = new IfStatement();
-            ifStatement.condition(block.invoke("isNull", boolean.class, position));
+            ifStatement.condition(valueBlock.invoke("isNull", boolean.class, valuePosition));
 
             ifStatement.ifTrue()
                     .putVariable(wasNullVariable, true)
                     .pushJavaDefault(callType);
 
-            String methodName = "get" + Primitives.wrap(callType).getSimpleName();
-            BytecodeExpression value = constantType(callSiteBinder, type).invoke(methodName, callType, block, position);
+            BytecodeExpression value;
+            if (callType == Object.class) {
+                value = constantType(callSiteBinder, type).invoke("getObject", Object.class, valueBlock.cast(Block.class), valuePosition);
+            }
+            else {
+                MethodHandle readValue = typeOperators.getReadValueOperator(type, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
+                readValue = readValue.asType(readValue.type().changeReturnType(callType));
+                value = invoke(callSiteBinder.bind(readValue), "readValue", valueBlock, valuePosition);
+            }
             Class<?> expectedType = callSiteBinder.getAccessibleType(type.getJavaType());
             if (callType != expectedType) {
                 value = value.cast(expectedType);
             }
             ifStatement.ifFalse(value);
 
-            this.body = ifStatement;
+            this.inputBlock = inputBlock;
             this.block = block;
             this.position = position;
+            this.valueBlock = valueBlock;
+            this.valuePosition = valuePosition;
+            this.body = loadValueBlockAndPosition()
+                    .append(ifStatement);
         }
 
         @Override
@@ -94,20 +119,27 @@ final class InputReferenceCompiler
         @Override
         public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
-            return visitor.visitIf(parent, (IfStatement) body);
+            return visitor.visitBlock(parent, body);
         }
 
-        public BytecodeNode produceBlockAndPosition()
+        public BytecodeNode produceValueBlockAndPosition()
         {
-            BytecodeBlock blockAndPosition = new BytecodeBlock();
-            blockAndPosition.append(block);
-            blockAndPosition.append(position);
-            return blockAndPosition;
+            return loadValueBlockAndPosition()
+                    .append(valueBlock)
+                    .append(valuePosition);
         }
 
-        public BytecodeExpression blockAndPositionIsNull()
+        private BytecodeBlock loadValueBlockAndPosition()
         {
-            return block.invoke("isNull", boolean.class, position);
+            return new BytecodeBlock()
+                    .append(inputBlock.set(block))
+                    .append(valueBlock.set(inputBlock.invoke("getUnderlyingValueBlock", ValueBlock.class)))
+                    .append(valuePosition.set(inputBlock.invoke("getUnderlyingValuePosition", int.class, position)));
+        }
+
+        public BytecodeExpression valueBlockPositionIsNull()
+        {
+            return valueBlock.invoke("isNull", boolean.class, valuePosition);
         }
     }
 }

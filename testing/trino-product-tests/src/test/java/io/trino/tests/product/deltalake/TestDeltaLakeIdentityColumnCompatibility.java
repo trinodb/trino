@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @RequiresEnvironment(DeltaLakeDatabricksEnvironment.class)
 @TestGroup.ConfiguredFeatures
 @TestGroup.DeltaLakeDatabricks
-@TestGroup.DeltaLakeExclude173
+@TestGroup.DeltaLakeExclude18
 @TestGroup.ProfileSpecificTests
 class TestDeltaLakeIdentityColumnCompatibility
 {

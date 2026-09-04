@@ -15,7 +15,7 @@
     <description>Trino - Elasticsearch connector</description>
 
     <properties>
-        <dep.elasticsearch.version>9.5.1</dep.elasticsearch.version>
+        <dep.elasticsearch.version>9.5.2</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -32,12 +32,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
@@ -58,6 +52,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>

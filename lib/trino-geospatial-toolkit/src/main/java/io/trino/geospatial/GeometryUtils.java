@@ -27,11 +27,15 @@ import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.TopologyException;
 import org.locationtech.jts.geom.impl.CoordinateArraySequence;
+import org.locationtech.jts.geom.util.GeometryFixer;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.locationtech.jts.operation.union.UnaryUnionOp;
+import org.locationtech.jts.operation.valid.IsValidOp;
+import org.locationtech.jts.operation.valid.TopologyValidationError;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -41,9 +45,19 @@ import java.util.Set;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static java.util.stream.Collectors.joining;
 
 public final class GeometryUtils
 {
+    /**
+     * When set to {@code true} (JVM flag {@code -Dtrino.geospatial.legacy-lenient-overlay=true}),
+     * an overlay or union operation that fails on a topologically invalid input repairs it with
+     * {@link GeometryFixer} and retries once, matching the lenient behavior of the legacy Esri
+     * engine. By default such a failure is reported as {@code INVALID_FUNCTION_ARGUMENT}.
+     */
+    public static final String LEGACY_LENIENT_OVERLAY_PROPERTY = "trino.geospatial.legacy-lenient-overlay";
+    private static final boolean LEGACY_LENIENT_OVERLAY = parseLegacyLenientOverlay(System.getProperty(LEGACY_LENIENT_OVERLAY_PROPERTY));
+
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
     private static final long POINT_INSTANCE_SIZE = instanceSize(Point.class);
     private static final long LINE_STRING_INSTANCE_SIZE = instanceSize(LineString.class);
@@ -203,8 +217,13 @@ public final class GeometryUtils
     /**
      * Unions two geometries, handling GeometryCollection inputs that JTS's
      * standard union method doesn't support.
+     * <p>
+     * When JTS fails because an operand is topologically invalid, {@code repairInvalidInputs}
+     * selects between repairing the operand and retrying, and failing with a user error naming it.
+     * Callers pass {@link #legacyLenientOverlay()}, so the repair is unreachable unless that
+     * property is enabled.
      */
-    public static Geometry safeUnion(Geometry left, Geometry right)
+    public static Geometry safeUnion(Geometry left, Geometry right, boolean repairInvalidInputs)
     {
         // JTS union doesn't support GeometryCollection, so flatten and use UnaryUnionOp
         List<Geometry> geometries = new ArrayList<>();
@@ -213,7 +232,109 @@ public final class GeometryUtils
         if (geometries.isEmpty()) {
             return GEOMETRY_FACTORY.createGeometryCollection();
         }
-        return UnaryUnionOp.union(geometries);
+        try {
+            return UnaryUnionOp.union(geometries);
+        }
+        catch (TopologyException failure) {
+            boolean leftValid;
+            boolean rightValid;
+            try {
+                leftValid = left.isValid();
+                rightValid = right.isValid();
+            }
+            catch (RuntimeException validationFailure) {
+                failure.addSuppressed(validationFailure);
+                throw failure;
+            }
+            if (leftValid && rightValid) {
+                throw failure;
+            }
+            if (!repairInvalidInputs) {
+                throw invalidInputGeometryException(invalidInputs(left, right, leftValid, rightValid), failure);
+            }
+
+            try {
+                // Repair the original inputs, not their components: an invalid MultiPolygon can consist of valid polygons
+                List<Geometry> repairedGeometries = new ArrayList<>();
+                flattenGeometry(leftValid ? left : GeometryFixer.fix(left), repairedGeometries);
+                flattenGeometry(rightValid ? right : GeometryFixer.fix(right), repairedGeometries);
+                if (repairedGeometries.isEmpty()) {
+                    return GEOMETRY_FACTORY.createGeometryCollection();
+                }
+                return UnaryUnionOp.union(repairedGeometries);
+            }
+            catch (RuntimeException retryFailure) {
+                throw invalidInputGeometryException(invalidInputs(left, right, leftValid, rightValid), failure, retryFailure);
+            }
+        }
+    }
+
+    /**
+     * Whether {@link #LEGACY_LENIENT_OVERLAY_PROPERTY} is enabled.
+     */
+    public static boolean legacyLenientOverlay()
+    {
+        return LEGACY_LENIENT_OVERLAY;
+    }
+
+    static boolean parseLegacyLenientOverlay(String value)
+    {
+        if (value == null || value.equals("false")) {
+            return false;
+        }
+        if (value.equals("true")) {
+            return true;
+        }
+        throw new IllegalArgumentException("System property %s must be 'true' or 'false', but was: %s"
+                .formatted(LEGACY_LENIENT_OVERLAY_PROPERTY, value));
+    }
+
+    public static TrinoException invalidInputGeometryException(List<Geometry> invalidInputs, TopologyException failure)
+    {
+        return new TrinoException(INVALID_FUNCTION_ARGUMENT, invalidInputGeometryMessage(invalidInputs), failure);
+    }
+
+    public static TrinoException invalidInputGeometryException(List<Geometry> invalidInputs, TopologyException failure, RuntimeException retryFailure)
+    {
+        failure.addSuppressed(retryFailure);
+        return invalidInputGeometryException(invalidInputs, failure);
+    }
+
+    private static String invalidInputGeometryMessage(List<Geometry> invalidInputs)
+    {
+        String reasons = invalidInputs.stream()
+                .limit(3)
+                .map(GeometryUtils::describeInvalidity)
+                .collect(joining("; "));
+        if (invalidInputs.size() > 3) {
+            reasons += " (and %s more invalid inputs)".formatted(invalidInputs.size() - 3);
+        }
+        return "Invalid input geometry: " + reasons;
+    }
+
+    private static List<Geometry> invalidInputs(Geometry left, Geometry right, boolean leftValid, boolean rightValid)
+    {
+        List<Geometry> invalidInputs = new ArrayList<>();
+        if (!leftValid) {
+            invalidInputs.add(left);
+        }
+        if (!rightValid) {
+            invalidInputs.add(right);
+        }
+        return invalidInputs;
+    }
+
+    private static String describeInvalidity(Geometry geometry)
+    {
+        TopologyValidationError error = new IsValidOp(geometry).getValidationError();
+        if (error == null) {
+            return "unknown validity error";
+        }
+        Coordinate coordinate = error.getCoordinate();
+        if (coordinate == null) {
+            return error.getMessage();
+        }
+        return "%s at or near (%s %s)".formatted(error.getMessage(), coordinate.getX(), coordinate.getY());
     }
 
     /**

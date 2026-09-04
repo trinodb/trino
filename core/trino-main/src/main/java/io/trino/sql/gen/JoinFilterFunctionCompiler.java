@@ -38,6 +38,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
@@ -211,7 +212,7 @@ public class JoinFilterFunctionCompiler
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
-        BiFunction<Reference, Scope, BytecodeNode> referenceCompiler = fieldReferenceCompiler(callSiteBinder, layout, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize);
+        BiFunction<Reference, Scope, BytecodeNode> referenceCompiler = fieldReferenceCompiler(typeManager.getTypeOperators(), callSiteBinder, layout, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize);
 
         ExpressionBytecodeCompiler compiler = new ExpressionBytecodeCompiler(
                 classDefinition,
@@ -251,6 +252,7 @@ public class JoinFilterFunctionCompiler
     }
 
     private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompiler(
+            TypeOperators typeOperators,
             CallSiteBinder callSiteBinder,
             Map<Symbol, Integer> layout,
             Variable leftPosition,
@@ -266,6 +268,7 @@ public class JoinFilterFunctionCompiler
             }
             if (field < leftBlocksSize) {
                 return generateInputReference(
+                        typeOperators,
                         callSiteBinder,
                         scope,
                         reference.type(),
@@ -273,6 +276,7 @@ public class JoinFilterFunctionCompiler
                         leftPosition);
             }
             return generateInputReference(
+                    typeOperators,
                     callSiteBinder,
                     scope,
                     reference.type(),

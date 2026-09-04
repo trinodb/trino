@@ -250,6 +250,15 @@ class TestDeletionVector
     }
 
     @Test
+    void testRetainedSizeInBytes()
+    {
+        assertThat(DeletionVector.builder().add(1).build().orElseThrow().retainedSizeInBytes()).isEqualTo(64);
+        // a single high position grows the bitmap array to key + 1 slots, exercising the array size term
+        assertThat(DeletionVector.builder().add(1).add(1024L << 32).build().orElseThrow().retainedSizeInBytes()).isEqualTo(4176);
+        assertThat(DeletionVector.builder().add(1).retainedSizeInBytes()).isEqualTo(64);
+    }
+
+    @Test
     void testDeserializeThenAdd()
     {
         DeletionVector original = DeletionVector.builder()

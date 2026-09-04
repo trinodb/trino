@@ -24,6 +24,7 @@ import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
@@ -70,8 +71,8 @@ public class IcebergPageSourceProviderFactory
     }
 
     @Override
-    public IcebergPageSourceProvider createPageSourceProvider()
+    public IcebergPageSourceProvider createPageSourceProvider(MemoryContext memoryContext)
     {
-        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory);
+        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory, memoryContext);
     }
 }

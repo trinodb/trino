@@ -609,6 +609,25 @@ public class TestMemoryConnectorTest
     }
 
     @Test
+    void testDistinctAggregationsOverBetweenOnExpression()
+    {
+        // Splitting distinct aggregations over a BETWEEN expression must remap the Let binder with its body.
+        Session session = Session.builder(getSession())
+                .setSystemProperty("distinct_aggregations_strategy", "split_to_subqueries")
+                .build();
+
+        try (TestTable table = newTrinoTable(
+                "test_distinct_over_between",
+                "AS SELECT * FROM (VALUES (1, 10, 'abc'), (2, 20, 'abd'), (3, 30, 'zzz')) x(orderkey, partkey, comment)")) {
+            assertThat(query(
+                    session,
+                    "SELECT count(DISTINCT orderkey), count(DISTINCT partkey) FROM " + table.getName() +
+                            " WHERE substring(comment, 1, 3) BETWEEN 'a' AND 'b'"))
+                    .matches("VALUES (BIGINT '2', BIGINT '2')");
+        }
+    }
+
+    @Test
     void testInsertAfterTruncate()
     {
         try (TestTable table = newTrinoTable("test_truncate", "AS SELECT 1 x")) {

@@ -62,6 +62,7 @@ SUITES = [
     "SuiteDeltaLakeDatabricks154",
     "SuiteDeltaLakeDatabricks164",
     "SuiteDeltaLakeDatabricks173",
+    "SuiteDeltaLakeDatabricks18",
 ]
 
 ALL_SUITES = frozenset(SUITES)
@@ -72,6 +73,7 @@ DATABRICKS_SUITES = frozenset({
     "SuiteDeltaLakeDatabricks154",
     "SuiteDeltaLakeDatabricks164",
     "SuiteDeltaLakeDatabricks173",
+    "SuiteDeltaLakeDatabricks18",
 })
 DELTA_LAKE_SUITES = DATABRICKS_SUITES | {
     "SuiteAzure",

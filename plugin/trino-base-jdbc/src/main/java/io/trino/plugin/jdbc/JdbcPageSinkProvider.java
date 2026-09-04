@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.Optional;
 
@@ -73,7 +74,8 @@ public class JdbcPageSinkProvider
             ConnectorSession session,
             ConnectorMergeTableHandle mergeHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
-            ConnectorPageSinkId pageSinkId)
+            ConnectorPageSinkId pageSinkId,
+            MemoryContext memoryContext)
     {
         return new JdbcMergeSink(session, mergeHandle, jdbcClient, pageSinkId, queryModifier, queryBuilder);
     }

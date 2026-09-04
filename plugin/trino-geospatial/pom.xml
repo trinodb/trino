@@ -85,15 +85,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
+            <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
+            <artifactId>guice</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -225,5 +224,58 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>legacy-lenient-overlay-tests</id>
+            <activation>
+                <!-- A command-line -Dtest selection overrides Surefire includes in every execution. -->
+                <property>
+                    <name>!test</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>legacy-lenient-overlay-enabled</id>
+                                <goals>
+                                    <goal>test</goal>
+                                </goals>
+                                <configuration>
+                                    <includes>
+                                        <include>**/LegacyLenientOverlayEnabledCase.java</include>
+                                    </includes>
+                                    <forkCount>1</forkCount>
+                                    <reuseForks>false</reuseForks>
+                                    <systemPropertyVariables>
+                                        <trino.geospatial.legacy-lenient-overlay>true</trino.geospatial.legacy-lenient-overlay>
+                                    </systemPropertyVariables>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>legacy-lenient-overlay-malformed</id>
+                                <goals>
+                                    <goal>test</goal>
+                                </goals>
+                                <configuration>
+                                    <includes>
+                                        <include>**/LegacyLenientOverlayMalformedCase.java</include>
+                                    </includes>
+                                    <forkCount>1</forkCount>
+                                    <reuseForks>false</reuseForks>
+                                    <systemPropertyVariables>
+                                        <trino.geospatial.legacy-lenient-overlay>yes</trino.geospatial.legacy-lenient-overlay>
+                                    </systemPropertyVariables>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

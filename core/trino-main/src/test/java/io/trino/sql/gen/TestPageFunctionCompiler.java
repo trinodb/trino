@@ -25,6 +25,7 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.TestingSourcePage;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -34,7 +35,9 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.SourcePage;
@@ -53,10 +56,12 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
@@ -78,6 +83,7 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.slice.Slices.allocate;
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
@@ -140,6 +146,33 @@ public class TestPageFunctionCompiler
         // if block builder in generated code was not reset properly, we could get junk results after the failure
         goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
         assertThat(goodPage.getPositionCount()).isEqualTo(goodResult.getPositionCount());
+    }
+
+    @Test
+    public void testProjectionOverWrappedBlocks()
+    {
+        PageFunctionCompiler functionCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
+        PageProjection add10 = functionCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, SQL_STANDARD, Optional.empty()).get();
+        PageProjection coalesce = functionCompiler.compileProjection(
+                        new Coalesce(new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 42L)),
+                        LAYOUT,
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        // dictionary block with nulls, read out of order and with repeats
+        Block values = createLongsBlock(0L, 1L, null, 3L);
+        Page dictionaryPage = createPageWithBlockAtChannel2(DictionaryBlock.create(5, values, new int[] {3, 2, 1, 3, 0}));
+        assertBlockValues(project(add10, dictionaryPage, SelectedPositions.positionsRange(0, 5)), 13L, null, 11L, 13L, 10L);
+        assertBlockValues(project(coalesce, dictionaryPage, SelectedPositions.positionsRange(0, 5)), 3L, 42L, 1L, 3L, 0L);
+
+        Page rlePage = createPageWithBlockAtChannel2(RunLengthEncodedBlock.create(values.getRegion(0, 1), 3));
+        assertBlockValues(project(add10, rlePage, SelectedPositions.positionsRange(0, 3)), 10L, 10L, 10L);
+        assertBlockValues(project(coalesce, rlePage, SelectedPositions.positionsRange(0, 3)), 0L, 0L, 0L);
+
+        Page nullRlePage = createPageWithBlockAtChannel2(RunLengthEncodedBlock.create(values.getRegion(2, 1), 3));
+        assertBlockValues(project(add10, nullRlePage, SelectedPositions.positionsRange(0, 3)), null, null, null);
+        assertBlockValues(project(coalesce, nullRlePage, SelectedPositions.positionsRange(0, 3)), 42L, 42L, 42L);
     }
 
     @Test
@@ -494,6 +527,75 @@ public class TestPageFunctionCompiler
         SourcePage sourcePage = SourcePage.create(page);
         SourcePage inputPage = projection.getInputChannels().getInputChannels(sourcePage);
         return projection.project(SESSION, inputPage, selectedPositions);
+    }
+
+    private static Page createPageWithBlockAtChannel2(Block block)
+    {
+        int positionCount = block.getPositionCount();
+        return new Page(createRepeatedValuesBlock(0L, positionCount), createRepeatedValuesBlock(0L, positionCount), block);
+    }
+
+    private static void assertBlockValues(Block block, Long... expected)
+    {
+        assertThat(block.getPositionCount()).isEqualTo(expected.length);
+        for (int position = 0; position < expected.length; position++) {
+            if (expected[position] == null) {
+                assertThat(block.isNull(position)).isTrue();
+            }
+            else {
+                assertThat(BIGINT.getLong(block, position)).isEqualTo(expected[position]);
+            }
+        }
+    }
+
+    @Test
+    public void testShortCircuitAndFilterSkipsChannelLoad()
+    {
+        Expression filter = new Logical(
+                Logical.Operator.AND,
+                ImmutableList.of(
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 100L)),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_1"), new Constant(BIGINT, 100L))));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+        PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileFilter(filter, layout, SQL_STANDARD, Optional.empty())
+                .get();
+
+        TestingSourcePage allRejected = new TestingSourcePage(3, createLongsBlock(1L, 2L, 3L), createLongsBlock(200L, 201L, 202L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(allRejected)).size()).isEqualTo(0);
+        assertThat(allRejected.wasLoaded(0)).isTrue();
+        assertThat(allRejected.wasLoaded(1)).isFalse();
+
+        TestingSourcePage someAccepted = new TestingSourcePage(3, createLongsBlock(1L, 200L, 3L), createLongsBlock(200L, 201L, 202L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(someAccepted)).size()).isEqualTo(1);
+        assertThat(someAccepted.wasLoaded(1)).isTrue();
+    }
+
+    @Test
+    public void testShortCircuitOrFilterSkipsChannelLoad()
+    {
+        Expression filter = new Logical(
+                Logical.Operator.OR,
+                ImmutableList.of(
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 100L)),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "$col_1"), new Constant(BIGINT, 100L))));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+        PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileFilter(filter, layout, SQL_STANDARD, Optional.empty())
+                .get();
+
+        TestingSourcePage allAccepted = new TestingSourcePage(3, createLongsBlock(101L, 102L, 103L), createLongsBlock(1L, 2L, 3L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(allAccepted)).size()).isEqualTo(3);
+        assertThat(allAccepted.wasLoaded(0)).isTrue();
+        assertThat(allAccepted.wasLoaded(1)).isFalse();
+
+        TestingSourcePage someRejected = new TestingSourcePage(3, createLongsBlock(101L, 2L, 103L), createLongsBlock(1L, 2L, 3L));
+        assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(someRejected)).size()).isEqualTo(2);
+        assertThat(someRejected.wasLoaded(1)).isTrue();
     }
 
     private static Page createLongBlockPage(long... values)

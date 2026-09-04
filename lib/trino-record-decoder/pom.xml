@@ -15,7 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.wire.version>6.4.5</dep.wire.version>
+        <dep.wire.version>6.4.7</dep.wire.version>
     </properties>
 
     <dependencies>
@@ -33,12 +33,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
@@ -73,6 +67,11 @@
             <groupId>com.squareup.wire</groupId>
             <artifactId>wire-schema-jvm</artifactId>
             <version>${dep.wire.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
