@@ -1246,10 +1246,11 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE TABLE " + sourceTableName + " (value INTEGER)");
         assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1", 1);
 
-        // Session-scoped expressions (current_user, current_catalog, current_schema, current_path)
-        // are constants for materialized views (fixed at creation time), so the MV should be FRESH after refresh
+        // Session-scoped expressions are constants for materialized views, fixed at creation.
+        // GRACE PERIOD 0 makes a stale SELECT inline the definition.
         String mvName = "mv_session_scoped_" + randomNameSuffix();
-        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT *, current_user AS created_by FROM " + sourceTableName);
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName +
+                " GRACE PERIOD INTERVAL '0' SECOND AS SELECT *, current_user AS created_by FROM " + sourceTableName);
 
         assertFreshness(mvName, "STALE");
         assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
@@ -1265,16 +1266,14 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertUpdate("INSERT INTO " + sourceTableName + " VALUES 2", 1);
         assertFreshness(mvName, "STALE");
-        // Stale MV still serves cached data from storage
-        assertQuery(otherUserSession, "SELECT created_by FROM " + mvName, "VALUES 'user'");
+        // Stale MV is inlined using the owner's identity, so current_user = 'user' for all rows
+        assertQuery(otherUserSession, "SELECT created_by FROM " + mvName, "VALUES ('user'), ('user')");
         // Refresh by a different user picks up the new row
         assertUpdate(otherUserSession, "REFRESH MATERIALIZED VIEW " + mvName, 1);
         assertFreshness(mvName, "FRESH");
-        // TODO https://github.com/trinodb/trino/issues/28738 session-scoped expressions should resolve using
-        // the MV owner's identity during refresh (like the stale inline path does via analyzeView), but currently
-        // the refresh path resolves them from the refreshing user's session.
-        // When fixed, this should be: VALUES ('user'), ('user')
-        assertQuery("SELECT created_by FROM " + mvName, "VALUES ('user'), ('other_user')");
+        // current_user should resolve to 'user' (the MV owner) for all rows,
+        // regardless of who triggered the refresh
+        assertQuery("SELECT created_by FROM " + mvName, "VALUES ('user'), ('user')");
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP TABLE " + sourceTableName);

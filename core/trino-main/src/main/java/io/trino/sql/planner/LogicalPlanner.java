@@ -527,7 +527,11 @@ public class LogicalPlanner
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap = buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator);
-        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), session, ImmutableMap.of());
+        Session querySession = session;
+        if (materializedViewRefreshWriterTarget.isPresent()) {
+            querySession = analysis.getRefreshMaterializedView().orElseThrow().getQuerySession();
+        }
+        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), querySession, ImmutableMap.of());
         RelationPlan plan = planner.process(query, null);
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);

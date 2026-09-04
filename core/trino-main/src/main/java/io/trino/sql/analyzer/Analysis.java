@@ -25,6 +25,7 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -147,6 +148,7 @@ public class Analysis
     private Optional<Boolean> tableExecuteReadsData;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Session> namedQuerySessions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Pivot>, PivotAnalysis> pivotAnalyses = new LinkedHashMap<>();
 
@@ -954,6 +956,19 @@ public class Analysis
         namedQueries.put(NodeRef.of(tableReference), query);
     }
 
+    public void registerNamedQuerySession(Table tableReference, Session querySession)
+    {
+        requireNonNull(tableReference, "tableReference is null");
+        requireNonNull(querySession, "querySession is null");
+
+        namedQuerySessions.put(NodeRef.of(tableReference), querySession);
+    }
+
+    public Optional<Session> getNamedQuerySession(Table table)
+    {
+        return Optional.ofNullable(namedQuerySessions.get(NodeRef.of(table)));
+    }
+
     public void registerPivotAnalysis(Pivot pivot, PivotAnalysis analysis)
     {
         requireNonNull(pivot, "pivot is null");
@@ -1752,13 +1767,15 @@ public class Analysis
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
+        private final Session querySession;
 
-        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns, Session querySession)
         {
             this.table = requireNonNull(table, "table is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
+            this.querySession = requireNonNull(querySession, "querySession is null");
             checkArgument(columns.size() > 0, "No columns given to refresh materialized view");
         }
 
@@ -1780,6 +1797,11 @@ public class Analysis
         public Table getTable()
         {
             return table;
+        }
+
+        public Session getQuerySession()
+        {
+            return querySession;
         }
     }
 
