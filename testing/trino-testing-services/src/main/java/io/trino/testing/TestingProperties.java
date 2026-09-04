@@ -56,7 +56,9 @@ public final class TestingProperties
 
     public static String getDockerImagesVersion()
     {
-        return getProjectProperty("docker.images.version");
+        String version = getProjectProperty("docker.images.version");
+        checkArgument(!version.isEmpty() && !version.equals("latest"), "docker.images.version must be pinned to an explicit version, was '%s'", version);
+        return version;
     }
 
     private static String getProjectProperty(String name)
