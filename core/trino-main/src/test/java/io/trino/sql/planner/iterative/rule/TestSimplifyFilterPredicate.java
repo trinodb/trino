@@ -14,9 +14,14 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
@@ -28,8 +33,11 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.FilterNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -42,6 +50,7 @@ import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
@@ -51,7 +60,9 @@ import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyFilterPredicate
         extends BaseRuleTest
@@ -490,6 +501,51 @@ public class TestSimplifyFilterPredicate
                         filter(
                                 FALSE,
                                 values("a", "b")));
+    }
+
+    @Test
+    public void testNullableNonDeterministicCondition()
+    {
+        Call random = new Call(FUNCTIONS.resolveFunction("random", ImmutableList.of()), ImmutableList.of());
+        Expression condition = ifExpression(comparison(LESS_THAN, random, new Constant(DOUBLE, 0.5)), NULL_BOOLEAN, FALSE);
+
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(ifExpression(condition, FALSE, TRUE), p.values(1)))
+                .matches(filter(not(comparison(IDENTICAL, condition, TRUE)), values(1)));
+    }
+
+    @Test
+    public void testFalseOrNullPredicateDomain()
+    {
+        Symbol symbol = new Symbol(BOOLEAN, "a");
+        Expression predicate = not(comparison(IDENTICAL, symbol.toSymbolReference(), TRUE));
+        DomainTranslator.ExtractionResult result = DomainTranslator.getExtractionResult(PLANNER_CONTEXT, TEST_SESSION, predicate);
+
+        assertThat(result.getTupleDomain())
+                .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, Domain.singleValue(BOOLEAN, true).complement())));
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
+    }
+
+    @Test
+    public void testComparisonConditionDomain()
+    {
+        Symbol symbol = new Symbol(INTEGER, "a");
+        Expression condition = comparison(LESS_THAN, symbol.toSymbolReference(), new Constant(INTEGER, 0L));
+
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(ifExpression(condition, NULL_BOOLEAN, TRUE), p.values(p.symbol("a", INTEGER))))
+                .matches(node(FilterNode.class, values("a"))
+                        .with(FilterNode.class, filter -> {
+                            Expression predicate = IrExpressionOptimizer.newOptimizer(PLANNER_CONTEXT)
+                                    .process(filter.getPredicate(), TEST_SESSION, emptySymbolAllocator(), ImmutableMap.of())
+                                    .orElse(filter.getPredicate());
+                            DomainTranslator.ExtractionResult result = DomainTranslator.getExtractionResult(PLANNER_CONTEXT, TEST_SESSION, predicate);
+
+                            assertThat(result.getTupleDomain())
+                                    .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(INTEGER, 0L)), true))));
+                            assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
+                            return true;
+                        }));
     }
 
     private static Expression not(Expression expression)
