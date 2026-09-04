@@ -180,19 +180,19 @@ public class TestMockConnector
     {
         assertQuery(
                 "SELECT * FROM mock.default.nation",
-                "SELECT * FROM nation");
+                "SELECT * FROM \"nation\"");
         assertQuery(
                 "SELECT nationkey FROM mock.default.nation",
-                "SELECT nationkey FROM nation");
+                "SELECT \"nationkey\" FROM \"nation\"");
         assertQuery(
                 "SELECT nationkey, regionkey FROM mock.default.nation",
-                "SELECT nationkey, regionkey FROM nation");
+                "SELECT \"nationkey\", \"regionkey\" FROM \"nation\"");
         assertQuery(
                 "SELECT regionkey, nationkey FROM mock.default.nation",
-                "SELECT regionkey, nationkey FROM nation");
+                "SELECT \"regionkey\", \"nationkey\" FROM \"nation\"");
         assertQuery(
                 "SELECT regionkey FROM mock.default.nation",
-                "SELECT regionkey FROM nation");
+                "SELECT \"regionkey\" FROM \"nation\"");
     }
 
     @Test

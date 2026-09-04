@@ -34,16 +34,16 @@ public abstract class AbstractTestOrderByQueries
     @Test
     public void testOrderBy()
     {
-        assertQueryOrdered("SELECT orderstatus FROM orders ORDER BY orderstatus");
-        assertQueryOrdered("SELECT orderstatus FROM orders ORDER BY orderkey DESC");
+        assertQueryOrdered("SELECT \"orderstatus\" FROM \"orders\" ORDER BY \"orderstatus\"");
+        assertQueryOrdered("SELECT \"orderstatus\" FROM \"orders\" ORDER BY \"orderkey\" DESC");
     }
 
     @Test
     public void testOrderByLimit()
     {
-        assertQueryOrdered("SELECT custkey, orderstatus FROM orders ORDER BY orderkey DESC LIMIT 10");
-        assertQueryOrdered("SELECT custkey, orderstatus FROM orders ORDER BY orderkey + 1 DESC LIMIT 10");
-        assertQuery("SELECT custkey, totalprice FROM orders ORDER BY orderkey LIMIT 0");
+        assertQueryOrdered("SELECT \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"orderkey\" DESC LIMIT 10");
+        assertQueryOrdered("SELECT \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"orderkey\" + 1 DESC LIMIT 10");
+        assertQuery("SELECT \"custkey\", \"totalprice\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 0");
     }
 
     @Test
@@ -119,7 +119,7 @@ public abstract class AbstractTestOrderByQueries
                         "ORDER BY sum(cast(t.x AS double))",
                 "VALUES ('1.0', 1.0)");
 
-        queryTemplate("SELECT count(*) %output% FROM (SELECT substr(name,1,1) letter FROM nation) x GROUP BY %groupBy% ORDER BY %orderBy%")
+        queryTemplate("SELECT count(*) %output% FROM (SELECT substr(\"name\",1,1) letter FROM \"nation\") x GROUP BY %groupBy% ORDER BY %orderBy%")
                 .replaceAll(
                         parameter("output").of("", ", letter", ", letter AS y"),
                         parameter("groupBy").of("x.letter", "letter"),
@@ -130,13 +130,13 @@ public abstract class AbstractTestOrderByQueries
     @Test
     public void testOrderByLimitAll()
     {
-        assertQuery("SELECT custkey, totalprice FROM orders ORDER BY orderkey LIMIT ALL", "SELECT custkey, totalprice FROM orders ORDER BY orderkey");
+        assertQuery("SELECT \"custkey\", \"totalprice\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT ALL", "SELECT \"custkey\", \"totalprice\" FROM \"orders\" ORDER BY \"orderkey\"");
     }
 
     @Test
     public void testOrderByMultipleFields()
     {
-        assertQueryOrdered("SELECT custkey, orderstatus FROM orders ORDER BY custkey DESC, orderstatus");
+        assertQueryOrdered("SELECT \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY \"custkey\" DESC, \"orderstatus\"");
     }
 
     @Test
@@ -150,41 +150,41 @@ public abstract class AbstractTestOrderByQueries
     public void testOrderByWithNulls()
     {
         // nulls first
-        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS FIRST, custkey ASC");
-        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) DESC NULLS FIRST, custkey ASC");
+        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) ASC NULLS FIRST, \"custkey\" ASC");
+        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) DESC NULLS FIRST, \"custkey\" ASC");
 
         // nulls last
-        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC");
-        assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) DESC NULLS LAST, custkey ASC");
+        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) ASC NULLS LAST, \"custkey\" ASC");
+        assertQueryOrdered("SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) DESC NULLS LAST, \"custkey\" ASC");
 
         // assure that default is nulls last
         assertQueryOrdered(
-                "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC, custkey ASC",
-                "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC");
+                "SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) ASC, \"custkey\" ASC",
+                "SELECT \"orderkey\", \"custkey\", \"orderstatus\" FROM \"orders\" ORDER BY nullif(\"orderkey\", 3) ASC NULLS LAST, \"custkey\" ASC");
     }
 
     @Test
     public void testOrderByAlias()
     {
-        assertQueryOrdered("SELECT orderstatus x FROM orders ORDER BY x ASC");
+        assertQueryOrdered("SELECT \"orderstatus\" x FROM \"orders\" ORDER BY x ASC");
     }
 
     @Test
     public void testOrderByAliasWithSameNameAsUnselectedColumn()
     {
-        assertQueryOrdered("SELECT orderstatus orderdate FROM orders ORDER BY orderdate ASC");
+        assertQueryOrdered("SELECT \"orderstatus\" orderdate FROM \"orders\" ORDER BY orderdate ASC");
     }
 
     @Test
     public void testOrderByOrdinal()
     {
-        assertQueryOrdered("SELECT orderstatus, orderdate FROM orders ORDER BY 2, 1");
+        assertQueryOrdered("SELECT \"orderstatus\", \"orderdate\" FROM \"orders\" ORDER BY 2, 1");
     }
 
     @Test
     public void testOrderByOrdinalWithWildcard()
     {
-        assertQueryOrdered("SELECT * FROM orders ORDER BY 1");
+        assertQueryOrdered("SELECT * FROM \"orders\" ORDER BY 1");
     }
 
     @Test
@@ -200,27 +200,30 @@ public abstract class AbstractTestOrderByQueries
                 "WITH t AS (SELECT 1 x, 1 y) SELECT x, y FROM t ORDER BY x, y LIMIT 1",
                 "SELECT 1, 1");
         assertQuery(
-                "WITH t AS (SELECT orderkey x, orderkey y FROM orders) SELECT x, y FROM t ORDER BY x, y LIMIT 1",
+                "WITH t AS (SELECT \"orderkey\" x, \"orderkey\" y FROM \"orders\") SELECT x, y FROM t ORDER BY x, y LIMIT 1",
                 "SELECT 1, 1");
         assertQuery(
-                "WITH t AS (SELECT orderkey x, orderkey y FROM orders) SELECT x, y FROM t ORDER BY x, y DESC LIMIT 1",
+                "WITH t AS (SELECT \"orderkey\" x, \"orderkey\" y FROM \"orders\") SELECT x, y FROM t ORDER BY x, y DESC LIMIT 1",
                 "SELECT 1, 1");
         assertQuery(
-                "WITH t AS (SELECT orderkey x, totalprice y, orderkey z FROM orders) SELECT x, y, z FROM t ORDER BY x, y, z LIMIT 1",
+                "WITH t AS (SELECT \"orderkey\" x, \"totalprice\" y, \"orderkey\" z FROM \"orders\") SELECT x, y, z FROM t ORDER BY x, y, z LIMIT 1",
                 "SELECT 1, 172799.49, 1");
     }
 
     @Test
     public void testOrderByUnderManyProjections()
     {
-        assertQuery("SELECT nationkey, arbitrary_column + arbitrary_column " +
-                "FROM " +
-                "( " +
-                "   SELECT nationkey, COALESCE(arbitrary_column, 0) arbitrary_column " +
-                "   FROM ( " +
-                "      SELECT nationkey, 1 arbitrary_column " +
-                "      FROM nation " +
-                "      ORDER BY 1 ASC))");
+        assertQuery(
+                """
+                SELECT "nationkey", arbitrary_column + arbitrary_column \
+                FROM \
+                ( \
+                   SELECT "nationkey", COALESCE(arbitrary_column, 0) arbitrary_column \
+                   FROM ( \
+                      SELECT "nationkey", 1 arbitrary_column \
+                      FROM "nation" \
+                      ORDER BY 1 ASC))\
+                """);
     }
 
     @Test
@@ -229,12 +232,12 @@ public abstract class AbstractTestOrderByQueries
         Session undistributedOrderBy = Session.builder(getSession())
                 .setSystemProperty(DISTRIBUTED_SORT, "false")
                 .build();
-        assertQueryOrdered(undistributedOrderBy, "SELECT orderstatus FROM orders ORDER BY orderstatus");
+        assertQueryOrdered(undistributedOrderBy, "SELECT \"orderstatus\" FROM \"orders\" ORDER BY \"orderstatus\"");
     }
 
     @Test
     public void testCaseInsensitiveOutputAliasInOrderBy()
     {
-        assertQueryOrdered("SELECT orderkey X FROM orders ORDER BY x");
+        assertQueryOrdered("SELECT \"orderkey\" x FROM \"orders\" ORDER BY x");
     }
 }

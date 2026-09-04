@@ -17,6 +17,7 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
 
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseClickHouseConnectorSmokeTest
@@ -32,6 +33,12 @@ public abstract class BaseClickHouseConnectorSmokeTest
             case SUPPORTS_TRUNCATE -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

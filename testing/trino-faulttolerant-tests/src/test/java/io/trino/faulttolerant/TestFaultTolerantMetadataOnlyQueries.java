@@ -78,7 +78,7 @@ public class TestFaultTolerantMetadataOnlyQueries
         assertUpdate("CREATE TABLE " + slowTableName + " (a INT, b INT) WITH (split_count = 3, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '1d')");
 
         String slowQuery = "select count(*) FROM " + slowTableName;
-        String nonMetadataQuery = "select count(*) non_metadata_query_count_" + System.currentTimeMillis() + " from nation";
+        String nonMetadataQuery = "select count(*) non_metadata_query_count_" + System.currentTimeMillis() + " from \"nation\"";
 
         ExecutorService backgroundExecutor = newCachedThreadPool();
         try {
@@ -87,7 +87,7 @@ public class TestFaultTolerantMetadataOnlyQueries
             });
             assertEventually(() -> assertThat(queryState(slowQuery).orElseThrow()).isEqualTo(QueryState.RUNNING));
 
-            assertThat(query("DESCRIBE nation")).succeeds();
+            assertThat(query("DESCRIBE \"nation\"")).succeeds();
             assertThat(query("SHOW TABLES")).succeeds();
             assertThat(query("SHOW TABLES LIKE 'nat%'")).succeeds();
             assertThat(query("SHOW SCHEMAS")).succeeds();
@@ -96,10 +96,10 @@ public class TestFaultTolerantMetadataOnlyQueries
             assertThat(query("SHOW CATALOGS LIKE 'mem%'")).succeeds();
             assertThat(query("SHOW FUNCTIONS")).succeeds();
             assertThat(query("SHOW FUNCTIONS LIKE 'split%'")).succeeds();
-            assertThat(query("SHOW COLUMNS FROM nation")).succeeds();
+            assertThat(query("SHOW COLUMNS FROM \"nation\"")).succeeds();
             assertThat(query("SHOW SESSION")).succeeds();
-            assertThat(query("SELECT count(*) FROM information_schema.tables")).succeeds();
-            assertThat(query("SELECT * FROM system.jdbc.tables WHERE table_schem LIKE 'def%'")).succeeds();
+            assertThat(query("SELECT count(*) FROM \"information_schema\".\"tables\"")).succeeds();
+            assertThat(query("SELECT * FROM system.jdbc.tables WHERE \"TABLE_SCHEM\" LIKE 'def%'")).succeeds();
 
             // check non-metadata queries still wait for resources
             backgroundExecutor.submit(() -> {

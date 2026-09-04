@@ -24,6 +24,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameTable;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 
@@ -65,7 +66,7 @@ public class RenameTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
 
         if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(
@@ -95,7 +96,8 @@ public class RenameTableTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
-        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
+        Resolver resolver = metadata.getResolverManager().getResolver(session, source.catalogName());
+        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget(), resolver);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
