@@ -151,9 +151,19 @@ each clause with a semicolon `;` and the usage of `END IF`.
 ## COALESCE
 
 :::{function} coalesce(value1, value2[, ...])
-Returns the first non-null `value` in the argument list.
+Returns the first `value` that is not `IS NULL`.
 Like a `CASE` expression, arguments are only evaluated if necessary.
 :::
+
+For `ROW` arguments, `COALESCE` skips a row whose fields are all null and keeps
+a row with mixed null fields:
+
+```sql
+SELECT COALESCE(CAST(ROW(NULL, NULL) AS ROW(integer, integer)), ROW(1, 2)); -- (1, 2)
+SELECT COALESCE(CAST(ROW(1, NULL) AS ROW(integer, integer)), ROW(1, 2)); -- (1, NULL)
+```
+
+See {ref}`is-null-operator`.
 
 (nullif-function)=
 ## NULLIF
