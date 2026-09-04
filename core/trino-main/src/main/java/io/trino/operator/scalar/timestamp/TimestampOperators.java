@@ -31,6 +31,7 @@ import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.rescale;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
+import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
 
 public final class TimestampOperators
@@ -109,7 +110,7 @@ public final class TimestampOperators
         {
             long fractionMicros = getMicrosOfMilli(timestamp);
             long result = MONTH_OF_YEAR_UTC.add(scaleEpochMicrosToMillis(timestamp), interval);
-            return scaleEpochMillisToMicros(result) + fractionMicros;
+            return addExact(scaleEpochMillisToMicros(result), fractionMicros);
         }
 
         @LiteralParameters("p")
