@@ -909,6 +909,13 @@ public interface Metadata
     RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName);
 
     /**
+     * Resolve the redirection target for a write operation (table or view DDL), by name only.
+     * Returns {@code tableName} unchanged when the catalog does not redirect writes. The target is
+     * not required to exist, so this is also usable for CREATE.
+     */
+    QualifiedObjectName getWriteRedirectedTableName(Session session, QualifiedObjectName tableName);
+
+    /**
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
