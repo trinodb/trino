@@ -175,13 +175,15 @@ public class IgniteMetadata
     }
 
     @Override
-    public void finishMerge(
+    public Optional<ConnectorOutputMetadata> finishMerge(
             ConnectorSession session,
             ConnectorMergeTableHandle tableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
-    {}
+    {
+        return Optional.empty();
+    }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
