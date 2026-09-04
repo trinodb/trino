@@ -351,7 +351,13 @@ public class IcebergFileWriterFactory
         if (type == field.type()) {
             return field;
         }
-        return Types.NestedField.of(field.fieldId(), field.isOptional(), field.name(), type, field.doc());
+        return Types.NestedField.builder()
+                .withId(field.fieldId())
+                .isOptional(field.isOptional())
+                .withName(field.name())
+                .ofType(type)
+                .withDoc(field.doc())
+                .build();
     }
 
     private static org.apache.iceberg.types.Type toFileType(org.apache.iceberg.types.Type type)
