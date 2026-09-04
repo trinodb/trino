@@ -47,6 +47,8 @@ import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.TableMetadata;
@@ -1364,6 +1366,64 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("DROP MATERIALIZED VIEW %s_1".formatted(materializedViewName));
         assertUpdate("DROP MATERIALIZED VIEW %s_2".formatted(materializedViewName));
         assertUpdate("DROP TABLE %s".formatted(sourceTableName));
+    }
+
+    @Test
+    public void testRefreshWithHistoricalSnapshot()
+    {
+        try (TestTable source = newTrinoTable("test_historical_refresh", "AS SELECT 1 AS value")) {
+            long snapshotId = getLatestSnapshotId(source.getName());
+            String materializedViewName = "test_materialized_view_" + randomNameSuffix();
+            // Keep queries on the storage table after newer source snapshots appear.
+            assertUpdate("CREATE MATERIALIZED VIEW %s GRACE PERIOD INTERVAL '1' DAY AS SELECT value FROM %s FOR VERSION AS OF %s"
+                    .formatted(materializedViewName, source.getName(), snapshotId));
+            try {
+                assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+                assertThat(query("TABLE " + materializedViewName)).matches("VALUES 1");
+
+                assertUpdate("INSERT INTO " + source.getName() + " VALUES 2", 1);
+                assertThat(query("SELECT value FROM %s FOR VERSION AS OF %s".formatted(source.getName(), snapshotId))).matches("VALUES 1");
+
+                assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+                assertThat(query("TABLE " + materializedViewName)).matches("VALUES 1");
+                assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+                assertThat(query("TABLE " + materializedViewName)).matches("VALUES 1");
+            }
+            finally {
+                assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+            }
+        }
+    }
+
+    @Test
+    public void testIncrementalRefreshWithHistoricalSnapshot()
+    {
+        try (TestTable source = newTrinoTable("test_historical_refresh", "AS SELECT 1 AS value")) {
+            long firstSnapshotId = getLatestSnapshotId(source.getName());
+            try (TestView sourceView = new TestView(
+                    getQueryRunner()::execute,
+                    "test_historical_source",
+                    "SELECT value FROM %s FOR VERSION AS OF %s".formatted(source.getName(), firstSnapshotId))) {
+                String materializedViewName = "test_materialized_view_" + randomNameSuffix();
+                assertUpdate("CREATE MATERIALIZED VIEW %s GRACE PERIOD INTERVAL '1' DAY AS SELECT value FROM %s"
+                        .formatted(materializedViewName, sourceView.getName()));
+                try {
+                    assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+                    assertUpdate("INSERT INTO " + source.getName() + " VALUES 2", 1);
+                    long secondSnapshotId = getLatestSnapshotId(source.getName());
+                    assertUpdate("INSERT INTO " + source.getName() + " VALUES 3", 1);
+
+                    assertUpdate("CREATE OR REPLACE VIEW %s AS SELECT value FROM %s FOR VERSION AS OF %s"
+                            .formatted(sourceView.getName(), source.getName(), secondSnapshotId));
+                    assertThat(query("TABLE " + sourceView.getName())).matches("VALUES 1, 2");
+                    assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+                    assertThat(query("TABLE " + materializedViewName)).matches("VALUES 1, 2");
+                }
+                finally {
+                    assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+                }
+            }
+        }
     }
 
     @Test
