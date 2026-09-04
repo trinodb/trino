@@ -494,11 +494,51 @@ connector](/connector/delta-lake). It allows all users to execute the
 (system-file-table-procedure-rules)=
 #### Table procedure rules
 
-Table procedures are executed using the
-[ALTER TABLE ... EXECUTE](alter-table-execute) syntax.
+These rules control the ability of a user to execute table procedures, such as
+`OPTIMIZE`, using the [ALTER TABLE ... EXECUTE](alter-table-execute) syntax.
 
-File-based access control does not support privileges for table procedures and
-therefore all are effectively allowed.
+Table procedures modify the underlying data of a table. Read-only and none
+catalog access deny all table procedures on that catalog, regardless of the
+rules in this section.
+
+When table procedure rules are present, the authorization is based on the
+first matching rule, processed from top to bottom. If no rules match, the
+authorization is denied. If table procedure rules are not present, only table
+procedures on the `system` catalog can be executed.
+
+Each table procedure rule is composed of the following fields:
+
+- `user` (optional): regular expression to match against username.
+  Defaults to `.*`.
+- `role` (optional): regular expression to match against role names.
+  Defaults to `.*`.
+- `group` (optional): regular expression to match against group names.
+  Defaults to `.*`.
+- `catalog` (optional): regular expression to match against catalog name.
+  Defaults to `.*`.
+- `procedure` (optional): regular expression to match against table procedure
+  names.
+  Defaults to `.*`.
+- `privileges` (required): zero or more of `EXECUTE`.
+
+The following example allows the `admin` user to execute the `optimize` table
+procedure on a catalog called `delta`, that uses the [Delta Lake
+connector](/connector/delta-lake):
+
+```json
+{
+  "table_procedures": [
+    {
+      "user": "admin",
+      "catalog": "delta",
+      "procedure": "optimize",
+      "privileges": [
+        "EXECUTE"
+      ]
+    }
+  ]
+}
+```
 
 (verify-rules)=
 #### Verify configuration
@@ -924,6 +964,42 @@ in the `function` schema of this catalog:
       "schema": "function",
       "privileges": [
         "EXECUTE", "GRANT_EXECUTE", "OWNERSHIP"
+      ]
+    }
+  ]
+}
+```
+
+#### Table procedure rules
+
+These rules control the ability of a user to execute table procedures, such as
+`OPTIMIZE`, using the [ALTER TABLE ... EXECUTE](alter-table-execute) syntax.
+
+When these rules are present, the authorization is based on the first
+matching rule, processed from top to bottom. If no rules match, the
+authorization is denied. If table procedure rules are not present, access is
+not allowed.
+
+- `user` (optional): regular expression to match against username.
+  Defaults to `.*`.
+- `group` (optional): regular expression to match against group names.
+  Defaults to `.*`.
+- `procedure` (optional): regular expression to match against table procedure
+  names.
+  Defaults to `.*`.
+- `privileges` (required): zero or more of `EXECUTE`.
+
+The following example allows the `admin` user to execute the `optimize` table
+procedure:
+
+```json
+{
+  "table_procedures": [
+    {
+      "user": "admin",
+      "procedure": "optimize",
+      "privileges": [
+        "EXECUTE"
       ]
     }
   ]
