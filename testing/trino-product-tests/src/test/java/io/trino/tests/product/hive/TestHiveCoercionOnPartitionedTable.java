@@ -41,7 +41,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -190,11 +189,11 @@ class TestHiveCoercionOnPartitionedTable
         }
     }
 
-    private void doTestHiveCoercion(HiveStorageFormatsEnvironment env, String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
+    private void doTestHiveCoercion(HiveStorageFormatsEnvironment env, String fileFormat, Optional<String> storageFormat, Optional<String> rowFormat)
     {
         String tableName = format(
                 "%s_hive_coercion_partitioned_%s",
-                recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH),
+                storageFormat.orElse(fileFormat).toLowerCase(ENGLISH),
                 randomNameSuffix());
         String varcharTypeForBooleanCoercion = fileFormat.toLowerCase(ENGLISH).contains("orc") ? "VARCHAR(5)" : "STRING";
 
@@ -438,10 +437,10 @@ class TestHiveCoercionOnPartitionedTable
                     "binary_to_smaller_varchar",
                     "id");
 
-            Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, booleanToVarcharVal);
+            Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, fileFormat, storageFormat, booleanToVarcharVal);
 
             // For Trino, remove unsupported columns
-            List<String> trinoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
+            List<String> trinoReadColumns = removeUnsupportedColumnsForTrino(allColumns, fileFormat);
             Map<String, List<Object>> expectedTrinoResults = expected.apply(Engine.TRINO);
             String trinoSelectQuery = format("SELECT %s FROM %s", String.join(", ", trinoReadColumns), tableName);
             assertQueryResults(env, Engine.TRINO, trinoSelectQuery, expectedTrinoResults, trinoReadColumns, 2);
@@ -450,7 +449,7 @@ class TestHiveCoercionOnPartitionedTable
             if (trinoReadColumns.contains("binary_to_string")) {
                 List<Object> hexRepresentedValue = ImmutableList.of("58EFBFBDEFBFBDEFBFBDEFBFBD", "58EFBFBDEFBFBDEFBFBDEFBFBD58");
 
-                if (tableName.toLowerCase(ENGLISH).contains("orc")) {
+                if (fileFormat.equalsIgnoreCase("orc")) {
                     hexRepresentedValue = ImmutableList.of("3538206637206266206266206266", "3538206637206266206266206266203538");
                 }
 
@@ -464,17 +463,17 @@ class TestHiveCoercionOnPartitionedTable
             }
 
             // For Hive, remove unsupported columns for the current file format and hive version
-            List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, tableName);
+            List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, fileFormat, storageFormat);
             Map<String, List<Object>> expectedHiveResults = expected.apply(Engine.HIVE);
             String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
             assertQueryResults(env, Engine.HIVE, hiveSelectQuery, expectedHiveResults, hiveReadColumns, 2);
 
             List<Object> hexRepresentedValue = ImmutableList.of("58F7BFBFBF", "58F7BFBFBF58");
 
-            if (tableName.toLowerCase(ENGLISH).contains("parquet")) {
+            if (fileFormat.equalsIgnoreCase("parquet")) {
                 hexRepresentedValue = ImmutableList.of("58EFBFBDEFBFBDEFBFBDEFBFBD", "58EFBFBDEFBFBDEFBFBDEFBFBD58");
             }
-            else if (tableName.toLowerCase(ENGLISH).contains("orc")) {
+            else if (fileFormat.equalsIgnoreCase("orc")) {
                 hexRepresentedValue = ImmutableList.of("3538206637206266206266206266", "3538206637206266206266206266203538");
             }
 
@@ -487,18 +486,18 @@ class TestHiveCoercionOnPartitionedTable
                     ImmutableList.of("hex_representation"),
                     2);
 
-            assertNestedSubFields(env, tableName);
+            assertNestedSubFields(env, tableName, fileFormat, storageFormat);
         }
         finally {
             env.executeHiveUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
-    private void doTestHiveCoercionWithDifferentTimestampPrecision(HiveStorageFormatsEnvironment env, String fileFormat, Optional<String> tablePrefix, Optional<String> rowFormat)
+    private void doTestHiveCoercionWithDifferentTimestampPrecision(HiveStorageFormatsEnvironment env, String fileFormat, Optional<String> storageFormat, Optional<String> rowFormat)
     {
         String tableName = format(
                 "%s_hive_timestamp_coercion_partitioned_%s",
-                tablePrefix.orElse(fileFormat).toLowerCase(ENGLISH),
+                storageFormat.orElse(fileFormat).toLowerCase(ENGLISH),
                 randomNameSuffix());
 
         try {
@@ -574,7 +573,7 @@ class TestHiveCoercionOnPartitionedTable
                         "id");
 
                 // For Trino, remove unsupported columns
-                List<String> trinoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
+                List<String> trinoReadColumns = removeUnsupportedColumnsForTrino(allColumns, fileFormat);
                 Map<String, List<Object>> expectedTrinoResults = Maps.filterKeys(
                         expectedRowsForEngineProvider(Engine.TRINO, hiveTimestampPrecision),
                         trinoReadColumns::contains);
@@ -582,7 +581,7 @@ class TestHiveCoercionOnPartitionedTable
                 String trinoReadQuery = format("SELECT %s FROM %s", String.join(", ", trinoReadColumns), tableName);
                 assertQueryResults(env, Engine.TRINO, trinoReadQuery, expectedTrinoResults, trinoReadColumns, 6, hiveTimestampPrecision);
 
-                List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, tableName);
+                List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, fileFormat, storageFormat);
                 Map<String, List<Object>> expectedHiveResults = Maps.filterKeys(
                         expectedRowsForEngineProvider(Engine.HIVE, hiveTimestampPrecision),
                         hiveReadColumns::contains);
@@ -1036,13 +1035,13 @@ class TestHiveCoercionOnPartitionedTable
                 row("id", "bigint"));
     }
 
-    private Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String tableName, List<Object> booleanToVarcharVal)
+    private Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String fileFormat, Optional<String> storageFormat, List<Object> booleanToVarcharVal)
     {
         String hiveValueForCaseChangeField;
         String coercedNaN = "NaN";
         String coercedFloatBoundedVarcharNaN = "NaN";
         String coercedDoubleToStringNaN = "NaN";
-        Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
+        Predicate<String> isFormat = fileFormat::equalsIgnoreCase;
         boolean hiveOrc = engine == Engine.HIVE && isFormat.test("orc");
         boolean trinoOrc = engine == Engine.TRINO && isFormat.test("orc");
         Map<String, List<Object>> specialCoercion = ImmutableMap.of(
@@ -1054,7 +1053,7 @@ class TestHiveCoercionOnPartitionedTable
                 "varchar_to_smallint", ImmutableList.of(-32768, 0),
                 "binary_to_string", ImmutableList.of("X\uFFFD\uFFFD\uFFFD\uFFFD", "X\uFFFD\uFFFD\uFFFD\uFFFDX"),
                 "binary_to_smaller_varchar", ImmutableList.of("X\uFFFD", "X\uFFFD"));
-        if (Stream.of("rctext", "textfile", "sequencefile").anyMatch(isFormat)) {
+        if (storageFormat.filter("rctext"::equalsIgnoreCase).isPresent() || isFormat.test("textfile") || isFormat.test("sequencefile")) {
             hiveValueForCaseChangeField = "\"lower2uppercase\":2";
         }
         else if (isFormat.test("orc")) {
@@ -1286,8 +1285,8 @@ class TestHiveCoercionOnPartitionedTable
                 .put("long_decimal_to_bounded_varchar", ImmutableList.of(
                         "12345678.123456123456",
                         "-12345678.123456123456"))
-                .put("string_to_tinyint", !tableName.toLowerCase(ENGLISH).contains("orc") ? Arrays.asList((byte) -1, null) : Arrays.asList(null, null))
-                .put("string_to_smallint", !tableName.toLowerCase(ENGLISH).contains("orc") ? Arrays.asList((short) -1, null) : Arrays.asList(null, null))
+                .put("string_to_tinyint", !isFormat.test("orc") ? Arrays.asList((byte) -1, null) : Arrays.asList(null, null))
+                .put("string_to_smallint", !isFormat.test("orc") ? Arrays.asList((short) -1, null) : Arrays.asList(null, null))
                 .put("string_to_integer", Arrays.asList(2147483647, null))
                 .put("varchar_to_integer", Arrays.asList(-2147483648, null))
                 .put("varchar_to_bigint", Arrays.asList(0, null))
@@ -1483,12 +1482,13 @@ class TestHiveCoercionOnPartitionedTable
         };
     }
 
-    private List<String> removeUnsupportedColumnsForHive(List<String> columns, String tableName)
+    private List<String> removeUnsupportedColumnsForHive(List<String> columns, String fileFormat, Optional<String> storageFormat)
     {
         Map<ColumnContext, String> expectedExceptions = expectedExceptionsWithHiveContext();
 
         Set<String> unsupportedColumns = expectedExceptions.keySet().stream()
-                .filter(context -> context.hiveVersion().orElseThrow().equals(HIVE_VERSION) && tableName.contains(context.format()))
+                .filter(context -> context.hiveVersion().orElseThrow().equals(HIVE_VERSION) && (fileFormat.equalsIgnoreCase(context.format())
+                        || storageFormat.filter(context.format()::equalsIgnoreCase).isPresent()))
                 .map(ColumnContext::column)
                 .collect(toImmutableSet());
 
@@ -1497,12 +1497,12 @@ class TestHiveCoercionOnPartitionedTable
                 .collect(toImmutableList());
     }
 
-    private List<String> removeUnsupportedColumnsForTrino(List<String> columns, String tableName)
+    private List<String> removeUnsupportedColumnsForTrino(List<String> columns, String fileFormat)
     {
         Map<ColumnContext, String> expectedExceptions = expectedExceptionsWithTrinoContext();
 
         Set<String> unsupportedColumns = expectedExceptions.keySet().stream()
-                .filter(context -> tableName.contains(context.format()))
+                .filter(context -> fileFormat.equalsIgnoreCase(context.format()))
                 .map(ColumnContext::column)
                 .collect(toImmutableSet());
 
@@ -1511,13 +1511,11 @@ class TestHiveCoercionOnPartitionedTable
                 .collect(toImmutableList());
     }
 
-    private void assertNestedSubFields(HiveStorageFormatsEnvironment env, String tableName)
+    private void assertNestedSubFields(HiveStorageFormatsEnvironment env, String tableName, String fileFormat, Optional<String> storageFormat)
     {
-        Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
-
         Map<String, List<Object>> expectedNestedFieldTrino = ImmutableMap.of("nested_field", ImmutableList.of(2L, 2L));
         Map<String, List<Object>> expectedNestedFieldHive;
-        if (isFormat.test("orc")) {
+        if (fileFormat.equalsIgnoreCase("orc")) {
             expectedNestedFieldHive = ImmutableMap.of("nested_field", Arrays.asList(null, null));
         }
         else {
@@ -1532,7 +1530,7 @@ class TestHiveCoercionOnPartitionedTable
         assertQueryResults(env, Engine.TRINO, subfieldQueryLowerCase, expectedNestedFieldTrino, expectedColumns, 2);
 
         // Assert Hive behavior
-        if (isFormat.test("rcbinary")) {
+        if (storageFormat.filter("rcbinary"::equalsIgnoreCase).isPresent()) {
             assertThatThrownBy(() -> assertQueryResults(env, Engine.HIVE, subfieldQueryUpperCase, expectedNestedFieldTrino, expectedColumns, 2))
                     .hasStackTraceContaining("org.apache.hadoop.hive.ql.metadata.HiveException");
             assertThatThrownBy(() -> assertQueryResults(env, Engine.HIVE, subfieldQueryLowerCase, expectedNestedFieldTrino, expectedColumns, 2))
