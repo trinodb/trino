@@ -20,18 +20,22 @@ import com.sun.management.UnixOperatingSystemMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.io.IOException;
 import java.lang.Runtime.Version;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Year;
 import java.util.List;
 import java.util.Locale;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 final class TrinoSystemRequirements
 {
@@ -43,6 +47,7 @@ final class TrinoSystemRequirements
     public static void verifySystemRequirements()
     {
         verifyJvmRequirements();
+        verifyTemporaryDirectory();
         verifySystemTimeIsReasonable();
     }
 
@@ -197,5 +202,19 @@ final class TrinoSystemRequirements
     private static void warnRequirement(String format, Object... args)
     {
         System.err.println("WARNING: " + format(format, args));
+    }
+
+    private static void verifyTemporaryDirectory()
+    {
+        Path tempDir = Path.of(System.getProperty("java.io.tmpdir"));
+        if (!Files.isDirectory(tempDir, NOFOLLOW_LINKS)) {
+            try {
+                Files.createDirectories(tempDir);
+                warnRequirement("Temporary directory %s did not exist and was created", tempDir);
+            }
+            catch (IOException e) {
+                failRequirement("Temporary directory %s does not exist and could not be created: %s", tempDir, e);
+            }
+        }
     }
 }
