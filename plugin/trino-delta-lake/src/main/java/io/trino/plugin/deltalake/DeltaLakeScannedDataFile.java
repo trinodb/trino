@@ -14,17 +14,19 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record DeltaLakeScannedDataFile(String path, Map<String, Optional<String>> partitionKeys)
+public record DeltaLakeScannedDataFile(String path, Map<String, Optional<String>> partitionKeys, Optional<DeletionVectorEntry> deletionVector)
 {
     public DeltaLakeScannedDataFile
     {
         requireNonNull(path, "path is null");
         partitionKeys = ImmutableMap.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
+        requireNonNull(deletionVector, "deletionVector is null");
     }
 }
