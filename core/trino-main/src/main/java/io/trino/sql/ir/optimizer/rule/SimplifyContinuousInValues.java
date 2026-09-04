@@ -29,7 +29,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
-import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
@@ -41,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
@@ -106,14 +106,14 @@ public class SimplifyContinuousInValues
             return Optional.empty();
         }
 
-        // Bind a non-trivial value once so it is evaluated exactly once across the IS NULL check and both
-        // comparisons; trivial values are used inline.
+        // Bind a non-trivial value once so it is evaluated exactly once across both comparisons;
+        // trivial values are used inline.
         long lowerBound = min;
         long upperBound = max;
         boolean includesNull = nullMatch;
         return Optional.of(bindIfNecessary(symbolAllocator, "range", value, operand -> {
             Expression rangeFilter = rangeFilter(session, operand, valueType, lowerBound, upperBound);
-            return includesNull ? or(new IsNull(operand), rangeFilter) : rangeFilter;
+            return includesNull ? or(rangeFilter, NULL_BOOLEAN) : rangeFilter;
         }));
     }
 
