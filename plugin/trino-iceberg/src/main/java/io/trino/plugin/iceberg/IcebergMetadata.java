@@ -175,6 +175,7 @@ import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotAncestryValidator;
 import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortField;
@@ -4051,6 +4052,26 @@ public class IcebergMetadata
         }
 
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
+        if (!isFullRefresh) {
+            long storageSnapshotId = icebergTable.currentSnapshot().snapshotId();
+            // The incremental input was calculated from this storage snapshot's dependencies.
+            // Revalidate on commit retries so another refresh cannot apply the same input twice.
+            appendFiles.validateWith(new SnapshotAncestryValidator()
+            {
+                @Override
+                public boolean validate(Iterable<Snapshot> snapshots)
+                {
+                    Iterator<Snapshot> iterator = snapshots.iterator();
+                    return iterator.hasNext() && iterator.next().snapshotId() == storageSnapshotId;
+                }
+
+                @Override
+                public String errorMessage()
+                {
+                    return "Materialized view storage table changed during incremental refresh";
+                }
+            });
+        }
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         PartitionSpec partitionSpec = icebergTable.spec();
         for (Slice fragment : fragments) {
