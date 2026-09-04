@@ -600,6 +600,11 @@ public class TrinoRestCatalog
                             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load table '%s'".formatted(schemaTableName.getTableName()), e);
                         }
                         // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
+                        if (!baseTable.allowDistributedPlanning()) {
+                            // The catalog requested server-side scan planning for this table, so
+                            // keep the RESTTable scan implementation alongside the quoted name
+                            return new ServerPlannedTable(baseTable, quotedTableName(schemaTableName));
+                        }
                         return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName), baseTable.reporter());
                     });
         }
