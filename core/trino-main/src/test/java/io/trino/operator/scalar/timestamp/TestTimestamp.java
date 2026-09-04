@@ -3130,6 +3130,18 @@ public class TestTimestamp
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageMatching("Value cannot fit in an int: .*");
 
+        // the sub-millisecond part is added back after the result has been scaled to microseconds, and that addition can overflow
+        assertThat(assertions.expression("date_add('millisecond', 9223372036854775, TIMESTAMP '1970-01-01 00:00:00.000807')")).matches("TIMESTAMP '294247-01-10 04:00:54.775807'");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('millisecond', 9223372036854775, TIMESTAMP '1970-01-01 00:00:00.000808')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('month', 1, TIMESTAMP '294246-12-10 04:00:54.775999')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('month', 1, TIMESTAMP '294246-12-10 04:00:54.775999999999')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+
         assertTrinoExceptionThrownBy(assertions.expression("date_diff('foo', TIMESTAMP '2001-01-31 19:34:55', TIMESTAMP '2005-09-10 13:31:00')")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("'foo' is not a valid TIMESTAMP field");
