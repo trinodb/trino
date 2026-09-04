@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -45,6 +46,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -67,6 +69,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
@@ -82,6 +86,9 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
@@ -210,7 +217,13 @@ public final class DuckDbClient
                     DATE,
                     (resultSet, columnIndex) -> DATE_FORMATTER.parse(resultSet.getString(columnIndex)).getLong(EPOCH_DAY),
                     dateWriteFunction()));
+            case Types.TIMESTAMP -> Optional.of(timestampColumnMapping(toTrinoTimestampType(typeHandle).orElse(TIMESTAMP_MICROS)));
             default -> {
+                // DuckDB reports TIMESTAMP_S / TIMESTAMP_MS as Types.OTHER
+                Optional<TimestampType> timestampType = toTrinoTimestampType(typeHandle);
+                if (timestampType.isPresent()) {
+                    yield Optional.of(timestampColumnMapping(timestampType.get()));
+                }
                 if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
                     yield mapToUnboundedVarchar(typeHandle);
                 }
@@ -261,7 +274,36 @@ public final class DuckDbClient
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
         }
+        if (type instanceof TimestampType timestampType) {
+            return WriteMapping.longMapping(toDuckDbTimestampType(timestampType), timestampWriteFunction(timestampType));
+        }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    private static Optional<TimestampType> toTrinoTimestampType(JdbcTypeHandle typeHandle)
+    {
+        String typeName = typeHandle.jdbcTypeName().orElse("").toUpperCase(Locale.ENGLISH);
+        return switch (typeName) {
+            case "TIMESTAMP_S" -> Optional.of(TIMESTAMP_SECONDS);
+            case "TIMESTAMP_MS" -> Optional.of(TIMESTAMP_MILLIS);
+            case "TIMESTAMP", "TIMESTAMP WITHOUT TIME ZONE", "DATETIME" -> Optional.of(TIMESTAMP_MICROS);
+            default -> Optional.empty();
+        };
+    }
+
+    private static String toDuckDbTimestampType(TimestampType timestampType)
+    {
+        int precision = timestampType.getPrecision();
+        if (precision == 0) {
+            return "timestamp_s";
+        }
+        if (precision <= 3) {
+            return "timestamp_ms";
+        }
+        if (precision <= 6) {
+            return "timestamp";
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + timestampType.getDisplayName());
     }
 
     private static LongWriteFunction dateWriteFunction()

@@ -111,6 +111,15 @@ this table:
 * - `DATE`
   - `DATE`
   -
+* - `TIMESTAMP_S`
+  - `TIMESTAMP(0)`
+  -
+* - `TIMESTAMP_MS`
+  - `TIMESTAMP(3)`
+  -
+* - `TIMESTAMP`
+  - `TIMESTAMP(6)`
+  -
 :::
 
 No other types are supported.
@@ -159,6 +168,15 @@ this table:
   -
 * - `DATE`
   - `DATE`
+  -
+* - `TIMESTAMP(0)`
+  - `TIMESTAMP_S`
+  -
+* - `TIMESTAMP(1)`, `TIMESTAMP(2)`, `TIMESTAMP(3)`
+  - `TIMESTAMP_MS`
+  -
+* - `TIMESTAMP(4)`, `TIMESTAMP(5)`, `TIMESTAMP(6)`
+  - `TIMESTAMP`
   -
 :::
 
