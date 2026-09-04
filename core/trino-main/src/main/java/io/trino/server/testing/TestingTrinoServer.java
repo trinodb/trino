@@ -75,6 +75,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
+import io.trino.security.credential.CredentialProviderRegistry;
 import io.trino.server.NodeStateManager;
 import io.trino.server.NodeStateManager.CurrentNodeState;
 import io.trino.server.PluginInstaller;
@@ -111,6 +112,7 @@ import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.ProcedureTester;
 import io.trino.testing.TestingAccessControlManager;
+import io.trino.testing.TestingCredentialProviderStore;
 import io.trino.testing.TestingEventListenerManager;
 import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingGroupProviderManager;
@@ -224,6 +226,8 @@ public class TestingTrinoServer
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final CacheManagerRegistry cacheManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
+    private final TestingCredentialProviderStore credentialProviderStore;
+    private final CredentialProviderRegistry credentialProviderRegistry;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -346,6 +350,8 @@ public class TestingTrinoServer
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                     binder.bind(CacheManagerRegistry.class).in(Scopes.SINGLETON);
+                    binder.bind(TestingCredentialProviderStore.class).in(Scopes.SINGLETON);
+                    binder.bind(CredentialProviderRegistry.class).in(Scopes.SINGLETON);
                     spanProcessor.ifPresent(processor -> newSetBinder(binder, SpanProcessor.class).addBinding().toInstance(processor));
 
                     newSetBinder(binder, SystemSessionPropertiesProvider.class)
@@ -439,6 +445,8 @@ public class TestingTrinoServer
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
         cacheManagerRegistry = injector.getInstance(CacheManagerRegistry.class);
         spoolingManagerRegistry = injector.getInstance(SpoolingManagerRegistry.class);
+        credentialProviderStore = injector.getInstance(TestingCredentialProviderStore.class);
+        credentialProviderRegistry = injector.getInstance(CredentialProviderRegistry.class);
 
         systemAccessControlConfiguration.ifPresentOrElse(
                 configuration -> {
@@ -730,6 +738,12 @@ public class TestingTrinoServer
                 attemptId,
                 injectionType,
                 errorType);
+    }
+
+    public void addCredentialProvider(String name, String factoryName, Map<String, String> properties)
+    {
+        credentialProviderStore.addCredentialProvider(name, factoryName, properties);
+        credentialProviderRegistry.loadCredentialProviders();
     }
 
     private static Path tempDirectory()

@@ -32,9 +32,12 @@ import io.trino.spi.cache.ConnectorCacheFactory;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.security.credential.CredentialResolver;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.util.EmbedVersion;
+
+import java.util.Optional;
 
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -123,5 +126,11 @@ public final class TestingConnectorContext
     public ConnectorCacheFactory getCacheFactory()
     {
         return new TestingConnectorCacheFactory();
+    }
+
+    @Override
+    public CredentialResolver getCredentialResolver()
+    {
+        return _ -> Optional.empty();
     }
 }

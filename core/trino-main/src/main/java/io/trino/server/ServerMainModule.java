@@ -96,6 +96,7 @@ import io.trino.operator.index.IndexManager;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
+import io.trino.security.credential.CredentialProviderStoreModule;
 import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
@@ -436,6 +437,8 @@ public class ServerMainModule
 
         // node status resource
         jaxrsBinder(binder).bind(StatusResource.class);
+
+        install(new CredentialProviderStoreModule());
 
         // plugin manager
         newOptionalBinder(binder, PluginInstaller.class).setDefault()

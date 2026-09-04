@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.specto.hoverfly.junit5.api.HoverflySimulate;
+import io.trino.plugin.credential.apikey.ApiKeyCredentialProviderPlugin;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -34,9 +35,16 @@ public class TestOllamaFunctions
                 .put("ai.provider", "openai")
                 .put("ai.model", "llama3.3")
                 .put("ai.openai.endpoint", "http://localhost:11434")
-                .put("ai.openai.api-key", "test")
+                .put("ai.openai.credential-provider.api-key.name", "static")
                 .put("ai.http-client.http-proxy", hoverflyAddress.toString())
                 .buildOrThrow();
+    }
+
+    @Override
+    protected void initCredentials()
+    {
+        assertions.addPlugin(new ApiKeyCredentialProviderPlugin());
+        assertions.addCredentialProvider("static", "api-key", ImmutableMap.of("api-key", "test"));
     }
 
     @Test
