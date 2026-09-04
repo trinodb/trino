@@ -35,6 +35,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -1693,6 +1694,73 @@ public class TestSubqueries
         assertThat(assertions.query(
                 "SELECT NULL IN (SELECT 1, BIGINT '2')"))
                 .describedAs("Multi-column row type, null value")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        // https://github.com/trinodb/trino/issues/7798
+        assertThat(assertions.query(
+                "SELECT ROW(ROW(1, 2)) IN (SELECT ROW(1, null))"))
+                .describedAs("Nested row value vs subquery of a row-typed column with a null field")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) IN (SELECT 1, null)"))
+                .describedAs("Multi-column row vs subquery with a null field")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) IN (VALUES (1, 2), (1, CAST(NULL AS integer)))"))
+                .describedAs("Equal element wins over a null field")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) IN (VALUES (1, 3), (1, CAST(NULL AS integer)))"))
+                .describedAs("No equal element and a null-field comparison")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, CAST(NULL AS integer)) IN (VALUES (1, 2))"))
+                .describedAs("Indeterminate probe vs determinate subquery row")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, CAST(NULL AS integer)) IN (VALUES (1, CAST(NULL AS integer)))"))
+                .describedAs("Identical indeterminate rows are still unknown under SQL equality")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        Session partitioned = assertions.sessionBuilder()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .build();
+        assertThat(assertions.query(
+                partitioned,
+                "SELECT ROW(1, 2) IN (SELECT 1, null)"))
+                .describedAs("Partitioned session still uses three-valued IN for rows")
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query(
+                partitioned,
+                "SELECT ROW(1, CAST(NULL AS integer)) IN (VALUES (1, 2))"))
+                .describedAs("Partitioned session, indeterminate probe vs determinate build")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ARRAY[1] IN (SELECT ARRAY[CAST(NULL AS integer)])"))
+                .describedAs("Array IN uses the same SemiJoin helper as row IN")
+                .matches("VALUES CAST(NULL AS boolean)");
+        assertThat(assertions.query(
+                "SELECT ARRAY[CAST(NULL AS integer)] IN (SELECT ARRAY[CAST(NULL AS integer)])"))
+                .describedAs("Identical indeterminate arrays are unknown under SQL equality")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) NOT IN (SELECT 1, 2)"))
+                .describedAs("NOT IN, equal element")
+                .matches("VALUES false");
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) NOT IN (SELECT 1, 3)"))
+                .describedAs("NOT IN, no equal element")
+                .matches("VALUES true");
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) NOT IN (SELECT 1, null)"))
+                .describedAs("NOT IN is unknown when IN is unknown")
                 .matches("VALUES CAST(NULL AS boolean)");
     }
 

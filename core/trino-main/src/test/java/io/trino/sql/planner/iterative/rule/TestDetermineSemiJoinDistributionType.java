@@ -38,6 +38,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -346,6 +347,79 @@ public class TestDetermineSemiJoinDistributionType
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         filter(TRUE, values(ImmutableMap.of("B1", 0)))));
+    }
+
+    @Test
+    public void testReplicatesStructuralTypeWhenPartitionedRequiredBySession()
+    {
+        Type rowType = anonymousRow(INTEGER, INTEGER);
+        int aRows = 10_000;
+        int bRows = 10_000;
+        assertDetermineSemiJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), SymbolStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), SymbolStatsEstimate.unknown()))
+                        .build())
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", rowType);
+                    Symbol b1 = p.symbol("B1", rowType);
+                    return p.semiJoin(
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            a1,
+                            b1,
+                            p.symbol("output"),
+                            Optional.empty());
+                })
+                .matches(semiJoin(
+                        "A1",
+                        "B1",
+                        "output",
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testReplicatesStructuralTypeWhenBuildIsLarge()
+    {
+        Type rowType = anonymousRow(INTEGER, INTEGER);
+        int aRows = 10_000;
+        int bRows = 10_000;
+        assertDetermineSemiJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "1B")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), SymbolStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), SymbolStatsEstimate.unknown()))
+                        .build())
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", rowType);
+                    Symbol b1 = p.symbol("B1", rowType);
+                    return p.semiJoin(
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            a1,
+                            b1,
+                            p.symbol("output"),
+                            Optional.empty());
+                })
+                .matches(semiJoin(
+                        "A1",
+                        "B1",
+                        "output",
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
     }
 
     private RuleBuilder assertDetermineSemiJoinDistributionType()
