@@ -91,4 +91,30 @@ class TestDeltaLakeCreateTableAsSelectCompatibilityDatabricks
             dropDeltaTableWithRetry(env, "default." + tableName);
         }
     }
+
+    @Test
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    void testTrinoMicrosecondTimestampsWithDatabricks(DeltaLakeDatabricksEnvironment env)
+    {
+        String tableName = "test_dl_ctas_timestamps_micros_" + randomNameSuffix();
+
+        try {
+            assertThat(env.executeTrinoSql("CREATE TABLE delta.default.\"" + tableName + "\" " +
+                    "(id, timestamp_in_utc, timestamp_in_new_york, timestamp_in_warsaw) " +
+                    "WITH (location = 's3://" + env.getBucketName() + "/databricks-compatibility-test-" + tableName + "') AS VALUES " +
+                    "(1, TIMESTAMP '1901-01-01 00:00:00.000001 UTC', TIMESTAMP '1902-01-01 00:00:00.000001 America/New_York', TIMESTAMP '1902-01-01 00:00:00.000001 Europe/Warsaw')" +
+                    ", (2, TIMESTAMP '9999-12-31 23:59:59.999999 UTC', TIMESTAMP '9998-12-31 23:59:59.999999 America/New_York', TIMESTAMP '9998-12-31 23:59:59.999999 Europe/Warsaw')" +
+                    ", (3, TIMESTAMP '2020-06-10 15:55:23.123456 UTC', TIMESTAMP '2020-06-10 15:55:23.123456 America/New_York', TIMESTAMP '2020-06-10 15:55:23.123456 Europe/Warsaw')" +
+                    ", (4, TIMESTAMP '2001-08-22 03:04:05.321654 UTC', TIMESTAMP '2001-08-22 03:04:05.321654 America/New_York', TIMESTAMP '2001-08-22 03:04:05.321654 Europe/Warsaw')"))
+                    .containsOnly(row(4));
+
+            QueryResult databricksResult = env.executeDatabricksSql("SELECT id, date_format(timestamp_in_utc, \"yyyy-MM-dd HH:mm:ss.SSSSSS\"), date_format(timestamp_in_new_york, \"yyyy-MM-dd HH:mm:ss.SSSSSS\"), date_format(timestamp_in_warsaw, \"yyyy-MM-dd HH:mm:ss.SSSSSS\") FROM default." + tableName);
+            // The varchar cast keeps all six fractional digits, unlike the %tL format used by the millisecond test
+            QueryResult trinoResult = env.executeTrinoSql("SELECT id, replace(CAST(timestamp_in_utc AS varchar), ' UTC'), replace(CAST(timestamp_in_new_york AS varchar), ' UTC'), replace(CAST(timestamp_in_warsaw AS varchar), ' UTC') FROM delta.default.\"" + tableName + "\"");
+            assertThat(databricksResult).containsOnly(trinoResult.getRows());
+        }
+        finally {
+            dropDeltaTableWithRetry(env, "default." + tableName);
+        }
+    }
 }

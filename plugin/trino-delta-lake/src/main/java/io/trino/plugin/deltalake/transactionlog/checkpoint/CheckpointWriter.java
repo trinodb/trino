@@ -38,7 +38,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.DateTimeEncoding;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
@@ -49,6 +49,7 @@ import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -74,6 +75,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.dese
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
@@ -351,8 +353,8 @@ public class CheckpointWriter
                 Map<String, Type> columnTypeMapping = getColumnTypeMapping(metadataEntry, protocolEntry);
                 DeltaLakeJsonFileStatistics jsonFileStatistics = new DeltaLakeJsonFileStatistics(
                         parquetFileStatistics.getNumRecords(),
-                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
+                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values, false)),
+                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values, true)),
                         parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)));
                 statsJson = getStatsString(jsonFileStatistics).orElse(null);
             }
@@ -460,7 +462,9 @@ public class CheckpointWriter
     {
         RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
         RowType valuesFieldType = (RowType) valuesField.getType();
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson));
+        // round a maximum up when squeezing it into a millisecond-granular field
+        boolean roundUp = fieldName.equals("maxValues");
+        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson, roundUp));
     }
 
     private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
@@ -487,7 +491,7 @@ public class CheckpointWriter
         });
     }
 
-    private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson)
+    private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson, boolean roundUp)
     {
         return valuesOptional.map(
                 values -> {
@@ -503,12 +507,24 @@ public class CheckpointWriter
                                         Type type = fieldTypes.get(entry.getKey());
                                         Object value = entry.getValue();
                                         if (isJson) {
+                                            if (type == TIMESTAMP_MILLIS && value instanceof String string) {
+                                                Instant instant = Instant.parse(string);
+                                                long epochMillis = instant.toEpochMilli();
+                                                // this field is millisecond-granular, so a truncated maximum must cover its whole millisecond
+                                                if (roundUp && instant.getNano() % NANOSECONDS_PER_MILLISECOND != 0) {
+                                                    epochMillis++;
+                                                }
+                                                return multiplyExact(epochMillis, MICROSECONDS_PER_MILLISECOND);
+                                            }
                                             return jsonValueToTrinoValue(type, value);
                                         }
                                         if (type == TIMESTAMP_MILLIS) {
                                             // We need to remap TIMESTAMP WITH TIME ZONE -> TIMESTAMP here because of
                                             // inconsistency in what type is used for DL "timestamp" type in data processing and in min/max statistics map.
-                                            value = multiplyExact(DateTimeEncoding.unpackMillisUtc((long) value), MICROSECONDS_PER_MILLISECOND);
+                                            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+                                            // this field is millisecond-granular, so dropping a non-zero fraction here would record a maximum below the real values
+                                            checkState(timestamp.getPicosOfMilli() == 0, "Unexpected sub-millisecond statistics value: %s", timestamp);
+                                            value = multiplyExact(timestamp.getEpochMillis(), MICROSECONDS_PER_MILLISECOND);
                                         }
                                         if (type == TIMESTAMP_MICROS) {
                                             // This is TIMESTAMP_NTZ type in Delta Lake

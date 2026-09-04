@@ -534,7 +534,7 @@ public final class ValueDecoders
                 });
     }
 
-    public ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding)
+    public ValueDecoder<long[]> getInt64TimestampMillisToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding)
     {
         checkArgument(
                 field.getType() instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.isShort(),
@@ -723,6 +723,40 @@ public final class ValueDecoders
                                 values,
                                 i + offset);
                     }
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public ValueDecoder<int[]> getInt64TimestampMillisToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(int[] values, int offset, int length)
+            {
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
+                // decoded values are epochMillis, convert to (packed epochMillisUtc, picosOfMilli=0)
+                for (int i = 0; i < length; i++) {
+                    encodeFixed12(
+                            packDateTimeWithZone(buffer[i], UTC_KEY),
+                            0,
+                            values,
+                            i + offset);
                 }
             }
 
