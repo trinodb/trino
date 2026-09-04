@@ -47,6 +47,7 @@ public class HadoopContainer
 {
     private static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hive3.1";
     private static final String KERBERIZED_IMAGE = "ghcr.io/trinodb/testing/hive3.1-kerberos";
+    private static final String GCP_CREDENTIALS_FILE = "/etc/trino/gcp-credentials.json";
 
     public static final String HOST_NAME = "hadoop-master";
 
@@ -59,7 +60,10 @@ public class HadoopContainer
     private final boolean kerberizedImage;
     private boolean lzoCodecEnabled;
     private boolean trinoProxyUserEnabled;
+    private GcsConfig gcsConfig;
     private S3Config s3Config;
+
+    private record GcsConfig(String endpoint, String projectId) {}
 
     /**
      * Configuration for S3-compatible storage (like Minio).
@@ -175,7 +179,7 @@ public class HadoopContainer
 
     private boolean shouldOverrideCoreSiteXml()
     {
-        return !kerberizedImage || lzoCodecEnabled || trinoProxyUserEnabled || s3Config != null;
+        return !kerberizedImage || lzoCodecEnabled || trinoProxyUserEnabled || gcsConfig != null || s3Config != null;
     }
 
     private boolean shouldOverrideHiveSiteXml()
@@ -302,6 +306,48 @@ public class HadoopContainer
                   </property>
                   """.formatted(s3Config.endpoint(), s3Config.accessKey(), s3Config.secretKey()) : "";
 
+        String gcsConfigXml = gcsConfig != null
+                ? """
+
+                  <!-- GCS configuration for Hive Metastore -->
+                  <property>
+                      <name>fs.gs.path.encoding</name>
+                      <value>uri-path</value>
+                  </property>
+                  <property>
+                      <name>fs.gs.impl</name>
+                      <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem</value>
+                  </property>
+                  <property>
+                      <name>fs.AbstractFileSystem.gs.impl</name>
+                      <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>
+                  </property>
+                  <property>
+                      <name>fs.gs.storage.root.url</name>
+                      <value>%s/</value>
+                  </property>
+                  <property>
+                      <name>fs.gs.storage.service.path</name>
+                      <value>storage/v1/</value>
+                  </property>
+                  <property>
+                      <name>fs.gs.project.id</name>
+                      <value>%s</value>
+                  </property>
+                  <property>
+                      <name>fs.gs.auth.type</name>
+                      <value>SERVICE_ACCOUNT_JSON_KEYFILE</value>
+                  </property>
+                  <property>
+                      <name>fs.gs.auth.service.account.json.keyfile</name>
+                      <value>%s</value>
+                  </property>
+                  <property>
+                      <name>fs.gs.token.server.url</name>
+                      <value>%s/token</value>
+                  </property>
+                  """.formatted(gcsConfig.endpoint(), gcsConfig.projectId(), GCP_CREDENTIALS_FILE, gcsConfig.endpoint()) : "";
+
         String trinoProxyUserConfig = trinoProxyUserEnabled
                 ? """
 
@@ -370,9 +416,9 @@ public class HadoopContainer
                    <property>
                        <name>hadoop.proxyuser.root.users</name>
                        <value>*</value>
-                   </property>%s%s%s
+                   </property>%s%s%s%s
                </configuration>
-               """.formatted(hostName, HDFS_NAMENODE_PORT, lzoCodecConfig, s3ConfigXml, trinoProxyUserConfig);
+               """.formatted(hostName, HDFS_NAMENODE_PORT, lzoCodecConfig, s3ConfigXml, gcsConfigXml, trinoProxyUserConfig);
     }
 
     /**
@@ -787,6 +833,13 @@ public class HadoopContainer
         withCopyToContainer(
                 Transferable.of(getHiveSiteXml(s3Config)),
                 "/opt/hive/conf/hive-site.xml");
+        return this;
+    }
+
+    public HadoopContainer withGcsConfig(String endpoint, String projectId, String serviceAccountJson)
+    {
+        this.gcsConfig = new GcsConfig(endpoint, projectId);
+        withCopyToContainer(Transferable.of(serviceAccountJson), GCP_CREDENTIALS_FILE);
         return this;
     }
 

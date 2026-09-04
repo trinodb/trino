@@ -36,7 +36,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public final class FlociGcp
         extends GenericContainer<FlociGcp>
 {
-    public static final String FLOCI_GCP_IMAGE = "floci/floci-gcp:0.7.0";
+    public static final String FLOCI_GCP_IMAGE = "floci/floci-gcp:0.8.0";
     public static final String FLOCI_GCP_PROJECT_ID = "floci-local";
 
     private static final String FLOCI_GCP_NETWORK_ALIAS = "floci-gcp";
@@ -63,6 +63,16 @@ public final class FlociGcp
 
     public String getServiceAccountJson()
     {
+        return getServiceAccountJson(getEndpoint());
+    }
+
+    public String getContainerServiceAccountJson()
+    {
+        return getServiceAccountJson(getContainerEndpoint());
+    }
+
+    private static String getServiceAccountJson(URI endpoint)
+    {
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
             keyPairGenerator.initialize(2048);
@@ -76,7 +86,7 @@ public final class FlociGcp
                     "private_key", privateKey,
                     "client_email", "floci-gcp@" + FLOCI_GCP_PROJECT_ID + ".iam.gserviceaccount.com",
                     "client_id", "123456789",
-                    "token_uri", getEndpoint().resolve("/token").toString()));
+                    "token_uri", endpoint.resolve("/token").toString()));
         }
         catch (GeneralSecurityException | IOException e) {
             throw new RuntimeException("Failed to create service account credentials", e);
