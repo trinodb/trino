@@ -123,6 +123,12 @@ public class PushAggregationThroughOuterJoin
     {
         JoinNode join = captures.get(JOIN);
 
+        // Without grouping keys, aggregation over an empty inner source produces a row. For example,
+        // count(*) would return 0 instead of counting the null-extended row produced by the outer join.
+        if (join.getCriteria().isEmpty()) {
+            return Result.empty();
+        }
+
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
                 || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputSymbols())

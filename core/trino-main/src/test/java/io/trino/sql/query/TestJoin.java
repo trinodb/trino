@@ -375,4 +375,41 @@ public class TestJoin
                 .skippingTypesCheck()
                 .matches("VALUES ('a', 'x', 'a', 'x'), ('b', null, 'b', null), (null, 'z', null, 'z')");
     }
+
+    @Test
+    public void testCountOverEmptyLeftJoin()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT count(*)
+                FROM (VALUES 1) l(a)
+                LEFT JOIN (SELECT * FROM UNNEST(CAST(ARRAY[] AS array(integer)))) r(b) ON true
+                """))
+                .matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testCountOverEmptyRightJoin()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT count(*)
+                FROM (SELECT * FROM UNNEST(CAST(ARRAY[] AS array(integer)))) l(a)
+                RIGHT JOIN (VALUES 1) r(b) ON true
+                """))
+                .matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testGroupedCountOverEmptyOuterJoin()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT a, count(*)
+                FROM (SELECT DISTINCT a FROM (VALUES 1, 2) t(a)) l
+                LEFT JOIN (SELECT * FROM UNNEST(CAST(ARRAY[] AS array(integer)))) r(b) ON true
+                GROUP BY a
+                """))
+                .matches("VALUES (1, BIGINT '1'), (2, BIGINT '1')");
+    }
 }
