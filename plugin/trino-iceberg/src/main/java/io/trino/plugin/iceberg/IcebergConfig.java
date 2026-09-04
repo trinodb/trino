@@ -97,6 +97,7 @@ public class IcebergConfig
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
+    private boolean splitSourceAsyncEnabled = true;
     private int planningThreads = Runtime.getRuntime().availableProcessors() * 2;
     private int fileDeleteThreads = Runtime.getRuntime().availableProcessors() * 2;
     private List<String> allowedExtraProperties = ImmutableList.of();
@@ -557,6 +558,19 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(String splitManagerThreads)
     {
         this.splitManagerThreads = ThreadCountParser.DEFAULT.parse(splitManagerThreads);
+        return this;
+    }
+
+    public boolean isSplitSourceAsyncEnabled()
+    {
+        return splitSourceAsyncEnabled;
+    }
+
+    @Config("iceberg.split-source-async.enabled")
+    @ConfigDescription("Produce the split batches of each table scan asynchronously on a dedicated thread")
+    public IcebergConfig setSplitSourceAsyncEnabled(boolean splitSourceAsyncEnabled)
+    {
+        this.splitSourceAsyncEnabled = splitSourceAsyncEnabled;
         return this;
     }
 

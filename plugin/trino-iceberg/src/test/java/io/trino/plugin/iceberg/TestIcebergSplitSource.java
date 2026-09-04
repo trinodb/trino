@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.metastore.HiveMetastore;
@@ -36,6 +38,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -46,12 +49,15 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
+import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
@@ -65,6 +71,8 @@ import org.apache.iceberg.encryption.EncryptionTestHelpers;
 import org.apache.iceberg.encryption.NativeEncryptionInputFile;
 import org.apache.iceberg.encryption.NativeEncryptionKeyMetadata;
 import org.apache.iceberg.encryption.NativeEncryptionOutputFile;
+import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
@@ -79,19 +87,29 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.Closeable;
+import java.lang.reflect.Proxy;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSplitSource.createFileStatisticsDomain;
 import static io.trino.plugin.iceberg.IcebergSplitSource.parquetFileDecryptionData;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -103,6 +121,8 @@ import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -600,6 +620,143 @@ public class TestIcebergSplitSource
         }
     }
 
+    @Test
+    public void testInlineSplitSource()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, "split_source_async_enabled", "false")
+                .build();
+        try (TestTable table = newTrinoTable("test_inline_split_source", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertQuery(session, "SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testAsyncBatchesMatchInlineBatches()
+            throws Exception
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
+        IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
+
+        List<IcebergSplit> inlineSplits = generateSplits(SESSION, nationTable, tableHandle, ImmutableSet.of(), DynamicFilterSnapshot.EMPTY, Optional.empty());
+        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-async-split-source-%s")));
+        try {
+            List<IcebergSplit> asyncSplits = generateSplits(SESSION, nationTable, tableHandle, ImmutableSet.of(), DynamicFilterSnapshot.EMPTY, Optional.of(executor));
+            assertThat(asyncSplits).isEqualTo(inlineSplits);
+        }
+        finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    public void testCloseAbortsInlineBatch()
+            throws Exception
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
+        IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
+
+        BlockingPlanFiles planFiles = new BlockingPlanFiles();
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-inline-split-source-%s"));
+        try (IcebergSplitSource splitSource = new IcebergSplitSource(
+                new DefaultIcebergFileSystemFactory(fileSystemFactory),
+                SESSION,
+                tableHandle,
+                nationTable,
+                blockingScan(nationTable.newScan(), planFiles),
+                Optional.empty(),
+                alwaysTrue(),
+                TESTING_TYPE_MANAGER,
+                false,
+                0,
+                new NoopSplitAffinityProvider(),
+                new InMemoryMetricsReporter(),
+                Optional.empty(),
+                ImmutableSet.of(),
+                ConnectorExpressionEvaluator.NO_OP)) {
+            // Without an async executor the batch is produced on the calling thread, so drive it from another thread
+            Future<CompletableFuture<List<ConnectorSplit>>> batch = executor.submit(() -> splitSource.getNextBatch(100, DynamicFilterSnapshot.EMPTY));
+            assertThat(planFiles.awaitPlanning()).isTrue();
+
+            // close() must not wait for the batch in flight; it aborts the batch by closing the scan iterables
+            executor.submit(splitSource::close).get(30, SECONDS);
+
+            assertThatThrownBy(() -> batch.get(30, SECONDS).get(30, SECONDS))
+                    .hasRootCauseMessage("Already closed");
+        }
+        finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static TableScan blockingScan(TableScan scan, CloseableIterable<FileScanTask> planFiles)
+    {
+        return (TableScan) Proxy.newProxyInstance(
+                TableScan.class.getClassLoader(),
+                new Class<?>[] {TableScan.class},
+                (_, method, args) -> {
+                    if (method.getName().equals("planFiles")) {
+                        return planFiles;
+                    }
+                    Object result = method.invoke(scan, args);
+                    if (result instanceof TableScan resultScan) {
+                        return blockingScan(resultScan, planFiles);
+                    }
+                    return result;
+                });
+    }
+
+    /**
+     * Blocks in {@code hasNext()} until closed and then fails, like a closed {@code ParallelIterable} does.
+     */
+    private static class BlockingPlanFiles
+            implements CloseableIterable<FileScanTask>
+    {
+        private final CountDownLatch planning = new CountDownLatch(1);
+        private final CountDownLatch closed = new CountDownLatch(1);
+
+        public boolean awaitPlanning()
+                throws InterruptedException
+        {
+            return planning.await(30, SECONDS);
+        }
+
+        @Override
+        public CloseableIterator<FileScanTask> iterator()
+        {
+            return new CloseableIterator<>()
+            {
+                @Override
+                public boolean hasNext()
+                {
+                    planning.countDown();
+                    awaitUninterruptibly(closed);
+                    throw new IllegalStateException("Already closed");
+                }
+
+                @Override
+                public FileScanTask next()
+                {
+                    throw new NoSuchElementException();
+                }
+
+                @Override
+                public void close()
+                {
+                    closed.countDown();
+                }
+            };
+        }
+
+        @Override
+        public void close()
+        {
+            closed.countDown();
+        }
+    }
+
     private IcebergSplit generateSplit(Table nationTable, IcebergTableHandle tableHandle)
             throws Exception
     {
@@ -617,6 +774,18 @@ public class TestIcebergSplitSource
     private List<IcebergSplit> generateSplits(ConnectorSession session, Table nationTable, IcebergTableHandle tableHandle, Set<ColumnHandle> dynamicFilterColumns, DynamicFilterSnapshot dynamicFilterSnapshot)
             throws Exception
     {
+        return generateSplits(session, nationTable, tableHandle, dynamicFilterColumns, dynamicFilterSnapshot, Optional.empty());
+    }
+
+    private List<IcebergSplit> generateSplits(
+            ConnectorSession session,
+            Table nationTable,
+            IcebergTableHandle tableHandle,
+            Set<ColumnHandle> dynamicFilterColumns,
+            DynamicFilterSnapshot dynamicFilterSnapshot,
+            Optional<ListeningExecutorService> asyncExecutor)
+            throws Exception
+    {
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
                 session,
@@ -630,7 +799,7 @@ public class TestIcebergSplitSource
                 0,
                 new NoopSplitAffinityProvider(),
                 new InMemoryMetricsReporter(),
-                newDirectExecutorService(),
+                asyncExecutor,
                 dynamicFilterColumns,
                 ConnectorExpressionEvaluator.NO_OP)) {
             ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();

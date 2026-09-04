@@ -259,6 +259,14 @@ implementation is used:
 * - `iceberg.planning-threads`
   -  Number of threads to use for reading manifests during planning.
   -  Double the number of processors on the coordinator node.
+* - `iceberg.split-source-async.enabled`
+  -  Produce the split batches of each table scan asynchronously on a dedicated
+     thread. Set to `false` to produce them inline on the thread that requests
+     them, which bounds the manifest planning work a single query keeps in
+     flight in the shared split manager thread pool, at the cost of planning
+     the table scans of a query one after another. The equivalent catalog
+     session property is `split_source_async_enabled`.
+  -  `true`
 * - `iceberg.metadata.parallelism`
   - Number of threads used for retrieving metadata. Currently, only table loading 
     is parallelized.

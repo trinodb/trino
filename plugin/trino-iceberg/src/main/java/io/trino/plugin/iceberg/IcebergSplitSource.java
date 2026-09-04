@@ -108,6 +108,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.math.LongMath.saturatedAdd;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
@@ -175,7 +177,7 @@ public class IcebergSplitSource
     private final Domain fileModifiedTimeDomain;
     private final OptionalLong limit;
     private final Set<Integer> predicatedColumnIds;
-    private final ListeningExecutorService executor;
+    private final Optional<ListeningExecutorService> asyncExecutor;
 
     @GuardedBy("this")
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
@@ -217,7 +219,7 @@ public class IcebergSplitSource
             double minimumAssignedSplitWeight,
             SplitAffinityProvider splitAffinityProvider,
             InMemoryMetricsReporter metricsReporter,
-            ListeningExecutorService executor,
+            Optional<ListeningExecutorService> asyncExecutor,
             Set<ColumnHandle> dynamicFilterColumns,
             ConnectorExpressionEvaluator evaluator)
     {
@@ -256,21 +258,36 @@ public class IcebergSplitSource
         this.fileModifiedTimeDomain = getFileModifiedTimeDomain(tableHandle.getEnforcedPredicate());
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.metricsReporter = requireNonNull(metricsReporter, "metricsReporter is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.asyncExecutor = requireNonNull(asyncExecutor, "asyncExecutor is null");
     }
 
     @Override
     public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         ListenableFuture<List<ConnectorSplit>> nextBatchFuture;
-        synchronized (closer) {
-            checkState(!closed, "already closed");
-            checkState(currentBatchFuture == null || currentBatchFuture.isDone(), "previous batch future is not done");
+        if (asyncExecutor.isPresent()) {
+            synchronized (closer) {
+                checkState(!closed, "already closed");
+                checkState(currentBatchFuture == null || currentBatchFuture.isDone(), "previous batch future is not done");
 
-            // Avoids blocking the calling (scheduler) thread when producing splits, allowing other split sources to
-            // start loading splits in parallel to each other
-            nextBatchFuture = executor.submit(() -> getNextBatchInternal(maxSize, dynamicFilterSnapshot));
-            currentBatchFuture = nextBatchFuture;
+                // Avoids blocking the calling (scheduler) thread when producing splits, allowing other split sources to
+                // start loading splits in parallel to each other
+                nextBatchFuture = asyncExecutor.orElseThrow().submit(() -> getNextBatchInternal(maxSize, dynamicFilterSnapshot));
+                currentBatchFuture = nextBatchFuture;
+            }
+        }
+        else {
+            synchronized (closer) {
+                checkState(!closed, "already closed");
+            }
+            // Produce the batch on the calling thread outside the closer lock, so that close() can abort it by closing
+            // the scan iterables
+            try {
+                nextBatchFuture = immediateFuture(getNextBatchInternal(maxSize, dynamicFilterSnapshot));
+            }
+            catch (Throwable t) {
+                nextBatchFuture = immediateFailedFuture(t);
+            }
         }
 
         return toCompletableFuture(nextBatchFuture).exceptionally(t -> {
