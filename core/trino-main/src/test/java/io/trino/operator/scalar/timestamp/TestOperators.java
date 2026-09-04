@@ -22,9 +22,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -431,21 +432,23 @@ public class TestOperators
         // The interval is stored as milliseconds in a long. The TIMESTAMP +/- INTERVAL_DAY_TO_SECOND
         // operators scale the interval up by 1000 (to microseconds) using Math.multiplyExact, which
         // overflows for sufficiently large intervals. Such intervals are reachable via multiplication.
-        // The operator does not wrap the ArithmeticException, so we cannot use assertTrinoExceptionThrownBy.
-        assertThatThrownBy(assertions.expression("a + b")
+        assertTrinoExceptionThrownBy(assertions.expression("a + b")
                 .binding("a", "TIMESTAMP '2020-05-01 12:34:56'")
                 .binding("b", "INTERVAL '1' SECOND * 9223372036854775")::evaluate)
-                .hasMessageContaining("long overflow");
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
 
-        assertThatThrownBy(assertions.expression("a + b")
+        assertTrinoExceptionThrownBy(assertions.expression("a + b")
                 .binding("a", "INTERVAL '1' SECOND * 9223372036854775")
                 .binding("b", "TIMESTAMP '2020-05-01 12:34:56'")::evaluate)
-                .hasMessageContaining("long overflow");
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
 
-        assertThatThrownBy(assertions.expression("a - b")
+        assertTrinoExceptionThrownBy(assertions.expression("a - b")
                 .binding("a", "TIMESTAMP '2020-05-01 12:34:56'")
                 .binding("b", "INTERVAL '1' SECOND * 9223372036854775")::evaluate)
-                .hasMessageContaining("long overflow");
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
     }
 
     @Test
