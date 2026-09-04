@@ -54,7 +54,7 @@ public final class TimestampOperators
             // scale to micros
             interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
 
-            return timestamp + interval;
+            return addExact(timestamp, interval);
         }
 
         @LiteralParameters({"p", "u"})
@@ -64,7 +64,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return new LongTimestamp(timestamp.getEpochMicros() + multiplyExact(interval, MICROSECONDS_PER_MILLISECOND), timestamp.getPicosOfMicro());
+            return new LongTimestamp(addExact(timestamp.getEpochMicros(), multiplyExact(interval, MICROSECONDS_PER_MILLISECOND)), timestamp.getPicosOfMicro());
         }
     }
 

@@ -3334,6 +3334,18 @@ public class TestTimestamp
                 .hasMessage("long overflow");
         assertThatThrownBy(() -> assertions.operator(ADD, "INTERVAL '1' month", "TIMESTAMP '294246-12-10 04:00:54.775808000000'").evaluate())
                 .hasMessage("long overflow");
+
+        // adding a day-to-second interval can push the timestamp past the largest representable value
+        assertThat(assertions.operator(ADD, "TIMESTAMP '294247-01-10 04:00:53.775807'", "INTERVAL '1' second"))
+                .matches("TIMESTAMP '294247-01-10 04:00:54.775807'");
+        assertThatThrownBy(() -> assertions.operator(ADD, "TIMESTAMP '294247-01-10 04:00:54.775807'", "INTERVAL '1' second").evaluate())
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.operator(ADD, "TIMESTAMP '294247-01-10 04:00:54.775807000000'", "INTERVAL '1' second").evaluate())
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.operator(ADD, "INTERVAL '1' second", "TIMESTAMP '294247-01-10 04:00:54.775807'").evaluate())
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.operator(ADD, "INTERVAL '1' second", "TIMESTAMP '294247-01-10 04:00:54.775807000000'").evaluate())
+                .hasMessage("long overflow");
     }
 
     @Test
@@ -3348,6 +3360,8 @@ public class TestTimestamp
         // subtracting from the smallest representable timestamp underflows
         String minTimestamp = "date_add('millisecond', -9223372036854775, TIMESTAMP '1970-01-01 00:00:00.000000')";
         assertThatThrownBy(() -> assertions.operator(SUBTRACT, minTimestamp, "INTERVAL '1' month").evaluate())
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.operator(SUBTRACT, minTimestamp, "INTERVAL '1' second").evaluate())
                 .hasMessage("long overflow");
     }
 
