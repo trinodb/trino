@@ -49,6 +49,27 @@ public class TestJoin
     }
 
     @Test
+    public void testFullJoinWithUnmatchedScalarLeft()
+    {
+        assertThat(assertions.query("SELECT b FROM (VALUES 0) l(a) FULL JOIN (VALUES -1, -2) r(b) ON b > 0"))
+                .matches("VALUES -1, -2, CAST(NULL AS integer)");
+    }
+
+    @Test
+    public void testFullJoinWithUnmatchedScalarRight()
+    {
+        assertThat(assertions.query("SELECT a FROM (VALUES -1, -2) l(a) FULL JOIN (VALUES 0) r(b) ON a > 0"))
+                .matches("VALUES -1, -2, CAST(NULL AS integer)");
+    }
+
+    @Test
+    public void testFullJoinWithFalseConditionCount()
+    {
+        assertThat(assertions.query("SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON false"))
+                .matches("VALUES BIGINT '2'");
+    }
+
+    @Test
     public void testCrossJoinEliminationWithOuterJoin()
     {
         assertThat(assertions.query(
