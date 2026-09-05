@@ -19,6 +19,7 @@ import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -33,6 +34,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.join.JoinHashSupplier.PagesHashType.BIGINT;
 import static io.trino.operator.join.JoinHashSupplier.PagesHashType.DEFAULT;
 import static io.trino.operator.join.JoinUtils.channelsToPages;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class JoinHashSupplier
@@ -66,6 +68,7 @@ public class JoinHashSupplier
             HashArraySizeSupplier hashArraySizeSupplier,
             OptionalInt singleBigintJoinChannel)
     {
+        hashArraySizeSupplier = handleSizeLimit(hashArraySizeSupplier);
         this.session = requireNonNull(session, "session is null");
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
@@ -129,6 +132,7 @@ public class JoinHashSupplier
             OptionalInt singleBigintJoinChannel,
             HashArraySizeSupplier hashArraySizeSupplier)
     {
+        hashArraySizeSupplier = handleSizeLimit(hashArraySizeSupplier);
         long result = 0;
         if (sortChannel.isPresent()) {
             result += SortedPositionLinks.getEstimatedRetainedSizeInBytes(positionCount);
@@ -142,6 +146,19 @@ public class JoinHashSupplier
             case DEFAULT -> DefaultPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
         };
         return result;
+    }
+
+    private static HashArraySizeSupplier handleSizeLimit(HashArraySizeSupplier delegate)
+    {
+        requireNonNull(delegate, "delegate is null");
+        return expectedCount -> {
+            try {
+                return delegate.getHashArraySize(expectedCount);
+            }
+            catch (IllegalArgumentException e) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to determine hash table size: " + e.getMessage(), e);
+            }
+        };
     }
 
     private static long getPageInstancesRetainedSizeInBytes(List<ObjectArrayList<Block>> channels)
