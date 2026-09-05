@@ -237,10 +237,6 @@ public abstract class BaseHiveConnectorTest
 
         return builder
                 .addHiveProperty("hive.compression-codec", hiveCompressionCodec)
-                // Several tests here assume ORC: column rename preserving data (ORC reads by index, Parquet by name),
-                // dereference pushdown behavior (see supportsPhysicalPushdown), and SHOW CREATE TABLE default-format output.
-                // TODO exercise the default (PARQUET) format here, overriding only the tests that genuinely require ORC
-                .addHiveProperty("hive.storage-format", "ORC")
                 .addHiveProperty("hive.allow-register-partition-procedure", "true")
                 // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                 .addHiveProperty("hive.writer-sort-buffer-size", "1MB")
@@ -4365,7 +4361,7 @@ public abstract class BaseHiveConnectorTest
                         "   comment varchar(79)\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
+                        "   format = 'PARQUET'\n" +
                         ")");
 
         String createTableSql = format(
@@ -4445,7 +4441,7 @@ public abstract class BaseHiveConnectorTest
                     "   b integer WITH (partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER')\n" +
                     ")\n" +
                     "WITH (\n" +
-                    "   format = 'ORC',\n" +
+                    "   format = 'PARQUET',\n" +
                     "   partition_projection_enabled = true,\n" +
                     "   partition_projection_location_template = 's3://example/${b}',\n" +
                     "   partitioned_by = ARRAY['b']\n" +
@@ -5183,6 +5179,8 @@ public abstract class BaseHiveConnectorTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_rename_column\n" +
                 "WITH (\n" +
+                // ORC reads columns by index, so a rename preserves access to existing data (Parquet reads by name)
+                "  format = 'ORC',\n" +
                 "  partitioned_by = ARRAY ['orderstatus']\n" +
                 ")\n" +
                 "AS\n" +
@@ -5225,13 +5223,35 @@ public abstract class BaseHiveConnectorTest
     @Override
     public void testDropAndAddColumnWithSameName()
     {
-        // Override because Hive connector can access old data after dropping and adding a column with same name
+        // Override because Hive connector can access old data after dropping and adding a column with same name:
+        // the re-added column reads the dropped column's value (2) by name instead of NULL
         assertThatThrownBy(super::testDropAndAddColumnWithSameName)
                 .hasMessageContaining(
                         """
                         Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
-                            [1, 2]\
+                            [1, 3, 2]\
                         """);
+    }
+
+    @Test
+    @Override
+    public void testRenameColumn()
+    {
+        // On the default PARQUET format a Hive column rename is metadata-only and data is read by name, so the
+        // renamed column reads NULL. ORC reads by index and preserves the data on rename; see testRenameColumnHiveSpecific.
+        assertThatThrownBy(super::testRenameColumn)
+                .hasMessageContaining("not equal")
+                .hasMessageContaining("[null]");
+    }
+
+    @Test
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        // See testRenameColumn: on the default PARQUET format a rename orphans the data (read by name), so it reads NULL.
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                .hasMessageContaining("not equal")
+                .hasMessageContaining("[null]");
     }
 
     @Test
@@ -9418,7 +9438,7 @@ public abstract class BaseHiveConnectorTest
                         "   c1 integer\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
+                        "   format = 'PARQUET'\n" +
                         ")");
         assertUpdate("DROP TABLE %s".formatted(tableName));
     }
@@ -9437,7 +9457,7 @@ public abstract class BaseHiveConnectorTest
                         "   c1 integer\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
+                        "   format = 'PARQUET'\n" +
                         ")");
 
         assertUpdate("DROP TABLE %s".formatted(tableName));
@@ -9454,7 +9474,7 @@ public abstract class BaseHiveConnectorTest
                         "   c1 integer\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
+                        "   format = 'PARQUET'\n" +
                         ")");
 
         assertUpdate("DROP TABLE %s".formatted(tableName));
@@ -9645,7 +9665,8 @@ public abstract class BaseHiveConnectorTest
 
         try (TestTable testTable = newTrinoTable(
                 "test_select_with_short_zone_id_",
-                "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (external_location = '%s')".formatted(tempDir))) {
+                // The external data file is ORC; read it as ORC rather than the default PARQUET
+                "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (format = 'ORC', external_location = '%s')".formatted(tempDir))) {
             assertThat(query("SELECT * FROM %s".formatted(testTable.getName())))
                     .failure()
                     .hasMessageMatching(".*Failed to read ORC file: .*")
@@ -9903,14 +9924,6 @@ public abstract class BaseHiveConnectorTest
     private TrinoFileSystem getTrinoFileSystem()
     {
         return getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(ConnectorIdentity.ofUser("test"));
-    }
-
-    @Override
-    protected boolean supportsPhysicalPushdown()
-    {
-        // Hive table is created using default format which is ORC. Currently ORC reader has issue
-        // pruning dereferenced struct fields https://github.com/trinodb/trino/issues/17201
-        return false;
     }
 
     @Override

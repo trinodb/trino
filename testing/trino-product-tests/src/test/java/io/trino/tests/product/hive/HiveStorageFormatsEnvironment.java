@@ -97,8 +97,6 @@ public class HiveStorageFormatsEnvironment
                         .withHadoopFileSystem()
                         .withCommonProperties()
                         .withPartitionProcedures()
-                        // HmsOnly tests create transactional (ACID) tables that require ORC
-                        .withOrcStorageFormat()
                         .build())
                 .withCatalog("iceberg", Map.of(
                         "connector.name", "iceberg",
