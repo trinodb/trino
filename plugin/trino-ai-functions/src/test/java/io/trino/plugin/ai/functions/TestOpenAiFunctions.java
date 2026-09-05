@@ -18,6 +18,7 @@ import com.google.common.net.HostAndPort;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.specto.hoverfly.junit5.api.HoverflyConfig;
 import io.specto.hoverfly.junit5.api.HoverflySimulate;
+import io.trino.plugin.credential.apikey.ApiKeyCredentialProviderPlugin;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -34,10 +35,17 @@ public class TestOpenAiFunctions
         return ImmutableMap.<String, String>builder()
                 .put("ai.provider", "openai")
                 .put("ai.model", "gpt-4o-mini")
-                .put("ai.openai.api-key", "test")
+                .put("ai.openai.credential-provider.inference.name", "static")
                 .put("ai.http-client.http-proxy", hoverflyAddress.toString())
                 .put("ai.http-client.trust-store-path", "src/test/resources/hoverfly/hoverfly.pem")
                 .buildOrThrow();
+    }
+
+    @Override
+    protected void initCredentials()
+    {
+        assertions.addPlugin(new ApiKeyCredentialProviderPlugin());
+        assertions.addCredentialProvider("static", "api-key", ImmutableMap.of("api-key", "test"));
     }
 
     @Test

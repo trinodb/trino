@@ -50,6 +50,7 @@ import io.trino.node.NodeManagerModule;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
+import io.trino.security.credential.CredentialProviderRegistry;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
@@ -135,6 +136,8 @@ public class Server
 
             var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
             catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);
+
+            injector.getInstance(CredentialProviderRegistry.class).loadCredentialProviders();
 
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();

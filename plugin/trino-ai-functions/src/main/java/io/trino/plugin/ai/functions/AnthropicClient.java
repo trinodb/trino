@@ -16,6 +16,7 @@ package io.trino.plugin.ai.functions;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -24,6 +25,9 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.credential.CredentialProvider;
+import io.trino.spi.security.credential.StringCredential;
 
 import java.net.URI;
 import java.util.List;
@@ -60,20 +64,20 @@ public class AnthropicClient
     private final HttpClient httpClient;
     private final Tracer tracer;
     private final URI endpoint;
-    private final String apiKey;
+    private final CredentialProvider credentialProvider;
 
     @Inject
-    public AnthropicClient(@ForAiClient HttpClient httpClient, Tracer tracer, AnthropicConfig anthropicConfig, AiConfig aiConfig)
+    public AnthropicClient(@ForAiClient HttpClient httpClient, Tracer tracer, AnthropicConfig anthropicConfig, AiConfig aiConfig, @Named("api-key") CredentialProvider credentialProvider)
     {
         super(aiConfig);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.endpoint = anthropicConfig.getEndpoint();
-        this.apiKey = anthropicConfig.getApiKey();
+        this.credentialProvider = requireNonNull(credentialProvider, "credentialProvider is null");
     }
 
     @Override
-    protected String generateCompletion(String model, String prompt)
+    protected String generateCompletion(ConnectorIdentity connectorIdentity, String model, String prompt)
     {
         URI uri = uriBuilderFrom(endpoint)
                 .appendPath("/v1/messages")
@@ -81,10 +85,11 @@ public class AnthropicClient
 
         MessageRequest.Message messages = new MessageRequest.Message("user", prompt);
         MessageRequest body = new MessageRequest(model, 4096, List.of(messages));
+        StringCredential credential = credentialProvider.getCredential(connectorIdentity, StringCredential.class);
 
         Request request = preparePost()
                 .setUri(uri)
-                .setHeader(X_API_KEY_HEADER, apiKey)
+                .setHeader(X_API_KEY_HEADER, credential.value())
                 .setHeader(ANTHROPIC_VERSION_HEADER, "2023-06-01")
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(MESSAGE_REQUEST_CODEC, body))

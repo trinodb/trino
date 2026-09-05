@@ -16,6 +16,7 @@ package io.trino.plugin.ai.functions;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
@@ -23,12 +24,14 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.credential.CredentialProvider;
+import io.trino.spi.security.credential.HttpHeadersCredential;
 
 import java.net.URI;
 import java.util.List;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.airlift.http.client.HeaderNames.AUTHORIZATION;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -49,6 +52,7 @@ import static io.trino.plugin.ai.functions.GenAiAttributes.OPENAI_RESPONSE_SERVI
 import static io.trino.plugin.ai.functions.GenAiAttributes.OPENAI_RESPONSE_SYSTEM_FINGERPRINT;
 import static io.trino.plugin.ai.functions.GenAiAttributes.OPERATION_NAME_CHAT;
 import static io.trino.plugin.ai.functions.GenAiAttributes.PROVIDER_NAME_OPENAI;
+import static io.trino.plugin.base.security.credential.HttpHeadersCredentialUtil.applyHeaders;
 import static java.util.Objects.requireNonNull;
 
 public class OpenAiClient
@@ -59,32 +63,33 @@ public class OpenAiClient
 
     private final HttpClient httpClient;
     private final Tracer tracer;
-    private final URI endpoint;
-    private final String apiKey;
+    private final OpenAiConfig openAiConfig;
+    private final CredentialProvider credentialProvider;
 
     @Inject
-    public OpenAiClient(@ForAiClient HttpClient httpClient, Tracer tracer, OpenAiConfig openAiConfig, AiConfig aiConfig)
+    public OpenAiClient(@ForAiClient HttpClient httpClient, Tracer tracer, OpenAiConfig openAiConfig, AiConfig aiConfig, @Named("inference") CredentialProvider credentialProvider)
     {
         super(aiConfig);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
-        this.endpoint = openAiConfig.getEndpoint();
-        this.apiKey = openAiConfig.getApiKey();
+        this.openAiConfig = requireNonNull(openAiConfig, "openAiConfig is null");
+        this.credentialProvider = requireNonNull(credentialProvider, "credentialProvider is null");
     }
 
     @Override
-    protected String generateCompletion(String model, String prompt)
+    protected String generateCompletion(ConnectorIdentity identity, String model, String prompt)
     {
-        URI uri = uriBuilderFrom(endpoint)
+        HttpHeadersCredential credential = credentialProvider.getCredential(identity, HttpHeadersCredential.class);
+
+        URI uri = uriBuilderFrom(openAiConfig.getEndpoint())
                 .appendPath("/v1/chat/completions")
                 .build();
 
         ChatRequest.Message messages = new ChatRequest.Message("user", prompt);
         ChatRequest body = new ChatRequest(model, List.of(messages), 0);
 
-        Request request = preparePost()
+        Request request = applyHeaders(preparePost(), credential)
                 .setUri(uri)
-                .setHeader(AUTHORIZATION, "Bearer " + apiKey)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(CHAT_REQUEST_CODEC, body))
                 .build();

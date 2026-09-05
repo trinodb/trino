@@ -692,6 +692,12 @@ public final class DistributedQueryRunner
     }
 
     @Override
+    public void addCredentialProvider(String name, String factoryName, Map<String, String> properties)
+    {
+        servers.forEach(server -> server.addCredentialProvider(name, factoryName, properties));
+    }
+
+    @Override
     public final void close()
     {
         if (closed) {
