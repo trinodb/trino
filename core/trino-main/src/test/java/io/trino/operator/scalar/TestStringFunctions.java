@@ -1976,9 +1976,11 @@ public class TestStringFunctions
                 .hasType(createVarcharType(13))
                 .isEqualTo(" hello world");
 
+        // the trailing space is real content, not padding: 'd', 'e', 'f' aren't in the trim
+        // set, so the scan from the right stops there and never reaches "def"
         assertThat(assertions.function("rtrim", "CAST('abc def' AS CHAR(7))", "'def'"))
                 .hasType(createVarcharType(7))
-                .isEqualTo("abc");
+                .isEqualTo("abc ");
 
         // non latin characters
         assertThat(assertions.function("rtrim", "'\u017a\u00f3\u0142\u0107'", "'\u0107\u0142'"))
@@ -2008,17 +2010,19 @@ public class TestStringFunctions
     @Test
     public void testCharRightTrimParametrized()
     {
+        // an empty trim set never matches anything, so the char value comes back exactly as
+        // written, including any of its own trailing spaces (CHAR(1) '' is a single space)
         assertThat(assertions.function("rtrim", "CAST('' AS CHAR(1))", "''"))
                 .hasType(createVarcharType(1))
-                .isEqualTo("");
+                .isEqualTo(" ");
 
         assertThat(assertions.function("rtrim", "CAST('   ' AS CHAR(3))", "''"))
                 .hasType(createVarcharType(3))
-                .isEqualTo("");
+                .isEqualTo("   ");
 
         assertThat(assertions.function("rtrim", "CAST('  hello  ' AS CHAR(9))", "''"))
                 .hasType(createVarcharType(9))
-                .isEqualTo("  hello");
+                .isEqualTo("  hello  ");
 
         assertThat(assertions.function("rtrim", "CAST('  hello  ' AS CHAR(9))", "' '"))
                 .hasType(createVarcharType(9))
@@ -2036,9 +2040,11 @@ public class TestStringFunctions
                 .hasType(createVarcharType(7))
                 .isEqualTo("  hello");
 
+        // the trailing spaces are real content, not padding: 'l' isn't in the trim set, so the
+        // scan from the right stops at the first trailing space and never reaches "hello"
         assertThat(assertions.function("rtrim", "CAST('hello  ' AS CHAR(7))", "'l'"))
                 .hasType(createVarcharType(7))
-                .isEqualTo("hello");
+                .isEqualTo("hello  ");
 
         assertThat(assertions.function("rtrim", "CAST(' hello world ' AS CHAR(13))", "' '"))
                 .hasType(createVarcharType(13))

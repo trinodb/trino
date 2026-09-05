@@ -54,7 +54,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.trino.spi.type.Chars.padSpaces;
-import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_CODE_POINT;
@@ -603,9 +602,9 @@ public final class StringFunctions
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice charRightTrim(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return trimTrailingSpaces(rightTrim(slice, codePointsToTrim));
+        return rightTrim(padSpaces(slice, toIntExact(x)), codePointsToTrim);
     }
 
     @Description("Remove the longest string containing only given characters from the beginning and end of a string")
@@ -621,9 +620,9 @@ public final class StringFunctions
     @ScalarFunction(value = "trim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice charTrim(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return trimTrailingSpaces(trim(slice, codePointsToTrim));
+        return trim(padSpaces(slice, toIntExact(x)), codePointsToTrim);
     }
 
     @ScalarOperator(OperatorType.CAST)
