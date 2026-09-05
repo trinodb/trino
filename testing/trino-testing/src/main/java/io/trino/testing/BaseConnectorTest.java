@@ -1248,6 +1248,24 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateViewIfNotExists()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        String viewName = "test_create_view_if_not_exists_" + randomNameSuffix();
+
+        assertUpdate("CREATE VIEW IF NOT EXISTS " + viewName + " AS SELECT 1 AS x");
+        assertQuery("SELECT * FROM " + viewName, "SELECT 1");
+
+        // the view already exists: CREATE VIEW IF NOT EXISTS is a no-op rather than an error,
+        // and the original view definition is left untouched
+        assertUpdate("CREATE VIEW IF NOT EXISTS " + viewName + " AS SELECT 2 AS x");
+        assertQuery("SELECT * FROM " + viewName, "SELECT 1");
+
+        assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
     public void testViewCaseSensitivity()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));

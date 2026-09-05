@@ -144,6 +144,51 @@ public class TestCreateViewTask
     }
 
     @Test
+    public void testCreateViewIfNotExistsOnViewIfNotExists()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("new_view");
+        getFutureValue(executeCreateView(asQualifiedName(viewName), false, true));
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
+    }
+
+    @Test
+    public void testCreateViewIfNotExistsOnViewIfExists()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("existing_view");
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+
+        // the pre-existing view is left untouched: no exception, and no attempt to replace it
+        getFutureValue(executeCreateView(asQualifiedName(viewName), false, true));
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
+    }
+
+    @Test
+    public void testCreateViewIfNotExistsOnTableIfExists()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), FAIL);
+
+        // IF NOT EXISTS only suppresses the "view already exists" case; a name collision with
+        // a table of the same name is still a hard error
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), false, true)))
+                .hasErrorCode(TABLE_ALREADY_EXISTS)
+                .hasMessage("line 1:1: Table already exists: '%s'", tableName, tableName);
+    }
+
+    @Test
+    public void testCreateViewIfNotExistsOnMaterializedView()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, viewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+
+        // IF NOT EXISTS only suppresses the "view already exists" case; a name collision with
+        // a materialized view of the same name is still a hard error
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false, true)))
+                .hasErrorCode(TABLE_ALREADY_EXISTS)
+                .hasMessage("line 1:1: Materialized view already exists: '%s'", viewName);
+    }
+
+    @Test
     public void testCreateViewWithUnknownProperty()
     {
         QualifiedObjectName viewName = qualifiedObjectName("view_with_unknown_property");
@@ -171,10 +216,20 @@ public class TestCreateViewTask
 
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace)
     {
-        return executeCreateView(viewName, ImmutableList.of(), replace);
+        return executeCreateView(viewName, ImmutableList.of(), replace, false);
     }
 
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, List<Property> viewProperties, boolean replace)
+    {
+        return executeCreateView(viewName, viewProperties, replace, false);
+    }
+
+    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace, boolean notExists)
+    {
+        return executeCreateView(viewName, ImmutableList.of(), replace, notExists);
+    }
+
+    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, List<Property> viewProperties, boolean replace, boolean notExists)
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("mock_table")));
         CreateView statement = new CreateView(
@@ -182,6 +237,7 @@ public class TestCreateViewTask
                 viewName,
                 query,
                 replace,
+                notExists,
                 Optional.empty(),
                 Optional.empty(),
                 viewProperties);
