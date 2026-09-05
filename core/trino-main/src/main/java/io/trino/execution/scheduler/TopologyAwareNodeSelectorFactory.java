@@ -34,6 +34,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -125,8 +126,9 @@ public class TopologyAwareNodeSelectorFactory
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
+        Optional<String> nodeGroup = session.getNodeGroup();
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
-                this::createNodeMap,
+                () -> createNodeMap(nodeGroup),
                 5,
                 TimeUnit.SECONDS);
 
@@ -141,16 +143,24 @@ public class TopologyAwareNodeSelectorFactory
                 getMaxUnacknowledgedSplitsPerTask(session),
                 placementCounters,
                 networkTopology,
-                stableHostAddressProvider);
+                stableHostAddressProvider,
+                nodeGroup);
     }
 
-    private NodeMap createNodeMap()
+    private NodeMap createNodeMap(Optional<String> nodeGroup)
     {
         Set<InternalNode> nodes = nodeManager.getNodes(ACTIVE);
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                 .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
+
+        if (nodeGroup.isPresent()) {
+            // coordinators are exempt; include-coordinator still decides if they get worker splits
+            nodes = nodes.stream()
+                    .filter(node -> node.getNodeGroups().contains(nodeGroup.get()) || coordinatorNodeIds.contains(node.getNodeIdentifier()))
+                    .collect(toImmutableSet());
+        }
 
         ImmutableSetMultimap.Builder<HostAddress, InternalNode> byHostAndPort = ImmutableSetMultimap.builder();
         ImmutableSetMultimap.Builder<InetAddress, InternalNode> byHost = ImmutableSetMultimap.builder();

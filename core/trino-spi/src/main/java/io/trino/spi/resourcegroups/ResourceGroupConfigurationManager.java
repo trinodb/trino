@@ -55,5 +55,16 @@ public interface ResourceGroupConfigurationManager<C>
      */
     SelectionContext<C> parentGroupContext(SelectionContext<C> context);
 
+    /**
+     * Name of the node group that queries in the matched group must run on, restricting them to the workers
+     * that declare membership of it. An empty result places no restriction on where the query runs.
+     *
+     * @param context a selection context returned from {@link #match(SelectionCriteria)}
+     */
+    default Optional<String> getNodeGroup(SelectionContext<C> context)
+    {
+        return Optional.empty();
+    }
+
     void shutdown();
 }

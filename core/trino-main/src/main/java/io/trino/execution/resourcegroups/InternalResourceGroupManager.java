@@ -122,6 +122,12 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
+    public Optional<String> getNodeGroup(SelectionContext<C> selectionContext)
+    {
+        return configurationManager.get().getNodeGroup(selectionContext);
+    }
+
+    @Override
     public void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory)
     {
         if (configurationManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
