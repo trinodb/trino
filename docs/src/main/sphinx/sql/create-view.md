@@ -3,7 +3,8 @@
 ## Synopsis
 
 ```text
-CREATE [ OR REPLACE ] VIEW view_name
+CREATE [ OR REPLACE ] VIEW
+[ IF NOT EXISTS ] view_name
 [ COMMENT view_comment ]
 [ SECURITY { DEFINER | INVOKER } ]
 AS query
@@ -18,6 +19,11 @@ referenced by another query.
 
 The optional `OR REPLACE` clause causes the view to be replaced if it
 already exists rather than raising an error.
+
+The optional `IF NOT EXISTS` clause causes the view only to be created if it
+does not exist yet.
+
+Note that `OR REPLACE` and `IF NOT EXISTS` are mutually exclusive clauses.
 
 ## Security
 
@@ -69,6 +75,14 @@ Create a view that replaces an existing view:
 ```
 CREATE OR REPLACE VIEW test AS
 SELECT orderkey, orderstatus, totalprice / 4 AS quarter
+FROM orders
+```
+
+Create a view only if it does not already exist:
+
+```
+CREATE VIEW IF NOT EXISTS test AS
+SELECT orderkey, orderstatus, totalprice / 2 AS half
 FROM orders
 ```
 

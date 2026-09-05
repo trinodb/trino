@@ -379,6 +379,7 @@ public class TestSqlFormatter
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         false,
+                        false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of())))
@@ -392,10 +393,27 @@ public class TestSqlFormatter
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         false,
+                        false,
                         Optional.of("攻殻機動隊"),
                         Optional.empty(),
                         ImmutableList.of())))
                 .isEqualTo("CREATE VIEW test COMMENT '攻殻機動隊' AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  t\n");
+
+        // CREATE VIEW IF NOT EXISTS
+        assertThat(formatSql(
+                new CreateView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        true,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of())))
+                .isEqualTo("CREATE VIEW IF NOT EXISTS test AS\n" +
                         "SELECT *\n" +
                         "FROM\n" +
                         "  t\n");
@@ -406,6 +424,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
                         false,
                         Optional.empty(),
                         Optional.empty(),
@@ -431,12 +450,13 @@ public class TestSqlFormatter
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         false,
+                        true,
                         Optional.of("攻殻機動隊"),
                         Optional.of(DEFINER),
                         ImmutableList.of(new Property(new Identifier("property"), new StringLiteral("property_value"))))))
                 .isEqualTo(
                         """
-                        CREATE VIEW test COMMENT '攻殻機動隊' SECURITY DEFINER
+                        CREATE VIEW IF NOT EXISTS test COMMENT '攻殻機動隊' SECURITY DEFINER
                         WITH (
                            property = 'property_value'
                         ) AS

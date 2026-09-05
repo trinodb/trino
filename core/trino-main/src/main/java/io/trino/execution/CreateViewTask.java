@@ -99,6 +99,9 @@ public class CreateViewTask
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Materialized view already exists: '%s'", name);
         }
         if (metadata.isView(session, name)) {
+            if (statement.isNotExists()) {
+                return immediateVoidFuture();
+            }
             if (!statement.isReplace()) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "View already exists: '%s'", name);
             }
