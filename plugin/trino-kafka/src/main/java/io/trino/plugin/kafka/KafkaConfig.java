@@ -100,7 +100,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.table-description-supplier")
-    @ConfigDescription("The table description supplier to use, default is FILE")
+    @ConfigDescription("The table description supplier to use: file, rest, or confluent. Default is file")
     public KafkaConfig setTableDescriptionSupplier(String tableDescriptionSupplier)
     {
         this.tableDescriptionSupplier = tableDescriptionSupplier;
