@@ -28,5 +28,6 @@ develop/header-authenticator
 develop/group-provider
 develop/secrets-provider
 develop/event-listener
+develop/admission-policy
 develop/client-protocol
 ```

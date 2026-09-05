@@ -22,6 +22,7 @@ import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogStoreManager;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.admission.AdmissionPolicyManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -37,6 +38,7 @@ import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
+import io.trino.spi.admission.AdmissionPolicyFactory;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.cache.BlobCacheManagerFactory;
 import io.trino.spi.catalog.CatalogStoreFactory;
@@ -119,6 +121,7 @@ public class PluginManager
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
+    private final AdmissionPolicyManager admissionPolicyManager;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
 
     @Inject
@@ -141,7 +144,8 @@ public class PluginManager
             HandleResolver handleResolver,
             ExchangeManagerRegistry exchangeManagerRegistry,
             SpoolingManagerRegistry spoolingManagerRegistry,
-            CacheManagerRegistry cacheManagerRegistry)
+            CacheManagerRegistry cacheManagerRegistry,
+            AdmissionPolicyManager admissionPolicyManager)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.catalogStoreManager = requireNonNull(catalogStoreManager, "catalogStoreManager is null");
@@ -162,6 +166,7 @@ public class PluginManager
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
         this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
+        this.admissionPolicyManager = requireNonNull(admissionPolicyManager, "admissionPolicyManager is null");
     }
 
     @Override
@@ -313,6 +318,11 @@ public class PluginManager
         for (BlobCacheManagerFactory factory : plugin.getBlobCacheManagerFactories()) {
             log.info("Registering blob cache manager %s", factory.getName());
             cacheManagerRegistry.addBlobCacheManagerFactory(factory);
+        }
+
+        for (AdmissionPolicyFactory admissionPolicyFactory : plugin.getAdmissionPolicyFactories()) {
+            log.info("Registering admission policy %s", admissionPolicyFactory.getName());
+            admissionPolicyManager.addAdmissionPolicyFactory(admissionPolicyFactory);
         }
     }
 
