@@ -353,9 +353,14 @@ public class DeltaLakeSplitManager
 
     public static Location buildSplitPath(Location tableLocation, AddFileEntry addAction)
     {
+        return buildSplitPath(tableLocation, addAction.getPath());
+    }
+
+    public static Location buildSplitPath(Location tableLocation, String entryPath)
+    {
         // paths are relative to the table location or absolute in case of shallow cloned table and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
-        URI uri = URI.create(addAction.getPath());
+        URI uri = URI.create(entryPath);
 
         if (uri.isAbsolute()) {
             return Location.of(uri.getScheme() + ":" + uri.getSchemeSpecificPart());
