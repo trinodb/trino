@@ -113,6 +113,7 @@ public class HadoopContainer
         // Note: Don't use Wait.forListeningPort() as HDFS port 9000 binds to container IP, not 0.0.0.0
         waitingFor(Wait.forLogMessage(".*success: socks-proxy entered RUNNING state.*", 1)
                 .withStartupTimeout(STARTUP_TIMEOUT));
+        withStartupAttempts(2);
     }
 
     @Override
