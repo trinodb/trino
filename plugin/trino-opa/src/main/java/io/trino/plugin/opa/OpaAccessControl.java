@@ -36,6 +36,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
@@ -75,10 +76,8 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
@@ -251,7 +250,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetSchemaAuthorization(schema.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schema.getCatalogName(), schema.getSchemaName())), principal);
         }
     }
 
@@ -424,7 +423,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetTableAuthorization(table.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName())), principal);
         }
     }
 
@@ -494,7 +493,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetViewAuthorization(view.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName())), principal);
         }
     }
 
