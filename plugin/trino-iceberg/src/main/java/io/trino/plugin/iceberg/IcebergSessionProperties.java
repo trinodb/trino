@@ -94,6 +94,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_WRITER_DELTA_LENGTH_BYTE_ARRAY_ENCODING_ENABLED = "parquet_writer_delta_length_byte_array_encoding_enabled";
     public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
+    private static final String TABLE_STATISTICS_MAX_TOTAL_MANIFEST_SIZE = "table_statistics_max_total_manifest_size";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE = "collect_extended_statistics_on_write";
@@ -311,6 +312,11 @@ public final class IcebergSessionProperties
                         STATISTICS_ENABLED,
                         "Expose table statistics",
                         icebergConfig.isTableStatisticsEnabled(),
+                        false))
+                .add(dataSizeProperty(
+                        TABLE_STATISTICS_MAX_TOTAL_MANIFEST_SIZE,
+                        "Maximum total size of the data manifests to read statistics from",
+                        icebergConfig.getTableStatisticsMaxTotalManifestSize(),
                         false))
                 .add(booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
@@ -577,6 +583,11 @@ public final class IcebergSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getTableStatisticsMaxTotalManifestSize(ConnectorSession session)
+    {
+        return session.getProperty(TABLE_STATISTICS_MAX_TOTAL_MANIFEST_SIZE, DataSize.class);
     }
 
     public static boolean isCollectExtendedStatisticsOnWrite(ConnectorSession session)

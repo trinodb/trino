@@ -74,6 +74,7 @@ public class IcebergConfig
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
+    private DataSize tableStatisticsMaxTotalManifestSize = DataSize.of(512, MEGABYTE);
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
@@ -264,6 +265,23 @@ public class IcebergConfig
     public IcebergConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
     {
         this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTableStatisticsMaxTotalManifestSize()
+    {
+        return tableStatisticsMaxTotalManifestSize;
+    }
+
+    // Reading table statistics can take tens of seconds on large tables. The manifest list records how
+    // much work that would be, so the cost can be capped before any manifest is read, falling back to
+    // the row count and distinct value counts that metadata alone provides.
+    @Config("iceberg.table-statistics-max-total-manifest-size")
+    @ConfigDescription("Maximum total size of the data manifests to read statistics from; above this limit only row count and distinct value counts are reported")
+    public IcebergConfig setTableStatisticsMaxTotalManifestSize(DataSize tableStatisticsMaxTotalManifestSize)
+    {
+        this.tableStatisticsMaxTotalManifestSize = tableStatisticsMaxTotalManifestSize;
         return this;
     }
 
