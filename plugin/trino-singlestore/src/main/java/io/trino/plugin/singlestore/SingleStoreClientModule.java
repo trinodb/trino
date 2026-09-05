@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -33,6 +34,7 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
 
@@ -43,6 +45,7 @@ public class SingleStoreClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SingleStoreClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(SingleStoreMetadataFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setBulkListColumns(true));
         configBinder(binder).bindConfig(SingleStoreJdbcConfig.class);
         configBinder(binder).bindConfig(SingleStoreConfig.class);

@@ -31,18 +31,18 @@ public class PseudoColumnJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "pseudo_columns");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
-            .column("table_schem", VARCHAR)
-            .column("table_name", VARCHAR)
-            .column("column_name", VARCHAR)
-            .column("data_type", BIGINT)
-            .column("column_size", BIGINT)
-            .column("decimal_digits", BIGINT)
-            .column("num_prec_radix", BIGINT)
-            .column("column_usage", VARCHAR)
-            .column("remarks", VARCHAR)
-            .column("char_octet_length", BIGINT)
-            .column("is_nullable", BIGINT)
+            .column("TABLE_CAT", VARCHAR)
+            .column("TABLE_SCHEM", VARCHAR)
+            .column("TABLE_NAME", VARCHAR)
+            .column("COLUMN_NAME", VARCHAR)
+            .column("DATA_TYPE", BIGINT)
+            .column("COLUMN_SIZE", BIGINT)
+            .column("DECIMAL_DIGITS", BIGINT)
+            .column("NUM_PREC_RADIX", BIGINT)
+            .column("COLUMN_USAGE", VARCHAR)
+            .column("REMARKS", VARCHAR)
+            .column("CHAR_OCTET_LENGTH", BIGINT)
+            .column("IS_NULLABLE", BIGINT)
             .build();
 
     @Override

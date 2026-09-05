@@ -29,6 +29,7 @@ import io.trino.sql.tree.WindowOperation;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
@@ -143,12 +144,18 @@ public final class ExpressionTreeUtils
 
     public static QualifiedName asQualifiedName(Expression expression)
     {
+        return asQualifiedName(Identifier::getValue, expression);
+    }
+
+    public static QualifiedName asQualifiedName(Function<Identifier, String> canonicalizer, Expression expression)
+    {
         QualifiedName name = null;
         if (expression instanceof Identifier identifier) {
-            name = QualifiedName.of(identifier.getValue());
+            // FIXME: QualifiedName must use the canonicalizer
+            name = QualifiedName.of(canonicalizer, identifier);
         }
         else if (expression instanceof DereferenceExpression dereferenceExpression) {
-            name = DereferenceExpression.getQualifiedName(dereferenceExpression);
+            name = DereferenceExpression.getQualifiedName(canonicalizer, dereferenceExpression);
         }
         return name;
     }

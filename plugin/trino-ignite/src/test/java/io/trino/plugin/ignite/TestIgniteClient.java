@@ -97,19 +97,19 @@ public class TestIgniteClient
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), false, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.of("count(`c_bigint`)"));
+                Optional.of("count(\"c_bigint\")"));
 
         // count(double)
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(doubleVariable), List.of(), false, Optional.empty()),
                 Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
-                Optional.of("count(`c_double`)"));
+                Optional.of("count(\"c_double\")"));
 
         // count(DISTINCT bigint)
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.of("count(DISTINCT `c_bigint`)"));
+                Optional.of("count(DISTINCT \"c_bigint\")"));
 
         // count() FILTER (WHERE ...)
         testImplementAggregation(
@@ -135,25 +135,25 @@ public class TestIgniteClient
         testImplementAggregation(
                 new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), false, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.of("sum(`c_bigint`)"));
+                Optional.of("sum(\"c_bigint\")"));
 
         // sum(double)
         testImplementAggregation(
                 new AggregateFunction("sum", DOUBLE, List.of(doubleVariable), List.of(), false, Optional.empty()),
                 Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
-                Optional.of("sum(`c_double`)"));
+                Optional.of("sum(\"c_double\")"));
 
         // sum(DISTINCT bigint)
         testImplementAggregation(
                 new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.of("sum(DISTINCT `c_bigint`)"));
+                Optional.of("sum(DISTINCT \"c_bigint\")"));
 
         // sum(DISTINCT double)
         testImplementAggregation(
                 new AggregateFunction("sum", DOUBLE, List.of(doubleVariable), List.of(), true, Optional.empty()),
                 Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
-                Optional.of("sum(DISTINCT `c_double`)"));
+                Optional.of("sum(DISTINCT \"c_double\")"));
 
         // sum(bigint) FILTER (WHERE ...)
         testImplementAggregation(
@@ -173,7 +173,7 @@ public class TestIgniteClient
                                         new Reference(VARCHAR, "c_varchar_symbol"))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
-        assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NULL");
+        assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IS NULL");
         assertThat(converted.parameters()).isEmpty();
     }
 
@@ -187,7 +187,7 @@ public class TestIgniteClient
                                 not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
-        assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NOT NULL");
+        assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IS NOT NULL");
         assertThat(converted.parameters()).isEmpty();
     }
 
@@ -203,7 +203,7 @@ public class TestIgniteClient
                                         not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
-        assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");
+        assertThat(converted.expression()).isEqualTo("NOT ((\"c_varchar\") IS NOT NULL)");
         assertThat(converted.parameters()).isEmpty();
     }
 

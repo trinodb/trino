@@ -33,6 +33,7 @@ import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinReorderingWithJoinPushdown
@@ -51,6 +52,12 @@ public class TestJoinReorderingWithJoinPushdown
         postgreSqlServer.execute("ANALYZE " + NATION.getTableName());
 
         return queryRunner;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

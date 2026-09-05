@@ -30,6 +30,12 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected void gatherStats(String tableName)
     {
         for (MaterializedRow row : computeActual("SHOW COLUMNS FROM " + tableName)) {
@@ -40,7 +46,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
             }
             executeInMariaDb(format("CREATE INDEX %2$s ON %1$s (%2$s)", tableName, columnName).replace("\"", "`"));
         }
-        executeInMariaDb("ANALYZE TABLE " + tableName.replace("\"", "`"));
+        executeInMariaDb(format("ANALYZE TABLE %s", tableName).replace("\"", "`"));
     }
 
     @Test

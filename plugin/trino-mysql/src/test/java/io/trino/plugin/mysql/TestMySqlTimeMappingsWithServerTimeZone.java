@@ -60,6 +60,12 @@ public class TestMySqlTimeMappingsWithServerTimeZone
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testDate()
     {
@@ -711,7 +717,7 @@ public class TestMySqlTimeMappingsWithServerTimeZone
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -721,12 +727,12 @@ public class TestMySqlTimeMappingsWithServerTimeZone
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(mySqlServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(mySqlServer::execute, tableNamePrefix, this::canonicalize);
     }
 
     private void assertMySqlQueryFails(@Language("SQL") String sql, String expectedMessage)

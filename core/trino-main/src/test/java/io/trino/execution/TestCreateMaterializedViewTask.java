@@ -122,8 +122,8 @@ class TestCreateMaterializedViewTask
     {
         CreateMaterializedView statement = new CreateMaterializedView(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_mv_if_not_exists"),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
+                QualifiedName.ofDelimited("test_mv_if_not_exists"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.ofDelimited(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
                 Optional.empty(),
@@ -143,8 +143,8 @@ class TestCreateMaterializedViewTask
     {
         CreateMaterializedView statement = new CreateMaterializedView(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_mv_with_existing_view"),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
+                QualifiedName.ofDelimited("test_mv_with_existing_view"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.ofDelimited(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 false,
                 Optional.empty(),
@@ -166,8 +166,8 @@ class TestCreateMaterializedViewTask
     {
         CreateMaterializedView statement = new CreateMaterializedView(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_mv_with_invalid_property"),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
+                QualifiedName.ofDelimited("test_mv_with_invalid_property"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.ofDelimited(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
                 Optional.empty(),
@@ -189,8 +189,8 @@ class TestCreateMaterializedViewTask
     {
         CreateMaterializedView statement = new CreateMaterializedView(
                 new NodeLocation(1, 1),
-                QualifiedName.of(TEST_CATALOG_NAME, "schema", "mv_default_properties"),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
+                QualifiedName.ofDelimited(TEST_CATALOG_NAME, "schema", "mv_default_properties"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.ofDelimited(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
                 Optional.empty(),
@@ -216,8 +216,8 @@ class TestCreateMaterializedViewTask
     {
         CreateMaterializedView statement = new CreateMaterializedView(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_mv_deny"),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
+                QualifiedName.ofDelimited("test_mv_deny"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.ofDelimited(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
                 Optional.empty(),
@@ -229,7 +229,7 @@ class TestCreateMaterializedViewTask
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() -> createMaterializedView(transactionSession, statement))
                     .hasErrorCode(PERMISSION_DENIED)
-                    .hasMessageContaining("Cannot create materialized view test_catalog.schema.test_mv");
+                    .hasMessageContaining("Cannot create materialized view test_catalog.\"schema\".\"test_mv_deny\"");
             return null;
         });
     }

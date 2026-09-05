@@ -41,6 +41,7 @@ import io.trino.metadata.RedirectionAwareView;
 import io.trino.metadata.ResolvedAggregationFunctionMetadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.ResolvedIndex;
+import io.trino.metadata.ResolverManager;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
@@ -118,6 +119,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.tree.Resolver;
 import io.trino.type.CharVarcharCoercion;
 
 import java.util.Collection;
@@ -1770,6 +1772,24 @@ public class TracingMetadata
         Span span = startSpan("getTableCredentials", catalogHandle, tableFunctionHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableCredentials(session, catalogHandle, tableFunctionHandle);
+        }
+    }
+
+    @Override
+    public ResolverManager getResolverManager()
+    {
+        Span span = startSpan("getResolverManager");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getResolverManager();
+        }
+    }
+
+    @Override
+    public Optional<Resolver> getResolver(Session session, String catalogName)
+    {
+        Span span = startSpan("getResolver", catalogName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getResolver(session, catalogName);
         }
     }
 

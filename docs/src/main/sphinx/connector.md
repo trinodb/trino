@@ -18,8 +18,10 @@ DuckDB          <connector/duckdb>
 Elasticsearch   <connector/elasticsearch>
 Exasol          <connector/exasol>
 Faker           <connector/faker>
+Firebird        <connector/firebird>
 Google Sheets   <connector/googlesheets>
 Hive            <connector/hive>
+HsqlDB          <connector/hsqldb>
 Hudi            <connector/hudi>
 Iceberg         <connector/iceberg>
 Ignite          <connector/ignite>
@@ -40,6 +42,7 @@ Redis           <connector/redis>
 Redshift        <connector/redshift>
 SingleStore     <connector/singlestore>
 Snowflake       <connector/snowflake>
+SQLite          <connector/sqlite>
 SQL Server      <connector/sqlserver>
 System          <connector/system>
 Thrift          <connector/thrift>
