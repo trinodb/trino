@@ -5124,6 +5124,25 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSplitPruningForFilterThroughProjection()
+    {
+        // The derived table carries its own WHERE clause, so the constraint is derived through both
+        // the projection and the residual filter the connector cannot fully enforce. Primary
+        // coverage is in TestDeriveTableScanConstraintThroughProject.
+        String tableName = "test_split_pruning_through_projection";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, part INTEGER) WITH (partitioning = ARRAY['part'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (3, 30), (4, 40)", 4);
+
+        verifySplitCount("SELECT * FROM (SELECT id, CAST(part AS bigint) AS p FROM " + tableName + " WHERE id IS NOT NULL)" +
+                " WHERE p BETWEEN 5 AND 15 OR p BETWEEN 25 AND 35", 2);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testAllAvailableTypes()
     {
         assertUpdate("CREATE TABLE test_all_types (" +
