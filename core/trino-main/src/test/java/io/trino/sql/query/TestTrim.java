@@ -168,7 +168,9 @@ public class TestTrim
         assertFunction("TRIM(TRAILING ' ld' FROM ' hello world ')", "CAST(' hello wor' AS VARCHAR(13))");
         assertFunction("TRIM(TRAILING ' ehlowrd' FROM ' hello world ')", "CAST('' AS VARCHAR(13))");
         assertFunction("TRIM(TRAILING ' x' FROM ' hello world ')", "CAST(' hello world' AS VARCHAR(13))");
-        assertFunction("TRIM(TRAILING 'def' FROM CAST('abc def' AS CHAR(7)))", "CAST('abc' AS VARCHAR(7))");
+        // the trailing space is real content, not padding: 'd', 'e', 'f' aren't in the trim
+        // set, so the scan from the right stops there and never reaches "def"
+        assertFunction("TRIM(TRAILING 'def' FROM CAST('abc def' AS CHAR(7)))", "CAST('abc ' AS VARCHAR(7))");
 
         // non latin characters
         assertFunction("TRIM(TRAILING '\u0107\u0142' FROM '\u017a\u00f3\u0142\u0107')", "CAST('\u017a\u00f3' AS VARCHAR(4))");
@@ -241,36 +243,55 @@ public class TestTrim
     @Test
     public void testCharTrimParametrized()
     {
-        assertFunction("TRIM(CAST('' AS CHAR(1)), '')", "CAST('' AS VARCHAR(1))");
-        assertFunction("TRIM(CAST('   ' AS CHAR(3)), '')", "CAST('' AS VARCHAR(3))");
-        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), '')", "CAST('  hello' AS VARCHAR(9))");
+        // an empty trim set never matches anything, so the char value comes back exactly as
+        // written, including any of its own trailing spaces (CHAR(1) '' is a single space)
+        assertFunction("TRIM(CAST('' AS CHAR(1)), '')", "CAST(' ' AS VARCHAR(1))");
+        assertFunction("TRIM(CAST('   ' AS CHAR(3)), '')", "CAST('   ' AS VARCHAR(3))");
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), '')", "CAST('  hello  ' AS VARCHAR(9))");
         assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), ' ')", "CAST('hello' AS VARCHAR(9))");
         assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", "CAST('llo' AS VARCHAR(9))");
         assertFunction("TRIM(CAST('  hello' AS CHAR(7)), ' ')", "CAST('hello' AS VARCHAR(7))");
         assertFunction("TRIM(CAST('  hello' AS CHAR(7)), 'e h')", "CAST('llo' AS VARCHAR(7))");
-        assertFunction("TRIM(CAST('hello  ' AS CHAR(7)), 'l')", "CAST('hello' AS VARCHAR(7))");
+        // the trailing spaces are real content, not padding: 'l' isn't in the trim set, so the
+        // scan from the right stops at the first trailing space and never reaches "hello"
+        assertFunction("TRIM(CAST('hello  ' AS CHAR(7)), 'l')", "CAST('hello  ' AS VARCHAR(7))");
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ')", "CAST('hello world' AS VARCHAR(13))");
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", "CAST('llo world' AS VARCHAR(13))");
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", "CAST('' AS VARCHAR(13))");
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' x')", "CAST('hello world' AS VARCHAR(13))");
-        assertFunction("TRIM(CAST('abc def' AS CHAR(7)), 'def')", "CAST('abc' AS VARCHAR(7))");
-        assertFunction("TRIM(BOTH '' FROM CAST('' AS CHAR(1)))", "CAST('' AS VARCHAR(1))");
-        assertFunction("TRIM(BOTH '' FROM CAST('   ' AS CHAR(3)))", "CAST('' AS VARCHAR(3))");
-        assertFunction("TRIM(BOTH '' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('  hello' AS VARCHAR(9))");
+        assertFunction("TRIM(CAST('abc def' AS CHAR(7)), 'def')", "CAST('abc ' AS VARCHAR(7))");
+        assertFunction("TRIM(BOTH '' FROM CAST('' AS CHAR(1)))", "CAST(' ' AS VARCHAR(1))");
+        assertFunction("TRIM(BOTH '' FROM CAST('   ' AS CHAR(3)))", "CAST('   ' AS VARCHAR(3))");
+        assertFunction("TRIM(BOTH '' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('  hello  ' AS VARCHAR(9))");
         assertFunction("TRIM(BOTH ' ' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('hello' AS VARCHAR(9))");
         assertFunction("TRIM(BOTH 'he ' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('llo' AS VARCHAR(9))");
         assertFunction("TRIM(BOTH ' ' FROM CAST('  hello' AS CHAR(7)))", "CAST('hello' AS VARCHAR(7))");
         assertFunction("TRIM(BOTH 'e h' FROM CAST('  hello' AS CHAR(7)))", "CAST('llo' AS VARCHAR(7))");
-        assertFunction("TRIM(BOTH 'l' FROM CAST('hello  ' AS CHAR(7)))", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("TRIM(BOTH 'l' FROM CAST('hello  ' AS CHAR(7)))", "CAST('hello  ' AS VARCHAR(7))");
         assertFunction("TRIM(BOTH ' ' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('hello world' AS VARCHAR(13))");
         assertFunction("TRIM(BOTH ' eh' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('llo world' AS VARCHAR(13))");
         assertFunction("TRIM(BOTH ' ehlowrd' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('' AS VARCHAR(13))");
         assertFunction("TRIM(BOTH ' x' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('hello world' AS VARCHAR(13))");
-        assertFunction("TRIM(BOTH 'def' FROM CAST('abc def' AS CHAR(7)))", "CAST('abc' AS VARCHAR(7))");
+        assertFunction("TRIM(BOTH 'def' FROM CAST('abc def' AS CHAR(7)))", "CAST('abc ' AS VARCHAR(7))");
 
         // non latin characters
         assertFunction("TRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u017a\u0107\u0142')", "CAST('\u00f3' AS VARCHAR(4))");
         assertFunction("TRIM(BOTH '\u017a\u0107\u0142' FROM CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)))", "CAST('\u00f3' AS VARCHAR(4))");
+
+        // https://github.com/trinodb/trino/issues/31004: 'c' is not at either end of
+        // 'abc  ', so nothing should be trimmed and the trailing spaces must survive
+        assertFunction("TRIM(CAST('abc  ' AS CHAR(5)), 'c')", "CAST('abc  ' AS VARCHAR(5))");
+        // trimming the trailing 'c' exposes a real embedded space, which is not itself
+        // in the trim set and so must be left alone
+        assertFunction("TRIM(CAST('ab  c' AS CHAR(5)), 'c')", "CAST('ab  ' AS VARCHAR(5))");
+
+        // a CHAR value shorter than its declared length is implicitly space-padded: the
+        // padding is real trailing content from TRIM's point of view, so a trim set that
+        // doesn't include a space stops at the first padding space and never reaches 'c'
+        assertFunction("TRIM(CAST('abc' AS CHAR(10)), 'c')", "CAST('abc       ' AS VARCHAR(10))");
+        // once the trim set includes a space, the padding is consumed like any other
+        // trailing space and the scan reaches through to the real content
+        assertFunction("TRIM(CAST('abc' AS CHAR(10)), 'c ')", "CAST('ab' AS VARCHAR(10))");
     }
 
     @Test
