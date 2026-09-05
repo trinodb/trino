@@ -43,6 +43,18 @@ according to the specified command and parameters.
 You can use the `=>` operator for passing named parameter values. The left side
 is the name of the parameter, the right side is the value being passed.
 
+Executable commands are contributed by connectors, such as the `optimize`
+command provided by the [Iceberg](iceberg-alter-table-execute) connector. For example, a user observing
+many small files in the storage of a often incrementally refreshed materialized view
+called `test_mv` in the `test` schema of the `example` catalog,
+can use the `optimize` command to merge all files below the `file_size_threshold` value.
+The result is fewer, but larger files, which typically results in higher query performance
+on the data in the files:
+
+```
+ALTER MATERIALIZED VIEW example.test.test_mv EXECUTE optimize(file_size_threshold => '16MB')
+```
+
 Running a command against a materialized view requires the privilege to
 execute that command against the view itself, not against its underlying
 storage table.
