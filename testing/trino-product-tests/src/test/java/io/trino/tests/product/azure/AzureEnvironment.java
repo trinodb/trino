@@ -64,6 +64,7 @@ public class AzureEnvironment
     private static final Duration HIVE_METASTORE_STARTUP_TIMEOUT = Duration.ofMinutes(4);
     private static final Duration HIVE_METASTORE_STARTUP_POLL_INTERVAL = Duration.ofSeconds(2);
     private static final int HIVE_METASTORE_STABLE_SUCCESS_POLL_COUNT = 3;
+    // azure needs more start up time headroom than the other environments
     private static final Duration HADOOP_STARTUP_TIMEOUT = Duration.ofMinutes(12);
     private static final String AZURE_URI_SCHEME = "abfs";
     private static final String AZURE_ENDPOINT = "dfs.core.windows.net";

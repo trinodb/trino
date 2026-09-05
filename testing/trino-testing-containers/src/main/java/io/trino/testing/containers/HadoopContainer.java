@@ -45,6 +45,9 @@ import static java.util.Objects.requireNonNull;
 public class HadoopContainer
         extends GenericContainer<HadoopContainer>
 {
+    // 3 minutes was observed as not enough on CI
+    private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(6);
+
     private static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hive3.1";
     private static final String KERBERIZED_IMAGE = "ghcr.io/trinodb/testing/hive3.1-kerberos";
 
@@ -109,7 +112,7 @@ public class HadoopContainer
         // Wait for socks-proxy to enter RUNNING state - this is the last service started by supervisord
         // Note: Don't use Wait.forListeningPort() as HDFS port 9000 binds to container IP, not 0.0.0.0
         waitingFor(Wait.forLogMessage(".*success: socks-proxy entered RUNNING state.*", 1)
-                .withStartupTimeout(Duration.ofMinutes(3)));
+                .withStartupTimeout(STARTUP_TIMEOUT));
     }
 
     @Override

@@ -22,7 +22,6 @@ import io.trino.tests.product.TableFormatsTestEnvironment;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 
 import java.io.IOException;
@@ -67,7 +66,6 @@ public class GcsEnvironment
     private static final Duration HIVE_METASTORE_STARTUP_TIMEOUT = Duration.ofMinutes(4);
     private static final Duration HIVE_METASTORE_STARTUP_POLL_INTERVAL = Duration.ofSeconds(2);
     private static final int HIVE_METASTORE_STABLE_SUCCESS_POLL_COUNT = 3;
-    private static final Duration HADOOP_STARTUP_TIMEOUT = Duration.ofMinutes(6);
     private static final String GCS_CONNECTOR_VERSION = "hadoop2-2.2.24";
     private static final String GCS_CONNECTOR_SHA256 = "ff2136d22ac84fab91e3eea0886d5e59f8acbabb19e46ff91dbcd1f2db0925d6";
 
@@ -107,8 +105,6 @@ public class GcsEnvironment
                 .withNetwork(network)
                 .withNetworkAliases(HadoopContainer.HOST_NAME);
         configureHadoop(hadoop, gcpCredentialsJson, gcpStorageBucket, gcsTestDirectory);
-        hadoop.waitingFor(Wait.forLogMessage(".*success: socks-proxy entered RUNNING state.*", 1)
-                .withStartupTimeout(HADOOP_STARTUP_TIMEOUT));
         hadoop.start();
         waitForHiveMetastoreStable();
 
