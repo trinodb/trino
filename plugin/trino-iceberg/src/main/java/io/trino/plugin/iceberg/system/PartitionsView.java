@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Types.NestedField;
@@ -64,7 +65,14 @@ public final class PartitionsView
             hasPartitionColumn = false;
         }
 
-        Stream.of("record_count", "file_count", "total_size")
+        Stream.of(
+                        "record_count",
+                        "file_count",
+                        "total_size",
+                        "position_delete_record_count",
+                        "position_delete_file_count",
+                        "equality_delete_record_count",
+                        "equality_delete_file_count")
                 .forEach(column -> viewColumns.add(new ViewColumn(column, BIGINT.getTypeId(), Optional.empty())));
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
@@ -77,12 +85,17 @@ public final class PartitionsView
 
         Optional<RowType> dataColumnType = getMetricsColumnType(typeManager, nonPartitionPrimitiveColumns);
 
+        // The $files table has one row per content file, so every aggregate is restricted to the content it reports on
+        String dataFileFilter = contentFilter(FileContent.DATA);
+        String positionDeleteFilter = contentFilter(FileContent.POSITION_DELETES);
+        String equalityDeleteFilter = contentFilter(FileContent.EQUALITY_DELETES);
+
         boolean hasDataColumn;
         String dataAggregationSql;
         if (dataColumnType.isPresent()) {
             hasDataColumn = true;
             viewColumns.add(new ViewColumn("data", dataColumnType.get().getTypeId(), Optional.empty()));
-            dataAggregationSql = buildDataAggregation(typeManager, nonPartitionPrimitiveColumns);
+            dataAggregationSql = buildDataAggregation(typeManager, nonPartitionPrimitiveColumns, dataFileFilter);
         }
         else {
             hasDataColumn = false;
@@ -91,11 +104,21 @@ public final class PartitionsView
 
         String viewSql =
                 """
-                SELECT %s SUM(record_count) AS record_count, COUNT(*) AS file_count, SUM(file_size_in_bytes) AS total_size%s
-                FROM %s.%s.%s
-                %s
+                SELECT %1$s
+                    COALESCE(SUM(record_count) %2$s, 0) AS record_count,
+                    COUNT(*) %2$s AS file_count,
+                    COALESCE(SUM(file_size_in_bytes) %2$s, 0) AS total_size,
+                    COALESCE(SUM(record_count) %3$s, 0) AS position_delete_record_count,
+                    COUNT(*) %3$s AS position_delete_file_count,
+                    COALESCE(SUM(record_count) %4$s, 0) AS equality_delete_record_count,
+                    COUNT(*) %4$s AS equality_delete_file_count%5$s
+                FROM %6$s.%7$s.%8$s
+                %9$s
                 """.formatted(
                         hasPartitionColumn ? "partition," : "",
+                        dataFileFilter,
+                        positionDeleteFilter,
+                        equalityDeleteFilter,
                         hasDataColumn ? ", " + dataAggregationSql : "",
                         quoted(catalogName),
                         quoted(schemaName),
@@ -113,26 +136,31 @@ public final class PartitionsView
                 ImmutableList.of());
     }
 
-    private static String buildDataAggregation(TypeManager typeManager, List<NestedField> nonPartitionColumns)
+    private static String contentFilter(FileContent content)
+    {
+        return "FILTER (WHERE content = %d)".formatted(content.id());
+    }
+
+    private static String buildDataAggregation(TypeManager typeManager, List<NestedField> nonPartitionColumns, String dataFileFilter)
     {
         ImmutableList.Builder<String> rowValues = ImmutableList.builder();
         ImmutableList.Builder<String> rowTypes = ImmutableList.builder();
 
         for (NestedField column : nonPartitionColumns) {
             String trinoTypeDisplayName = toTrinoType(column.type(), typeManager).getDisplayName();
-            rowValues.add(buildColumnAggregation(column.fieldId()));
+            rowValues.add(buildColumnAggregation(column.fieldId(), dataFileFilter));
             rowTypes.add(buildColumnRowType(column.name(), trinoTypeDisplayName));
         }
 
         return "CAST(ROW(%s) AS ROW(%s)) AS data".formatted(COMMA_JOINER.join(rowValues.build()), COMMA_JOINER.join(rowTypes.build()));
     }
 
-    private static String buildColumnAggregation(int fieldId)
+    private static String buildColumnAggregation(int fieldId, String dataFileFilter)
     {
-        String min = "MIN(lower_bounds.\"%1$d\")".formatted(fieldId);
-        String max = "MAX(upper_bounds.\"%1$d\")".formatted(fieldId);
-        String nullCount = "SUM(element_at(null_value_counts, %d))".formatted(fieldId);
-        String nanCount = "SUM(element_at(nan_value_counts, %d))".formatted(fieldId);
+        String min = "MIN(lower_bounds.\"%1$d\") %2$s".formatted(fieldId, dataFileFilter);
+        String max = "MAX(upper_bounds.\"%1$d\") %2$s".formatted(fieldId, dataFileFilter);
+        String nullCount = "SUM(element_at(null_value_counts, %d)) %s".formatted(fieldId, dataFileFilter);
+        String nanCount = "SUM(element_at(nan_value_counts, %d)) %s".formatted(fieldId, dataFileFilter);
 
         // we need this case to ensure that it is compatible with the current $partitions implementation
         return """
