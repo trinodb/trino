@@ -33,6 +33,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metric;
@@ -41,6 +42,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
@@ -59,7 +61,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetTestUtils.createArrayBlock;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
@@ -70,18 +74,103 @@ import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
+import static io.trino.parquet.reader.ParquetReader.isRowSelectionBeneficial;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class TestParquetReader
 {
+    @Test
+    public void testSelectedPositionsPushdownHeuristic()
+    {
+        assertThat(isRowSelectionBeneficial(8_192, 0, 0, 8_192, INT32, false, false, 4, 1)).isTrue();
+
+        // Required fixed-width values use a 5% selectivity limit.
+        assertThat(isRowSelectionBeneficial(8_192, 410, 16, 500, INT32, false, false, 4, 1)).isTrue();
+        assertThat(isRowSelectionBeneficial(8_192, 411, 16, 500, INT32, false, false, 4, 1)).isFalse();
+
+        // Every value family uses the same locality requirement.
+        assertThat(isRowSelectionBeneficial(8_192, 409, 25, 300, INT32, false, false, 4, 1)).isTrue();
+        assertThat(isRowSelectionBeneficial(8_192, 409, 26, 300, INT32, false, false, 4, 1)).isFalse();
+
+        // One large skipped range cannot make a fragmented remainder worthwhile.
+        assertThat(isRowSelectionBeneficial(8_192, 409, 25, 7_350, INT32, false, false, 4, 1)).isFalse();
+
+        // Boolean row-level skipping requires a selection-aware packed decoder.
+        assertThat(isRowSelectionBeneficial(8_192, 409, 16, 500, BOOLEAN, false, false, 1, 1)).isFalse();
+
+        // Nullable fixed-width readers use a 20% limit.
+        assertThat(isRowSelectionBeneficial(8_192, 1_638, 16, 500, INT32, false, true, 4, 1)).isTrue();
+        assertThat(isRowSelectionBeneficial(8_192, 1_639, 16, 500, INT32, false, true, 4, 1)).isFalse();
+        assertThat(isRowSelectionBeneficial(8_192, 1_638, 16, 500, FIXED_LEN_BYTE_ARRAY, false, true, 16, 1)).isTrue();
+
+        // Dictionary indexes share a 10% limit across physical value types.
+        assertThat(isRowSelectionBeneficial(8_192, 819, 16, 500, INT32, true, false, 1, 1)).isTrue();
+        assertThat(isRowSelectionBeneficial(8_192, 820, 16, 500, INT32, true, false, 1, 1)).isFalse();
+        assertThat(isRowSelectionBeneficial(8_192, 819, 16, 500, BINARY, true, false, 1, 1)).isTrue();
+        assertThat(isRowSelectionBeneficial(8_192, 819, 16, 500, BINARY, true, true, 1, 1)).isTrue();
+
+        // Plain binary values use a 25% limit independent of value width.
+        assertThat(isRowSelectionBeneficial(8_192, 2_048, 16, 400, BINARY, false, false, 256, 50)).isTrue();
+        assertThat(isRowSelectionBeneficial(8_192, 2_049, 16, 400, BINARY, false, false, 256, 50)).isFalse();
+        assertThat(isRowSelectionBeneficial(8_192, 2_048, 16, 400, BINARY, false, true, 256, 50)).isTrue();
+
+        // Very wide values use row-level decoding only for small projections.
+        assertThat(isRowSelectionBeneficial(8_192, 2_048, 16, 400, BINARY, false, false, 1_024, 4)).isTrue();
+        assertThat(isRowSelectionBeneficial(8_192, 2_048, 16, 400, BINARY, false, false, 1_024, 5)).isFalse();
+    }
+
+    @Test
+    public void testSelectedPositionsPushdownDisabled()
+            throws IOException
+    {
+        int rowCount = 4_096;
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        ParquetReaderOptions readerOptions = ParquetReaderOptions.builder()
+                .withSelectedPositionsPushdownEnabled(false)
+                .build();
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, rowCount, 1)),
+                readerOptions);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(
+                dataSource,
+                parquetMetadata,
+                readerOptions,
+                newSimpleAggregatedMemoryContext(),
+                types,
+                columnNames,
+                TupleDomain.all(),
+                true)) {
+            SourcePage page = reader.nextPage();
+            while (page.getPositionCount() < 1_024) {
+                page = reader.nextPage();
+            }
+
+            int originalPositionCount = page.getPositionCount();
+            int[] positions = IntStream.range(400, 440).toArray();
+            assertThat(page.trySelectPositions(positions, 0, positions.length)).isFalse();
+            assertThat(page.getPositionCount()).isEqualTo(originalPositionCount);
+            assertThat(reader.getSelectedPositionsPushdownCount()).isZero();
+        }
+    }
+
     @Test
     public void testColumnReaderMemoryUsage()
             throws IOException
@@ -243,13 +332,19 @@ public class TestParquetReader
 
             page.selectPositions(new int[] {1, 3, 5, 7}, 0, 4);
             assertThat(blockValues(page.getBlock(0))).containsExactly(firstRow + 1, firstRow + 3, firstRow + 5, firstRow + 7);
+            assertThat(page.getSizeInBytes()).isEqualTo(page.getBlock(0).getSizeInBytes());
 
             // select again with positions relative to the previous selection
             page.selectPositions(new int[] {1, 2}, 0, 2);
             assertThat(page.getPositionCount()).isEqualTo(2);
             // columnA was loaded before the second selection, columnB is loaded after it
             assertThat(blockValues(page.getBlock(0))).containsExactly(firstRow + 3, firstRow + 5);
+            assertThat(page.getSizeInBytes()).isEqualTo(page.getBlock(0).getSizeInBytes());
             assertThat(blockValues(page.getBlock(1))).containsExactly((firstRow + 3) * 10, (firstRow + 5) * 10);
+
+            SourcePage nextPage = reader.nextPage();
+            assertThat(blockValues(nextPage.getBlock(1)))
+                    .startsWith((firstRow + 8) * 10, (firstRow + 9) * 10, (firstRow + 10) * 10);
         }
     }
 
@@ -307,11 +402,459 @@ public class TestParquetReader
                 Optional.empty());
     }
 
+    @Test
+    public void testRepeatedSelectionsWithInterleavedColumnLoads()
+            throws IOException
+    {
+        int rowCount = 65_536;
+        List<String> columnNames = ImmutableList.of("filter_a", "filter_b", "projected");
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT, BIGINT);
+        BlockBuilder filterA = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder filterB = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder projected = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        for (int position = 0; position < rowCount; position++) {
+            BIGINT.writeLong(filterA, position);
+            BIGINT.writeLong(filterB, position * 10L);
+            BIGINT.writeLong(projected, position * 100L);
+        }
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(1_024)
+                                .build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(rowCount, filterA.build(), filterB.build(), projected.build()))),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(
+                dataSource,
+                parquetMetadata,
+                ParquetReaderOptions.defaultOptions(),
+                newSimpleAggregatedMemoryContext(),
+                types,
+                columnNames,
+                TupleDomain.all(),
+                true)) {
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                Block firstFilterBlock = page.getBlock(0);
+                int[] firstSelection = IntStream.range(0, page.getPositionCount())
+                        .filter(position -> BIGINT.getLong(firstFilterBlock, position) % 512 < 8)
+                        .toArray();
+                if (firstSelection.length == 0) {
+                    continue;
+                }
+                page.selectPositions(firstSelection, 0, firstSelection.length);
+
+                Block secondFilterBlock = page.getBlock(1);
+                int[] secondSelection = IntStream.range(0, page.getPositionCount())
+                        .filter(position -> (BIGINT.getLong(secondFilterBlock, position) / 10) % 2 == 0)
+                        .toArray();
+                if (secondSelection.length == 0) {
+                    continue;
+                }
+                assertThat(page.trySelectPositions(secondSelection, 0, secondSelection.length)).isTrue();
+
+                Block projectedBlock = page.getBlock(2);
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    assertThat(BIGINT.getLong(projectedBlock, position))
+                            .isEqualTo(BIGINT.getLong(page.getBlock(0), position) * 100);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testUnselectedReadsShareDictionary()
+            throws IOException
+    {
+        int rowCount = 8_192;
+        int dictionarySize = 1_024;
+        List<Type> types = ImmutableList.of(VARCHAR);
+        List<String> columnNames = ImmutableList.of("value");
+        BlockBuilder values = VARCHAR.createBlockBuilder(null, rowCount);
+        for (int position = 0; position < rowCount; position++) {
+            VARCHAR.writeSlice(values, utf8Slice("%04d".formatted(position % dictionarySize) + "x".repeat(60)));
+        }
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().setMaxPageValueCount(rowCount).build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(values.build()))),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames)) {
+            int firstPosition = 0;
+            SourcePage page = reader.nextPage();
+            while (page.getPositionCount() < 128) {
+                firstPosition += page.getPositionCount();
+                page = reader.nextPage();
+            }
+            DictionaryBlock first = (DictionaryBlock) page.getBlock(0);
+            DictionaryBlock second = (DictionaryBlock) reader.nextPage().getBlock(0);
+            assertThat(first.getDictionary().getPositionCount()).isEqualTo(dictionarySize);
+            assertThat(second.getDictionary()).isSameAs(first.getDictionary());
+            assertThat(VARCHAR.getSlice(first, 0).toStringUtf8()).isEqualTo("%04d".formatted(firstPosition % dictionarySize) + "x".repeat(60));
+            assertThat(VARCHAR.getSlice(second, 0).toStringUtf8()).isEqualTo("%04d".formatted((firstPosition + first.getPositionCount()) % dictionarySize) + "x".repeat(60));
+        }
+    }
+
+    @Test
+    public void testAcceptedSelectionCompactsLoadedSelectedAndFallbackBlocks()
+            throws IOException
+    {
+        int rowCount = 4_096;
+        ArrayType arrayType = new ArrayType(BIGINT);
+        List<String> columnNames = ImmutableList.of("payload", "filter", "fallback", "nested");
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BooleanType.BOOLEAN, arrayType);
+        BlockBuilder payload = VARCHAR.createBlockBuilder(null, rowCount);
+        BlockBuilder filter = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fallback = BooleanType.BOOLEAN.createFixedSizeBlockBuilder(rowCount);
+        for (int position = 0; position < rowCount; position++) {
+            VARCHAR.writeSlice(payload, utf8Slice("%08d".formatted(position) + "x".repeat(248)));
+            BIGINT.writeLong(filter, position);
+            BooleanType.BOOLEAN.writeBoolean(fallback, position % 2 == 0);
+        }
+        Block nested = createArrayBlock(Optional.empty(), rowCount);
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(rowCount)
+                                .build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(rowCount, payload.build(), filter.build(), fallback.build(), nested))),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames)) {
+            long firstRow = 0;
+            SourcePage page = reader.nextPage();
+            while (page.getPositionCount() < 1_024) {
+                firstRow += page.getPositionCount();
+                page = reader.nextPage();
+            }
+
+            page.getBlock(1);
+            int[] positions = IntStream.range(400, 500).toArray();
+            assertThat(page.trySelectPositions(positions, 0, positions.length)).isTrue();
+
+            Block selectedPayload = page.getBlock(0);
+            Block selectedFilter = page.getBlock(1);
+            Block selectedFallback = page.getBlock(2);
+            Block selectedNested = page.getBlock(3);
+            for (int index = 0; index < positions.length; index++) {
+                long expectedValue = firstRow + positions[index];
+                assertThat(VARCHAR.getSlice(selectedPayload, index).toStringUtf8())
+                        .isEqualTo("%08d".formatted(expectedValue) + "x".repeat(248));
+                assertThat(BIGINT.getLong(selectedFilter, index)).isEqualTo(expectedValue);
+                assertThat(BooleanType.BOOLEAN.getBoolean(selectedFallback, index)).isEqualTo(expectedValue % 2 == 0);
+                assertThat(arrayType.getObjectValue(selectedNested, index))
+                        .isEqualTo(arrayType.getObjectValue(nested, toIntExact(expectedValue)));
+            }
+            for (Block block : ImmutableList.of(selectedPayload, selectedFilter, selectedFallback, selectedNested)) {
+                assertThat(block.getPositionCount()).isEqualTo(positions.length);
+                assertThat(block.getRetainedSizeInBytes()).isLessThanOrEqualTo(block.getSizeInBytes() * 2);
+            }
+        }
+    }
+
+    @Test
+    public void testSelectNonAscendingPositions()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        int rowCount = 100;
+        BlockBuilder values = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        for (int i = 0; i < rowCount; i++) {
+            BIGINT.writeLong(values, i);
+        }
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(values.build()))),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames)) {
+            long firstRow = 0;
+            SourcePage page = reader.nextPage();
+            while (page.getPositionCount() < 4) {
+                firstRow += page.getPositionCount();
+                page = reader.nextPage();
+            }
+
+            int[] positions = new int[13];
+            positions[10] = 3;
+            positions[11] = 1;
+            positions[12] = 3;
+            page.selectPositions(positions, 10, 3);
+            assertThat(page.getPositionCount()).isEqualTo(3);
+            assertThat(blockValues(page.getBlock(0))).containsExactly(firstRow + 3, firstRow + 1, firstRow + 3);
+            assertThat(reader.getSelectedPositionsPushdownCount()).isZero();
+            assertThat(reader.getSelectedPositionsFallbackCount()).isOne();
+        }
+    }
+
+    @Test
+    public void testSingleSelectedRunAtPageEdgeFallsBack()
+            throws IOException
+    {
+        int rowCount = 4_096;
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        BlockBuilder values = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        for (int position = 0; position < rowCount; position++) {
+            BIGINT.writeLong(values, position);
+        }
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(rowCount)
+                                .build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(values.build()))),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames)) {
+            long firstRow = 0;
+            SourcePage page = reader.nextPage();
+            while (page.getPositionCount() < 1_024) {
+                firstRow += page.getPositionCount();
+                page = reader.nextPage();
+            }
+
+            int[] edgeRun = IntStream.range(0, 40).toArray();
+            page.selectPositions(edgeRun, 0, edgeRun.length);
+            long edgeFirstRow = firstRow;
+            assertThat(blockValues(page.getBlock(0))).containsExactlyElementsOf(
+                    IntStream.range(0, 40).mapToLong(position -> edgeFirstRow + position).boxed().toList());
+            assertThat(reader.getSelectedPositionsPushdownCount()).isZero();
+            assertThat(reader.getSelectedPositionsFallbackCount()).isOne();
+
+            firstRow += 1_024;
+            page = reader.nextPage();
+            int[] interiorRun = IntStream.range(400, 480).toArray();
+            page.selectPositions(interiorRun, 0, interiorRun.length);
+            long interiorFirstRow = firstRow;
+            assertThat(blockValues(page.getBlock(0))).containsExactlyElementsOf(
+                    IntStream.range(400, 480).mapToLong(position -> interiorFirstRow + position).boxed().toList());
+            assertThat(reader.getSelectedPositionsPushdownCount()).isOne();
+            assertThat(reader.getSelectedPositionsFallbackCount()).isOne();
+        }
+    }
+
+    @Test
+    public void testSelectPositionOutsidePage()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 1)),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames)) {
+            SourcePage page = reader.nextPage();
+            assertThatThrownBy(() -> page.selectPositions(new int[] {page.getPositionCount()}, 0, 1))
+                    .isInstanceOf(IndexOutOfBoundsException.class);
+        }
+    }
+
+    @Test
+    public void testSelectedPositionsAreCopied()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 1)),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(
+                dataSource,
+                parquetMetadata,
+                ParquetReaderOptions.defaultOptions(),
+                newSimpleAggregatedMemoryContext(),
+                types,
+                columnNames,
+                TupleDomain.all(),
+                true)) {
+            long firstRow = 0;
+            SourcePage page = reader.nextPage();
+            while (page.getPositionCount() < 4) {
+                firstRow += page.getPositionCount();
+                page = reader.nextPage();
+            }
+
+            // No unloaded column can benefit, so the source must remain unchanged.
+            int[] offeredPositions = {1, 3};
+            int originalPositionCount = page.getPositionCount();
+            page.getBlock(0);
+            assertThat(page.trySelectPositions(offeredPositions, 0, offeredPositions.length)).isFalse();
+            assertThat(page.getPositionCount()).isEqualTo(originalPositionCount);
+
+            // Use an unloaded page for the existing ownership check below.
+            firstRow += originalPositionCount;
+            page = reader.nextPage();
+            while (page.getPositionCount() < 4) {
+                firstRow += page.getPositionCount();
+                page = reader.nextPage();
+            }
+
+            int mandatoryPagePositionCount = page.getPositionCount();
+            int[] positions = {1, 3};
+            page.selectPositions(positions, 0, positions.length);
+            Arrays.fill(positions, 0);
+
+            assertThat(blockValues(page.getBlock(0))).containsExactly(firstRow + 1, firstRow + 3);
+
+            // An accepted optional selection must also retain its own positions.
+            firstRow += mandatoryPagePositionCount;
+            page = reader.nextPage();
+            while (page.getPositionCount() < 4) {
+                firstRow += page.getPositionCount();
+                page = reader.nextPage();
+            }
+
+            int[] offeredSelection = {-1, 1, 3, -1};
+            assertThat(page.trySelectPositions(offeredSelection, 1, 2)).isTrue();
+            Arrays.fill(offeredSelection, 0);
+
+            long[] retainedBytes = {0};
+            page.retainedBytesForEachPart((_, bytes) -> retainedBytes[0] += bytes);
+            assertThat(retainedBytes[0]).isEqualTo(page.getRetainedSizeInBytes());
+
+            assertThat(blockValues(page.getBlock(0))).containsExactly(firstRow + 1, firstRow + 3);
+        }
+    }
+
+    @Test
+    public void testSelectedPositionsUpdateAdaptiveBatchSizeBasedOnInputRows()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("payload");
+        List<Type> types = ImmutableList.of(VARCHAR);
+        int rowCount = 3_000;
+        BlockBuilder values = VARCHAR.createBlockBuilder(null, rowCount);
+        for (int position = 0; position < rowCount; position++) {
+            VARCHAR.writeSlice(values, utf8Slice("%08d".formatted(position) + "x".repeat(248)));
+        }
+
+        ParquetReaderOptions readerOptions = ParquetReaderOptions.builder()
+                .withMaxReadBlockSize(DataSize.ofBytes(200_000))
+                .withMaxReadBlockRowCount(rowCount)
+                .build();
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(rowCount)
+                                .build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(values.build()))),
+                readerOptions);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, readerOptions, newSimpleAggregatedMemoryContext(), types, columnNames, TupleDomain.all())) {
+            for (int expectedBatchSize : new int[] {1, 2, 4, 8, 16}) {
+                SourcePage page = reader.nextPage();
+                assertThat(page.getPositionCount()).isEqualTo(expectedBatchSize);
+                assertThat(page.getBlock(0).getPositionCount()).isEqualTo(expectedBatchSize);
+            }
+            for (int expectedBatchSize : new int[] {32, 64, 128}) {
+                SourcePage page = reader.nextPage();
+                assertThat(page.getPositionCount()).isEqualTo(expectedBatchSize);
+                page.selectPositions(new int[] {0}, 0, 1);
+                assertThat(page.getBlock(0).getPositionCount()).isEqualTo(1);
+            }
+
+            assertThat(reader.nextPage().getPositionCount()).isEqualTo(256);
+        }
+    }
+
+    @Test
+    public void testSelectPositionsWithColumnIndexRowRanges()
+            throws Exception
+    {
+        File parquetFile = new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI());
+        List<String> columnNames = ImmutableList.of("l_shipdate", "l_commitdate");
+        List<Type> types = ImmutableList.of(DATE, DATE);
+        TupleDomain<String> predicate = TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        "l_shipdate", Domain.multipleValues(DATE, ImmutableList.of(LocalDate.of(1993, 1, 1).toEpochDay(), LocalDate.of(1997, 1, 1).toEpochDay())),
+                        "l_commitdate", Domain.create(ValueSet.ofRanges(Range.greaterThan(DATE, LocalDate.of(1995, 1, 1).toEpochDay())), false)));
+
+        try (ParquetReader expectedReader = createFilteredParquetReader(parquetFile, types, columnNames, predicate);
+                ParquetReader selectedReader = createFilteredParquetReader(parquetFile, types, columnNames, predicate)) {
+            SourcePage expectedPage = expectedReader.nextPage();
+            SourcePage selectedPage = selectedReader.nextPage();
+            int selectedRowCount = 0;
+            while (expectedPage != null) {
+                assertThat(selectedPage).isNotNull();
+                assertThat(selectedPage.getPositionCount()).isEqualTo(expectedPage.getPositionCount());
+
+                int[] positions = IntStream.range(0, expectedPage.getPositionCount())
+                        .filter(position -> position % 5 <= 1)
+                        .toArray();
+                Block expectedShipDate = expectedPage.getBlock(0).copyPositions(positions, 0, positions.length);
+                Block expectedCommitDate = expectedPage.getBlock(1).copyPositions(positions, 0, positions.length);
+                selectedPage.selectPositions(positions, 0, positions.length);
+                assertThat(dateValues(selectedPage.getBlock(0))).isEqualTo(dateValues(expectedShipDate));
+                assertThat(dateValues(selectedPage.getBlock(1))).isEqualTo(dateValues(expectedCommitDate));
+                selectedRowCount += positions.length;
+
+                expectedPage = expectedReader.nextPage();
+                selectedPage = selectedReader.nextPage();
+            }
+            assertThat(selectedPage).isNull();
+            assertThat(selectedRowCount).isPositive();
+        }
+    }
+
+    private static ParquetReader createFilteredParquetReader(File parquetFile, List<Type> types, List<String> columnNames, TupleDomain<String> predicate)
+            throws IOException
+    {
+        ParquetDataSource dataSource = new FileParquetDataSource(parquetFile, ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        return createParquetReader(
+                dataSource,
+                parquetMetadata,
+                ParquetReaderOptions.defaultOptions(),
+                newSimpleAggregatedMemoryContext(),
+                types,
+                columnNames,
+                predicate);
+    }
+
     private static List<Long> blockValues(Block block)
     {
         ImmutableList.Builder<Long> values = ImmutableList.builder();
         for (int position = 0; position < block.getPositionCount(); position++) {
             values.add(BIGINT.getLong(block, position));
+        }
+        return values.build();
+    }
+
+    private static List<Long> dateValues(Block block)
+    {
+        ImmutableList.Builder<Long> values = ImmutableList.builder();
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            values.add(DATE.getLong(block, position));
         }
         return values.build();
     }
