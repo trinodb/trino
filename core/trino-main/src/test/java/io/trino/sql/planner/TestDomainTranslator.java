@@ -91,6 +91,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -2002,7 +2003,11 @@ public class TestDomainTranslator
 
     private ExtractionResult fromPredicate(Session session, Expression originalPredicate)
     {
-        return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), session, originalPredicate);
+        ExtractionResult result = DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), session, originalPredicate);
+        if (isDeterministic(originalPredicate)) {
+            new ExtractionResultVerifier(functionResolution.getPlannerContext(), session).verify(originalPredicate, result);
+        }
+        return result;
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
