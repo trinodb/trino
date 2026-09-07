@@ -26,14 +26,13 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
-import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
-import static io.trino.type.DateTimes.rescale;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static java.lang.Math.addExact;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 
 public final class TimestampOperators
@@ -226,12 +225,19 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") long left,
                 @SqlType("timestamp(p)") long right)
         {
-            long interval = left - right;
+            // The difference in microseconds can overflow a long, while the difference in milliseconds cannot, so
+            // subtract the milliseconds and round the sub-millisecond remainder separately.
+            long millis = floorDiv(left, MICROSECONDS_PER_MILLISECOND) - floorDiv(right, MICROSECONDS_PER_MILLISECOND);
+            int microsOfMilli = floorMod(left, MICROSECONDS_PER_MILLISECOND) - floorMod(right, MICROSECONDS_PER_MILLISECOND);
 
-            interval = round(interval, 3);
-            interval = rescale(interval, MAX_SHORT_PRECISION, 3);
-
-            return interval;
+            // round half up, as roundDiv does
+            if (microsOfMilli >= MICROSECONDS_PER_MILLISECOND / 2) {
+                return millis + 1;
+            }
+            if (microsOfMilli < -(MICROSECONDS_PER_MILLISECOND / 2)) {
+                return millis - 1;
+            }
+            return millis;
         }
 
         @LiteralParameters("p")
