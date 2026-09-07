@@ -3298,6 +3298,24 @@ public class TestTimestamp
 
         assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2016-03-29 03:04:05.321'", "TIMESTAMP '2017-03-30 14:15:16.432'"))
                 .matches("INTERVAL '-366 11:11:11.111' DAY TO SECOND");
+
+        // the difference in microseconds overflows a long, the difference in milliseconds does not
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '294247-01-10 04:00:54.775807'", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .matches("INTERVAL '106751991 04:00:54.776' DAY TO SECOND");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000'", "TIMESTAMP '294247-01-10 04:00:54.775807'"))
+                .matches("INTERVAL '-106751991 04:00:54.776' DAY TO SECOND");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '294247-01-10 04:00:54.775807000000'", "TIMESTAMP '1970-01-01 00:00:00.000000000000'"))
+                .matches("INTERVAL '106751991 04:00:54.776' DAY TO SECOND");
+
+        // half a millisecond rounds up in either direction, as it did before
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000500'", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .matches("INTERVAL '0 00:00:00.001' DAY TO SECOND");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000499'", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000'", "TIMESTAMP '1970-01-01 00:00:00.000500'"))
+                .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000'", "TIMESTAMP '1970-01-01 00:00:00.000501'"))
+                .matches("INTERVAL '-0 00:00:00.001' DAY TO SECOND");
     }
 
     @Test
