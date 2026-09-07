@@ -337,6 +337,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages()));
         });
 
+        startAttempt();
+    }
+
+    private synchronized void startAttempt()
+    {
+        log.debug("Starting fault tolerant query scheduler for query %s", queryStateMachine.getQueryId());
         Session session = queryStateMachine.getSession();
         int maxPartitionCount = getFaultTolerantExecutionMaxPartitionCount(session);
         FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory = new FaultTolerantPartitioningSchemeFactory(
