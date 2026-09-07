@@ -2229,6 +2229,8 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
+                analysis.recordReferencedView(metadata.getViewHandle(session, name)
+                        .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' does not exist", name)));
                 boolean versioned = table.getQueryPeriod().isPresent();
                 // Versioned reads always use the storage table, as freshness relates only to its current snapshot
                 if (versioned || isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
@@ -2263,6 +2265,8 @@ class StatementAnalyzer
 
                 QualifiedObjectName targetViewName = viewRedirection.redirectedTableName().orElse(name);
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetViewName, getBranchName(table));
+                analysis.recordReferencedView(metadata.getViewHandle(session, targetViewName)
+                        .orElseThrow(() -> semanticException(INVALID_VIEW, table, "View '%s' does not exist", targetViewName)));
                 return createScopeForView(table, targetViewName, scope, optionalView.get());
             }
 
