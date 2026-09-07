@@ -84,6 +84,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
@@ -509,6 +510,35 @@ public abstract class AbstractTrinoCatalog
         appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, String.valueOf(hasSourceTableFunctions));
         appendFiles.set(DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, String.valueOf(hasNonDeterministicFunctions));
         appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
+    }
+
+    @Override
+    public OptionalLong getMaterializedViewIncrementalRefreshFromSnapshot(Table storageTable, List<ConnectorTableHandle> sourceTableHandles)
+    {
+        if (sourceTableHandles.size() != 1) {
+            return OptionalLong.empty();
+        }
+
+        Optional<String> dependencies = Optional.ofNullable(storageTable.currentSnapshot())
+                .map(Snapshot::summary)
+                .map(summary -> summary.get(DEPENDS_ON_TABLES));
+        if (dependencies.isEmpty() || dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN)) {
+            return OptionalLong.empty();
+        }
+
+        Map<String, String> sourceTableToSnapshot = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=").split(dependencies.get());
+        if (sourceTableToSnapshot.size() != 1) {
+            return OptionalLong.empty();
+        }
+        Map.Entry<String, String> sourceTable = getOnlyElement(sourceTableToSnapshot.entrySet());
+        String[] schemaTable = sourceTable.getKey().split("\\.");
+        IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
+        SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
+        if (!sourceSchemaTable.equals(handle.getSchemaTableName())) {
+            return OptionalLong.empty();
+        }
+
+        return OptionalLong.of(Long.parseLong(sourceTable.getValue()));
     }
 
     protected Transaction newCreateTableTransaction(
