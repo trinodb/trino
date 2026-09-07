@@ -693,6 +693,48 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromIdenticalToBooleanConstant()
+    {
+        // the predicate is true for the same rows as the operand
+        assertPredicateTranslates(
+                comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), TRUE),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false)));
+
+        assertPredicateTranslates(
+                comparison(IDENTICAL, TRUE, lessThan(C_BIGINT, bigintLiteral(2L))),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false)));
+
+        assertPredicateTranslates(
+                comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), FALSE),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), false)));
+
+        // the negated predicate is true also when the operand is null
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), TRUE)),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), true)));
+
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), FALSE)),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), true)));
+
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, isNull(C_BIGINT), TRUE)),
+                tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
+
+        // the operand's domain is not exact, so it cannot be complemented: the operand is never true, hence the predicate is true for every row
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), unprocessableExpression2(C_BIGINT)), TRUE)));
+
+        // the operand constrains more than one column
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), lessThan(C_BIGINT_1, bigintLiteral(2L))), TRUE)));
+
+        // NaN is not part of the complemented domain, but the negated predicate is true for it
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, lessThan(C_DOUBLE, doubleLiteral(2.0)), TRUE)));
+    }
+
+    @Test
     public void testFromFlippedBasicComparisons()
     {
         // Test out the extraction of all basic comparisons where the reference literal ordering is flipped
