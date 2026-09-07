@@ -20,6 +20,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageBatch;
 import com.google.cloud.storage.StorageOptions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -81,8 +82,10 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
@@ -98,6 +101,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -112,6 +116,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -130,6 +135,7 @@ import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.
 import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.GCP;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -586,7 +592,7 @@ public class S3FileSystemExchangeStorage
                 getFutureValue(inProgressReadFuture);
             }
             catch (RuntimeException e) {
-                throw new IOException(e);
+                throw toReadFailure(e, currentFile.getFileUri());
             }
 
             if (sliceSize < 0) {
@@ -730,6 +736,19 @@ public class S3FileSystemExchangeStorage
                 failureMetric.add(stopwatch.elapsed(MILLISECONDS));
             }
         }, directExecutor());
+    }
+
+    @VisibleForTesting
+    static IOException toReadFailure(RuntimeException failure, URI file)
+    {
+        for (Throwable throwable : getCausalChain(failure)) {
+            if (throwable instanceof NoSuchKeyException || (throwable instanceof S3Exception s3Exception && s3Exception.statusCode() == HTTP_NOT_FOUND)) {
+                NoSuchFileException missingFile = new NoSuchFileException(file.toString());
+                missingFile.initCause(failure);
+                return missingFile;
+            }
+        }
+        return new IOException(failure);
     }
 
     @NotThreadSafe

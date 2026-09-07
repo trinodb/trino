@@ -26,6 +26,7 @@ import com.azure.storage.blob.batch.BlobBatchAsyncClient;
 import com.azure.storage.blob.batch.BlobBatchClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobRange;
+import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.DeleteSnapshotsOptionType;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
@@ -39,6 +40,7 @@ import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 import com.azure.storage.file.datalake.models.ListPathsOptions;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
@@ -73,6 +75,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -84,6 +87,7 @@ import java.util.UUID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -99,6 +103,7 @@ import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PR
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
@@ -529,7 +534,7 @@ public class AzureBlobFileSystemExchangeStorage
                 getFutureValue(inProgressReadFuture);
             }
             catch (RuntimeException e) {
-                throw new IOException(e);
+                throw toReadFailure(e, currentFile.getFileUri());
             }
 
             if (sliceSize < 0) {
@@ -662,6 +667,19 @@ public class AzureBlobFileSystemExchangeStorage
             sliceInput = Slices.wrappedBuffer(buffer, 0, bufferFill).getInput();
             bufferRetainedSize = sliceInput.getRetainedSize();
         }
+    }
+
+    @VisibleForTesting
+    static IOException toReadFailure(RuntimeException failure, URI file)
+    {
+        for (Throwable throwable : getCausalChain(failure)) {
+            if (throwable instanceof BlobStorageException blobStorageException && blobStorageException.getStatusCode() == HTTP_NOT_FOUND) {
+                NoSuchFileException missingFile = new NoSuchFileException(file.toString());
+                missingFile.initCause(failure);
+                return missingFile;
+            }
+        }
+        return new IOException(failure);
     }
 
     @NotThreadSafe
