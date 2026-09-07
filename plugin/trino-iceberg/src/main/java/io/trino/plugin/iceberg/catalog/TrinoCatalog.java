@@ -22,6 +22,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -30,6 +31,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.TrinoPrincipal;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -213,6 +215,17 @@ public interface TrinoCatalog
     void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
 
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+    }
+
+    default void recordMaterializedViewRefresh(
+            ConnectorSession session,
+            AppendFiles appendFiles,
+            List<ConnectorTableHandle> sourceTableHandles,
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
