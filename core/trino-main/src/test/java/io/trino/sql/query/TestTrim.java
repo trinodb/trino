@@ -136,18 +136,22 @@ public class TestTrim
     @Test
     public void testCharLeftTrimParametrized()
     {
-        assertFunction("TRIM(LEADING '' FROM CAST('' AS CHAR(1)))", "CAST('' AS VARCHAR(1))");
-        assertFunction("TRIM(LEADING '' FROM CAST('   ' AS CHAR(3)))", "CAST('' AS VARCHAR(3))");
-        assertFunction("TRIM(LEADING '' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('  hello' AS VARCHAR(9))");
-        assertFunction("TRIM(LEADING ' ' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('hello' AS VARCHAR(9))");
-        assertFunction("TRIM(LEADING 'he ' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('llo' AS VARCHAR(9))");
+        // an empty trim set never matches anything, so the char value comes back exactly as
+        // written, including any of its own trailing spaces (CHAR(1) '' is a single space)
+        assertFunction("TRIM(LEADING '' FROM CAST('' AS CHAR(1)))", "CAST(' ' AS VARCHAR(1))");
+        assertFunction("TRIM(LEADING '' FROM CAST('   ' AS CHAR(3)))", "CAST('   ' AS VARCHAR(3))");
+        assertFunction("TRIM(LEADING '' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('  hello  ' AS VARCHAR(9))");
+        // LEADING only scans from the left, so trailing spaces are never touched, and they're
+        // real content, not padding, when they aren't in the trim set
+        assertFunction("TRIM(LEADING ' ' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('hello  ' AS VARCHAR(9))");
+        assertFunction("TRIM(LEADING 'he ' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('llo  ' AS VARCHAR(9))");
         assertFunction("TRIM(LEADING ' ' FROM CAST('  hello' AS CHAR(7)))", "CAST('hello' AS VARCHAR(7))");
         assertFunction("TRIM(LEADING 'e h' FROM CAST('  hello' AS CHAR(7)))", "CAST('llo' AS VARCHAR(7))");
-        assertFunction("TRIM(LEADING 'l' FROM CAST('hello  ' AS CHAR(7)))", "CAST('hello' AS VARCHAR(7))");
-        assertFunction("TRIM(LEADING ' ' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('hello world' AS VARCHAR(13))");
-        assertFunction("TRIM(LEADING ' eh' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('llo world' AS VARCHAR(13))");
+        assertFunction("TRIM(LEADING 'l' FROM CAST('hello  ' AS CHAR(7)))", "CAST('hello  ' AS VARCHAR(7))");
+        assertFunction("TRIM(LEADING ' ' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('hello world ' AS VARCHAR(13))");
+        assertFunction("TRIM(LEADING ' eh' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('llo world ' AS VARCHAR(13))");
         assertFunction("TRIM(LEADING ' ehlowrd' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('' AS VARCHAR(13))");
-        assertFunction("TRIM(LEADING ' x' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('hello world' AS VARCHAR(13))");
+        assertFunction("TRIM(LEADING ' x' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('hello world ' AS VARCHAR(13))");
 
         // non latin characters
         assertFunction("TRIM(LEADING '\u00f3\u017a' FROM CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)))", "CAST('\u0142\u0107' AS VARCHAR(4))");

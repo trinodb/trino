@@ -584,9 +584,9 @@ public final class StringFunctions
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice charLeftTrim(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return leftTrim(slice, codePointsToTrim);
+        return leftTrim(padSpaces(slice, toIntExact(x)), codePointsToTrim);
     }
 
     @Description("Remove the longest string containing only given characters from the end of a string")

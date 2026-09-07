@@ -1858,25 +1858,29 @@ public class TestStringFunctions
     @Test
     public void testCharLeftTrimParametrized()
     {
+        // an empty trim set never matches anything, so the char value comes back exactly as
+        // written, including any of its own trailing spaces (CHAR(1) '' is a single space)
         assertThat(assertions.function("ltrim", "CAST('' AS CHAR(1))", "''"))
                 .hasType(createVarcharType(1))
-                .isEqualTo("");
+                .isEqualTo(" ");
 
         assertThat(assertions.function("ltrim", "CAST('   ' AS CHAR(3))", "''"))
                 .hasType(createVarcharType(3))
-                .isEqualTo("");
+                .isEqualTo("   ");
 
         assertThat(assertions.function("ltrim", "CAST('  hello  ' AS CHAR(9))", "''"))
                 .hasType(createVarcharType(9))
-                .isEqualTo("  hello");
+                .isEqualTo("  hello  ");
 
+        // ltrim only scans from the left, so trailing spaces are never touched, and they're
+        // real content, not padding, when they aren't in the trim set
         assertThat(assertions.function("ltrim", "CAST('  hello  ' AS CHAR(9))", "' '"))
                 .hasType(createVarcharType(9))
-                .isEqualTo("hello");
+                .isEqualTo("hello  ");
 
         assertThat(assertions.function("ltrim", "CAST('  hello  ' AS CHAR(9))", "'he '"))
                 .hasType(createVarcharType(9))
-                .isEqualTo("llo");
+                .isEqualTo("llo  ");
 
         assertThat(assertions.function("ltrim", "CAST('  hello' AS CHAR(7))", "' '"))
                 .hasType(createVarcharType(7))
@@ -1888,15 +1892,15 @@ public class TestStringFunctions
 
         assertThat(assertions.function("ltrim", "CAST('hello  ' AS CHAR(7))", "'l'"))
                 .hasType(createVarcharType(7))
-                .isEqualTo("hello");
+                .isEqualTo("hello  ");
 
         assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))", "' '"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("hello world");
+                .isEqualTo("hello world ");
 
         assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))", "' eh'"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("llo world");
+                .isEqualTo("llo world ");
 
         assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))", "' ehlowrd'"))
                 .hasType(createVarcharType(13))
@@ -1904,7 +1908,7 @@ public class TestStringFunctions
 
         assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))", "' x'"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("hello world");
+                .isEqualTo("hello world ");
 
         // non latin characters
         assertThat(assertions.function("ltrim", "CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4))", "'\u00f3\u017a'"))
