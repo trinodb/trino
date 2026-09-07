@@ -16,9 +16,13 @@ package io.trino.plugin.hive.metastore.glue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.Column;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PartitionWithStatistics;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -33,8 +37,10 @@ import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -65,6 +71,10 @@ final class TestGlueHiveMetastoreAvroSchemaResolution
     private static final List<Column> STORED_COLUMNS = ImmutableList.of(
             new Column("event_id", HIVE_STRING, Optional.empty(), ImmutableMap.of()),
             new Column("stale_column", HIVE_INT, Optional.empty(), ImmutableMap.of()));
+
+    private static final Column PARTITION_COLUMN = new Column("acquisition_date", HIVE_STRING, Optional.empty(), ImmutableMap.of());
+    private static final List<String> PARTITION_VALUES = ImmutableList.of("2021-10-31");
+    private static final String PARTITION_NAME = "acquisition_date=2021-10-31";
 
     private final String testSchema = "test_schema_" + randomNameSuffix();
 
@@ -108,7 +118,7 @@ final class TestGlueHiveMetastoreAvroSchemaResolution
     {
         String tableName = "test_avro_listing_" + randomNameSuffix();
         // The schema is fetched from S3 through the metastore's own file system, the wiring an avro.schema.url table depends on
-        createTableWithDriftedColumns(tableName, ImmutableMap.of(AVRO_SCHEMA_URL_KEY, avroSchemaUrl));
+        createTableWithDriftedColumns(tableName, AVRO, ImmutableList.of(), ImmutableMap.of(AVRO_SCHEMA_URL_KEY, avroSchemaUrl));
         try {
             // Populate the cache through a listing before the table is ever loaded directly
             assertThat(metastore.getTables(testSchema))
@@ -125,10 +135,58 @@ final class TestGlueHiveMetastoreAvroSchemaResolution
     }
 
     @Test
+    void testResolvesPartitionColumnsForAvroTableWithSchemaSet()
+    {
+        String tableName = "test_avro_partitions_" + randomNameSuffix();
+        createTableWithDriftedColumns(tableName, AVRO, ImmutableList.of(PARTITION_COLUMN), ImmutableMap.of(AVRO_SCHEMA_LITERAL_KEY, AVRO_SCHEMA));
+        try {
+            addPartitionWithStoredColumns(tableName, AVRO);
+
+            Table table = metastore.getTable(testSchema, tableName).orElseThrow();
+            assertThat(table.getDataColumns()).extracting(Column::getName).containsExactly("event_id", "amount");
+
+            assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(PARTITION_NAME)))
+                    .hasEntrySatisfying(PARTITION_NAME, partition -> assertThat(partition.orElseThrow().getColumns())
+                            .isEqualTo(table.getDataColumns()));
+
+            // The call above cached the partition with the columns Glue stored, so this one is served from the cache
+            // and must still resolve. Resolving inside the cache loader would freeze it against a table snapshot.
+            assertThat(metastore.getPartition(table, PARTITION_VALUES).orElseThrow().getColumns())
+                    .isEqualTo(table.getDataColumns());
+        }
+        finally {
+            metastore.dropTable(testSchema, tableName, false);
+        }
+    }
+
+    @Test
+    void testLeavesPartitionColumnsUnchangedForNonAvroTable()
+    {
+        // The Avro schema property is set but the table is not Avro, so nothing may be resolved
+        String tableName = "test_non_avro_partitions_" + randomNameSuffix();
+        createTableWithDriftedColumns(tableName, PARQUET, ImmutableList.of(PARTITION_COLUMN), ImmutableMap.of(AVRO_SCHEMA_LITERAL_KEY, AVRO_SCHEMA));
+        try {
+            addPartitionWithStoredColumns(tableName, PARQUET);
+
+            Table table = metastore.getTable(testSchema, tableName).orElseThrow();
+            assertThat(table.getDataColumns()).isEqualTo(STORED_COLUMNS);
+
+            assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(PARTITION_NAME)))
+                    .hasEntrySatisfying(PARTITION_NAME, partition -> assertThat(partition.orElseThrow().getColumns())
+                            .isEqualTo(STORED_COLUMNS));
+            assertThat(metastore.getPartition(table, PARTITION_VALUES).orElseThrow().getColumns())
+                    .isEqualTo(STORED_COLUMNS);
+        }
+        finally {
+            metastore.dropTable(testSchema, tableName, false);
+        }
+    }
+
+    @Test
     void testUnresolvableAvroSchemaFailsTableLoad()
     {
         String tableName = "test_avro_missing_schema_" + randomNameSuffix();
-        createTableWithDriftedColumns(tableName, ImmutableMap.of(AVRO_SCHEMA_URL_KEY, "%s/missing.avsc".formatted(warehouseLocation)));
+        createTableWithDriftedColumns(tableName, AVRO, ImmutableList.of(), ImmutableMap.of(AVRO_SCHEMA_URL_KEY, "%s/missing.avsc".formatted(warehouseLocation)));
         try {
             // Loading the table fails rather than falling back to the columns stored in Glue
             assertTrinoExceptionThrownBy(() -> metastore.getTable(testSchema, tableName))
@@ -147,7 +205,7 @@ final class TestGlueHiveMetastoreAvroSchemaResolution
     /**
      * Creates a table whose stored columns have drifted from its Avro schema, which cannot be expressed in SQL.
      */
-    private void createTableWithDriftedColumns(String tableName, Map<String, String> schemaParameters)
+    private void createTableWithDriftedColumns(String tableName, HiveStorageFormat storageFormat, List<Column> partitionColumns, Map<String, String> schemaParameters)
     {
         metastore.createTable(
                 Table.builder()
@@ -156,11 +214,30 @@ final class TestGlueHiveMetastoreAvroSchemaResolution
                         .setOwner(Optional.empty())
                         .setTableType("EXTERNAL_TABLE")
                         .setDataColumns(STORED_COLUMNS)
+                        .setPartitionColumns(partitionColumns)
                         .setParameters(schemaParameters)
                         .withStorage(storage -> storage
-                                .setStorageFormat(AVRO.toStorageFormat())
+                                .setStorageFormat(storageFormat.toStorageFormat())
                                 .setLocation("%s/%s".formatted(warehouseLocation, tableName)))
                         .build(),
                 NO_PRIVILEGES);
+    }
+
+    /**
+     * Adds a partition carrying the columns stored for the table, which is what Glue holds for a partition created
+     * before the table's Avro schema evolved.
+     */
+    private void addPartitionWithStoredColumns(String tableName, HiveStorageFormat storageFormat)
+    {
+        Partition partition = Partition.builder()
+                .setDatabaseName(testSchema)
+                .setTableName(tableName)
+                .setValues(PARTITION_VALUES)
+                .setColumns(STORED_COLUMNS)
+                .withStorage(storage -> storage
+                        .setStorageFormat(storageFormat.toStorageFormat())
+                        .setLocation("%s/%s/%s".formatted(warehouseLocation, tableName, PARTITION_NAME)))
+                .build();
+        metastore.addPartitions(testSchema, tableName, ImmutableList.of(new PartitionWithStatistics(partition, PARTITION_NAME, PartitionStatistics.empty())));
     }
 }
