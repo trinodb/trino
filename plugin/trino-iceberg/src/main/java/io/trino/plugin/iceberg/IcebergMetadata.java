@@ -76,6 +76,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Assignment;
+import io.trino.spi.connector.BasicViewHandle;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -4137,7 +4138,7 @@ public class IcebergMetadata
             appendFiles.appendFile(builder.build());
         }
 
-        catalog.recordMaterializedViewRefresh(session, appendFiles, sourceTableHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+        catalog.recordMaterializedViewRefresh(session, materializedViewHandle, appendFiles, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, hasSourceTableFunctions, hasNonDeterministicFunctions);
         appendFiles.scanManifestsWith(icebergScanExecutor);
         commitUpdateAndTransaction(appendFiles, session, transaction, "refresh materialized view");
         transaction = null;
@@ -4218,6 +4219,15 @@ public class IcebergMetadata
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
     {
         return catalog.getMaterializedViewFreshness(session, materializedViewName, considerGracePeriod);
+    }
+
+    @Override
+    public Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (isIcebergTableName(viewName.getTableName()) && !isDataTable(viewName.getTableName())) {
+            return getRawSystemView(session, viewName).map(_ -> new BasicViewHandle(viewName));
+        }
+        return catalog.getViewHandle(session, viewName);
     }
 
     @Override
