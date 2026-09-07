@@ -116,6 +116,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.avro.AvroHiveFileUtils.withColumnsFromAvroSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
@@ -128,6 +129,7 @@ import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueDatabaseIn
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueFunctionInput;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGluePartitionInput;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueTableInput;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
@@ -408,9 +410,11 @@ public class GlueHiveMetastore
                     .filter(filter)
                     .collect(toImmutableList());
 
-            // Store only valid tables in cache
+            // Store only valid tables in cache. Avro tables with a schema set are skipped so that a listing
+            // cannot cache their unresolved columns ahead of the resolution done in getTableInternal.
             for (software.amazon.awssdk.services.glue.model.Table table : glueTables) {
                 convertFromGlueIgnoringErrors(table, databaseName)
+                        .filter(converted -> !isAvroTableWithSchemaSet(converted))
                         .ifPresent(cacheTable);
             }
 
@@ -476,7 +480,11 @@ public class GlueHiveMetastore
             GetTableResponse result = stats.getGetTable().call(() -> glueClient.getTable(builder -> builder
                     .databaseName(databaseName)
                     .name(tableName)));
-            return Optional.of(GlueConverter.fromGlueTable(result.table(), databaseName));
+            Table table = GlueConverter.fromGlueTable(result.table(), databaseName);
+            if (isAvroTableWithSchemaSet(table)) {
+                table = withColumnsFromAvroSchema(fileSystem, table);
+            }
+            return Optional.of(table);
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
