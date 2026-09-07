@@ -773,11 +773,12 @@ public class TracingMetadata
             ViewHandle materializedViewHandle,
             TableHandle storageTableHandle,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, refreshType);
+            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, sourceViewHandles, refreshType);
         }
     }
 
@@ -799,6 +800,7 @@ public class TracingMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -812,6 +814,7 @@ public class TracingMetadata
                     fragments,
                     computedStatistics,
                     sourceTableHandles,
+                    sourceViewHandles,
                     sourceTableFunctions,
                     hasNonDeterministicFunctions);
         }
