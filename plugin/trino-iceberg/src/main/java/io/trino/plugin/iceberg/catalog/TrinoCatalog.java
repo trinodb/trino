@@ -45,6 +45,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -234,6 +235,11 @@ public interface TrinoCatalog
             boolean hasForeignSourceTables,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+    }
+
+    default OptionalLong getMaterializedViewIncrementalRefreshFromSnapshot(Table storageTable, List<ConnectorTableHandle> sourceTableHandles)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
