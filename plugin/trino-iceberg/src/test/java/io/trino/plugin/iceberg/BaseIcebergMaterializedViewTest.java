@@ -2105,17 +2105,17 @@ public abstract class BaseIcebergMaterializedViewTest
         return TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystemFactory), metadataLocation.toString());
     }
 
-    private long getLatestSnapshotId(String tableName)
+    protected long getLatestSnapshotId(String tableName)
     {
         return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 
-    private void assertFreshness(String viewName, String expected)
+    protected void assertFreshness(String viewName, String expected)
     {
         assertThat((String) computeScalar("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'")).isEqualTo(expected);
     }
 
-    private ZonedDateTime getLastFreshTime(String viewName)
+    protected ZonedDateTime getLastFreshTime(String viewName)
     {
         return (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue();
     }
