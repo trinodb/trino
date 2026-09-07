@@ -49,6 +49,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.preOrder;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.computeEnforced;
@@ -79,6 +80,10 @@ import static java.util.Objects.requireNonNull;
  */
 public class DeriveTableScanConstraintThroughProject
 {
+    // Inlining duplicates a projected expression once per reference, so the scratch expression can
+    // grow quadratically in the query size; above this many nodes no constraint is derived.
+    private static final long MAX_INLINED_EXPRESSION_SIZE = 10_000;
+
     private final PlannerContext plannerContext;
 
     public DeriveTableScanConstraintThroughProject(PlannerContext plannerContext)
@@ -199,6 +204,17 @@ public class DeriveTableScanConstraintThroughProject
             return Result.empty();
         }
 
+        // estimated without building the inlined expression, so a blowup is rejected for free
+        long estimatedInlinedSize = candidateConjuncts.stream()
+                .mapToLong(conjunct -> preOrder(conjunct).count()
+                        + SymbolsExtractor.extractAll(conjunct).stream()
+                        .mapToLong(symbol -> preOrder(project.getAssignments().get(symbol)).count())
+                        .sum())
+                .sum();
+        if (estimatedInlinedSize > MAX_INLINED_EXPRESSION_SIZE) {
+            return Result.empty();
+        }
+
         Expression inlined = inlineSymbols(project.getAssignments()::get, combineConjuncts(candidateConjuncts));
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(plannerContext, session, inlined);
@@ -243,14 +259,14 @@ public class DeriveTableScanConstraintThroughProject
                 tableScan.getOutputSymbols(),
                 tableScan.getAssignments(),
                 newEnforcedConstraint,
-                // Unlike in PushPredicateIntoTableScan, the filter stays above the projection, so
-                // deriving the scan estimate from the filter would apply its selectivity twice:
-                // once in the precalculated scan statistics and once by the filter above.
-                Optional.empty(),
+                // The scan's statistics (if any) still describe a superset of the narrowed scan and
+                // may be unreproducible by the connector, so they are inherited rather than dropped.
+                // Deriving new statistics from the filter would double-count its selectivity, since
+                // the filter stays in the plan.
+                tableScan.getStatistics(),
                 tableScan.isUpdateTarget(),
                 tableScan.getUseConnectorNodePartitioning());
 
-        // the filter and projection are kept as-is: row-level semantics (nulls, errors) must be preserved
         PlanNode newSource = newScan;
         if (residualFilter.isPresent()) {
             newSource = residualFilter.get().replaceChildren(ImmutableList.of(newScan));

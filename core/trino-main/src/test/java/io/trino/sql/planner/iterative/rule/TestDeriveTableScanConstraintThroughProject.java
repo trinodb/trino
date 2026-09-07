@@ -40,6 +40,9 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.stream.IntStream;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
@@ -201,6 +204,27 @@ public class TestDeriveTableScanConstraintThroughProject
                         p.project(
                                 Assignments.builder()
                                         .put(p.symbol("x", DOUBLE), new Call(RANDOM, ImmutableList.of()))
+                                        .build(),
+                                p.tableScan(
+                                        ordersTableHandle,
+                                        ImmutableList.of(p.symbol("orderstatus", STATUS_TYPE)),
+                                        ImmutableMap.of(p.symbol("orderstatus", STATUS_TYPE), orderStatusColumn)))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireWhenInlinedExpressionExceedsSizeBudget()
+    {
+        // each reference to the projected expression counts toward the size estimate
+        Expression manyValues = new Logical(OR, IntStream.range(0, 4000)
+                .mapToObj(i -> comparison(EQUAL, X, new Constant(WIDE_STATUS_TYPE, utf8Slice("v" + i))))
+                .collect(toImmutableList()));
+        tester().assertThat(rule)
+                .on(p -> p.filter(
+                        manyValues,
+                        p.project(
+                                Assignments.builder()
+                                        .put(p.symbol("x", WIDE_STATUS_TYPE), new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))
                                         .build(),
                                 p.tableScan(
                                         ordersTableHandle,
