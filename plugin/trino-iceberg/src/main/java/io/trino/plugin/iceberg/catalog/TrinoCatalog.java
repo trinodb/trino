@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.TrinoPrincipal;
@@ -109,6 +110,15 @@ public interface TrinoCatalog
                 .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_MATERIALIZED_VIEW)
                 .map(TableInfo::tableName)
                 .collect(toImmutableList());
+    }
+
+    default Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
+    {
+        ImmutableMap.Builder<SchemaTableName, RelationType> result = ImmutableMap.builder();
+        for (TableInfo info : listTables(session, namespace)) {
+            result.put(info.tableName(), info.extendedRelationType().toRelationType());
+        }
+        return result.buildKeepingLast();
     }
 
     Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
