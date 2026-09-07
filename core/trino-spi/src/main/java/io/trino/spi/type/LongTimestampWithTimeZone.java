@@ -17,7 +17,10 @@ import java.util.Objects;
 import java.util.StringJoiner;
 
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.spi.type.DateTimeEncoding.checkMillisUtcInRange;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static java.lang.Math.addExact;
+import static java.lang.Math.multiplyExact;
 
 public final class LongTimestampWithTimeZone
         implements Comparable<LongTimestampWithTimeZone>
@@ -31,7 +34,7 @@ public final class LongTimestampWithTimeZone
     public static LongTimestampWithTimeZone fromEpochSecondsAndFraction(long epochSecond, long fractionInPicos, TimeZoneKey timeZoneKey)
     {
         return fromEpochMillisAndFraction(
-                epochSecond * 1_000 + fractionInPicos / 1_000_000_000,
+                addExact(multiplyExact(epochSecond, 1_000), fractionInPicos / 1_000_000_000),
                 (int) (fractionInPicos % 1_000_000_000),
                 timeZoneKey);
     }
@@ -54,6 +57,7 @@ public final class LongTimestampWithTimeZone
         if (picosOfMilli >= PICOSECONDS_PER_MILLISECOND) {
             throw new IllegalArgumentException("picosOfMilli must be < " + PICOSECONDS_PER_MILLISECOND);
         }
+        checkMillisUtcInRange(epochMillis);
         this.epochMillis = epochMillis;
         this.picosOfMilli = picosOfMilli;
         this.timeZoneKey = timeZoneKey;

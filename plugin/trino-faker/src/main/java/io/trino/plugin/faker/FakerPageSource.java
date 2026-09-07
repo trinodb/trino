@@ -635,17 +635,17 @@ class FakerPageSource
         LongTimestampWithTimeZoneRange range = LongTimestampWithTimeZoneRange.of(genericRange, tzType.getPrecision());
         int picosOfMilliHigh = (int) POWERS_OF_TEN[tzType.getPrecision() - 3] - 1;
         return blockBuilder -> {
-            long millis = numberBetween(range.low.getEpochMillis(), range.high.getEpochMillis());
+            long millis = numberBetween(range.lowEpochMillis(), range.highEpochMillis());
             int picosOfMilli;
-            if (millis == range.low.getEpochMillis()) {
+            if (millis == range.lowEpochMillis()) {
                 picosOfMilli = numberBetween(
-                        range.low.getPicosOfMilli(),
-                        range.low.getEpochMillis() == range.high.getEpochMillis() ?
-                                range.high.getPicosOfMilli()
+                        range.lowPicosOfMilli(),
+                        range.lowEpochMillis() == range.highEpochMillis() ?
+                                range.highPicosOfMilli()
                                 : picosOfMilliHigh);
             }
-            else if (millis == range.high.getEpochMillis()) {
-                picosOfMilli = numberBetween(0, range.high.getPicosOfMilli());
+            else if (millis == range.highEpochMillis()) {
+                picosOfMilli = numberBetween(0, range.highPicosOfMilli());
             }
             else {
                 picosOfMilli = numberBetween(0, picosOfMilliHigh);
@@ -923,7 +923,11 @@ class FakerPageSource
         }
     }
 
-    private record LongTimestampWithTimeZoneRange(LongTimestampWithTimeZone low, LongTimestampWithTimeZone high, int factor, short defaultTZ, long step)
+    /**
+     * The bounds are exclusive at one end and the picoseconds are scaled down by {@code factor}, so neither bound is
+     * necessarily a value that {@code timestamp with time zone} can represent. They are kept as plain numbers.
+     */
+    private record LongTimestampWithTimeZoneRange(long lowEpochMillis, int lowPicosOfMilli, long highEpochMillis, int highPicosOfMilli, int factor, short defaultTZ, long step)
     {
         static LongTimestampWithTimeZoneRange of(Range range, int precision)
         {
@@ -943,25 +947,26 @@ class FakerPageSource
                 throw new TrinoException(INVALID_ROW_FILTER, "Range boundaries for timestamp with time zone columns must have the same time zone");
             }
             int factor = (int) POWERS_OF_TEN[12 - precision];
-            int lowPicosOfMilli = roundDiv(low.getPicosOfMilli(), factor) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0);
-            low = fromEpochMillisAndFraction(
-                    low.getEpochMillis() - (lowPicosOfMilli < 0 ? 1 : 0),
-                    (lowPicosOfMilli + factor) % factor,
-                    low.getTimeZoneKey());
-            int highPicosOfMilli = roundDiv(high.getPicosOfMilli(), factor) + (!range.isHighUnbounded() && range.isHighInclusive() ? 1 : 0);
-            high = fromEpochMillisAndFraction(
-                    high.getEpochMillis() + (highPicosOfMilli > factor ? 1 : 0),
-                    highPicosOfMilli % factor,
-                    high.getTimeZoneKey());
-            return new LongTimestampWithTimeZoneRange(low, high, factor, defaultTZ, step);
+            int lowPicos = roundDiv(low.getPicosOfMilli(), factor) + (!range.isLowUnbounded() && !range.isLowInclusive() ? 1 : 0);
+            int highPicos = roundDiv(high.getPicosOfMilli(), factor) + (!range.isHighUnbounded() && range.isHighInclusive() ? 1 : 0);
+            return new LongTimestampWithTimeZoneRange(
+                    low.getEpochMillis() - (lowPicos < 0 ? 1 : 0),
+                    (lowPicos + factor) % factor,
+                    high.getEpochMillis() + (highPicos > factor ? 1 : 0),
+                    highPicos % factor,
+                    factor,
+                    defaultTZ,
+                    step);
         }
 
         LongTimestampWithTimeZone at(long index, long stepFactor)
         {
             // TODO support nanosecond increments
             // TODO handle exclusive high
-            long millis = low.getEpochMillis() + roundDiv(index * step, stepFactor);
-            return fromEpochMillisAndFraction(step > 0 ? Math.min(millis, high.getEpochMillis()) : Math.max(millis, high.getEpochMillis()), 0, defaultTZ);
+            long millis = lowEpochMillis + roundDiv(index * step, stepFactor);
+            // highEpochMillis is exclusive when no picoseconds of it are included
+            long lastEpochMillis = highPicosOfMilli > 0 ? highEpochMillis : highEpochMillis - 1;
+            return fromEpochMillisAndFraction(step > 0 ? Math.min(millis, lastEpochMillis) : Math.max(millis, lastEpochMillis), 0, defaultTZ);
         }
     }
 
