@@ -30,7 +30,8 @@ public class TestWebUiConfig
         assertRecordedDefaults(recordDefaults(WebUiConfig.class)
                 .setEnabled(true)
                 .setPreviewEnabled(true)
-                .setLegacyEnabled(false));
+                .setLegacyEnabled(false)
+                .setQueryEditorEnabled(false));
     }
 
     @Test
@@ -39,12 +40,14 @@ public class TestWebUiConfig
         Map<String, String> properties = ImmutableMap.of(
                 "web-ui.enabled", "false",
                 "web-ui.preview.enabled", "false",
-                "web-ui.legacy.enabled", "true");
+                "web-ui.legacy.enabled", "true",
+                "web-ui.query-editor.enabled", "true");
 
         WebUiConfig expected = new WebUiConfig()
                 .setEnabled(false)
                 .setPreviewEnabled(false)
-                .setLegacyEnabled(true);
+                .setLegacyEnabled(true)
+                .setQueryEditorEnabled(true);
 
         assertFullMapping(properties, expected);
     }

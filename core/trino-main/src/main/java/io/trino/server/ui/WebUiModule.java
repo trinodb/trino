@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
@@ -31,12 +32,18 @@ public class WebUiModule
 
         configBinder(binder).bindConfig(WebUiConfig.class);
 
-        if (buildConfigObject(WebUiConfig.class).isEnabled()) {
+        WebUiConfig webUiConfig = buildConfigObject(WebUiConfig.class);
+        checkArgument(webUiConfig.isEnabled() || !webUiConfig.isQueryEditorEnabled(), "web-ui.query-editor.enabled requires web-ui.enabled to be true");
+
+        if (webUiConfig.isEnabled()) {
             install(new WebUiFrontendModule());
             install(new WebUiLegacyAuthenticationModule());
             jaxrsBinder(binder).bind(ClusterResource.class);
             jaxrsBinder(binder).bind(ClusterStatsResource.class);
             jaxrsBinder(binder).bind(UiQueryResource.class);
+            if (webUiConfig.isQueryEditorEnabled()) {
+                jaxrsBinder(binder).bind(UiStatementResource.class);
+            }
         }
         else {
             binder.bind(WebUiAuthenticationFilter.class).to(DisabledWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
