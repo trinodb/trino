@@ -98,6 +98,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
@@ -452,6 +453,10 @@ public final class DomainTranslator
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement)
                         .orElseGet(() -> visitExpression(originalExpression, complement));
             }
+            if (normalized.getComparisonOperator() == IDENTICAL && normalized.getValue().getType().equals(BOOLEAN) && normalized.getValue().getValue() != null) {
+                return processBooleanIdentical(symbolExpression, (boolean) normalized.getValue().getValue(), complement)
+                        .orElseGet(() -> visitExpression(originalExpression, complement));
+            }
             if (symbolExpression instanceof Cast castExpression) {
                 // type of expression which is then cast to type of value
                 Type castSourceType = castExpression.expression().type();
@@ -499,6 +504,51 @@ public final class DomainTranslator
                 return visitExpression(originalExpression, complement);
             }
             return visitExpression(originalExpression, complement);
+        }
+
+        /**
+         * Extracts a domain from {@code e IDENTICAL <boolean constant>}, where {@code e} is not a symbol,
+         * e.g. {@code (a < 0) IS NOT DISTINCT FROM TRUE}. Such a predicate selects the rows for which
+         * {@code e} is true (false, respectively), so the domain is the one for {@code e} itself.
+         * The negated predicate, {@code (a < 0) IS DISTINCT FROM TRUE}, also selects the rows for which
+         * {@code e} is null, so it is derived by complementing the domain for {@code e}, which requires
+         * that domain to be exact, to constrain a single column, and to keep NaN accounted for.
+         * Returns empty when there is nothing to extract, so that the caller keeps the original expression.
+         */
+        private Optional<ExtractionResult> processBooleanIdentical(Expression operand, boolean value, boolean complement)
+        {
+            ExtractionResult result = process(operand, !value);
+            if (!complement) {
+                if (result.getTupleDomain().isAll() && !result.getRemainingExpression().equals(TRUE)) {
+                    // no domain was extracted, so rewriting the predicate to the operand alone would gain nothing
+                    return Optional.empty();
+                }
+                return Optional.of(result);
+            }
+
+            if (result.getTupleDomain().isNone()) {
+                // the domain is a superset of the rows the operand selects, so an empty one means the operand is never true
+                return Optional.of(new ExtractionResult(TupleDomain.all(), TRUE));
+            }
+            if (!result.getRemainingExpression().equals(TRUE)) {
+                // the domain is a superset of the values the operand selects, so its complement would be a subset of what the negation selects
+                return Optional.empty();
+            }
+            Map<Symbol, Domain> domains = result.getTupleDomain().getDomains().orElseThrow();
+            if (domains.size() != 1) {
+                // a TupleDomain is a conjunction of per-column domains, so complementing more than one of them is not expressible
+                return Optional.empty();
+            }
+            Map.Entry<Symbol, Domain> entry = getOnlyElement(domains.entrySet());
+            Domain domain = entry.getValue();
+            if (typeHasNaN(domain.getType()) && !domain.getValues().isAll() && !domain.getValues().isNone()) {
+                // NaN belongs to no range, so complementing a proper subset of the values would drop it, while the negated predicate selects it.
+                // An all or empty value set is the exception: it contains NaN exactly when it contains everything, so complementing it flips NaN too.
+                return Optional.empty();
+            }
+            return Optional.of(new ExtractionResult(
+                    TupleDomain.withColumnDomains(ImmutableMap.of(entry.getKey(), domain.complement())),
+                    TRUE));
         }
 
         /**
