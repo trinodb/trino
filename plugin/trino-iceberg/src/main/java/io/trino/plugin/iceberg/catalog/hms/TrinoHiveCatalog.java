@@ -47,6 +47,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -864,6 +865,12 @@ public class TrinoHiveCatalog
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         metastore.renameTable(source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
+    {
+        return getMaterializedViewFreshnessUsingDependsOnTables(session, materializedViewName, considerGracePeriod, metadataFetchingExecutor);
     }
 
     private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)

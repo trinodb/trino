@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -45,6 +47,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 /**
  * An interface to allow different Iceberg catalog implementations in IcebergMetadata.
@@ -208,6 +211,11 @@ public interface TrinoCatalog
     Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName);
 
     void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
+
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+    }
 
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
 
