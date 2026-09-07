@@ -4200,6 +4200,7 @@ public class LocalExecutionPlanner
                         fragments,
                         statistics,
                         refreshTarget.getSourceTableHandles(),
+                        refreshTarget.getSourceViewHandles(),
                         refreshTarget.getSourceTableFunctions(),
                         refreshTarget.hasNonDeterministicFunctions());
             }

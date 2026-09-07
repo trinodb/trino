@@ -4097,7 +4097,9 @@ public class IcebergMetadata
             ConnectorViewHandle materializedViewHandle,
             ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             RetryMode retryMode,
             RefreshType refreshType)
     {
@@ -4143,7 +4145,9 @@ public class IcebergMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {

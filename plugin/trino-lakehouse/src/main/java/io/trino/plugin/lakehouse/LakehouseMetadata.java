@@ -616,7 +616,9 @@ public class LakehouseMetadata
             ConnectorViewHandle materializedViewHandle,
             ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             RetryMode retryMode,
             RefreshType refreshType)
     {
@@ -624,7 +626,7 @@ public class LakehouseMetadata
                 .filter(IcebergTableHandle.class::isInstance)
                 .toList();
         hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
-        return icebergMetadata.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, icebergSourceHandles, hasForeignSourceTables, retryMode, refreshType);
+        return icebergMetadata.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, icebergSourceHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, retryMode, refreshType);
     }
 
     @Override
@@ -643,7 +645,9 @@ public class LakehouseMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -651,7 +655,7 @@ public class LakehouseMetadata
                 .filter(IcebergTableHandle.class::isInstance)
                 .toList();
         hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
-        return icebergMetadata.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+        return icebergMetadata.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, hasSourceTableFunctions, hasNonDeterministicFunctions);
     }
 
     @Override

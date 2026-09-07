@@ -270,6 +270,8 @@ public class Analysis
 
     private final Deque<TableReferenceInfo> referenceChain = new ArrayDeque<>();
 
+    private final Set<ViewHandle> referencedViewHandles = new LinkedHashSet<>();
+
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
@@ -691,6 +693,24 @@ public class Analysis
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toImmutableList());
+    }
+
+    /**
+     * Returns a handle for every view or materialized view that was referenced while resolving a
+     * table reference in this analysis, recorded via {@link #recordReferencedView}.
+     */
+    public List<ViewHandle> getReferencedViews()
+    {
+        return ImmutableList.copyOf(referencedViewHandles);
+    }
+
+    /**
+     * Records that the given view or materialized view was referenced while resolving a table
+     * reference, so it shows up in {@link #getReferencedViews()}.
+     */
+    public void recordReferencedView(ViewHandle handle)
+    {
+        referencedViewHandles.add(handle);
     }
 
     public void registerTable(

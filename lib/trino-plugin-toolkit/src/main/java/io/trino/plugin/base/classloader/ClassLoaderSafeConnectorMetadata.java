@@ -686,12 +686,14 @@ public class ClassLoaderSafeConnectorMetadata
             ConnectorViewHandle materializedViewHandle,
             ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             RetryMode retryMode,
             RefreshType refreshType)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
+            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, retryMode, refreshType);
         }
     }
 
@@ -720,12 +722,14 @@ public class ClassLoaderSafeConnectorMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+            return delegate.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, hasSourceTableFunctions, hasNonDeterministicFunctions);
         }
     }
 

@@ -899,14 +899,17 @@ public interface ConnectorMetadata
      * Same as {@link #beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, boolean, RetryMode, RefreshType)},
      * with the addition of {@code materializedViewHandle} (the handle of the
      * materialized view being refreshed; {@code storageTableHandle} identifies its storage table,
-     * not the materialized view itself).
+     * not the materialized view itself), {@code sourceViewHandles} and {@code hasForeignSourceViews}, the
+     * view-level counterparts of {@code sourceTableHandles} and {@code hasForeignSourceTables}
      */
     default ConnectorInsertTableHandle beginRefreshMaterializedView(
             ConnectorSession session,
             ConnectorViewHandle materializedViewHandle,
             ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             RetryMode retryMode,
             RefreshType refreshType)
     {
@@ -949,7 +952,8 @@ public interface ConnectorMetadata
      * Same as {@link #finishRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, ConnectorInsertTableHandle, Collection, Collection, List, boolean, boolean, boolean)},
      * with the addition of {@code materializedViewHandle} (the handle of the
      * materialized view being refreshed; {@code storageTableHandle} identifies its storage table,
-     * not the materialized view itself).
+     * not the materialized view itself), {@code sourceViewHandles} and {@code hasForeignSourceViews}, the
+     * view-level counterparts of {@code sourceTableHandles} and {@code hasForeignSourceTables}.
      */
     default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
@@ -959,7 +963,9 @@ public interface ConnectorMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {

@@ -772,13 +772,15 @@ public class TracingConnectorMetadata
             ConnectorViewHandle materializedViewHandle,
             ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             RetryMode retryMode,
             RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
+            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, retryMode, refreshType);
         }
     }
 
@@ -809,13 +811,15 @@ public class TracingConnectorMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
         Span span = startSpan("finishRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+            return delegate.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, hasSourceTableFunctions, hasNonDeterministicFunctions);
         }
     }
 
