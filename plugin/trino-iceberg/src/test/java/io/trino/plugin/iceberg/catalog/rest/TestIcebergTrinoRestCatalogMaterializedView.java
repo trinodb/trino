@@ -647,6 +647,89 @@ public class TestIcebergTrinoRestCatalogMaterializedView
     }
 
     @Test
+    public void testMaterializedViewOnFreshNestedMaterializedView()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        String baseTableName = "test_fresh_nested_mv_base_" + randomNameSuffix();
+        String innerMaterializedViewName = "test_inner_mv_" + randomNameSuffix();
+        String outerMaterializedViewName = "test_outer_mv_" + randomNameSuffix();
+        String outerFreshnessQuery = format(
+                "SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '%s'",
+                outerMaterializedViewName);
+
+        assertUpdate("CREATE TABLE " + baseTableName + " AS SELECT 1 AS a", 1);
+        assertUpdate("CREATE MATERIALIZED VIEW " + innerMaterializedViewName + " AS SELECT * FROM " + baseTableName);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + innerMaterializedViewName, 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW " + outerMaterializedViewName + " AS SELECT * FROM " + innerMaterializedViewName);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + outerMaterializedViewName, 1);
+        assertQuery("SELECT * FROM " + outerMaterializedViewName, "VALUES 1");
+
+        View innerView = backend.loadView(TableIdentifier.of(Namespace.of(schema), innerMaterializedViewName));
+        String innerStorageTableName = (String) computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + innerMaterializedViewName + "'");
+
+        Table innerStorageTable = backend.loadTable(TableIdentifier.of(Namespace.of(schema), innerStorageTableName));
+        String initialRefreshStateJson = getStorageTableMetadata(outerMaterializedViewName).currentSnapshot().summary().get(RefreshState.REFRESH_STATE_SUMMARY_KEY);
+        RefreshState refreshState = RefreshStateParser.fromJson(initialRefreshStateJson);
+        List<SourceState> sourceStates = refreshState.sourceStates();
+        assertThat(sourceStates).hasSize(2);
+        assertThat(sourceStates.stream().filter(SourceTableState.class::isInstance).map(SourceTableState.class::cast).toList())
+                .singleElement()
+                .satisfies(sourceTableState -> {
+                    assertThat(sourceTableState.name()).isEqualTo(innerStorageTableName);
+                    assertThat(sourceTableState.namespace()).containsExactly(schema);
+                    assertThat(sourceTableState.snapshotId()).isEqualTo(innerStorageTable.currentSnapshot().snapshotId());
+                });
+        assertThat(sourceStates.stream().filter(SourceViewState.class::isInstance).map(SourceViewState.class::cast).toList())
+                .singleElement()
+                .satisfies(sourceViewState -> {
+                    assertThat(sourceViewState.name()).isEqualTo(innerMaterializedViewName);
+                    assertThat(sourceViewState.namespace()).containsExactly(schema);
+                    assertThat(sourceViewState.catalog()).isEqualTo(catalog);
+                    assertThat(sourceViewState.uuid()).isEqualTo(innerView.uuid().toString());
+                    assertThat(sourceViewState.versionId()).isEqualTo(innerView.currentVersion().versionId());
+                });
+
+        // Refreshing the inner MV independently changes only its storage table's snapshot, not its ViewVersion,
+        // so the outer MV's recorded SourceTableState (not its SourceViewState) is what picks up the staleness.
+        assertUpdate("INSERT INTO " + baseTableName + " VALUES 2", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + innerMaterializedViewName, 1);
+        assertQuery("SELECT * FROM " + innerMaterializedViewName, "VALUES 1, 2");
+
+        assertQuery(outerFreshnessQuery, "VALUES 'STALE'");
+        String unchangedRefreshStateJson = getStorageTableMetadata(outerMaterializedViewName).currentSnapshot().summary().get(RefreshState.REFRESH_STATE_SUMMARY_KEY);
+        assertThat(unchangedRefreshStateJson).isEqualTo(initialRefreshStateJson);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + outerMaterializedViewName, 2);
+        assertQuery("SELECT * FROM " + outerMaterializedViewName, "VALUES 1, 2");
+        assertQuery(outerFreshnessQuery, "VALUES 'FRESH'");
+
+        Table innerStorageTableUpdated = backend.loadTable(TableIdentifier.of(Namespace.of(schema), innerStorageTableName));
+        RefreshState updatedRefreshState = RefreshStateParser.fromJson(getStorageTableMetadata(outerMaterializedViewName).currentSnapshot().summary().get(RefreshState.REFRESH_STATE_SUMMARY_KEY));
+        assertThat(updatedRefreshState.sourceStates().stream().filter(SourceTableState.class::isInstance).map(SourceTableState.class::cast).toList())
+                .singleElement()
+                .satisfies(sourceTableState -> {
+                    assertThat(sourceTableState.name()).isEqualTo(innerStorageTableName);
+                    assertThat(sourceTableState.snapshotId()).isEqualTo(innerStorageTableUpdated.currentSnapshot().snapshotId());
+                });
+        assertThat(updatedRefreshState.sourceStates().stream().filter(SourceViewState.class::isInstance).map(SourceViewState.class::cast).toList())
+                .singleElement()
+                .satisfies(sourceViewState -> {
+                    assertThat(sourceViewState.name()).isEqualTo(innerMaterializedViewName);
+                    assertThat(sourceViewState.namespace()).containsExactly(schema);
+                    assertThat(sourceViewState.catalog()).isEqualTo(catalog);
+                    assertThat(sourceViewState.uuid()).isEqualTo(innerView.uuid().toString());
+                    assertThat(sourceViewState.versionId()).isEqualTo(innerView.currentVersion().versionId());
+                });
+
+        assertUpdate("DROP MATERIALIZED VIEW " + outerMaterializedViewName);
+        assertUpdate("DROP MATERIALIZED VIEW " + innerMaterializedViewName);
+        assertUpdate("DROP TABLE " + baseTableName);
+    }
+
+    @Test
     public void testMaterializedViewGoesStaleWhenSourceSchemaChangesWithoutNewSnapshot()
     {
         String sourceTableName = "test_schema_only_change_source_" + randomNameSuffix();

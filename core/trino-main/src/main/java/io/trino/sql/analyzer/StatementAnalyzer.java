@@ -2779,6 +2779,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (freshStorageTable.isPresent()) {
+                analysis.recordFreshMaterializedViewSubstitution(name);
                 List<Field> storageTableFields = analyzeStorageTable(table, viewFields, freshStorageTable.get());
                 analysis.setMaterializedViewStorageTableFields(table, storageTableFields);
             }

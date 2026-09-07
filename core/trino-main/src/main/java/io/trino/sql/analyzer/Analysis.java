@@ -270,6 +270,8 @@ public class Analysis
 
     private final Deque<TableReferenceInfo> referenceChain = new ArrayDeque<>();
 
+    private final Set<CatalogSchemaTableName> freshMaterializedViewSubstitutions = new LinkedHashSet<>();
+
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
@@ -697,15 +699,19 @@ public class Analysis
      * Returns the distinct set of views and materialized views (in any catalog) that were
      * referenced, directly or transitively, while resolving every table reference in this
      * analysis. Derived from the same reference-chain tracking already used to report view
-     * lineage to event listeners ({@link TableInfo#getReferenceChain()}).
+     * lineage to event listeners ({@link TableInfo#getReferenceChain()}), plus any fresh
+     * materialized view substitutions (see {@link #recordFreshMaterializedViewSubstitution}),
+     * which never appear in that chain.
      */
     public List<CatalogSchemaTableName> getReferencedViews()
     {
-        return tables.values().stream()
-                .flatMap(entry -> entry.getReferenceChain().stream())
-                .filter(BaseViewReferenceInfo.class::isInstance)
-                .map(BaseViewReferenceInfo.class::cast)
-                .map(reference -> new CatalogSchemaTableName(reference.catalogName(), reference.schemaName(), reference.viewName()))
+        return Stream.concat(
+                        tables.values().stream()
+                                .flatMap(entry -> entry.getReferenceChain().stream())
+                                .filter(BaseViewReferenceInfo.class::isInstance)
+                                .map(BaseViewReferenceInfo.class::cast)
+                                .map(reference -> new CatalogSchemaTableName(reference.catalogName(), reference.schemaName(), reference.viewName())),
+                        freshMaterializedViewSubstitutions.stream())
                 .distinct()
                 .collect(toImmutableList());
     }
@@ -1033,6 +1039,11 @@ public class Analysis
     {
         tablesForView.pop();
         referenceChain.pop();
+    }
+
+    public void recordFreshMaterializedViewSubstitution(QualifiedObjectName name)
+    {
+        freshMaterializedViewSubstitutions.add(new CatalogSchemaTableName(name.catalogName(), name.schemaName(), name.objectName()));
     }
 
     public boolean hasTableInView(Table tableReference)
