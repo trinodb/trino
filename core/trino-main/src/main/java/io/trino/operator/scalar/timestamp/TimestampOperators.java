@@ -217,6 +217,8 @@ public final class TimestampOperators
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusTimestamp
     {
+        private static final int HALF_MILLISECOND_IN_MICROS = MICROSECONDS_PER_MILLISECOND / 2;
+
         private TimestampMinusTimestamp() {}
 
         @LiteralParameters("p")
@@ -225,19 +227,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") long left,
                 @SqlType("timestamp(p)") long right)
         {
-            // The difference in microseconds can overflow a long, while the difference in milliseconds cannot, so
-            // subtract the milliseconds and round the sub-millisecond remainder separately.
-            long millis = floorDiv(left, MICROSECONDS_PER_MILLISECOND) - floorDiv(right, MICROSECONDS_PER_MILLISECOND);
-            int microsOfMilli = floorMod(left, MICROSECONDS_PER_MILLISECOND) - floorMod(right, MICROSECONDS_PER_MILLISECOND);
-
-            // round half up, as roundDiv does
-            if (microsOfMilli >= MICROSECONDS_PER_MILLISECOND / 2) {
-                return millis + 1;
-            }
-            if (microsOfMilli < -(MICROSECONDS_PER_MILLISECOND / 2)) {
-                return millis - 1;
-            }
-            return millis;
+            return subtract(left, 0, right, 0);
         }
 
         @LiteralParameters("p")
@@ -246,7 +236,25 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp left,
                 @SqlType("timestamp(p)") LongTimestamp right)
         {
-            return subtract(left.getEpochMicros(), right.getEpochMicros());
+            return subtract(left.getEpochMicros(), left.getPicosOfMicro(), right.getEpochMicros(), right.getPicosOfMicro());
+        }
+
+        private static long subtract(long leftEpochMicros, int leftPicosOfMicro, long rightEpochMicros, int rightPicosOfMicro)
+        {
+            // The difference in microseconds can overflow a long, while the difference in milliseconds cannot, so
+            // subtract the milliseconds and round the sub-millisecond remainder separately.
+            long millis = floorDiv(leftEpochMicros, MICROSECONDS_PER_MILLISECOND) - floorDiv(rightEpochMicros, MICROSECONDS_PER_MILLISECOND);
+            int microsOfMilli = floorMod(leftEpochMicros, MICROSECONDS_PER_MILLISECOND) - floorMod(rightEpochMicros, MICROSECONDS_PER_MILLISECOND);
+            int picosOfMicro = leftPicosOfMicro - rightPicosOfMicro;
+
+            // round half up, as roundDiv does; the picoseconds decide the exact half-millisecond ties
+            if (microsOfMilli > HALF_MILLISECOND_IN_MICROS || (microsOfMilli == HALF_MILLISECOND_IN_MICROS && picosOfMicro >= 0)) {
+                return millis + 1;
+            }
+            if (microsOfMilli < -HALF_MILLISECOND_IN_MICROS || (microsOfMilli == -HALF_MILLISECOND_IN_MICROS && picosOfMicro < 0)) {
+                return millis - 1;
+            }
+            return millis;
         }
     }
 }
