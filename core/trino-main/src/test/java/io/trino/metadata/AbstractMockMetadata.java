@@ -530,7 +530,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
+    public InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            TableHandle tableHandle,
+            List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
+            RefreshType refreshType)
     {
         throw new UnsupportedOperationException();
     }
@@ -543,8 +548,15 @@ public abstract class AbstractMockMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<ViewHandle> getViewHandle(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }

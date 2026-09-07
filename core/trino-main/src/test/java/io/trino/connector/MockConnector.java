@@ -29,6 +29,7 @@ import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
+import io.trino.spi.connector.BasicViewHandle;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -63,6 +64,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DynamicFilter;
@@ -778,13 +780,32 @@ public class MockConnector
         }
 
         @Override
-        public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
+        public ConnectorInsertTableHandle beginRefreshMaterializedView(
+                ConnectorSession session,
+                ConnectorTableHandle tableHandle,
+                List<ConnectorTableHandle> sourceTableHandles,
+                List<ConnectorViewHandle> sourceViewHandles,
+                boolean hasForeignSourceTables,
+                boolean hasForeignSourceViews,
+                RetryMode retryMode,
+                RefreshType refreshType)
         {
             return new MockConnectorInsertTableHandle(((MockConnectorTableHandle) tableHandle).getTableName());
         }
 
         @Override
-        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions, boolean hasNonDeterministicFunctions)
+        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+                ConnectorSession session,
+                ConnectorTableHandle tableHandle,
+                ConnectorInsertTableHandle insertHandle,
+                Collection<Slice> fragments,
+                Collection<ComputedStatistics> computedStatistics,
+                List<ConnectorTableHandle> sourceTableHandles,
+                List<ConnectorViewHandle> sourceViewHandles,
+                boolean hasForeignSourceTables,
+                boolean hasForeignSourceViews,
+                boolean hasSourceTableFunctions,
+                boolean hasNonDeterministicFunctions)
         {
             return Optional.empty();
         }
@@ -805,6 +826,15 @@ public class MockConnector
         public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
         {
             return Optional.ofNullable(getViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
+        }
+
+        @Override
+        public Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+        {
+            if (getMaterializedView(session, viewName).isPresent()) {
+                return Optional.of(new BasicViewHandle(viewName));
+            }
+            return getView(session, viewName).map(_ -> new BasicViewHandle(viewName));
         }
 
         @Override

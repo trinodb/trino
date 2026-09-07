@@ -50,6 +50,7 @@ import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewDefinition;
+import io.trino.metadata.ViewHandle;
 import io.trino.metadata.ViewInfo;
 import io.trino.spi.RefreshType;
 import io.trino.spi.catalog.CatalogName;
@@ -786,11 +787,25 @@ public class TracingMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
+    public InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            TableHandle tableHandle,
+            List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
+            RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, refreshType);
+            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, sourceViewHandles, refreshType);
+        }
+    }
+
+    @Override
+    public Optional<ViewHandle> getViewHandle(Session session, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("getViewHandle", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getViewHandle(session, viewName);
         }
     }
 
@@ -802,6 +817,7 @@ public class TracingMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -814,6 +830,7 @@ public class TracingMetadata
                     fragments,
                     computedStatistics,
                     sourceTableHandles,
+                    sourceViewHandles,
                     sourceTableFunctions,
                     hasNonDeterministicFunctions);
         }

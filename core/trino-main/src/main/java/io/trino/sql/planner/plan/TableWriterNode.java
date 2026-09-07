@@ -30,6 +30,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
+import io.trino.metadata.ViewHandle;
 import io.trino.spi.RefreshType;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -487,6 +488,7 @@ public class TableWriterNode
         private final String table;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
+        private final List<ViewHandle> sourceViewHandles;
         private final List<String> sourceTableFunctions;
         private final boolean hasNonDeterministicFunctions;
         private final RefreshType refreshType;
@@ -495,6 +497,7 @@ public class TableWriterNode
                 String table,
                 TableHandle storageTableHandle,
                 List<TableHandle> sourceTableHandles,
+                List<ViewHandle> sourceViewHandles,
                 List<String> sourceTableFunctions,
                 boolean hasNonDeterministicFunctions,
                 RefreshType refreshType)
@@ -502,6 +505,7 @@ public class TableWriterNode
             this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.sourceViewHandles = ImmutableList.copyOf(sourceViewHandles);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
             this.hasNonDeterministicFunctions = hasNonDeterministicFunctions;
             this.refreshType = requireNonNull(refreshType, "refreshType is null");
@@ -515,6 +519,11 @@ public class TableWriterNode
         public List<TableHandle> getSourceTableHandles()
         {
             return sourceTableHandles;
+        }
+
+        public List<ViewHandle> getSourceViewHandles()
+        {
+            return sourceViewHandles;
         }
 
         @Override
@@ -560,7 +569,7 @@ public class TableWriterNode
 
         public RefreshMaterializedViewReference withRefreshType(RefreshType refreshType)
         {
-            return new RefreshMaterializedViewReference(table, storageTableHandle, sourceTableHandles, sourceTableFunctions, hasNonDeterministicFunctions, refreshType);
+            return new RefreshMaterializedViewReference(table, storageTableHandle, sourceTableHandles, sourceViewHandles, sourceTableFunctions, hasNonDeterministicFunctions, refreshType);
         }
     }
 
@@ -571,6 +580,7 @@ public class TableWriterNode
         private final InsertTableHandle insertHandle;
         private final SchemaTableName schemaTableName;
         private final List<TableHandle> sourceTableHandles;
+        private final List<ViewHandle> sourceViewHandles;
         private final List<String> sourceTableFunctions;
         private final boolean hasNonDeterministicFunctions;
         private final WriterScalingOptions writerScalingOptions;
@@ -581,6 +591,7 @@ public class TableWriterNode
                 @JsonProperty("insertHandle") InsertTableHandle insertHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
+                @JsonProperty("sourceViewHandles") List<ViewHandle> sourceViewHandles,
                 @JsonProperty("sourceTableFunctions") List<String> sourceTableFunctions,
                 @JsonProperty("hasNonDeterministicFunctions") boolean hasNonDeterministicFunctions,
                 @JsonProperty("writerScalingOptions") WriterScalingOptions writerScalingOptions)
@@ -589,6 +600,7 @@ public class TableWriterNode
             this.insertHandle = requireNonNull(insertHandle, "insertHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.sourceViewHandles = ImmutableList.copyOf(sourceViewHandles);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
             this.hasNonDeterministicFunctions = hasNonDeterministicFunctions;
             this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
@@ -616,6 +628,12 @@ public class TableWriterNode
         public List<TableHandle> getSourceTableHandles()
         {
             return sourceTableHandles;
+        }
+
+        @JsonProperty
+        public List<ViewHandle> getSourceViewHandles()
+        {
+            return sourceViewHandles;
         }
 
         @JsonProperty
