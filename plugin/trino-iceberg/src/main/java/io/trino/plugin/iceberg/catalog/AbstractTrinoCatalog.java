@@ -23,7 +23,6 @@ import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
-import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.TrinoException;
@@ -37,15 +36,6 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimeWithTimeZoneType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
@@ -58,18 +48,14 @@ import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.expressions.Expressions;
-import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
@@ -94,21 +80,11 @@ import static io.trino.plugin.iceberg.IcebergUtil.createTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
-import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.NumberType.NUMBER;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME_MICROS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -368,101 +344,7 @@ public abstract class AbstractTrinoCatalog
 
     protected List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties)
     {
-        Schema schemaWithTimestampTzPreserved = schemaFromMetadata(definition.getColumns().stream()
-                .map(column -> {
-                    Type type = typeManager.getType(column.getType());
-                    if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
-                        // For now preserve timestamptz columns so that we can parse partitioning
-                        type = TIMESTAMP_TZ_MICROS;
-                    }
-                    else {
-                        type = typeForMaterializedViewStorageTable(type);
-                    }
-                    return new ColumnMetadata(column.getName(), type);
-                })
-                .collect(toImmutableList()));
-        PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(materializedViewProperties));
-        Set<String> temporalPartitioningSources = partitionSpec.fields().stream()
-                .flatMap(partitionField -> {
-                    Types.NestedField sourceField = schemaWithTimestampTzPreserved.findField(partitionField.sourceId());
-                    Type sourceType = toTrinoType(sourceField.type(), typeManager);
-                    ColumnTransform columnTransform = getColumnTransform(partitionField, sourceType);
-                    if (!columnTransform.temporal()) {
-                        return Stream.of();
-                    }
-                    return Stream.of(sourceField.name());
-                })
-                .collect(toImmutableSet());
-
-        return definition.getColumns().stream()
-                .map(column -> {
-                    Type type = typeManager.getType(column.getType());
-                    if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.getName())) {
-                        // Apply point-in-time semantics to maintain partitioning capabilities
-                        type = TIMESTAMP_TZ_MICROS;
-                    }
-                    else {
-                        type = typeForMaterializedViewStorageTable(type);
-                    }
-                    return new ColumnMetadata(column.getName(), type);
-                })
-                .collect(toImmutableList());
-    }
-
-    /**
-     * Substitutes type not supported by Iceberg with a type that is supported.
-     * Upon reading from a materialized view, the types will be coerced back to the original ones,
-     * stored in the materialized view definition.
-     */
-    private Type typeForMaterializedViewStorageTable(Type type)
-    {
-        if (type == TINYINT || type == SMALLINT) {
-            return INTEGER;
-        }
-        if (type == NUMBER) {
-            return VARCHAR;
-        }
-        if (type instanceof CharType) {
-            return VARCHAR;
-        }
-        if (type instanceof TimeType timeType) {
-            // Iceberg supports microsecond precision only
-            return timeType.getPrecision() <= 6
-                    ? TIME_MICROS
-                    : VARCHAR;
-        }
-        if (type instanceof TimeWithTimeZoneType) {
-            return VARCHAR;
-        }
-        if (type instanceof TimestampType timestampType) {
-            // Iceberg supports microsecond precision only
-            return timestampType.getPrecision() <= 6
-                    ? TIMESTAMP_MICROS
-                    : VARCHAR;
-        }
-        if (type instanceof TimestampWithTimeZoneType) {
-            // Iceberg does not store the time zone.
-            return VARCHAR;
-        }
-        if (type instanceof ArrayType arrayType) {
-            return new ArrayType(typeForMaterializedViewStorageTable(arrayType.getElementType()));
-        }
-        if (type instanceof MapType mapType) {
-            return new MapType(
-                    typeForMaterializedViewStorageTable(mapType.getKeyType()),
-                    typeForMaterializedViewStorageTable(mapType.getValueType()),
-                    typeManager.getTypeOperators());
-        }
-        if (type instanceof RowType rowType) {
-            return RowType.rowType(
-                    rowType.getFields().stream()
-                            .map(field -> new RowType.Field(field.getName(), typeForMaterializedViewStorageTable(field.getType())))
-                            .toArray(RowType.Field[]::new));
-        }
-
-        // Pass through all the types not explicitly handled above. If a type is not accepted by the connector,
-        // creation of the storage table will fail anyway.
-        return type;
+        return MaterializedViewStorageColumns.columnsForMaterializedView(typeManager, definition, materializedViewProperties);
     }
 
     protected ConnectorMaterializedViewDefinition getMaterializedViewDefinition(
