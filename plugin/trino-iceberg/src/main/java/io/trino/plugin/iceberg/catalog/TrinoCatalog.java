@@ -16,12 +16,14 @@ package io.trino.plugin.iceberg.catalog;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
+import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -30,6 +32,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.TrinoPrincipal;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -38,6 +41,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +51,11 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_TABLES;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_TABLE_FUNCTIONS;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.TRINO_QUERY_START_TIME;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.UNKNOWN_SNAPSHOT_TOKEN;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 /**
@@ -215,6 +224,32 @@ public interface TrinoCatalog
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+    }
+
+    default void recordMaterializedViewRefresh(
+            ConnectorSession session,
+            AppendFiles appendFiles,
+            List<ConnectorTableHandle> sourceTableHandles,
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
+    {
+        List<String> tableDependencies = new ArrayList<>();
+        sourceTableHandles.stream()
+                .map(IcebergTableHandle.class::cast)
+                .map(handle -> "%s=%s".formatted(
+                        handle.getSchemaTableName(),
+                        handle.getSnapshotId().isPresent() ? Long.toString(handle.getSnapshotId().orElseThrow()) : ""))
+                .forEach(tableDependencies::add);
+        if (hasForeignSourceTables) {
+            tableDependencies.add(UNKNOWN_SNAPSHOT_TOKEN);
+        }
+
+        // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
+        appendFiles.set(DEPENDS_ON_TABLES, String.join(",", tableDependencies));
+        appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, String.valueOf(hasSourceTableFunctions));
+        appendFiles.set(DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, String.valueOf(hasNonDeterministicFunctions));
+        appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
     }
 
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
