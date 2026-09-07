@@ -240,7 +240,7 @@ public final class IcebergQueryRunner
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
                     .setBaseDataDir(Optional.of(warehouseLocation))
-                    .setIcebergProperties(ImmutableMap.of(
+                    .addIcebergProperties(ImmutableMap.of(
                             "iceberg.catalog.type", "rest",
                             "iceberg.rest-catalog.uri", testServer.getBaseUrl().toString()))
                     .setInitialTables(TpchTable.getTables())

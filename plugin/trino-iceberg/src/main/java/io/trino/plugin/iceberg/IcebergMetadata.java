@@ -4066,7 +4066,7 @@ public class IcebergMetadata
             appendFiles.appendFile(builder.build());
         }
 
-        catalog.recordMaterializedViewRefresh(session, appendFiles, sourceTableHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+        catalog.recordMaterializedViewRefresh(session, materializedViewName.getSchemaTableName(), appendFiles, sourceTableHandles, sourceViewNames, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
         appendFiles.scanManifestsWith(icebergScanExecutor);
         commitUpdateAndTransaction(appendFiles, session, transaction, "refresh materialized view");
         transaction = null;
