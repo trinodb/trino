@@ -87,6 +87,7 @@ import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
@@ -136,12 +137,14 @@ public class TestDomainTranslator
 
     private TestingFunctionResolution functionResolution;
     private DomainTranslator domainTranslator;
+    private ExtractionResultVerifier verifier;
 
     @BeforeAll
     public void setup()
     {
         functionResolution = new TestingFunctionResolution();
         domainTranslator = new DomainTranslator(functionResolution.getMetadata());
+        verifier = new ExtractionResultVerifier(functionResolution.getPlannerContext(), TEST_SESSION);
     }
 
     @AfterAll
@@ -1597,7 +1600,11 @@ public class TestDomainTranslator
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate);
+        ExtractionResult result = DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate);
+        if (isDeterministic(originalPredicate)) {
+            verifier.verify(originalPredicate, result);
+        }
+        return result;
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
