@@ -210,6 +210,7 @@ public enum StandardErrorCode
 
     UNSUPPORTED_TABLE_TYPE(133001, EXTERNAL),
     GENERIC_EXTERNAL_ERROR(133002, EXTERNAL),
+    EXCHANGE_DATA_UNRECOVERABLE(133003, EXTERNAL),
     /**/;
 
     // Connectors can use error codes starting at the range 0x0100_0000
