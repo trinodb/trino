@@ -13,27 +13,29 @@
  */
 package io.trino.plugin.session.db;
 
-import com.google.inject.Inject;
-import com.google.inject.Provider;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.jdbi.v3.core.Handle;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 
-public class SessionPropertiesDaoProvider
-        implements Provider<SessionPropertiesDao>
+public class TestDbSessionPropertyManagerMysql
+        extends BaseTestDbSessionPropertyManager
 {
-    private final SessionPropertiesDao dao;
-
-    @Inject
-    public SessionPropertiesDaoProvider(Jdbi jdbi)
+    @Override
+    protected JdbcDatabaseContainer<?> startContainer()
     {
-        this.dao = jdbi
-                .installPlugin(new SqlObjectPlugin())
-                .onDemand(SessionPropertiesDao.class);
+        JdbcDatabaseContainer<?> container = new TestingMySqlContainer();
+        container.start();
+        return container;
     }
 
     @Override
-    public SessionPropertiesDao get()
+    protected void lockSessionSpecs(Handle handle)
     {
-        return dao;
+        handle.execute("LOCK TABLES session_specs WRITE");
+    }
+
+    @Override
+    protected void unlockSessionSpecs(Handle handle)
+    {
+        handle.execute("UNLOCK TABLES");
     }
 }
