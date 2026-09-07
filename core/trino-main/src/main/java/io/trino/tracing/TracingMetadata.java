@@ -787,11 +787,16 @@ public class TracingMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
+    public InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            TableHandle tableHandle,
+            List<TableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
+            RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, refreshType);
+            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, sourceViewNames, refreshType);
         }
     }
 
@@ -803,6 +808,7 @@ public class TracingMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -815,6 +821,7 @@ public class TracingMetadata
                     fragments,
                     computedStatistics,
                     sourceTableHandles,
+                    sourceViewNames,
                     sourceTableFunctions,
                     hasNonDeterministicFunctions);
         }

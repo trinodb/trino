@@ -437,7 +437,12 @@ public interface Metadata
     /**
      * Begin refresh materialized view query
      */
-    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType);
+    InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            TableHandle tableHandle,
+            List<TableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
+            RefreshType refreshType);
 
     /**
      * Finish refresh materialized view query
@@ -449,6 +454,7 @@ public interface Metadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions);
 

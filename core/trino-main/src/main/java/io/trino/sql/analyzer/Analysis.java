@@ -35,6 +35,7 @@ import io.trino.metadata.TableLayout;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
@@ -689,6 +690,23 @@ public class Analysis
                 .map(TableEntry::getHandle)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
+                .collect(toImmutableList());
+    }
+
+    /**
+     * Returns the distinct set of views and materialized views (in any catalog) that were
+     * referenced, directly or transitively, while resolving every table reference in this
+     * analysis. Derived from the same reference-chain tracking already used to report view
+     * lineage to event listeners ({@link TableInfo#getReferenceChain()}).
+     */
+    public List<CatalogSchemaTableName> getReferencedViews()
+    {
+        return tables.values().stream()
+                .flatMap(entry -> entry.getReferenceChain().stream())
+                .filter(BaseViewReferenceInfo.class::isInstance)
+                .map(BaseViewReferenceInfo.class::cast)
+                .map(reference -> new CatalogSchemaTableName(reference.catalogName(), reference.schemaName(), reference.viewName()))
+                .distinct()
                 .collect(toImmutableList());
     }
 

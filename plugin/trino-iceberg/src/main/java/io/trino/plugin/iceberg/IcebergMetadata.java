@@ -4009,6 +4009,7 @@ public class IcebergMetadata
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
             boolean hasForeignSourceTables,
             RetryMode retryMode,
             RefreshType refreshType)
@@ -4054,6 +4055,7 @@ public class IcebergMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
             boolean hasForeignSourceTables,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)

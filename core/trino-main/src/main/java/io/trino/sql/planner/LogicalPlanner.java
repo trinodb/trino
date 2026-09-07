@@ -710,6 +710,7 @@ public class LogicalPlanner
                 viewAnalysis.getTable().toString(),
                 tableHandle,
                 ImmutableList.copyOf(analysis.getTables()),
+                ImmutableList.copyOf(analysis.getReferencedViews()),
                 tableFunctions,
                 hasNonDeterministicFunctions,
                 // this is a placeholder value - refresh type will be determined by getInsertPlan based on the plan tree
