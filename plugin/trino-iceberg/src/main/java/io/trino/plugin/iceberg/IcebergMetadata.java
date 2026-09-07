@@ -1113,11 +1113,7 @@ public class IcebergMetadata
     @Override
     public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> schemaName)
     {
-        ImmutableMap.Builder<SchemaTableName, RelationType> result = ImmutableMap.builder();
-        for (TableInfo info : catalog.listTables(session, schemaName)) {
-            result.put(info.tableName(), info.extendedRelationType().toRelationType());
-        }
-        return result.buildKeepingLast();
+        return catalog.getRelationTypes(session, schemaName);
     }
 
     @Override
