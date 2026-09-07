@@ -686,12 +686,13 @@ public class ClassLoaderSafeConnectorMetadata
             ConnectorViewHandle materializedViewHandle,
             ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
-            boolean hasForeignSourceTables,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
             RetryMode retryMode,
             RefreshType refreshType)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
+            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, sourceViewHandles, hasForeignSourceRelations, retryMode, refreshType);
         }
     }
 
@@ -720,12 +721,13 @@ public class ClassLoaderSafeConnectorMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
-            boolean hasForeignSourceTables,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+            return delegate.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewHandles, hasForeignSourceRelations, hasSourceTableFunctions, hasNonDeterministicFunctions);
         }
     }
 

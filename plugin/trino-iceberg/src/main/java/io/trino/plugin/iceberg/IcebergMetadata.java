@@ -4129,7 +4129,8 @@ public class IcebergMetadata
             ConnectorViewHandle materializedViewHandle,
             ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
-            boolean hasForeignSourceTables,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
             RetryMode retryMode,
             RefreshType refreshType)
     {
@@ -4148,7 +4149,7 @@ public class IcebergMetadata
                 // there is a single source table
                 && sourceTableHandles.size() == 1
                 // and there are no other foreign sources
-                && !hasForeignSourceTables
+                && !hasForeignSourceRelations
                 // and the source table's fromSnapshot is available in the MV snapshot summary
                 && dependencies.isPresent() && !dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN);
 
@@ -4175,7 +4176,8 @@ public class IcebergMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
-            boolean hasForeignSourceTables,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -4245,7 +4247,7 @@ public class IcebergMetadata
                         handle.getSchemaTableName(),
                         handle.getSnapshotId().isPresent() ? Long.toString(handle.getSnapshotId().orElseThrow()) : ""))
                 .forEach(tableDependencies::add);
-        if (hasForeignSourceTables) {
+        if (hasForeignSourceRelations) {
             tableDependencies.add(UNKNOWN_SNAPSHOT_TOKEN);
         }
 

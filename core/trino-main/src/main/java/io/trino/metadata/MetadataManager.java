@@ -64,6 +64,7 @@ import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -1327,6 +1328,7 @@ public final class MetadataManager
             ViewHandle materializedViewHandle,
             TableHandle storageTableHandle,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             RefreshType refreshType)
     {
         CatalogHandle catalogHandle = storageTableHandle.catalogHandle();
@@ -1339,12 +1341,19 @@ public final class MetadataManager
                 .map(TableHandle::connectorHandle)
                 .collect(Collectors.toList());
 
+        List<ConnectorViewHandle> sourceConnectorViewHandles = sourceViewHandles.stream()
+                .filter(handle -> handle.catalogHandle().equals(catalogHandle))
+                .map(ViewHandle::connectorHandle)
+                .collect(toImmutableList());
+
+        boolean hasForeignSourceRelations = sourceConnectorHandles.size() < sourceTableHandles.size() || sourceConnectorViewHandles.size() < sourceViewHandles.size();
         ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
                 materializedViewHandle.connectorHandle(),
                 storageTableHandle.connectorHandle(),
                 sourceConnectorHandles,
-                sourceConnectorHandles.size() < sourceTableHandles.size(),
+                sourceConnectorViewHandles,
+                hasForeignSourceRelations,
                 getRetryPolicy(session).getRetryMode(),
                 refreshType);
 
@@ -1370,6 +1379,7 @@ public final class MetadataManager
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -1381,6 +1391,12 @@ public final class MetadataManager
                 .map(TableHandle::connectorHandle)
                 .collect(toImmutableList());
 
+        List<ConnectorViewHandle> sourceConnectorViewHandles = sourceViewHandles.stream()
+                .filter(handle -> handle.catalogHandle().equals(catalogHandle))
+                .map(ViewHandle::connectorHandle)
+                .collect(toImmutableList());
+
+        boolean hasForeignSourceRelations = sourceConnectorHandles.size() < sourceTableHandles.size() || sourceConnectorViewHandles.size() < sourceViewHandles.size();
         return metadata.finishRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
                 materializedViewHandle.connectorHandle(),
@@ -1389,7 +1405,8 @@ public final class MetadataManager
                 fragments,
                 computedStatistics,
                 sourceConnectorHandles,
-                sourceConnectorHandles.size() < sourceTableHandles.size(),
+                sourceConnectorViewHandles,
+                hasForeignSourceRelations,
                 !sourceTableFunctions.isEmpty(),
                 hasNonDeterministicFunctions);
     }
