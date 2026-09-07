@@ -245,6 +245,13 @@ public class QueuedStatementResource
         return Response.noContent().build();
     }
 
+    public void checkQueryOwner(QueryId queryId, String slug, long token, String user)
+    {
+        if (!getQuery(queryId, slug, token).sessionContext.getIdentity().getUser().equals(user)) {
+            throw new NotFoundException("Query not found");
+        }
+    }
+
     private Query getQuery(QueryId queryId, String slug, long token)
     {
         Query query = queryManager.getQuery(queryId);
