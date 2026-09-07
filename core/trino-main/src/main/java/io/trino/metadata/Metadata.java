@@ -441,6 +441,7 @@ public interface Metadata
             ViewHandle materializedViewHandle,
             TableHandle storageTableHandle,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             RefreshType refreshType);
 
     /**
@@ -454,6 +455,7 @@ public interface Metadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions);
 

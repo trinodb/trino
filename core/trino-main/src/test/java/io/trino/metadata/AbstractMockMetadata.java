@@ -535,6 +535,7 @@ public abstract class AbstractMockMetadata
             ViewHandle materializedViewHandle,
             TableHandle storageTableHandle,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             RefreshType refreshType)
     {
         throw new UnsupportedOperationException();
@@ -549,6 +550,7 @@ public abstract class AbstractMockMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
