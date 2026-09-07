@@ -3316,6 +3316,16 @@ public class TestTimestamp
                 .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
         assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000'", "TIMESTAMP '1970-01-01 00:00:00.000501'"))
                 .matches("INTERVAL '-0 00:00:00.001' DAY TO SECOND");
+
+        // a picosecond either side of the tie decides which way it rounds
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000500000000'", "TIMESTAMP '1970-01-01 00:00:00.000000000000'"))
+                .matches("INTERVAL '0 00:00:00.001' DAY TO SECOND");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000500000000'", "TIMESTAMP '1970-01-01 00:00:00.000000000001'"))
+                .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000000000'", "TIMESTAMP '1970-01-01 00:00:00.000500000000'"))
+                .matches("INTERVAL '0 00:00:00.000' DAY TO SECOND");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '1970-01-01 00:00:00.000000000000'", "TIMESTAMP '1970-01-01 00:00:00.000500000001'"))
+                .matches("INTERVAL '-0 00:00:00.001' DAY TO SECOND");
     }
 
     @Test
