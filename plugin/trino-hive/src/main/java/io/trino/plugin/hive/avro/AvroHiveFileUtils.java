@@ -14,12 +14,19 @@
 package io.trino.plugin.hive.avro;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
+import io.trino.hive.formats.avro.AvroTypeBlockHandler;
+import io.trino.hive.formats.avro.AvroTypeException;
+import io.trino.hive.formats.avro.HiveAvroTypeBlockHandler;
 import io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager;
+import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
+import io.trino.metastore.Table;
 import io.trino.metastore.type.CharTypeInfo;
 import io.trino.metastore.type.DecimalTypeInfo;
 import io.trino.metastore.type.ListTypeInfo;
@@ -30,6 +37,7 @@ import io.trino.metastore.type.StructTypeInfo;
 import io.trino.metastore.type.TypeInfo;
 import io.trino.metastore.type.UnionTypeInfo;
 import io.trino.metastore.type.VarcharTypeInfo;
+import io.trino.spi.TrinoException;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -39,12 +47,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.hive.formats.avro.AvroHiveConstants.CHAR_TYPE_LOGICAL_NAME;
 import static io.trino.hive.formats.avro.AvroHiveConstants.SCHEMA_DOC;
 import static io.trino.hive.formats.avro.AvroHiveConstants.SCHEMA_LITERAL;
@@ -56,15 +65,24 @@ import static io.trino.hive.formats.avro.AvroHiveConstants.TABLE_NAME;
 import static io.trino.hive.formats.avro.AvroHiveConstants.VARCHAR_AND_CHAR_LOGICAL_TYPE_LENGTH_PROP;
 import static io.trino.hive.formats.avro.AvroHiveConstants.VARCHAR_TYPE_LOGICAL_NAME;
 import static io.trino.metastore.Table.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 
 public final class AvroHiveFileUtils
 {
+    // Shared: typeFor does not read file metadata, so configure() is never called and no per-file state is held.
+    // The timestamp precision is arbitrary here, as HiveTypeTranslator maps every TimestampType to Hive "timestamp".
+    private static final AvroTypeBlockHandler TYPE_HANDLER = new HiveAvroTypeBlockHandler(TIMESTAMP_MILLIS);
+
     private final AtomicInteger recordNameSuffix = new AtomicInteger(0);
 
     private AvroHiveFileUtils() {}
@@ -94,6 +112,54 @@ public final class AvroHiveFileUtils
             }
         }
         return getSchemaFromProperties(properties);
+    }
+
+    /**
+     * For Avro tables backed by {@code avro.schema.url}/{@code avro.schema.literal}, the Avro schema is the
+     * authoritative definition of the table's columns, not the column list stored in the catalog. The Thrift
+     * metastore client resolves them this way through the metastore's {@code get_fields} RPC (see
+     * {@code BridgingHiveMetastore#getTable}); metastore clients without such an RPC can use this instead.
+     */
+    public static Table withColumnsFromAvroSchema(TrinoFileSystem fileSystem, Table table)
+    {
+        try {
+            Schema schema = determineSchemaOrThrowException(fileSystem, getHiveSchema(table));
+            if (schema.getType() != Schema.Type.RECORD) {
+                throw new IOException("Avro schema for table is not a record: " + schema.getType());
+            }
+
+            // The Avro schema may also list the partition columns, which are stored separately as partition keys.
+            Set<String> partitionColumnNames = table.getPartitionColumns().stream()
+                    .map(column -> column.getName().toLowerCase(ENGLISH))
+                    .collect(toImmutableSet());
+
+            ImmutableList.Builder<Column> columns = ImmutableList.builder();
+            for (Schema.Field field : schema.getFields()) {
+                // Hive's Avro SerDe lower cases field names when producing column names
+                String name = field.name().toLowerCase(ENGLISH);
+                if (partitionColumnNames.contains(name)) {
+                    continue;
+                }
+                columns.add(new Column(name, toHiveType(TYPE_HANDLER.typeFor(field.schema())), Optional.ofNullable(field.doc()), ImmutableMap.of()));
+            }
+
+            List<Column> dataColumns = columns.build();
+            if (dataColumns.isEmpty()) {
+                throw new IOException("Avro schema for table declares no data columns");
+            }
+            return Table.builder(table)
+                    .setDataColumns(dataColumns)
+                    .build();
+        }
+        catch (IOException | AvroTypeException | RuntimeException e) {
+            throw new TrinoException(
+                    HIVE_INVALID_METADATA,
+                    "Failed to resolve the Avro schema of table %s.%s: %s".formatted(
+                            table.getDatabaseName(),
+                            table.getTableName(),
+                            e.getMessage()),
+                    e);
+        }
     }
 
     private static Schema getSchemaFromProperties(Map<String, String> schema)
@@ -291,7 +357,7 @@ public final class AvroHiveFileUtils
         // Lower case top level fields to allow for manually set avro schema (passed in via avro_schema_literal or avro_schema_url) to have uppercase field names
         return schema.getFields().stream()
                 .map(Schema.Field::name)
-                .collect(toImmutableMap(fieldName -> fieldName.toLowerCase(Locale.ENGLISH), identity()));
+                .collect(toImmutableMap(fieldName -> fieldName.toLowerCase(ENGLISH), identity()));
     }
 
     private static Schema.Parser getSchemaParser()
