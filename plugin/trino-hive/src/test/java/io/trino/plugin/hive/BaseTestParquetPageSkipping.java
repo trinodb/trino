@@ -169,12 +169,7 @@ public abstract class BaseTestParquetPageSkipping
         assertThat(queryStatsWithColumnIndex.getPhysicalInputPositions()).isGreaterThan(0);
         assertThat(queryStatsWithColumnIndex.getPhysicalInputPositions())
                 .isLessThan(queryStatsWithoutColumnIndex.getPhysicalInputPositions());
-        Map<String, Metric<?>> metricsWithColumnIndex = getScanOperatorStats(resultWithColumnIndex.queryId())
-                .getConnectorMetrics()
-                .getMetrics();
-        assertThat(metricsWithColumnIndex).containsKey(COLUMN_INDEX_ROWS_FILTERED);
-        assertThat(((Count<?>) metricsWithColumnIndex.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
-                .isGreaterThan(0);
+        assertThat(getColumnIndexRowsFiltered(resultWithColumnIndex.queryId())).isGreaterThan(0);
 
         assertEqualsIgnoreOrder(resultWithColumnIndex.result(), resultWithoutColumnIndex.result());
     }
@@ -215,6 +210,13 @@ public abstract class BaseTestParquetPageSkipping
                 .build();
     }
 
+    protected void assertUpdateWithPageSkipping(@Language("SQL") String sql, long expectedUpdateCount)
+    {
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+        assertThat(result.result().getUpdateCount()).hasValue(expectedUpdateCount);
+        assertThat(getColumnIndexRowsFiltered(result.queryId())).isGreaterThan(0);
+    }
+
     protected static String tableName(String tableNamePrefix)
     {
         return tableNamePrefix + "_" + randomNameSuffix();
@@ -235,5 +237,12 @@ public abstract class BaseTestParquetPageSkipping
                 .stream()
                 .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
                 .collect(onlyElement());
+    }
+
+    private long getColumnIndexRowsFiltered(QueryId queryId)
+    {
+        Map<String, Metric<?>> metrics = getScanOperatorStats(queryId).getConnectorMetrics().getMetrics();
+        assertThat(metrics).containsKey(COLUMN_INDEX_ROWS_FILTERED);
+        return ((Count<?>) metrics.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal();
     }
 }

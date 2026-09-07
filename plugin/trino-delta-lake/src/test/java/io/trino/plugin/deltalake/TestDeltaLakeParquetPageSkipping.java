@@ -15,21 +15,16 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.io.Resources;
 import io.trino.plugin.hive.BaseTestParquetPageSkipping;
-import io.trino.spi.metrics.Count;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
-import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -178,23 +173,5 @@ public class TestDeltaLakeParquetPageSkipping
                 Files.getLastModifiedTime(dataFile).toMillis());
         Files.writeString(tableLocation.resolve("_delta_log").resolve("00000000000000000001.json"), addAction + "\n");
         return tableName;
-    }
-
-    private void assertUpdateWithPageSkipping(@Language("SQL") String sql, long expectedUpdateCount)
-    {
-        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
-        assertThat(result.result().getUpdateCount()).hasValue(expectedUpdateCount);
-        long rowsFilteredByColumnIndex = getDistributedQueryRunner().getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(result.queryId())
-                .getQueryStats()
-                .getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
-                .map(summary -> summary.getConnectorMetrics().getMetrics().get(COLUMN_INDEX_ROWS_FILTERED))
-                .filter(Objects::nonNull)
-                .mapToLong(metric -> ((Count<?>) metric).getTotal())
-                .sum();
-        assertThat(rowsFilteredByColumnIndex).isGreaterThan(0);
     }
 }
