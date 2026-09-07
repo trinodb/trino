@@ -449,6 +449,7 @@ public interface Metadata
      */
     Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
+            CatalogSchemaTableName materializedViewName,
             TableHandle tableHandle,
             InsertTableHandle insertTableHandle,
             Collection<Slice> fragments,

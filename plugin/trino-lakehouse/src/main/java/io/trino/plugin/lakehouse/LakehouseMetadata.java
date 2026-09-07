@@ -614,6 +614,7 @@ public class LakehouseMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
+            CatalogSchemaTableName materializedViewName,
             ConnectorTableHandle tableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
@@ -628,7 +629,7 @@ public class LakehouseMetadata
                 .filter(IcebergTableHandle.class::isInstance)
                 .toList();
         hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
-        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, sourceViewNames, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+        return icebergMetadata.finishRefreshMaterializedView(session, materializedViewName, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, sourceViewNames, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
     }
 
     @Override

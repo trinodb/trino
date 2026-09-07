@@ -931,12 +931,15 @@ public interface ConnectorMetadata
      * Finish materialized view query.
      * <p>
      * Same as {@link #finishRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, ConnectorInsertTableHandle, Collection, Collection, List, boolean, boolean, boolean)},
-     * with the addition of {@code sourceViewNames} (see
+     * with the addition of {@code materializedViewName} (the name of the materialized view being
+     * refreshed; {@code tableHandle} and {@code insertHandle} identify its storage table, not the
+     * materialized view itself) and {@code sourceViewNames} (see
      * {@link #beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, List, boolean, RetryMode, RefreshType)}).
-     * The default implementation ignores {@code sourceViewNames} and delegates to it.
+     * The default implementation ignores both and delegates to it.
      */
     default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
+            CatalogSchemaTableName materializedViewName,
             ConnectorTableHandle tableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,

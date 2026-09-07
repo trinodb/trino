@@ -262,6 +262,7 @@ public class BeginTableWrite
                         refreshMV.getStorageTableHandle(),
                         metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles(), refreshMV.getSourceViewNames(), refreshMV.getRefreshType()),
                         metadata.getTableName(session, refreshMV.getStorageTableHandle()).getSchemaTableName(),
+                        refreshMV.getMaterializedViewName(),
                         refreshMV.getSourceTableHandles(),
                         refreshMV.getSourceViewNames(),
                         refreshMV.getSourceTableFunctions(),

@@ -1348,6 +1348,7 @@ public final class MetadataManager
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
+            CatalogSchemaTableName materializedViewName,
             TableHandle tableHandle,
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
@@ -1367,6 +1368,7 @@ public final class MetadataManager
 
         return metadata.finishRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
+                materializedViewName,
                 tableHandle.connectorHandle(),
                 insertHandle.connectorHandle(),
                 fragments,

@@ -708,6 +708,7 @@ public class LogicalPlanner
                 || containsCurrentTimeFunctions(query);
         RefreshMaterializedViewReference writerTarget = new RefreshMaterializedViewReference(
                 viewAnalysis.getTable().toString(),
+                viewAnalysis.getName().asCatalogSchemaTableName(),
                 tableHandle,
                 ImmutableList.copyOf(analysis.getTables()),
                 ImmutableList.copyOf(analysis.getReferencedViews()),

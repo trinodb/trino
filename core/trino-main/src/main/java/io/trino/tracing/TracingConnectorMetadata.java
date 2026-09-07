@@ -784,6 +784,7 @@ public class TracingConnectorMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
+            CatalogSchemaTableName materializedViewName,
             ConnectorTableHandle tableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
@@ -796,7 +797,7 @@ public class TracingConnectorMetadata
     {
         Span span = startSpan("finishRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewNames, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+            return delegate.finishRefreshMaterializedView(session, materializedViewName, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewNames, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
         }
     }
 

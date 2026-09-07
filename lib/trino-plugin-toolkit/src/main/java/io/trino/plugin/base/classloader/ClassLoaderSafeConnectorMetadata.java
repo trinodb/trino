@@ -697,6 +697,7 @@ public class ClassLoaderSafeConnectorMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
+            CatalogSchemaTableName materializedViewName,
             ConnectorTableHandle tableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
@@ -708,7 +709,7 @@ public class ClassLoaderSafeConnectorMetadata
             boolean hasNonDeterministicFunctions)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewNames, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+            return delegate.finishRefreshMaterializedView(session, materializedViewName, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewNames, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
         }
     }
 

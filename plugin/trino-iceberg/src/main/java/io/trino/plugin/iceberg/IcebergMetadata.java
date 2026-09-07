@@ -4050,6 +4050,7 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
+            CatalogSchemaTableName materializedViewName,
             ConnectorTableHandle tableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,

@@ -486,6 +486,7 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final String table;
+        private final CatalogSchemaTableName materializedViewName;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
         private final List<CatalogSchemaTableName> sourceViewNames;
@@ -495,6 +496,7 @@ public class TableWriterNode
 
         public RefreshMaterializedViewReference(
                 String table,
+                CatalogSchemaTableName materializedViewName,
                 TableHandle storageTableHandle,
                 List<TableHandle> sourceTableHandles,
                 List<CatalogSchemaTableName> sourceViewNames,
@@ -503,12 +505,18 @@ public class TableWriterNode
                 RefreshType refreshType)
         {
             this.table = requireNonNull(table, "table is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
             this.sourceViewNames = ImmutableList.copyOf(sourceViewNames);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
             this.hasNonDeterministicFunctions = hasNonDeterministicFunctions;
             this.refreshType = requireNonNull(refreshType, "refreshType is null");
+        }
+
+        public CatalogSchemaTableName getMaterializedViewName()
+        {
+            return materializedViewName;
         }
 
         public TableHandle getStorageTableHandle()
@@ -569,7 +577,7 @@ public class TableWriterNode
 
         public RefreshMaterializedViewReference withRefreshType(RefreshType refreshType)
         {
-            return new RefreshMaterializedViewReference(table, storageTableHandle, sourceTableHandles, sourceViewNames, sourceTableFunctions, hasNonDeterministicFunctions, refreshType);
+            return new RefreshMaterializedViewReference(table, materializedViewName, storageTableHandle, sourceTableHandles, sourceViewNames, sourceTableFunctions, hasNonDeterministicFunctions, refreshType);
         }
     }
 
@@ -579,6 +587,7 @@ public class TableWriterNode
         private final TableHandle tableHandle;
         private final InsertTableHandle insertHandle;
         private final SchemaTableName schemaTableName;
+        private final CatalogSchemaTableName materializedViewName;
         private final List<TableHandle> sourceTableHandles;
         private final List<CatalogSchemaTableName> sourceViewNames;
         private final List<String> sourceTableFunctions;
@@ -590,6 +599,7 @@ public class TableWriterNode
                 @JsonProperty("tableHandle") TableHandle tableHandle,
                 @JsonProperty("insertHandle") InsertTableHandle insertHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("materializedViewName") CatalogSchemaTableName materializedViewName,
                 @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
                 @JsonProperty("sourceViewNames") List<CatalogSchemaTableName> sourceViewNames,
                 @JsonProperty("sourceTableFunctions") List<String> sourceTableFunctions,
@@ -599,6 +609,7 @@ public class TableWriterNode
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
             this.insertHandle = requireNonNull(insertHandle, "insertHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
             this.sourceViewNames = ImmutableList.copyOf(sourceViewNames);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
@@ -622,6 +633,12 @@ public class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @JsonProperty
+        public CatalogSchemaTableName getMaterializedViewName()
+        {
+            return materializedViewName;
         }
 
         @JsonProperty
