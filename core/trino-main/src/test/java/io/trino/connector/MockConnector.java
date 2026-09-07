@@ -774,7 +774,8 @@ public class MockConnector
                 ConnectorViewHandle materializedViewHandle,
                 ConnectorTableHandle storageTableHandle,
                 List<ConnectorTableHandle> sourceTableHandles,
-                boolean hasForeignSourceTables,
+                List<ConnectorViewHandle> sourceViewHandles,
+                boolean hasForeignSourceRelations,
                 RetryMode retryMode,
                 RefreshType refreshType)
         {
@@ -790,7 +791,8 @@ public class MockConnector
                 Collection<Slice> fragments,
                 Collection<ComputedStatistics> computedStatistics,
                 List<ConnectorTableHandle> sourceTableHandles,
-                boolean hasForeignSourceTables,
+                List<ConnectorViewHandle> sourceViewHandles,
+                boolean hasForeignSourceRelations,
                 boolean hasSourceTableFunctions,
                 boolean hasNonDeterministicFunctions)
         {
