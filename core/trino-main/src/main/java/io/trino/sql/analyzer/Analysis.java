@@ -1767,13 +1767,15 @@ public class Analysis
     public static final class RefreshMaterializedViewAnalysis
     {
         private final Table table;
+        private final QualifiedObjectName name;
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
 
-        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(Table table, QualifiedObjectName name, TableHandle target, Query query, List<ColumnHandle> columns)
         {
             this.table = requireNonNull(table, "table is null");
+            this.name = requireNonNull(name, "name is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
@@ -1798,6 +1800,11 @@ public class Analysis
         public Table getTable()
         {
             return table;
+        }
+
+        public QualifiedObjectName getName()
+        {
+            return name;
         }
     }
 

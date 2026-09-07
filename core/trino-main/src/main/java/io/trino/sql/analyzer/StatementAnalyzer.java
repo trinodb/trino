@@ -778,6 +778,7 @@ class StatementAnalyzer
 
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
                     refreshMaterializedView.getTable(),
+                    name,
                     targetTableHandle,
                     query,
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
