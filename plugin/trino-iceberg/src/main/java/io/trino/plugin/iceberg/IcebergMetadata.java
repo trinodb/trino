@@ -14,8 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
-import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -376,8 +374,6 @@ import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPL
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
-import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_TABLES;
-import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.UNKNOWN_SNAPSHOT_TOKEN;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ADD_FILES;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ADD_FILES_FROM_TABLE;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DROP_EXTENDED_STATS;
@@ -491,7 +487,6 @@ public class IcebergMetadata
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
 
     public static final int GET_METADATA_BATCH_SIZE = 1000;
-    private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
 
     private final CatalogName catalogName;
     private final TypeManager typeManager;
@@ -4009,28 +4004,15 @@ public class IcebergMetadata
         validateNotEncryptedForWrite(icebergTable);
         beginTransaction(icebergTable);
 
-        Optional<String> dependencies = Optional.ofNullable(icebergTable.currentSnapshot())
-                .map(Snapshot::summary)
-                .map(summary -> summary.get(DEPENDS_ON_TABLES));
-
         boolean shouldUseIncremental = isIncrementalRefreshEnabled(session)
                 && refreshType == RefreshType.INCREMENTAL
                 // there is a single source table
                 && sourceTableHandles.size() == 1
                 // and there are no other foreign sources
-                && !hasForeignSourceTables
-                // and the source table's fromSnapshot is available in the MV snapshot summary
-                && dependencies.isPresent() && !dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN);
+                && !hasForeignSourceTables;
 
         if (shouldUseIncremental) {
-            Map<String, String> sourceTableToSnapshot = MAP_SPLITTER.split(dependencies.get());
-            checkState(sourceTableToSnapshot.size() == 1, "Expected %s to contain only single source table in snapshot summary", sourceTableToSnapshot);
-            Entry<String, String> sourceTable = getOnlyElement(sourceTableToSnapshot.entrySet());
-            String[] schemaTable = sourceTable.getKey().split("\\.");
-            IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
-            SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
-            checkState(sourceSchemaTable.equals(handle.getSchemaTableName()), "Source table name %s doesn't match handle table name %s", sourceSchemaTable, handle.getSchemaTableName());
-            fromSnapshotForRefresh = OptionalLong.of(Long.parseLong(sourceTable.getValue()));
+            fromSnapshotForRefresh = catalog.getMaterializedViewIncrementalRefreshFromSnapshot(icebergTable, sourceTableHandles);
         }
 
         return newWritableTableHandle(table.getSchemaTableName(), icebergTable);

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
@@ -36,6 +37,7 @@ import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -45,12 +47,15 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_TABLES;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_TABLE_FUNCTIONS;
@@ -250,6 +255,34 @@ public interface TrinoCatalog
         appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, String.valueOf(hasSourceTableFunctions));
         appendFiles.set(DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, String.valueOf(hasNonDeterministicFunctions));
         appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
+    }
+
+    default OptionalLong getMaterializedViewIncrementalRefreshFromSnapshot(Table storageTable, List<ConnectorTableHandle> sourceTableHandles)
+    {
+        if (sourceTableHandles.size() != 1) {
+            return OptionalLong.empty();
+        }
+
+        Optional<String> dependencies = Optional.ofNullable(storageTable.currentSnapshot())
+                .map(Snapshot::summary)
+                .map(summary -> summary.get(DEPENDS_ON_TABLES));
+        if (dependencies.isEmpty() || dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN)) {
+            return OptionalLong.empty();
+        }
+
+        Map<String, String> sourceTableToSnapshot = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=").split(dependencies.get());
+        if (sourceTableToSnapshot.size() != 1) {
+            return OptionalLong.empty();
+        }
+        Entry<String, String> sourceTable = getOnlyElement(sourceTableToSnapshot.entrySet());
+        String[] schemaTable = sourceTable.getKey().split("\\.");
+        IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
+        SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
+        if (!sourceSchemaTable.equals(handle.getSchemaTableName())) {
+            return OptionalLong.empty();
+        }
+
+        return OptionalLong.of(Long.parseLong(sourceTable.getValue()));
     }
 
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
