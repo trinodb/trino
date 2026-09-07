@@ -14,12 +14,13 @@
 package io.trino.plugin.session.db;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertTrue;
 
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DbSessionPropertyManagerConfig
@@ -27,59 +28,93 @@ public class DbSessionPropertyManagerConfig
     private String configDbUrl;
     private String username;
     private String password;
-    private Duration specsRefreshPeriod = new Duration(10, SECONDS);
+    private Duration maxRefreshInterval = new Duration(1, HOURS);
+    private Duration refreshInterval = new Duration(1, SECONDS);
+    private boolean runMigrationsEnabled = true;
 
-    @NotNull
     public String getConfigDbUrl()
     {
         return configDbUrl;
     }
 
-    @Config("session-property-manager.db.url")
+    @Config("session-property-manager.config-db-url")
     public DbSessionPropertyManagerConfig setConfigDbUrl(String configDbUrl)
     {
         this.configDbUrl = configDbUrl;
         return this;
     }
 
-    @Nullable
-    public String getUsername()
+    public String getConfigDbUser()
     {
         return username;
     }
 
-    @Config("session-property-manager.db.username")
-    public DbSessionPropertyManagerConfig setUsername(String username)
+    @Config("session-property-manager.config-db-user")
+    @ConfigDescription("Database user name")
+    public DbSessionPropertyManagerConfig setConfigDbUser(String username)
     {
         this.username = username;
         return this;
     }
 
-    @Nullable
-    public String getPassword()
+    public String getConfigDbPassword()
     {
         return password;
     }
 
-    @Config("session-property-manager.db.password")
+    @Config("session-property-manager.config-db-password")
     @ConfigSecuritySensitive
-    public DbSessionPropertyManagerConfig setPassword(String password)
+    @ConfigDescription("Database password")
+    public DbSessionPropertyManagerConfig setConfigDbPassword(String password)
     {
         this.password = password;
         return this;
     }
 
-    @NotNull
-    @MinDuration("1ms")
-    public Duration getSpecsRefreshPeriod()
+    @MinDuration("10s")
+    public Duration getMaxRefreshInterval()
     {
-        return specsRefreshPeriod;
+        return maxRefreshInterval;
     }
 
-    @Config("session-property-manager.db.refresh-period")
-    public DbSessionPropertyManagerConfig setSpecsRefreshPeriod(Duration specsRefreshPeriod)
+    @Config("session-property-manager.max-refresh-interval")
+    @ConfigDescription("Time period for which the cluster will continue to serve session properties after refresh failures cause configuration to become stale")
+    public DbSessionPropertyManagerConfig setMaxRefreshInterval(Duration maxRefreshInterval)
     {
-        this.specsRefreshPeriod = specsRefreshPeriod;
+        this.maxRefreshInterval = maxRefreshInterval;
         return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getRefreshInterval()
+    {
+        return refreshInterval;
+    }
+
+    @Config("session-property-manager.refresh-interval")
+    @ConfigDescription("How often the cluster reloads from the database")
+    public DbSessionPropertyManagerConfig setRefreshInterval(Duration refreshInterval)
+    {
+        this.refreshInterval = refreshInterval;
+        return this;
+    }
+
+    public boolean isRunMigrationsEnabled()
+    {
+        return runMigrationsEnabled;
+    }
+
+    @Config("session-property-manager.db-migrations-enabled")
+    @ConfigDescription("Whether to run migrations on startup")
+    public DbSessionPropertyManagerConfig setRunMigrationsEnabled(boolean runMigrationsEnabled)
+    {
+        this.runMigrationsEnabled = runMigrationsEnabled;
+        return this;
+    }
+
+    @AssertTrue(message = "maxRefreshInterval must be greater than refreshInterval")
+    public boolean isRefreshIntervalValid()
+    {
+        return maxRefreshInterval.compareTo(refreshInterval) > 0;
     }
 }

@@ -14,13 +14,22 @@
 package io.trino.plugin.session.db;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.session.SessionMatchSpec;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.statement.UseRowMapper;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.session.db.util.SessionPropertiesDaoUtil.CLIENT_TAGS_TABLE;
 import static io.trino.plugin.session.db.util.SessionPropertiesDaoUtil.PROPERTIES_TABLE;
@@ -70,30 +79,59 @@ public interface SessionPropertiesDao
     @SqlUpdate("DROP TABLE IF EXISTS " + PROPERTIES_TABLE)
     void dropSessionPropertiesTable();
 
-    @SqlQuery("SELECT " +
-            "S.spec_id,\n" +
-            "S.user_regex,\n" +
-            "S.source_regex,\n" +
-            "S.query_type,\n" +
-            "S.group_regex,\n" +
-            "S.client_tags,\n" +
-            "GROUP_CONCAT(P.session_property_name ORDER BY P.session_property_name) session_property_names,\n" +
-            "GROUP_CONCAT(P.session_property_value ORDER BY P.session_property_name) session_property_values\n" +
-            "FROM\n" +
-            "(SELECT\n" +
-            "A.spec_id, A.user_regex, A.source_regex, A.query_type, A.group_regex, A.priority,\n" +
-            "GROUP_CONCAT(DISTINCT B.client_tag) client_tags\n" +
-            "FROM " + SESSION_SPECS_TABLE + " A\n" +
-            "LEFT JOIN " + CLIENT_TAGS_TABLE + " B\n" +
-            "ON A.spec_id = B.tag_spec_id\n" +
-            "GROUP BY A.spec_id, A.user_regex, A.source_regex, A.query_type, A.group_regex, A.priority)\n" +
-            " S JOIN\n" +
-            PROPERTIES_TABLE + " P\n" +
-            "ON S.spec_id = P.property_spec_id\n" +
-            "GROUP BY S.spec_id, S.user_regex, S.source_regex, S.query_type, S.group_regex, S.priority, S.client_tags\n" +
-            "ORDER BY S.priority asc")
-    @UseRowMapper(SessionMatchSpec.Mapper.class)
-    List<SessionMatchSpec> getSessionMatchSpecs();
+    @SqlQuery("SELECT spec_id, user_regex, source_regex, query_type, group_regex, priority\n" +
+            "FROM " + SESSION_SPECS_TABLE + "\n" +
+            "ORDER BY priority ASC")
+    @UseRowMapper(SessionSpecRow.Mapper.class)
+    List<SessionSpecRow> getSessionSpecRows();
+
+    @SqlQuery("SELECT tag_spec_id, client_tag FROM " + CLIENT_TAGS_TABLE)
+    @UseRowMapper(ClientTagRow.Mapper.class)
+    List<ClientTagRow> getClientTagRows();
+
+    @SqlQuery("SELECT property_spec_id, session_property_name, session_property_value FROM " + PROPERTIES_TABLE)
+    @UseRowMapper(SessionPropertyRow.Mapper.class)
+    List<SessionPropertyRow> getSessionPropertyRows();
+
+    /**
+     * Assembles {@link SessionMatchSpec}s from three ordered result sets rather than aggregating child rows in SQL.
+     * This keeps the read path dialect-neutral and avoids joining/splitting on commas, so client tags and property
+     * values that contain a comma round-trip correctly.
+     */
+    default List<SessionMatchSpec> getSessionMatchSpecs()
+    {
+        ImmutableListMultimap.Builder<Long, String> clientTags = ImmutableListMultimap.builder();
+        for (ClientTagRow row : getClientTagRows()) {
+            clientTags.put(row.specId(), row.clientTag());
+        }
+        ImmutableListMultimap<Long, String> tagsBySpecId = clientTags.build();
+
+        ImmutableListMultimap.Builder<Long, SessionPropertyRow> properties = ImmutableListMultimap.builder();
+        for (SessionPropertyRow row : getSessionPropertyRows()) {
+            properties.put(row.specId(), row);
+        }
+        ImmutableListMultimap<Long, SessionPropertyRow> propertiesBySpecId = properties.build();
+
+        ImmutableList.Builder<SessionMatchSpec> specs = ImmutableList.builder();
+        for (SessionSpecRow spec : getSessionSpecRows()) {
+            ImmutableMap.Builder<String, String> sessionProperties = ImmutableMap.builder();
+            for (SessionPropertyRow property : propertiesBySpecId.get(spec.specId())) {
+                // session_property_value is nullable in the schema; a property with no value cannot set anything,
+                // so skip it rather than let a single malformed row fail the whole reload (which would keep stale specs).
+                if (property.value() != null) {
+                    sessionProperties.put(property.name(), property.value());
+                }
+            }
+            specs.add(new SessionMatchSpec(
+                    Optional.ofNullable(spec.userRegex()).map(Pattern::compile),
+                    Optional.ofNullable(spec.sourceRegex()).map(Pattern::compile),
+                    Optional.of(tagsBySpecId.get(spec.specId())),
+                    Optional.ofNullable(spec.queryType()),
+                    Optional.ofNullable(spec.groupRegex()).map(Pattern::compile),
+                    sessionProperties.buildOrThrow()));
+        }
+        return specs.build();
+    }
 
     @VisibleForTesting
     @SqlUpdate("INSERT INTO " + SESSION_SPECS_TABLE + " (spec_id, user_regex, source_regex, query_type, group_regex, priority)\n" +
@@ -117,4 +155,55 @@ public interface SessionPropertiesDao
             @Bind("property_spec_id") long propertySpecId,
             @Bind("session_property_name") String sessionPropertyName,
             @Bind("session_property_value") String sessionPropertyValue);
+
+    record SessionSpecRow(long specId, String userRegex, String sourceRegex, String queryType, String groupRegex, int priority)
+    {
+        public static class Mapper
+                implements RowMapper<SessionSpecRow>
+        {
+            @Override
+            public SessionSpecRow map(ResultSet resultSet, StatementContext context)
+                    throws SQLException
+            {
+                return new SessionSpecRow(
+                        resultSet.getLong("spec_id"),
+                        resultSet.getString("user_regex"),
+                        resultSet.getString("source_regex"),
+                        resultSet.getString("query_type"),
+                        resultSet.getString("group_regex"),
+                        resultSet.getInt("priority"));
+            }
+        }
+    }
+
+    record ClientTagRow(long specId, String clientTag)
+    {
+        public static class Mapper
+                implements RowMapper<ClientTagRow>
+        {
+            @Override
+            public ClientTagRow map(ResultSet resultSet, StatementContext context)
+                    throws SQLException
+            {
+                return new ClientTagRow(resultSet.getLong("tag_spec_id"), resultSet.getString("client_tag"));
+            }
+        }
+    }
+
+    record SessionPropertyRow(long specId, String name, String value)
+    {
+        public static class Mapper
+                implements RowMapper<SessionPropertyRow>
+        {
+            @Override
+            public SessionPropertyRow map(ResultSet resultSet, StatementContext context)
+                    throws SQLException
+            {
+                return new SessionPropertyRow(
+                        resultSet.getLong("property_spec_id"),
+                        resultSet.getString("session_property_name"),
+                        resultSet.getString("session_property_value"));
+            }
+        }
+    }
 }

@@ -13,27 +13,16 @@
  */
 package io.trino.plugin.session.db;
 
-import com.google.inject.Inject;
-import com.google.inject.Provider;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 
-public class SessionPropertiesDaoProvider
-        implements Provider<SessionPropertiesDao>
+public class TestDbSessionPropertyManagerPostgresql
+        extends BaseTestDbSessionPropertyManager
 {
-    private final SessionPropertiesDao dao;
-
-    @Inject
-    public SessionPropertiesDaoProvider(Jdbi jdbi)
-    {
-        this.dao = jdbi
-                .installPlugin(new SqlObjectPlugin())
-                .onDemand(SessionPropertiesDao.class);
-    }
-
     @Override
-    public SessionPropertiesDao get()
+    protected JdbcDatabaseContainer<?> startContainer()
     {
-        return dao;
+        JdbcDatabaseContainer<?> container = new TestingPostgreSqlContainer();
+        container.start();
+        return container;
     }
 }

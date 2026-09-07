@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.airlift.units.Duration;
 import io.trino.plugin.session.SessionMatchSpec;
+import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -28,15 +30,19 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.Duration.succinctNanos;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 /**
- * Periodically schedules the loading of specs from the database during initialization. Returns the most recent successfully
- * loaded specs on every get() invocation.
+ * Periodically schedules the loading of specs from the database during initialization. Returns the most recent
+ * successfully loaded specs on every get() invocation. If reloads keep failing for longer than
+ * {@code max-refresh-interval}, the cached specs are considered stale and get() fails rather than serving them.
  */
 public class RefreshingDbSpecsProvider
         implements DbSpecsProvider
@@ -44,43 +50,44 @@ public class RefreshingDbSpecsProvider
     private static final Logger log = Logger.get(RefreshingDbSpecsProvider.class);
 
     private final AtomicReference<List<SessionMatchSpec>> sessionMatchSpecs = new AtomicReference<>(ImmutableList.of());
+    private final AtomicLong lastRefresh = new AtomicLong();
     private final SessionPropertiesDao dao;
 
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("RefreshingDbSpecsProvider"));
     private final AtomicBoolean started = new AtomicBoolean();
-    private final long refreshPeriodMillis;
+    private final long refreshIntervalMillis;
+    private final Duration maxRefreshInterval;
     private final CounterStat dbLoadFailures = new CounterStat();
 
     @Inject
     public RefreshingDbSpecsProvider(DbSessionPropertyManagerConfig config, SessionPropertiesDao dao)
     {
         this.dao = requireNonNull(dao, "dao is null");
-        this.refreshPeriodMillis = config.getSpecsRefreshPeriod().toMillis();
-
-        dao.createSessionSpecsTable();
-        dao.createSessionClientTagsTable();
-        dao.createSessionPropertiesTable();
+        this.refreshIntervalMillis = config.getRefreshInterval().toMillis();
+        this.maxRefreshInterval = config.getMaxRefreshInterval();
     }
 
     @PostConstruct
     public void initialize()
     {
         if (!started.getAndSet(true)) {
-            executor.scheduleWithFixedDelay(this::refresh, 0, refreshPeriodMillis, TimeUnit.MILLISECONDS);
+            executor.scheduleWithFixedDelay(this::refresh, 0, refreshIntervalMillis, TimeUnit.MILLISECONDS);
         }
     }
 
     @VisibleForTesting
     void refresh()
     {
-        requireNonNull(dao, "dao is null");
-
         try {
             sessionMatchSpecs.set(ImmutableList.copyOf(dao.getSessionMatchSpecs()));
+            lastRefresh.set(System.nanoTime());
         }
         catch (Throwable e) {
             // Catch all exceptions here since throwing an exception from executor#scheduleWithFixedDelay method
             // suppresses all future scheduled invocations
+            if (succinctNanos(System.nanoTime() - lastRefresh.get()).compareTo(maxRefreshInterval) > 0) {
+                lastRefresh.set(0);
+            }
             dbLoadFailures.update(1);
             log.error(e, "Error loading configuration from database");
         }
@@ -95,6 +102,9 @@ public class RefreshingDbSpecsProvider
     @Override
     public List<SessionMatchSpec> get()
     {
+        if (lastRefresh.get() == 0) {
+            throw new TrinoException(CONFIGURATION_UNAVAILABLE, "Session property configuration cannot be fetched from database");
+        }
         return sessionMatchSpecs.get();
     }
 
