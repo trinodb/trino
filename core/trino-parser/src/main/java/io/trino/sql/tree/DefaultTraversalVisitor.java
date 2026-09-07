@@ -825,19 +825,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitCreateMaterializedView(CreateMaterializedView node, C context)
-    {
-        // The query is deliberately not processed. A parameter cannot survive in a stored view
-        // definition, so binding one would replace an error at creation time with a materialized
-        // view that fails to read.
-        for (Property property : node.getProperties()) {
-            process(property, context);
-        }
-
-        return null;
-    }
-
-    @Override
     protected Void visitSetSession(SetSession node, C context)
     {
         process(node.getValue(), context);

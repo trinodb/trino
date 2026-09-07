@@ -58,6 +58,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -230,6 +231,20 @@ class TestCreateMaterializedViewTask
             assertThat(properties.get("foo")).isEqualTo("property_value");
             return null;
         });
+    }
+
+    @Test
+    void testCreateMaterializedViewWithParameterInPropertyAndQuery()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog(TEST_CATALOG_NAME)
+                .setSchema("schema")
+                .addPreparedStatement("stmt", "CREATE MATERIALIZED VIEW mv_parameterized_both WITH (foo = ?) AS SELECT * FROM mock_table WHERE b = ?")
+                .build();
+
+        assertTrinoExceptionThrownBy(() -> queryRunner.execute(session, "EXECUTE stmt USING 'property_value'"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE)
+                .hasMessage("line 1:101: Query parameters are not allowed in the query of a materialized view");
     }
 
     @Test
