@@ -113,6 +113,14 @@ public interface TrinoCatalog
                 .collect(toImmutableList());
     }
 
+    default List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
+    {
+        return listTables(session, namespace).stream()
+                .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_MATERIALIZED_VIEW)
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
+    }
+
     Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
             ConnectorSession session,
             Optional<String> namespace,

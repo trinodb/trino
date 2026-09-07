@@ -4103,10 +4103,7 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return catalog.listTables(session, schemaName).stream()
-                .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_MATERIALIZED_VIEW)
-                .map(TableInfo::tableName)
-                .toList();
+        return catalog.listMaterializedViews(session, schemaName);
     }
 
     @Override
