@@ -24,9 +24,18 @@ public final class DateTimeEncoding
     private static final int TIME_ZONE_MASK = 0xFFF;
     private static final int MILLIS_SHIFT = 12;
 
+    /**
+     * Every {@code timestamp with time zone} value is stored with the time zone packed into the low bits of the epoch
+     * millis, so millis that do not survive the shift cannot be represented, regardless of the declared precision.
+     */
+    static boolean isValidMillisUtc(long millisUtc)
+    {
+        return millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT == millisUtc;
+    }
+
     private static long pack(long millisUtc, short timeZoneKey)
     {
-        if (millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT != millisUtc) {
+        if (!isValidMillisUtc(millisUtc)) {
             throw new IllegalArgumentException("Millis overflow: " + millisUtc);
         }
 
