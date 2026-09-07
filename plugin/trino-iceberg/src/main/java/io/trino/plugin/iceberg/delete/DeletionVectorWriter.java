@@ -14,22 +14,43 @@
 package io.trino.plugin.iceberg.delete;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.PartitionData;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.io.FileIO;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public interface DeletionVectorWriter
 {
-    DeletionVectorWriter UNSUPPORTED_DELETION_VECTOR_WRITER = (_, _, _, _, _) -> {
-        throw new UnsupportedOperationException("Deletion Vectors are not supported");
+    DeletionVectorWriter UNSUPPORTED_DELETION_VECTOR_WRITER = new DeletionVectorWriter()
+    {
+        @Override
+        public void writeDeletionVectors(ConnectorSession session, Table icebergTable, IcebergTableHandle table, List<DeletionVectorInfo> deletionVectorInfos, RowDelta rowDelta)
+        {
+            throw new UnsupportedOperationException("Deletion Vectors are not supported");
+        }
+
+        @Override
+        public void mergePreExistingDeletes(ConnectorSession session, Table icebergTable, long snapshotId, Map<String, DeletionVector.Builder> deletionVectorBuilders)
+        {
+            // no-op: pre-existing delete merging not supported when DVs are unsupported
+        }
+
+        @Override
+        public void mergePreExistingDeletes(ConnectorSession session, TrinoFileSystem fileSystem, FileIO fileIo, Map<Integer, PartitionSpec> specsById, Snapshot snapshot, Map<String, DeletionVector.Builder> deletionVectorBuilders)
+        {
+            // no-op: pre-existing delete merging not supported when DVs are unsupported
+        }
     };
 
     void writeDeletionVectors(
@@ -38,6 +59,20 @@ public interface DeletionVectorWriter
             IcebergTableHandle table,
             List<DeletionVectorInfo> deletionVectorInfos,
             RowDelta rowDelta);
+
+    void mergePreExistingDeletes(
+            ConnectorSession session,
+            Table icebergTable,
+            long snapshotId,
+            Map<String, DeletionVector.Builder> deletionVectorBuilders);
+
+    void mergePreExistingDeletes(
+            ConnectorSession session,
+            TrinoFileSystem fileSystem,
+            FileIO fileIo,
+            Map<Integer, PartitionSpec> specsById,
+            Snapshot snapshot,
+            Map<String, DeletionVector.Builder> deletionVectorBuilders);
 
     record DeletionVectorInfo(String dataFilePath, Slice serializedDeletionVector, PartitionSpec partitionSpec, Optional<PartitionData> partitionData)
     {

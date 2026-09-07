@@ -120,6 +120,11 @@ public class IcebergModule
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
 
+        binder.bind(CopyOnWriteFileRewriter.class).in(Scopes.SINGLETON);
+
+        binder.bind(CopyOnWriteStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(CopyOnWriteStats.class).withGeneratedName();
+
         binder.bind(IcebergEnvironmentContext.class).asEagerSingleton();
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
