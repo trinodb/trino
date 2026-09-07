@@ -956,7 +956,8 @@ public class GlueHiveMetastore
         String databaseName = table.getDatabaseName();
         String tableName = table.getTableName();
         PartitionName partitionName = new PartitionName(partitionValues);
-        return glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName));
+        return avroColumnResolver(table).apply(
+                glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName)));
     }
 
     private Optional<Partition> getPartition(String databaseName, String tableName, PartitionName partitionName)
@@ -983,8 +984,28 @@ public class GlueHiveMetastore
                 .map(HivePartitionManager::extractPartitionValues)
                 .map(PartitionName::new)
                 .collect(toImmutableList());
+        UnaryOperator<Optional<Partition>> avroColumnResolver = avroColumnResolver(table);
         return getPartitionsByNames(table.getDatabaseName(), table.getTableName(), names).entrySet().stream()
-                .collect(toImmutableMap(entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()), Entry::getValue));
+                .collect(toImmutableMap(
+                        entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()),
+                        entry -> avroColumnResolver.apply(entry.getValue())));
+    }
+
+    /**
+     * For Avro tables with a schema set, the table's columns resolved from the Avro schema are authoritative for
+     * every partition, so Glue's stored per-partition columns are replaced with them. Otherwise
+     * {@code HiveSplitManager} rejects partitions whose stored columns are not coercible from the resolved table
+     * columns. The Thrift metastore client resolves both levels from the Avro schema.
+     */
+    private static UnaryOperator<Optional<Partition>> avroColumnResolver(Table table)
+    {
+        if (!isAvroTableWithSchemaSet(table)) {
+            return identity();
+        }
+        List<Column> columns = table.getDataColumns();
+        return partition -> partition.map(value -> Partition.builder(value)
+                .setColumns(columns)
+                .build());
     }
 
     private Map<PartitionName, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, Collection<PartitionName> partitionNames)
