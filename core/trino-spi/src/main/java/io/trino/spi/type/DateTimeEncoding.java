@@ -33,11 +33,16 @@ public final class DateTimeEncoding
         return millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT == millisUtc;
     }
 
-    private static long pack(long millisUtc, short timeZoneKey)
+    static void checkMillisUtcInRange(long millisUtc)
     {
         if (!isValidMillisUtc(millisUtc)) {
             throw new IllegalArgumentException("Millis overflow: " + millisUtc);
         }
+    }
+
+    private static long pack(long millisUtc, short timeZoneKey)
+    {
+        checkMillisUtcInRange(millisUtc);
 
         return (millisUtc << MILLIS_SHIFT) | (timeZoneKey & TIME_ZONE_MASK);
     }
