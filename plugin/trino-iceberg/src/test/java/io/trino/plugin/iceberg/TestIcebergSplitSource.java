@@ -656,6 +656,7 @@ public class TestIcebergSplitSource
                 schemaTableName.getTableName(),
                 TableType.DATA,
                 OptionalLong.empty(),
+                Optional.empty(),
                 SchemaParser.toJson(nationTable.schema()),
                 nationTable.spec() == null ? OptionalInt.empty() : OptionalInt.of(nationTable.spec().specId()),
                 transformValues(nationTable.specs(), PartitionSpecParser::toJson),

@@ -735,14 +735,26 @@ public class IcebergMetadata
         }
 
         if (endVersion.isPresent()) {
-            long snapshotId = getSnapshotIdFromVersion(session, table, endVersion.get());
+            ConnectorTableVersion version = endVersion.get();
+            long snapshotId = getSnapshotIdFromVersion(session, table, version);
+            Optional<PartitionSpec> partitionSpec = Optional.empty();
+            Optional<String> branch = Optional.empty();
+            if (version.getVersionType() instanceof VarcharType) {
+                String refName = ((Slice) version.getVersion()).toStringUtf8();
+                SnapshotRef ref = table.refs().get(refName);
+                if (ref != null) {
+                    branch = Optional.of(refName);
+                    partitionSpec = Optional.of(table.spec());
+                }
+            }
             return tableHandleForSnapshot(
                     session,
                     tableName,
                     table,
                     OptionalLong.of(snapshotId),
                     schemaFor(table, snapshotId),
-                    Optional.empty());
+                    partitionSpec,
+                    branch);
         }
         return tableHandleForCurrentSnapshot(session, tableName, table);
     }
@@ -770,7 +782,8 @@ public class IcebergMetadata
                 table,
                 getCurrentSnapshotId(table),
                 table.schema(),
-                Optional.of(table.spec()));
+                Optional.of(table.spec()),
+                Optional.empty());
     }
 
     private IcebergTableHandle tableHandleForSnapshot(
@@ -779,7 +792,8 @@ public class IcebergMetadata
             BaseTable table,
             OptionalLong tableSnapshotId,
             Schema tableSchema,
-            Optional<PartitionSpec> partitionSpec)
+            Optional<PartitionSpec> partitionSpec,
+            Optional<String> branch)
     {
         validateTableForTrino(table, tableSnapshotId);
         Map<String, String> tableProperties = table.properties();
@@ -788,6 +802,7 @@ public class IcebergMetadata
                 tableName.getTableName(),
                 DATA,
                 tableSnapshotId,
+                branch,
                 SchemaParser.toJson(tableSchema),
                 partitionSpec.map(spec -> OptionalInt.of(spec.specId())).orElseGet(OptionalInt::empty),
                 transformValues(table.specs(), PartitionSpecParser::toJson),
@@ -3748,6 +3763,7 @@ public class IcebergMetadata
                 table.getTableName(),
                 table.getTableType(),
                 table.getSnapshotId(),
+                table.getBranch(),
                 table.getTableSchemaJson(),
                 table.getSpecId(),
                 table.getPartitionSpecJsons(),
@@ -3848,6 +3864,7 @@ public class IcebergMetadata
                         table.getTableName(),
                         table.getTableType(),
                         table.getSnapshotId(),
+                        table.getBranch(),
                         table.getTableSchemaJson(),
                         table.getSpecId(),
                         table.getPartitionSpecJsons(),
@@ -4020,6 +4037,7 @@ public class IcebergMetadata
                 originalHandle.getTableName(),
                 originalHandle.getTableType(),
                 originalHandle.getSnapshotId(),
+                Optional.empty(), // branch does not affect stats, the snapshot id already reflects it
                 originalHandle.getTableSchemaJson(),
                 originalHandle.getSpecId(),
                 originalHandle.getPartitionSpecJsons(),
