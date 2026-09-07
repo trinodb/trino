@@ -182,6 +182,7 @@ public final class SortingFileWriter
     @Override
     public void rollback()
     {
+        sortBuffer.clear();
         RollbackAction rollbackAction = createRollbackAction(fileSystem, tempFiles);
         try (Closer closer = Closer.create()) {
             closer.register(outputWriter::rollback);
