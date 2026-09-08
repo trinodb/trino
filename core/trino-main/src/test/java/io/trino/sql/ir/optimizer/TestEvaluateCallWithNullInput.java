@@ -29,12 +29,15 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEvaluateCallWithNullInput
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -51,6 +54,6 @@ public class TestEvaluateCallWithNullInput
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateCallWithNullInput().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new EvaluateCallWithNullInput().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
