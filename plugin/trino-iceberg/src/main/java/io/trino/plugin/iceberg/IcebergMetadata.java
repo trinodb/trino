@@ -503,8 +503,9 @@ public class IcebergMetadata
     public static final int GET_METADATA_BATCH_SIZE = 1000;
     private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
     // Any procedure added here that commits a NEW snapshot must call
-    // IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies before committing, otherwise the
-    // materialized view's dependency summary is dropped and the next refresh is demoted from incremental to full.
+    // IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies on its SnapshotUpdate before
+    // committing, otherwise the materialized view's dependency summary is dropped and the next refresh is
+    // demoted from incremental to full.
     private static final Set<IcebergTableProcedureId> MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES = Sets.immutableEnumSet(
             OPTIMIZE,
             OPTIMIZE_MANIFESTS,
@@ -2252,7 +2253,7 @@ public class IcebergMetadata
         rewriteFiles.dataSequenceNumber(snapshot.sequenceNumber());
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         rewriteFiles.scanManifestsWith(icebergScanExecutor);
-        carryForwardMaterializedViewDependencies(snapshot, rewriteFiles);
+        carryForwardMaterializedViewDependencies(rewriteFiles);
         commitUpdate(rewriteFiles, session, "optimize");
 
         long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
