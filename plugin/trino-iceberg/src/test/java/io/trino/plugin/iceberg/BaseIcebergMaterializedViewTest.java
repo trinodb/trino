@@ -1548,6 +1548,47 @@ public abstract class BaseIcebergMaterializedViewTest
                 result -> assertThat(result.getRowCount()).isEqualTo(25));
     }
 
+    @Test
+    public void testSelectFailsWhenSourceColumnRenamedWhileStale()
+    {
+        String sourceTableName = "test_select_rename_source_" + randomNameSuffix();
+        String materializedViewName = "test_select_rename_mv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (id INT, name VARCHAR)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM " + sourceTableName);
+
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME COLUMN id TO ident");
+        assertQueryFails(
+                "SELECT * FROM " + materializedViewName,
+                ".*is stale or in invalid state: column \\[ident\\] of type integer projected from query view at position 0 has a different name from column \\[id\\] of type integer stored in view definition");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
+    public void testRefreshRealignsSchemaWhenSourceColumnRenamed()
+    {
+        String sourceTableName = "test_refresh_rename_source_" + randomNameSuffix();
+        String materializedViewName = "test_refresh_rename_mv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (id INT, name VARCHAR)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM " + sourceTableName);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 3);
+
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME COLUMN id TO ident");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (4, 'd')", 1);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 4);
+        assertQuery("SELECT * FROM " + materializedViewName, "VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')");
+        assertQuery(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '" + materializedViewName + "'",
+                "VALUES 'ident', 'name'");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
     protected String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");

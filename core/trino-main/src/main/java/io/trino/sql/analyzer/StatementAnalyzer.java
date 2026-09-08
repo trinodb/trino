@@ -309,6 +309,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -761,6 +762,30 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Query query = parseView(view.getOriginalSql(), name, refreshMaterializedView);
             Scope queryScope = process(query, scope);
+
+            // Realign the materialized view's declared columns with the query's current output, in case a source table was altered.
+            if (checkViewStaleness(view.getColumns(), queryScope.getRelationType().getVisibleFields(), name, refreshMaterializedView).isPresent()) {
+                List<Field> currentFields = ImmutableList.copyOf(queryScope.getRelationType().getVisibleFields());
+                List<ViewColumn> realignedColumns = IntStream.range(0, currentFields.size())
+                        .mapToObj(i -> new ViewColumn(
+                                currentFields.get(i).getName().orElseThrow(() -> semanticException(INVALID_VIEW, refreshMaterializedView, "a column of type %s projected from query view at position %s has no name", currentFields.get(i).getType(), i)),
+                                currentFields.get(i).getType().getTypeId(),
+                                Optional.empty()))
+                        .collect(toImmutableList());
+                MaterializedViewDefinition realignedDefinition = new MaterializedViewDefinition(
+                        view.getOriginalSql(),
+                        view.getCatalog(),
+                        view.getSchema(),
+                        realignedColumns,
+                        view.getGracePeriod(),
+                        view.getWhenStaleBehavior(),
+                        view.getComment(),
+                        view.getRunAsIdentity().orElseThrow(),
+                        view.getPath(),
+                        view.getStorageTable());
+                Map<String, Object> properties = metadata.getMaterializedViewProperties(session, name, view);
+                metadata.createMaterializedView(session, name, realignedDefinition, properties, true, false);
+            }
 
             // verify the insert destination columns match the query
             TableHandle targetTableHandle = metadata.getTableHandle(session, targetTable)
