@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
@@ -68,6 +69,12 @@ final class TestBranchingAccessControl
                     throw new UnsupportedOperationException();
                 })
                 .withBranches(ImmutableList.of("main", "dev"))
+                .withRedirectTable((_, tableName) -> {
+                    if (tableName.equals(new SchemaTableName("tiny", "nation_redirect"))) {
+                        return Optional.of(new CatalogSchemaTableName("mock", "tiny", "nation"));
+                    }
+                    return Optional.empty();
+                })
                 .withData(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_DATA;
@@ -120,6 +127,15 @@ final class TestBranchingAccessControl
                 "SELECT nationkey FROM mock.tiny.nation FOR VERSION AS OF 'dev'",
                 "Cannot select from columns \\[nationkey] in branch dev in table mock.tiny.nation",
                 privilege("nation", SELECT_COLUMN));
+    }
+
+    @Test
+    void testSelectFromRedirectedBranchDeniedByBranchPrivilege()
+    {
+        assertAccessDenied(
+                "SELECT nationkey FROM mock.tiny.nation_redirect FOR VERSION AS OF 'dev'",
+                "Cannot select from columns \\[nationkey] in branch dev in table mock.tiny.nation",
+                branchPrivilege("nation", "dev", SELECT_COLUMN));
     }
 
     @Test
