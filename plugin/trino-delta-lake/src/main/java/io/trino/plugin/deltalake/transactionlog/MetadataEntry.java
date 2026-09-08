@@ -22,13 +22,18 @@ import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.spi.TrinoException;
 
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -51,6 +56,10 @@ public class MetadataEntry
     public static final String DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY = "delta.enableChangeDataFeed";
 
     private static final String DELTA_CHECKPOINT_INTERVAL_PROPERTY = "delta.checkpointInterval";
+    private static final String DELTA_ENABLE_EXPIRED_LOG_CLEANUP_PROPERTY = "delta.enableExpiredLogCleanup";
+    private static final String DELTA_LOG_RETENTION_DURATION_PROPERTY = "delta.logRetentionDuration";
+    private static final Pattern RETENTION_INTERVAL_PART = Pattern.compile(
+            "\\G\\s*([+-]?\\s*(?:\\d+(?:\\.\\d{0,9})?|\\.\\d{1,9}))\\s+(weeks?|days?|hours?|minutes?|seconds?|milliseconds?|microseconds?)(?=\\s|$)");
 
     private final String id;
     private final String name;
@@ -168,6 +177,63 @@ public class MetadataEntry
         }
         catch (NumberFormatException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("Invalid value for %s property: %s", DELTA_CHECKPOINT_INTERVAL_PROPERTY, value));
+        }
+    }
+
+    @JsonIgnore
+    public boolean isExpiredLogCleanupEnabled()
+    {
+        if (configuration == null || !configuration.containsKey(DELTA_ENABLE_EXPIRED_LOG_CLEANUP_PROPERTY)) {
+            return true;
+        }
+        String value = configuration.get(DELTA_ENABLE_EXPIRED_LOG_CLEANUP_PROPERTY);
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Invalid value for %s property: %s".formatted(DELTA_ENABLE_EXPIRED_LOG_CLEANUP_PROPERTY, value));
+        }
+        return Boolean.parseBoolean(value);
+    }
+
+    @JsonIgnore
+    public Duration getLogRetentionDuration()
+    {
+        if (configuration == null || !configuration.containsKey(DELTA_LOG_RETENTION_DURATION_PROPERTY)) {
+            return Duration.ofDays(30);
+        }
+        String value = configuration.get(DELTA_LOG_RETENTION_DURATION_PROPERTY);
+        try {
+            checkArgument(value != null, "Retention interval is null");
+            String interval = value.strip().toLowerCase(ENGLISH).replaceFirst("^interval\\s+", "");
+            Matcher matcher = RETENTION_INTERVAL_PART.matcher(interval);
+            Duration duration = Duration.ZERO;
+            int end = 0;
+            while (matcher.find()) {
+                String number = matcher.group(1).replaceAll("\\s", "");
+                String unit = matcher.group(2).replaceFirst("s$", "");
+                Duration part;
+                if (unit.equals("second")) {
+                    BigDecimal seconds = new BigDecimal(number);
+                    part = Duration.ofSeconds(seconds.toBigInteger().longValueExact(), seconds.remainder(BigDecimal.ONE).movePointRight(9).longValueExact());
+                }
+                else {
+                    long amount = parseLong(number);
+                    part = switch (unit) {
+                        case "week" -> Duration.ofDays(Math.multiplyExact(amount, 7));
+                        case "day" -> Duration.ofDays(amount);
+                        case "hour" -> Duration.ofHours(amount);
+                        case "minute" -> Duration.ofMinutes(amount);
+                        case "millisecond" -> Duration.ofMillis(amount);
+                        case "microsecond" -> Duration.ofNanos(Math.multiplyExact(amount, 1000));
+                        default -> throw new IllegalArgumentException("Unsupported interval unit: " + unit);
+                    };
+                }
+                duration = duration.plus(part);
+                end = matcher.end();
+            }
+            checkArgument(end > 0 && end == interval.length() && !duration.isNegative(), "Invalid retention interval");
+            return duration;
+        }
+        catch (IllegalArgumentException | ArithmeticException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Invalid value for %s property: %s".formatted(DELTA_LOG_RETENTION_DURATION_PROPERTY, value), e);
         }
     }
 

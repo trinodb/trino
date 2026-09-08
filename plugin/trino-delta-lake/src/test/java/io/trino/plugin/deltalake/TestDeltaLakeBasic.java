@@ -70,6 +70,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -458,6 +460,47 @@ public class TestDeltaLakeBasic
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 'version12'", 1);
             assertThat(query("TABLE " + table.getName()))
                     .matches("VALUES varchar 'version12'");
+        }
+    }
+
+    @Test
+    void testCheckpointCleansExpiredTransactionLog()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable(
+                "test_checkpoint_cleans_expired_transaction_log",
+                "(id integer) WITH (checkpoint_interval = 1, change_data_feed_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+
+            Path transactionLog = Path.of(getTableLocation(table.getName()).replace("file://", "")).resolve("_delta_log");
+            Instant expired = Instant.now().minus(Duration.ofDays(60));
+            setLastModifiedTime(transactionLog, "00000000000000000000.json", expired);
+            setLastModifiedTime(transactionLog, "00000000000000000001.json", expired.plusSeconds(1));
+            setLastModifiedTime(transactionLog, "00000000000000000001.checkpoint.parquet", expired.plusSeconds(1));
+
+            Instant retained = Instant.now().minus(Duration.ofDays(1));
+            setLastModifiedTime(transactionLog, "00000000000000000002.json", retained);
+            setLastModifiedTime(transactionLog, "00000000000000000002.checkpoint.parquet", retained);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+
+            assertThat(transactionLog.resolve("00000000000000000000.json")).doesNotExist();
+            assertThat(transactionLog.resolve("00000000000000000001.json")).doesNotExist();
+            assertThat(transactionLog.resolve("00000000000000000001.checkpoint.parquet")).doesNotExist();
+            assertThat(transactionLog.resolve("00000000000000000002.json")).exists();
+            assertThat(transactionLog.resolve("00000000000000000002.checkpoint.parquet")).exists();
+            assertThat(transactionLog.resolve("00000000000000000003.json")).exists();
+            assertThat(transactionLog.resolve("00000000000000000003.checkpoint.parquet")).exists();
+
+            assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "')");
+            assertQuery("TABLE " + table.getName(), "VALUES 1, 2, 3");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 2", "VALUES 1, 2");
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "Delta Lake snapshot ID does not exists: 1");
+            assertThat(computeActual("SELECT version FROM \"" + table.getName() + "$history\"").getOnlyColumnAsSet())
+                    .containsExactlyInAnyOrder(2L, 3L);
+            assertThat(query("SELECT id, _change_type, _commit_version FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + table.getName() + "', 2))"))
+                    .matches("VALUES (3, VARCHAR 'insert', BIGINT '3')");
         }
     }
 
@@ -2178,6 +2221,58 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:26.526 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testTransactionLogCleanupRetainsMultipartCheckpointAnchor()
+            throws Exception
+    {
+        String tableName = "test_cleanup_multipart_checkpoint_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        try {
+            for (int value = 8; value <= 11; value++) {
+                assertUpdate("INSERT INTO " + tableName + " VALUES " + value, 1);
+            }
+
+            Path transactionLog = tableLocation.resolve("_delta_log");
+            Instant expired = Instant.now().minus(Duration.ofDays(60));
+            for (int version = 0; version <= 5; version++) {
+                setLastModifiedTime(transactionLog, "%020d.json".formatted(version), expired.plusSeconds(version));
+            }
+
+            Instant retained = Instant.now().minus(Duration.ofDays(1));
+            for (int version = 6; version <= 11; version++) {
+                setLastModifiedTime(transactionLog, "%020d.json".formatted(version), retained.plusSeconds(version));
+            }
+            setLastModifiedTime(transactionLog, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", retained);
+            setLastModifiedTime(transactionLog, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", retained);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 12", 1);
+
+            assertThat(transactionLog.resolve("00000000000000000000.json")).doesNotExist();
+            assertThat(transactionLog.resolve("00000000000000000005.json")).doesNotExist();
+            assertThat(transactionLog.resolve("00000000000000000006.json")).exists();
+            assertThat(transactionLog.resolve("00000000000000000006.checkpoint.0000000001.0000000002.parquet")).exists();
+            assertThat(transactionLog.resolve("00000000000000000006.checkpoint.0000000002.0000000002.parquet")).exists();
+            assertThat(transactionLog.resolve("00000000000000000012.checkpoint.parquet")).exists();
+
+            assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6")).matches("VALUES 1, 2, 3, 4, 5, 6");
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12");
+            assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 5", "Delta Lake snapshot ID does not exists: 5");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    private static void setLastModifiedTime(Path directory, String fileName, Instant lastModified)
+            throws IOException
+    {
+        Files.setLastModifiedTime(directory.resolve(fileName), FileTime.from(lastModified));
     }
 
     @Test
