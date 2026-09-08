@@ -13,6 +13,8 @@
  */
 package io.trino.server;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.http.client.HeaderName;
@@ -20,8 +22,10 @@ import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
+import io.trino.cache.NonEvictableCache;
 import io.trino.server.security.InternalPrincipal;
 import io.trino.server.security.SecurityConfig;
 import io.trino.spi.security.Identity;
@@ -33,6 +37,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.HKDFParameterSpec;
 
 import java.security.spec.AlgorithmParameterSpec;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Date;
@@ -41,6 +46,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
@@ -60,12 +66,25 @@ public class InternalAuthenticationManager
     private static final Function<Instant, Instant> TOKEN_REUSE_THRESHOLD = instant -> instant.minus(5, MINUTES);
 
     private static final HeaderName TRINO_INTERNAL_BEARER = HeaderName.of("X-Trino-Internal-Bearer");
+    private static final String INTERNAL_USER = "<internal>";
+
+    // A node reuses the same token for minutes at a time, so the number of distinct tokens in
+    // flight is proportional to the cluster size. The bound only guards against pathological cases.
+    private static final int MAX_VERIFIED_TOKENS = 1000;
+    // Entries are only retained to avoid re-verifying a token that is still being sent. Correctness
+    // does not depend on this, because the expiration of every entry is checked on each use.
+    private static final Duration VERIFIED_TOKEN_RETENTION = Duration.ofMinutes(10);
 
     private final SecretKey hmac;
     private final String nodeId;
     private final JwtParser jwtParser;
     private final AtomicReference<InternalToken> currentToken;
     private final StartupStatus startupStatus;
+    private final Supplier<Instant> expirationSupplier;
+    private final NonEvictableCache<String, VerifiedToken> verifiedTokens = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .maximumSize(MAX_VERIFIED_TOKENS)
+                    .expireAfterWrite(VERIFIED_TOKEN_RETENTION));
 
     @Inject
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo, StartupStatus startupStatus)
@@ -92,9 +111,16 @@ public class InternalAuthenticationManager
 
     public InternalAuthenticationManager(String sharedSecret, String nodeId, StartupStatus startupStatus)
     {
+        this(sharedSecret, nodeId, startupStatus, DEFAULT_EXPIRATION_SUPPLIER);
+    }
+
+    @VisibleForTesting
+    InternalAuthenticationManager(String sharedSecret, String nodeId, StartupStatus startupStatus, Supplier<Instant> expirationSupplier)
+    {
         requireNonNull(sharedSecret, "sharedSecret is null");
         requireNonNull(nodeId, "nodeId is null");
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
+        this.expirationSupplier = requireNonNull(expirationSupplier, "expirationSupplier is null");
         this.hmac = expandKey(sharedSecret);
         this.nodeId = nodeId;
         this.jwtParser = newJwtParserBuilder().verifyWith(hmac).build();
@@ -108,9 +134,9 @@ public class InternalAuthenticationManager
 
     public void handleInternalRequest(ContainerRequestContext request)
     {
-        String subject;
+        Identity identity;
         try {
-            subject = parseJwt(request.getHeaders().getFirst(TRINO_INTERNAL_BEARER.toString()));
+            identity = authenticate(request.getHeaders().getFirst(TRINO_INTERNAL_BEARER.toString()));
         }
         catch (JwtException e) {
             log.error(e, "Internal authentication failed");
@@ -131,9 +157,6 @@ public class InternalAuthenticationManager
             return;
         }
 
-        Identity identity = Identity.forUser("<internal>")
-                .withPrincipal(new InternalPrincipal(subject))
-                .build();
         setAuthenticatedIdentity(request, identity);
     }
 
@@ -163,7 +186,7 @@ public class InternalAuthenticationManager
 
     private InternalToken createJwt()
     {
-        Instant expiration = DEFAULT_EXPIRATION_SUPPLIER.get();
+        Instant expiration = expirationSupplier.get();
         return new InternalToken(expiration, newJwtBuilder()
                 .signWith(hmac)
                 .subject(nodeId)
@@ -171,12 +194,33 @@ public class InternalAuthenticationManager
                 .compact());
     }
 
-    private String parseJwt(String jwt)
+    /**
+     * Verifying a token is a pure function of the token and the HMAC key, which is fixed for the
+     * lifetime of the process, so the result can be cached. The sending node reuses a token for
+     * minutes at a time, which means the same token is otherwise re-verified on every request.
+     * <p>
+     * Only successfully verified tokens are cached, so an entry cannot be created without knowing
+     * the shared secret. Expiration is checked against the claim on every use rather than being
+     * left to the cache, so a cached token stops being accepted the moment it expires.
+     */
+    Identity authenticate(String jwt)
     {
-        return jwtParser
-                .parseSignedClaims(jwt)
-                .getPayload()
-                .getSubject();
+        VerifiedToken verified = verifiedTokens.getIfPresent(jwt);
+        if (verified != null && Instant.now().isBefore(verified.expiration())) {
+            return verified.identity();
+        }
+
+        Claims claims = jwtParser.parseSignedClaims(jwt).getPayload();
+        // Identity is immutable, so a single instance can be shared by every request carrying this token
+        Identity identity = Identity.forUser(INTERNAL_USER)
+                .withPrincipal(new InternalPrincipal(claims.getSubject()))
+                .build();
+
+        Date expiration = claims.getExpiration();
+        if (expiration != null) {
+            verifiedTokens.put(jwt, new VerifiedToken(identity, expiration.toInstant()));
+        }
+        return identity;
     }
 
     private record InternalToken(Instant expiration, String token)
@@ -190,6 +234,15 @@ public class InternalAuthenticationManager
         public boolean isExpired()
         {
             return Instant.now().isAfter(expiration);
+        }
+    }
+
+    private record VerifiedToken(Identity identity, Instant expiration)
+    {
+        private VerifiedToken
+        {
+            requireNonNull(identity, "identity is null");
+            requireNonNull(expiration, "expiration is null");
         }
     }
 
