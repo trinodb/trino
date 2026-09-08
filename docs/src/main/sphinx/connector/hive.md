@@ -227,6 +227,30 @@ Hive connector documentation.
 * - `hive.file-status-cache-expire-time`
   - How long a cached directory listing is considered valid.
   - `1m`
+* - `hive.file-status-cache.listing-timeout`
+  - Maximum duration of a single directory listing that populates the cache.
+    When the listing takes longer, the query fails and no partial result is
+    cached. `0` disables the timeout.
+  - `0s`
+* - `hive.file-status-cache.listing-element-timeout`
+  - Maximum time to wait for the next entry of a directory listing that
+    populates the cache. Use it to fail fast on a stalled storage. `0`
+    disables the timeout.
+  - `0s`
+* - `hive.file-status-cache.listing-max-retries`
+  - Number of additional attempts to retry a directory listing that failed or
+    timed out.
+  - `0`
+* - `hive.file-status-cache.listing-max-threads`
+  - Maximum number of threads running directory listings with a timeout
+    concurrently. Additional listings wait for a free thread, bounded by their
+    timeout. Only used when a listing timeout or retries are configured.
+  - `8`
+* - `hive.file-status-cache.listing-queue-capacity`
+  - Capacity of the buffer between a listing thread and the query. Bounds
+    memory when a listing thread outlives a query that timed out. Only used
+    when a listing timeout or retries are configured.
+  - `1000`
 * - `hive.per-transaction-file-status-cache.max-retained-size`
   - Maximum retained size of all entries in per transaction file status cache.
     Retained size limit is shared across all running queries.
