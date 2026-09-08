@@ -510,7 +510,8 @@ public class IcebergMetadata
             OPTIMIZE,
             OPTIMIZE_MANIFESTS,
             EXPIRE_SNAPSHOTS,
-            REMOVE_ORPHAN_FILES);
+            REMOVE_ORPHAN_FILES,
+            DROP_EXTENDED_STATS);
 
     private final CatalogName catalogName;
     private final TypeManager typeManager;
