@@ -1153,11 +1153,6 @@ public abstract class BaseIcebergMaterializedViewTest
 
         // Procedures that would change the storage table's logical contents or desync it from the materialized view
         // are rejected; only physical maintenance is allowed.
-        assertQueryFails(
-                session,
-                "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE DROP_EXTENDED_STATS",
-                "Table procedure DROP_EXTENDED_STATS is not supported on a materialized view storage table");
-
         long snapshotId = (long) computeScalar(session, "SELECT snapshot_id FROM \"" + mvName + "$snapshots\" ORDER BY committed_at LIMIT 1");
         assertQueryFails(
                 session,
@@ -1184,9 +1179,34 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM base_table1");
         assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
 
+        long snapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + mvName + "$snapshots\" ORDER BY committed_at LIMIT 1");
         assertQueryFails(
-                "ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE DROP_EXTENDED_STATS",
-                "Table procedure DROP_EXTENDED_STATS is not supported on a materialized view storage table");
+                "ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE ROLLBACK_TO_SNAPSHOT(" + snapshotId + ")",
+                "Table procedure ROLLBACK_TO_SNAPSHOT is not supported on a materialized view storage table");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+    }
+
+    @Test
+    public void testDropExtendedStatsAllowedOnMaterializedView()
+    {
+        // DROP_EXTENDED_STATS only removes statistics files; it commits no snapshot and cannot desynchronize
+        // the storage table from the materialized view, unlike the procedures rejected above. It is also
+        // reachable directly against the (possibly hidden) storage table, a capability that predates
+        // ALTER MATERIALIZED VIEW EXECUTE and must keep working.
+        String mvName = "test_drop_extended_stats_mv_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM base_table1");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+        assertUpdate("ANALYZE \"" + mvName + "$materialized_view_storage\"");
+
+        assertThat(query("ALTER MATERIALIZED VIEW " + mvName + " EXECUTE DROP_EXTENDED_STATS"))
+                .matches("VALUES (VARCHAR 'removed_statistics_count', BIGINT '1')");
+
+        // Re-analyzing after the ALTER MATERIALIZED VIEW path should work, and the old path against the
+        // (possibly hidden) storage table's own name must keep working too.
+        assertUpdate("ANALYZE \"" + mvName + "$materialized_view_storage\"");
+        assertThat(query("ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE DROP_EXTENDED_STATS"))
+                .matches("VALUES (VARCHAR 'removed_statistics_count', BIGINT '1')");
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
     }

@@ -2238,13 +2238,15 @@ The Iceberg connector supports the {ref}`WHEN STALE <mv-when-stale>` clause in
 view is stale. 
 
 You can perform physical maintenance of the storage table with {ref}`ALTER
-MATERIALIZED VIEW EXECUTE <alter-materialized-view-execute>`. Only the
-`optimize`, `optimize_manifests`, `expire_snapshots`, and `remove_orphan_files`
-procedures are supported; other procedures are rejected because they would
-desynchronize the storage table from the materialized view. Running a
+MATERIALIZED VIEW EXECUTE <alter-materialized-view-execute>`. The `optimize`,
+`optimize_manifests`, `expire_snapshots`, `remove_orphan_files`, and
+`drop_extended_stats` procedures are supported. The `rollback_to_snapshot`,
+`add_files`, and `add_files_from_table` procedures are rejected, because they
+would desynchronize the storage table from the materialized view. Running a
 procedure requires the privilege to execute that procedure against the
-materialized view, and preserves the metadata used to determine freshness, so
-a subsequent `REFRESH MATERIALIZED VIEW` can still be incremental:
+materialized view. The procedure preserves the metadata used to determine
+freshness, so a subsequent `REFRESH MATERIALIZED VIEW` can still be
+incremental:
 
 ```
 ALTER MATERIALIZED VIEW mv_name EXECUTE optimize
