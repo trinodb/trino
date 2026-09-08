@@ -211,7 +211,7 @@ public class TwoMixedHivesEnvironment
 
     private HadoopContainer createKerberosHadoopContainer()
     {
-        HadoopContainer container = new HadoopContainer()
+        HadoopContainer container = HadoopContainer.kerberized()
                 .withNetwork(network)
                 .withNetworkAliases(HADOOP1_HOST);
 
@@ -255,11 +255,10 @@ public class TwoMixedHivesEnvironment
                HIVE_CONF="/opt/hive/conf"
                KEYTAB_DIR="%1$s"
 
-               echo "=== Ensuring Kerberos workstation tools are available ==="
+               echo "=== Verifying Kerberos workstation tools are available ==="
                if ! command -v kinit >/dev/null 2>&1; then
-                   yum install -y -q krb5-workstation
-               else
-                   echo "krb5-workstation already present; skipping yum install"
+                   echo "FATAL: kinit missing; expected it from the kerberized image" >&2
+                   exit 1
                fi
 
                echo "=== Configuring supervisord for Kerberos ==="

@@ -518,7 +518,7 @@ public class HiveKerberosEnvironment
      */
     protected HadoopContainer createKerberosBaseHadoopContainer()
     {
-        return new HadoopContainer();
+        return HadoopContainer.kerberized();
     }
 
     /**
@@ -611,11 +611,10 @@ public class HiveKerberosEnvironment
                ls -la /etc/krb5.conf
                ls -la ${KEYTAB_DIR}/
 
-               echo "=== Ensuring Kerberos workstation tools are available ==="
+               echo "=== Verifying Kerberos workstation tools are available ==="
                if ! command -v kinit >/dev/null 2>&1; then
-                   yum install -y -q krb5-workstation
-               else
-                   echo "krb5-workstation already present; skipping yum install"
+                   echo "FATAL: kinit missing; expected it from the kerberized image" >&2
+                   exit 1
                fi
 
                echo "=== Configuring supervisord child process environment for Kerberos ==="
