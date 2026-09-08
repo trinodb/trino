@@ -185,6 +185,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_HAS_NO_COLUMNS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
@@ -3511,6 +3512,18 @@ public class TestAnalyzer
         assertFails("CREATE TABLE test(x) WITH (p1 = 'p1', \"p1\" = 'p2') AS SELECT null")
                 .hasErrorCode(DUPLICATE_PROPERTY)
                 .hasMessageMatching(".* Duplicate property: p1");
+    }
+
+    @Test
+    public void testCreateTableAsOverExistingViewFails()
+    {
+        // v1 is a view in tpch.s1 (registered in setup)
+        assertFails("CREATE TABLE v1 AS SELECT 1")
+                .hasErrorCode(TABLE_ALREADY_EXISTS)
+                .hasMessageContaining("already exists");
+        assertFails("CREATE OR REPLACE TABLE v1 AS SELECT 1")
+                .hasErrorCode(TABLE_ALREADY_EXISTS)
+                .hasMessageContaining("already exists");
     }
 
     @Test
