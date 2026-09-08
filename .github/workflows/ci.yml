@@ -51,7 +51,7 @@ concurrency:
 
 jobs:
   check-commit-messages:
-    if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
+    if: "false" # STRESS: disabled
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -65,6 +65,7 @@ jobs:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
   zizmor:
+    if: "false" # STRESS: disabled
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -104,6 +105,7 @@ jobs:
             non_docs: '!docs/**'
 
   maven-checks:
+    if: "false" # STRESS: disabled
     permissions:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
@@ -156,7 +158,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
+    if: "false" # STRESS: disabled
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -199,7 +201,7 @@ jobs:
 
   check-commits-dispatcher:
     needs: path-filters
-    if: github.event_name == 'pull_request' && needs.path-filters.outputs.non_docs == 'true'
+    if: "false" # STRESS: disabled
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -236,7 +238,7 @@ jobs:
     needs: check-commits-dispatcher
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
+    if: "false" # STRESS: disabled
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix: ${{ fromJson(needs.check-commits-dispatcher.outputs.matrix) }}
@@ -261,7 +263,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
+    if: "false" # STRESS: disabled
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -300,7 +302,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
+    if: "false" # STRESS: disabled
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -351,7 +353,7 @@ jobs:
       actions: write # to dispatch cancel-merge-queue-workflow on failure
       contents: read
     needs: path-filters
-    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
+    if: "false" # STRESS: disabled
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -451,7 +453,7 @@ jobs:
       issues: write # to comment on the PR for test-with-secrets runs (update-check)
       pull-requests: write # commenting on a PR is governed by this permission, not issues (update-check)
     needs: path-filters
-    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
+    if: "false" # STRESS: disabled
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -515,7 +517,7 @@ jobs:
       pull-requests: write # commenting on a PR is governed by this permission, not issues (update-check)
     runs-on: 'ubuntu-latest'
     needs: build-test-matrix
-    if: needs.build-test-matrix.outputs.matrix != '{}'
+    if: "false" # STRESS: disabled
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
@@ -907,20 +909,10 @@ jobs:
             testing/trino-product-tests/target/product-test-distribution
             testing/trino-product-tests/target/iceberg-spark-runtime.jar
           retention-days: 1
-      - name: Build product-test matrix from impacted modules
-        if: >-
-          github.event_name == 'pull_request' &&
-          needs.path-filters.outputs.ci != 'true' &&
-          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
-          !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
-        run: .github/bin/build-pt-matrix.py -v -i gib-impacted.log > matrix.json
-      - name: Build full product-test matrix
-        if: >-
-          github.event_name != 'pull_request' ||
-          needs.path-filters.outputs.ci == 'true' ||
-          contains(github.event.pull_request.labels.*.name, 'tests:all') ||
-          contains(github.event.pull_request.labels.*.name, 'tests:all-product')
-        run: .github/bin/build-pt-matrix.py -v > matrix.json
+      # STRESS: replaces the normal matrix with N copies of the Kerberos suites
+      - name: Build stress product-test matrix
+        run: |
+          jq -nc '{include: ["SuiteHdfsImpersonation","SuiteTwoHives"] | map(. as $s | [range(1;26)] | map({suite:$s, run:.})) | flatten}' > matrix.json
       - id: set-matrix
         run: |
           echo "PT matrix: $(jq '.' matrix.json)"
@@ -939,10 +931,12 @@ jobs:
       issues: write # to comment on the PR for test-with-secrets runs (update-check)
       pull-requests: write # commenting on a PR is governed by this permission, not issues (update-check)
     runs-on: 'ubuntu-latest'
-    name: pt (${{ matrix.suite }})
+    name: pt (${{ matrix.suite }} #${{ matrix.run }})
     if: needs.build-pt.outputs.matrix != '{}'
     strategy:
       fail-fast: false
+      # STRESS: 50 concurrent jobs get 403s from the artifact service; throttle the fan-out
+      max-parallel: 12
       matrix: ${{ fromJson(needs.build-pt.outputs.matrix) }}
     timeout-minutes: 130
     needs: build-pt
@@ -1182,7 +1176,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pt (${{ matrix.suite }})
+          name: pt (${{ matrix.suite }} #${{ matrix.run }})
           path: logs/
           retention-days: 7
       - name: Update PR check
