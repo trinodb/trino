@@ -41,12 +41,14 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static io.trino.sql.ir.IrUtils.preOrder;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 /// Generates rows to evaluate expressions on, for tests that verify a rewrite against the original
 /// expression rather than against a frozen expected output.
@@ -96,6 +98,14 @@ public final class TestingRows
         this.evaluator = new IrExpressionEvaluator(requireNonNull(plannerContext, "plannerContext is null"));
     }
 
+    /// True when `symbols` uses one name for more than one type. The expression they come from is then
+    /// ill-typed, so it cannot occur in a plan and there is no single type to generate values of. A
+    /// verifier skips such an expression rather than failing on it.
+    public static boolean hasConflictingTypes(Collection<Symbol> symbols)
+    {
+        return symbols.stream().map(Symbol::name).distinct().count() != symbols.stream().distinct().count();
+    }
+
     /// Rows over the free symbols of `expression`, with the values drawn from its own literals.
     public List<Map<String, Object>> rows(Expression expression)
     {
@@ -109,10 +119,7 @@ public final class TestingRows
         List<Symbol> ordered = symbols.stream()
                 .sorted(comparing(Symbol::name))
                 .collect(toImmutableList());
-        checkArgument(
-                ordered.stream().map(Symbol::name).distinct().count() == ordered.size(),
-                "symbols contain the same name with different types: %s",
-                symbols);
+        checkArgument(!hasConflictingTypes(ordered), "symbols contain the same name with different types: %s", symbols);
 
         List<Constant> literals = literalSources.stream()
                 .flatMap(source -> preOrder(source)
@@ -141,6 +148,36 @@ public final class TestingRows
             rows.add(bindings);
         }
         return rows.build();
+    }
+
+    /// Renders a value the way a query result shows it. The native representation of many types is an
+    /// opaque `Slice` or `Int128`, which says nothing in a failure message.
+    public static String formatValue(Type type, Object value)
+    {
+        if (value == EVALUATION_FAILED) {
+            return "<evaluation failed>";
+        }
+        if (value == null) {
+            return "null";
+        }
+        Object objectValue = objectValue(type, value);
+        // quoted, so that a value that is blank or has significant whitespace is still readable
+        return objectValue instanceof CharSequence ? "'" + objectValue + "'" : String.valueOf(objectValue);
+    }
+
+    /// Renders a row as the values its symbols are bound to, ordered by symbol name.
+    public static String formatRow(Collection<Symbol> symbols, Map<String, Object> bindings)
+    {
+        return symbols.stream()
+                .sorted(comparing(Symbol::name))
+                .map(symbol -> symbol.name() + "=" + formatValue(symbol.type(), bindings.get(symbol.name())))
+                .collect(joining(", ", "{", "}"));
+    }
+
+    /// The value of a native value as [Type#getObjectValue] returns it.
+    public static Object objectValue(Type type, Object value)
+    {
+        return type.getObjectValue(writeNativeValue(type, value), 0);
     }
 
     /// Evaluates `expression` for a row, reporting a failure as [#EVALUATION_FAILED] rather than

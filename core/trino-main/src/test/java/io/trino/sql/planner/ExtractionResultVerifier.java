@@ -80,7 +80,7 @@ final class ExtractionResultVerifier
                 predicate,
                 result.getTupleDomain(),
                 result.getRemainingExpression(),
-                bindings);
+                TestingRows.formatRow(SymbolsExtractor.extractUnique(predicate), bindings));
     }
 
     private static boolean containsRow(TupleDomain<Symbol> tupleDomain, Map<String, Object> bindings)
