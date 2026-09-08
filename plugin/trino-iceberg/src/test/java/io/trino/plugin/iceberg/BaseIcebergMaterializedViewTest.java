@@ -1227,6 +1227,62 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testMaterializedViewOptimizePreservesTableFunctionFreshnessAndLastFreshTime()
+    {
+        String sourceTable = "test_optimize_preserve_ptf_freshness_src_" + randomNameSuffix();
+        String viewName = "test_optimize_preserve_ptf_freshness_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable + " (x BIGINT)");
+        assertUpdate("INSERT INTO " + sourceTable + " SELECT * FROM UNNEST(sequence(1, 2000))", 2000);
+        // A tiny target_max_file_size makes the refresh write several data files, so OPTIMIZE has something to
+        // compact and commits a real rewrite snapshot. With a single data file OPTIMIZE commits nothing at all and
+        // would not exercise the carry-forward at all.
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " WITH (target_max_file_size = '1kB') AS " +
+                "SELECT * FROM TABLE(mock.system.sequence_function()) CROSS JOIN " + sourceTable);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 2000);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + viewName + "$files\"")).isGreaterThan(1);
+        assertFreshness(viewName, "UNKNOWN");
+        ZonedDateTime lastFreshTimeBeforeOptimize = getLastFreshTime(viewName);
+        assertThat(lastFreshTimeBeforeOptimize).isNotNull();
+
+        assertUpdate("ALTER MATERIALIZED VIEW " + viewName + " EXECUTE OPTIMIZE");
+
+        // The rewrite really happened, and it carried the dependency summary forward.
+        assertThat((String) computeScalar("SELECT operation FROM \"" + viewName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1"))
+                .isEqualTo("replace");
+        assertThat((long) computeScalar("SELECT count(*) FROM " + viewName)).isEqualTo(2000L);
+        assertFreshness(viewName, "UNKNOWN");
+        assertThat(getLastFreshTime(viewName)).isEqualTo(lastFreshTimeBeforeOptimize);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        assertUpdate("DROP TABLE " + sourceTable);
+    }
+
+    @Test
+    public void testMaterializedViewOptimizePreservesNonDeterministicFunctionFreshness()
+    {
+        String sourceTable = "test_optimize_preserve_nondet_src_" + randomNameSuffix();
+        String viewName = "test_optimize_preserve_nondet_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable + " (x BIGINT)");
+        assertUpdate("INSERT INTO " + sourceTable + " SELECT * FROM UNNEST(sequence(1, 2000))", 2000);
+        // Same as in testMaterializedViewOptimizePreservesTableFunctionFreshnessAndLastFreshTime
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " WITH (target_max_file_size = '1kB') AS " +
+                "SELECT x, current_timestamp AS ts FROM " + sourceTable);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 2000);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + viewName + "$files\"")).isGreaterThan(1);
+        assertFreshness(viewName, "UNKNOWN");
+
+        assertUpdate("ALTER MATERIALIZED VIEW " + viewName + " EXECUTE OPTIMIZE");
+
+        assertThat((String) computeScalar("SELECT operation FROM \"" + viewName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1"))
+                .isEqualTo("replace");
+        assertThat((long) computeScalar("SELECT count(*) FROM " + viewName)).isEqualTo(2000L);
+        assertFreshness(viewName, "UNKNOWN");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        assertUpdate("DROP TABLE " + sourceTable);
+    }
+
+    @Test
     public void testOptimizeMaterializedViewWithVisibleStorageTable()
     {
         // With iceberg.materialized-views.hide-storage-table disabled the storage table is a plain "st_<uuid>" table
