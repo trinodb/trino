@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndex.Factory;
 import io.trino.operator.PagesIndexOrdering;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -264,7 +265,7 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
-        public void prepareFinal()
+        public void prepareFinal(UpdateMemory updateMemory)
         {
             checkState(pagesIndex != null, "prepareFinal() already called");
             pagesIndex.sort(pagesIndexOrdering);

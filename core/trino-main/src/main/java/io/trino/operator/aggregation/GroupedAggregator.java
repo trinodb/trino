@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
 import io.trino.operator.AggregationMetrics;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -100,9 +101,9 @@ public class GroupedAggregator
         }
     }
 
-    public void prepareFinal()
+    public void prepareFinal(UpdateMemory updateMemory)
     {
-        accumulator.prepareFinal();
+        accumulator.prepareFinal(updateMemory);
     }
 
     public void evaluate(int groupId, BlockBuilder output)

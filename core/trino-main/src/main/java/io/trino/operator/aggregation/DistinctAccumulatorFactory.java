@@ -276,7 +276,7 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
-        public void prepareFinal()
+        public void prepareFinal(UpdateMemory updateMemory)
         {
             // release hash memory after all inputs have been added
             hash = null;

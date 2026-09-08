@@ -25,6 +25,7 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
+import io.trino.operator.UpdateMemory;
 import io.trino.operator.window.InternalWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -967,7 +968,8 @@ public final class AccumulatorCompiler
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC),
                 "prepareFinal",
-                type(void.class));
+                type(void.class),
+                arg("updateMemory", UpdateMemory.class));
         method.getBody().ret();
     }
 
