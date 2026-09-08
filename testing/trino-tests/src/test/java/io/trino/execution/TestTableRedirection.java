@@ -21,11 +21,14 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorInsertTableHandle;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.AnalyzeTableHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.plan.StatisticsWriterNode;
+import io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsHandle;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -443,6 +446,34 @@ public class TestTableRedirection
                     assertThat(((MockConnectorTableHandle) mergeTarget.getHandle().connectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                     assertThat(mergeTarget.getSchemaTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                 });
+    }
+
+    @Test
+    public void testAnalyze()
+    {
+        assertUpdate(
+                getSession(),
+                format("ANALYZE %s.%s", SCHEMA_ONE, VALID_REDIRECTION_SRC),
+                // Verify the plan instead of the collected statistics, because statistics collection is a no-op for Mock connector
+                plan -> {
+                    StatisticsWriterNode statisticsWriter = (StatisticsWriterNode) searchFrom(plan.getRoot())
+                            .where(StatisticsWriterNode.class::isInstance)
+                            .findOnlyElement();
+                    AnalyzeTableHandle handle = ((WriteStatisticsHandle) statisticsWriter.getTarget()).getHandle();
+                    assertThat(((MockConnectorTableHandle) handle.connectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                });
+
+        assertThat(query(format("ANALYZE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC)))
+                .failure()
+                .hasMessageContaining(
+                        "Table '%s' redirected to '%s', but the target table '%s' does not exist",
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
+
+        assertThat(query(format("ANALYZE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING)))
+                .failure()
+                .hasMessageContaining("Table redirections form a loop");
     }
 
     // TODO: Add tests for redirection in CommentsSystemTable and CREATE TABLE LIKE
