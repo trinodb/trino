@@ -1585,7 +1585,8 @@ class StatementAnalyzer
             Set<String> names = new HashSet<>();
             for (Field field : descriptor.getVisibleFields()) {
                 String fieldName = field.getName()
-                        .orElseThrow(() -> semanticException(MISSING_COLUMN_NAME, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1));
+                        .orElseThrow(() -> semanticException(MISSING_COLUMN_NAME, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1))
+                        .toLowerCase(ENGLISH);
                 if (!names.add(fieldName)) {
                     throw semanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName);
                 }

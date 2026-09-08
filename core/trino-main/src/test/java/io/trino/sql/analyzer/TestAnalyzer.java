@@ -3479,6 +3479,9 @@ public class TestAnalyzer
         assertFails("CREATE TABLE test AS SELECT 1 a, 2 a")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
                 .hasMessage("line 1:1: Column name 'a' specified more than once");
+        assertFails("CREATE TABLE test AS SELECT 1 AS \"A\", 2 AS \"a\"")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:1: Column name 'a' specified more than once");
         assertFails("CREATE TABLE test AS SELECT null a")
                 .hasErrorCode(COLUMN_TYPE_UNKNOWN)
                 .hasMessage("line 1:1: Column type is unknown: a");
@@ -3570,9 +3573,20 @@ public class TestAnalyzer
         assertFails("CREATE VIEW test AS SELECT 1 a, 2 a")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
                 .hasMessage("line 1:1: Column name 'a' specified more than once");
+        assertFails("CREATE VIEW test AS SELECT 1 AS \"A\", 2 AS \"a\"")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:1: Column name 'a' specified more than once");
         assertFails("CREATE VIEW test AS SELECT null a")
                 .hasErrorCode(COLUMN_TYPE_UNKNOWN)
                 .hasMessage("line 1:1: Column type is unknown: a");
+    }
+
+    @Test
+    public void testCreateMaterializedViewColumns()
+    {
+        assertFails("CREATE MATERIALIZED VIEW test AS SELECT 1 AS \"A\", 2 AS \"a\"")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:1: Column name 'a' specified more than once");
     }
 
     @Test
