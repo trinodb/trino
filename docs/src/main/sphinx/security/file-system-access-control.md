@@ -378,8 +378,12 @@ denied. If function rules are not present, only functions in `system.builtin`
 can be executed.
 
 :::{note}
-Users always have access to functions in the `system.builtin` schema, and
-you cannot override this behavior by adding a rule.
+Users always have access to the built-in functions in the `system.builtin`
+schema, and you cannot override this behavior by adding a rule. This does
+not apply to user-defined functions (UDFs). Even when a UDF resides in the
+`system.builtin` schema, access to it is still governed by function rules.
+To let a user run a UDF, add a function rule that grants the `EXECUTE`
+privilege.
 :::
 
 Each function rule is composed of the following fields:
