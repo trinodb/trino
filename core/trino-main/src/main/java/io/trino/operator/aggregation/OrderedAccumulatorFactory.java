@@ -277,6 +277,8 @@ public class OrderedAccumulatorFactory
                         extractGroupIds(page),
                         page.getColumns(argumentChannels),
                         mask);
+                // result ignored, prepareFinal cannot yield
+                updateMemory.update();
             });
             // release pagesIndex memory after transferring its contents into the accumulator
             pagesIndex = null;
