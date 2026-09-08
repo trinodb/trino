@@ -50,6 +50,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyRedundantCase
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
@@ -181,6 +183,6 @@ public class TestSimplifyRedundantCase
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyRedundantCase(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new SimplifyRedundantCase(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }

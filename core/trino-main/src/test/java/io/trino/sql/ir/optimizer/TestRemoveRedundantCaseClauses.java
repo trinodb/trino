@@ -44,6 +44,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRemoveRedundantCaseClauses
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
 
@@ -107,6 +109,6 @@ public class TestRemoveRedundantCaseClauses
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantCaseClauses().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new RemoveRedundantCaseClauses().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }

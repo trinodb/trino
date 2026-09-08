@@ -42,6 +42,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEvaluateComparison
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void testIdentical()
     {
@@ -340,6 +342,6 @@ public class TestEvaluateComparison
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateComparison(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new EvaluateComparison(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
