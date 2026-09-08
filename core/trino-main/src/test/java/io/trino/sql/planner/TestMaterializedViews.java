@@ -290,13 +290,18 @@ public class TestMaterializedViews
 
     private void createMaterializedView(String materializedViewName, String query)
     {
+        createMaterializedView(materializedViewName, query, ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())));
+    }
+
+    private void createMaterializedView(String materializedViewName, String query, List<ViewColumn> columns)
+    {
         Metadata metadata = getPlanTester().getPlannerContext().getMetadata();
         QualifiedObjectName matViewName = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, materializedViewName);
         MaterializedViewDefinition matViewDefinition = new MaterializedViewDefinition(
                 query,
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
+                columns,
                 Optional.of(STALE_MV_STALENESS.plusHours(1)),
                 INLINE,
                 Optional.empty(),
@@ -373,12 +378,18 @@ public class TestMaterializedViews
     @Test
     public void testRefreshTypes()
     {
-        createMaterializedView("simple_materialized_view", "SELECT a as new_name, b FROM test_table WHERE a is not null and b > 1");
+        createMaterializedView(
+                "simple_materialized_view",
+                "SELECT a as new_name, b FROM test_table WHERE a is not null and b > 1",
+                ImmutableList.of(new ViewColumn("new_name", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())));
         Optional<RefreshType> refreshType = getRefreshType("simple_materialized_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(INCREMENTAL);
 
-        createMaterializedView("aggregation_materialized_view", "SELECT a, count(*) FROM test_table GROUP BY a");
+        createMaterializedView(
+                "aggregation_materialized_view",
+                "SELECT a, count(*) AS cnt FROM test_table GROUP BY a",
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("cnt", BIGINT.getTypeId(), Optional.empty())));
         refreshType = getRefreshType("aggregation_materialized_view");
         assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
