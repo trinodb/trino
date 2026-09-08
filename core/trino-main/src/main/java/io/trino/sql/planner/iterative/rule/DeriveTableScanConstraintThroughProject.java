@@ -29,6 +29,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.Rule.Context;
@@ -39,7 +40,9 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -204,15 +207,31 @@ public class DeriveTableScanConstraintThroughProject
             return Result.empty();
         }
 
-        // estimated without building the inlined expression, so a blowup is rejected for free
-        long estimatedInlinedSize = candidateConjuncts.stream()
-                .mapToLong(conjunct -> preOrder(conjunct).count()
-                        + SymbolsExtractor.extractAll(conjunct).stream()
-                        .mapToLong(symbol -> preOrder(project.getAssignments().get(symbol)).count())
-                        .sum())
-                .sum();
-        if (estimatedInlinedSize > MAX_INLINED_EXPRESSION_SIZE) {
-            return Result.empty();
+        // Estimate the inlined size without building it. Assignment sizes are cached per symbol
+        // and every traversal stops at the budget, so the guard's own work stays within the
+        // budget no matter how often an assignment is referenced.
+        Map<Symbol, Long> assignmentSizes = new HashMap<>();
+        long remainingBudget = MAX_INLINED_EXPRESSION_SIZE;
+        for (Expression conjunct : candidateConjuncts) {
+            long conjunctSize = preOrder(conjunct)
+                    .limit(remainingBudget + 1)
+                    .count();
+            if (conjunctSize > remainingBudget) {
+                return Result.empty();
+            }
+            remainingBudget -= conjunctSize;
+
+            for (Symbol symbol : SymbolsExtractor.extractAll(conjunct)) {
+                long assignmentSize = assignmentSizes.computeIfAbsent(
+                        symbol,
+                        key -> preOrder(project.getAssignments().get(key))
+                                .limit(MAX_INLINED_EXPRESSION_SIZE + 1)
+                                .count());
+                if (assignmentSize > remainingBudget) {
+                    return Result.empty();
+                }
+                remainingBudget -= assignmentSize;
+            }
         }
 
         Expression inlined = inlineSymbols(project.getAssignments()::get, combineConjuncts(candidateConjuncts));
