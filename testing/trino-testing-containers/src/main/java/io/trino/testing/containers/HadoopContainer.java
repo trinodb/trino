@@ -13,6 +13,7 @@
  */
 package io.trino.testing.containers;
 
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -109,7 +110,25 @@ public class HadoopContainer
         // Wait for socks-proxy to enter RUNNING state - this is the last service started by supervisord
         // Note: Don't use Wait.forListeningPort() as HDFS port 9000 binds to container IP, not 0.0.0.0
         waitingFor(Wait.forLogMessage(".*success: socks-proxy entered RUNNING state.*", 1)
+                // STRESS: production's deadline, so the failure can reproduce; attempts left at 1
                 .withStartupTimeout(Duration.ofMinutes(3)));
+    }
+
+    // STRESS: instrumentation - report how long readiness actually took
+    private long startedNanos;
+
+    @Override
+    protected void containerIsStarting(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStarting(containerInfo);
+        startedNanos = System.nanoTime();
+    }
+
+    @Override
+    protected void containerIsStarted(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStarted(containerInfo);
+        System.out.printf("STRESS hadoop-ready-seconds=%d%n", Duration.ofNanos(System.nanoTime() - startedNanos).toSeconds());
     }
 
     @Override
