@@ -15,8 +15,6 @@ package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -30,7 +28,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.TestingRows.EVALUATION_FAILED;
 import static io.trino.testing.TestingSession.testSession;
@@ -78,29 +75,34 @@ public final class RewriteVerifier
                 .addAll(SymbolsExtractor.extractUnique(rewritten))
                 .build();
 
+        if (TestingRows.hasConflictingTypes(symbols)) {
+            // an ill-typed expression, which no plan can contain, has no rows to generate
+            return;
+        }
+
         for (Map<String, Object> bindings : rows.rows(symbols, ImmutableList.of(original, rewritten))) {
-            Object expected = rows.evaluate(original, bindings);
-            if (expected == EVALUATION_FAILED) {
+            Object originalValue = rows.evaluate(original, bindings);
+            if (originalValue == EVALUATION_FAILED) {
                 // A failure isn't guaranteed to be preserved, because a rewrite may drop or reorder
                 // the work that fails. Only a row the original produces a value for is binding.
                 continue;
             }
 
-            Object actual = rows.evaluate(rewritten, bindings);
-            if (actual == EVALUATION_FAILED) {
-                fail("the rewritten expression fails for a row the original evaluates%n  original:   %s%n  rewritten:  %s%n  row:        %s%n  expected:   %s",
+            Object rewrittenValue = rows.evaluate(rewritten, bindings);
+            if (rewrittenValue == EVALUATION_FAILED) {
+                fail("the rewritten expression fails for a row the original evaluates%n  original:          %s%n  rewritten:         %s%n  row:               %s%n  original result:   %s",
                         original,
                         rewritten,
-                        bindings,
-                        expected);
+                        TestingRows.formatRow(symbols, bindings),
+                        TestingRows.formatValue(original.type(), originalValue));
             }
-            if (!valuesEqual(original.type(), expected, actual)) {
-                fail("the rewritten expression evaluates to a different value%n  original:   %s%n  rewritten:  %s%n  row:        %s%n  expected:   %s%n  actual:     %s",
+            if (!valuesEqual(original.type(), originalValue, rewrittenValue)) {
+                fail("the rewritten expression evaluates to a different value%n  original:          %s%n  rewritten:         %s%n  row:               %s%n  original result:   %s%n  rewritten result:  %s",
                         original,
                         rewritten,
-                        bindings,
-                        expected,
-                        actual);
+                        TestingRows.formatRow(symbols, bindings),
+                        TestingRows.formatValue(original.type(), originalValue),
+                        TestingRows.formatValue(original.type(), rewrittenValue));
             }
         }
     }
@@ -115,14 +117,6 @@ public final class RewriteVerifier
         if (left == null || right == null) {
             return false;
         }
-        return Objects.equals(objectValue(type, left), objectValue(type, right));
-    }
-
-    private static Object objectValue(Type type, Object value)
-    {
-        BlockBuilder builder = type.createBlockBuilder(null, 1);
-        writeNativeValue(type, builder, value);
-        Block block = builder.build();
-        return type.getObjectValue(block, 0);
+        return Objects.equals(TestingRows.objectValue(type, left), TestingRows.objectValue(type, right));
     }
 }
