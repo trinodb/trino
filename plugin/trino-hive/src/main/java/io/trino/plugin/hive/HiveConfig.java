@@ -145,6 +145,11 @@ public class HiveConfig
     private List<String> fileStatusCacheTables = ImmutableList.of();
     private List<String> fileStatusCacheExcludedTables = ImmutableList.of();
     private DataSize perTransactionFileStatusCacheMaxRetainedSize = DataSize.of(100, MEGABYTE);
+    private Duration fileStatusCacheListingTimeout = new Duration(0, MINUTES);
+    private Duration fileStatusCacheListingElementTimeout = new Duration(0, MINUTES);
+    private int fileStatusCacheListingMaxRetries;
+    private int fileStatusCacheListingMaxThreads = 8;
+    private int fileStatusCacheListingQueueCapacity = 1000;
 
     private boolean translateHiveViews;
     private boolean legacyHiveViewTranslation;
@@ -865,6 +870,76 @@ public class HiveConfig
     public HiveConfig setFileStatusCacheExpireAfterWrite(Duration fileStatusCacheExpireAfterWrite)
     {
         this.fileStatusCacheExpireAfterWrite = fileStatusCacheExpireAfterWrite;
+        return this;
+    }
+
+    @NotNull
+    public Duration getFileStatusCacheListingTimeout()
+    {
+        return fileStatusCacheListingTimeout;
+    }
+
+    @Config("hive.file-status-cache.listing-timeout")
+    @ConfigDescription("Maximum duration of a single cached directory listing before it fails; 0 disables the timeout")
+    public HiveConfig setFileStatusCacheListingTimeout(Duration fileStatusCacheListingTimeout)
+    {
+        this.fileStatusCacheListingTimeout = fileStatusCacheListingTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getFileStatusCacheListingElementTimeout()
+    {
+        return fileStatusCacheListingElementTimeout;
+    }
+
+    @Config("hive.file-status-cache.listing-element-timeout")
+    @ConfigDescription("Maximum duration to wait for the next entry of a cached directory listing before it fails; 0 disables the timeout")
+    public HiveConfig setFileStatusCacheListingElementTimeout(Duration fileStatusCacheListingElementTimeout)
+    {
+        this.fileStatusCacheListingElementTimeout = fileStatusCacheListingElementTimeout;
+        return this;
+    }
+
+    @Min(0)
+    public int getFileStatusCacheListingMaxRetries()
+    {
+        return fileStatusCacheListingMaxRetries;
+    }
+
+    @Config("hive.file-status-cache.listing-max-retries")
+    @ConfigDescription("Number of additional attempts to retry a cached directory listing that failed or timed out")
+    public HiveConfig setFileStatusCacheListingMaxRetries(int fileStatusCacheListingMaxRetries)
+    {
+        this.fileStatusCacheListingMaxRetries = fileStatusCacheListingMaxRetries;
+        return this;
+    }
+
+    @Min(1)
+    public int getFileStatusCacheListingMaxThreads()
+    {
+        return fileStatusCacheListingMaxThreads;
+    }
+
+    @Config("hive.file-status-cache.listing-max-threads")
+    @ConfigDescription("Maximum number of threads running cached directory listings concurrently; extra listings wait for a free thread (bounded by their timeout) so a hanging filesystem listing cannot spawn threads without limit")
+    public HiveConfig setFileStatusCacheListingMaxThreads(int fileStatusCacheListingMaxThreads)
+    {
+        this.fileStatusCacheListingMaxThreads = fileStatusCacheListingMaxThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getFileStatusCacheListingQueueCapacity()
+    {
+        return fileStatusCacheListingQueueCapacity;
+    }
+
+    @Config("hive.file-status-cache.listing-queue-capacity")
+    @ConfigDescription("Capacity of the internal buffer between the listing thread and the query; bounds memory when a listing thread outlives a timed-out query")
+    public HiveConfig setFileStatusCacheListingQueueCapacity(int fileStatusCacheListingQueueCapacity)
+    {
+        this.fileStatusCacheListingQueueCapacity = fileStatusCacheListingQueueCapacity;
         return this;
     }
 
