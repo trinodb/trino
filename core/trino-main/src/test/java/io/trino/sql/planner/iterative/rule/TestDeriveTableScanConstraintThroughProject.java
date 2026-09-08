@@ -27,6 +27,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -225,6 +226,31 @@ public class TestDeriveTableScanConstraintThroughProject
                         p.project(
                                 Assignments.builder()
                                         .put(p.symbol("x", WIDE_STATUS_TYPE), new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))
+                                        .build(),
+                                p.tableScan(
+                                        ordersTableHandle,
+                                        ImmutableList.of(p.symbol("orderstatus", STATUS_TYPE)),
+                                        ImmutableMap.of(p.symbol("orderstatus", STATUS_TYPE), orderStatusColumn)))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireWhenRepeatedReferencesExceedSizeBudget()
+    {
+        // the predicate itself is small, but every reference to the large projected expression
+        // consumes budget, so the estimated inlined size exceeds the limit
+        Expression largeAssignment = new Coalesce(IntStream.range(0, 750)
+                .mapToObj(_ -> (Expression) new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))
+                .collect(toImmutableList()));
+        Expression fewComparisons = new Logical(OR, IntStream.range(0, 7)
+                .mapToObj(i -> comparison(EQUAL, X, new Constant(WIDE_STATUS_TYPE, utf8Slice("v" + i))))
+                .collect(toImmutableList()));
+        tester().assertThat(rule)
+                .on(p -> p.filter(
+                        fewComparisons,
+                        p.project(
+                                Assignments.builder()
+                                        .put(p.symbol("x", WIDE_STATUS_TYPE), largeAssignment)
                                         .build(),
                                 p.tableScan(
                                         ordersTableHandle,
