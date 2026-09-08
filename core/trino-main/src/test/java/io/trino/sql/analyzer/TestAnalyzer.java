@@ -444,6 +444,18 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testFunctionNotFoundSuggestion()
+    {
+        assertFails("SELECT from_iso8601_tiamestamp('2020-01-01')")
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:8: Function 'from_iso8601_tiamestamp' not registered. Did you mean 'from_iso8601_timestamp'?");
+
+        assertFails("SELECT xyzzy_no_such_function(1)")
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:8: Function 'xyzzy_no_such_function' not registered");
+    }
+
+    @Test
     public void testHavingReferencesOutputAlias()
     {
         assertFails("SELECT sum(a) x FROM t1 HAVING x > 5")
