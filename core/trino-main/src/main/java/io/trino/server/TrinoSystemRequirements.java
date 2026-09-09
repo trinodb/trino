@@ -133,7 +133,7 @@ final class TrinoSystemRequirements
     private static void verifyVectorApiEnabled()
     {
         if (ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) {
-            failRequirement("Trino requires the Vector API to be enabled/linked at runtime");
+            failRequirement("Trino requires the Vector API to be enabled/linked at runtime. Add --add-modules=jdk.incubator.vector to the JVM options");
         }
     }
 

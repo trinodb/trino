@@ -30,7 +30,7 @@ import static java.util.Objects.checkFromIndexSize;
 public class LongArrayBlockEncoding
         implements BlockEncoding
 {
-    private static final VectorSpecies<Long> LONG_SPECIES = LongVector.SPECIES_PREFERRED;
+    private static final VectorSpecies<Long> LONG_SPECIES = VectorApiSupport.preferredLongSpecies();
     public static final String NAME = "LONG_ARRAY";
 
     private final boolean vectorizeNullCompress;

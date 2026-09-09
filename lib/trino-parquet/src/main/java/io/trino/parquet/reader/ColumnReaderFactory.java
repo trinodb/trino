@@ -86,6 +86,13 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
+    static {
+        // must textually precede the field below so it runs before Vector API classes are resolved
+        if (ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) {
+            throw new IllegalStateException("The Java Vector API is not enabled for this JVM. Add --add-modules=jdk.incubator.vector to the JVM options");
+        }
+    }
+
     private static final int PREFERRED_BIT_WIDTH = VectorShape.preferredShape().vectorBitSize();
 
     private final DateTimeZone timeZone;

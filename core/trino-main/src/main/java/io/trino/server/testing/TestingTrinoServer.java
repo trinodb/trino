@@ -159,6 +159,15 @@ public class TestingTrinoServer
         implements Closeable
 {
     static {
+        if (ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) {
+            System.err.println();
+            System.err.println("ERROR: The Java Vector API is not enabled for this JVM.");
+            System.err.println("Add --add-modules=jdk.incubator.vector to the JVM options.");
+            System.err.println("When launching from an IDE, add it to the VM options of the run configuration.");
+            System.err.println();
+            System.exit(100);
+        }
+
         Logging logging = Logging.initialize();
         logging.setLevel("io.trino.connector.CatalogStoreManager", Level.WARN);
         logging.setLevel("io.trino.server.PluginManager", Level.WARN);

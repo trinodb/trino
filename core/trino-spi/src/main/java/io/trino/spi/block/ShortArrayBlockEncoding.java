@@ -30,7 +30,7 @@ import static java.util.Objects.checkFromIndexSize;
 public class ShortArrayBlockEncoding
         implements BlockEncoding
 {
-    private static final VectorSpecies<Short> SHORT_SPECIES = ShortVector.SPECIES_PREFERRED;
+    private static final VectorSpecies<Short> SHORT_SPECIES = VectorApiSupport.preferredShortSpecies();
     public static final String NAME = "SHORT_ARRAY";
 
     private final boolean vectorizeNullCompress;
