@@ -64,7 +64,7 @@ public class TestEvaluateIn
         //  involved -- but IrExpressionEvaluator.evaluate returns null for a null value regardless of
         //  the list, so it disagrees with this rule. The expectation below is asserted without the
         //  RewriteVerifier contract check until the interpreter is fixed.
-        assertThat(optimizeWithKnownContractViolation(
+        assertThat(optimize(
                 new In(new Constant(BIGINT, null), ImmutableList.of())))
                 .describedAs("null value, empty list")
                 .isEqualTo(Optional.of(FALSE));
@@ -98,13 +98,6 @@ public class TestEvaluateIn
     private Optional<Expression> optimize(Expression expression)
     {
         return VERIFIER.verify(expression, apply(expression));
-    }
-
-    /// Same as [#optimize], but without the [RewriteVerifier] contract check, for an expectation that
-    /// is known to violate it. Every use has to say which bug it stands for.
-    private Optional<Expression> optimizeWithKnownContractViolation(Expression expression)
-    {
-        return apply(expression);
     }
 
     private Optional<Expression> apply(Expression expression)

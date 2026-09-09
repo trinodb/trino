@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -88,7 +87,7 @@ public class TestSimplifyContinuousInValues
         //  not false, and a null value evaluate to unknown, not true. `SELECT x IN (NULL, 1, 2)` over
         //  x in (null, 1, 3) returns (true, true, false) instead of (null, true, null). The expectation
         //  below is asserted without the RewriteVerifier contract check until the rule is fixed.
-        assertThat(optimizeWithKnownContractViolation(
+        assertThat(optimize(
                 new In(new Reference(BIGINT, "x"), ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))))
                 .describedAs("continuous values with null")
                 .isEqualTo(Optional.of(or(
@@ -171,17 +170,10 @@ public class TestSimplifyContinuousInValues
                     .collect(toImmutableList());
             In in = new In(new Reference(type, "x"), valuesList);
             if (areRepresentationValuesContinuous) {
-                Optional<Expression> optimized;
-                if (type instanceof TimeType) {
-                    // TODO TimeType.getRange() boxes its minimum as an Integer, while the type's native
-                    //  representation is long, so generating rows for a time symbol fails. The other
-                    //  types here are verified.
-                    optimized = optimizeWithKnownContractViolation(in);
-                }
-                else {
-                    optimized = optimize(in);
-                }
-                assertThat(optimized)
+                // TODO TimeType.getRange() boxes its minimum as an Integer where the type's java type
+                //  is long, breaking the Type.Range contract that its values must match getJavaType();
+                //  feeding that bound back to the type throws
+                assertThat(optimize(in))
                         .isEqualTo(Optional.of(between(
                                 new Reference(type, "x"),
                                 new Constant(type, type.getLong(block, 0)),
@@ -216,13 +208,6 @@ public class TestSimplifyContinuousInValues
     private static Optional<Expression> optimize(Expression expression)
     {
         return VERIFIER.verify(expression, apply(expression));
-    }
-
-    /// Same as [#optimize], but without the [RewriteVerifier] contract check, for an expectation that
-    /// is known to violate it. Every use has to say which bug it stands for.
-    private static Optional<Expression> optimizeWithKnownContractViolation(Expression expression)
-    {
-        return apply(expression);
     }
 
     private static Optional<Expression> apply(Expression expression)

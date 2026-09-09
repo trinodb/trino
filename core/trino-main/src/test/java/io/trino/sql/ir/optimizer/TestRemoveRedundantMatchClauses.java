@@ -87,7 +87,7 @@ public class TestRemoveRedundantMatchClauses
         //  The expectation below is asserted without the RewriteVerifier contract check until the rule
         //  is fixed; for x=null, a=1, r1='a', r2='b', d='cc' the original evaluates to 'cc' and the
         //  rewrite to 'b'.
-        assertThat(optimizeWithKnownContractViolation(
+        assertThat(optimize(
                 new Match(
                         new Reference(BIGINT, "x"),
                         ImmutableList.of(
@@ -101,7 +101,7 @@ public class TestRemoveRedundantMatchClauses
                         new Reference(VARCHAR, "r2"))));
 
         // TODO same bug as above: for x=null the original evaluates to the default value, the rewrite to r1
-        assertThat(optimizeWithKnownContractViolation(
+        assertThat(optimize(
                 new Match(
                         new Reference(BIGINT, "x"),
                         ImmutableList.of(
@@ -168,13 +168,6 @@ public class TestRemoveRedundantMatchClauses
     private Optional<Expression> optimize(Expression expression)
     {
         return VERIFIER.verify(expression, apply(expression));
-    }
-
-    /// Same as [#optimize], but without the [RewriteVerifier] contract check, for an expectation that
-    /// is known to violate it. Every use has to say which bug it stands for.
-    private Optional<Expression> optimizeWithKnownContractViolation(Expression expression)
-    {
-        return apply(expression);
     }
 
     private Optional<Expression> apply(Expression expression)
