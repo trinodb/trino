@@ -115,7 +115,7 @@ public final class TimeType
     @Override
     public Optional<Range> getRange()
     {
-        return Optional.of(new Range(0, PICOSECONDS_PER_DAY));
+        return Optional.of(new Range(0L, PICOSECONDS_PER_DAY));
     }
 
     @Override

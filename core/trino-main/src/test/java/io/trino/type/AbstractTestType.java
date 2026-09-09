@@ -15,6 +15,7 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Primitives;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -65,6 +66,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static java.util.Collections.unmodifiableSortedMap;
@@ -202,6 +204,59 @@ public abstract class AbstractTestType
             assertPositionEquals(testBlockWithNulls, entry.getKey() * 2, entry.getValue(), expectedObjectValues.get(entry.getKey()));
             assertPositionEquals(testBlockWithNulls, (entry.getKey() * 2) + 1, null, null);
         }
+    }
+
+    @Test
+    public void testRangeContract()
+    {
+        type.getRange().ifPresent(range -> {
+            assertThat(range.getMin()).isInstanceOf(Primitives.wrap(type.getJavaType()));
+            assertThat(range.getMax()).isInstanceOf(Primitives.wrap(type.getJavaType()));
+            assertThat(type.getPreviousValue(range.getMin())).isEmpty();
+            assertThat(type.getNextValue(range.getMax())).isEmpty();
+        });
+    }
+
+    @Test
+    public void testPreviousValueContract()
+    {
+        Object sampleValue = getSampleValue();
+
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getPreviousValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+
+        type.getPreviousValue(sampleValue).ifPresent(previousValue -> {
+            assertThat(previousValue).isInstanceOf(Primitives.wrap(type.getJavaType()));
+            type.getNextValue(previousValue).ifPresent(nextToPrevious -> {
+                assertThat(nextToPrevious).isInstanceOf(Primitives.wrap(type.getJavaType()));
+                assertBlockEquals(writeNativeValue(type, nextToPrevious), writeNativeValue(type, sampleValue));
+            });
+        });
+    }
+
+    @Test
+    public void testNextValueContract()
+    {
+        Object sampleValue = getSampleValue();
+
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getNextValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+
+        type.getNextValue(sampleValue).ifPresent(nextValue -> {
+            assertThat(nextValue).isInstanceOf(Primitives.wrap(type.getJavaType()));
+            type.getPreviousValue(nextValue).ifPresent(previousToNext -> {
+                assertThat(previousToNext).isInstanceOf(Primitives.wrap(type.getJavaType()));
+                assertBlockEquals(writeNativeValue(type, previousToNext), writeNativeValue(type, sampleValue));
+            });
+        });
     }
 
     @Test
