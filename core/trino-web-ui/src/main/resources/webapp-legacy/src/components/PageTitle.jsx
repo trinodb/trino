@@ -44,7 +44,7 @@ export class PageTitle extends React.Component<Props, State> {
 
     refreshLoop = () => {
         clearTimeout(this.timeoutId)
-        fetch('/ui/api/cluster')
+        fetch('../api/cluster')
             .then((response) => {
                 if (response.status === 401) {
                     location.reload()
@@ -113,7 +113,7 @@ export class PageTitle extends React.Component<Props, State> {
                                 <tbody>
                                     <tr>
                                         <td>
-                                            <a href="/ui/">
+                                            <a href="./">
                                                 <img src="assets/logo.png" />
                                             </a>
                                         </td>
@@ -129,7 +129,7 @@ export class PageTitle extends React.Component<Props, State> {
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="text">
-                                            <a className="btn btn-info" href="/ui">
+                                            <a className="btn btn-info" href="../">
                                                 New Web UI
                                             </a>
                                         </span>

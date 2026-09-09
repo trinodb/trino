@@ -19,8 +19,9 @@ export default defineConfig((mode: ConfigEnv) => {
     // @ts-ignore
     const env = loadEnv(mode.mode, process.cwd())
     const baseUrl = env.VITE_BASE_URL
+    const proxyTarget = env.VITE_PROXY_TARGET || 'http://127.0.0.1:8080';
     return {
-        base: '/ui',
+        base: baseUrl,
         plugins: [stripWoffFallback(), react()],
         resolve: {
             // Force a single copy of React: resolution walks up from the importing file, so a stray
@@ -31,11 +32,11 @@ export default defineConfig((mode: ConfigEnv) => {
         server: {
             proxy: {
                 ['/ui/auth']: {
-                    target: baseUrl,
+                    target: proxyTarget,
                     changeOrigin: true,
                 },
                 ['/ui/api']: {
-                    target: baseUrl,
+                    target: proxyTarget,
                     changeOrigin: true,
                 },
             },

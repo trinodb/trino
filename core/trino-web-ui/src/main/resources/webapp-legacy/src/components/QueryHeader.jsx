@@ -67,7 +67,7 @@ export class QueryHeader extends React.Component {
                             <a
                                 onClick={() =>
                                     $.ajax({
-                                        url: '/ui/api/query/' + query.queryId + '/preempted',
+                                        url: '../api/query/' + query.queryId + '/preempted',
                                         type: 'PUT',
                                         data: 'Preempted via web UI',
                                     })
@@ -82,7 +82,7 @@ export class QueryHeader extends React.Component {
                             <a
                                 onClick={() =>
                                     $.ajax({
-                                        url: '/ui/api/query/' + query.queryId + '/killed',
+                                        url: '../api/query/' + query.queryId + '/killed',
                                         type: 'PUT',
                                         data: 'Killed via web UI',
                                     })
@@ -149,7 +149,7 @@ export class QueryHeader extends React.Component {
                                         {this.renderTab('timeline.html', 'Splits')}
                                         &nbsp;
                                         <a
-                                            href={'/ui/api/query/' + query.queryId + '?pretty'}
+                                            href={'../api/query/' + query.queryId + '?pretty'}
                                             className="btn btn-info navbar-btn"
                                             target="_blank"
                                         >
