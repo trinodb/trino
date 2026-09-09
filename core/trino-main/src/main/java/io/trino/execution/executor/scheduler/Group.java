@@ -13,11 +13,34 @@
  */
 package io.trino.execution.executor.scheduler;
 
-public record Group(String name, long startTime)
+import jakarta.annotation.Nullable;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+
+/// A scheduling group. Groups nest: a group with a `parent` is a child of that parent in the
+/// scheduling tree, so fairness can be enforced across several levels (e.g. task, then pipeline).
+public record Group(@Nullable Group parent, String name, long startTime)
 {
     public Group(String name)
     {
-        this(name, System.nanoTime());
+        this(null, name, System.nanoTime());
+    }
+
+    public Group(Group parent, String name)
+    {
+        this(parent, name, System.nanoTime());
+    }
+
+    /// The chain of groups from the top-level ancestor down to this group.
+    public List<Group> path()
+    {
+        Deque<Group> path = new ArrayDeque<>();
+        for (Group group = this; group != null; group = group.parent) {
+            path.addFirst(group);
+        }
+        return List.copyOf(path);
     }
 
     @Override

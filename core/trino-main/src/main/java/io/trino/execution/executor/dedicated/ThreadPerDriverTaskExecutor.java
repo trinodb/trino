@@ -31,6 +31,7 @@ import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
+import io.trino.execution.executor.scheduler.Group;
 import io.trino.spi.VersionEmbedder;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -42,6 +43,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
@@ -139,7 +141,8 @@ public class ThreadPerDriverTaskExecutor
                 versionEmbedder,
                 tracer,
                 initialSplitConcurrency,
-                utilizationSupplier);
+                utilizationSupplier,
+                this::taskDonationGroup);
         tasks.put(taskId, task);
         return task;
     }
@@ -154,6 +157,24 @@ public class ThreadPerDriverTaskExecutor
         if (!entry.isDestroyed()) {
             entry.destroy();
         }
+    }
+
+    @VisibleForTesting
+    synchronized Optional<Group> pipelineGroup(TaskId taskId, int pipelineId)
+    {
+        TaskEntry entry = tasks.get(taskId);
+        return entry == null ? Optional.empty() : entry.pipelineGroupIfPresent(pipelineId);
+    }
+
+    /// The scheduling group a co-located producer task donates to, or empty when that task is not
+    /// running on this worker (a remote producer) or has already been torn down.
+    Optional<Group> taskDonationGroup(TaskId taskId)
+    {
+        TaskEntry entry;
+        synchronized (this) {
+            entry = tasks.get(taskId);
+        }
+        return entry == null ? Optional.empty() : entry.donationGroup();
     }
 
     @Override
@@ -282,13 +303,6 @@ public class ThreadPerDriverTaskExecutor
         return tasks.values().stream()
                 .mapToInt(TaskEntry::pendingLeafSplitCount)
                 .sum();
-    }
-
-    @Managed(description = "Scheduler executor")
-    @Nested
-    public ThreadPoolExecutorMBean getSchedulerExecutor()
-    {
-        return scheduler.getSchedulerExecutor();
     }
 
     @Managed(description = "Task executor")
