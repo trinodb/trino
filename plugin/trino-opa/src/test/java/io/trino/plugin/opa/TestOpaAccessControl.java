@@ -29,6 +29,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -224,6 +225,7 @@ final class TestOpaAccessControl
             FunctionalHelpers.Consumer3<OpaAccessControl, Identity, Identity> callable)
     {
         Identity dummyIdentity = Identity.forUser("dummy-user")
+                .withPrincipal(new BasicPrincipal("dummy-principal"))
                 .withGroups(ImmutableSet.of("some-group"))
                 .build();
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
@@ -236,6 +238,7 @@ final class TestOpaAccessControl
                     "resource": {
                         "user": {
                             "user": "dummy-user",
+                            "principal": "dummy-principal",
                             "groups": ["some-group"]
                         }
                     }
@@ -668,7 +671,10 @@ final class TestOpaAccessControl
                 ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString()),
                 Optional.of(mockClient),
                 accessControlContext);
-        Identity sampleIdentityWithGroups = Identity.forUser("test_user").withGroups(ImmutableSet.of("some_group")).build();
+        Identity sampleIdentityWithGroups = Identity.forUser("test_user")
+                .withPrincipal(new BasicPrincipal("test_principal"))
+                .withGroups(ImmutableSet.of("some_group"))
+                .build();
 
         authorizer.checkCanExecuteQuery(sampleIdentityWithGroups, TEST_QUERY_ID);
 
@@ -681,6 +687,7 @@ final class TestOpaAccessControl
                     "context": {
                         "identity": {
                             "user": "test_user",
+                            "principal": "test_principal",
                             "groups": ["some_group"]
                         },
                         "softwareStack": {
@@ -702,6 +709,7 @@ final class TestOpaAccessControl
                 ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString(), "opa.context-file", OPA_ADDITIONAL_CONTEXT_FILE.toString()),
                 Optional.of(mockClient),
                 Optional.empty());
+        // no principal set, the identity falls back to reporting the user name as the principal
         Identity sampleIdentityWithGroups = Identity.forUser("test_user").withGroups(ImmutableSet.of("some_group")).build();
 
         authorizer.checkCanExecuteQuery(sampleIdentityWithGroups, TEST_QUERY_ID);
@@ -716,6 +724,7 @@ final class TestOpaAccessControl
                     "context": {
                         "identity": {
                             "user": "test_user",
+                            "principal": "test_user",
                             "groups": ["some_group"]
                         },
                         "softwareStack": {
