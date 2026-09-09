@@ -3152,6 +3152,11 @@ public class TestTimestamp
         assertTrinoExceptionThrownBy(assertions.expression("date_diff('foo', TIMESTAMP '2001-01-31 19:34:55.111111111111', TIMESTAMP '2005-09-10 13:31:00.999999999999')")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("'foo' is not a valid TIMESTAMP field");
+
+        assertThat(assertions.expression("date_add('millisecond', 0, TIMESTAMP '2020-05-10 12:34:56')")).matches("TIMESTAMP '2020-05-10 12:34:56'");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('invalid', 0, TIMESTAMP '2020-05-10 12:34:56')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("'invalid' is not a valid TIMESTAMP field");
     }
 
     @Test
