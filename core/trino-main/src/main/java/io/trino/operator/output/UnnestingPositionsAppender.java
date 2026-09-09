@@ -279,6 +279,17 @@ public final class UnnestingPositionsAppender
         }
     }
 
+    /**
+     * True when appending positions from {@code source} flattens the buffered dictionary into the delegate.
+     */
+    public boolean appendFlattensDictionary(Block source)
+    {
+        if (state != State.DICTIONARY) {
+            return false;
+        }
+        return !(source instanceof DictionaryBlock dictionaryBlock) || dictionaryBlock.getDictionary() != dictionary;
+    }
+
     public boolean shouldForceFlushBeforeRelease()
     {
         if (state == State.DICTIONARY && dictionary != null) {

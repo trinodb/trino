@@ -155,6 +155,27 @@ public final class PositionsAppenderPageBuilder
         return declaredPositions == 0;
     }
 
+    /**
+     * True when appending {@code page} flattens a buffered dictionary whose flattened size already fills a page.
+     */
+    public boolean requiresFlushBeforeFlattening(Page page)
+    {
+        if (declaredPositions == 0 || !appendFlattensDictionary(page)) {
+            return false;
+        }
+        return computeAppenderSizes().getDirectSizeInBytes() >= maxPageSizeInBytes;
+    }
+
+    private boolean appendFlattensDictionary(Page page)
+    {
+        for (int channel = 0; channel < channelAppenders.length; channel++) {
+            if (channelAppenders[channel].appendFlattensDictionary(page.getBlock(channel))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public Optional<Page> flushOrFlattenBeforeRelease()
     {
         if (declaredPositions == 0) {
