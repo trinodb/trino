@@ -19,6 +19,7 @@ import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.trino.plugin.base.security.credential.CredentialProviderModule.credentialProvider;
 
 public class OpenAiModule
         implements Module
@@ -29,6 +30,7 @@ public class OpenAiModule
         configBinder(binder).bindConfig(OpenAiConfig.class);
 
         httpClientBinder(binder).bindHttpClient("ai", ForAiClient.class);
+        credentialProvider(binder, "inference", "ai.openai");
 
         binder.bind(OpenAiClient.class).in(Scopes.SINGLETON);
         binder.bind(AiClient.class).to(OpenAiClient.class).in(Scopes.SINGLETON);

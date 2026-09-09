@@ -11,27 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.ai.functions;
+package io.trino.plugin.credential.oidc;
 
-import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+import com.google.inject.BindingAnnotation;
 
-import java.net.URI;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-public class OpenAiConfig
-{
-    private URI endpoint = URI.create("https://api.openai.com");
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-    @NotNull
-    public URI getEndpoint()
-    {
-        return endpoint;
-    }
-
-    @Config("ai.openai.endpoint")
-    public OpenAiConfig setEndpoint(URI endpoint)
-    {
-        this.endpoint = endpoint;
-        return this;
-    }
-}
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@BindingAnnotation
+public @interface ForOidcCredentialProviderClient {}

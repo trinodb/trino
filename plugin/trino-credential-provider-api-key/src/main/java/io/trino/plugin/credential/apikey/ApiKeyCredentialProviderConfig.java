@@ -11,27 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.ai.functions;
+package io.trino.plugin.credential.apikey;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import jakarta.validation.constraints.NotNull;
 
-import java.net.URI;
-
-public class OpenAiConfig
+public class ApiKeyCredentialProviderConfig
 {
-    private URI endpoint = URI.create("https://api.openai.com");
+    private String apiKey;
 
     @NotNull
-    public URI getEndpoint()
+    public String getApiKey()
     {
-        return endpoint;
+        return apiKey;
     }
 
-    @Config("ai.openai.endpoint")
-    public OpenAiConfig setEndpoint(URI endpoint)
+    @Config("api-key")
+    @ConfigSecuritySensitive
+    @ConfigDescription("The API key")
+    public ApiKeyCredentialProviderConfig setApiKey(String apiKey)
     {
-        this.endpoint = endpoint;
+        this.apiKey = apiKey;
         return this;
     }
 }

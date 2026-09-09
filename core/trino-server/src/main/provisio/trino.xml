@@ -40,8 +40,20 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/credential-provider-api-key">
+        <artifact id="${project.groupId}:trino-credential-provider-api-key:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/credential-provider-basic">
         <artifact id="${project.groupId}:trino-credential-provider-basic:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/credential-provider-oidc">
+        <artifact id="${project.groupId}:trino-credential-provider-oidc:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

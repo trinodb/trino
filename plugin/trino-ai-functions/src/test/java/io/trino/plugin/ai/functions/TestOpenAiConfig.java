@@ -29,8 +29,7 @@ class TestOpenAiConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OpenAiConfig.class)
-                .setEndpoint(URI.create("https://api.openai.com"))
-                .setApiKey(null));
+                .setEndpoint(URI.create("https://api.openai.com")));
     }
 
     @Test
@@ -38,12 +37,10 @@ class TestOpenAiConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("ai.openai.endpoint", "https://api.example.com")
-                .put("ai.openai.api-key", "test-key")
                 .buildOrThrow();
 
         OpenAiConfig expected = new OpenAiConfig()
-                .setEndpoint(URI.create("https://api.example.com"))
-                .setApiKey("test-key");
+                .setEndpoint(URI.create("https://api.example.com"));
 
         assertFullMapping(properties, expected);
     }

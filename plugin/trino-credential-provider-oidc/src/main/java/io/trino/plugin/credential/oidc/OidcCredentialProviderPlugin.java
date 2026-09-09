@@ -11,27 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.ai.functions;
+package io.trino.plugin.credential.oidc;
 
-import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.Plugin;
+import io.trino.spi.security.credential.CredentialProviderFactory;
 
-import java.net.URI;
-
-public class OpenAiConfig
+public class OidcCredentialProviderPlugin
+        implements Plugin
 {
-    private URI endpoint = URI.create("https://api.openai.com");
-
-    @NotNull
-    public URI getEndpoint()
+    @Override
+    public Iterable<CredentialProviderFactory> getCredentialProviderFactories()
     {
-        return endpoint;
-    }
-
-    @Config("ai.openai.endpoint")
-    public OpenAiConfig setEndpoint(URI endpoint)
-    {
-        this.endpoint = endpoint;
-        return this;
+        return ImmutableList.of(new OidcCredentialProviderFactory());
     }
 }

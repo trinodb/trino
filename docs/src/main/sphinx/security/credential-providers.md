@@ -10,8 +10,8 @@ to authenticate when connecting to a data source.
 * - Property name
   - Description
 * - `credential-provider.config-dir`
-  -  The directory for the named properties files. Defaults to 
-     `etc/credential-provider`
+  - The directory for the named properties files. Defaults to 
+    `etc/credential-provider`
 :::
 
 ## Configuration
@@ -26,11 +26,43 @@ different purposes (`database`, `storage`, etc.).
 (security-supported-credential-providers)=
 ## Supported credential providers
 
+(security-credential-api-key)=
+### API key
+```none
+credential-provider.name=api_key
+api-key=YOUR-KEY
+```
+
 (security-credential-provider-basic)=
 ### Basic auth
-
 ```none
 credential-provider.name=basic
 username=admin
 password=welcome123!
 ```
+
+(security-credential-provider-oidc)=
+### OpenID connect token-exchange RFC-8693
+```none
+credential-provider.name=oidc
+audience=
+client-id=
+client-secret=
+scopes=
+token-url=
+```
+
+* - Property name
+  - Description
+* - `audience`
+  - The audience for the access token to obtain
+* - `client-id`
+  - The oauth2 client id
+* - `client-secret`
+  - The oauth2 client secret
+* - `scopes`
+  - The scopes for the access token to obtain, e.g. `openid email profile`
+* - `token-url`
+  - The token url, e.g.
+    `https://keycloak.company.com/realms/master/protocol/openid-connect/token`
+:::

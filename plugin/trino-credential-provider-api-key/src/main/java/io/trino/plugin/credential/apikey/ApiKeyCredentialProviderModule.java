@@ -11,27 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.ai.functions;
+package io.trino.plugin.credential.apikey;
 
-import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-import java.net.URI;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class OpenAiConfig
+public class ApiKeyCredentialProviderModule
+        implements Module
 {
-    private URI endpoint = URI.create("https://api.openai.com");
-
-    @NotNull
-    public URI getEndpoint()
+    @Override
+    public void configure(Binder binder)
     {
-        return endpoint;
-    }
-
-    @Config("ai.openai.endpoint")
-    public OpenAiConfig setEndpoint(URI endpoint)
-    {
-        this.endpoint = endpoint;
-        return this;
+        configBinder(binder).bindConfig(ApiKeyCredentialProviderConfig.class);
+        binder.bind(ApiKeyCredentialProvider.class).in(Scopes.SINGLETON);
     }
 }

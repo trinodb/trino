@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.ai.functions;
+package io.trino.plugin.credential.oidc;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -19,20 +19,16 @@ import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static io.trino.plugin.base.security.credential.CredentialProviderModule.credentialProvider;
 
-public class AnthropicModule
+public class OidcCredentialProviderModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(AnthropicConfig.class);
+        configBinder(binder).bindConfig(OidcCredentialProviderConfig.class);
+        httpClientBinder(binder).bindHttpClient("client", ForOidcCredentialProviderClient.class);
 
-        httpClientBinder(binder).bindHttpClient("ai", ForAiClient.class);
-        credentialProvider(binder, "api-key", "ai.anthropic");
-
-        binder.bind(AnthropicClient.class).in(Scopes.SINGLETON);
-        binder.bind(AiClient.class).to(AnthropicClient.class).in(Scopes.SINGLETON);
+        binder.bind(OidcCredentialProvider.class).in(Scopes.SINGLETON);
     }
 }

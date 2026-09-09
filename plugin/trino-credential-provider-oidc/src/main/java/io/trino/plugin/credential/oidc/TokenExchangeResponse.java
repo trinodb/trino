@@ -11,27 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.ai.functions;
+package io.trino.plugin.credential.oidc;
 
-import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.net.URI;
-
-public class OpenAiConfig
+public record TokenExchangeResponse(String accessToken, long expiresIn)
 {
-    private URI endpoint = URI.create("https://api.openai.com");
-
-    @NotNull
-    public URI getEndpoint()
+    @JsonCreator
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public TokenExchangeResponse(@JsonProperty("access_token") String accessToken, @JsonProperty("expires_in") long expiresIn)
     {
-        return endpoint;
-    }
-
-    @Config("ai.openai.endpoint")
-    public OpenAiConfig setEndpoint(URI endpoint)
-    {
-        this.endpoint = endpoint;
-        return this;
+        this.accessToken = accessToken;
+        this.expiresIn = expiresIn;
     }
 }

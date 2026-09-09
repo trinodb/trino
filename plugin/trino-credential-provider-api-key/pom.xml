@@ -8,22 +8,12 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-ai-functions</artifactId>
+    <artifactId>trino-credential-provider-api-key</artifactId>
     <packaging>trino-plugin</packaging>
     <name>${project.artifactId}</name>
-    <description>Trino - AI functions</description>
-
-    <properties>
-        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.hoverfly.version>0.20.2</dep.hoverfly.version>
-    </properties>
+    <description>Trino - Credential provider - API key</description>
 
     <dependencies>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
@@ -42,26 +32,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>http-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-cache</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -132,33 +102,6 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-trace</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.specto</groupId>
-            <artifactId>hoverfly-java</artifactId>
-            <version>${dep.hoverfly.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-classic</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.specto</groupId>
-            <artifactId>hoverfly-java-junit5</artifactId>
-            <version>${dep.hoverfly.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-credential-provider-api-key</artifactId>
-            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
 
