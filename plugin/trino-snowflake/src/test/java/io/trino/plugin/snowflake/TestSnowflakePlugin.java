@@ -30,4 +30,31 @@ public class TestSnowflakePlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:snowflake://test"), new TestingConnectorContext()).shutdown();
     }
+
+    @Test
+    public void testCreateConnectorWithPrivateKey()
+    {
+        Plugin plugin = new SnowflakePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:snowflake://test",
+                        "snowflake.connection-private-key", "dummy-private-key"),
+                new TestingConnectorContext()).shutdown();
+    }
+
+    @Test
+    public void testCreateConnectorWithEncryptedPrivateKey()
+    {
+        Plugin plugin = new SnowflakePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:snowflake://test",
+                        "snowflake.connection-private-key", "dummy-private-key",
+                        "snowflake.connection-private-key-password", "dummy-password"),
+                new TestingConnectorContext()).shutdown();
+    }
 }

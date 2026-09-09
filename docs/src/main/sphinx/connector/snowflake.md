@@ -26,12 +26,19 @@ connection properties as appropriate for your setup:
 connector.name=snowflake
 connection-url=jdbc:snowflake://<account>.snowflakecomputing.com
 connection-user=root
-connection-password=secret
+snowflake.connection-private-key=private-key-content
 snowflake.account=account
 snowflake.database=database
 snowflake.role=role
 snowflake.warehouse=warehouse
 ```
+
+:::{note}
+The `snowflake.connection-private-key` property accepts a Base64-encoded RSA private key
+in PKCS#8 format. If the private key is encrypted, also set
+`snowflake.connection-private-key-password` to the password used to decrypt it.
+Alternatively, you can use `connection-password` for password-based authentication.
+:::
 
 The Snowflake connector uses Apache Arrow as the serialization format when
 reading from Snowflake. Add the following required, additional JVM argument
