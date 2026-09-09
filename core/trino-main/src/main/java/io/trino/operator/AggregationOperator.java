@@ -161,7 +161,7 @@ public class AggregationOperator
         for (int i = 0; i < aggregates.size(); i++) {
             Aggregator aggregator = aggregates.get(i);
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-            aggregator.evaluate(blockBuilder);
+            aggregator.evaluate(blockBuilder, UpdateMemory.NOOP);
         }
 
         state = State.FINISHED;
