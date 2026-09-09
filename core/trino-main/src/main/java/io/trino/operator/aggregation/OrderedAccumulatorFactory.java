@@ -282,6 +282,7 @@ public class OrderedAccumulatorFactory
             });
             // release pagesIndex memory after transferring its contents into the accumulator
             pagesIndex = null;
+            accumulator.prepareFinal(updateMemory);
         }
 
         private static int[] extractGroupIds(Page page)
