@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 
@@ -29,6 +28,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -54,25 +55,47 @@ public final class FairScheduler
 
     public static final long QUANTUM_NANOS = TimeUnit.MILLISECONDS.toNanos(1000);
 
+    /**
+     * A single shard keeps fair-share ordering exact across all groups. See
+     * {@link ShardedSchedulingQueue} for what is given up by raising this.
+     */
+    public static final int DEFAULT_SHARDS = 1;
+
     private final ExecutorService schedulerExecutor;
     private final ThreadPoolExecutorMBean schedulerExecutorMBean;
     private final ListeningExecutorService taskExecutor;
     private final ThreadPoolExecutor executor; // instance underlying taskExecutor, for diagnostics
     private final ThreadPoolExecutorMBean executorMBean;
-    private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
+    private final ShardedSchedulingQueue<Group, TaskControl> queue;
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
 
+    private final LongAdder bypassedResumeCount = new LongAdder();
+    private final LongAdder scheduledResumeCount = new LongAdder();
+
+    /**
+     * Tasks that a scheduler thread has dequeued but not yet handed a concurrency slot. They
+     * have already won a scheduling decision, so {@link #tryResumeWithoutScheduler} must not
+     * take a slot ahead of them.
+     */
+    private final AtomicInteger pendingStarts = new AtomicInteger();
+
     private final Gate paused = new Gate(true);
 
-    @GuardedBy("this")
-    private boolean closed;
+    // written under this monitor, read without it by runTask()
+    private volatile boolean closed;
 
     public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
+    {
+        this(maxConcurrentTasks, DEFAULT_SHARDS, threadNameFormat, ticker);
+    }
+
+    public FairScheduler(int maxConcurrentTasks, int shards, String threadNameFormat, Ticker ticker)
     {
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
+        queue = new ShardedSchedulingQueue<>(shards);
 
         schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
         schedulerExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) schedulerExecutor);
@@ -89,14 +112,22 @@ public final class FairScheduler
 
     public static FairScheduler newInstance(int maxConcurrentTasks, Ticker ticker)
     {
-        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
+        return newInstance(maxConcurrentTasks, DEFAULT_SHARDS, ticker);
+    }
+
+    public static FairScheduler newInstance(int maxConcurrentTasks, int shards, Ticker ticker)
+    {
+        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, shards, "fair-scheduler-runner-%d", ticker);
         scheduler.start();
         return scheduler;
     }
 
     public void start()
     {
-        schedulerExecutor.submit(this::runScheduler);
+        for (int i = 0; i < queue.shardCount(); i++) {
+            BlockingSchedulingQueue<Group, TaskControl> shard = queue.shard(i);
+            schedulerExecutor.submit(() -> runScheduler(shard));
+        }
     }
 
     public void pause()
@@ -168,26 +199,36 @@ public final class FairScheduler
     {
         task.setThread(Thread.currentThread());
 
-        if (!makeRunnableAndAwait(task, 0)) {
-            return;
-        }
-
-        SchedulerContext context = new SchedulerContext(this, task);
         try {
-            runner.run(context);
-        }
-        catch (Exception e) {
-            LOG.error(e);
+            if (!makeRunnableAndAwait(task, 0)) {
+                return;
+            }
+
+            SchedulerContext context = new SchedulerContext(this, task);
+            try {
+                runner.run(context);
+            }
+            catch (Exception e) {
+                LOG.error(e);
+            }
+            finally {
+                // If the runner exited due to an exception in user code or
+                // normally (not in response to an interruption during blocking or yield),
+                // it must have had a semaphore permit reserved, so release it.
+                if (task.getState() == TaskControl.State.RUNNING) {
+                    concurrencyControl.release(task);
+                }
+                queue.finish(task.group(), task);
+                task.transitionToFinished();
+            }
         }
         finally {
-            // If the runner exited due to an exception in user code or
-            // normally (not in response to an interruption during blocking or yield),
-            // it must have had a semaphore permit reserved, so release it.
-            if (task.getState() == TaskControl.State.RUNNING) {
-                concurrencyControl.release(task);
+            // A cancellation interrupt can still be pending on this thread if nothing consumed it.
+            // Clear it so it cannot land on whatever split this pooled thread runs next, but keep
+            // it while shutting down, where interruption is how the pool is stopped.
+            if (Thread.interrupted() && closed) {
+                Thread.currentThread().interrupt();
             }
-            queue.finish(task.group(), task);
-            task.transitionToFinished();
         }
     }
 
@@ -260,20 +301,81 @@ public final class FairScheduler
         future.addListener(task::markUnblocked, MoreExecutors.directExecutor());
         task.awaitUnblock();
 
+        if (tryResumeWithoutScheduler(task)) {
+            bypassedResumeCount.increment();
+            return true;
+        }
+
+        scheduledResumeCount.increment();
         return makeRunnableAndAwait(task, 0);
     }
 
-    private void runScheduler()
+    /**
+     * Attempts to resume a just-unblocked task on its own thread, skipping the round trip
+     * through the scheduler thread. Drivers block and unblock far more often than they exhaust
+     * their quantum, and the regular path costs two context switches plus three lock
+     * acquisitions for each of those transitions even when the worker has spare capacity.
+     *
+     * <p>The bypass is only taken when there is nothing runnable waiting for a slot, so a task
+     * can never barge ahead of a task the scheduler would have picked instead. Both the
+     * runnable count and the slot acquisition are checked optimistically and re-validated by
+     * {@link BlockingSchedulingQueue#unblockToRunning}, which rejects the bypass if the
+     * situation changed; the caller then falls back to the regular path.</p>
+     *
+     * @return true if the task is now running and the caller may return to the driver
+     */
+    private boolean tryResumeWithoutScheduler(TaskControl task)
+    {
+        // The scheduler thread stops handing out slots while paused, so the bypass has to as
+        // well, otherwise pausing would no longer stop scheduling
+        if (!paused.isOpen()) {
+            return false;
+        }
+
+        if (queue.getRunnableCount() > 0 || pendingStarts.get() > 0) {
+            return false;
+        }
+
+        if (!concurrencyControl.tryReserve()) {
+            return false;
+        }
+
+        if (!queue.unblockToRunning(task.group(), task, QUANTUM_NANOS)) {
+            concurrencyControl.releaseUnregistered();
+            return false;
+        }
+
+        concurrencyControl.register(task);
+
+        if (!task.transitionToRunning()) {
+            concurrencyControl.release(task);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void runScheduler(BlockingSchedulingQueue<Group, TaskControl> shard)
     {
         while (true) {
             try {
                 paused.awaitOpen();
-                concurrencyControl.reserve();
-                TaskControl task = queue.dequeue(QUANTUM_NANOS);
 
-                concurrencyControl.register(task);
-                if (!task.markReady()) {
-                    concurrencyControl.release(task);
+                // Dequeue before reserving. Reserving first would let a scheduler thread sit on a
+                // concurrency slot while its shard has nothing to run, stranding that slot for as
+                // long as the shard stays idle.
+                TaskControl task = shard.dequeue(QUANTUM_NANOS);
+
+                pendingStarts.incrementAndGet();
+                try {
+                    concurrencyControl.reserve();
+                    concurrencyControl.register(task);
+                    if (!task.markReady()) {
+                        concurrencyControl.release(task);
+                    }
+                }
+                finally {
+                    pendingStarts.decrementAndGet();
                 }
             }
             catch (InterruptedException e) {
@@ -316,18 +418,11 @@ public final class FairScheduler
                 executor.getActiveCount(),
                 executor.getQueue().size()));
 
-        builder.append("Concurrency control: slots=%s, available=%s\n".formatted(
+        // The tasks holding a slot are exactly those the queue reports as RUNNING above
+        builder.append("Concurrency control: slots=%s, available=%s, pending starts=%s\n".formatted(
                 concurrencyControl.totalSlots(),
-                concurrencyControl.availableSlots()));
-
-        builder.append("Reservations:\n");
-        if (concurrencyControl.totalSlots() - concurrencyControl.availableSlots() == 1) {
-            builder.append("    (pending)\n");
-        }
-        concurrencyControl.reservations().forEach(reservation ->
-                builder.append("    ")
-                        .append(reservation)
-                        .append("\n"));
+                concurrencyControl.availableSlots(),
+                pendingStarts.get()));
 
         return builder.toString();
     }
@@ -363,5 +458,28 @@ public final class FairScheduler
     public int getConcurrencyControlAvailableSlots()
     {
         return concurrencyControl.availableSlots();
+    }
+
+    public int getShardCount()
+    {
+        return queue.shardCount();
+    }
+
+    /**
+     * Number of times an unblocked task resumed on its own thread without involving the
+     * scheduler thread. Compare against {@link #getScheduledResumeCount()} to see how often the
+     * bypass applies.
+     */
+    public long getBypassedResumeCount()
+    {
+        return bypassedResumeCount.sum();
+    }
+
+    /**
+     * Number of times an unblocked task had to go through the scheduler thread to resume.
+     */
+    public long getScheduledResumeCount()
+    {
+        return scheduledResumeCount.sum();
     }
 }

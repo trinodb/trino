@@ -13,12 +13,15 @@
  */
 package io.trino.execution.executor.dedicated;
 
+import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.execution.executor.scheduler.Group;
@@ -26,15 +29,18 @@ import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.spi.VersionEmbedder;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 class TaskEntry
         implements TaskHandle
@@ -46,9 +52,15 @@ class TaskEntry
     private final Tracer tracer;
     private final DoubleSupplier utilization;
     private final AtomicInteger nextSplitId = new AtomicInteger();
+    private final Ticker ticker;
+    private final long concurrencyAdjustmentIntervalNanos;
+    private final Collection<RunningSplitInfo> runningSplitInfos;
 
     @GuardedBy("this")
     private final ConcurrencyController concurrency;
+
+    @GuardedBy("this")
+    private long lastConcurrencyAdjustmentNanos;
 
     private volatile boolean destroyed;
 
@@ -61,16 +73,29 @@ class TaskEntry
     @GuardedBy("this")
     private final Set<SplitRunner> running = new HashSet<>();
 
-    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization)
+    public TaskEntry(
+            TaskId taskId,
+            FairScheduler scheduler,
+            VersionEmbedder versionEmbedder,
+            Tracer tracer,
+            int initialConcurrency,
+            Duration concurrencyAdjustmentInterval,
+            DoubleSupplier utilization,
+            Collection<RunningSplitInfo> runningSplitInfos,
+            Ticker ticker)
     {
+        this.runningSplitInfos = requireNonNull(runningSplitInfos, "runningSplitInfos is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.utilization = requireNonNull(utilization, "utilization is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
+        this.concurrencyAdjustmentIntervalNanos = concurrencyAdjustmentInterval.roundTo(NANOSECONDS);
 
         this.group = scheduler.createGroup(taskId.toString());
         this.concurrency = new ConcurrencyController(initialConcurrency);
+        this.lastConcurrencyAdjustmentNanos = ticker.read();
     }
 
     public TaskId taskId()
@@ -84,10 +109,12 @@ class TaskEntry
             return;
         }
 
-        scheduler.removeGroup(group);
-
         destroyed = true;
 
+        // Close the splits before cancelling the group. Driver.close() records that it is the one
+        // interrupting the driver thread, and that record is what lets Driver.process() treat the
+        // interrupt as termination instead of failing the query with it. Cancelling first would
+        // let the interrupt arrive before the record exists.
         for (SplitRunner split : running) {
             split.close();
         }
@@ -98,6 +125,8 @@ class TaskEntry
             split.done.set(null);
         }
         pending.clear();
+
+        scheduler.removeGroup(group);
     }
 
     public synchronized ListenableFuture<Void> enqueueLeafSplit(SplitRunner split)
@@ -110,20 +139,30 @@ class TaskEntry
     /**
      * @return true if a split was scheduled; false if no splits are pending
      */
-    public synchronized boolean dequeueAndRunLeafSplit(Runnable doneCallback)
+    public boolean dequeueAndRunLeafSplit(Consumer<TaskEntry> doneCallback)
     {
-        QueuedSplit split = pending.poll();
-        if (split == null) {
-            return false;
+        QueuedSplit split;
+        ListenableFuture<Void> done;
+        synchronized (this) {
+            split = pending.poll();
+            if (split == null) {
+                return false;
+            }
+
+            done = runSplit(split.split());
+            // account for the driver before anything can observe it, since the split may already
+            // have finished by the time the listener below is attached
+            runningLeafSplits++;
         }
 
-        runSplit(split.split())
-                .addListener(() -> {
-                    leafSplitDone(split);
-                    doneCallback.run();
-                }, directExecutor());
-
-        runningLeafSplits++;
+        // The listener runs inline when the split has already finished, and it calls back into
+        // the executor. Attaching it outside the monitor keeps that from happening while this
+        // lock is held, which would take the executor and task locks in the opposite order from
+        // the scheduling path and would re-enter the executor with stale driver counts.
+        done.addListener(() -> {
+            leafSplitDone(split);
+            doneCallback.accept(this);
+        }, directExecutor());
 
         return true;
     }
@@ -140,7 +179,7 @@ class TaskEntry
         ListenableFuture<Void> done = scheduler.submit(
                 group,
                 splitId,
-                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
+                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, runningSplitInfos, ticker)));
         done.addListener(() -> splitDone(split), directExecutor());
         running.add(split);
 
@@ -169,8 +208,19 @@ class TaskEntry
         return destroyed;
     }
 
+    /**
+     * Re-evaluates the target concurrency, at most once per configured adjustment interval. The
+     * caller ticks more often than that so every task gets a chance to adjust close to its own
+     * interval, but each task rate-limits itself here.
+     */
     public synchronized void updateConcurrency()
     {
+        long now = ticker.read();
+        if (now - lastConcurrencyAdjustmentNanos < concurrencyAdjustmentIntervalNanos) {
+            return;
+        }
+        lastConcurrencyAdjustmentNanos = now;
+
         concurrency.update(utilization.getAsDouble(), runningLeafSplits);
     }
 

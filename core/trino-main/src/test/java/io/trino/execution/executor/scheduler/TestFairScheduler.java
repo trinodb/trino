@@ -13,13 +13,17 @@
  */
 package io.trino.execution.executor.scheduler;
 
+import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.AbstractFuture;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -27,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFairScheduler
@@ -201,6 +206,216 @@ public class TestFairScheduler
 
             scheduler.removeGroup(group);
             task1.get();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testUnblockedTaskResumesWithoutScheduler()
+            throws InterruptedException, ExecutionException
+    {
+        // With spare capacity and nothing runnable, an unblocked task must resume on its own
+        // thread rather than waiting for the scheduler thread to hand it a slot
+        try (FairScheduler scheduler = FairScheduler.newInstance(4)) {
+            Group group = scheduler.createGroup("G");
+
+            int blocks = 100;
+            AtomicInteger completed = new AtomicInteger();
+            ListenableFuture<Void> task = scheduler.submit(group, 1, context -> {
+                for (int i = 0; i < blocks; i++) {
+                    if (!context.block(immediateVoidFuture())) {
+                        return;
+                    }
+                }
+                completed.set(blocks);
+            });
+
+            task.get();
+
+            assertThat(completed.get()).isEqualTo(blocks);
+            assertThat(scheduler.getBypassedResumeCount() + scheduler.getScheduledResumeCount())
+                    .describedAs("Every block is accounted for as either a bypassed or scheduled resume")
+                    .isEqualTo(blocks);
+            assertThat(scheduler.getBypassedResumeCount())
+                    .describedAs("Bypassed resumes")
+                    .isPositive();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testPausedSchedulerIsNotBypassed()
+            throws InterruptedException, ExecutionException
+    {
+        // pause() is not synchronous: a scheduler thread already parked in dequeue() is past the
+        // gate and can still hand out a slot. What must hold is that a task unblocking while
+        // paused does not resume itself, since that would skip the gate altogether.
+        try (FairScheduler scheduler = FairScheduler.newInstance(4)) {
+            Group group = scheduler.createGroup("G");
+
+            CountDownLatch started = new CountDownLatch(1);
+            TestFuture blocked = new TestFuture();
+
+            ListenableFuture<Void> task = scheduler.submit(group, 1, context -> {
+                started.countDown();
+                context.block(blocked);
+            });
+
+            started.await();
+            blocked.awaitListenerAdded(); // the task is now parked in block()
+
+            scheduler.pause();
+            blocked.set(null);
+
+            // the counters are bumped as the resume path is chosen, before the task parks, so
+            // this waits for the decision itself rather than for the task to run
+            while (scheduler.getBypassedResumeCount() + scheduler.getScheduledResumeCount() == 0) {
+                Thread.onSpinWait();
+            }
+
+            assertThat(scheduler.getBypassedResumeCount())
+                    .describedAs("Bypassed resumes while paused")
+                    .isEqualTo(0);
+
+            scheduler.resume();
+            task.get();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testBypassDoesNotStarveRunnableTasks()
+            throws InterruptedException, ExecutionException
+    {
+        // A task that blocks and unblocks in a tight loop must not monopolize the scheduler
+        // while another task is waiting to be scheduled
+        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+            Group group = scheduler.createGroup("G");
+
+            CountDownLatch spinnerStarted = new CountDownLatch(1);
+            AtomicBoolean otherRan = new AtomicBoolean();
+
+            ListenableFuture<Void> spinner = scheduler.submit(group, 1, context -> {
+                spinnerStarted.countDown();
+                while (!otherRan.get()) {
+                    if (!context.block(immediateVoidFuture())) {
+                        return;
+                    }
+                }
+            });
+
+            spinnerStarted.await();
+
+            ListenableFuture<Void> other = scheduler.submit(group, 2, _ -> otherRan.set(true));
+
+            other.get();
+            spinner.get();
+
+            assertThat(otherRan.get()).isTrue();
+        }
+    }
+
+    @Test
+    @Timeout(60)
+    public void testShardedScheduling()
+            throws InterruptedException, ExecutionException
+    {
+        int groups = 16;
+        int tasksPerGroup = 4;
+        int blocksPerTask = 10;
+
+        try (FairScheduler scheduler = FairScheduler.newInstance(4, 4, Ticker.systemTicker())) {
+            assertThat(scheduler.getShardCount()).isEqualTo(4);
+
+            AtomicInteger completed = new AtomicInteger();
+            List<ListenableFuture<Void>> tasks = new ArrayList<>();
+
+            for (int i = 0; i < groups; i++) {
+                Group group = scheduler.createGroup("G" + i);
+                for (int j = 0; j < tasksPerGroup; j++) {
+                    tasks.add(scheduler.submit(group, j, context -> {
+                        for (int k = 0; k < blocksPerTask; k++) {
+                            if (!context.block(immediateVoidFuture())) {
+                                return;
+                            }
+                        }
+                        completed.incrementAndGet();
+                    }));
+                }
+            }
+
+            Futures.allAsList(tasks).get();
+
+            assertThat(completed.get())
+                    .describedAs("Completed tasks")
+                    .isEqualTo(groups * tasksPerGroup);
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testCancelInterruptsRunningTask()
+            throws InterruptedException, ExecutionException
+    {
+        try (FairScheduler scheduler = FairScheduler.newInstance(2)) {
+            Group group = scheduler.createGroup("G");
+
+            CountDownLatch started = new CountDownLatch(1);
+            AtomicBoolean interrupted = new AtomicBoolean();
+
+            ListenableFuture<Void> task = scheduler.submit(group, 1, _ -> {
+                started.countDown();
+                try {
+                    // long enough that only an interrupt can end it within the timeout
+                    Thread.sleep(60_000);
+                }
+                catch (InterruptedException e) {
+                    interrupted.set(true);
+                    Thread.currentThread().interrupt();
+                }
+            });
+
+            started.await();
+            scheduler.removeGroup(group);
+            task.get();
+
+            assertThat(interrupted.get())
+                    .describedAs("Running task was interrupted")
+                    .isTrue();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testCancelDoesNotInterruptBlockedTask()
+            throws InterruptedException, ExecutionException
+    {
+        // A parked task is released by the cancelled flag, so interrupting it would only risk
+        // leaving the flag set on a thread that has moved on to something else
+        try (FairScheduler scheduler = FairScheduler.newInstance(2)) {
+            Group group = scheduler.createGroup("G");
+
+            CountDownLatch started = new CountDownLatch(1);
+            TestFuture blocked = new TestFuture();
+            AtomicBoolean interrupted = new AtomicBoolean();
+
+            ListenableFuture<Void> task = scheduler.submit(group, 1, context -> {
+                started.countDown();
+                assertThat(context.block(blocked))
+                        .describedAs("Cancelled while blocking")
+                        .isFalse();
+                interrupted.set(Thread.currentThread().isInterrupted());
+            });
+
+            started.await();
+            blocked.awaitListenerAdded();
+
+            scheduler.removeGroup(group);
+            task.get();
+
+            assertThat(interrupted.get())
+                    .describedAs("Blocked task was interrupted")
+                    .isFalse();
         }
     }
 

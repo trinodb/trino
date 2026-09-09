@@ -31,11 +31,19 @@ final class BlockingSchedulingQueue<G, T>
     @GuardedBy("lock")
     private final SchedulingQueue<G, T> queue = new SchedulingQueue<>();
 
+    /**
+     * Lock-free mirror of {@link SchedulingQueue#getRunnableCount()}, republished by every
+     * mutator while it holds the lock. Readers may observe a stale value, which is why
+     * {@link #unblockToRunning} re-checks the precondition under the lock.
+     */
+    private volatile int runnableCount;
+
     public void startGroup(G group)
     {
         lock.lock();
         try {
             queue.startGroup(group);
+            republishRunnableCount();
         }
         finally {
             lock.unlock();
@@ -46,7 +54,9 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            return queue.finishGroup(group);
+            Set<T> tasks = queue.finishGroup(group);
+            republishRunnableCount();
+            return tasks;
         }
         finally {
             lock.unlock();
@@ -72,7 +82,9 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            return queue.finishAll();
+            Set<T> tasks = queue.finishAll();
+            republishRunnableCount();
+            return tasks;
         }
         finally {
             lock.unlock();
@@ -88,6 +100,7 @@ final class BlockingSchedulingQueue<G, T>
             }
 
             queue.enqueue(group, task, deltaWeight);
+            republishRunnableCount();
             notEmpty.signal();
 
             return true;
@@ -106,7 +119,33 @@ final class BlockingSchedulingQueue<G, T>
             }
 
             queue.block(group, task, deltaWeight);
+            republishRunnableCount();
             return true;
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Moves a blocked task straight back to the running state, bypassing the queue and the
+     * scheduler thread. Fails (returning false) if the task no longer qualifies for the
+     * bypass, in which case the caller must fall back to {@link #enqueue}.
+     *
+     * <p>The caller is expected to gate this on {@link #getRunnableCount()} being zero and on
+     * having already acquired a concurrency slot.</p>
+     */
+    public boolean unblockToRunning(G group, T task, long expectedWeight)
+    {
+        lock.lock();
+        try {
+            if (!queue.containsGroup(group)) {
+                return false;
+            }
+
+            boolean bypassed = queue.unblockToRunning(group, task, expectedWeight);
+            republishRunnableCount();
+            return bypassed;
         }
         finally {
             lock.unlock();
@@ -127,6 +166,7 @@ final class BlockingSchedulingQueue<G, T>
             }
             while (result == null);
 
+            republishRunnableCount();
             return result;
         }
         finally {
@@ -143,6 +183,7 @@ final class BlockingSchedulingQueue<G, T>
             }
 
             queue.finish(group, task);
+            republishRunnableCount();
             return true;
         }
         finally {
@@ -162,14 +203,18 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
+    /**
+     * Approximate number of runnable tasks. Safe to read without holding the lock, but the
+     * value may be stale by the time the caller acts on it.
+     */
     public int getRunnableCount()
     {
-        lock.lock();
-        try {
-            return queue.getRunnableCount();
-        }
-        finally {
-            lock.unlock();
-        }
+        return runnableCount;
+    }
+
+    @GuardedBy("lock")
+    private void republishRunnableCount()
+    {
+        runnableCount = queue.getRunnableCount();
     }
 }
