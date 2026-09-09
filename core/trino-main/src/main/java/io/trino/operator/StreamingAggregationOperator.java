@@ -252,7 +252,7 @@ public class StreamingAggregationOperator
             return ofResult(outputPage, outputPages.isEmpty());
         }
 
-        private void updateMemoryUsage()
+        private boolean updateMemoryUsage()
         {
             long memorySize = pageBuilder.getRetainedSizeInBytes();
             for (Page output : outputPages) {
@@ -266,7 +266,7 @@ public class StreamingAggregationOperator
                 memorySize += currentGroup.getRetainedSizeInBytes();
             }
 
-            userMemoryContext.setBytes(memorySize);
+            return userMemoryContext.setBytes(memorySize).isDone();
         }
 
         private void processInput(Page page)
@@ -317,7 +317,7 @@ public class StreamingAggregationOperator
             }
             int offset = groupByTypes.size();
             for (int i = 0; i < aggregates.size(); i++) {
-                aggregates.get(i).evaluate(pageBuilder.getBlockBuilder(offset + i), UpdateMemory.NOOP);
+                aggregates.get(i).evaluate(pageBuilder.getBlockBuilder(offset + i), this::updateMemoryUsage);
             }
 
             if (pageBuilder.isFull()) {
