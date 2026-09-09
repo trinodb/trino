@@ -140,6 +140,7 @@ import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.operator.table.ExcludeColumnsFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.security.ExtraCredentialsProviderManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
 import io.trino.server.ServerConfig;
@@ -544,6 +545,7 @@ public class PlanTester
                 Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig(), secretsResolver)),
                 eventListenerManager,
                 new GroupProviderManager(secretsResolver),
+                new ExtraCredentialsProviderManager(secretsResolver),
                 new SessionPropertyDefaults(nodeInfo, accessControl, secretsResolver),
                 typeRegistry,
                 TESTING_BLOCK_ENCODING_MANAGER,

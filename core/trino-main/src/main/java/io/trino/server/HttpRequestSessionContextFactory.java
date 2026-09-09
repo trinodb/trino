@@ -29,6 +29,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.ExtraCredentialsProvider;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -71,6 +72,7 @@ public class HttpRequestSessionContextFactory
     private final PreparedStatementEncoder preparedStatementEncoder;
     private final Metadata metadata;
     private final GroupProvider groupProvider;
+    private final ExtraCredentialsProvider extraCredentialsProvider;
     private final AccessControl accessControl;
     private final Optional<String> alternateHeaderName;
     private final QueryDataEncoder.EncoderSelector encoderSelector;
@@ -80,6 +82,7 @@ public class HttpRequestSessionContextFactory
             PreparedStatementEncoder preparedStatementEncoder,
             Metadata metadata,
             GroupProvider groupProvider,
+            ExtraCredentialsProvider extraCredentialsProvider,
             AccessControl accessControl,
             ProtocolConfig protocolConfig,
             QueryDataEncoder.EncoderSelector encoderSelector)
@@ -88,6 +91,7 @@ public class HttpRequestSessionContextFactory
         this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.extraCredentialsProvider = requireNonNull(extraCredentialsProvider, "extraCredentialsProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.encoderSelector = requireNonNull(encoderSelector, "encoderSelector is null");
     }
@@ -264,6 +268,8 @@ public class HttpRequestSessionContextFactory
                 .orElseGet(() -> Identity.forUser(user))
                 .withAdditionalConnectorRoles(parseConnectorRoleHeaders(protocolHeaders, headers))
                 .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
+                // Server-side per-user credentials override any client-supplied ones (anti-spoof).
+                .withAdditionalExtraCredentials(extraCredentialsProvider.getExtraCredentials(user))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .withEnabledRoles(systemEnabledRoles.build())
                 .build();

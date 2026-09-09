@@ -72,6 +72,7 @@ public class TestQuerySessionSupplier
             new PreparedStatementEncoder(new ProtocolConfig()),
             createTestingMetadataManager(),
             ImmutableSet::of,
+            _ -> ImmutableMap.of(),
             new AllowAllAccessControl(),
             new ProtocolConfig(),
             QueryDataEncoder.EncoderSelector.noEncoder());
