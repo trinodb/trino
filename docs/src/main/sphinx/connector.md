@@ -20,6 +20,7 @@ Exasol          <connector/exasol>
 Faker           <connector/faker>
 Google Sheets   <connector/googlesheets>
 Hive            <connector/hive>
+HsqlDB          <connector/hsqldb>
 Hudi            <connector/hudi>
 Iceberg         <connector/iceberg>
 Ignite          <connector/ignite>
