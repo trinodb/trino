@@ -32,8 +32,8 @@ public record KafkaTopicFieldGroup(
     public KafkaTopicFieldGroup
     {
         requireNonNull(dataFormat, "dataFormat is null");
-        requireNonNull(dataSchema, "dataSchema is null");
-        requireNonNull(subject, "subject is null");
+        dataSchema = dataSchema != null ? dataSchema : Optional.empty();
+        subject = subject != null ? subject : Optional.empty();
         fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 }
