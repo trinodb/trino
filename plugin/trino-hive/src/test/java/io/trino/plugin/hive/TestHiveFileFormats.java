@@ -2110,7 +2110,8 @@ public final class TestHiveFileFormats
                     baseType,
                     Optional.of(new HiveColumnProjectionInfo(ImmutableList.of(0), ImmutableList.of(name), toHiveType(type), type)),
                     partitionKey ? PARTITION_KEY : REGULAR,
-                    Optional.empty());
+                    Optional.empty(),
+                    true);
         }
 
         public TestColumn withDereferenceFirstField(Object writeValue, Object expectedValue)

@@ -136,7 +136,8 @@ public record DeltaLakeColumnHandle(
                 basePhysicalType,
                 projectionInfo.map(DeltaLakeColumnProjectionInfo::toHiveColumnProjectionInfo),
                 columnType.toHiveColumnType(),
-                Optional.empty());
+                Optional.empty(),
+                true);
     }
 
     public static DeltaLakeColumnHandle rowPositionColumnHandle()

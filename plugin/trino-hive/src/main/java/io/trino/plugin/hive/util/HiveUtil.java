@@ -101,6 +101,7 @@ import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.HiveMetadata.PARQUET_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_NOT_NULL_COLUMN_PARAM_PREFIX;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionTrinoColumnProperties;
@@ -545,12 +546,14 @@ public final class HiveUtil
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
+        Map<String, String> tableParameters = table.getParameters();
         int hiveColumnIndex = 0;
         for (Column field : table.getDataColumns()) {
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (typeSupported(hiveType.getTypeInfo(), table.getStorage().getStorageFormat())) {
-                columns.add(createBaseColumn(field.getName(), hiveColumnIndex, hiveType, getType(hiveType, typeManager, timestampPrecision), REGULAR, field.getComment()));
+                boolean nullable = !"true".equals(tableParameters.get(TRINO_NOT_NULL_COLUMN_PARAM_PREFIX + field.getName()));
+                columns.add(new HiveColumnHandle(field.getName(), hiveColumnIndex, hiveType, getType(hiveType, typeManager, timestampPrecision), Optional.empty(), REGULAR, field.getComment(), nullable));
             }
             hiveColumnIndex++;
         }
@@ -847,6 +850,7 @@ public final class HiveUtil
                 .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
                 .setExtraInfo(columnExtraInfo(handle.isPartitionKey()))
                 .setHidden(handle.isHidden())
+                .setNullable(handle.isNullable())
                 .setProperties(getPartitionProjectionTrinoColumnProperties(table, handle.getName()))
                 .build();
     }

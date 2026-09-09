@@ -70,9 +70,9 @@ public class TestHivePageSource
         String bucketColumnName = "bucket_col";
 
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle(partitionColumnName, 0, HIVE_STRING, VARCHAR, Optional.empty(), PARTITION_KEY, Optional.empty()),
-                new HiveColumnHandle("regular_col", 1, HIVE_STRING, VARCHAR, Optional.empty(), REGULAR, Optional.empty()),
-                new HiveColumnHandle(bucketColumnName, 2, HIVE_LONG, BIGINT, Optional.empty(), REGULAR, Optional.empty()));
+                new HiveColumnHandle(partitionColumnName, 0, HIVE_STRING, VARCHAR, Optional.empty(), PARTITION_KEY, Optional.empty(), true),
+                new HiveColumnHandle("regular_col", 1, HIVE_STRING, VARCHAR, Optional.empty(), REGULAR, Optional.empty(), true),
+                new HiveColumnHandle(bucketColumnName, 2, HIVE_LONG, BIGINT, Optional.empty(), REGULAR, Optional.empty(), true));
 
         String partitionColumnValue = "1";
         List<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey(partitionColumnName, partitionColumnValue));
