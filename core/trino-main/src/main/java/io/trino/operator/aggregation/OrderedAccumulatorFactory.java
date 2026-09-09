@@ -167,7 +167,7 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
-        public void evaluateFinal(BlockBuilder blockBuilder)
+        public void evaluateFinal(BlockBuilder blockBuilder, UpdateMemory updateMemory)
         {
             checkState(pagesIndex != null, "evaluateFinal() already called");
             pagesIndex.sort(pagesIndexOrdering);
@@ -179,7 +179,7 @@ public class OrderedAccumulatorFactory
             });
             // release pagesIndex memory after transferring its contents into the accumulator
             pagesIndex = null;
-            accumulator.evaluateFinal(blockBuilder);
+            accumulator.evaluateFinal(blockBuilder, updateMemory);
         }
     }
 

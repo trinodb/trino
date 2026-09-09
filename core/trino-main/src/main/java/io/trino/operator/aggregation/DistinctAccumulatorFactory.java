@@ -171,11 +171,11 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
-        public void evaluateFinal(BlockBuilder blockBuilder)
+        public void evaluateFinal(BlockBuilder blockBuilder, UpdateMemory updateMemory)
         {
             // release hash memory since it's no longer needed
             hash = null;
-            accumulator.evaluateFinal(blockBuilder);
+            accumulator.evaluateFinal(blockBuilder, updateMemory);
         }
     }
 

@@ -317,7 +317,7 @@ public class StreamingAggregationOperator
             }
             int offset = groupByTypes.size();
             for (int i = 0; i < aggregates.size(); i++) {
-                aggregates.get(i).evaluate(pageBuilder.getBlockBuilder(offset + i));
+                aggregates.get(i).evaluate(pageBuilder.getBlockBuilder(offset + i), UpdateMemory.NOOP);
             }
 
             if (pageBuilder.isFull()) {
