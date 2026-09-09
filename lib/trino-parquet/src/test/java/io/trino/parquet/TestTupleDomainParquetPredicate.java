@@ -635,6 +635,46 @@ public class TestTupleDomainParquetPredicate
                 .isEqualTo(create(ValueSet.ofRanges(range(timestampType, minValue, true, maxValue, true)), false));
     }
 
+    // Naive endpoint-only conversion is not safe for adjusted-to-UTC timestamps in a zone with variable offsets
+    // (e.g. DST), since local wall-clock time is not a monotonic function of the underlying UTC instant across an
+    // offset transition. A "fall back" transition makes local time run backwards for an hour, so when a row group's
+    // physical min/max UTC range straddles such a transition, the true set of materialized wall-clock values is NOT
+    // simply [convert(min), convert(max)] -- it can include values earlier than convert(min), or the converted
+    // endpoints can even coincide or reverse. Detect this case and fall back to an unbounded domain rather than
+    // risk wrongly pruning matching rows.
+    @Test
+    public void testTimestampInt64AdjustedToUtcAcrossDstFallbackTransitionIsUnbounded()
+            throws ParquetCorruptionException
+    {
+        DateTimeZone newYork = DateTimeZone.forID("America/New_York"); // observes DST, unlike Asia/Singapore above
+
+        PrimitiveType type = Types.required(INT64)
+                .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))
+                .named("TimestampColumn");
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {}, type, 0, 0);
+        TimestampType timestampType = createTimestampType(6);
+
+        // Find an actual fall-back transition (offset decreases, e.g. EDT -> EST) rather than hardcoding a date.
+        long searchFrom = LocalDateTime.of(2024, 1, 1, 0, 0).toEpochSecond(ZoneOffset.UTC) * 1000;
+        long transitionMillis = newYork.nextTransition(searchFrom);
+        while (newYork.getOffset(transitionMillis) >= newYork.getOffset(transitionMillis - 1)) {
+            transitionMillis = newYork.nextTransition(transitionMillis);
+        }
+
+        // Physical range straddling the transition: 30 minutes before .. 30 minutes after.
+        long minValue = (transitionMillis - Duration.ofMinutes(30).toMillis()) * (long) MICROSECONDS_PER_MILLISECOND;
+        long maxValue = (transitionMillis + Duration.ofMinutes(30).toMillis()) * (long) MICROSECONDS_PER_MILLISECOND;
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, newYork))
+                .isEqualTo(create(ValueSet.all(timestampType), false));
+
+        // Negative control: a physical range well away from any transition still gets a precise range, not "all",
+        // so pruning is not needlessly disabled outside the narrow transition window.
+        long farFromTransitionMin = (transitionMillis + Duration.ofDays(60).toMillis()) * (long) MICROSECONDS_PER_MILLISECOND;
+        long farFromTransitionMax = farFromTransitionMin + 50 * MICROSECONDS_PER_MILLISECOND;
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(farFromTransitionMin, farFromTransitionMax), ID, newYork))
+                .isNotEqualTo(create(ValueSet.all(timestampType), false));
+    }
+
     private static long toEpochWithPrecision(LocalDateTime time, int precision)
     {
         long scaledEpochSeconds = time.toEpochSecond(ZoneOffset.UTC) * (long) Math.pow(10, precision);

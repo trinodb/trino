@@ -81,6 +81,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -489,6 +490,21 @@ public class TupleDomainParquetPredicate
                 for (int i = 0; i < minimums.size(); i++) {
                     long min = (long) minimums.get(i);
                     long max = (long) maximums.get(i);
+
+                    // For adjusted-to-UTC timestamps in a zone with variable offsets (e.g. DST), converting UTC to
+                    // local wall-clock time is not monotonic across an offset transition -- a "fall back" transition
+                    // makes local time run backwards for an hour, so a naive [convert(min), convert(max)] range can
+                    // exclude wall-clock values that real rows in between min and max actually produced (or even
+                    // come out with convert(min) > convert(max)). If any transition falls inside [min, max], don't
+                    // risk a wrong/reversed range -- conservatively treat this statistics entry as unbounded.
+                    if (timestampTypeAnnotation.isAdjustedToUTC() && !statisticsTimeZone.isFixed()) {
+                        long minEpochMillis = decodeInt64Timestamp(min, timestampTypeAnnotation.getUnit()).epochSeconds() * MILLISECONDS_PER_SECOND;
+                        long maxEpochMillis = decodeInt64Timestamp(max, timestampTypeAnnotation.getUnit()).epochSeconds() * MILLISECONDS_PER_SECOND;
+                        long nextTransition = statisticsTimeZone.nextTransition(minEpochMillis);
+                        if (nextTransition != minEpochMillis && nextTransition <= maxEpochMillis) {
+                            return Domain.create(ValueSet.all(type), hasNullValue);
+                        }
+                    }
 
                     rangesBuilder.addRangeInclusive(
                             timestampEncoder.getTimestamp(decodeInt64Timestamp(min, timestampTypeAnnotation.getUnit())),
