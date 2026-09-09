@@ -20,6 +20,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
@@ -41,6 +42,7 @@ public class LdapClientConfig
     private boolean ignoreReferrals;
     private Duration ldapConnectionTimeout = succinctDuration(1, MINUTES);
     private Duration ldapReadTimeout = succinctDuration(1, MINUTES);
+    private int ldapPagingSize = 1000;
 
     @NotNull
     @Pattern(regexp = "^ldaps?://.*", message = "Invalid LDAP server URL. Expected ldap:// or ldaps://")
@@ -169,6 +171,20 @@ public class LdapClientConfig
     public LdapClientConfig setLdapReadTimeout(Duration ldapReadTimeout)
     {
         this.ldapReadTimeout = ldapReadTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getLdapPagingSize()
+    {
+        return ldapPagingSize;
+    }
+
+    @Config("ldap.paging.size")
+    @ConfigDescription("Number of entries requested per page when reading paged LDAP search results (RFC 2696)")
+    public LdapClientConfig setLdapPagingSize(int ldapPagingSize)
+    {
+        this.ldapPagingSize = ldapPagingSize;
         return this;
     }
 }
