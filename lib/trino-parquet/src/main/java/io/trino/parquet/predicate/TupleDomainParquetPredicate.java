@@ -23,6 +23,7 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.dictionary.Dictionary;
+import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -81,6 +82,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -474,16 +476,25 @@ public class TupleDomainParquetPredicate
                 if (timestampTypeAnnotation.getUnit() == null) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
-                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder(timestampType, DateTimeZone.UTC);
+                // Match ColumnReaderFactory: adjusted-to-UTC values are shifted into the configured zone, others are read verbatim
+                DateTimeZone statisticsTimeZone = timestampTypeAnnotation.isAdjustedToUTC() ? timeZone : DateTimeZone.UTC;
+                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder(timestampType, statisticsTimeZone);
 
                 SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
-                    long min = (long) minimums.get(i);
-                    long max = (long) maximums.get(i);
+                    DecodedTimestamp min = decodeInt64Timestamp((long) minimums.get(i), timestampTypeAnnotation.getUnit());
+                    DecodedTimestamp max = decodeInt64Timestamp((long) maximums.get(i), timestampTypeAnnotation.getUnit());
 
-                    rangesBuilder.addRangeInclusive(
-                            timestampEncoder.getTimestamp(decodeInt64Timestamp(min, timestampTypeAnnotation.getUnit())),
-                            timestampEncoder.getTimestamp(decodeInt64Timestamp(max, timestampTypeAnnotation.getUnit())));
+                    // Local time is not monotonic across an offset decrease, so a range that straddles a transition cannot be expressed as [convert(min), convert(max)]
+                    if (!statisticsTimeZone.isFixed()) {
+                        long minEpochMillis = min.epochSeconds() * MILLISECONDS_PER_SECOND;
+                        long nextTransition = statisticsTimeZone.nextTransition(minEpochMillis);
+                        if (nextTransition != minEpochMillis && nextTransition <= max.epochSeconds() * MILLISECONDS_PER_SECOND) {
+                            return Domain.create(ValueSet.all(type), hasNullValue);
+                        }
+                    }
+
+                    rangesBuilder.addRangeInclusive(timestampEncoder.getTimestamp(min), timestampEncoder.getTimestamp(max));
                 }
                 return Domain.create(rangesBuilder.build(), hasNullValue);
             }
