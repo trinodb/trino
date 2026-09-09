@@ -36,7 +36,9 @@ public enum InformationSchemaTable
             .column("column_name", createUnboundedVarcharType())
             .column("ordinal_position", BIGINT)
             .column("column_default", createUnboundedVarcharType())
+            .column("is_autoincrement", createUnboundedVarcharType())
             .column("is_nullable", createUnboundedVarcharType())
+            .column("is_readonly", createUnboundedVarcharType())
             .column("data_type", createUnboundedVarcharType())
             .hiddenColumn("comment", createUnboundedVarcharType()) // non-standard
             .hiddenColumn("extra_info", createUnboundedVarcharType()) // non-standard

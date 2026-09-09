@@ -121,7 +121,7 @@ public class TestQueryStateMachine
             new PlanFragmentId("fragment"),
             new PlanNodeId("plan-node")));
     private static final Optional<Output> OUTPUT = Optional.empty();
-    private static final List<String> OUTPUT_FIELD_NAMES = ImmutableList.of("a", "b", "c");
+    private static final List<ColumnInfo> OUTPUT_COLUMNS = ImmutableList.of(new ColumnInfo("a"), new ColumnInfo("b"), new ColumnInfo("c"));
     private static final List<Type> OUTPUT_FIELD_TYPES = ImmutableList.of(BIGINT, BIGINT, BIGINT);
     private static final String UPDATE_TYPE = "update type";
     private static final Map<String, String> SET_SESSION_PROPERTIES = ImmutableMap.<String, String>builder()
@@ -684,7 +684,7 @@ public class TestQueryStateMachine
         assertThat(queryInfo.getQuery()).isEqualTo(QUERY);
         assertThat(queryInfo.getInputs()).containsExactlyElementsOf(INPUTS);
         assertThat(queryInfo.getOutput()).isEqualTo(OUTPUT);
-        assertThat(queryInfo.getFieldNames()).containsExactlyElementsOf(OUTPUT_FIELD_NAMES);
+        assertThat(queryInfo.getFieldNames()).containsExactlyElementsOf(OUTPUT_COLUMNS.stream().map(ColumnInfo::getName).toList());
         assertThat(queryInfo.getUpdateType()).isEqualTo(UPDATE_TYPE);
         assertThat(queryInfo.getQueryType()).isPresent();
         assertThat(queryInfo.getQueryType().get()).isEqualTo(QUERY_TYPE.get());
@@ -877,7 +877,7 @@ public class TestQueryStateMachine
                     new NodeVersion("test"));
             stateMachine.setInputs(INPUTS);
             stateMachine.setOutput(OUTPUT);
-            stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
+            stateMachine.setColumns(OUTPUT_COLUMNS, OUTPUT_FIELD_TYPES);
             if (setPath != null) {
                 stateMachine.setSetPath(setPath);
             }
