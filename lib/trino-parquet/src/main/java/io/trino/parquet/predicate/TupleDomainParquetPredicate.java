@@ -474,7 +474,16 @@ public class TupleDomainParquetPredicate
                 if (timestampTypeAnnotation.getUnit() == null) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
-                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder(timestampType, DateTimeZone.UTC);
+                // Must mirror ColumnReaderFactory's value-materialization logic: INT64 timestamps that are NOT
+                // adjusted-to-UTC (isAdjustedToUTC() == false) store the value verbatim (no zone shift needed),
+                // while adjusted-to-UTC values must be shifted using the configured/session time zone to match
+                // the same wall-clock value the reader produces for actual rows. Using DateTimeZone.UTC
+                // unconditionally here (regardless of isAdjustedToUTC) desynchronizes the statistics-derived
+                // Domain from the value domain by the zone offset, causing row groups/pages containing matching
+                // rows to be wrongly pruned (or non-matching rows wrongly kept) whenever the configured time zone
+                // is not UTC.
+                DateTimeZone statisticsTimeZone = timestampTypeAnnotation.isAdjustedToUTC() ? timeZone : DateTimeZone.UTC;
+                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder(timestampType, statisticsTimeZone);
 
                 SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
