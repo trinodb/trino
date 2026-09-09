@@ -101,6 +101,7 @@ import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
@@ -1713,6 +1714,40 @@ public class TestLogicalPlanner
                 "SELECT orderkey FROM orders ORDER BY orderkey DESC",
                 Session.builder(this.getPlanTester().getDefaultSession())
                         .setSystemProperty(DISTRIBUTED_SORT, Boolean.toString(false))
+                        .build(),
+                output(
+                        sort(orderBy,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, GATHER,
+                                                tableScan("orders", ImmutableMap.of(
+                                                        "ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testDistributedSortWithRetryPolicy()
+    {
+        List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
+
+        // query-level retries re-run the whole query with all stages running concurrently,
+        // so distributed sort stays enabled
+        assertDistributedPlan(
+                "SELECT orderkey FROM orders ORDER BY orderkey DESC",
+                Session.builder(this.getPlanTester().getDefaultSession())
+                        .setSystemProperty(RETRY_POLICY, "QUERY")
+                        .build(),
+                output(
+                        exchange(REMOTE, GATHER, orderBy,
+                                exchange(LOCAL, GATHER, orderBy,
+                                        sort(orderBy,
+                                                exchange(REMOTE, REPARTITION,
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "ORDERKEY", "orderkey"))))))));
+
+        // task-level retries may run stages independently, which distributed sort does not support
+        assertDistributedPlan(
+                "SELECT orderkey FROM orders ORDER BY orderkey DESC",
+                Session.builder(this.getPlanTester().getDefaultSession())
+                        .setSystemProperty(RETRY_POLICY, "TASK")
                         .build(),
                 output(
                         sort(orderBy,
