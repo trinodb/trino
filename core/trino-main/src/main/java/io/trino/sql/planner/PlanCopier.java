@@ -34,6 +34,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
@@ -238,6 +239,24 @@ public final class PlanCopier
                     .map(context::rewrite)
                     .collect(toImmutableList());
             return new ExceptNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols(), node.isDistinct());
+        }
+
+        @Override
+        public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> copiedSources = node.getSources().stream()
+                    .map(context::rewrite)
+                    .collect(toImmutableList());
+            return new TableFunctionNode(
+                    idAllocator.getNextId(),
+                    node.getName(),
+                    node.getFunctionCatalog(),
+                    node.getArguments(),
+                    node.getProperOutputs(),
+                    copiedSources,
+                    node.getTableArgumentProperties(),
+                    node.getCopartitioningLists(),
+                    node.getHandle());
         }
 
         @Override
