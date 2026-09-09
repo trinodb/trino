@@ -300,10 +300,29 @@ public abstract class BaseFailureRecoveryTest
     protected void testExplainAnalyze()
     {
         testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            // distributed sort is only enabled with query-level retries; verify that its merging
+            // exchange does not end up on the coordinator boundary
+            testSelect("EXPLAIN ANALYZE SELECT orderkey FROM orders ORDER BY orderkey");
+        }
 
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"),
                 "EXPLAIN ANALYZE INSERT INTO <table> SELECT * FROM orders",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test
+    protected void testOrderBy()
+    {
+        // distributed sort is enabled with query-level retries and disabled with task-level retries
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            testSelect("SELECT * FROM orders ORDER BY orderkey");
+        }
+
+        testTableModification(
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"),
+                "INSERT INTO <table> SELECT * FROM orders ORDER BY orderkey",
                 Optional.of("DROP TABLE <table>"));
     }
 

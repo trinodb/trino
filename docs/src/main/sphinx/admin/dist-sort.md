@@ -13,3 +13,8 @@ Trino worker nodes for sorting. The primary purpose of distributed sort is to al
 of data sets which don't normally fit into single node memory. Performance improvement
 can be expected, but it won't scale linearly with the number of nodes, since the
 data needs to be merged by a single node.
+
+Distributed sort is used with the `NONE` and `QUERY` [retry policies](fte-retry-policy).
+It is automatically disabled with the `TASK` retry policy, because distributed sort
+requires all stages of a query to run concurrently, which task-level retries do not
+guarantee.
