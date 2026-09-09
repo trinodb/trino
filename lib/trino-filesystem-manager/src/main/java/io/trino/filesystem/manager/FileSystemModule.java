@@ -41,6 +41,7 @@ import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
+import io.trino.spi.TrinoException;
 import io.trino.spi.cache.BlobCache;
 import io.trino.spi.cache.CacheRequirements;
 import io.trino.spi.connector.ConnectorContext;
@@ -53,6 +54,7 @@ import java.util.function.Function;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.cache.CacheCapability.CAN_EXCEED_HEAP_SIZE;
 import static io.trino.spi.cache.CacheCapability.LOW_LATENCY;
 import static java.util.Objects.requireNonNull;
@@ -177,7 +179,7 @@ public class FileSystemModule
         Function<Location, TrinoFileSystemFactory> loader = location -> location.scheme()
                 .map(factories::get)
                 .or(() -> hdfsFactory)
-                .orElseThrow(() -> new IllegalArgumentException("No factory for location: " + location));
+                .orElseThrow(() -> noFactoryForLocation(location));
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(loader);
         delegate = new TracingFileSystemFactory(tracer, delegate);
@@ -190,5 +192,26 @@ public class FileSystemModule
             return new CacheFileSystemFactory(tracer, delegate, blobCache.orElseThrow(), keyProvider.orElseThrow());
         }
         return delegate;
+    }
+
+    static TrinoException noFactoryForLocation(Location location)
+    {
+        String scheme = location.scheme().orElse("unknown");
+        String enableProperty = switch (scheme) {
+            case "s3", "s3a", "s3n" -> "fs.s3.enabled";
+            case "gs" -> "fs.gcs.enabled";
+            case "abfs", "abfss", "wasb", "wasbs" -> "fs.azure.enabled";
+            case "hdfs" -> "fs.hadoop.enabled";
+            default -> null;
+        };
+        if (enableProperty != null) {
+            return new TrinoException(
+                    CONFIGURATION_INVALID,
+                    "No file system factory registered for location %s. Enable the file system by setting %s=true in the catalog configuration."
+                            .formatted(location, enableProperty));
+        }
+        return new TrinoException(
+                CONFIGURATION_INVALID,
+                "No file system factory registered for location %s.".formatted(location));
     }
 }
