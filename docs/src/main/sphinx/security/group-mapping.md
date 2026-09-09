@@ -125,6 +125,9 @@ group-provider.name=ldap
 * - `ldap.timeout.read`
   - Timeout [duration](prop-type-duration) for reading data from LDAP.
     Defaults to `1m`.
+* - `ldap.paging.size`
+  - Number of entries requested per page when reading paged LDAP search results
+    `MaxPageSize` (1000 by default). Defaults to `1000`.
 * - `ldap.admin-user`
   - Bind distinguished name for admin user. For example,
     `CN=UserName,OU=City,OU=State,DC=domain,DC=domain_root`
