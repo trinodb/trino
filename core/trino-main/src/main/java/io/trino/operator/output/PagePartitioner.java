@@ -138,6 +138,7 @@ public class PagePartitioner
         }
 
         int outputPositionCount = replicatesAnyRow && !hasAnyRowBeenReplicated ? page.getPositionCount() + positionsAppenders.length - 1 : page.getPositionCount();
+        long outputSizeInBytes = flushBeforeFlattening(page);
         if (positionsAppenders.length == 1) {
             // single output partition, skip partition calculation and append the entire page to the output partition
             checkState(partitionFunction.partitionCount() == 1, "partitionFunction must be single partition");
@@ -157,7 +158,7 @@ public class PagePartitioner
         else {
             partitionPageByColumn(page);
         }
-        long outputSizeInBytes = flushPositionsAppenders(false);
+        outputSizeInBytes += flushPositionsAppenders(false);
         updateMemoryUsage();
         operatorContext.recordOutput(outputSizeInBytes, outputPositionCount);
     }
@@ -465,6 +466,24 @@ public class PagePartitioner
             Arrays.fill(positionsAppenders, null);
             memoryContext.close();
         }
+    }
+
+    /**
+     * Enqueues output partitions which would flatten a buffered dictionary large enough to fill a page,
+     * keeping the dictionary encoding and avoiding the allocation that flattening it requires.
+     */
+    private long flushBeforeFlattening(Page page)
+    {
+        long outputSizeInBytes = 0;
+        for (int partition = 0; partition < positionsAppenders.length; partition++) {
+            PositionsAppenderPageBuilder partitionPageBuilder = positionsAppenders[partition];
+            if (partitionPageBuilder.requiresFlushBeforeFlattening(page)) {
+                Page pagePartition = partitionPageBuilder.build();
+                outputSizeInBytes += pagePartition.getSizeInBytes();
+                enqueuePage(pagePartition, partition);
+            }
+        }
+        return adjustFlushedOutputSizeWithEagerlyReportedBytes(outputSizeInBytes);
     }
 
     private long flushPositionsAppenders(boolean force)
