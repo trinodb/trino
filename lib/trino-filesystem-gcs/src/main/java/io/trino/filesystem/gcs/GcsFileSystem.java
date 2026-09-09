@@ -82,8 +82,19 @@ public class GcsFileSystem
     private final int pageSize;
     private final int batchSize;
     private final Optional<String> endpoint;
+    private final Optional<EncryptionKey> encryptionKey;
+    private final Optional<EncryptionKey> decryptionKey;
 
-    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize, Optional<String> endpoint)
+    public GcsFileSystem(
+            ListeningExecutorService executorService,
+            Storage storage,
+            int readBlockSizeBytes,
+            long writeBlockSizeBytes,
+            int pageSize,
+            int batchSize,
+            Optional<String> endpoint,
+            Optional<EncryptionKey> encryptionKey,
+            Optional<EncryptionKey> decryptionKey)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -92,6 +103,8 @@ public class GcsFileSystem
         this.pageSize = pageSize;
         this.batchSize = batchSize;
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
+        this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
+        this.decryptionKey = requireNonNull(decryptionKey, "decryptionKey is null");
     }
 
     @Override
@@ -99,7 +112,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), decryptionKey);
     }
 
     @Override
@@ -115,7 +128,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), decryptionKey);
     }
 
     @Override
@@ -131,7 +144,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), decryptionKey);
     }
 
     @Override
@@ -147,7 +160,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.empty());
+        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, encryptionKey);
     }
 
     @Override
@@ -357,7 +370,9 @@ public class GcsFileSystem
     public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
             throws IOException
     {
-        return preSignedUri(location, ttl, Optional.empty());
+        // Use the configured decryption key (if any) so the signed URI can read CSEK-encrypted objects,
+        // mirroring how reads transparently apply the configured key.
+        return preSignedUri(location, ttl, decryptionKey);
     }
 
     @Override

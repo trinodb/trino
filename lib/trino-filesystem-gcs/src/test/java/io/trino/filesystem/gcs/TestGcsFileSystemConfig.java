@@ -49,7 +49,9 @@ public class TestGcsFileSystemConfig
                 .setMaxRetryTime(new Duration(25, SECONDS))
                 .setMinBackoffDelay(new Duration(10, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(2000, MILLISECONDS))
-                .setApplicationId("Trino"));
+                .setApplicationId("Trino")
+                .setEncryptionKey(null)
+                .setDecryptionKey(null));
     }
 
     @Test
@@ -69,6 +71,8 @@ public class TestGcsFileSystemConfig
                 .put("gcs.client.min-backoff-delay", "20ms")
                 .put("gcs.client.max-backoff-delay", "20ms")
                 .put("gcs.application-id", "application id")
+                .put("gcs.encryption-key", "encryptionKey")
+                .put("gcs.decryption-key", "decryptionKey")
                 .buildOrThrow();
 
         GcsFileSystemConfig expected = new GcsFileSystemConfig()
@@ -84,7 +88,9 @@ public class TestGcsFileSystemConfig
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(20, MILLISECONDS))
-                .setApplicationId("application id");
+                .setApplicationId("application id")
+                .setEncryptionKey("encryptionKey")
+                .setDecryptionKey("decryptionKey");
         assertFullMapping(properties, expected);
     }
 
