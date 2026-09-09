@@ -22,6 +22,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TestingRows;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,15 +62,22 @@ final class FilterPredicateVerifier
             return;
         }
 
-        for (Map<String, Object> bindings : rows.rows(symbols, ImmutableList.of(original, rewritten))) {
-            Object value = rows.evaluate(original, bindings);
+        List<Map<String, Object>> generated = rows.rows(symbols, ImmutableList.of(original, rewritten));
+        // Check each predicate against the compiled engine before comparing the two against each other,
+        // so that an engine defect is never reported as the rule being wrong.
+        List<Object> values = rows.evaluateAll(original, "the original predicate", symbols, generated);
+        List<Object> rewrittenValues = rows.evaluateAll(rewritten, "the rewritten predicate", symbols, generated);
+
+        for (int row = 0; row < generated.size(); row++) {
+            Map<String, Object> bindings = generated.get(row);
+            Object value = values.get(row);
             if (value == EVALUATION_FAILED) {
                 // A failure isn't guaranteed to be preserved, because a rewrite may drop or reorder
                 // the work that fails. Only a row the original produces a value for is binding.
                 continue;
             }
 
-            Object rewrittenValue = rows.evaluate(rewritten, bindings);
+            Object rewrittenValue = rewrittenValues.get(row);
             if (rewrittenValue == EVALUATION_FAILED) {
                 fail("the rewritten predicate fails for a row the original evaluates%n  original:   %s%n  rewritten:  %s%n  row:        %s",
                         original,
