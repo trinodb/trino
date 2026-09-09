@@ -157,6 +157,16 @@ public class TestSnowflakeConnectorTest
     }
 
     @Test
+    public void testIsNotNullAndLimitPushdown()
+    {
+        // Regression test: a VARCHAR column reported as case sensitive should get FULL_PUSHDOWN,
+        // letting both the IS NOT NULL filter and the LIMIT push down to Snowflake instead of
+        // Trino reading the whole column and applying both locally.
+        assertThat(query("SELECT comment FROM nation WHERE comment IS NOT NULL LIMIT 3"))
+                .isFullyPushedDown();
+    }
+
+    @Test
     public void testViews()
     {
         String tableName = "test_view_" + randomNameSuffix();
