@@ -18,6 +18,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
 import org.junit.jupiter.api.Test;
 
@@ -79,6 +80,54 @@ public class TestOrderedAccumulatorFactory
         // the delegate's growth is visible as the replay progresses
         assertThat(sizeAtUpdate.getLast()).isGreaterThan(sizeAtUpdate.getFirst());
         // the buffered pages and the delegate's hash are released once the replay is done
+        assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getLast());
+        assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getFirst());
+    }
+
+    // the non-grouped twin of the test above: the replay happens in evaluateFinal instead of prepareFinal
+    @Test
+    public void testEvaluateFinalReportsMemoryWhileReplaying()
+    {
+        TestingAggregationFunction arrayAgg = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
+        OrderedAccumulatorFactory factory = new OrderedAccumulatorFactory(
+                arrayAgg.getDistinctFactory(),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),      // argument channels
+                ImmutableList.of(0),      // order-by channels
+                ImmutableList.of(ASC_NULLS_LAST),
+                new PagesIndex.TestingFactory(false));
+
+        Accumulator accumulator = factory.createAccumulator(ImmutableList.of());
+
+        // buffer enough distinct rows that getSortedPages yields multiple pages to replay
+        int positionsPerPage = 100_000;
+        for (int page = 0; page < 4; page++) {
+            long[] values = new long[positionsPerPage];
+            for (int i = 0; i < positionsPerPage; i++) {
+                values[i] = ((long) page * positionsPerPage) + i;
+            }
+            accumulator.addInput(
+                    new Page(new LongArrayBlock(positionsPerPage, Optional.empty(), values)),
+                    AggregationMask.createSelectAll(positionsPerPage));
+        }
+        // the delegate has seen no input yet, so this is what the buffered pages alone weigh
+        long bufferedPagesSize = accumulator.getEstimatedSize();
+
+        List<Long> sizeAtUpdate = new ArrayList<>();
+        UpdateMemory updateMemory = () -> {
+            sizeAtUpdate.add(accumulator.getEstimatedSize());
+            return true;
+        };
+        BlockBuilder output = arrayAgg.getFinalType().createBlockBuilder(null, 1);
+        accumulator.evaluateFinal(output, updateMemory);
+
+        // memory is reported repeatedly during the replay, not just once after it
+        assertThat(sizeAtUpdate).hasSizeGreaterThan(1);
+        // the buffered pages and the delegate's growth are counted at the same moment
+        assertThat(sizeAtUpdate.getFirst()).isGreaterThan(bufferedPagesSize);
+        // the delegate's growth is visible as the replay progresses
+        assertThat(sizeAtUpdate.getLast()).isGreaterThan(sizeAtUpdate.getFirst());
+        // the buffered pages and the delegate's hash are released once the output is produced
         assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getLast());
         assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getFirst());
     }

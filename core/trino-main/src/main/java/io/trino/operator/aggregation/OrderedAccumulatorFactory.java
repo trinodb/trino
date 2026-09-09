@@ -176,6 +176,8 @@ public class OrderedAccumulatorFactory
             pagesIterator.forEachRemaining(arguments -> {
                 mask.reset(arguments.getPositionCount());
                 accumulator.addInput(arguments.getColumns(argumentChannels), mask);
+                // result ignored, evaluateFinal cannot yield
+                updateMemory.update();
             });
             // release pagesIndex memory after transferring its contents into the accumulator
             pagesIndex = null;
