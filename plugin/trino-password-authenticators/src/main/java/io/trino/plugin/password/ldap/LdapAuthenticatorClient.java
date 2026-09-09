@@ -18,7 +18,6 @@ import com.google.inject.Inject;
 import io.trino.plugin.base.ldap.LdapClient;
 import io.trino.plugin.base.ldap.LdapQuery;
 
-import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 
 import java.util.Set;
@@ -44,13 +43,13 @@ public class LdapAuthenticatorClient
     public boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
             throws NamingException
     {
-        return ldapClient.executeLdapQuery(
+        return ldapClient.exists(
                 contextUserDistinguishedName,
                 contextPassword,
                 new LdapQuery.LdapQueryBuilder()
                         .withSearchBase(searchBase)
-                        .withSearchFilter(groupSearch).build(),
-                NamingEnumeration::hasMore);
+                        .withSearchFilter(groupSearch)
+                        .build());
     }
 
     public Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
@@ -65,8 +64,10 @@ public class LdapAuthenticatorClient
                         .build(),
                 searchResults -> {
                     ImmutableSet.Builder<String> distinguishedNames = ImmutableSet.builder();
-                    while (searchResults.hasMore()) {
+                    int found = 0;
+                    while (found < 2 && searchResults.hasMore()) {
                         distinguishedNames.add(searchResults.next().getNameInNamespace());
+                        found++;
                     }
                     return distinguishedNames.build();
                 });

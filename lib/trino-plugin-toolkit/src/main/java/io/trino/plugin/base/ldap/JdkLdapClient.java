@@ -22,9 +22,9 @@ import io.trino.spi.security.AccessDeniedException;
 import javax.naming.AuthenticationException;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
-import javax.naming.directory.DirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
+import javax.naming.ldap.LdapContext;
 import javax.net.ssl.SSLContext;
 
 import java.io.File;
@@ -33,7 +33,7 @@ import java.security.GeneralSecurityException;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.base.jndi.JndiUtils.createDirContext;
+import static io.trino.plugin.base.jndi.JndiUtils.createLdapContext;
 import static java.util.Objects.requireNonNull;
 import static javax.naming.Context.INITIAL_CONTEXT_FACTORY;
 import static javax.naming.Context.PROVIDER_URL;
@@ -49,6 +49,7 @@ public class JdkLdapClient
 
     private final Map<String, String> basicEnvironment;
     private final Optional<SSLContext> sslContext;
+    private final LdapClientConfig ldapConfig;
 
     @Inject
     public JdkLdapClient(LdapClientConfig ldapConfig)
@@ -70,6 +71,8 @@ public class JdkLdapClient
 
         this.basicEnvironment = builder.buildOrThrow();
 
+        this.ldapConfig = requireNonNull(ldapConfig, "ldapConfig is null");
+
         this.sslContext = createSslContext(
                 ldapConfig.getKeystorePath(),
                 ldapConfig.getKeystorePassword(),
@@ -86,6 +89,31 @@ public class JdkLdapClient
                 return contextProcessor.process(context.context);
             }
         });
+    }
+
+    @Override
+    public boolean exists(String userName, String password, LdapQuery ldapQuery)
+            throws NamingException
+    {
+        // An existence check only needs to know whether at least one entry matches, so cap the search at a single
+        // result instead of paging through (and materializing) the whole match set.
+        try (CloseableContext context = createUserDirContext(userName, password)) {
+            SearchControls searchControls = new SearchControls();
+            searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+            searchControls.setReturningAttributes(ldapQuery.getAttributes());
+            searchControls.setCountLimit(1);
+            NamingEnumeration<SearchResult> results = context.search(
+                    ldapQuery.getSearchBase(),
+                    ldapQuery.getSearchFilter(),
+                    ldapQuery.getFilterArguments(),
+                    searchControls);
+            try {
+                return results.hasMore();
+            }
+            finally {
+                results.close();
+            }
+        }
     }
 
     @Override
@@ -113,17 +141,11 @@ public class JdkLdapClient
     }
 
     private static CloseableSearchResults searchContext(LdapQuery ldapQuery, CloseableContext context)
-            throws NamingException
     {
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
         searchControls.setReturningAttributes(ldapQuery.getAttributes());
-        return new CloseableSearchResults(
-                context.search(
-                        ldapQuery.getSearchBase(),
-                        ldapQuery.getSearchFilter(),
-                        ldapQuery.getFilterArguments(),
-                        searchControls));
+        return new CloseableSearchResults(new PagedSearchResults(context.context, context.pageSize(), ldapQuery, searchControls));
     }
 
     private CloseableContext createUserDirContext(String userDistinguishedName, String password)
@@ -133,9 +155,9 @@ public class JdkLdapClient
         try {
             // This is the actual Authentication piece. Will throw javax.naming.AuthenticationException
             // if the users password is not correct. Other exceptions may include IO (server not found) etc.
-            DirContext context = createDirContext(environment);
+            LdapContext context = createLdapContext(environment);
             log.debug("Password validation successful for user DN [%s]", userDistinguishedName);
-            return new CloseableContext(context);
+            return new CloseableContext(context, ldapConfig.getLdapPagingSize());
         }
         catch (AuthenticationException e) {
             log.debug("Password validation failed for user DN [%s]: %s", userDistinguishedName, e.getMessage());
@@ -180,11 +202,18 @@ public class JdkLdapClient
     private static class CloseableContext
             implements AutoCloseable
     {
-        private final DirContext context;
+        private final LdapContext context;
+        private final int pageSize;
 
-        public CloseableContext(DirContext context)
+        public CloseableContext(LdapContext context, int pageSize)
         {
             this.context = requireNonNull(context, "context is null");
+            this.pageSize = pageSize;
+        }
+
+        public int pageSize()
+        {
+            return pageSize;
         }
 
         @SuppressWarnings("BanJNDI")
@@ -210,12 +239,6 @@ public class JdkLdapClient
         public CloseableSearchResults(NamingEnumeration<SearchResult> searchResults)
         {
             this.searchResults = requireNonNull(searchResults, "searchResults is null");
-        }
-
-        public NamingEnumeration<SearchResult> getSearchResult()
-                throws NamingException
-        {
-            return searchResults;
         }
 
         @Override
