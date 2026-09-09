@@ -14,6 +14,9 @@ Delete all rows from a table.
 
 Truncate the table `orders`:
 
-```
-TRUNCATE TABLE orders;
+```{try-sql}
+CREATE TABLE memory.default.orders (orderkey bigint, orderstatus varchar);
+INSERT INTO memory.default.orders VALUES (1, 'OPEN'), (2, 'PROCESSING');
+---
+TRUNCATE TABLE memory.default.orders
 ```

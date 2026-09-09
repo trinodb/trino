@@ -38,15 +38,10 @@ Returns the port number from `url`.
 :::{function} url_extract_protocol(url) -> varchar
 Returns the protocol from `url`:
 
-```
-SELECT url_extract_protocol('http://localhost:8080/req_path');
--- http
-
-SELECT url_extract_protocol('https://127.0.0.1:8080/req_path');
--- https
-
-SELECT url_extract_protocol('ftp://path/file');
--- ftp
+```{try-sql}
+SELECT url_extract_protocol('http://localhost:8080/req_path'),
+       url_extract_protocol('https://127.0.0.1:8080/req_path'),
+       url_extract_protocol('ftp://path/file')
 ```
 :::
 

@@ -14,24 +14,8 @@ Show the SQL statement that creates the specified table.
 
 Show the SQL that can be run to create the `orders` table:
 
-```
-SHOW CREATE TABLE sf1.orders;
-```
-
-```text
-              Create Table
------------------------------------------
- CREATE TABLE tpch.sf1.orders (
-    orderkey bigint,
-    orderstatus varchar,
-    totalprice double,
-    orderdate varchar
- )
- WITH (
-    format = 'ORC',
-    partitioned_by = ARRAY['orderdate']
- )
-(1 row)
+```{try-sql}
+SHOW CREATE TABLE tpch.sf1.orders
 ```
 
 ## See also

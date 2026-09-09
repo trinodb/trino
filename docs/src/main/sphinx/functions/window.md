@@ -6,11 +6,11 @@ Invoking a window function requires special syntax using the `OVER`
 clause to specify the window.
 For example, the following query ranks orders for each clerk by price:
 
-```
+```{try-sql}
 SELECT orderkey, clerk, totalprice,
        rank() OVER (PARTITION BY clerk
                     ORDER BY totalprice DESC) AS rnk
-FROM orders
+FROM tpch.tiny.orders
 ORDER BY clerk, rnk
 ```
 
@@ -30,11 +30,11 @@ aggregation](aggregate-function-ordering-during-aggregation) is not supported.
 For example, the following query produces a rolling sum of order prices
 by day for each clerk:
 
-```
+```{try-sql}
 SELECT clerk, orderdate, orderkey, totalprice,
        sum(totalprice) OVER (PARTITION BY clerk
                              ORDER BY orderdate) AS rolling_sum
-FROM orders
+FROM tpch.tiny.orders
 ORDER BY clerk, orderdate, orderkey
 ```
 

@@ -204,9 +204,8 @@ Returns the hyperbolic tangent of `x`.
 :::{function} cosine_distance(array(double), array(double)) -> double
 Calculates the cosine distance between two dense vectors:
 
-```sql
-SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
--- 0.01613008990009257
+```{try-sql}
+SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0])
 ```
 :::
 
@@ -214,18 +213,16 @@ SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
 :no-index:
 Calculates the cosine distance between two sparse vectors:
 
-```sql
-SELECT cosine_distance(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0]));
--- 0.0
+```{try-sql}
+SELECT cosine_distance(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0]))
 ```
 :::
 
 :::{function} cosine_similarity(array(double), array(double)) -> double
 Calculates the cosine similarity of two dense vectors:
 
-```sql
-SELECT cosine_similarity(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
--- 0.9838699100999074
+```{try-sql}
+SELECT cosine_similarity(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0])
 ```
 :::
 
@@ -233,9 +230,8 @@ SELECT cosine_similarity(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
 :no-index:
 Calculates the cosine similarity of two sparse vectors:
 
-```sql
-SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0]));
--- 1.0
+```{try-sql}
+SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0]))
 ```
 :::
 

@@ -12,20 +12,20 @@ available via a catalog named `system`.
 
 List the available system schemas:
 
-```
-SHOW SCHEMAS FROM system;
+```{try-sql}
+SHOW SCHEMAS FROM system
 ```
 
 List the tables in one of the schemas:
 
-```
-SHOW TABLES FROM system.runtime;
+```{try-sql}
+SHOW TABLES FROM system.runtime
 ```
 
 Query one of the tables:
 
-```
-SELECT * FROM system.runtime.nodes;
+```{try-sql}
+SELECT * FROM system.runtime.nodes
 ```
 
 Kill a running query:
