@@ -13,18 +13,17 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Case;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -43,6 +42,7 @@ final class TestExtractCommonConjunctFromCase
     void conditionalEqualityPlansAsHashJoin()
     {
         // Equality o.custkey = lookup.join_key appears in both IF branches, so it is extracted to a hash-join key.
+        // The residual CASE is dissolved into an Or by SimplifyBooleanCase.
         assertPlan(
                 """
                 SELECT o.orderkey FROM orders o
@@ -51,8 +51,8 @@ final class TestExtractCommonConjunctFromCase
                 """,
                 anyTree(join(INNER, builder -> builder
                         .equiCriteria("CUSTKEY", "JOIN_KEY")
-                        .filter(new Case(
-                                ImmutableList.of(new WhenClause(new IsNull(new Reference(BIGINT, "OPTIONAL_KEY")), TRUE)),
+                        .filter(or(
+                                comparison(IDENTICAL, new IsNull(new Reference(BIGINT, "OPTIONAL_KEY")), TRUE),
                                 comparison(EQUAL, new Reference(BIGINT, "OPTIONAL_KEY"), new Reference(BIGINT, "ORDERKEY"))))
                         .left(anyTree(tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey", "ORDERKEY", "orderkey"))))
                         .right(values("JOIN_KEY", "OPTIONAL_KEY")))));
