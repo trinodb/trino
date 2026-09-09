@@ -1504,8 +1504,10 @@ public final class SystemSessionProperties
 
     public static boolean isDistributedSortEnabled(Session session)
     {
-        if (getRetryPolicy(session) != RetryPolicy.NONE) {
-            // distributed sort is not supported with failure recovery capabilities enabled
+        if (getRetryPolicy(session) == RetryPolicy.TASK) {
+            // distributed sort requires all stages of the query to run concurrently, which
+            // task-level retries do not guarantee (stages may run independently). Query-level
+            // retries re-run the whole query with pipelined execution, so they are compatible.
             return false;
         }
 
