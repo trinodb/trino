@@ -427,6 +427,11 @@ public abstract class AbstractTrinoCatalog
         }
 
         if (snapshotAtRefresh.orElseThrow() == currentSnapshot.snapshotId()) {
+            // A schema-only change (rename, added column, etc.) doesn't bump the snapshot id.
+            Integer recordedSchemaId = currentSnapshot.schemaId();
+            if (recordedSchemaId != null && !recordedSchemaId.equals(icebergTable.schema().schemaId())) {
+                return new UnknownTableChange();
+            }
             return new NoTableChange();
         }
         return firstSnapshotAfter(icebergTable, snapshotAtRefresh.orElseThrow())

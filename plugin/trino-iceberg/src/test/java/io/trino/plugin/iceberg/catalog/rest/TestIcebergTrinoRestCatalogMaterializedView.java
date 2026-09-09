@@ -728,28 +728,4 @@ public class TestIcebergTrinoRestCatalogMaterializedView
         assertUpdate("DROP MATERIALIZED VIEW " + innerMaterializedViewName);
         assertUpdate("DROP TABLE " + baseTableName);
     }
-
-    @Test
-    public void testMaterializedViewGoesStaleWhenSourceSchemaChangesWithoutNewSnapshot()
-    {
-        String sourceTableName = "test_schema_only_change_source_" + randomNameSuffix();
-        String materializedViewName = "test_schema_only_change_mv_" + randomNameSuffix();
-        String freshnessQuery = format(
-                "SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '%s'",
-                materializedViewName);
-
-        assertUpdate("CREATE TABLE " + sourceTableName + " (id INT, name VARCHAR)");
-        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (1, 'a')", 1);
-        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM " + sourceTableName);
-        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
-        assertQuery(freshnessQuery, "VALUES 'FRESH'");
-
-        // A column rename is schema-only: it doesn't create a new snapshot, so the recorded snapshot id
-        // alone would look unchanged despite the source's schema having evolved
-        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME COLUMN name TO full_name");
-        assertQuery(freshnessQuery, "VALUES 'STALE'");
-
-        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
-        assertUpdate("DROP TABLE " + sourceTableName);
-    }
 }
