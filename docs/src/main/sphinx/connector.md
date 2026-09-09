@@ -18,6 +18,7 @@ DuckDB          <connector/duckdb>
 Elasticsearch   <connector/elasticsearch>
 Exasol          <connector/exasol>
 Faker           <connector/faker>
+Firebird        <connector/firebird>
 Google Sheets   <connector/googlesheets>
 Hive            <connector/hive>
 Hudi            <connector/hudi>
