@@ -17,11 +17,16 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
+import io.airlift.compress.v3.MalformedInputException;
+import io.airlift.compress.v3.zstd.ZstdCompressor;
+import io.airlift.compress.v3.zstd.ZstdInputStream;
+import io.airlift.compress.v3.zstd.ZstdNativeCompressor;
 import io.airlift.slice.Murmur3Hash128;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
+import io.airlift.units.DataSize;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
@@ -29,14 +34,18 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.zip.CRC32;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.scalar.HmacFunctions.computeHash;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 public final class VarbinaryFunctions
 {
@@ -44,6 +53,10 @@ public final class VarbinaryFunctions
             '0', '1', '2', '3', '4', '5', '6', '7',
             '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
     };
+
+    private static final int ZSTD_MIN_COMPRESSION_LEVEL = 1;
+    private static final int ZSTD_MAX_COMPRESSION_LEVEL = 22;
+    private static final int ZSTD_MAX_DECOMPRESSED_SIZE = toIntExact(DataSize.of(4, MEGABYTE).toBytes());
 
     private VarbinaryFunctions() {}
 
@@ -377,6 +390,62 @@ public final class VarbinaryFunctions
         CRC32 crc32 = new CRC32();
         crc32.update(slice.byteArray(), slice.byteArrayOffset(), slice.length());
         return crc32.getValue();
+    }
+
+    @Description("Compresses binary data using Zstandard")
+    @ScalarFunction("zstd_compress")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice zstdCompress(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return zstdCompress(slice, ZstdCompressor.create());
+    }
+
+    @Description("Compresses binary data using Zstandard at the given compression level (1-22, higher is slower and smaller). Requires the native Zstandard compressor to be available on the current platform")
+    @ScalarFunction("zstd_compress")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice zstdCompress(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long level)
+    {
+        if (level < ZSTD_MIN_COMPRESSION_LEVEL || level > ZSTD_MAX_COMPRESSION_LEVEL) {
+            throw new TrinoException(
+                    INVALID_FUNCTION_ARGUMENT,
+                    "zstd compression level must be between %s and %s: %s".formatted(ZSTD_MIN_COMPRESSION_LEVEL, ZSTD_MAX_COMPRESSION_LEVEL, level));
+        }
+        if (!ZstdNativeCompressor.isEnabled()) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "zstd_compress with an explicit level requires the native Zstandard compressor, which is not available on this platform");
+        }
+        return zstdCompress(slice, ZstdCompressor.create((int) level));
+    }
+
+    private static Slice zstdCompress(Slice slice, ZstdCompressor compressor)
+    {
+        byte[] input = slice.byteArray();
+        int inputOffset = slice.byteArrayOffset();
+        int inputLength = slice.length();
+        byte[] output = new byte[compressor.maxCompressedLength(inputLength)];
+        int outputLength = compressor.compress(input, inputOffset, inputLength, output, 0, output.length);
+        return Slices.wrappedBuffer(output, 0, outputLength);
+    }
+
+    @Description("Decompresses Zstandard-compressed binary data")
+    @ScalarFunction("zstd_decompress")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice zstdDecompress(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        // Decompress incrementally instead of trusting the size declared in the frame header.
+        // The header is optional, it only describes the first of possibly several concatenated
+        // frames, and it is under the control of whoever produced the input.
+        try (InputStream input = new ZstdInputStream(slice.getInput())) {
+            byte[] output = input.readNBytes(ZSTD_MAX_DECOMPRESSED_SIZE + 1);
+            checkCondition(
+                    output.length <= ZSTD_MAX_DECOMPRESSED_SIZE,
+                    INVALID_FUNCTION_ARGUMENT,
+                    "result of zstd_decompress function must not exceed %s bytes",
+                    ZSTD_MAX_DECOMPRESSED_SIZE);
+            return Slices.wrappedBuffer(output);
+        }
+        catch (IOException | MalformedInputException | IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "invalid zstd frame: " + e.getMessage(), e);
+        }
     }
 
     @Description("Suffix starting at given index")
