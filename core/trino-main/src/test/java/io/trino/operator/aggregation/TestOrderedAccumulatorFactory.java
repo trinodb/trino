@@ -78,7 +78,8 @@ public class TestOrderedAccumulatorFactory
         assertThat(sizeAtUpdate.getFirst()).isGreaterThan(bufferedPagesSize);
         // the delegate's growth is visible as the replay progresses
         assertThat(sizeAtUpdate.getLast()).isGreaterThan(sizeAtUpdate.getFirst());
-        // the buffered pages are released once the replay is done
+        // the buffered pages and the delegate's hash are released once the replay is done
         assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getLast());
+        assertThat(accumulator.getEstimatedSize()).isLessThan(sizeAtUpdate.getFirst());
     }
 }

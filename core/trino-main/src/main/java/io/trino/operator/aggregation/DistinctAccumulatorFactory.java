@@ -280,6 +280,7 @@ public class DistinctAccumulatorFactory
         {
             // release hash memory after all inputs have been added
             hash = null;
+            accumulator.prepareFinal(updateMemory);
         }
     }
 }
