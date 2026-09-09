@@ -383,12 +383,12 @@ class TestHiveSparkCompatibility
             for (String sparkTable : sparkTables) {
                 env.executeSparkUpdate(format(
                         "INSERT INTO %s " +
-                                "SELECT /*+ REPARTITION(1) */  testInteger, testLong, testString, testDouble, testFloat FROM VALUES " +
+                                "SELECT /*+ REPARTITION(1) */ testinteger, testlong, teststring, testdouble, testfloat FROM VALUES " +
                                 "  (-999999, -999999, 'aaaaaaaaaaa', -9999999999.99D, -9999999.9999F)" +
                                 ", (3, 30, 'fdsvxxbv33cb', 97662.2D, 98862.2F)" +
                                 ", (5324, 2466, 'refgfdfrexx', 8796.1D, -65496.1F)" +
                                 ", (999999, 9999999999999, 'zzzzzzzzzzz', 9999999999.99D, -9999999.9999F)" +
-                                ", (9444, 4132455, 'ff34322vxff', 32137758.7892D, 9978.129887F) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+                                ", (9444, 4132455, 'ff34322vxff', 32137758.7892D, 9978.129887F) AS DATA(testinteger, testlong, teststring, testdouble, testfloat)",
                         sparkTable));
             }
 
@@ -422,7 +422,7 @@ class TestHiveSparkCompatibility
                     String.format("CREATE TABLE %s.default.%s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ", TRINO_CATALOG, trinoTableNameWithBloomFilter) +
                             "WITH (" +
                             "format = 'PARQUET'," +
-                            "parquet_bloom_filter_columns = ARRAY['testInteger', 'testLong', 'testString', 'testDouble', 'testFloat']" +
+                            "parquet_bloom_filter_columns = ARRAY['testinteger', 'testlong', 'teststring', 'testdouble', 'testfloat']" +
                             ")");
             env.executeTrinoUpdate(
                     String.format("CREATE TABLE %s.default.%s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", TRINO_CATALOG, trioTableNameNoBloomFilter));
@@ -431,7 +431,7 @@ class TestHiveSparkCompatibility
             for (String trinoTable : trinoTables) {
                 env.executeTrinoUpdate(format(
                         "INSERT INTO %s " +
-                                "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+                                "SELECT testinteger, testlong, teststring, testdouble, testfloat FROM (VALUES " +
                                 "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
                                 ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
                                 ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +

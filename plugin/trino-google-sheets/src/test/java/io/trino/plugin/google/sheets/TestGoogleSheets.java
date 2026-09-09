@@ -42,6 +42,12 @@ public class TestGoogleSheets
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testListTable()
     {
@@ -61,25 +67,27 @@ public class TestGoogleSheets
     @Test
     public void testDescTable()
     {
-        assertQuery("desc number_text", "SELECT * FROM (VALUES('number','varchar','',''), ('text','varchar','',''))");
-        assertQuery("desc metadata_table", "SELECT * FROM (VALUES('table name','varchar','',''), ('sheet id','varchar','',''), "
+        assertQuery("desc \"number_text\"", "SELECT * FROM (VALUES('number','varchar','',''), ('text','varchar','',''))");
+        assertQuery("desc \"metadata_table\"", "SELECT * FROM (VALUES('table name','varchar','',''), ('sheet id','varchar','',''), "
                 + "('owner','varchar','',''), ('notes','varchar','',''))");
     }
 
     @Test
     public void testSelectFromTable()
     {
-        assertQuery("SELECT count(*) FROM number_text", "SELECT 5");
-        assertQuery("SELECT number FROM number_text", "SELECT * FROM (VALUES '1','2','3','4','5')");
-        assertQuery("SELECT text FROM number_text", "SELECT * FROM (VALUES 'one','two','three','four','five')");
-        assertQuery("SELECT * FROM number_text", "SELECT * FROM (VALUES ('1','one'), ('2','two'), ('3','three'), ('4','four'), ('5','five'))");
+        assertQuery("SELECT count(*) FROM \"number_text\"", "SELECT 5");
+        assertQuery("SELECT \"number\" FROM \"number_text\"", "SELECT * FROM (VALUES '1','2','3','4','5')");
+        assertQuery("SELECT text FROM \"number_text\"", "SELECT * FROM (VALUES 'one','two','three','four','five')");
+        assertQuery("SELECT * FROM \"number_text\"", "SELECT * FROM (VALUES ('1','one'), ('2','two'), ('3','three'), ('4','four'), ('5','five'))");
     }
 
     @Test
     public void testSelectFromTableIgnoreCase()
     {
-        assertQuery("SELECT count(*) FROM NUMBER_TEXT", "SELECT 5");
-        assertQuery("SELECT number FROM Number_Text", "SELECT * FROM (VALUES '1','2','3','4','5')");
+        assertQuery("SELECT count(*) FROM \"number_text\"", "SELECT 5");
+        assertQuery("SELECT count(*) FROM Number_Text", "SELECT 5");
+        assertQuery("SELECT NumBer FROM \"number_text\"", "SELECT * FROM (VALUES '1','2','3','4','5')");
+        assertQueryFails("SELECT number FROM \"Number_Text\"", "Sheet expression not found for table Number_Text");
     }
 
     @Test
@@ -92,7 +100,7 @@ public class TestGoogleSheets
     @Test
     public void testTableWithRepeatedAndMissingColumnNames()
     {
-        assertQuery("desc table_with_duplicate_and_missing_column_names", "SELECT * FROM (VALUES('a','varchar','','')," +
+        assertQuery("desc \"table_with_duplicate_and_missing_column_names\"", "SELECT * FROM (VALUES('a','varchar','','')," +
                 " ('column_1','varchar','',''), ('column_2','varchar','',''), ('c','varchar','',''))");
     }
 

@@ -169,12 +169,12 @@ public class TestJdbcStatement
 
     private List<String> listQueryStatuses(String sql)
     {
-        return listSingleStringColumn(format("SELECT state FROM system.runtime.queries WHERE query = '%s'", sql));
+        return listSingleStringColumn(format("SELECT \"state\" FROM system.runtime.queries WHERE \"query\" = '%s'", sql));
     }
 
     private List<String> listQueryErrorCodes(String sql)
     {
-        return listSingleStringColumn(format("SELECT error_code FROM system.runtime.queries WHERE query = '%s'", sql));
+        return listSingleStringColumn(format("SELECT \"error_code\" FROM system.runtime.queries WHERE \"query\" = '%s'", sql));
     }
 
     private List<String> listSingleStringColumn(String sql)

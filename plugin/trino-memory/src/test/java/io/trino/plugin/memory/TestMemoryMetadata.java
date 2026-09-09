@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.memory.MemoryMetadata.SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -56,7 +57,7 @@ public class TestMemoryMetadata
         MemoryMetadata metadata = createMetadata();
         assertNoTables(metadata);
 
-        SchemaTableName schemaTableName = new SchemaTableName("default", "temp_table");
+        SchemaTableName schemaTableName = new SchemaTableName(SCHEMA_NAME, "temp_table");
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
@@ -82,20 +83,20 @@ public class TestMemoryMetadata
         MemoryMetadata metadata = createMetadata();
         assertNoTables(metadata);
 
-        SchemaTableName test1Table = new SchemaTableName("default", "test1");
-        SchemaTableName test2Table = new SchemaTableName("default", "test2");
+        SchemaTableName test1Table = new SchemaTableName(SCHEMA_NAME, "test1");
+        SchemaTableName test2Table = new SchemaTableName(SCHEMA_NAME, "test2");
         metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), SaveMode.FAIL);
 
         assertTrinoExceptionThrownBy(() -> metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), SaveMode.FAIL))
                 .hasErrorCode(ALREADY_EXISTS)
-                .hasMessage("Table [default.test1] already exists");
+                .hasMessage("Table [" + SCHEMA_NAME + ".test1] already exists");
 
         ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table, Optional.empty(), Optional.empty());
         metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()), SaveMode.FAIL);
 
         assertTrinoExceptionThrownBy(() -> metadata.renameTable(SESSION, test1TableHandle, test2Table))
                 .hasErrorCode(ALREADY_EXISTS)
-                .hasMessage("Table [default.test2] already exists");
+                .hasMessage("Table [" + SCHEMA_NAME + ".test2] already exists");
     }
 
     @Test
@@ -104,7 +105,7 @@ public class TestMemoryMetadata
         MemoryMetadata metadata = createMetadata();
         assertNoTables(metadata);
 
-        SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
+        SchemaTableName firstTableName = new SchemaTableName(SCHEMA_NAME, "first_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), SaveMode.FAIL);
 
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName, Optional.empty(), Optional.empty());
@@ -112,7 +113,7 @@ public class TestMemoryMetadata
 
         assertThat(metadata.beginInsert(SESSION, firstTableHandle, ImmutableList.of(), NO_RETRIES).activeTableIds()).contains(firstTableId);
 
-        SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
+        SchemaTableName secondTableName = new SchemaTableName(SCHEMA_NAME, "second_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), SaveMode.FAIL);
 
         MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName, Optional.empty(), Optional.empty());
@@ -130,7 +131,7 @@ public class TestMemoryMetadata
         MemoryMetadata metadata = createMetadata();
         assertNoTables(metadata);
 
-        SchemaTableName tableName = new SchemaTableName("default", "temp_table");
+        SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, "temp_table");
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
@@ -151,9 +152,9 @@ public class TestMemoryMetadata
     public void testCreateSchema()
     {
         MemoryMetadata metadata = createMetadata();
-        assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of("default"));
+        assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of(SCHEMA_NAME));
         metadata.createSchema(SESSION, "test", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
-        assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of("default", "test"));
+        assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of(SCHEMA_NAME, "test"));
         assertThat(metadata.listTables(SESSION, Optional.of("test"))).isEqualTo(ImmutableList.of());
 
         SchemaTableName tableName = new SchemaTableName("test", "first_table");
@@ -167,7 +168,7 @@ public class TestMemoryMetadata
 
         assertThat(metadata.listTables(SESSION, Optional.empty())).isEqualTo(ImmutableList.of(tableName));
         assertThat(metadata.listTables(SESSION, Optional.of("test"))).isEqualTo(ImmutableList.of(tableName));
-        assertThat(metadata.listTables(SESSION, Optional.of("default"))).isEqualTo(ImmutableList.of());
+        assertThat(metadata.listTables(SESSION, Optional.of(SCHEMA_NAME))).isEqualTo(ImmutableList.of());
     }
 
     @Test
@@ -285,7 +286,7 @@ public class TestMemoryMetadata
     public void testCreateTableAndViewInNotExistSchema()
     {
         MemoryMetadata metadata = createMetadata();
-        assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of("default"));
+        assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of(SCHEMA_NAME));
 
         SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
         assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(
@@ -310,7 +311,7 @@ public class TestMemoryMetadata
                 .hasMessage("Schema test3 not found");
         assertThat(metadata.getTableHandle(SESSION, view3, Optional.empty(), Optional.empty())).isNull();
 
-        assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of("default"));
+        assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of(SCHEMA_NAME));
     }
 
     @Test

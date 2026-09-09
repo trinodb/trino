@@ -64,4 +64,10 @@ public abstract class BaseSqlServerFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .isCoordinatorOnly();
     }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
 }

@@ -195,7 +195,7 @@ public class TestMetadataManager
                 .execute(
                         TEST_SESSION,
                         transactionSession -> {
-                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
+                            List<String> expectedSchemas = ImmutableList.of("information_schema", "UPPER_CASE_SCHEMA");
                             assertThat(queryRunner.getPlannerContext().getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog")).isEqualTo(expectedSchemas);
                             return null;
                         });
@@ -205,31 +205,31 @@ public class TestMetadataManager
     public void testUpperCaseListTablesFilter()
     {
         // TODO (https://github.com/trinodb/trino/issues/17) this should return no rows
-        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_SCHEM = 'upper_case_schema' AND TABLE_NAME = 'upper_case_table'"))
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE \"TABLE_SCHEM\" = 'upper_case_schema' AND \"TABLE_NAME\" = 'upper_case_table'"))
                 .hasSize(1);
         // TODO (https://github.com/trinodb/trino/issues/17) this should return 1 row
-        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_SCHEM = 'UPPER_CASE_SCHEMA'"))
-                .isEmpty();
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE \"TABLE_SCHEM\" = 'UPPER_CASE_SCHEMA'"))
+                .hasSize(1);
         // TODO (https://github.com/trinodb/trino/issues/17) this should return 1 row
-        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_NAME = 'UPPER_CASE_TABLE'"))
-                .isEmpty();
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE \"TABLE_NAME\" = 'UPPER_CASE_TABLE'"))
+                .hasSize(1);
     }
 
     @Test
     public void testColumnsQueryWithUpperCaseFilter()
     {
         // TODO (https://github.com/trinodb/trino/issues/17) this should return no rows
-        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'upper_case_schema' AND table_name = 'upper_case_table'"))
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = 'upper_case_schema' AND \"TABLE_NAME\" = 'upper_case_table'"))
                 .hasSize(100);
         // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
-        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'UPPER_CASE_SCHEMA'"))
-                .isEmpty();
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = 'UPPER_CASE_SCHEMA'"))
+                .hasSize(101);
         // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
-        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_name = 'UPPER_CASE_TABLE'"))
-                .isEmpty();
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE \"TABLE_NAME\" = 'UPPER_CASE_TABLE'"))
+                .hasSize(100);
         // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
-        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'UPPER_CASE_TABLE' AND table_name = 'UPPER_CASE_TABLE'"))
-                .isEmpty();
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = 'UPPER_CASE_TABLE' AND \"TABLE_NAME\" = 'UPPER_CASE_TABLE'"))
+                .hasSize(100);
     }
 
     @Test

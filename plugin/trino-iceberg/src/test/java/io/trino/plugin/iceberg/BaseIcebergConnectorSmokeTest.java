@@ -100,6 +100,12 @@ public abstract class BaseIcebergConnectorSmokeTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     @Override
     public void testShowCreateTable()
@@ -725,14 +731,14 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
-                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
+                    "SELECT \"nationkey\", \"name\", 'insert', %s, '%s', 0 FROM \"nation\"".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
 
             // Run with named arguments
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
                             "FROM TABLE(system.table_changes(schema_name => CURRENT_SCHEMA, table_name => '%s', start_snapshot_id => %s, end_snapshot_id => %s))"
                                     .formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
-                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
+                    "SELECT \"nationkey\", \"name\", 'insert', %s, '%s', 0 FROM \"nation\"".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
 
             assertUpdate("DELETE FROM " + table.getName(), 25);
             long snapshotAfterDelete = getMostRecentSnapshotId(table.getName());
@@ -741,12 +747,12 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), snapshotAfterInsert, snapshotAfterDelete),
-                    "SELECT nationkey, name, 'delete', %s, '%s', 0 FROM nation".formatted(snapshotAfterDelete, snapshotAfterDeleteTime));
+                    "SELECT \"nationkey\", \"name\", 'delete', %s, '%s', 0 FROM \"nation\"".formatted(snapshotAfterDelete, snapshotAfterDeleteTime));
 
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterDelete),
-                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation UNION SELECT nationkey, name, 'delete', %s, '%s', 1 FROM nation".formatted(
+                    "SELECT \"nationkey\", \"name\", 'insert', %s, '%s', 0 FROM \"nation\" UNION SELECT \"nationkey\", \"name\", 'delete', %s, '%s', 1 FROM \"nation\"".formatted(
                             snapshotAfterInsert, snapshotAfterInsertTime, snapshotAfterDelete, snapshotAfterDeleteTime));
         }
     }
@@ -785,7 +791,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
-                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
+                    "SELECT \"nationkey\", \"name\", 'insert', %s, '%s', 0 FROM \"nation\"".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT nationkey, name FROM nation LIMIT 0", 0);
             long snapshotAfterCreateOrReplace = getMostRecentSnapshotId(table.getName());
@@ -801,7 +807,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), snapshotAfterCreateOrReplace, snapshotAfterInsertIntoCreateOrReplace),
-                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsertIntoCreateOrReplace, snapshotAfterInsertTimeIntoCreateOrReplace));
+                    "SELECT \"nationkey\", \"name\", 'insert', %s, '%s', 0 FROM \"nation\"".formatted(snapshotAfterInsertIntoCreateOrReplace, snapshotAfterInsertTimeIntoCreateOrReplace));
         }
     }
 

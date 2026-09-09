@@ -105,6 +105,18 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        return value;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.copyOf(schemas);

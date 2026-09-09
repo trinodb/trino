@@ -157,6 +157,7 @@ public class RowPatternToIrRewriter
     @Override
     protected IrRowPattern visitPatternVariable(PatternVariable node, Void context)
     {
+        System.out.println("RowPatternToIrRewriter.visitPatternVariable() scope: " + analysis.tryGetScope(node).isPresent());
         return new IrLabel(node.getName().getCanonicalValue());
     }
 }

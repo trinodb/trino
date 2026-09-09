@@ -453,7 +453,7 @@ public class TestSnowflakeTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -463,12 +463,12 @@ public class TestSnowflakeTypeMapping
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup snowflakeCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(TestingSnowflakeServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(TestingSnowflakeServer::execute, tableNamePrefix, this::canonicalize);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDate date)

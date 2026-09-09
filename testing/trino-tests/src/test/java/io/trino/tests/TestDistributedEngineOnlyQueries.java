@@ -43,4 +43,10 @@ public class TestDistributedEngineOnlyQueries
         }
         return queryRunner;
     }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
 }

@@ -46,14 +46,14 @@ public class Identifier
         this(Optional.of(location), value, delimited);
     }
 
+    public Identifier(String value)
+    {
+        this(value, requiresDelimiter(value));
+    }
+
     public Identifier(String value, boolean delimited)
     {
         this(Optional.empty(), value, delimited);
-    }
-
-    public Identifier(String value)
-    {
-        this(Optional.empty(), value, !isValidIdentifier(value));
     }
 
     private Identifier(Optional<NodeLocation> location, String value, boolean delimited)
@@ -61,7 +61,6 @@ public class Identifier
         super(location);
         this.value = requireNonNull(value, "value is null");
         this.delimited = delimited;
-
         checkArgument(!value.isEmpty(), "value is empty");
         checkArgument(delimited || isValidIdentifier(value), "value contains illegal characters: %s", value);
     }
@@ -78,10 +77,10 @@ public class Identifier
 
     public String getCanonicalValue()
     {
-        if (isDelimited()) {
+        // FIXME: The SQL canonicalizer is used by queries executed in the system.query.* namespace
+        if (delimited) {
             return value;
         }
-
         return value.toUpperCase(ENGLISH);
     }
 
@@ -106,7 +105,7 @@ public class Identifier
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
+        // FIXME: To follow PR#28331 Does we need to change this equality check to handle canonicalized value?
         Identifier that = (Identifier) o;
         return Objects.equals(value, that.value);
     }
@@ -123,12 +122,12 @@ public class Identifier
         if (!sameClass(this, other)) {
             return false;
         }
-
+        // FIXME: To follow PR#28331 Does we need to change this equality check to handle canonicalized value?
         Identifier that = (Identifier) other;
         return Objects.equals(value, that.value) && delimited == that.delimited;
     }
 
-    private static boolean isValidIdentifier(String value)
+    public static boolean isValidIdentifier(String value)
     {
         verify(!Strings.isNullOrEmpty(value), "Identifier cannot be empty or null");
 
@@ -139,5 +138,10 @@ public class Identifier
         // We've already checked that first char does not contain digits,
         // so to avoid copying we are checking whole string.
         return ALLOWED_CHARS_MATCHER.matchesAllOf(value);
+    }
+
+    public static boolean requiresDelimiter(String value)
+    {
+        return !isValidIdentifier(value);
     }
 }

@@ -20,12 +20,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJmxHistoricalData
 {
-    private static final String TABLE_NAME = "java.lang:type=classloading";
+    private static final String TABLE_NAME = "java.lang:type=ClassLoading";
     private static final String NOT_EXISTING_TABLE_NAME = "not-existing-test";
     private static final int MAX_ENTRIES = 2;
 
@@ -52,26 +51,26 @@ public class TestJmxHistoricalData
     @Test
     public void testCaseInsensitive()
     {
-        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME.toUpperCase(ENGLISH)), getPlatformMBeanServer());
+        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME), getPlatformMBeanServer());
 
         List<Integer> columns = ImmutableList.of(0);
         assertThat(jmxHistoricalData.getRows(TABLE_NAME, columns)).isEmpty();
-        assertThat(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(ENGLISH), columns)).isEmpty();
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME, columns)).isEmpty();
 
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42));
-        jmxHistoricalData.addRow(TABLE_NAME.toUpperCase(ENGLISH), ImmutableList.of(44));
+        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(44));
 
         assertThat(jmxHistoricalData.getRows(TABLE_NAME, columns))
                 .isEqualTo(ImmutableList.of(ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
-        assertThat(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(ENGLISH), columns))
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME, columns))
                 .isEqualTo(ImmutableList.of(ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
     }
 
     @Test
     public void testWildCardPatterns()
     {
-        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of("java.lang:type=c*"), getPlatformMBeanServer());
+        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of("java.lang:type=C*"), getPlatformMBeanServer());
 
-        assertThat(jmxHistoricalData.getTables()).isEqualTo(ImmutableSet.of("java.lang:type=classloading", "java.lang:type=compilation"));
+        assertThat(jmxHistoricalData.getTables()).isEqualTo(ImmutableSet.of("java.lang:type=ClassLoading", "java.lang:type=Compilation"));
     }
 }

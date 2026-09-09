@@ -30,10 +30,10 @@ public class SuperTableJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "super_tables");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
-            .column("table_schem", VARCHAR)
-            .column("table_name", VARCHAR)
-            .column("supertable_name", VARCHAR)
+            .column("TABLE_CAT", VARCHAR)
+            .column("TABLE_SCHEM", VARCHAR)
+            .column("TABLE_NAME", VARCHAR)
+            .column("SUPERTABLE_NAME", VARCHAR)
             .build();
 
     @Override

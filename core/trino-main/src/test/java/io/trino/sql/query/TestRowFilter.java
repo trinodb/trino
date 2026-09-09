@@ -103,6 +103,9 @@ public class TestRowFilter
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
                         return TPCH_NATION_WITH_OPTIONAL_COLUMN;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("default", "nation_view"))) {
+                        return ImmutableList.of();
+                    }
                     throw new UnsupportedOperationException();
                 })
                 .withBranches(ImmutableList.of("dev"))
@@ -115,6 +118,9 @@ public class TestRowFilter
                     }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
                         return TPCH_NATION_DATA;
+                    }
+                    if (schemaTableName.equals(new SchemaTableName("default", "nation_view"))) {
+                        return ImmutableList.of();
                     }
                     throw new UnsupportedOperationException();
                 })
@@ -412,7 +418,7 @@ public class TestRowFilter
                 "SELECT (SELECT min(name) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
                 .failure()
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved");
+                .hasMessageMatching("line 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved");
     }
 
     @Test
@@ -466,7 +472,7 @@ public class TestRowFilter
         assertThat(assertions.query("SELECT count(*) FROM orders"))
                 .failure()
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved");
+                .hasMessageMatching("line 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved");
 
         // invalid type
         accessControl.reset();

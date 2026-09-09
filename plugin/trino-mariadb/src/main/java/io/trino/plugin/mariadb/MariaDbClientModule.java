@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
@@ -35,6 +36,7 @@ import org.mariadb.jdbc.Driver;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
 
@@ -45,6 +47,7 @@ public class MariaDbClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MariaDbClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(MariaDbMetadataFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setBulkListColumns(true));
         configBinder(binder).bindConfig(MariaDbJdbcConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);

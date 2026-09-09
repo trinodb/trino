@@ -19,6 +19,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TemporaryRelation;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static java.util.Objects.requireNonNull;
@@ -28,9 +29,9 @@ public class BigQueryViewCreateAndInsertDataSetup
 {
     private final SqlExecutor sqlExecutor;
 
-    public BigQueryViewCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix)
+    public BigQueryViewCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix, Function<String, String> canonicalizer)
     {
-        super(sqlExecutor, tableNamePrefix);
+        super(sqlExecutor, tableNamePrefix, canonicalizer);
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
     }
 

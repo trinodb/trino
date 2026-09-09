@@ -75,6 +75,7 @@ import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
@@ -91,6 +92,12 @@ public class HudiMetadata
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override

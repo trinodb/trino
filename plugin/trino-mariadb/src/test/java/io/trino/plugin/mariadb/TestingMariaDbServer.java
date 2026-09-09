@@ -43,6 +43,8 @@ public class TestingMariaDbServer
                 .withDatabaseName("tpch");
         // character-set-server：the default character set is latin1
         // explicit-defaults-for-timestamp: 1 is ON, the default set is 0 (OFF)
+        // FIXME: If --lower-case-table-names=0 (default on linux) then MariaDB is case sensitive on table
+        // FIXME: but not on column. To have consistent DB we switch to --lower-case-table-names=1
         container.withCommand("--character-set-server", "utf8mb4", "--explicit-defaults-for-timestamp=1");
         container.start();
 

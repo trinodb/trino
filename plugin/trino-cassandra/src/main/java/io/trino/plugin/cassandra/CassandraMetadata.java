@@ -117,10 +117,15 @@ public class CassandraMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return cassandraSession.getCaseSensitiveSchemaNames().stream()
-                .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
     }
 
@@ -186,7 +191,7 @@ public class CassandraMetadata
         for (String schemaName : schemaNames) {
             try {
                 for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                    tableNames.add(new SchemaTableName(schemaName, tableName));
                 }
             }
             catch (SchemaNotFoundException e) {
@@ -210,7 +215,7 @@ public class CassandraMetadata
         CassandraTable table = cassandraSession.getTable(getTableName(tableHandle));
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.columns()) {
-            columnHandles.put(cqlNameToSqlName(columnHandle.name()).toLowerCase(ENGLISH), columnHandle);
+            columnHandles.put(cqlNameToSqlName(columnHandle.name()), columnHandle);
         }
         return columnHandles.buildOrThrow();
     }

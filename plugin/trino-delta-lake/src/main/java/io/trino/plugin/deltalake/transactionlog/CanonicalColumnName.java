@@ -55,7 +55,7 @@ public class CanonicalColumnName
     public int hashCode()
     {
         if (this.hash == 0) {
-            int newHash = TransactionLogAccess.canonicalizeColumnName(originalName).hashCode();
+            int newHash = originalName.hashCode();
             if (newHash == 0) {
                 newHash = 1;
             }

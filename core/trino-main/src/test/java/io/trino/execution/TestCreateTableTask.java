@@ -88,6 +88,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static java.util.Locale.ROOT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -147,13 +148,18 @@ class TestCreateTableTask
         }
     }
 
+    private String canonicalizer(Identifier identifier)
+    {
+        return identifier.isDelimited() ? identifier.getValue() : identifier.getValue().toUpperCase(ENGLISH);
+    }
+
     @Test
     void testCreateTableNotExistsTrue()
     {
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_table_if_not_exists"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                QualifiedName.ofDelimited("test_table_if_not_exists"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
@@ -169,8 +175,8 @@ class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_table_fail_if_exists"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                QualifiedName.ofDelimited("test_table_fail_if_exists"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(),
                 Optional.empty());
@@ -189,8 +195,8 @@ class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_table_replace"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                QualifiedName.ofDelimited("test_table_replace"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 REPLACE,
                 ImmutableList.of(),
                 Optional.empty());
@@ -209,8 +215,8 @@ class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_table_with_materialized_view_property"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                QualifiedName.ofDelimited("test_table_with_materialized_view_property"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
                 Optional.empty());
@@ -228,10 +234,10 @@ class TestCreateTableTask
     void testCreateWithDefaultColumn()
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.ofDelimited("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
                 .build();
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.ofDelimited("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
@@ -252,10 +258,10 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("double_col"), toSqlType(DOUBLE), Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.ofDelimited("double_col"), toSqlType(DOUBLE), Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")), true, emptyList(), Optional.empty()))
                 .build();
 
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.ofDelimited("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
@@ -274,10 +280,10 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnSupportedTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.ofDelimited("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
                 .build();
 
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.ofDelimited("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             // MockMetadata.getSupportedType method changes varchar(4) to unbounded varchar
@@ -298,10 +304,10 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnUnsupportedTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.ofDelimited("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
                 .build();
 
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.ofDelimited("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
@@ -316,10 +322,10 @@ class TestCreateTableTask
     void testInvalidDefaultLiteral()
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(BIGINT), Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.ofDelimited("b"), toSqlType(BIGINT), Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid")), true, emptyList(), Optional.empty()))
                 .build();
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.ofDelimited("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
@@ -334,12 +340,12 @@ class TestCreateTableTask
     void testCreateWithUnsupportedDefaultColumn()
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.ofDelimited("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
                 .build();
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_unsupported_connector"),
+                QualifiedName.ofDelimited(OTHER_CATALOG_NAME, "other_schema", "test_table_unsupported_connector"),
                 inputColumns,
                 IGNORE,
                 ImmutableList.of(),
@@ -358,10 +364,10 @@ class TestCreateTableTask
     void testCreateWithNotNullColumns()
     {
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_not_null_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+                new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.ofDelimited("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.ofDelimited("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.ofDelimited("test_table_not_null_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
@@ -388,12 +394,12 @@ class TestCreateTableTask
     void testCreateWithUnsupportedConnectorThrowsWhenNotNull()
     {
         List<TableElement> inputColumns = ImmutableList.of(
-                new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
-                new ColumnDefinition(QualifiedName.of("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
+                new ColumnDefinition(QualifiedName.ofDelimited("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.ofDelimited("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.ofDelimited("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_unsupported_connector"),
+                QualifiedName.ofDelimited(OTHER_CATALOG_NAME, "other_schema", "test_table_unsupported_connector"),
                 inputColumns,
                 IGNORE,
                 ImmutableList.of(),
@@ -444,7 +450,7 @@ class TestCreateTableTask
     @Test
     void testCreateLikeExcludingPropertiesAcrossCatalogs()
     {
-        CreateTable statement = getCreateLikeStatement(QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_excluding"), false);
+        CreateTable statement = getCreateLikeStatement(QualifiedName.ofDelimited(OTHER_CATALOG_NAME, "other_schema", "test_table_excluding"), false);
 
         queryRunner.inTransaction(transactionSession -> {
             getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
@@ -459,7 +465,7 @@ class TestCreateTableTask
     @Test
     void testCreateLikeIncludingPropertiesAcrossCatalogs()
     {
-        CreateTable failingStatement = getCreateLikeStatement(QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_including"), true);
+        CreateTable failingStatement = getCreateLikeStatement(QualifiedName.ofDelimited(OTHER_CATALOG_NAME, "other_schema", "test_table_including"), true);
 
         queryRunner.inTransaction(transactionSession -> {
             assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(failingStatement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
@@ -503,8 +509,8 @@ class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_table_unsupported_field_123"),
-                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a", "b"), toSqlType(DATE), true, emptyList(), Optional.empty())),
+                QualifiedName.ofDelimited("test_table_unsupported_field_123"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.ofDelimited("a", "b"), toSqlType(DATE), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(),
                 Optional.empty());
@@ -523,10 +529,10 @@ class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_table_coerced_type"),
+                QualifiedName.ofDelimited("test_table_coerced_type"),
                 ImmutableList.of(
                         new ColumnDefinition(
-                                QualifiedName.of("a"),
+                                QualifiedName.ofDelimited("a"),
                                 toSqlType(TIMESTAMP_NANOS),
                                 true,
                                 emptyList(),
@@ -546,10 +552,10 @@ class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),
-                QualifiedName.of("test_table_like_coerced_type"),
+                QualifiedName.ofDelimited("test_table_like_coerced_type"),
                 List.of(
                         new LikeClause(
-                                QualifiedName.of(PARENT_TABLE_WITH_COERCED_TYPE.getTable().getTableName()),
+                                QualifiedName.ofDelimited(PARENT_TABLE_WITH_COERCED_TYPE.getTable().getTableName()),
                                 Optional.of(INCLUDING))),
                 IGNORE,
                 ImmutableList.of(),
@@ -568,7 +574,7 @@ class TestCreateTableTask
 
     private static CreateTable getCreateLikeStatement(boolean includingProperties)
     {
-        return getCreateLikeStatement(QualifiedName.of("test_table_" + ThreadLocalRandom.current().longs(Long.MAX_VALUE)), includingProperties);
+        return getCreateLikeStatement(QualifiedName.ofDelimited("test_table_" + ThreadLocalRandom.current().longs(Long.MAX_VALUE)), includingProperties);
     }
 
     private static CreateTable getCreateLikeStatement(QualifiedName name, boolean includingProperties)
@@ -576,7 +582,7 @@ class TestCreateTableTask
         return new CreateTable(
                 new NodeLocation(1, 1),
                 name,
-                List.of(new LikeClause(QualifiedName.of(PARENT_TABLE.getTable().getTableName()), includingProperties ? Optional.of(INCLUDING) : Optional.empty())),
+                List.of(new LikeClause(QualifiedName.ofDelimited(PARENT_TABLE.getTable().getTableName()), includingProperties ? Optional.of(INCLUDING) : Optional.empty())),
                 IGNORE,
                 ImmutableList.of(),
                 Optional.empty());

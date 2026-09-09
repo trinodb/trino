@@ -23,6 +23,7 @@ import org.junit.jupiter.api.TestInstance;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -50,6 +51,12 @@ public class TestLakehouseFlociConnectorSmokeTest
     {
         computeActual("CREATE SCHEMA lakehouse.tpch WITH (location='s3://test-bucket/tpch')");
         copyTpchTables(getQueryRunner(), "tpch", TINY_SCHEMA_NAME, REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

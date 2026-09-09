@@ -67,7 +67,7 @@ public abstract class AbstractTestDynamicRowFiltering
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             assertRowFiltering(
-                    "SELECT * FROM customer c, nation n WHERE c.nationkey = n.nationkey and n.name = 'ALGERIA'",
+                    "SELECT * FROM \"customer\" c, \"nation\" n WHERE c.\"nationkey\" = n.\"nationkey\" and n.\"name\" = 'ALGERIA'",
                     joinDistributionType);
         }
     }
@@ -78,7 +78,7 @@ public abstract class AbstractTestDynamicRowFiltering
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             assertNoRowFiltering(
-                    "SELECT * FROM  customer c, nation n WHERE c.nationkey = n.nationkey",
+                    "SELECT * FROM \"customer\" c, \"nation\" n WHERE c.\"nationkey\" = n.\"nationkey\"",
                     joinDistributionType);
         }
     }
@@ -90,16 +90,16 @@ public abstract class AbstractTestDynamicRowFiltering
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // name is high cardinality, VariableWidthBlock is used
             assertRowFiltering(
-                    "SELECT * FROM customer c1, customer c2 WHERE c1.name = c2.name AND c2.acctbal > 9000",
+                    "SELECT * FROM \"customer\" c1, \"customer\" c2 WHERE c1.\"name\" = c2.\"name\" AND c2.\"acctbal\" > 9000",
                     joinDistributionType);
 
             // mktsegment is low cardinality, DictionaryBlock is used
             assertRowFiltering(
-                    "SELECT * FROM customer c1, customer c2 WHERE c1.mktsegment = c2.mktsegment AND c2.custkey = 1",
+                    "SELECT * FROM \"customer\" c1, \"customer\" c2 WHERE c1.\"mktsegment\" = c2.\"mktsegment\" AND c2.\"custkey\" = 1",
                     joinDistributionType);
 
             assertNoRowFiltering(
-                    "SELECT * FROM customer c1, customer c2 WHERE c1.mktsegment = c2.mktsegment AND c2.custkey < 10",
+                    "SELECT * FROM \"customer\" c1, \"customer\" c2 WHERE c1.\"mktsegment\" = c2.\"mktsegment\" AND c2.\"custkey\" < 10",
                     joinDistributionType);
         }
     }
@@ -110,14 +110,14 @@ public abstract class AbstractTestDynamicRowFiltering
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             assertNoRowFiltering(
-                    "SELECT a.* FROM customer a INNER JOIN customer b ON a.nationkey = b.nationkey" +
-                            " AND a.mktsegment = b.mktsegment",
+                    "SELECT a.* FROM \"customer\" a INNER JOIN \"customer\" b ON a.\"nationkey\" = b.\"nationkey\"" +
+                            " AND a.\"mktsegment\" = b.\"mktsegment\"",
                     joinDistributionType);
 
             assertRowFiltering(
                     "SELECT * FROM (" +
-                            "SELECT a.* FROM customer a INNER JOIN customer b ON a.mktsegment = b.mktsegment AND a.custkey = b.custkey) c" +
-                            " INNER JOIN nation on c.nationkey = nation.nationkey AND  nation.name IN ('ALGERIA')",
+                            "SELECT a.* FROM \"customer\" a INNER JOIN \"customer\" b ON a.\"mktsegment\" = b.\"mktsegment\" AND a.\"custkey\" = b.\"custkey\") c" +
+                            " INNER JOIN \"nation\" on c.\"nationkey\" = \"nation\".\"nationkey\" AND \"nation\".\"name\" IN ('ALGERIA')",
                     joinDistributionType);
         }
     }

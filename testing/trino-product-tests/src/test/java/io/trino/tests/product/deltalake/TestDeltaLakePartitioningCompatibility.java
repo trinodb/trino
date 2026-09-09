@@ -420,7 +420,7 @@ class TestDeltaLakePartitioningCompatibility
             env.executeTrinoUpdate("DELETE FROM delta.default." + tableName + " WHERE data = 3");
             assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName)).containsOnly(row(1, 2));
 
-            env.executeTrinoUpdate("UPDATE delta.default." + tableName + " SET part = 20");
+            env.executeTrinoUpdate("UPDATE delta.default." + tableName + " SET PART = 20");
             assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName)).containsOnly(row(1, 20));
 
             env.executeTrinoUpdate("MERGE INTO delta.default." + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE");

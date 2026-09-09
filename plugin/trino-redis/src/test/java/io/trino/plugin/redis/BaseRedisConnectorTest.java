@@ -50,6 +50,12 @@ public abstract class BaseRedisConnectorTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testPredicatePushdown()
     {

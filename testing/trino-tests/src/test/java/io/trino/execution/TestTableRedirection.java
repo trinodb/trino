@@ -233,13 +233,13 @@ public class TestTableRedirection
     public void testTableListing()
     {
         assertQuery(
-                format("SHOW TABLES FROM %s", SCHEMA_ONE),
+                format("SHOW TABLES FROM \"%s\"", SCHEMA_ONE),
                 format("VALUES %s",
                         SCHEMA_TABLE_MAPPING.get(SCHEMA_ONE).stream()
                                 .map(table -> "('" + table + "')")
                                 .collect(Collectors.joining(","))));
         assertQuery(
-                format("SELECT table_name FROM system.jdbc.tables WHERE table_cat = '%s' AND table_schem ='%s'", CATALOG_NAME, SCHEMA_ONE),
+                format("SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE \"TABLE_CAT\" = '%s' AND \"TABLE_SCHEM\" ='%s'", CATALOG_NAME, SCHEMA_ONE),
                 format("VALUES %s",
                         SCHEMA_TABLE_MAPPING.get(SCHEMA_ONE).stream()
                                 .map(table -> "('" + table + "')")
@@ -253,14 +253,14 @@ public class TestTableRedirection
                                 .map(table -> "('" + table + "')")
                                 .collect(Collectors.joining(","))));
         assertQuery(
-                format("SELECT table_name FROM system.jdbc.tables WHERE table_cat = '%s' AND table_schem ='%s'", CATALOG_NAME, SCHEMA_TWO),
+                format("SELECT \"TABLE_NAME\" FROM system.jdbc.tables WHERE \"TABLE_CAT\" = '%s' AND \"TABLE_SCHEM\" ='%s'", CATALOG_NAME, SCHEMA_TWO),
                 format("VALUES %s",
                         SCHEMA_TABLE_MAPPING.get(SCHEMA_TWO).stream()
                                 .map(table -> "('" + table + "')")
                                 .collect(Collectors.joining(","))));
 
         assertQuery(
-                "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema != 'information_schema'",
+                "SELECT \"table_schema\", \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_schema\" != 'information_schema'",
                 format(
                         "VALUES %s",
                         SCHEMA_TABLE_MAPPING.entrySet().stream()
@@ -270,28 +270,38 @@ public class TestTableRedirection
                                 .collect(Collectors.joining(","))));
 
         assertQuery(
-                format("SELECT table_schema, table_name"
-                                + " FROM information_schema.tables"
-                                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
+                format("SELECT \"table_schema\", \"table_name\""
+                                + " FROM \"information_schema\".\"tables\""
+                                + " WHERE \"table_catalog\"='%s' AND \"table_schema\" = '%s' AND \"table_name\"='%s'",
                         CATALOG_NAME,
                         SCHEMA_ONE,
                         VALID_REDIRECTION_SRC),
                 format("VALUES ('%s', '%s')", SCHEMA_ONE, VALID_REDIRECTION_SRC));
 
         assertQuery(
-                format("SELECT table_schema, table_name"
-                                + " FROM information_schema.tables"
-                                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
+                format("SELECT \"table_schema\", \"table_name\""
+                                + " FROM \"information_schema\".\"tables\""
+                                + " WHERE \"table_catalog\"='%s' AND \"table_schema\" = '%s' AND \"table_name\"='%s'",
                         CATALOG_NAME,
                         SCHEMA_ONE,
                         BAD_REDIRECTION_SRC),
                 format("VALUES ('%s', '%s')", SCHEMA_ONE, BAD_REDIRECTION_SRC));
 
-        assertQuery(format(
-                "SELECT table_schema, table_name"
-                        + " FROM information_schema.tables"
-                        + " WHERE table_catalog='%s' AND table_schema = '' AND table_name = ''",
-                CATALOG_NAME));
+        assertQuery(
+                format("SELECT \"table_schema\", \"table_name\""
+                                + " FROM \"information_schema\".\"tables\""
+                                + " WHERE \"table_catalog\"='%s' AND \"table_schema\" = '%s' AND \"table_name\"='%s'",
+                        CATALOG_NAME,
+                        SCHEMA_ONE,
+                        BAD_REDIRECTION_SRC),
+                format("VALUES ('%s', '%s')", SCHEMA_ONE, BAD_REDIRECTION_SRC));
+
+        assertQuery(
+                format("SELECT \"table_schema\", \"table_name\""
+                                + " FROM \"information_schema\".\"tables\""
+                                + " WHERE \"table_catalog\"='%s' AND \"table_schema\" = '' AND \"table_name\" = ''",
+                        CATALOG_NAME),
+                "SELECT 1 WHERE false");
     }
 
     @Test
@@ -304,8 +314,8 @@ public class TestTableRedirection
                 + row(SCHEMA_ONE, VALID_REDIRECTION_SRC, C3) + ","
                 + row(SCHEMA_ONE, REDIRECTION_TWICE_SRC, C0) + ","
                 + row(SCHEMA_ONE, REDIRECTION_TWICE_SRC, C1);
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s'", SCHEMA_ONE), schemaOneColumns);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_cat = '%s'", SCHEMA_ONE, CATALOG_NAME), schemaOneColumns);
+        assertQuery(format("SELECT \"table_schema\", \"table_name\", \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = '%s'", SCHEMA_ONE), schemaOneColumns);
+        assertQuery(format("SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = '%s' AND \"TABLE_CAT\" = '%s'", SCHEMA_ONE, CATALOG_NAME), schemaOneColumns);
 
         String schemaTwoColumns = "VALUES "
                 + row(SCHEMA_TWO, TABLE_BAR, C2) + ","
@@ -314,21 +324,21 @@ public class TestTableRedirection
                 + row(SCHEMA_TWO, VALID_REDIRECTION_TARGET, C3) + ","
                 + row(SCHEMA_TWO, INTERMEDIATE_TABLE, C0) + ","
                 + row(SCHEMA_TWO, INTERMEDIATE_TABLE, C1);
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s'", SCHEMA_TWO), schemaTwoColumns);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_cat = '%s'", SCHEMA_TWO, CATALOG_NAME), schemaTwoColumns);
+        assertQuery(format("SELECT \"table_schema\", \"table_name\", \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = '%s'", SCHEMA_TWO), schemaTwoColumns);
+        assertQuery(format("SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = '%s' AND \"TABLE_CAT\" = '%s'", SCHEMA_TWO, CATALOG_NAME), schemaTwoColumns);
 
         String validRedirectionSrcColumns = "VALUES "
                 + row(SCHEMA_ONE, VALID_REDIRECTION_SRC, C2) + ","
                 + row(SCHEMA_ONE, VALID_REDIRECTION_SRC, C3);
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", SCHEMA_ONE, VALID_REDIRECTION_SRC), validRedirectionSrcColumns);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name='%s' AND table_cat = '%s'", SCHEMA_ONE, VALID_REDIRECTION_SRC, CATALOG_NAME), validRedirectionSrcColumns);
+        assertQuery(format("SELECT \"table_schema\", \"table_name\", \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = '%s' AND \"table_name\" = '%s'", SCHEMA_ONE, VALID_REDIRECTION_SRC), validRedirectionSrcColumns);
+        assertQuery(format("SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = '%s' AND \"TABLE_NAME\"='%s' AND \"TABLE_CAT\" = '%s'", SCHEMA_ONE, VALID_REDIRECTION_SRC, CATALOG_NAME), validRedirectionSrcColumns);
 
         String emptyResult = "SELECT '', '', '' WHERE 1 = 0";
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", SCHEMA_ONE, BAD_REDIRECTION_SRC), emptyResult);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name='%s' AND table_cat = '%s'", SCHEMA_ONE, BAD_REDIRECTION_SRC, CATALOG_NAME), emptyResult);
+        assertQuery(format("SELECT \"table_schema\", table_name, \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = '%s' AND \"table_name\" = '%s'", SCHEMA_ONE, BAD_REDIRECTION_SRC), emptyResult);
+        assertQuery(format("SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = '%s' AND \"TABLE_NAME\"='%s' AND \"TABLE_CAT\" = '%s'", SCHEMA_ONE, BAD_REDIRECTION_SRC, CATALOG_NAME), emptyResult);
 
-        assertQuery(format("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", SCHEMA_ONE, REDIRECTION_LOOP_PING), emptyResult);
-        assertQuery(format("SELECT table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_schem = '%s' AND table_name = '%s' AND table_cat = '%s'", SCHEMA_ONE, REDIRECTION_LOOP_PING, CATALOG_NAME), emptyResult);
+        assertQuery(format("SELECT \"table_schema\", \"table_name\", \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = '%s' AND \"table_name\" = '%s'", SCHEMA_ONE, REDIRECTION_LOOP_PING), emptyResult);
+        assertQuery(format("SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_SCHEM\" = '%s' AND \"TABLE_NAME\" = '%s' AND \"TABLE_CAT\" = '%s'", SCHEMA_ONE, REDIRECTION_LOOP_PING, CATALOG_NAME), emptyResult);
     }
 
     @Test
