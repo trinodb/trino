@@ -60,10 +60,12 @@ public class TestEvaluateIn
                 .describedAs("empty list")
                 .isEqualTo(Optional.of(FALSE));
 
-        // TODO false is the right answer -- nothing is a member of the empty set, so no unknown is
-        //  involved -- but IrExpressionEvaluator.evaluate returns null for a null value regardless of
-        //  the list, so it disagrees with this rule. The expectation below is asserted without the
-        //  RewriteVerifier contract check until the interpreter is fixed.
+        // TODO https://github.com/trinodb/trino/issues/31064 -- false is the right answer, since
+        //  nothing is a member of the empty set and no unknown is involved, so this rule is correct
+        //  and the check below fails. Both engines disagree with it: IrExpressionEvaluator returns
+        //  null for a null value regardless of the list, and InCodeGenerator does the same, because
+        //  its no-match branch takes wasNull from isIndeterminate(value) when there are no test
+        //  values. The cross-check cannot flag this one, as the two engines agree with each other.
         assertThat(optimize(
                 new In(new Constant(BIGINT, null), ImmutableList.of())))
                 .describedAs("null value, empty list")

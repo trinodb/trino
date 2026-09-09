@@ -82,11 +82,10 @@ public class TestRemoveRedundantMatchClauses
                         ImmutableList.of(equalityClause(new Reference(BIGINT, "x"), new Reference(VARCHAR, "r2"))),
                         new Reference(VARCHAR, "d"))));
 
-        // TODO the short-circuit is wrong when the operand is null: `null = null` is unknown, so the
-        //  clause does not fire and the correct result is the default value, not the clause result.
-        //  The expectation below is asserted without the RewriteVerifier contract check until the rule
-        //  is fixed; for x=null, a=1, r1='a', r2='b', d='cc' the original evaluates to 'cc' and the
-        //  rewrite to 'b'.
+        // TODO https://github.com/trinodb/trino/issues/31065 -- the short-circuit is wrong when the
+        //  operand is null: `null = null` is unknown, so the clause does not fire and the result is
+        //  the default value, not the clause result. For x=null, a=1, r1='a', r2='b', d='cc' the
+        //  original evaluates to 'cc' and the rewrite to 'b'.
         assertThat(optimize(
                 new Match(
                         new Reference(BIGINT, "x"),
@@ -100,7 +99,8 @@ public class TestRemoveRedundantMatchClauses
                         ImmutableList.of(equalityClause(new Reference(BIGINT, "a"), new Reference(VARCHAR, "r1"))),
                         new Reference(VARCHAR, "r2"))));
 
-        // TODO same bug as above: for x=null the original evaluates to the default value, the rewrite to r1
+        // TODO https://github.com/trinodb/trino/issues/31065, same as above: for x=null the original
+        //  evaluates to the default value, the rewrite to r1
         assertThat(optimize(
                 new Match(
                         new Reference(BIGINT, "x"),

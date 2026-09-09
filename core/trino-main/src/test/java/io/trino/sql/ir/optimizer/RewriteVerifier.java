@@ -16,15 +16,14 @@ package io.trino.sql.ir.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.FunctionType;
-import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TestingRows;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -80,15 +79,22 @@ public final class RewriteVerifier
             return;
         }
 
-        for (Map<String, Object> bindings : rows.rows(symbols, ImmutableList.of(original, rewritten))) {
-            Object originalValue = rows.evaluate(original, bindings);
+        List<Map<String, Object>> generated = rows.rows(symbols, ImmutableList.of(original, rewritten));
+        // Check each side against the compiled engine before comparing the sides against each other, so
+        // that an engine defect is never reported as the rule being wrong.
+        List<Object> originalValues = rows.evaluateAll(original, "the original expression", symbols, generated);
+        List<Object> rewrittenValues = rows.evaluateAll(rewritten, "the rewritten expression", symbols, generated);
+
+        for (int row = 0; row < generated.size(); row++) {
+            Map<String, Object> bindings = generated.get(row);
+            Object originalValue = originalValues.get(row);
             if (originalValue == EVALUATION_FAILED) {
                 // A failure isn't guaranteed to be preserved, because a rewrite may drop or reorder
                 // the work that fails. Only a row the original produces a value for is binding.
                 continue;
             }
 
-            Object rewrittenValue = rows.evaluate(rewritten, bindings);
+            Object rewrittenValue = rewrittenValues.get(row);
             if (rewrittenValue == EVALUATION_FAILED) {
                 fail("the rewritten expression fails for a row the original evaluates%n  original:          %s%n  rewritten:         %s%n  row:               %s%n  original result:   %s",
                         original,
@@ -96,7 +102,7 @@ public final class RewriteVerifier
                         TestingRows.formatRow(symbols, bindings),
                         TestingRows.formatValue(original.type(), originalValue));
             }
-            if (!valuesEqual(original.type(), originalValue, rewrittenValue)) {
+            if (!TestingRows.valuesEqual(original.type(), originalValue, rewrittenValue)) {
                 fail("the rewritten expression evaluates to a different value%n  original:          %s%n  rewritten:         %s%n  row:               %s%n  original result:   %s%n  rewritten result:  %s",
                         original,
                         rewritten,
@@ -105,18 +111,5 @@ public final class RewriteVerifier
                         TestingRows.formatValue(original.type(), rewrittenValue));
             }
         }
-    }
-
-    /// Compares two native values of `type`. Values of a type backed by a block, such as a row or an
-    /// array, are not comparable as they are, so they are compared through their object values.
-    private static boolean valuesEqual(Type type, Object left, Object right)
-    {
-        if (Objects.equals(left, right)) {
-            return true;
-        }
-        if (left == null || right == null) {
-            return false;
-        }
-        return Objects.equals(TestingRows.objectValue(type, left), TestingRows.objectValue(type, right));
     }
 }

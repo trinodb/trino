@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -20,7 +21,9 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -47,15 +50,21 @@ final class ExtractionResultVerifier
         // for a non-deterministic predicate, the predicate and the remaining expression are evaluated separately, so their outcomes are unrelated
         checkArgument(isDeterministic(predicate), "predicate is not deterministic: %s", predicate);
 
-        for (Map<String, Object> bindings : rows.rows(predicate)) {
-            verifyRow(predicate, result, bindings);
+        Set<Symbol> symbols = SymbolsExtractor.extractUnique(predicate);
+        List<Map<String, Object>> generated = rows.rows(symbols, ImmutableList.of(predicate, result.getRemainingExpression()));
+        // Check each expression against the compiled engine before judging the translation by them, so
+        // that an engine defect is never reported as the translation being wrong.
+        List<Object> values = rows.evaluateAll(predicate, "the predicate", symbols, generated);
+        List<Object> remainingValues = rows.evaluateAll(result.getRemainingExpression(), "the remaining expression", symbols, generated);
+
+        for (int row = 0; row < generated.size(); row++) {
+            verifyRow(predicate, result, generated.get(row), values.get(row), remainingValues.get(row));
         }
     }
 
-    private void verifyRow(Expression predicate, ExtractionResult result, Map<String, Object> bindings)
+    private void verifyRow(Expression predicate, ExtractionResult result, Map<String, Object> bindings, Object value, Object remainingValue)
     {
-        Object value = rows.evaluate(predicate, bindings);
-        boolean passes = containsRow(result.getTupleDomain(), bindings) && TRUE.equals(rows.evaluate(result.getRemainingExpression(), bindings));
+        boolean passes = containsRow(result.getTupleDomain(), bindings) && TRUE.equals(remainingValue);
 
         String problem;
         if (value == EVALUATION_FAILED) {

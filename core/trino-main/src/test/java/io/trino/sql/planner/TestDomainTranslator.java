@@ -1155,6 +1155,12 @@ public class TestDomainTranslator
                 tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
 
         // IN, with NaN
+        // TODO https://github.com/trinodb/trino/issues/31069 -- compiled evaluation puts a constant
+        //  real NaN into a set-membership lookup, which compares raw int bits, so NaN matches itself
+        //  where `NaN = NaN` is false, and the two engines disagree here. It takes two or more
+        //  disjuncts, since a single equality compiles to a direct comparison; an OR of equalities
+        //  lowers to the same set as IN. The same shape over double is right, and so is the same
+        //  shape with NaN on the column side rather than the constant side.
         assertPredicateIsAlwaysFalse(
                 in(symbol, List.of(nanExpression)));
         assertPredicateTranslates(

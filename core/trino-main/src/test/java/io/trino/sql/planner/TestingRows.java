@@ -18,29 +18,48 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
+import io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static io.trino.sql.ir.IrUtils.preOrder;
@@ -49,6 +68,7 @@ import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Fail.fail;
 
 /// Generates rows to evaluate expressions on, for tests that verify a rewrite against the original
 /// expression rather than against a frozen expected output.
@@ -91,11 +111,16 @@ public final class TestingRows
 
     private final Session session;
     private final IrExpressionEvaluator evaluator;
+    private final ExpressionCompiler compiler;
 
     public TestingRows(PlannerContext plannerContext, Session session)
     {
         this.session = requireNonNull(session, "session is null");
-        this.evaluator = new IrExpressionEvaluator(requireNonNull(plannerContext, "plannerContext is null"));
+        requireNonNull(plannerContext, "plannerContext is null");
+        this.evaluator = new IrExpressionEvaluator(plannerContext);
+        this.compiler = new ExpressionCompiler(
+                new PageFunctionCompiler(plannerContext.getFunctionManager(), plannerContext.getMetadata(), plannerContext.getTypeManager(), 0),
+                new ColumnarFilterCompiler(plannerContext, 0));
     }
 
     /// True when `symbols` uses one name for more than one type. The expression they come from is then
@@ -190,6 +215,164 @@ public final class TestingRows
         catch (RuntimeException _) {
             return EVALUATION_FAILED;
         }
+    }
+
+    /// Evaluates `expression` for every row, and returns the interpreted value of each, in the order
+    /// of `rows`. Along the way the interpreter is checked against the engine that evaluates the
+    /// expression in a query, and a disagreement between them fails the test, naming `role` so that
+    /// the failure says which expression the engines disagree on.
+    ///
+    /// [IrExpressionEvaluator] is what a verifier judges a rewrite by, so a defect in it shows up as
+    /// a rewrite that looks wrong. Compiled evaluation is an independent second opinion, and it has
+    /// to be taken on both sides of a rewrite: the rewritten expression is a shape the original never
+    /// had, so it reaches code in either engine that the original does not, and an engine defect
+    /// there would otherwise be reported as the rule being wrong.
+    ///
+    /// Agreement is not correctness, though. Both engines return null for `null IN ()`, where false
+    /// is the answer, so no cross-check catches it; see
+    /// https://github.com/trinodb/trino/issues/31064.
+    public List<Object> evaluateAll(Expression expression, String role, Collection<Symbol> symbols, List<Map<String, Object>> rows)
+    {
+        List<Object> interpreted = new ArrayList<>();
+        for (Map<String, Object> bindings : rows) {
+            interpreted.add(evaluate(expression, bindings));
+        }
+
+        compiled(expression, symbols, rows).ifPresent(compiled -> {
+            for (int row = 0; row < rows.size(); row++) {
+                Object interpretedValue = interpreted.get(row);
+                Object compiledValue = compiled.get(row);
+                if (interpretedValue == EVALUATION_FAILED || compiledValue == EVALUATION_FAILED) {
+                    // The engines are free to differ on which work they do, so on what fails: the
+                    // compiled `LIKE` skips building its pattern for a null value, where the
+                    // interpreter builds it eagerly and reports an invalid escape.
+                    continue;
+                }
+                if (!valuesEqual(expression.type(), interpretedValue, compiledValue)) {
+                    fail("the interpreter and the compiled evaluation disagree on %s, so one of the two engines is wrong about that expression on its own; this is an engine defect, not a defect of the rewrite%n  expression:           %s%n  row:                  %s%n  interpreted result:   %s%n  compiled result:      %s",
+                            role,
+                            expression,
+                            formatRow(symbols, rows.get(row)),
+                            formatValue(expression.type(), interpretedValue),
+                            formatValue(expression.type(), compiledValue));
+                }
+            }
+        });
+
+        return interpreted;
+    }
+
+    /// Compares two native values of `type`. Values of a type backed by a block, such as a row or an
+    /// array, are not comparable as they are, so they are compared through their object values.
+    public static boolean valuesEqual(Type type, Object left, Object right)
+    {
+        if (Objects.equals(left, right)) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        return Objects.equals(objectValue(type, left), objectValue(type, right));
+    }
+
+    /// The value of `expression` for every row as the compiled engine evaluates it, or empty when the
+    /// compiler does not accept the expression, which leaves nothing to compare against.
+    private Optional<List<Object>> compiled(Expression expression, Collection<Symbol> symbols, List<Map<String, Object>> rows)
+    {
+        List<Symbol> channels = symbols.stream()
+                .sorted(comparing(Symbol::name))
+                .collect(toImmutableList());
+        ImmutableMap.Builder<Symbol, Integer> layout = ImmutableMap.builder();
+        for (int channel = 0; channel < channels.size(); channel++) {
+            layout.put(channels.get(channel), channel);
+        }
+
+        // Compile the desugared form, which is the shape execution compiles: PlanOptimizers runs
+        // DesugarLambdaExpressions first, and the compiler's lambda pre-pass only accepts a lambda
+        // whose free variables are its own parameters, so a captured symbol has to reach it as a Bind
+        // value. The interpreter is given the literal test IR instead, because that is the shape the
+        // rule under test produced; desugaring preserves semantics, so comparing the two is still
+        // sound, and the compiled side is if anything the more representative of the two.
+        Expression desugared = LambdaCaptureDesugaringRewriter.rewrite(expression, new SymbolAllocator(mentionedSymbols(expression, symbols)));
+        checkState(
+                symbols.containsAll(SymbolsExtractor.extractUnique(desugared)),
+                "desugaring introduced a free symbol outside the layout: %s",
+                desugared);
+
+        PageProcessor processor;
+        try {
+            processor = compiler.compilePageProcessor(session, Optional.empty(), ImmutableList.of(desugared), layout.buildOrThrow()).get();
+        }
+        catch (RuntimeException _) {
+            // the compiler does not accept the expression, so there is no second opinion to compare with
+            // the compiler does not accept the expression, so there is no second opinion to compare with
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(project(processor, channels, expression.type(), rows));
+        }
+        catch (RuntimeException _) {
+            // a row that fails takes the whole page down with it, so evaluate the rows one by one to
+            // tell the row that fails from the rows that would have produced a value
+            List<Object> values = new ArrayList<>();
+            for (Map<String, Object> row : rows) {
+                try {
+                    values.add(getOnlyElement(project(processor, channels, expression.type(), ImmutableList.of(row))));
+                }
+                catch (RuntimeException _) {
+                    values.add(EVALUATION_FAILED);
+                }
+            }
+            return Optional.of(values);
+        }
+    }
+
+    /// Every symbol the expression mentions, the ones bound by a lambda or a `Let` included, together
+    /// with `symbols`. A [SymbolAllocator] seeded with these cannot name a capture symbol after a name
+    /// already in use, which would quietly change what the expression reads instead of failing.
+    private static Set<Symbol> mentionedSymbols(Expression expression, Collection<Symbol> symbols)
+    {
+        ImmutableSet.Builder<Symbol> mentioned = ImmutableSet.<Symbol>builder().addAll(symbols);
+        preOrder(expression).forEach(node -> {
+            switch (node) {
+                case Reference reference -> mentioned.add(Symbol.from(reference));
+                case Lambda lambda -> mentioned.addAll(lambda.arguments());
+                case Let let -> mentioned.add(let.name());
+                default -> {}
+            }
+        });
+        return mentioned.build();
+    }
+
+    /// Runs `rows` through `processor` as a single page, one channel per symbol, and reads the
+    /// projected value of every row back.
+    private List<Object> project(PageProcessor processor, List<Symbol> channels, Type type, List<Map<String, Object>> rows)
+    {
+        Block[] blocks = new Block[channels.size()];
+        for (int channel = 0; channel < channels.size(); channel++) {
+            Symbol symbol = channels.get(channel);
+            BlockBuilder builder = symbol.type().createBlockBuilder(null, rows.size());
+            for (Map<String, Object> row : rows) {
+                writeNativeValue(symbol.type(), builder, row.get(symbol.name()));
+            }
+            blocks[channel] = builder.build();
+        }
+
+        LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(TestingRows.class.getSimpleName());
+        Iterator<Optional<Page>> output = processor.process(session.toConnectorSession(), memoryContext, SourcePage.create(new Page(rows.size(), blocks)));
+
+        List<Object> values = new ArrayList<>();
+        while (output.hasNext()) {
+            output.next().ifPresent(page -> {
+                Block block = page.getBlock(0);
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    values.add(readNativeValue(type, block, position));
+                }
+            });
+        }
+        checkState(values.size() == rows.size(), "compiled evaluation produced %s values for %s rows", values.size(), rows.size());
+        return values;
     }
 
     private List<Object> values(Type type, List<Constant> literals)
