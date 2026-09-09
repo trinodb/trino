@@ -211,6 +211,13 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public void execute(ConnectorSession session, Connection connection, String query)
+            throws SQLException
+    {
+        retry(policy, () -> delegate.execute(session, connection, query));
+    }
+
+    @Override
     public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
@@ -455,6 +462,14 @@ public class RetryingJdbcClient
     {
         // retry already implemented by RetryingConnectionFactory
         return delegate.getConnection(session);
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, boolean readOnly)
+            throws SQLException
+    {
+        // retry already implemented by RetryingConnectionFactory
+        return delegate.getConnection(session, readOnly);
     }
 
     @Override
