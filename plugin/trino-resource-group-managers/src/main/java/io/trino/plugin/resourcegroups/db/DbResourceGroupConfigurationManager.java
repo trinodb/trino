@@ -165,6 +165,12 @@ public class DbResourceGroupConfigurationManager
     protected void configureGroup(ResourceGroup group, ResourceGroupSpec groupSpec)
     {
         super.configureGroup(group, groupSpec);
+        if (groupSpec.getSchedulingPolicy().isEmpty()) {
+            group.resetSchedulingPolicy();
+        }
+        if (groupSpec.getSchedulingWeight().isEmpty()) {
+            group.setSchedulingWeight(1);
+        }
         specsUsedToConfigureGroups.put(group.getId(), groupSpec);
     }
 

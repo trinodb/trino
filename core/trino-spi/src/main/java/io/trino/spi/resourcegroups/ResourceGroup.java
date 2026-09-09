@@ -103,6 +103,14 @@ public interface ResourceGroup
      */
     void setSchedulingPolicy(SchedulingPolicy policy);
 
+    /**
+     * Resets the scheduling policy of this group to the effective default.
+     */
+    default void resetSchedulingPolicy()
+    {
+        setSchedulingPolicy(SchedulingPolicy.FAIR);
+    }
+
     boolean getJmxExport();
 
     /**

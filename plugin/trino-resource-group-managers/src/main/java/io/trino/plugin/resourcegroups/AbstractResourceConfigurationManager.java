@@ -38,6 +38,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
+import static io.trino.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.isEqual;
@@ -58,11 +59,20 @@ public abstract class AbstractResourceConfigurationManager
 
     protected void validateRootGroups(ManagerSpec managerSpec)
     {
-        Queue<ResourceGroupSpec> groups = new LinkedList<>(managerSpec.getRootGroups());
+        Queue<GroupValidationContext> groups = new LinkedList<>();
+        managerSpec.getRootGroups().forEach(group -> groups.add(new GroupValidationContext(group, false)));
         while (!groups.isEmpty()) {
-            ResourceGroupSpec group = groups.poll();
+            GroupValidationContext context = groups.poll();
+            ResourceGroupSpec group = context.group();
             List<ResourceGroupSpec> subGroups = group.getSubGroups();
-            groups.addAll(subGroups);
+            if (context.queryPriorityRequired()) {
+                checkArgument(
+                        group.getSchedulingPolicy().isEmpty() || group.getSchedulingPolicy().get() == QUERY_PRIORITY,
+                        "Resource group '%s' must use 'query_priority' scheduling policy or inherit it because an ancestor uses 'query_priority'",
+                        group.getName());
+            }
+            boolean queryPriorityRequired = context.queryPriorityRequired() || group.getSchedulingPolicy().filter(isEqual(QUERY_PRIORITY)).isPresent();
+            subGroups.forEach(subGroup -> groups.add(new GroupValidationContext(subGroup, queryPriorityRequired)));
             if (group.getSoftCpuLimit().isPresent() || group.getHardCpuLimit().isPresent()) {
                 checkArgument(managerSpec.getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use CPU limits on group: %s", group.getName());
             }
@@ -93,6 +103,8 @@ public abstract class AbstractResourceConfigurationManager
             }
         }
     }
+
+    private record GroupValidationContext(ResourceGroupSpec group, boolean queryPriorityRequired) {}
 
     protected List<ResourceGroupSelector> buildSelectors(ManagerSpec managerSpec)
     {

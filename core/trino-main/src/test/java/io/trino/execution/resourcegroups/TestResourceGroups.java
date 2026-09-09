@@ -50,6 +50,7 @@ import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.util.Collections.reverse;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestResourceGroups
 {
@@ -166,6 +167,67 @@ public class TestResourceGroups
         assertThat(root.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
         assertThat(root.getOrCreateSubGroup("1").getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
         assertThat(root.getOrCreateSubGroup("2").getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+    }
+
+    @Test
+    public void testInheritedPolicyCleared()
+    {
+        InternalResourceGroup a = new InternalResourceGroup("a", (_, _) -> {}, directExecutor());
+        InternalResourceGroup b = a.getOrCreateSubGroup("b");
+        InternalResourceGroup c = b.getOrCreateSubGroup("c");
+        InternalResourceGroup d = c.getOrCreateSubGroup("d");
+
+        a.setSchedulingPolicy(QUERY_PRIORITY);
+        c.setSchedulingPolicy(QUERY_PRIORITY);
+        a.setSchedulingPolicy(FAIR);
+
+        assertThat(a.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(b.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(c.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+        assertThat(d.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+    }
+
+    @Test
+    public void testExplicitPolicyReset()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        InternalResourceGroup group = root.getOrCreateSubGroup("group");
+
+        root.setSchedulingPolicy(QUERY_PRIORITY);
+        group.setSchedulingPolicy(QUERY_PRIORITY);
+        group.resetSchedulingPolicy();
+        assertThat(group.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+
+        root.setSchedulingPolicy(FAIR);
+        assertThat(group.getSchedulingPolicy()).isEqualTo(FAIR);
+    }
+
+    @Test
+    public void testPolicyInheritedOnCreate()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSchedulingPolicy(QUERY_PRIORITY);
+        InternalResourceGroup group = root.getOrCreateSubGroup("group");
+        assertThat(group.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+
+        root.setSchedulingPolicy(FAIR);
+        assertThat(group.getSchedulingPolicy()).isEqualTo(FAIR);
+    }
+
+    @Test
+    public void testInvalidQueryPrioritySubtree()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        InternalResourceGroup group = root.getOrCreateSubGroup("group");
+        InternalResourceGroup leaf = group.getOrCreateSubGroup("leaf");
+        leaf.setSchedulingPolicy(WEIGHTED);
+
+        assertThatThrownBy(() -> root.setSchedulingPolicy(QUERY_PRIORITY))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot set root to query priority scheduling because descendant root.group.leaf explicitly uses WEIGHTED");
+        assertThat(root.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(group.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(leaf.getSchedulingPolicy()).isEqualTo(WEIGHTED);
     }
 
     @Test

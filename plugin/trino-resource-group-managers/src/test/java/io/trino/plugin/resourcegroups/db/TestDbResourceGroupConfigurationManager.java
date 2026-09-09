@@ -45,6 +45,7 @@ import java.util.regex.Pattern;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.resourcegroups.InternalResourceGroup.DEFAULT_WEIGHT;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
+import static io.trino.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -220,6 +221,112 @@ public class TestDbResourceGroupConfigurationManager
             MILLISECONDS.sleep(500);
         }
         while (!globalSub.isDisabled());
+    }
+
+    @Test
+    public void testSchedulingDefaultsRestored()
+    {
+        H2DaoProvider daoProvider = setup("test_scheduling_defaults");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "defaults", "1MB", 10, 10, 10, "weighted", 6, null, null, null, null, null, ENVIRONMENT);
+        dao.insertSelector(1, 1, null, null, null, null, null, null, null, null, null);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+        InternalResourceGroup defaults = new InternalResourceGroup("defaults", (_, _) -> {}, directExecutor());
+        manager.configure(defaults, new SelectionContext<>(defaults.getId(), new ResourceGroupIdTemplate("defaults")));
+        assertThat(defaults.getSchedulingPolicy()).isEqualTo(WEIGHTED);
+        assertThat(defaults.getSchedulingWeight()).isEqualTo(6);
+
+        dao.updateResourceGroup(1, "defaults", "1MB", 10, 10, 10, null, null, null, null, null, null, null, ENVIRONMENT);
+        manager.load();
+        assertThat(defaults.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(defaults.getSchedulingWeight()).isEqualTo(DEFAULT_WEIGHT);
+    }
+
+    @Test
+    public void testInheritedQueryPriorityOnReset()
+    {
+        H2DaoProvider daoProvider = setup("test_scheduling_policy_inheritance");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "priority", "1MB", 10, 10, 10, "query_priority", null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub", "1MB", 10, 10, 10, "query_priority", null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertSelector(2, 1, null, null, null, null, null, null, null, null, null);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+        InternalResourceGroup priority = new InternalResourceGroup("priority", (_, _) -> {}, directExecutor());
+        manager.configure(priority, new SelectionContext<>(priority.getId(), new ResourceGroupIdTemplate("priority")));
+        InternalResourceGroup sub = priority.getOrCreateSubGroup("sub");
+        manager.configure(sub, new SelectionContext<>(sub.getId(), new ResourceGroupIdTemplate("priority.sub")));
+        assertThat(sub.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+
+        dao.updateResourceGroup(2, "sub", "1MB", 10, 10, 10, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        manager.load();
+        assertThat(sub.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+    }
+
+    @Test
+    public void testInheritedPolicyCleared()
+    {
+        H2DaoProvider daoProvider = setup("test_inherited_policy_cleared");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "a", "1MB", 10, 10, 10, "query_priority", null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "b", "1MB", 10, 10, 10, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(3, "c", "1MB", 10, 10, 10, "query_priority", null, null, null, null, null, 2L, ENVIRONMENT);
+        dao.insertResourceGroup(4, "d", "1MB", 10, 10, 10, null, null, null, null, null, null, 3L, ENVIRONMENT);
+        dao.insertSelector(4, 1, null, null, null, null, null, null, null, null, null);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+        InternalResourceGroup a = new InternalResourceGroup("a", (_, _) -> {}, directExecutor());
+        manager.configure(a, new SelectionContext<>(a.getId(), new ResourceGroupIdTemplate("a")));
+        InternalResourceGroup b = a.getOrCreateSubGroup("b");
+        manager.configure(b, new SelectionContext<>(b.getId(), new ResourceGroupIdTemplate("a.b")));
+        InternalResourceGroup c = b.getOrCreateSubGroup("c");
+        manager.configure(c, new SelectionContext<>(c.getId(), new ResourceGroupIdTemplate("a.b.c")));
+        InternalResourceGroup d = c.getOrCreateSubGroup("d");
+        manager.configure(d, new SelectionContext<>(d.getId(), new ResourceGroupIdTemplate("a.b.c.d")));
+
+        dao.updateResourceGroup(1, "a", "1MB", 10, 10, 10, null, null, null, null, null, null, null, ENVIRONMENT);
+        manager.load();
+
+        assertThat(a.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(b.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(c.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+        assertThat(d.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+    }
+
+    @Test
+    public void testInvalidQueryPriorityReload()
+    {
+        H2DaoProvider daoProvider = setup("test_invalid_query_priority_reload");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "a", "1MB", 10, 10, 10, "fair", null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "b", "1MB", 10, 10, 10, "weighted", null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertSelector(2, 1, null, null, null, null, null, null, null, null, null);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+        InternalResourceGroup a = new InternalResourceGroup("a", (_, _) -> {}, directExecutor());
+        manager.configure(a, new SelectionContext<>(a.getId(), new ResourceGroupIdTemplate("a")));
+        InternalResourceGroup b = a.getOrCreateSubGroup("b");
+        manager.configure(b, new SelectionContext<>(b.getId(), new ResourceGroupIdTemplate("a.b")));
+
+        dao.updateResourceGroup(1, "a", "1MB", 10, 10, 10, "query_priority", null, null, null, null, null, null, ENVIRONMENT);
+        manager.load();
+
+        assertThat(manager.getRefreshFailures().getTotalCount()).isEqualTo(1);
+        assertThat(a.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(b.getSchedulingPolicy()).isEqualTo(WEIGHTED);
     }
 
     @Test

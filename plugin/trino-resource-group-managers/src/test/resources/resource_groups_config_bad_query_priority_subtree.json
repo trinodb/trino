@@ -1,0 +1,33 @@
+{
+  "rootGroups": [
+    {
+      "name": "root",
+      "softMemoryLimit": "80%",
+      "hardConcurrencyLimit": 10,
+      "maxQueued": 100,
+      "schedulingPolicy": "query_priority",
+      "subGroups": [
+        {
+          "name": "group",
+          "softMemoryLimit": "80%",
+          "hardConcurrencyLimit": 10,
+          "maxQueued": 100,
+          "subGroups": [
+            {
+              "name": "leaf",
+              "softMemoryLimit": "80%",
+              "hardConcurrencyLimit": 10,
+              "maxQueued": 100,
+              "schedulingPolicy": "weighted"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "group": "root.group.leaf"
+    }
+  ]
+}
