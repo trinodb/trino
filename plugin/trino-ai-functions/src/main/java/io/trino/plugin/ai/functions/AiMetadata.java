@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.ai.functions;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -26,8 +26,6 @@ import io.trino.spi.function.SchemaFunctionName;
 import java.util.Collection;
 import java.util.List;
 
-import static io.trino.spi.type.TypeDescriptor.mapType;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class AiMetadata
@@ -35,18 +33,18 @@ public class AiMetadata
 {
     private static final String SCHEMA_NAME = "ai";
 
-    private final List<FunctionMetadata> functions;
+    private final FunctionBundle functionBundle;
 
     @Inject
-    public AiMetadata(List<FunctionMetadata> functions)
+    public AiMetadata(FunctionBundle functionBundle)
     {
-        this.functions = ImmutableList.copyOf(requireNonNull(functions, "functions is null"));
+        this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
     }
 
     @Override
     public Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
     {
-        return schemaName.equals(SCHEMA_NAME) ? functions : List.of();
+        return schemaName.equals(SCHEMA_NAME) ? functionBundle.getFunctions() : List.of();
     }
 
     @Override
@@ -55,7 +53,7 @@ public class AiMetadata
         if (!name.schemaName().equals(SCHEMA_NAME)) {
             return List.of();
         }
-        return functions.stream()
+        return functionBundle.getFunctions().stream()
                 .filter(function -> function.getCanonicalName().equals(name.functionName()))
                 .toList();
     }
@@ -63,7 +61,7 @@ public class AiMetadata
     @Override
     public FunctionMetadata getFunctionMetadata(ConnectorSession session, FunctionId functionId)
     {
-        return functions.stream()
+        return functionBundle.getFunctions().stream()
                 .filter(function -> function.getFunctionId().equals(functionId))
                 .findFirst()
                 .orElseThrow();
@@ -72,8 +70,6 @@ public class AiMetadata
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
     {
-        return FunctionDependencyDeclaration.builder()
-                .addType(mapType(VARCHAR.getTypeDescriptor(), VARCHAR.getTypeDescriptor()))
-                .build();
+        return functionBundle.getFunctionDependencies(functionId, boundSignature);
     }
 }

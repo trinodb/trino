@@ -19,6 +19,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -31,14 +32,14 @@ public class AiConnector
 {
     private final LifeCycleManager lifeCycleManager;
     private final ConnectorMetadata metadata;
-    private final FunctionProvider functionProvider;
+    private final FunctionBundle functionBundle;
 
     @Inject
-    public AiConnector(LifeCycleManager lifeCycleManager, ConnectorMetadata metadata, FunctionProvider functionProvider)
+    public AiConnector(LifeCycleManager lifeCycleManager, ConnectorMetadata metadata, FunctionBundle functionBundle)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
     }
 
     @Override
@@ -56,7 +57,7 @@ public class AiConnector
     @Override
     public Optional<FunctionProvider> getFunctionProvider()
     {
-        return Optional.of(functionProvider);
+        return Optional.of(functionBundle.toProvider());
     }
 
     @Override
