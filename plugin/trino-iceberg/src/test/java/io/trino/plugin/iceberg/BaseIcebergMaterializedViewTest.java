@@ -1418,6 +1418,12 @@ public abstract class BaseIcebergMaterializedViewTest
                     assertThat(query("TABLE " + sourceView.getName())).matches("VALUES 1, 2");
                     assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
                     assertThat(query("TABLE " + materializedViewName)).matches("VALUES 1, 2");
+
+                    assertUpdate("CREATE OR REPLACE VIEW %s AS SELECT value FROM %s FOR VERSION AS OF %s"
+                            .formatted(sourceView.getName(), source.getName(), firstSnapshotId));
+                    assertThat(query("TABLE " + sourceView.getName())).matches("VALUES 1");
+                    assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+                    assertThat(query("TABLE " + materializedViewName)).matches("VALUES 1");
                 }
                 finally {
                     assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
