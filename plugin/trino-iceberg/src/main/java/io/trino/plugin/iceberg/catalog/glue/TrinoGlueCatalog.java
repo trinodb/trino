@@ -67,6 +67,7 @@ import org.apache.iceberg.TableUtil;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.view.ViewMetadata;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.glue.model.AccessDeniedException;
 import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
@@ -1039,6 +1040,12 @@ public class TrinoGlueCatalog
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+    }
+
+    @Override
+    public void registerView(ConnectorSession session, SchemaTableName schemaViewName, ViewMetadata viewMetadata)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Glue catalog does not support registering Iceberg views");
     }
 
     @Override
