@@ -48,6 +48,8 @@ public class IcebergRestCatalogPropertiesProvider
         properties.put(AUTH_SESSION_TIMEOUT_MS, String.valueOf(restConfig.getSessionTimeout().toMillis()));
         restConfig.getConnectionTimeout().ifPresent(duration -> properties.put("rest.client.connection-timeout-ms", String.valueOf(duration.toMillis())));
         restConfig.getSocketTimeout().ifPresent(timeout -> properties.put("rest.client.socket-timeout-ms", String.valueOf(timeout.toMillis())));
+        // Hardcoded literal because org.apache.iceberg.rest.HTTPClient.REST_MAX_RETRIES is private.
+        properties.put("rest.client.max-retries", String.valueOf(restConfig.getMaxRetries()));
         properties.putAll(securityProperties.get());
         if (restConfig.isVendedCredentialsEnabled()) {
             properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
