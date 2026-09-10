@@ -35,6 +35,7 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -168,23 +169,69 @@ final class TestHudiSharedMetastore
     }
 
     @Test
-    void testHudiSelectFromHiveView()
+    public void testViewWithLiteralColumnCreatedInHudiIsReadableInHive()
     {
-        String tableName = "hudi_from_hive_table_" + randomNameSuffix();
-        String viewName = "hudi_from_trino_hive_view_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE hive.default." + tableName + " AS SELECT 1 a", 1);
-        assertUpdate("CREATE VIEW hive.default." + viewName + " AS TABLE hive.default." + tableName);
-
-        assertQueryFails("SELECT * FROM hudi.default." + viewName, "Not a Hudi table: .*");
-
-        assertUpdate("DROP VIEW hive.default." + viewName);
-        assertUpdate("DROP TABLE hive.default." + tableName);
+        String schema = "default";
+        String hiveCatalogName = "hive";
+        String hudiCatalogName = "hudi";
+        String hudiViewName = "hudi_view_" + randomNameSuffix();
+        String hudiView = format("%s.%s.%s", hudiCatalogName, schema, hudiViewName);
+        String hudiViewOnHiveCatalog = format("%s.%s.%s", hiveCatalogName, schema, hudiViewName);
+        try {
+            assertUpdate(format("CREATE VIEW %s AS SELECT 1 bee", hudiView));
+            assertQuery(format("SELECT * FROM %s", hudiView), "VALUES 1");
+            assertQuery(format("SELECT * FROM %s", hudiViewOnHiveCatalog), "VALUES 1");
+            assertQuery(format("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", hiveCatalogName, hudiViewName, schema), "VALUES 'VIEW'");
+        }
+        finally {
+            assertUpdate(format("DROP VIEW IF EXISTS %s", hudiView));
+        }
     }
 
     @Test
-    void testHiveSelectFromHudiView()
+    public void testViewWithLiteralColumnCreatedInHiveIsReadableInHudi()
     {
-        assertQueryFails("CREATE VIEW hudi.default.a_new_view AS SELECT 1 a", "This connector does not support creating views");
-        // TODO test reading via Hive once Hudi supports CREATE VIEW
+        String schema = "default";
+        String hiveCatalogName = "hive";
+        String hudiCatalogName = "hudi";
+        String trinoViewOnHiveName = "trino_view_on_hive_" + randomNameSuffix();
+        String trinoViewOnHive = format("%s.%s.%s", hiveCatalogName, schema, trinoViewOnHiveName);
+        String trinoViewOnHiveOnDeltaCatalog = format("%s.%s.%s", hudiCatalogName, schema, trinoViewOnHiveName);
+        try {
+            assertUpdate(format("CREATE VIEW %s AS SELECT 1 bee", trinoViewOnHive));
+            assertQuery(format("SELECT * FROM %s", trinoViewOnHive), "VALUES 1");
+            assertQuery(format("SELECT * FROM %s", trinoViewOnHiveOnDeltaCatalog), "VALUES 1");
+            assertQuery(format("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", hiveCatalogName, trinoViewOnHiveName, schema), "VALUES 'VIEW'");
+        }
+        finally {
+            assertUpdate(format("DROP VIEW IF EXISTS %s", trinoViewOnHive));
+        }
+    }
+
+    @Test
+    public void testViewOnHiveTableCreatedInHiveIsReadableInDeltaLake()
+    {
+        String schema = "default";
+        String hiveCatalogName = "hive";
+        String hudiCatalogName = "hudi";
+        String hiveTableName = "hive_table_" + randomNameSuffix();
+        String hiveTable = format("%s.%s.%s", hiveCatalogName, schema, hiveTableName);
+        String trinoViewOnHiveName = "trino_view_on_hive_" + randomNameSuffix();
+        String trinoViewOnHive = format("%s.%s.%s", hiveCatalogName, schema, trinoViewOnHiveName);
+        String trinoViewOnHiveOnDeltaCatalog = format("%s.%s.%s", hudiCatalogName, schema, trinoViewOnHiveName);
+        try {
+            assertUpdate(format("CREATE TABLE %s AS SELECT 1 bee", hiveTable), 1);
+            assertUpdate(format("CREATE VIEW %s AS SELECT 1 bee", trinoViewOnHive));
+            assertQuery(format("SELECT * FROM %s", trinoViewOnHive), "VALUES 1");
+            assertQuery(format("SELECT * FROM %s", trinoViewOnHiveOnDeltaCatalog), "VALUES 1");
+            assertQuery(format("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", hudiCatalogName, trinoViewOnHiveName, schema), "VALUES 'VIEW'");
+            assertQuery(
+                    format("SELECT table_name FROM %s.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", hudiCatalogName, trinoViewOnHiveName, schema),
+                    "VALUES '" + trinoViewOnHiveName + "'");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", hiveTable));
+            assertUpdate(format("DROP VIEW IF EXISTS %s", trinoViewOnHive));
+        }
     }
 }
