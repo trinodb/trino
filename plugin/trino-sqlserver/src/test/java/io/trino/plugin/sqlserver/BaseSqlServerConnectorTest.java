@@ -138,6 +138,29 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Test
+    public void testVarcharNullIfPushdownIgnoresTrailingSpaces()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_varchar_nullif_pad_space",
+                "(a varchar(10) COLLATE Latin1_General_CS_AS, b varchar(10) COLLATE Latin1_General_CS_AS, d1 date, d2 date)",
+                List.of("'a', 'a', '2001-01-01', '2001-01-01'", "'a', 'a ', '2001-01-02', '2001-01-02'", "'a ', 'a', '2001-01-03', '2001-01-04'", "'a ', 'a ', '2001-01-05', '2001-01-06'"))) {
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE NULLIF(a, b) IS NULL"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a ', 'a ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE NULLIF(a, 'a') IS NULL"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a', 'a ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            // nullif over a non-character type is still pushed down
+            assertThat(query("SELECT d1 FROM " + table.getName() + " WHERE NULLIF(d1, d2) IS NULL"))
+                    .matches("VALUES DATE '2001-01-01', DATE '2001-01-02'")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testCharInPredicatePushdown()
     {
         List<String> rows = List.of("'a', 'a', 'zz'", "'a', 'A', 'zz'");
