@@ -1111,6 +1111,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public QualifiedObjectName getWriteRedirectedTableName(Session session, QualifiedObjectName tableName)
+    {
+        return tableName;
+    }
+
+    @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         if (startVersion.isEmpty() || endVersion.isEmpty()) {

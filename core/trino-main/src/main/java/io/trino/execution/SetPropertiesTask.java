@@ -106,8 +106,10 @@ public class SetPropertiesTask
         return immediateVoidFuture();
     }
 
-    private void setTableProperties(SetProperties statement, QualifiedObjectName tableName, Session session, Map<String, Optional<Object>> properties)
+    private void setTableProperties(SetProperties statement, QualifiedObjectName originalTableName, Session session, Map<String, Optional<Object>> properties)
     {
+        QualifiedObjectName tableName = plannerContext.getMetadata().getWriteRedirectedTableName(session, originalTableName);
+
         if (plannerContext.getMetadata().isMaterializedView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a materialized view in ALTER TABLE");
         }
