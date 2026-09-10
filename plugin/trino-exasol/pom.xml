@@ -88,7 +88,7 @@
         <dependency>
             <groupId>com.exasol</groupId>
             <artifactId>exasol-testcontainers</artifactId>
-            <version>8.0.1</version>
+            <version>8.0.2</version>
             <scope>test</scope>
         </dependency>
 
