@@ -35,6 +35,7 @@ import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -499,7 +500,63 @@ public final class DomainTranslator
 
                 return visitExpression(originalExpression, complement);
             }
+            if (symbolExpression instanceof Call call && isInstantPreservingAtTimeZone(call)) {
+                Optional<ExtractionResult> result = createAtTimeZoneComparisonExtractionResult(normalized, complement, originalExpression);
+                if (result.isPresent()) {
+                    return result.get();
+                }
+            }
             return visitExpression(originalExpression, complement);
+        }
+
+        /**
+         * at_timezone changes only the zone a {@code timestamp with time zone} value is rendered in, never
+         * the instant, and {@code timestamp with time zone} comparisons are instant-based. A comparison over
+         * {@code at_timezone(column, zone)} therefore constrains the underlying column to exactly the range
+         * a direct comparison would. Derive that range as a pushable domain while keeping the original
+         * expression as the remaining predicate, so the zone argument's null and invalid-zone behavior is
+         * preserved for rows that are actually read.
+         */
+        private static Optional<ExtractionResult> createAtTimeZoneComparisonExtractionResult(
+                NormalizedSimpleComparison comparison,
+                boolean complement,
+                Expression originalExpression)
+        {
+            if (complement) {
+                return Optional.empty();
+            }
+            NullableValue value = comparison.getValue();
+            if (value.isNull()) {
+                // at_timezone(x, zone) is null when either argument is null, so e.g. the onlyNull domain
+                // IDENTICAL would produce for the column alone would wrongly exclude non-null x with null zone
+                return Optional.empty();
+            }
+
+            Expression base = comparison.getSymbolExpression();
+            while (base instanceof Call call && isInstantPreservingAtTimeZone(call)) {
+                base = call.arguments().get(0);
+            }
+            if (!(base instanceof Reference)) {
+                return Optional.empty();
+            }
+            Symbol symbol = Symbol.from(base);
+            // value type is the common comparison type, which at_timezone preserves from its first argument
+            return extractOrderableDomain(comparison.getComparisonOperator(), value.getType(), value.getValue(), false)
+                    .map(domain -> new ExtractionResult(
+                            TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),
+                            originalExpression));
+        }
+
+        private static boolean isInstantPreservingAtTimeZone(Call call)
+        {
+            // Restricted to timestamp with time zone: the time with time zone variant of at_timezone
+            // interacts with comparison semantics differently and must not be unwrapped. Both the
+            // varchar-zone and interval-offset overloads preserve the instant. The argument type check
+            // guards against any form that changes precision.
+            return call.function().name().equals(builtinFunctionName("at_timezone")) &&
+                    call.arguments().size() == 2 &&
+                    call.type() instanceof TimestampWithTimeZoneType &&
+                    call.arguments().get(0).type().equals(call.type());
         }
 
         /**
