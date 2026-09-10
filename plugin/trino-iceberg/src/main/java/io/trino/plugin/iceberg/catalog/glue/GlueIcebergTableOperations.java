@@ -20,7 +20,6 @@ import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
@@ -44,9 +43,6 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
-import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
-import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -104,13 +100,7 @@ public class GlueIcebergTableOperations
         }
         glueVersionId = table.versionId();
 
-        String tableType = getTableType(table);
         Map<String, String> parameters = table.parameters();
-        if (!isMaterializedViewStorageTable && (isTrinoView(tableType, parameters) || isTrinoMaterializedView(tableType, parameters))) {
-            // this is a Hive view or Trino/Presto view, or Trino materialized view, hence not a table
-            // TODO table operations should not be constructed for views (remove exception-driven code path)
-            throw new TableNotFoundException(getSchemaTableName());
-        }
         if (!isMaterializedViewStorageTable && !isIcebergTable(parameters)) {
             throw new UnknownTableTypeException(getSchemaTableName());
         }
