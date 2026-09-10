@@ -3051,6 +3051,21 @@ public class TestTimestampWithTimeZone
                 .neverFails();
     }
 
+    @Test
+    public void testIn()
+    {
+        // A short IN list of values close to the epoch makes the compiler switch over the raw long representation,
+        // which packs the time zone, while equality compares the instant only.
+        // A single-element list would be rewritten to an equality comparison.
+        assertThat(assertions.expression("a IN (TIMESTAMP '1970-01-01 01:00:00 Europe/Warsaw', TIMESTAMP '1970-01-01 00:00:02 UTC')")
+                .binding("a", "TIMESTAMP '1970-01-01 00:00:00 UTC'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (TIMESTAMP '1970-01-01 01:00:00 Europe/Warsaw', TIMESTAMP '1970-01-01 00:00:02 UTC')")
+                .binding("a", "TIMESTAMP '1970-01-01 00:00:01 UTC'"))
+                .isEqualTo(false);
+    }
+
     private BiFunction<Session, QueryRunner, Object> timestampWithTimeZone(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond, TimeZoneKey timeZoneKey)
     {
         return (_, _) -> {
