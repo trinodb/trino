@@ -1048,6 +1048,14 @@ procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
 
+The command accepts an optional `dry_run` parameter (defaults to false). When
+true, the procedure reports the files it would remove in the
+`deleted_files_count` and `deleted_bytes` metrics without deleting them:
+
+```sql
+ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d', dry_run => true);
+```
+
 The output of the query has the following metrics:
 
 :::{list-table} Output
@@ -1063,9 +1071,11 @@ The output of the query has the following metrics:
 * - `scanned_files_count`
   - The count of files scanned from the file system.
 * - `deleted_files_count`
-  - The count of files deleted by remove_orphan_files.
+  - The count of files deleted by remove_orphan_files, or that would be deleted
+    when `dry_run` is true.
 * - `deleted_bytes`
-  - The total size in bytes of files deleted by remove_orphan_files.
+  - The total size in bytes of files deleted by remove_orphan_files, or that
+    would be deleted when `dry_run` is true.
 :::
 
 (drop-extended-stats)=
