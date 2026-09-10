@@ -15,14 +15,20 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.cardinality.HyperLogLog;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 
 public class TestMergeHyperLogLogAggregation
         extends AbstractTestAggregationFunction
@@ -69,5 +75,32 @@ public class TestMergeHyperLogLogAggregation
         }
         hll.makeDense();
         return new SqlVarbinary(hll.serialize().getBytes());
+    }
+
+    @Test
+    public void testMergeSketchesWithDifferentPrecisionFailsAsUserError()
+    {
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+
+        // Dense sketches are required to trigger the bucket-count check; sparse sketches of different
+        // precision can still be combined by the underlying HyperLogLog.
+        HyperLogLog coarse = HyperLogLog.newInstance(16);
+        coarse.add(1);
+        coarse.makeDense();
+        HyperLogLog fine = HyperLogLog.newInstance(64);
+        fine.add(2);
+        fine.makeDense();
+
+        BlockBuilder blockBuilder = HYPER_LOG_LOG.createBlockBuilder(null, 2);
+        HYPER_LOG_LOG.writeSlice(blockBuilder, coarse.serialize());
+        HYPER_LOG_LOG.writeSlice(blockBuilder, fine.serialize());
+        Page page = new Page(2, blockBuilder.build());
+
+        // Merging sketches of different precision is a user error, not an internal failure.
+        assertTrinoExceptionThrownBy(() -> AggregationTestUtils.aggregation(
+                functionResolution.getAggregateFunction("merge", fromTypes(HYPER_LOG_LOG)),
+                page))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Cannot merge HLLs with different number of buckets");
     }
 }
