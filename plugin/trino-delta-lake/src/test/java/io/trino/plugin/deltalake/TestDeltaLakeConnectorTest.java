@@ -3233,6 +3233,27 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testReadCdfChangesOnPartitionValueRequiringEncoding()
+    {
+        String tableName = "test_cdf_partition_value_requiring_encoding_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR) " +
+                "WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('url1', 'do main')", 1);
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url2' WHERE domain = 'do main'", 1);
+
+        assertTableChangesQuery(
+                "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
+                """
+                VALUES
+                    ('url1', 'do main', 'insert', BIGINT '1'),
+                    ('url1', 'do main', 'update_preimage', BIGINT '2'),
+                    ('url2', 'do main', 'update_postimage', BIGINT '2')
+                """);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCdfWithNameMappingModeOnTableWithColumnDropped()
     {
         testCdfWithMappingModeOnTableWithColumnDropped(ColumnMappingMode.NAME);
