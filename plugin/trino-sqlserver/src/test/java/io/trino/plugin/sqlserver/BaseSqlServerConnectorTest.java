@@ -114,6 +114,54 @@ public abstract class BaseSqlServerConnectorTest
         }
     }
 
+    @Test
+    public void testVarcharInPredicatePushdownIgnoresTrailingSpaces()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_varchar_in_pad_space",
+                "(a varchar(10) COLLATE Latin1_General_CS_AS, b varchar(10) COLLATE Latin1_General_CS_AS, c varchar(10) COLLATE Latin1_General_CS_AS)",
+                List.of("'a', 'a', 'zz'", "'a', 'a ', 'zz'", "'a ', 'a', 'zz'", "'a ', 'a ', 'zz'"))) {
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a IN (b, c)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a ', 'a ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a NOT IN (b, c)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a '), ('a ', 'a')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a IN ('a', 'x') OR c = 'yy'"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a', 'a ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
+    public void testCharInPredicatePushdown()
+    {
+        List<String> rows = List.of("'a', 'a', 'zz'", "'a', 'A', 'zz'");
+        try (TestTable caseSensitive = new TestTable(
+                onRemoteDatabase(),
+                "test_char_in_case_sensitive",
+                "(a char(3) COLLATE Latin1_General_CS_AS, b char(3) COLLATE Latin1_General_CS_AS, c char(3) COLLATE Latin1_General_CS_AS)",
+                rows);
+                TestTable caseInsensitive = new TestTable(
+                        onRemoteDatabase(),
+                        "test_char_in_case_insensitive",
+                        "(a char(3) COLLATE Latin1_General_CI_AS, b char(3) COLLATE Latin1_General_CI_AS, c char(3) COLLATE Latin1_General_CI_AS)",
+                        rows)) {
+            assertThat(query("SELECT a, b FROM " + caseSensitive.getName() + " WHERE a IN (b, c)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a  ', 'a  ')")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT a, b FROM " + caseInsensitive.getName() + " WHERE a IN (b, c)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a  ', 'a  ')")
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
