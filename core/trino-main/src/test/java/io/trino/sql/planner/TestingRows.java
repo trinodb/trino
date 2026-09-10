@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.memory.context.LocalMemoryContext;
@@ -54,6 +55,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -63,6 +66,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static io.trino.sql.ir.IrUtils.preOrder;
+import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
@@ -413,7 +417,30 @@ public final class TestingRows
         values.add(value);
         type.getPreviousValue(value).ifPresent(values::add);
         type.getNextValue(value).ifPresent(values::add);
+        if (type instanceof CharType || type instanceof VarcharType) {
+            // A string type names no adjacent value, but the values that extend a string by one character
+            // are what the two string orderings disagree on: as varchar both 'a\0' and 'a ' follow 'a',
+            // while as char 'a\0' precedes 'a', because char comparison pads with spaces, and 'a ' is 'a'.
+            Slice slice = (Slice) value;
+            for (int codePoint : new int[] {MIN_CODE_POINT, ' '}) {
+                Slice extended = Slices.allocate(slice.length() + lengthOfCodePoint(codePoint));
+                extended.setBytes(0, slice);
+                setCodePointAt(codePoint, extended, slice.length());
+                values.add(stringValue(type, extended));
+            }
+        }
         return values.build();
+    }
+
+    /// The representation of a string in `type`: it is cut to the type's length, and a char value carries
+    /// no trailing spaces.
+    private static Slice stringValue(Type type, Slice slice)
+    {
+        return switch (type) {
+            case CharType charType -> truncateToLengthAndTrimSpaces(slice, charType);
+            case VarcharType varcharType -> truncateToLength(slice, varcharType);
+            default -> throw new IllegalArgumentException("Not a string type: " + type);
+        };
     }
 
     private static Set<Object> edgeValues(Type type)
@@ -441,17 +468,10 @@ public final class TestingRows
             values.add((long) floatToRawIntBits(Float.POSITIVE_INFINITY));
             values.add((long) floatToRawIntBits(Float.NEGATIVE_INFINITY));
         }
-        else if (type instanceof VarcharType varcharType) {
+        else if (type instanceof CharType || type instanceof VarcharType) {
             STRINGS.stream()
                     .map(Slices::utf8Slice)
-                    .map(slice -> truncateToLength(slice, varcharType))
-                    .forEach(values::add);
-        }
-        else if (type instanceof CharType charType) {
-            STRINGS.stream()
-                    .map(Slices::utf8Slice)
-                    // a char value is represented within the type's length and without trailing spaces
-                    .map(slice -> truncateToLengthAndTrimSpaces(slice, charType))
+                    .map(slice -> stringValue(type, slice))
                     .forEach(values::add);
         }
         return values.build();
