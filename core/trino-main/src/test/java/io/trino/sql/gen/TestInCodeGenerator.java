@@ -39,6 +39,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.DIRECT_SWITCH;
 import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
@@ -48,6 +49,7 @@ import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInCodeGenerator
@@ -139,6 +141,29 @@ public class TestInCodeGenerator
 
         values.add(new Constant(DATE, 33L));
         assertThat(checkSwitchGenerationCase(DATE, values)).isEqualTo(SET_CONTAINS);
+    }
+
+    @Test
+    public void testReal()
+    {
+        // REAL is not eligible for DIRECT_SWITCH: the underlying long is the raw float bits,
+        // for which direct comparison disagrees with the EQUAL operator (e.g. for NaN)
+        List<Expression> values = new ArrayList<>();
+        values.add(new Constant(REAL, (long) floatToRawIntBits(1.5f)));
+        values.add(new Constant(REAL, (long) floatToRawIntBits(2.5f)));
+        values.add(new Constant(REAL, (long) floatToRawIntBits(Float.NaN)));
+        assertThat(checkSwitchGenerationCase(REAL, values)).isEqualTo(HASH_SWITCH);
+
+        values.add(constantNull(REAL));
+        assertThat(checkSwitchGenerationCase(REAL, values)).isEqualTo(HASH_SWITCH);
+
+        for (int i = 5; i <= 7; ++i) {
+            values.add(new Constant(REAL, (long) floatToRawIntBits(i + 0.5f)));
+        }
+        assertThat(checkSwitchGenerationCase(REAL, values)).isEqualTo(HASH_SWITCH);
+
+        values.add(new Constant(REAL, (long) floatToRawIntBits(8.5f)));
+        assertThat(checkSwitchGenerationCase(REAL, values)).isEqualTo(SET_CONTAINS);
     }
 
     @Test
