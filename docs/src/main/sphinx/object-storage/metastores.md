@@ -529,6 +529,9 @@ following properties:
     Defaults to `false`.
 * - `iceberg.rest-catalog.view-endpoints-enabled`
   - Enable view endpoints. Defaults to `true`.
+* - `iceberg.rest-catalog.metrics-reporting-enabled`
+  - Report table scan and commit metrics to the REST catalog server. Defaults
+    to `true`.
 * - `iceberg.rest-catalog.server-assigned-table-location-enabled`
   - Let the REST catalog server assign locations for created tables instead of
     computing a default location from the namespace location. Must be enabled

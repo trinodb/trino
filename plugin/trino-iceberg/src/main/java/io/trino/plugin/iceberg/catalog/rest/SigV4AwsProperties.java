@@ -60,8 +60,7 @@ public class SigV4AwsProperties
         ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder()
                 .put("rest.auth.type", "sigv4")
                 .put(REST_SIGNING_NAME, sigV4Config.getSigningName())
-                .put(REST_SIGNER_REGION, requireNonNull(s3Config.getRegion(), "s3.region is null"))
-                .put("rest-metrics-reporting-enabled", "false");
+                .put(REST_SIGNER_REGION, requireNonNull(s3Config.getRegion(), "s3.region is null"));
 
         if (s3Config.getIamRole() != null) {
             builder
