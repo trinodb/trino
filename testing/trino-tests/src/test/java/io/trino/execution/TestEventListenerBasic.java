@@ -44,6 +44,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.ColumnLineageInfo;
+import io.trino.spi.eventlistener.ColumnTransformationType;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
@@ -1218,6 +1219,46 @@ public class TestEventListenerBasic
                 ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
+    }
+
+    @Test
+    public void testOutputColumnTransformationTypes()
+            throws Exception
+    {
+        QueryCompletedEvent event = runQueryAndWaitForEvents(
+                "CREATE TABLE mock.default.create_new_table AS " +
+                        "SELECT orderkey AS identity_col, orderkey + 1 AS transformation_col, sum(totalprice) AS aggregation_col FROM orders GROUP BY orderkey")
+                .getQueryEvents().getQueryCompletedEvent();
+        assertThat(transformationTypeFor(event, "identity_col", "orderkey")).contains(ColumnTransformationType.IDENTITY);
+        assertThat(transformationTypeFor(event, "transformation_col", "orderkey")).contains(ColumnTransformationType.TRANSFORMATION);
+        assertThat(transformationTypeFor(event, "aggregation_col", "totalprice")).contains(ColumnTransformationType.AGGREGATION);
+    }
+
+    @Test
+    public void testOutputColumnTransformationTypeMixedAggregateAndGroupingKey()
+            throws Exception
+    {
+        // A grouping key combined with an aggregate exposes the raw key → the key's transformation type stays TRANSFORMATION, never AGGREGATION.
+        QueryCompletedEvent event = runQueryAndWaitForEvents(
+                "CREATE TABLE mock.default.create_new_table AS " +
+                        "SELECT orderkey AS key_col, orderkey + count(*) AS mixed_col FROM orders GROUP BY orderkey")
+                .getQueryEvents().getQueryCompletedEvent();
+        assertThat(transformationTypeFor(event, "key_col", "orderkey")).contains(ColumnTransformationType.IDENTITY);
+        assertThat(transformationTypeFor(event, "mixed_col", "orderkey")).contains(ColumnTransformationType.TRANSFORMATION);
+    }
+
+    private static Optional<ColumnTransformationType> transformationTypeFor(QueryCompletedEvent event, String outputColumn, String sourceColumn)
+    {
+        for (OutputColumnMetadata column : event.getIoMetadata().getOutput().get().getColumns().get()) {
+            if (column.getColumnName().equals(outputColumn)) {
+                for (ColumnDetail source : column.getSourceColumns()) {
+                    if (source.getColumnName().equals(sourceColumn)) {
+                        return source.getTransformationType();
+                    }
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     @Test

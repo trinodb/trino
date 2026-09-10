@@ -45,6 +45,7 @@ import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.ColumnMaskReferenceInfo;
+import io.trino.spi.eventlistener.ColumnTransformationType;
 import io.trino.spi.eventlistener.MaterializedViewReferenceInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.RowFilterReferenceInfo;
@@ -271,7 +272,8 @@ public class Analysis
 
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
-    private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
+    // Column lineage: for each output field, the transformation type of every source column that feeds it.
+    private final Map<Field, Map<SourceColumn, ColumnTransformationType>> originColumnDetails = new LinkedHashMap<>();
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
     private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
@@ -285,6 +287,26 @@ public class Analysis
     private final Set<NodeRef<Relation>> aliasedRelations = new LinkedHashSet<>();
     private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
     private final Map<NodeRef<Table>, List<Field>> materializedViewStorageTableFields = new LinkedHashMap<>();
+
+    /**
+     * Combines the transformation types found when the same source column reaches one output column through several
+     * paths (for example a UNION branch, or a column referenced twice). Keep the lowest rank, so any path that still
+     * exposes the raw value wins.
+     */
+    public static ColumnTransformationType combineAcrossPaths(ColumnTransformationType left, ColumnTransformationType right)
+    {
+        return left.getDerivationRank() <= right.getDerivationRank() ? left : right;
+    }
+
+    /**
+     * Combines the transformation types found one step along a single path: how the source reached this field
+     * (upstream) composed with what this expression does to it (local). Keep the highest rank, so once a value
+     * is aggregated upstream the edge stays aggregated.
+     */
+    public static ColumnTransformationType combineAlongPath(ColumnTransformationType left, ColumnTransformationType right)
+    {
+        return left.getDerivationRank() >= right.getDerivationRank() ? left : right;
+    }
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
@@ -1434,14 +1456,30 @@ public class Analysis
                 .collect(toImmutableList());
     }
 
-    public void addSourceColumns(Field field, Set<SourceColumn> sourceColumn)
+    public void addSourceColumns(Field field, Set<SourceColumn> sourceColumns, ColumnTransformationType transformationType)
     {
-        originColumnDetails.putAll(field, sourceColumn);
+        Map<SourceColumn, ColumnTransformationType> edges = originColumnDetails.computeIfAbsent(field, _ -> new LinkedHashMap<>());
+        for (SourceColumn sourceColumn : sourceColumns) {
+            edges.merge(sourceColumn, transformationType, Analysis::combineAcrossPaths);
+        }
+    }
+
+    public void addSourceColumns(Field field, Map<SourceColumn, ColumnTransformationType> sourceColumnTransformationTypes)
+    {
+        Map<SourceColumn, ColumnTransformationType> edges = originColumnDetails.computeIfAbsent(field, _ -> new LinkedHashMap<>());
+        sourceColumnTransformationTypes.forEach((sourceColumn, transformationType) -> edges.merge(sourceColumn, transformationType, Analysis::combineAcrossPaths));
     }
 
     public Set<SourceColumn> getSourceColumns(Field field)
     {
-        return ImmutableSet.copyOf(originColumnDetails.get(field));
+        return originColumnDetails.getOrDefault(field, ImmutableMap.of()).entrySet().stream()
+                .map(entry -> entry.getKey().withTransformationType(entry.getValue()))
+                .collect(toImmutableSet());
+    }
+
+    public Map<SourceColumn, ColumnTransformationType> getSourceColumnTransformationTypes(Field field)
+    {
+        return ImmutableMap.copyOf(originColumnDetails.getOrDefault(field, ImmutableMap.of()));
     }
 
     public void addExpressionFields(Expression expression, Collection<Field> fields)
@@ -1449,11 +1487,9 @@ public class Analysis
         fieldLineage.putAll(NodeRef.of(expression), fields);
     }
 
-    public Set<SourceColumn> getExpressionSourceColumns(Expression expression)
+    public Collection<Field> getExpressionFields(Expression expression)
     {
-        return fieldLineage.get(NodeRef.of(expression)).stream()
-                .flatMap(field -> getSourceColumns(field).stream())
-                .collect(toImmutableSet());
+        return ImmutableList.copyOf(fieldLineage.get(NodeRef.of(expression)));
     }
 
     public void setRowIdField(Table table, FieldReference field)
@@ -2445,12 +2481,19 @@ public class Analysis
     {
         private final QualifiedObjectName tableName;
         private final String columnName;
+        private final Optional<ColumnTransformationType> transformationType;
+
+        public SourceColumn(QualifiedObjectName tableName, String columnName)
+        {
+            this(tableName, columnName, Optional.empty());
+        }
 
         @JsonCreator
-        public SourceColumn(@JsonProperty("tableName") QualifiedObjectName tableName, @JsonProperty("columnName") String columnName)
+        public SourceColumn(@JsonProperty("tableName") QualifiedObjectName tableName, @JsonProperty("columnName") String columnName, @JsonProperty("transformationType") Optional<ColumnTransformationType> transformationType)
         {
             this.tableName = requireNonNull(tableName, "tableName is null");
             this.columnName = requireNonNull(columnName, "columnName is null");
+            this.transformationType = requireNonNull(transformationType, "transformationType is null");
         }
 
         @JsonProperty
@@ -2465,11 +2508,23 @@ public class Analysis
             return columnName;
         }
 
-        public ColumnDetail getColumnDetail()
+        @JsonProperty
+        public Optional<ColumnTransformationType> getTransformationType()
         {
-            return new ColumnDetail(tableName.catalogName(), tableName.schemaName(), tableName.objectName(), columnName);
+            return transformationType;
         }
 
+        public SourceColumn withTransformationType(ColumnTransformationType transformationType)
+        {
+            return new SourceColumn(tableName, columnName, Optional.of(transformationType));
+        }
+
+        public ColumnDetail getColumnDetail()
+        {
+            return new ColumnDetail(tableName.catalogName(), tableName.schemaName(), tableName.objectName(), columnName, transformationType);
+        }
+
+        // transformationType is excluded from equals/hashCode: it is advisory derivation metadata, not identity.
         @Override
         public int hashCode()
         {

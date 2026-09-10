@@ -81,6 +81,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnLineageInfo;
+import io.trino.spi.eventlistener.ColumnTransformationType;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -115,6 +116,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -9066,6 +9068,87 @@ public class TestAnalyzer
                     Statement statement = SQL_PARSER.createStatement(query);
                     return analyzer.analyze(statement);
                 });
+    }
+
+    @Test
+    public void testPerSourceColumnTransformationTypes()
+    {
+        // Straight column copy → IDENTITY.
+        Analysis identity = analyze("INSERT INTO t2 (a, b) SELECT a, b FROM t1");
+        assertThat(transformationTypeFor(identity, "a", "a")).contains(ColumnTransformationType.IDENTITY);
+
+        // Non-aggregate expression → TRANSFORMATION for every contributing source column.
+        Analysis transformation = analyze("INSERT INTO t2 (a) SELECT a + b FROM t1");
+        assertThat(transformationTypeFor(transformation, "a", "a")).contains(ColumnTransformationType.TRANSFORMATION);
+        assertThat(transformationTypeFor(transformation, "a", "b")).contains(ColumnTransformationType.TRANSFORMATION);
+
+        // Pure aggregate → AGGREGATION.
+        Analysis aggregation = analyze("INSERT INTO t2 (a) SELECT sum(b) FROM t1");
+        assertThat(transformationTypeFor(aggregation, "a", "b")).contains(ColumnTransformationType.AGGREGATION);
+
+        // Mixed source columns in one output column: free `a` is TRANSFORMATION, aggregated-only `b` is AGGREGATION.
+        Analysis mixed = analyze("INSERT INTO t2 (a) SELECT a + sum(b) FROM t1 GROUP BY a");
+        assertThat(transformationTypeFor(mixed, "a", "a")).contains(ColumnTransformationType.TRANSFORMATION);
+        assertThat(transformationTypeFor(mixed, "a", "b")).contains(ColumnTransformationType.AGGREGATION);
+
+        // Same source column free AND aggregated → kept as lower exposure TRANSFORMATION.
+        Analysis selfMixed = analyze("INSERT INTO t2 (a) SELECT a + sum(a) FROM t1 GROUP BY a");
+        assertThat(transformationTypeFor(selfMixed, "a", "a")).contains(ColumnTransformationType.TRANSFORMATION);
+
+        // Aggregation through a subquery expanded by SELECT * must NOT be relabeled IDENTITY.
+        Analysis throughSubqueryStar = analyze("INSERT INTO t2 (a) SELECT * FROM (SELECT sum(a) AS s FROM t1)");
+        assertThat(transformationTypeFor(throughSubqueryStar, "a", "a")).contains(ColumnTransformationType.AGGREGATION);
+
+        // Transforming an already-aggregated subquery column stays AGGREGATION.
+        Analysis throughSubquery = analyze("INSERT INTO t2 (a) SELECT s + 1 FROM (SELECT sum(a) AS s FROM t1)");
+        assertThat(transformationTypeFor(throughSubquery, "a", "a")).contains(ColumnTransformationType.AGGREGATION);
+
+        // Non-aggregate scalar subquery in the projection: the raw value survives, so it must NOT be labeled AGGREGATION.
+        Analysis scalarSubquery = analyze("INSERT INTO t2 (a) SELECT (SELECT a FROM t1 LIMIT 1) FROM t1");
+        assertThat(transformationTypeFor(scalarSubquery, "a", "a")).contains(ColumnTransformationType.TRANSFORMATION);
+
+        // Aggregate scalar subquery: the aggregation happened upstream (inside the subquery) so kept as AGGREGATION.
+        Analysis aggregateScalarSubquery = analyze("INSERT INTO t2 (a) SELECT (SELECT sum(a) FROM t1) FROM t1");
+        assertThat(transformationTypeFor(aggregateScalarSubquery, "a", "a")).contains(ColumnTransformationType.AGGREGATION);
+
+        // UNION where one branch copies the source column and the other aggregates it: the copy still exposes the raw value, so the output stays IDENTITY.
+        Analysis union = analyze("INSERT INTO t2 (a) SELECT a FROM t1 UNION ALL SELECT sum(a) FROM t1");
+        assertThat(transformationTypeFor(union, "a", "a")).contains(ColumnTransformationType.IDENTITY);
+
+        // CTE aggregates a, then the outer query passes the aggregated column through unchanged: no raw value of a survives, so it stays AGGREGATION.
+        Analysis cte = analyze("INSERT INTO t2 (a) WITH v AS (SELECT sum(a) AS s FROM t1) SELECT s FROM v");
+        assertThat(transformationTypeFor(cte, "a", "a")).contains(ColumnTransformationType.AGGREGATION);
+
+        // FILTER on a plain aggregate: the function still aggregates its argument away → AGGREGATION.
+        Analysis filteredAggregate = analyze("INSERT INTO t2 (a) SELECT sum(a) FILTER (WHERE b > 0) FROM t1");
+        assertThat(transformationTypeFor(filteredAggregate, "a", "a")).contains(ColumnTransformationType.AGGREGATION);
+
+        // Plain ordered-set aggregate (function-level ORDER BY, no OVER): still an aggregate → AGGREGATION.
+        Analysis orderedAggregate = analyze("INSERT INTO t2 (a) SELECT cardinality(array_agg(a ORDER BY b)) FROM t1");
+        assertThat(transformationTypeFor(orderedAggregate, "a", "a")).contains(ColumnTransformationType.AGGREGATION);
+
+        // Windowed aggregate (sum(a) OVER ...): a per-row value, not a real aggregation, so the raw input survives → TRANSFORMATION.
+        Analysis windowedAggregate = analyze("INSERT INTO t2 (a) SELECT sum(a) OVER (PARTITION BY b) FROM t1");
+        assertThat(transformationTypeFor(windowedAggregate, "a", "a")).contains(ColumnTransformationType.TRANSFORMATION);
+    }
+
+    private static Optional<ColumnTransformationType> transformationTypeFor(Analysis analysis, String outputColumnName, String sourceColumnName)
+    {
+        return sourceColumnsFor(analysis, outputColumnName).stream()
+                .filter(sourceColumn -> sourceColumn.getColumnName().equals(sourceColumnName))
+                .findFirst()
+                .flatMap(Analysis.SourceColumn::getTransformationType);
+    }
+
+    private static Set<Analysis.SourceColumn> sourceColumnsFor(Analysis analysis, String outputColumnName)
+    {
+        Output target = analysis.getTarget().orElseThrow(() -> new AssertionError("analysis has no update target"));
+        List<OutputColumn> columns = target.getColumns().orElseThrow(() -> new AssertionError("update target has no columns"));
+        return columns.stream()
+                .filter(column -> column.getColumn().name().equals(outputColumnName))
+                .map(OutputColumn::getSourceColumns)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no output column named " + outputColumnName));
     }
 
     private TrinoExceptionAssert assertFails(@Language("SQL") String query)

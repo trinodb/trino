@@ -19,11 +19,13 @@ import io.airlift.json.JsonCodec;
 import io.trino.execution.Column;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogVersion;
+import io.trino.spi.eventlistener.ColumnTransformationType;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,12 +46,15 @@ public class TestOutput
                                 new OutputColumn(
                                         new Column("column", "type"),
                                         ImmutableSet.of(
-                                                new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column"))))));
+                                                new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column")
+                                                        .withTransformationType(ColumnTransformationType.TRANSFORMATION))))));
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
 
         assertThat(actual).isEqualTo(expected);
+        SourceColumn roundTripped = getOnlyElement(actual.getColumns().orElseThrow().get(0).getSourceColumns());
+        assertThat(roundTripped.getTransformationType()).contains(ColumnTransformationType.TRANSFORMATION);
     }
 
     @Test

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,15 +31,23 @@ public class ColumnDetail
     private final String schema;
     private final String table;
     private final String columnName;
+    private final Optional<ColumnTransformationType> transformationType;
+
+    @Unstable
+    public ColumnDetail(String catalog, String schema, String table, String columnName)
+    {
+        this(catalog, schema, table, columnName, Optional.empty());
+    }
 
     @JsonCreator
     @Unstable
-    public ColumnDetail(String catalog, String schema, String table, String columnName)
+    public ColumnDetail(String catalog, String schema, String table, String columnName, Optional<ColumnTransformationType> transformationType)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
+        this.transformationType = requireNonNull(transformationType, "transformationType is null");
     }
 
     @JsonProperty
@@ -65,6 +74,13 @@ public class ColumnDetail
         return columnName;
     }
 
+    @JsonProperty
+    public Optional<ColumnTransformationType> getTransformationType()
+    {
+        return transformationType;
+    }
+
+    // transformationType is excluded from equals/hashCode: it is advisory derivation metadata, not identity.
     @Override
     public int hashCode()
     {
