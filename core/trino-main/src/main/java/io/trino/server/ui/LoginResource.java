@@ -16,6 +16,7 @@ package io.trino.server.ui;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.inject.Inject;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.security.Identity;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
@@ -32,6 +33,7 @@ import jakarta.ws.rs.core.SecurityContext;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
+import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_AUTH_INFO;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN_FORM;
@@ -59,7 +61,9 @@ public class LoginResource
     public AuthInfo getAuthInfo(@Context ContainerRequestContext request, @Context SecurityContext securityContext)
     {
         boolean isPasswordAllowed = formWebUiAuthenticationManager.isPasswordAllowed(securityContext.isSecure());
-        Optional<String> username = formWebUiAuthenticationManager.getAuthenticatedUsername(request);
+        Optional<String> username = authenticatedIdentity(request)
+                .map(Identity::getUser)
+                .or(() -> formWebUiAuthenticationManager.getAuthenticatedUsername(request));
         return new AuthInfo("form", isPasswordAllowed, username.isPresent(), username);
     }
 
