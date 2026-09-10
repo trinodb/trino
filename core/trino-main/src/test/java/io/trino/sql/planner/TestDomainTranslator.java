@@ -924,6 +924,16 @@ public class TestDomainTranslator
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
                         false)));
 
+        // IDENTICAL, same as = because the value is not null
+        assertPredicateDerives(
+                comparison(IDENTICAL, cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-10"), true, utf8Slice("2005-09-11"), false),
+                                Range.range(VARCHAR, utf8Slice("2005-9-10"), true, utf8Slice("2005-9-11"), false),
+                                Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                        false)));
+
         // !=
         assertPredicateDerives(
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),

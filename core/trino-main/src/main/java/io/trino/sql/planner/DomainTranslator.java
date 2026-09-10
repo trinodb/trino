@@ -98,7 +98,6 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
@@ -572,13 +571,10 @@ public final class DomainTranslator
 
             // superset of possible values, for the "normal case"
             ValueSet valueSet;
-            boolean nullAllowed = false;
 
             switch (operator) {
-                case EQUAL, IDENTICAL -> {
-                    valueSet = dateStringRanges(date, sourceType);
-                    nullAllowed = operator == IDENTICAL;
-                }
+                // the value is not null, so a null source value satisfies neither EQUAL (unknown) nor IDENTICAL (false)
+                case EQUAL, IDENTICAL -> valueSet = dateStringRanges(date, sourceType);
                 case NOT_EQUAL -> {
                     if (date.getDayOfMonth() < 10) {
                         // TODO: possible to handle but cumbersome
@@ -601,7 +597,7 @@ public final class DomainTranslator
                     Range.greaterThan(sourceType, utf8Slice("9"))));
 
             return Optional.of(new ExtractionResult(
-                    TupleDomain.withColumnDomains(ImmutableMap.of(sourceSymbol, Domain.create(valueSet, nullAllowed))),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(sourceSymbol, Domain.create(valueSet, false))),
                     originalExpression));
         }
 
