@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -834,6 +835,28 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(equal(cast(C_TINYINT, DOUBLE), nanDouble));
         assertPredicateIsAlwaysFalse(equal(cast(C_SMALLINT, DOUBLE), nanDouble));
         assertPredicateIsAlwaysFalse(equal(cast(C_INTEGER, DOUBLE), nanDouble));
+    }
+
+    @Test
+    public void testIdenticalOverCoercedCast()
+    {
+        Expression decimal425 = new Constant(createDecimalType(20, 1), Decimals.encodeScaledValue(new BigDecimal("42.5"), 1));
+
+        // CAST(c_integer AS bigint) IS NOT DISTINCT FROM BIGINT '42' holds exactly for c_integer = 42
+        assertPredicateTranslates(
+                comparison(IDENTICAL, cast(C_INTEGER, BIGINT), bigintLiteral(42L)),
+                tupleDomain(C_INTEGER, Domain.singleValue(INTEGER, 42L)));
+        assertPredicateTranslates(
+                isDistinctFrom(cast(C_INTEGER, BIGINT), bigintLiteral(42L)),
+                tupleDomain(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 42L), Range.greaterThan(INTEGER, 42L)), true)));
+
+        // no integer value casts to BIGINT '2147483648'
+        assertPredicateIsAlwaysFalse(comparison(IDENTICAL, cast(C_INTEGER, BIGINT), bigintLiteral(Integer.MAX_VALUE + 1L)));
+        assertPredicateIsAlwaysTrue(isDistinctFrom(cast(C_INTEGER, BIGINT), bigintLiteral(Integer.MAX_VALUE + 1L)));
+
+        // no bigint value casts to DECIMAL '42.5'
+        assertPredicateIsAlwaysFalse(comparison(IDENTICAL, cast(C_BIGINT, createDecimalType(20, 1)), decimal425));
+        assertPredicateIsAlwaysTrue(isDistinctFrom(cast(C_BIGINT, createDecimalType(20, 1)), decimal425));
     }
 
     @Test
@@ -1658,7 +1681,7 @@ public class TestDomainTranslator
 
     private static Expression isDistinctFrom(Symbol symbol, Expression expression)
     {
-        return not(comparison(IDENTICAL, symbol.toSymbolReference(), expression));
+        return isDistinctFrom(symbol.toSymbolReference(), expression);
     }
 
     private Call like(Symbol symbol, String pattern)
@@ -1761,6 +1784,11 @@ public class TestDomainTranslator
     private static Expression lessThanOrEqual(Expression left, Expression right)
     {
         return comparison(LESS_THAN_OR_EQUAL, left, right);
+    }
+
+    private static Expression isDistinctFrom(Expression left, Expression right)
+    {
+        return not(comparison(IDENTICAL, left, right));
     }
 
     private static Expression not(Expression expression)

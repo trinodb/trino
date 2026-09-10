@@ -823,9 +823,10 @@ public final class DomainTranslator
                     yield or(comparison(metadata, getCharVarcharCoercion(session), EQUAL, symbolExpression, coercedLiteral),
                             comparison(metadata, getCharVarcharCoercion(session), NOT_EQUAL, symbolExpression, coercedLiteral));
                 }
+                // IDENTICAL is null-safe, so an unsatisfiable predicate is FALSE, not "false for all non-null values"
                 case IDENTICAL -> coercedValueIsEqualToOriginal ?
-                        TRUE :
-                        comparison(metadata, getCharVarcharCoercion(session), comparisonOperator, symbolExpression, coercedLiteral);
+                        comparison(metadata, getCharVarcharCoercion(session), comparisonOperator, symbolExpression, coercedLiteral) :
+                        FALSE;
             };
         }
 
