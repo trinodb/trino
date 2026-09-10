@@ -309,7 +309,6 @@ public final class TestingRows
         }
         catch (RuntimeException _) {
             // the compiler does not accept the expression, so there is no second opinion to compare with
-            // the compiler does not accept the expression, so there is no second opinion to compare with
             return Optional.empty();
         }
 
