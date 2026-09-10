@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
@@ -30,29 +32,41 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
+import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.IcebergViewProperties;
+import io.trino.plugin.iceberg.catalog.MaterializedViewStorageColumns;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -67,11 +81,17 @@ import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.exceptions.RESTException;
+import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.apache.iceberg.util.LocationUtil;
+import org.apache.iceberg.view.RefreshState;
+import org.apache.iceberg.view.RefreshStateParser;
 import org.apache.iceberg.view.ReplaceViewVersion;
 import org.apache.iceberg.view.SQLViewRepresentation;
+import org.apache.iceberg.view.SourceState;
+import org.apache.iceberg.view.SourceTableState;
+import org.apache.iceberg.view.SourceViewState;
 import org.apache.iceberg.view.UpdateViewProperties;
 import org.apache.iceberg.view.View;
 import org.apache.iceberg.view.ViewBuilder;
@@ -79,12 +99,17 @@ import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -94,17 +119,29 @@ import java.util.stream.Stream;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.SUPPORTED_SCHEMA_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
+import static io.trino.plugin.iceberg.IcebergUtil.commit;
+import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH_WITHIN_GRACE_PERIOD;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -119,6 +156,20 @@ public class TrinoRestCatalog
 
     private static final int PER_QUERY_CACHE_SIZE = 1000;
     private static final String NAMESPACE_SEPARATOR = ".";
+
+    private static final String MATERIALIZED_VIEW_GRACE_PERIOD_PROPERTY = "trino.materialized-view.grace-period";
+    private static final String MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR_PROPERTY = "trino.materialized-view.when-stale-behavior";
+    private static final String MATERIALIZED_VIEW_PATH_PROPERTY = "trino.materialized-view.path";
+    private static final JsonCodec<List<CatalogSchemaName>> MATERIALIZED_VIEW_PATH_CODEC = new JsonCodecFactory().listJsonCodec(CatalogSchemaName.class);
+    // The view's own Iceberg Schema must use Iceberg-representable types (same coercion as the storage
+    // table), which can differ from what the user declared (e.g. timestamp(3), or timestamp with time
+    // zone coerced to varchar). The original type is preserved here since StatementAnalyzer.analyzeView
+    // re-validates the materialized view on every use against it, and rejects a coerced type it can't
+    // reconcile with the live query's projected type.
+    private static final String MATERIALIZED_VIEW_COLUMN_TYPES_PROPERTY = "trino.materialized-view.column-types";
+    private static final JsonCodec<Map<String, String>> MATERIALIZED_VIEW_COLUMN_TYPES_CODEC = new JsonCodecFactory().mapJsonCodec(String.class, String.class);
+    // Forces MaterializedViewFreshness.Freshness.UNKNOWN when the native scheme can't fully verify freshness.
+    private static final String FRESHNESS_UNKNOWN_PROPERTY = "trino.materialized-view.freshness-unknown";
 
     private final IcebergFileSystemFactory fileSystemFactory;
     private final RESTSessionCatalog restSessionCatalog;
@@ -367,6 +418,33 @@ public class TrinoRestCatalog
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
+        return listClassifiedViews(session, namespace, false);
+    }
+
+    @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
+    {
+        return listClassifiedViews(session, namespace, true);
+    }
+
+    @Override
+    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
+    {
+        // listTables reports every view/materialized view as OTHER_VIEW (see above), so unlike the
+        // default TrinoCatalog.getRelationTypes, it can't be relied on alone to classify a materialized
+        // view; overlay listMaterializedViews so it's still reported as such.
+        Map<SchemaTableName, RelationType> result = new LinkedHashMap<>(TrinoCatalog.super.getRelationTypes(session, namespace));
+        for (SchemaTableName name : listMaterializedViews(session, namespace)) {
+            result.put(name, RelationType.MATERIALIZED_VIEW);
+        }
+        return ImmutableMap.copyOf(result);
+    }
+
+    // REST has no bulk endpoint returning view metadata, so distinguishing a materialized view
+    // (an Iceberg view whose current version has a non-null storageTable(), created by Trino)
+    // from a plain view requires loading each view individually.
+    private List<SchemaTableName> listClassifiedViews(ConnectorSession session, Optional<String> namespace, boolean materializedViews)
+    {
         if (!viewEndpointsEnabled) {
             return ImmutableList.of();
         }
@@ -376,16 +454,22 @@ public class TrinoRestCatalog
 
         ImmutableList.Builder<SchemaTableName> viewNames = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
-            listTableIdentifiers(restNamespace, () -> {
+            for (TableIdentifier identifier : listTableIdentifiers(restNamespace, () -> {
                 try {
                     return restSessionCatalog.listViews(sessionContext, toRemoteNamespace(session, restNamespace));
                 }
                 catch (RESTException e) {
                     throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list views", e);
                 }
-            }).stream()
-                    .map(id -> SchemaTableName.schemaTableName(id.namespace().toString(), id.name()))
-                    .forEach(viewNames::add);
+            })) {
+                SchemaTableName schemaTableName = SchemaTableName.schemaTableName(identifier.namespace().toString(), identifier.name());
+                boolean isMaterializedView = getIcebergView(session, schemaTableName, false)
+                        .map(view -> view.currentVersion().storageTable() != null)
+                        .orElse(false);
+                if (isMaterializedView == materializedViews) {
+                    viewNames.add(schemaTableName);
+                }
+            }
         }
         return viewNames.build();
     }
@@ -793,6 +877,10 @@ public class TrinoRestCatalog
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return getIcebergView(session, viewName, false).flatMap(view -> {
+            if (view.currentVersion().storageTable() != null) {
+                // Materialized view, not a plain view
+                return Optional.empty();
+            }
             SQLViewRepresentation sqlView = view.sqlFor("trino");
             if (!sqlView.dialect().equalsIgnoreCase("trino")) {
                 throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewName));
@@ -849,43 +937,565 @@ public class TrinoRestCatalog
             boolean replace,
             boolean ignoreExisting)
     {
-        throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg REST catalog");
+        Optional<View> existing = getIcebergView(session, viewName, true);
+        if (existing.isPresent()) {
+            if (existing.get().currentVersion().storageTable() == null) {
+                throw new TrinoException(NOT_SUPPORTED, "Existing object is not a Materialized View: " + viewName);
+            }
+            if (!replace) {
+                if (ignoreExisting) {
+                    return;
+                }
+                throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+            }
+            replaceMaterializedView(session, viewName, existing.get(), definition, materializedViewProperties);
+            return;
+        }
+        if (tableExists(session, viewName)) {
+            throw new TrinoException(NOT_SUPPORTED, "Existing table is not a Materialized View: " + viewName);
+        }
+
+        SchemaTableName storageTableName = createMaterializedViewStorageTable(session, viewName, definition, materializedViewProperties);
+        createMaterializedViewObject(session, viewName, storageTableName, definition, materializedViewProperties, false);
+    }
+
+    private boolean tableExists(ConnectorSession session, SchemaTableName tableName)
+    {
+        try {
+            loadTable(session, tableName);
+            return true;
+        }
+        catch (TableNotFoundException e) {
+            return false;
+        }
+    }
+
+    private void replaceMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            View existingView,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties)
+    {
+        SchemaTableName storageTableName = toSchemaTableName(existingView.currentVersion().storageTable());
+        replaceMaterializedViewStorageTable(session, storageTableName, definition, materializedViewProperties);
+        createMaterializedViewObject(session, viewName, storageTableName, definition, materializedViewProperties, true);
+    }
+
+    private SchemaTableName createMaterializedViewStorageTable(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties)
+    {
+        String storageSchema = getStorageSchema(materializedViewProperties).orElse(viewName.getSchemaName());
+        SchemaTableName storageTableName = new SchemaTableName(storageSchema, "st_" + randomUUID().toString().replace("-", ""));
+        List<ColumnMetadata> columns = MaterializedViewStorageColumns.columnsForMaterializedView(typeManager, definition, materializedViewProperties);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty());
+        String tableLocation = getTableLocation(tableMetadata.getProperties())
+                .orElseGet(() -> defaultTableLocation(session, storageTableName));
+
+        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation, _ -> false, ImmutableList.of());
+        transaction.commitTransaction();
+        return storageTableName;
+    }
+
+    private void replaceMaterializedViewStorageTable(
+            ConnectorSession session,
+            SchemaTableName storageTableName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties)
+    {
+        BaseTable existingStorageTable = loadTable(session, storageTableName);
+        Optional<String> providedLocation = getTableLocation(materializedViewProperties);
+        if (providedLocation.isPresent() && !LocationUtil.stripTrailingSlash(providedLocation.get()).equals(existingStorageTable.location())) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "The provided location '%s' does not match the existing storage table location '%s'".formatted(providedLocation.get(), existingStorageTable.location()));
+        }
+        List<ColumnMetadata> columns = MaterializedViewStorageColumns.columnsForMaterializedView(typeManager, definition, materializedViewProperties);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty());
+
+        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, true, existingStorageTable.location(), _ -> false, ImmutableList.of());
+        // Replacing the storage table's definition doesn't carry over old data
+        transaction.newDelete()
+                .deleteFromRowFilter(Expressions.alwaysTrue())
+                .commit();
+        transaction.commitTransaction();
+        invalidateTableCache(storageTableName);
+    }
+
+    private void createMaterializedViewObject(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            SchemaTableName storageTableName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
+            boolean replace)
+    {
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
+        definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
+        definition.getGracePeriod().ifPresent(gracePeriod -> properties.put(MATERIALIZED_VIEW_GRACE_PERIOD_PROPERTY, gracePeriod.toString()));
+        definition.getWhenStaleBehavior().ifPresent(whenStaleBehavior -> properties.put(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR_PROPERTY, whenStaleBehavior.name()));
+        if (!definition.getPath().isEmpty()) {
+            properties.put(MATERIALIZED_VIEW_PATH_PROPERTY, MATERIALIZED_VIEW_PATH_CODEC.toJson(definition.getPath()));
+        }
+        Map<String, String> originalColumnTypes = definition.getColumns().stream()
+                .collect(toImmutableMap(ConnectorMaterializedViewDefinition.Column::getName, column -> column.getType().getId()));
+        properties.put(MATERIALIZED_VIEW_COLUMN_TYPES_PROPERTY, MATERIALIZED_VIEW_COLUMN_TYPES_CODEC.toJson(originalColumnTypes));
+
+        // The view's own schema needs the same type coercion as the storage table's columns.
+        Map<String, Optional<String>> columnComments = definition.getColumns().stream()
+                .collect(toImmutableMap(ConnectorMaterializedViewDefinition.Column::getName, ConnectorMaterializedViewDefinition.Column::getComment));
+        List<ConnectorViewDefinition.ViewColumn> viewColumns = MaterializedViewStorageColumns.columnsForMaterializedView(typeManager, definition, materializedViewProperties).stream()
+                .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), column.getType().getTypeId(), columnComments.get(column.getName())))
+                .collect(toImmutableList());
+        Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, viewColumns);
+
+        Namespace defaultNamespace = definition.getSchema()
+                .map(schemaName -> toRemoteNamespace(session, toNamespace(schemaName)))
+                .orElse(Namespace.empty());
+        ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, viewName, true))
+                .withSchema(schema)
+                .withQuery("trino", definition.getOriginalSql())
+                .withDefaultNamespace(defaultNamespace)
+                .withDefaultCatalog(definition.getCatalog().orElse(null))
+                .withProperties(properties.buildOrThrow())
+                .withLocation(defaultTableLocation(session, viewName))
+                .withStorageTableIdentifier(toRemoteTable(session, storageTableName, true));
+        try {
+            if (replace) {
+                viewBuilder.createOrReplace();
+            }
+            else {
+                viewBuilder.create();
+            }
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to create materialized view '%s'".formatted(viewName.getTableName()), e);
+        }
+        finally {
+            invalidateTableMappingCache(viewName);
+        }
     }
 
     @Override
     public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
     {
-        throw new TrinoException(NOT_SUPPORTED, "updateMaterializedViewColumnComment is not supported for Iceberg REST catalog");
+        View view = getIcebergView(session, schemaViewName, true).orElseThrow(() -> new MaterializedViewNotFoundException(schemaViewName));
+        TableIdentifier storageTableIdentifier = view.currentVersion().storageTable();
+        if (storageTableIdentifier == null) {
+            throw new MaterializedViewNotFoundException(schemaViewName);
+        }
+
+        // Column comments live in the view's own Schema (like plain views), which can only change via a
+        // new ViewVersion. Rebuilding through ViewBuilder.createOrReplace() (rather than
+        // view.replaceVersion(), used for plain views) is required to keep storageTable() set on the new
+        // version; everything except the updated column's comment is carried over unchanged.
+        ViewVersion currentVersion = view.currentVersion();
+        Schema updatedSchema = IcebergUtil.updateColumnComment(view.schema(), columnName, comment.orElse(null));
+        SQLViewRepresentation sqlView = view.sqlFor("trino");
+
+        ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, schemaViewName, true))
+                .withSchema(updatedSchema)
+                .withQuery("trino", sqlView.sql())
+                .withDefaultNamespace(currentVersion.defaultNamespace())
+                .withDefaultCatalog(currentVersion.defaultCatalog())
+                .withProperties(view.properties())
+                .withLocation(view.location())
+                .withStorageTableIdentifier(toRemoteTable(session, toSchemaTableName(storageTableIdentifier), true));
+        try {
+            viewBuilder.createOrReplace();
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to update column comment for materialized view '%s'".formatted(schemaViewName.getTableName()), e);
+        }
+        finally {
+            invalidateTableMappingCache(schemaViewName);
+        }
     }
 
     @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "dropMaterializedView is not supported for Iceberg REST catalog");
+        View view = getIcebergView(session, viewName, true).orElseThrow(() -> new MaterializedViewNotFoundException(viewName));
+        TableIdentifier storageTableIdentifier = view.currentVersion().storageTable();
+        if (storageTableIdentifier == null) {
+            throw new TrinoException(NOT_SUPPORTED, "Not a Materialized View: " + viewName);
+        }
+
+        try {
+            restSessionCatalog.dropView(convert(session), toRemoteView(session, viewName, true));
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop materialized view '%s'".formatted(viewName.getTableName()), e);
+        }
+        finally {
+            invalidateTableMappingCache(viewName);
+        }
+
+        SchemaTableName storageTableName = toSchemaTableName(storageTableIdentifier);
+        try {
+            purgeTable(session, storageTableName);
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Failed to drop storage table '%s' of materialized view '%s'", storageTableName, viewName);
+        }
+        finally {
+            invalidateTableCache(storageTableName);
+            invalidateTableMappingCache(storageTableName);
+        }
     }
 
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        return Optional.empty();
+        return getIcebergView(session, viewName, false).flatMap(this::decodeMaterializedView);
+    }
+
+    private Optional<ConnectorMaterializedViewDefinition> decodeMaterializedView(View view)
+    {
+        TableIdentifier storageTableIdentifier = view.currentVersion().storageTable();
+        if (storageTableIdentifier == null) {
+            // Regular view, not a materialized view
+            return Optional.empty();
+        }
+        Map<String, String> properties = view.properties();
+        SQLViewRepresentation sqlView = view.sqlFor("trino");
+        if (!sqlView.dialect().equalsIgnoreCase("trino")) {
+            throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for materialized view '%s'".formatted(sqlView.dialect(), view.name()));
+        }
+
+        ViewVersion currentVersion = view.currentVersion();
+        Optional<String> catalog = Optional.ofNullable(currentVersion.defaultCatalog());
+        Optional<String> schema = Optional.empty();
+        if (catalog.isPresent() && !currentVersion.defaultNamespace().isEmpty()) {
+            schema = Optional.of(currentVersion.defaultNamespace().toString());
+        }
+
+        // Prefer the preserved original column type (see the property's declaration); fall back to the
+        // (possibly coerced) schema type for a foreign-engine-created materialized view, which never
+        // wrote this property.
+        Map<String, String> originalColumnTypes = Optional.ofNullable(properties.get(MATERIALIZED_VIEW_COLUMN_TYPES_PROPERTY))
+                .map(MATERIALIZED_VIEW_COLUMN_TYPES_CODEC::fromJson)
+                .orElse(ImmutableMap.of());
+        List<ConnectorMaterializedViewDefinition.Column> columns = IcebergUtil.viewColumnsFromSchema(typeManager, view.schema()).stream()
+                .map(column -> new ConnectorMaterializedViewDefinition.Column(
+                        column.getName(),
+                        Optional.ofNullable(originalColumnTypes.get(column.getName())).map(TypeId::of).orElse(column.getType()),
+                        column.getComment()))
+                .collect(toImmutableList());
+
+        Optional<Duration> gracePeriod = Optional.ofNullable(properties.get(MATERIALIZED_VIEW_GRACE_PERIOD_PROPERTY)).map(Duration::parse);
+        Optional<ConnectorMaterializedViewDefinition.WhenStaleBehavior> whenStaleBehavior = Optional.ofNullable(properties.get(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR_PROPERTY))
+                .map(ConnectorMaterializedViewDefinition.WhenStaleBehavior::valueOf);
+        List<CatalogSchemaName> path = Optional.ofNullable(properties.get(MATERIALIZED_VIEW_PATH_PROPERTY))
+                .map(MATERIALIZED_VIEW_PATH_CODEC::fromJson)
+                .orElse(ImmutableList.of());
+
+        Optional<String> comment = Optional.ofNullable(properties.get(COMMENT));
+        Optional<String> owner = Optional.ofNullable(properties.get(ICEBERG_VIEW_RUN_AS_OWNER));
+        SchemaTableName storageTableName = toSchemaTableName(storageTableIdentifier);
+
+        return Optional.of(new ConnectorMaterializedViewDefinition(
+                sqlView.sql(),
+                Optional.of(new CatalogSchemaTableName(catalogName.toString(), storageTableName)),
+                catalog,
+                schema,
+                columns,
+                gracePeriod,
+                whenStaleBehavior,
+                comment,
+                owner,
+                path));
     }
 
     @Override
     public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
     {
-        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
+        SchemaTableName storageTableName = definition.getStorageTable()
+                .orElseThrow(() -> new TrinoException(ICEBERG_CATALOG_ERROR, "Materialized view definition is missing a storage table"))
+                .getSchemaTableName();
+        BaseTable storageTable = loadTable(session, storageTableName);
+        return ImmutableMap.<String, Object>builder()
+                .putAll(getIcebergTableProperties(storageTable))
+                .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
+                .buildOrThrow();
     }
 
     @Override
     public Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
+        return getIcebergView(session, viewName, false)
+                .map(View::currentVersion)
+                .map(ViewVersion::storageTable)
+                .map(this::toSchemaTableName)
+                .map(storageTableName -> loadTable(session, storageTableName));
     }
 
     @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
-        throw new TrinoException(NOT_SUPPORTED, "renameMaterializedView is not supported for Iceberg REST catalog");
+        View view = getIcebergView(session, source, true).orElseThrow(() -> new MaterializedViewNotFoundException(source));
+        if (view.currentVersion().storageTable() == null) {
+            throw new TrinoException(NOT_SUPPORTED, "Not a Materialized View: " + source);
+        }
+        renameView(session, source, target);
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
+    {
+        Optional<View> view = getIcebergView(session, materializedViewName, false);
+        if (view.isEmpty()) {
+            // View not found, might have been concurrently deleted
+            return new MaterializedViewFreshness(STALE, Optional.empty());
+        }
+        Optional<ConnectorMaterializedViewDefinition> definition = decodeMaterializedView(view.get());
+        if (definition.isEmpty()) {
+            return new MaterializedViewFreshness(STALE, Optional.empty());
+        }
+
+        Table storageTable;
+        try {
+            storageTable = loadTable(session, toSchemaTableName(view.get().currentVersion().storageTable()));
+        }
+        catch (RuntimeException e) {
+            return new MaterializedViewFreshness(UNKNOWN, Optional.empty());
+        }
+
+        Snapshot currentSnapshot = storageTable.currentSnapshot();
+        if (currentSnapshot == null) {
+            return new MaterializedViewFreshness(STALE, Optional.empty());
+        }
+        Map<String, String> summary = currentSnapshot.summary();
+        String refreshStateJson = summary.get(RefreshState.REFRESH_STATE_SUMMARY_KEY);
+        if (refreshStateJson == null) {
+            return new MaterializedViewFreshness(STALE, Optional.empty());
+        }
+        RefreshState refreshState = RefreshStateParser.fromJson(refreshStateJson);
+        Instant refreshTime = Instant.ofEpochMilli(refreshState.refreshStartTimestampMs());
+
+        if (refreshState.viewVersionId() != view.get().currentVersion().versionId()) {
+            // The materialized view definition was replaced since the last refresh
+            return new MaterializedViewFreshness(STALE, Optional.of(refreshTime));
+        }
+
+        if (Boolean.parseBoolean(summary.get(FRESHNESS_UNKNOWN_PROPERTY))) {
+            return new MaterializedViewFreshness(UNKNOWN, Optional.of(refreshTime));
+        }
+
+        if (considerGracePeriod && withinGracePeriod(session.getStart(), refreshTime, definition.get().getGracePeriod())) {
+            return new MaterializedViewFreshness(FRESH_WITHIN_GRACE_PERIOD, Optional.empty());
+        }
+
+        boolean hasStaleSources = false;
+        boolean hasUnknownSources = false;
+        for (SourceState sourceState : refreshState.sourceStates()) {
+            if (sourceState instanceof SourceTableState tableState) {
+                if (tableState.catalog() != null && !tableState.catalog().equals(catalogName.toString())) {
+                    // Recorded against a different Trino catalog; this catalog cannot verify it
+                    hasUnknownSources = true;
+                    continue;
+                }
+                SchemaTableName sourceTableName = SchemaTableName.schemaTableName(String.join(NAMESPACE_SEPARATOR, tableState.namespace()), tableState.name());
+                Table sourceTable;
+                try {
+                    sourceTable = loadTable(session, sourceTableName);
+                }
+                catch (RuntimeException e) {
+                    // Base table is gone, or corrupted, or can't otherwise be resolved: treat conservatively as changed
+                    hasStaleSources = true;
+                    continue;
+                }
+                if (!tableState.uuid().equals(sourceTable.uuid().toString())) {
+                    // Table was dropped and re-created since the last refresh
+                    hasStaleSources = true;
+                    continue;
+                }
+                long sourceCurrentSnapshotId;
+                if (tableState.ref() != null) {
+                    SnapshotRef ref = sourceTable.refs().get(tableState.ref());
+                    if (ref == null) {
+                        // The branch was dropped or renamed since the last refresh
+                        hasStaleSources = true;
+                        continue;
+                    }
+                    sourceCurrentSnapshotId = ref.snapshotId();
+                }
+                else {
+                    Snapshot sourceCurrentSnapshot = sourceTable.currentSnapshot();
+                    sourceCurrentSnapshotId = sourceCurrentSnapshot == null ? -1 : sourceCurrentSnapshot.snapshotId();
+                }
+                if (sourceCurrentSnapshotId != tableState.snapshotId()) {
+                    hasStaleSources = true;
+                }
+                else {
+                    // A schema-only change (rename, added column, etc.) doesn't bump the snapshot id.
+                    Snapshot recordedSnapshot = sourceTable.snapshot(tableState.snapshotId());
+                    Integer recordedSchemaId = recordedSnapshot == null ? null : recordedSnapshot.schemaId();
+                    if (recordedSchemaId != null && !recordedSchemaId.equals(sourceTable.schema().schemaId())) {
+                        hasStaleSources = true;
+                    }
+                }
+            }
+            else if (sourceState instanceof SourceViewState viewState) {
+                if (viewState.catalog() != null && !viewState.catalog().equals(catalogName.toString())) {
+                    // Recorded against a different Trino catalog; this catalog cannot verify it
+                    hasUnknownSources = true;
+                    continue;
+                }
+                SchemaTableName sourceViewName = SchemaTableName.schemaTableName(String.join(NAMESPACE_SEPARATOR, viewState.namespace()), viewState.name());
+                Optional<View> sourceView = getIcebergView(session, sourceViewName, true);
+                if (sourceView.isEmpty()) {
+                    // View is gone, or corrupted, or can't otherwise be resolved: treat conservatively as changed
+                    hasStaleSources = true;
+                    continue;
+                }
+                if (!viewState.uuid().equals(sourceView.get().uuid().toString())) {
+                    // View was dropped and re-created since the last refresh
+                    hasStaleSources = true;
+                    continue;
+                }
+                if (sourceView.get().currentVersion().versionId() != viewState.versionId()) {
+                    // View definition was replaced since the last refresh
+                    hasStaleSources = true;
+                }
+            }
+        }
+
+        if (hasStaleSources) {
+            return new MaterializedViewFreshness(STALE, Optional.of(refreshTime));
+        }
+        if (hasUnknownSources) {
+            return new MaterializedViewFreshness(UNKNOWN, Optional.of(refreshTime));
+        }
+        return new MaterializedViewFreshness(FRESH, Optional.empty());
+    }
+
+    private static boolean withinGracePeriod(Instant sessionStart, Instant refreshTime, Optional<Duration> gracePeriod)
+    {
+        if (gracePeriod.isEmpty()) {
+            // infinite grace period
+            return true;
+        }
+        return refreshTime.plus(gracePeriod.get()).isAfter(sessionStart);
+    }
+
+    @Override
+    public void recordMaterializedViewRefresh(
+            ConnectorSession session,
+            SchemaTableName materializedViewName,
+            AppendFiles appendFiles,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
+    {
+        View view = getIcebergView(session, materializedViewName, true)
+                .orElseThrow(() -> new MaterializedViewNotFoundException(materializedViewName));
+
+        ImmutableList.Builder<SourceState> sourceStates = ImmutableList.builder();
+        for (ConnectorTableHandle handle : sourceTableHandles) {
+            IcebergTableHandle sourceTableHandle = (IcebergTableHandle) handle;
+            SchemaTableName sourceTableName = sourceTableHandle.getSchemaTableName();
+            Table sourceTable = loadTable(session, sourceTableName);
+            Optional<String> branch = sourceTableHandle.getBranch();
+            long currentSnapshotId;
+            if (branch.isPresent()) {
+                SnapshotRef ref = sourceTable.refs().get(branch.get());
+                if (ref == null) {
+                    throw new TrinoException(ICEBERG_CATALOG_ERROR, "Branch '%s' no longer exists on source table '%s'".formatted(branch.get(), sourceTableName));
+                }
+                currentSnapshotId = ref.snapshotId();
+            }
+            else {
+                Snapshot currentSnapshot = sourceTable.currentSnapshot();
+                currentSnapshotId = currentSnapshot == null ? -1 : currentSnapshot.snapshotId();
+            }
+            sourceStates.add(new SourceTableState(
+                    sourceTableName.getTableName(),
+                    ImmutableList.copyOf(toNamespace(sourceTableName.getSchemaName()).levels()),
+                    catalogName.toString(),
+                    sourceTable.uuid().toString(),
+                    currentSnapshotId,
+                    branch.orElse(null)));
+        }
+
+        boolean hasUnverifiedSourceViews = false;
+        for (CatalogSchemaTableName sourceViewName : sourceViewNames) {
+            if (!sourceViewName.getCatalogName().equals(catalogName.toString())) {
+                // Cross-catalog view reference: this catalog has no way to load it
+                hasUnverifiedSourceViews = true;
+                continue;
+            }
+            SchemaTableName schemaTableName = sourceViewName.getSchemaTableName();
+            Optional<View> sourceView = getIcebergView(session, schemaTableName, true);
+            if (sourceView.isEmpty()) {
+                hasUnverifiedSourceViews = true;
+                continue;
+            }
+            sourceStates.add(new SourceViewState(
+                    schemaTableName.getTableName(),
+                    ImmutableList.copyOf(toNamespace(schemaTableName.getSchemaName()).levels()),
+                    catalogName.toString(),
+                    sourceView.get().uuid().toString(),
+                    sourceView.get().currentVersion().versionId()));
+        }
+
+        RefreshState refreshState = new RefreshState(view.currentVersion().versionId(), sourceStates.build(), session.getStart().toEpochMilli());
+        appendFiles.set(RefreshState.REFRESH_STATE_SUMMARY_KEY, RefreshStateParser.toJson(refreshState));
+        if (hasForeignSourceTables || hasSourceTableFunctions || hasNonDeterministicFunctions || hasUnverifiedSourceViews) {
+            appendFiles.set(FRESHNESS_UNKNOWN_PROPERTY, "true");
+        }
+    }
+
+    @Override
+    public OptionalLong getMaterializedViewIncrementalRefreshFromSnapshot(Table storageTable, List<ConnectorTableHandle> sourceTableHandles)
+    {
+        if (sourceTableHandles.size() != 1) {
+            return OptionalLong.empty();
+        }
+        Snapshot currentSnapshot = storageTable.currentSnapshot();
+        if (currentSnapshot == null) {
+            return OptionalLong.empty();
+        }
+        Map<String, String> summary = currentSnapshot.summary();
+        if (Boolean.parseBoolean(summary.get(FRESHNESS_UNKNOWN_PROPERTY))) {
+            // An untracked dependency existed at the last refresh; can't safely narrow the read
+            return OptionalLong.empty();
+        }
+        String refreshStateJson = summary.get(RefreshState.REFRESH_STATE_SUMMARY_KEY);
+        if (refreshStateJson == null) {
+            return OptionalLong.empty();
+        }
+        RefreshState refreshState = RefreshStateParser.fromJson(refreshStateJson);
+        List<SourceState> sourceStates = refreshState.sourceStates();
+        if (sourceStates.size() != 1 || !(sourceStates.get(0) instanceof SourceTableState tableState)) {
+            // Either no dependencies were recorded, or there's a source view dependency alongside
+            // the source table: incremental refresh from a single table's snapshot could silently
+            // miss a view-induced change, so fall back to full refresh.
+            return OptionalLong.empty();
+        }
+        if (tableState.catalog() != null && !tableState.catalog().equals(catalogName.toString())) {
+            return OptionalLong.empty();
+        }
+        IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
+        SchemaTableName sourceSchemaTable = SchemaTableName.schemaTableName(String.join(NAMESPACE_SEPARATOR, tableState.namespace()), tableState.name());
+        if (!sourceSchemaTable.equals(handle.getSchemaTableName())) {
+            return OptionalLong.empty();
+        }
+        if (!Objects.equals(handle.getBranch().orElse(null), tableState.ref())) {
+            // The source table is now read from a different branch than the last refresh recorded;
+            // an incremental scan anchored on that recorded snapshot would not be on the same lineage.
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(tableState.snapshotId());
+    }
+
+    private SchemaTableName toSchemaTableName(TableIdentifier identifier)
+    {
+        return SchemaTableName.schemaTableName(toSchemaName(identifier.namespace()), identifier.name());
     }
 
     @Override

@@ -708,8 +708,10 @@ public class LogicalPlanner
                 || containsCurrentTimeFunctions(query);
         RefreshMaterializedViewReference writerTarget = new RefreshMaterializedViewReference(
                 viewAnalysis.getTable().toString(),
+                viewAnalysis.getName().asCatalogSchemaTableName(),
                 tableHandle,
                 ImmutableList.copyOf(analysis.getTables()),
+                ImmutableList.copyOf(analysis.getReferencedViews()),
                 tableFunctions,
                 hasNonDeterministicFunctions,
                 // this is a placeholder value - refresh type will be determined by getInsertPlan based on the plan tree

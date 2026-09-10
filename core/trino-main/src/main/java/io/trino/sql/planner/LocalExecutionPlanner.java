@@ -4178,11 +4178,13 @@ public class LocalExecutionPlanner
             if (target instanceof TableWriterNode.RefreshMaterializedViewTarget refreshTarget) {
                 return metadata.finishRefreshMaterializedView(
                         session,
+                        refreshTarget.getMaterializedViewName(),
                         refreshTarget.getTableHandle(),
                         refreshTarget.getInsertHandle(),
                         fragments,
                         statistics,
                         refreshTarget.getSourceTableHandles(),
+                        refreshTarget.getSourceViewNames(),
                         refreshTarget.getSourceTableFunctions(),
                         refreshTarget.hasNonDeterministicFunctions());
             }

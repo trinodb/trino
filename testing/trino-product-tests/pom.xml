@@ -480,7 +480,7 @@
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>org.apache.iceberg</groupId>
-                                    <artifactId>iceberg-spark-runtime-4.0_2.13</artifactId>
+                                    <artifactId>iceberg-spark-runtime-4.2_2.13</artifactId>
                                     <version>${dep.iceberg.version}</version>
                                     <outputDirectory>${project.build.directory}</outputDirectory>
                                     <destFileName>iceberg-spark-runtime.jar</destFileName>

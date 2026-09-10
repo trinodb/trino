@@ -13,38 +13,56 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
+import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.TrinoPrincipal;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_TABLES;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.DEPENDS_ON_TABLE_FUNCTIONS;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.TRINO_QUERY_START_TIME;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.UNKNOWN_SNAPSHOT_TOKEN;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 /**
  * An interface to allow different Iceberg catalog implementations in IcebergMetadata.
@@ -94,6 +112,23 @@ public interface TrinoCatalog
                 .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_VIEW)
                 .map(TableInfo::tableName)
                 .collect(toImmutableList());
+    }
+
+    default List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
+    {
+        return listTables(session, namespace).stream()
+                .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_MATERIALIZED_VIEW)
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
+    }
+
+    default Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
+    {
+        ImmutableMap.Builder<SchemaTableName, RelationType> result = ImmutableMap.builder();
+        for (TableInfo info : listTables(session, namespace)) {
+            result.put(info.tableName(), info.extendedRelationType().toRelationType());
+        }
+        return result.buildKeepingLast();
     }
 
     Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
@@ -208,6 +243,67 @@ public interface TrinoCatalog
     Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName);
 
     void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
+
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+    }
+
+    default void recordMaterializedViewRefresh(
+            ConnectorSession session,
+            SchemaTableName materializedViewName,
+            AppendFiles appendFiles,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
+    {
+        List<String> tableDependencies = new ArrayList<>();
+        sourceTableHandles.stream()
+                .map(IcebergTableHandle.class::cast)
+                .map(handle -> "%s=%s".formatted(
+                        handle.getSchemaTableName(),
+                        handle.getSnapshotId().isPresent() ? Long.toString(handle.getSnapshotId().orElseThrow()) : ""))
+                .forEach(tableDependencies::add);
+        if (hasForeignSourceTables) {
+            tableDependencies.add(UNKNOWN_SNAPSHOT_TOKEN);
+        }
+
+        // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
+        appendFiles.set(DEPENDS_ON_TABLES, String.join(",", tableDependencies));
+        appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, String.valueOf(hasSourceTableFunctions));
+        appendFiles.set(DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, String.valueOf(hasNonDeterministicFunctions));
+        appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
+    }
+
+    default OptionalLong getMaterializedViewIncrementalRefreshFromSnapshot(Table storageTable, List<ConnectorTableHandle> sourceTableHandles)
+    {
+        if (sourceTableHandles.size() != 1) {
+            return OptionalLong.empty();
+        }
+
+        Optional<String> dependencies = Optional.ofNullable(storageTable.currentSnapshot())
+                .map(Snapshot::summary)
+                .map(summary -> summary.get(DEPENDS_ON_TABLES));
+        if (dependencies.isEmpty() || dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN)) {
+            return OptionalLong.empty();
+        }
+
+        Map<String, String> sourceTableToSnapshot = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=").split(dependencies.get());
+        if (sourceTableToSnapshot.size() != 1) {
+            return OptionalLong.empty();
+        }
+        Entry<String, String> sourceTable = getOnlyElement(sourceTableToSnapshot.entrySet());
+        String[] schemaTable = sourceTable.getKey().split("\\.");
+        IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
+        SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
+        if (!sourceSchemaTable.equals(handle.getSchemaTableName())) {
+            return OptionalLong.empty();
+        }
+
+        return OptionalLong.of(Long.parseLong(sourceTable.getValue()));
+    }
 
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
 

@@ -875,6 +875,7 @@ public interface ConnectorMetadata
      * {@code refreshType} is a signal from the engine to the connector whether the MV refresh could be done incrementally or only fully, based on the plan.
      * The connector is not obligated to perform the refresh in the fashion prescribed by {@code refreshType}, this is merely a hint from the engine that the refresh could be append-only.
      */
+    @Deprecated(since = "484", forRemoval = true)
     default ConnectorInsertTableHandle beginRefreshMaterializedView(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
@@ -887,8 +888,31 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Begin materialized view query.
+     * <p>
+     * Same as {@link #beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, boolean, RetryMode, RefreshType)},
+     * with the addition of {@code sourceViewNames}: the distinct set of views and materialized
+     * views (in any catalog) that were referenced, directly or transitively, while resolving the
+     * materialized view's query. A connector that wants to track view-level dependencies (for
+     * example, to record them in a refresh-state artifact) should override this method instead of
+     * the one above; the default implementation ignores {@code sourceViewNames} and delegates to it.
+     */
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
+            boolean hasForeignSourceTables,
+            RetryMode retryMode,
+            RefreshType refreshType)
+    {
+        return beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
+    }
+
+    /**
      * Finish materialized view query
      */
+    @Deprecated(since = "484", forRemoval = true)
     default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
@@ -901,6 +925,41 @@ public interface ConnectorMetadata
             boolean hasNonDeterministicFunctions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
+    }
+
+    /**
+     * Finish materialized view query.
+     * <p>
+     * Same as {@link #finishRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, ConnectorInsertTableHandle, Collection, Collection, List, boolean, boolean, boolean)},
+     * with the addition of {@code materializedViewName} (the name of the materialized view being
+     * refreshed; {@code tableHandle} and {@code insertHandle} identify its storage table, not the
+     * materialized view itself) and {@code sourceViewNames} (see
+     * {@link #beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, List, boolean, RetryMode, RefreshType)}).
+     * The default implementation ignores both and delegates to it.
+     */
+    default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            ConnectorSession session,
+            CatalogSchemaTableName materializedViewName,
+            ConnectorTableHandle tableHandle,
+            ConnectorInsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
+    {
+        return finishRefreshMaterializedView(
+                session,
+                tableHandle,
+                insertHandle,
+                fragments,
+                computedStatistics,
+                sourceTableHandles,
+                hasForeignSourceTables,
+                hasSourceTableFunctions,
+                hasNonDeterministicFunctions);
     }
 
     /**

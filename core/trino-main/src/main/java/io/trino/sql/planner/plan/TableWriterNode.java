@@ -31,6 +31,7 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.spi.RefreshType;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -485,26 +486,37 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final String table;
+        private final CatalogSchemaTableName materializedViewName;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
+        private final List<CatalogSchemaTableName> sourceViewNames;
         private final List<String> sourceTableFunctions;
         private final boolean hasNonDeterministicFunctions;
         private final RefreshType refreshType;
 
         public RefreshMaterializedViewReference(
                 String table,
+                CatalogSchemaTableName materializedViewName,
                 TableHandle storageTableHandle,
                 List<TableHandle> sourceTableHandles,
+                List<CatalogSchemaTableName> sourceViewNames,
                 List<String> sourceTableFunctions,
                 boolean hasNonDeterministicFunctions,
                 RefreshType refreshType)
         {
             this.table = requireNonNull(table, "table is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.sourceViewNames = ImmutableList.copyOf(sourceViewNames);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
             this.hasNonDeterministicFunctions = hasNonDeterministicFunctions;
             this.refreshType = requireNonNull(refreshType, "refreshType is null");
+        }
+
+        public CatalogSchemaTableName getMaterializedViewName()
+        {
+            return materializedViewName;
         }
 
         public TableHandle getStorageTableHandle()
@@ -515,6 +527,11 @@ public class TableWriterNode
         public List<TableHandle> getSourceTableHandles()
         {
             return sourceTableHandles;
+        }
+
+        public List<CatalogSchemaTableName> getSourceViewNames()
+        {
+            return sourceViewNames;
         }
 
         @Override
@@ -560,7 +577,7 @@ public class TableWriterNode
 
         public RefreshMaterializedViewReference withRefreshType(RefreshType refreshType)
         {
-            return new RefreshMaterializedViewReference(table, storageTableHandle, sourceTableHandles, sourceTableFunctions, hasNonDeterministicFunctions, refreshType);
+            return new RefreshMaterializedViewReference(table, materializedViewName, storageTableHandle, sourceTableHandles, sourceViewNames, sourceTableFunctions, hasNonDeterministicFunctions, refreshType);
         }
     }
 
@@ -570,7 +587,9 @@ public class TableWriterNode
         private final TableHandle tableHandle;
         private final InsertTableHandle insertHandle;
         private final SchemaTableName schemaTableName;
+        private final CatalogSchemaTableName materializedViewName;
         private final List<TableHandle> sourceTableHandles;
+        private final List<CatalogSchemaTableName> sourceViewNames;
         private final List<String> sourceTableFunctions;
         private final boolean hasNonDeterministicFunctions;
         private final WriterScalingOptions writerScalingOptions;
@@ -580,7 +599,9 @@ public class TableWriterNode
                 @JsonProperty("tableHandle") TableHandle tableHandle,
                 @JsonProperty("insertHandle") InsertTableHandle insertHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("materializedViewName") CatalogSchemaTableName materializedViewName,
                 @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
+                @JsonProperty("sourceViewNames") List<CatalogSchemaTableName> sourceViewNames,
                 @JsonProperty("sourceTableFunctions") List<String> sourceTableFunctions,
                 @JsonProperty("hasNonDeterministicFunctions") boolean hasNonDeterministicFunctions,
                 @JsonProperty("writerScalingOptions") WriterScalingOptions writerScalingOptions)
@@ -588,7 +609,9 @@ public class TableWriterNode
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
             this.insertHandle = requireNonNull(insertHandle, "insertHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.sourceViewNames = ImmutableList.copyOf(sourceViewNames);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
             this.hasNonDeterministicFunctions = hasNonDeterministicFunctions;
             this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
@@ -613,9 +636,21 @@ public class TableWriterNode
         }
 
         @JsonProperty
+        public CatalogSchemaTableName getMaterializedViewName()
+        {
+            return materializedViewName;
+        }
+
+        @JsonProperty
         public List<TableHandle> getSourceTableHandles()
         {
             return sourceTableHandles;
+        }
+
+        @JsonProperty
+        public List<CatalogSchemaTableName> getSourceViewNames()
+        {
+            return sourceViewNames;
         }
 
         @JsonProperty

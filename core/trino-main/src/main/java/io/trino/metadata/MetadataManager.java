@@ -1316,7 +1316,12 @@ public final class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
+    public InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            TableHandle tableHandle,
+            List<TableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
+            RefreshType refreshType)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
@@ -1332,6 +1337,7 @@ public final class MetadataManager
                 session.toConnectorSession(catalogHandle),
                 tableHandle.connectorHandle(),
                 sourceConnectorHandles,
+                sourceViewNames,
                 sourceConnectorHandles.size() < sourceTableHandles.size(),
                 getRetryPolicy(session).getRetryMode(),
                 refreshType);
@@ -1342,11 +1348,13 @@ public final class MetadataManager
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
+            CatalogSchemaTableName materializedViewName,
             TableHandle tableHandle,
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<CatalogSchemaTableName> sourceViewNames,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -1360,11 +1368,13 @@ public final class MetadataManager
 
         return metadata.finishRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
+                materializedViewName,
                 tableHandle.connectorHandle(),
                 insertHandle.connectorHandle(),
                 fragments,
                 computedStatistics,
                 sourceConnectorHandles,
+                sourceViewNames,
                 sourceConnectorHandles.size() < sourceTableHandles.size(),
                 !sourceTableFunctions.isEmpty(),
                 hasNonDeterministicFunctions);

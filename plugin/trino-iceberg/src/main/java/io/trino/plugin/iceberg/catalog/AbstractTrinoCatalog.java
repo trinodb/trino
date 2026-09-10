@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
@@ -23,7 +24,6 @@ import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
-import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.TrinoException;
@@ -34,23 +34,16 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimeWithTimeZoneType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -58,20 +51,26 @@ import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.expressions.Expressions;
-import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.OptionalLong;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
+import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
@@ -91,24 +90,20 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.createTableProperties;
+import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshot;
+import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshotAfter;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
-import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.NumberType.NUMBER;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME_MICROS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH_WITHIN_GRACE_PERIOD;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -128,6 +123,13 @@ public abstract class AbstractTrinoCatalog
 
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
+
+    public static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
+    public static final String DEPENDS_ON_TABLES = "dependsOnTables";
+    public static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
+    public static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
+    // Value should be ISO-8601 formatted time instant
+    public static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
 
     private final CatalogName catalogName;
     private final boolean useUniqueTableLocation;
@@ -223,6 +225,243 @@ public abstract class AbstractTrinoCatalog
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to load storage table metadata for materialized view: " + viewName);
         }
     }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
+    {
+        return getMaterializedViewFreshnessUsingDependsOnTables(session, materializedViewName, considerGracePeriod, directExecutor());
+    }
+
+    /**
+     * Computes materialized view freshness using the {@code dependsOnTables} snapshot-summary
+     * bookkeeping this class writes on refresh. Callers that have a dedicated metadata-fetching
+     * executor (for parallelizing the per-source-table resolution below) should pass it in;
+     * {@link #getMaterializedViewFreshness} itself uses a direct executor.
+     */
+    protected final MaterializedViewFreshness getMaterializedViewFreshnessUsingDependsOnTables(
+            ConnectorSession session,
+            SchemaTableName materializedViewName,
+            boolean considerGracePeriod,
+            Executor metadataFetchingExecutor)
+    {
+        Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = getMaterializedView(session, materializedViewName);
+        if (materializedViewDefinition.isEmpty()) {
+            // View not found, might have been concurrently deleted
+            return new MaterializedViewFreshness(STALE, Optional.empty());
+        }
+
+        SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
+                .map(CatalogSchemaTableName::getSchemaTableName)
+                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
+
+        Table icebergTable = loadTable(session, storageTableName);
+        Optional<Snapshot> currentSnapshot = Optional.ofNullable(icebergTable.currentSnapshot());
+        String dependsOnTables = currentSnapshot
+                .map(snapshot -> snapshot.summary().getOrDefault(DEPENDS_ON_TABLES, ""))
+                .orElse("");
+        boolean dependsOnTableFunctions = currentSnapshot
+                .map(snapshot -> Boolean.valueOf(snapshot.summary().getOrDefault(DEPENDS_ON_TABLE_FUNCTIONS, "false")))
+                .orElse(false);
+        // For MVs refreshed before non-deterministic function tracking was added this flag
+        // defaults to false. Such MVs will be correctly flagged after their next refresh.
+        boolean dependsOnNonDeterministicFunctions = currentSnapshot
+                .map(snapshot -> Boolean.valueOf(snapshot.summary().getOrDefault(DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, "false")))
+                .orElse(false);
+
+        Optional<Instant> refreshStartTime = currentSnapshot.map(snapshot -> snapshot.summary().get(TRINO_QUERY_START_TIME))
+                .map(Instant::parse);
+        Optional<Instant> refreshTime = refreshStartTime
+                // Fallback to snapshot commit time (end of refresh) for MVs defined before TRINO_QUERY_START_TIME was introduced
+                .or(() -> currentSnapshot.map(snapshot -> Instant.ofEpochMilli(snapshot.timestampMillis())));
+
+        if (dependsOnTableFunctions) {
+            // It can't be determined whether a value returned by table function is STALE or not
+            return new MaterializedViewFreshness(UNKNOWN, refreshTime);
+        }
+
+        if (dependsOnNonDeterministicFunctions) {
+            // Non-deterministic functions like current_timestamp produce different values over time,
+            // so the materialized view may be stale even if base tables haven't changed
+            return new MaterializedViewFreshness(UNKNOWN, refreshTime);
+        }
+
+        if (dependsOnTables.isEmpty()) {
+            // Information missing. While it's "unknown" whether storage is stale, we return "stale".
+            // Normally dependsOnTables may be missing only when there was no refresh yet.
+            return new MaterializedViewFreshness(STALE, Optional.empty());
+        }
+
+        Optional<Duration> gracePeriod = materializedViewDefinition.get().getGracePeriod();
+        if (considerGracePeriod && withinGracePeriod(session.getStart(), refreshStartTime, gracePeriod)) {
+            // To determine freshness, we normally load current metadata for each base table and check if there
+            // is a newer snapshot than the recorded one (DEPENDS_ON_TABLES). This requires expensive metastore
+            // operations for each base Iceberg table.
+            //
+            // The refresh query can read base table snapshots created before or during its execution. In the most
+            // pessimistic scenario, a new base table snapshot is created immediately after the refresh started
+            // (at refreshStartTime + epsilon), but the refresh reads an older snapshot. This new snapshot would
+            // not be recorded in DEPENDS_ON_TABLES, making the MV technically stale. However, when the caller set
+            // considerGracePeriod to true and refreshStartTime + gracePeriod > referenceTime, we can safely say that
+            // the MV is at least within the grace period because refreshStartTime is before the new snapshot creation time.
+            return new MaterializedViewFreshness(FRESH_WITHIN_GRACE_PERIOD, Optional.empty());
+        }
+
+        boolean hasUnknownTables = false;
+        OptionalLong firstTableChange = OptionalLong.of(Long.MAX_VALUE);
+        ImmutableList.Builder<Callable<TableChangeInfo>> tableChangeInfoTasks = ImmutableList.builder();
+        for (String tableToSnapShot : Splitter.on(',').split(dependsOnTables)) {
+            if (tableToSnapShot.equals(UNKNOWN_SNAPSHOT_TOKEN)) {
+                hasUnknownTables = true;
+                firstTableChange = OptionalLong.empty();
+                continue;
+            }
+
+            tableChangeInfoTasks.add(() -> getTableChangeInfo(session, tableToSnapShot));
+        }
+
+        boolean hasStaleIcebergTables = false;
+        List<TableChangeInfo> tableChangeInfos;
+
+        try {
+            tableChangeInfos = processWithAdditionalThreads(tableChangeInfoTasks.build(), metadataFetchingExecutor);
+        }
+        catch (ExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
+        }
+
+        verifyNotNull(tableChangeInfos);
+
+        for (TableChangeInfo tableChangeInfo : tableChangeInfos) {
+            switch (tableChangeInfo) {
+                case NoTableChange() -> {
+                    // Fresh
+                }
+                case FirstChangeSnapshot(Snapshot snapshot) -> {
+                    hasStaleIcebergTables = true;
+                    firstTableChange = firstTableChange.isPresent() ?
+                            OptionalLong.of(Math.min(firstTableChange.orElseThrow(), snapshot.timestampMillis())) :
+                            OptionalLong.empty();
+                }
+                case UnknownTableChange(), GoneOrCorruptedTableChange() -> {
+                    hasStaleIcebergTables = true;
+                    firstTableChange = OptionalLong.empty();
+                }
+            }
+        }
+
+        Optional<Instant> lastKnownFreshTime = firstTableChange.isPresent() ? Optional.of(Instant.ofEpochMilli(firstTableChange.orElseThrow())) : refreshTime;
+        if (hasStaleIcebergTables) {
+            return new MaterializedViewFreshness(STALE, lastKnownFreshTime);
+        }
+        if (hasUnknownTables) {
+            return new MaterializedViewFreshness(UNKNOWN, lastKnownFreshTime);
+        }
+        return new MaterializedViewFreshness(FRESH, Optional.empty());
+    }
+
+    private static boolean withinGracePeriod(Instant sessionStart, Optional<Instant> refreshStartTime, Optional<Duration> gracePeriod)
+    {
+        if (gracePeriod.isEmpty()) {
+            // infinite grace period
+            return true;
+        }
+        //noinspection OptionalIsPresent
+        if (refreshStartTime.isEmpty()) {
+            // refresh time unknown
+            return false;
+        }
+        return refreshStartTime.get().plus(gracePeriod.get()).isAfter(sessionStart);
+    }
+
+    private TableChangeInfo getTableChangeInfo(ConnectorSession session, String entry)
+    {
+        List<String> keyValue = Splitter.on("=").splitToList(entry);
+        if (keyValue.size() != 2) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid entry in '%s' property: %s'", DEPENDS_ON_TABLES, entry));
+        }
+        String tableName = keyValue.get(0);
+        String value = keyValue.get(1);
+        List<String> strings = Splitter.on(".").splitToList(tableName);
+        if (strings.size() == 3) {
+            strings = strings.subList(1, 3);
+        }
+        else if (strings.size() != 2) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
+        }
+        String schema = strings.get(0);
+        String name = strings.get(1);
+        SchemaTableName schemaTableName = new SchemaTableName(schema, name);
+
+        Table icebergSourceTable;
+        try {
+            icebergSourceTable = loadTable(session, schemaTableName);
+        }
+        catch (RuntimeException e) {
+            // Base table is gone, or table is corrupted, or can't otherwise be resolved: treat conservatively as changed
+            return new GoneOrCorruptedTableChange();
+        }
+
+        OptionalLong snapshotAtRefresh;
+        if (value.isEmpty()) {
+            snapshotAtRefresh = OptionalLong.empty();
+        }
+        else {
+            snapshotAtRefresh = OptionalLong.of(Long.parseLong(value));
+        }
+        return getTableChangeInfo(icebergSourceTable, snapshotAtRefresh);
+    }
+
+    private static TableChangeInfo getTableChangeInfo(Table icebergTable, OptionalLong snapshotAtRefresh)
+    {
+        Snapshot currentSnapshot = icebergTable.currentSnapshot();
+
+        if (snapshotAtRefresh.isEmpty()) {
+            // Table had no snapshot at refresh time.
+            if (currentSnapshot == null) {
+                return new NoTableChange();
+            }
+            return firstSnapshot(icebergTable)
+                    .<TableChangeInfo>map(FirstChangeSnapshot::new)
+                    .orElse(new UnknownTableChange());
+        }
+
+        if (snapshotAtRefresh.orElseThrow() == currentSnapshot.snapshotId()) {
+            // A schema-only change (rename, added column, etc.) doesn't bump the snapshot id.
+            Integer recordedSchemaId = currentSnapshot.schemaId();
+            if (recordedSchemaId != null && !recordedSchemaId.equals(icebergTable.schema().schemaId())) {
+                return new UnknownTableChange();
+            }
+            return new NoTableChange();
+        }
+        return firstSnapshotAfter(icebergTable, snapshotAtRefresh.orElseThrow())
+                .<TableChangeInfo>map(FirstChangeSnapshot::new)
+                .orElse(new UnknownTableChange());
+    }
+
+    private sealed interface TableChangeInfo
+            permits FirstChangeSnapshot,
+                    GoneOrCorruptedTableChange,
+                    NoTableChange,
+                    UnknownTableChange {}
+
+    private record NoTableChange()
+            implements TableChangeInfo {}
+
+    private record FirstChangeSnapshot(Snapshot snapshot)
+            implements TableChangeInfo
+    {
+        FirstChangeSnapshot
+        {
+            requireNonNull(snapshot, "snapshot is null");
+        }
+    }
+
+    private record UnknownTableChange()
+            implements TableChangeInfo {}
+
+    private record GoneOrCorruptedTableChange()
+            implements TableChangeInfo {}
 
     protected Transaction newCreateTableTransaction(
             ConnectorSession session,
@@ -368,101 +607,7 @@ public abstract class AbstractTrinoCatalog
 
     protected List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties)
     {
-        Schema schemaWithTimestampTzPreserved = schemaFromMetadata(definition.getColumns().stream()
-                .map(column -> {
-                    Type type = typeManager.getType(column.getType());
-                    if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
-                        // For now preserve timestamptz columns so that we can parse partitioning
-                        type = TIMESTAMP_TZ_MICROS;
-                    }
-                    else {
-                        type = typeForMaterializedViewStorageTable(type);
-                    }
-                    return new ColumnMetadata(column.getName(), type);
-                })
-                .collect(toImmutableList()));
-        PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(materializedViewProperties));
-        Set<String> temporalPartitioningSources = partitionSpec.fields().stream()
-                .flatMap(partitionField -> {
-                    Types.NestedField sourceField = schemaWithTimestampTzPreserved.findField(partitionField.sourceId());
-                    Type sourceType = toTrinoType(sourceField.type(), typeManager);
-                    ColumnTransform columnTransform = getColumnTransform(partitionField, sourceType);
-                    if (!columnTransform.temporal()) {
-                        return Stream.of();
-                    }
-                    return Stream.of(sourceField.name());
-                })
-                .collect(toImmutableSet());
-
-        return definition.getColumns().stream()
-                .map(column -> {
-                    Type type = typeManager.getType(column.getType());
-                    if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.getName())) {
-                        // Apply point-in-time semantics to maintain partitioning capabilities
-                        type = TIMESTAMP_TZ_MICROS;
-                    }
-                    else {
-                        type = typeForMaterializedViewStorageTable(type);
-                    }
-                    return new ColumnMetadata(column.getName(), type);
-                })
-                .collect(toImmutableList());
-    }
-
-    /**
-     * Substitutes type not supported by Iceberg with a type that is supported.
-     * Upon reading from a materialized view, the types will be coerced back to the original ones,
-     * stored in the materialized view definition.
-     */
-    private Type typeForMaterializedViewStorageTable(Type type)
-    {
-        if (type == TINYINT || type == SMALLINT) {
-            return INTEGER;
-        }
-        if (type == NUMBER) {
-            return VARCHAR;
-        }
-        if (type instanceof CharType) {
-            return VARCHAR;
-        }
-        if (type instanceof TimeType timeType) {
-            // Iceberg supports microsecond precision only
-            return timeType.getPrecision() <= 6
-                    ? TIME_MICROS
-                    : VARCHAR;
-        }
-        if (type instanceof TimeWithTimeZoneType) {
-            return VARCHAR;
-        }
-        if (type instanceof TimestampType timestampType) {
-            // Iceberg supports microsecond precision only
-            return timestampType.getPrecision() <= 6
-                    ? TIMESTAMP_MICROS
-                    : VARCHAR;
-        }
-        if (type instanceof TimestampWithTimeZoneType) {
-            // Iceberg does not store the time zone.
-            return VARCHAR;
-        }
-        if (type instanceof ArrayType arrayType) {
-            return new ArrayType(typeForMaterializedViewStorageTable(arrayType.getElementType()));
-        }
-        if (type instanceof MapType mapType) {
-            return new MapType(
-                    typeForMaterializedViewStorageTable(mapType.getKeyType()),
-                    typeForMaterializedViewStorageTable(mapType.getValueType()),
-                    typeManager.getTypeOperators());
-        }
-        if (type instanceof RowType rowType) {
-            return RowType.rowType(
-                    rowType.getFields().stream()
-                            .map(field -> new RowType.Field(field.getName(), typeForMaterializedViewStorageTable(field.getType())))
-                            .toArray(RowType.Field[]::new));
-        }
-
-        // Pass through all the types not explicitly handled above. If a type is not accepted by the connector,
-        // creation of the storage table will fail anyway.
-        return type;
+        return MaterializedViewStorageColumns.columnsForMaterializedView(typeManager, definition, materializedViewProperties);
     }
 
     protected ConnectorMaterializedViewDefinition getMaterializedViewDefinition(

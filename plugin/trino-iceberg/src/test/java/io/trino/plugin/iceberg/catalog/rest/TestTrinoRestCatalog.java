@@ -312,6 +312,13 @@ public class TestTrinoRestCatalog
         return OTHER_VIEW;
     }
 
+    @Override
+    protected TableInfo.ExtendedRelationType getMaterializedViewType()
+    {
+        // TrinoRestCatalog.listTables does not classify views/materialized views (see listViews/listMaterializedViews instead)
+        return OTHER_VIEW;
+    }
+
     @Test
     public void testReplaceViewReuseExistingLocation()
             throws IOException

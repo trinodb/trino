@@ -127,7 +127,7 @@ public final class EncryptedFileTestUtils
                 .buildPositionWriter()) {
             PositionDelete<Record> positionDelete = PositionDelete.create();
             for (long position : positions) {
-                writer.write(positionDelete.set(dataFilePath, position, null));
+                writer.write(positionDelete.set(dataFilePath, position));
             }
             writer.close();
             return writer.toDeleteFile();

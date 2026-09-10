@@ -35,6 +35,7 @@ import io.trino.metadata.TableLayout;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
@@ -268,6 +269,8 @@ public class Analysis
     private final Deque<Table> tablesForView = new ArrayDeque<>();
 
     private final Deque<TableReferenceInfo> referenceChain = new ArrayDeque<>();
+
+    private final Set<CatalogSchemaTableName> freshMaterializedViewSubstitutions = new LinkedHashSet<>();
 
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
@@ -692,6 +695,27 @@ public class Analysis
                 .collect(toImmutableList());
     }
 
+    /**
+     * Returns the distinct set of views and materialized views (in any catalog) that were
+     * referenced, directly or transitively, while resolving every table reference in this
+     * analysis. Derived from the same reference-chain tracking already used to report view
+     * lineage to event listeners ({@link TableInfo#getReferenceChain()}), plus any fresh
+     * materialized view substitutions (see {@link #recordFreshMaterializedViewSubstitution}),
+     * which never appear in that chain.
+     */
+    public List<CatalogSchemaTableName> getReferencedViews()
+    {
+        return Stream.concat(
+                        tables.values().stream()
+                                .flatMap(entry -> entry.getReferenceChain().stream())
+                                .filter(BaseViewReferenceInfo.class::isInstance)
+                                .map(BaseViewReferenceInfo.class::cast)
+                                .map(reference -> new CatalogSchemaTableName(reference.catalogName(), reference.schemaName(), reference.viewName())),
+                        freshMaterializedViewSubstitutions.stream())
+                .distinct()
+                .collect(toImmutableList());
+    }
+
     public void registerTable(
             Table table,
             Optional<TableHandle> handle,
@@ -1015,6 +1039,11 @@ public class Analysis
     {
         tablesForView.pop();
         referenceChain.pop();
+    }
+
+    public void recordFreshMaterializedViewSubstitution(QualifiedObjectName name)
+    {
+        freshMaterializedViewSubstitutions.add(new CatalogSchemaTableName(name.catalogName(), name.schemaName(), name.objectName()));
     }
 
     public boolean hasTableInView(Table tableReference)
@@ -1749,13 +1778,15 @@ public class Analysis
     public static final class RefreshMaterializedViewAnalysis
     {
         private final Table table;
+        private final QualifiedObjectName name;
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
 
-        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(Table table, QualifiedObjectName name, TableHandle target, Query query, List<ColumnHandle> columns)
         {
             this.table = requireNonNull(table, "table is null");
+            this.name = requireNonNull(name, "name is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
@@ -1780,6 +1811,11 @@ public class Analysis
         public Table getTable()
         {
             return table;
+        }
+
+        public QualifiedObjectName getName()
+        {
+            return name;
         }
     }
 
