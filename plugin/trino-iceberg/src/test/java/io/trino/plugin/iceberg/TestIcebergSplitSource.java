@@ -52,9 +52,7 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
-import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.encryption.EncryptedInputFile;
@@ -333,14 +331,11 @@ public class TestIcebergSplitSource
         // Write position delete file
         FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
         PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
-                .createWriterFunc(GenericParquetWriter::create)
-                .forTable(nationTable)
                 .overwrite()
-                .rowSchema(nationTable.schema())
                 .withSpec(PartitionSpec.unpartitioned())
                 .buildPositionWriter();
         PositionDelete<Record> positionDelete = PositionDelete.create();
-        PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(nationTable.schema()));
+        PositionDelete<Record> record = positionDelete.set(dataFilePath, 0);
         try (Closeable ignored = writer) {
             writer.write(record);
         }

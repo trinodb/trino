@@ -346,7 +346,7 @@ public class Scope
     private ResolvedField asResolvedField(Field field, int fieldIndexOffset, boolean local)
     {
         int relationFieldIndex = relation.indexOf(field);
-        int hierarchyFieldIndex = relation.indexOf(field) + fieldIndexOffset;
+        int hierarchyFieldIndex = relationFieldIndex + fieldIndexOffset;
         return new ResolvedField(this, field, hierarchyFieldIndex, relationFieldIndex, local);
     }
 

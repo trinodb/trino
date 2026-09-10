@@ -40,6 +40,7 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.DateTimeEncoding.isValidMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
@@ -160,7 +161,7 @@ final class LongTimestampWithTimeZoneType
         int picosOfMilli = timestampWithTimeZone.getPicosOfMilli();
         picosOfMilli -= toIntExact(rescale(1, 0, 12 - getPrecision()));
         if (picosOfMilli < 0) {
-            if (epochMillis == Long.MIN_VALUE) {
+            if (!isValidMillisUtc(epochMillis - 1)) {
                 return Optional.empty();
             }
             epochMillis--;
@@ -178,7 +179,7 @@ final class LongTimestampWithTimeZoneType
         int picosOfMilli = timestampWithTimeZone.getPicosOfMilli();
         picosOfMilli += toIntExact(rescale(1, 0, 12 - getPrecision()));
         if (picosOfMilli >= PICOSECONDS_PER_MILLISECOND) {
-            if (epochMillis == Long.MAX_VALUE) {
+            if (!isValidMillisUtc(epochMillis + 1)) {
                 return Optional.empty();
             }
             epochMillis++;

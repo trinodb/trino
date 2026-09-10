@@ -948,8 +948,9 @@ public interface ConnectorMetadata
      * @param sourceTableHandles All source table handles belonging to the connector from which the operation is reading data
      * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
+     * @return ConnectorOutputMetadata that will be populated in the query output
      */
-    default void finishMerge(
+    default Optional<ConnectorOutputMetadata> finishMerge(
             ConnectorSession session,
             ConnectorMergeTableHandle mergeTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,

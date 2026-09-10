@@ -13,10 +13,6 @@
  */
 package io.trino.spi.security;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Objects;
 
 import static java.util.Locale.ENGLISH;
@@ -27,21 +23,18 @@ public class TrinoPrincipal
     private final PrincipalType type;
     private final String name;
 
-    @JsonCreator
-    public TrinoPrincipal(@JsonProperty("type") PrincipalType type, @JsonProperty("name") String name)
+    public TrinoPrincipal(PrincipalType type, String name)
     {
         this.type = requireNonNull(type, "type is null");
         requireNonNull(name, "name is null");
         this.name = type == PrincipalType.USER ? name : name.toLowerCase(ENGLISH);
     }
 
-    @JsonProperty
     public PrincipalType getType()
     {
         return type;
     }
 
-    @JsonProperty("name")
     public String getPrincipalName()
     {
         return name;
@@ -53,7 +46,6 @@ public class TrinoPrincipal
      *         was created with a mixed-case name.
      */
     @Deprecated
-    @JsonIgnore
     public String getName()
     {
         return name.toLowerCase(ENGLISH);

@@ -87,6 +87,19 @@ public interface SourcePage
     Page getPage();
 
     /**
+     * Attempts to apply the specified position selection when doing so can avoid loading or
+     * decoding data that has not been accessed yet. Returns whether the selection was applied.
+     * If this method returns false, the logical contents and position count of the page must remain unchanged.
+     * <p>
+     * The positions array is owned by the caller and may only be accessed for the duration of
+     * this call. An implementation must copy any positions it retains.
+     */
+    default boolean trySelectPositions(int[] positions, int offset, int size)
+    {
+        return false;
+    }
+
+    /**
      * Gets a projection of the page containing only the specified channels.
      */
     default Page getColumns(int[] channels)

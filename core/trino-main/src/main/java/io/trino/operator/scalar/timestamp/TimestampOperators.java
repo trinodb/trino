@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -22,15 +23,16 @@ import io.trino.spi.type.StandardTypes;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
-import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
-import static io.trino.type.DateTimes.rescale;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
+import static java.lang.Math.addExact;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 
 public final class TimestampOperators
@@ -50,10 +52,15 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            // scale to micros
-            interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
+            try {
+                // scale to micros
+                interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
 
-            return timestamp + interval;
+                return addExact(timestamp, interval);
+            }
+            catch (ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+            }
         }
 
         @LiteralParameters({"p", "u"})
@@ -63,7 +70,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return new LongTimestamp(timestamp.getEpochMicros() + multiplyExact(interval, MICROSECONDS_PER_MILLISECOND), timestamp.getPicosOfMicro());
+            return new LongTimestamp(add(timestamp.getEpochMicros(), interval), timestamp.getPicosOfMicro());
         }
     }
 
@@ -94,6 +101,7 @@ public final class TimestampOperators
         }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalYearToMonth
     {
@@ -107,9 +115,14 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            long fractionMicros = getMicrosOfMilli(timestamp);
-            long result = MONTH_OF_YEAR_UTC.add(scaleEpochMicrosToMillis(timestamp), interval);
-            return scaleEpochMillisToMicros(result) + fractionMicros;
+            try {
+                long fractionMicros = getMicrosOfMilli(timestamp);
+                long result = MONTH_OF_YEAR_UTC.add(scaleEpochMicrosToMillis(timestamp), interval);
+                return addExact(scaleEpochMillisToMicros(result), fractionMicros);
+            }
+            catch (IllegalArgumentException | ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+            }
         }
 
         @LiteralParameters("p")
@@ -124,6 +137,7 @@ public final class TimestampOperators
         }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class IntervalYearToMonthPlusTimestamp
     {
@@ -148,6 +162,7 @@ public final class TimestampOperators
         }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusIntervalYearToMonth
     {
@@ -202,6 +217,8 @@ public final class TimestampOperators
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusTimestamp
     {
+        private static final int HALF_MILLISECOND_IN_MICROS = MICROSECONDS_PER_MILLISECOND / 2;
+
         private TimestampMinusTimestamp() {}
 
         @LiteralParameters("p")
@@ -210,12 +227,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") long left,
                 @SqlType("timestamp(p)") long right)
         {
-            long interval = left - right;
-
-            interval = round(interval, 3);
-            interval = rescale(interval, MAX_SHORT_PRECISION, 3);
-
-            return interval;
+            return subtract(left, 0, right, 0);
         }
 
         @LiteralParameters("p")
@@ -224,7 +236,25 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp left,
                 @SqlType("timestamp(p)") LongTimestamp right)
         {
-            return subtract(left.getEpochMicros(), right.getEpochMicros());
+            return subtract(left.getEpochMicros(), left.getPicosOfMicro(), right.getEpochMicros(), right.getPicosOfMicro());
+        }
+
+        private static long subtract(long leftEpochMicros, int leftPicosOfMicro, long rightEpochMicros, int rightPicosOfMicro)
+        {
+            // The difference in microseconds can overflow a long, while the difference in milliseconds cannot, so
+            // subtract the milliseconds and round the sub-millisecond remainder separately.
+            long millis = floorDiv(leftEpochMicros, MICROSECONDS_PER_MILLISECOND) - floorDiv(rightEpochMicros, MICROSECONDS_PER_MILLISECOND);
+            int microsOfMilli = floorMod(leftEpochMicros, MICROSECONDS_PER_MILLISECOND) - floorMod(rightEpochMicros, MICROSECONDS_PER_MILLISECOND);
+            int picosOfMicro = leftPicosOfMicro - rightPicosOfMicro;
+
+            // round half up, as roundDiv does; the picoseconds decide the exact half-millisecond ties
+            if (microsOfMilli > HALF_MILLISECOND_IN_MICROS || (microsOfMilli == HALF_MILLISECOND_IN_MICROS && picosOfMicro >= 0)) {
+                return millis + 1;
+            }
+            if (microsOfMilli < -HALF_MILLISECOND_IN_MICROS || (microsOfMilli == -HALF_MILLISECOND_IN_MICROS && picosOfMicro < 0)) {
+                return millis - 1;
+            }
+            return millis;
         }
     }
 }

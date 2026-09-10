@@ -60,7 +60,7 @@ public class TestTimeType
     public void testRange()
     {
         Type.Range range = type.getRange().orElseThrow();
-        assertThat(range.getMin()).isEqualTo(0);
+        assertThat(range.getMin()).isEqualTo(0L);
         assertThat(range.getMax()).isEqualTo(PICOSECONDS_PER_DAY);
     }
 

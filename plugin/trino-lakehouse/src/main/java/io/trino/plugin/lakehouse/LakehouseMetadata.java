@@ -638,9 +638,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        forHandle(mergeTableHandle).finishMerge(session, mergeTableHandle, sourceTableHandles, fragments, computedStatistics);
+        return forHandle(mergeTableHandle).finishMerge(session, mergeTableHandle, sourceTableHandles, fragments, computedStatistics);
     }
 
     @Override

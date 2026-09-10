@@ -92,6 +92,7 @@ public class BigQueryStorageAvroPageSource
     private final BigQueryReadClient bigQueryReadClient;
     private final ExecutorService executor;
     private final BigQueryTypeManager typeManager;
+    private final String traceId;
     private final String streamName;
     private final Schema avroSchema;
     private final List<BigQueryColumnHandle> columns;
@@ -115,6 +116,7 @@ public class BigQueryStorageAvroPageSource
         this.executor = requireNonNull(executor, "executor is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         requireNonNull(split, "split is null");
+        this.traceId = split.traceId();
         this.streamName = split.streamName();
         this.avroSchema = parseSchema(split.schemaString());
         this.columns = requireNonNull(columns, "columns is null");
@@ -122,7 +124,7 @@ public class BigQueryStorageAvroPageSource
                 .map(BigQueryColumnHandle::trinoType)
                 .collect(toImmutableList()));
 
-        log.debug("Starting to read from %s", streamName);
+        log.debug("Trace id: %s, Stream: %s, Starting to read", traceId, streamName);
         responses = new ReadRowsHelper(bigQueryReadClient, streamName, maxReadRowsRetries).readRows();
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
     }
@@ -359,7 +361,7 @@ public class BigQueryStorageAvroPageSource
     {
         byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
         readBytes.addAndGet(buffer.length);
-        log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), streamName);
+        log.debug("Trace id: %s, Stream: %s, Read %d bytes (total %d)", traceId, streamName, buffer.length, readBytes.get());
         return () -> new AvroBinaryIterator(avroSchema, buffer);
     }
 

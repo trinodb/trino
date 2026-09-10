@@ -1,0 +1,10 @@
+[
+  {
+    "grantee": {
+      "type": "USER",
+      "name": "alice"
+    },
+    "roleName": "admin",
+    "grantable": true
+  }
+]

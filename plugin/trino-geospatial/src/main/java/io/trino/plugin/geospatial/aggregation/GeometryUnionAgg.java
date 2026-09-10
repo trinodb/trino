@@ -25,6 +25,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Geometry;
 
+import static io.trino.geospatial.GeometryUtils.legacyLenientOverlay;
 import static io.trino.geospatial.GeometryUtils.safeUnion;
 import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
@@ -42,13 +43,18 @@ public final class GeometryUnionAgg
     @InputFunction
     public static void input(@AggregationState GeometryState state, @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
+        input(state, geometry, legacyLenientOverlay());
+    }
+
+    static void input(GeometryState state, Geometry geometry, boolean repairInvalidInputs)
+    {
         if (state.getGeometry() == null) {
             state.setGeometry(geometry);
         }
         else {
             int srid = validateAndGetSrid(state.getGeometry(), geometry);
             if (!geometry.isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), geometry);
+                Geometry result = safeUnion(state.getGeometry(), geometry, repairInvalidInputs);
                 result.setSRID(srid);
                 state.setGeometry(result);
             }
@@ -61,13 +67,19 @@ public final class GeometryUnionAgg
     @CombineFunction
     public static void combine(@AggregationState GeometryState state, @AggregationState GeometryState otherState)
     {
+        combine(state, otherState, legacyLenientOverlay());
+    }
+
+    static void combine(GeometryState state, GeometryState otherState, boolean repairInvalidInputs)
+    {
+        // The same policy as input(), so the result does not depend on how rows are batched
         if (state.getGeometry() == null) {
             state.setGeometry(otherState.getGeometry());
         }
         else if (otherState.getGeometry() != null) {
             int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
             if (!otherState.getGeometry().isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry());
+                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry(), repairInvalidInputs);
                 result.setSRID(srid);
                 state.setGeometry(result);
             }

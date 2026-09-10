@@ -104,6 +104,11 @@ public class SortBuffer
         Iterator<Page> sortedPages = pageSorter.sort(types, pages, sortFields, sortOrders, rowCount);
         sortedPages.forEachRemaining(consumer);
 
+        clear();
+    }
+
+    public void clear()
+    {
         pages.clear();
         rowCount = 0;
         usedMemoryBytes = 0;

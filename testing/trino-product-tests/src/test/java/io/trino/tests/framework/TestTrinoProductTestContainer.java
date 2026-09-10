@@ -24,6 +24,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
+import static io.trino.testing.containers.TrinoTestImages.getLastReleasedTrinoVersion;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -36,6 +37,7 @@ class TestTrinoProductTestContainer
 {
     @Container
     static TrinoContainer trino = TrinoProductTestContainer.builder()
+            .withVersion(getLastReleasedTrinoVersion())
             .build();
 
     @Test
@@ -62,7 +64,7 @@ class TestTrinoProductTestContainer
     {
         // Verify builder pattern works correctly
         TrinoContainer container = TrinoProductTestContainer.builder()
-                .withVersion("latest")
+                .withVersion(getLastReleasedTrinoVersion())
                 .build();
         assertThat(container).isNotNull();
         // Don't start the container, just verify it's configured

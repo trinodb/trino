@@ -22,6 +22,8 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -160,6 +162,27 @@ public class TestDecimalAverageAggregation
                 .divide(BigInteger.valueOf(4));
 
         assertAverageEquals(state, expectedAverage);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 18, 38})
+    public void testOverflowWithScale(int scale)
+    {
+        DecimalType type = createDecimalType(38, scale);
+        BigInteger value = Decimals.MAX_UNSCALED_DECIMAL.toBigInteger();
+        for (BigInteger number : ImmutableList.of(value, value.negate())) {
+            LongDecimalWithOverflowAndLongState state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+            addToState(type, state, number);
+            addToState(type, state, number);
+            assertThat(state.getOverflow()).isNotZero();
+            assertThat(average(state, type).toBigInteger()).isEqualTo(number);
+
+            LongDecimalWithOverflowAndLongState otherState = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+            addToState(type, otherState, number);
+            addToState(type, otherState, number);
+            DecimalAverageAggregation.combine(state, otherState);
+            assertThat(average(state, type).toBigInteger()).isEqualTo(number);
+        }
     }
 
     @Test

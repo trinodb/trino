@@ -25,12 +25,9 @@ import software.amazon.awssdk.services.glue.model.ConcurrentModificationExceptio
 import java.sql.SQLException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public final class DeltaLakeDatabricksUtilsJunit
@@ -122,22 +119,6 @@ public final class DeltaLakeDatabricksUtilsJunit
                 .filter(row -> "Comment".equals(row.get(0)))
                 .map(row -> row.get(1))
                 .collect(onlyElement());
-    }
-
-    public static Map<String, String> getTablePropertiesOnDatabricks(DeltaLakeDatabricksEnvironment env, String schemaName, String tableName)
-    {
-        QueryResult result = Failsafe.with(DATABRICKS_COMMUNICATION_FAILURE_RETRY_POLICY)
-                .get(() -> env.executeDatabricksSql("SHOW TBLPROPERTIES " + schemaName + "." + tableName));
-        return result.rows().stream()
-                .map(column -> Map.entry((String) column.get(0), (String) column.get(1)))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    public static String getTablePropertyOnDatabricks(DeltaLakeDatabricksEnvironment env, String schemaName, String tableName, String propertyName)
-    {
-        QueryResult result = Failsafe.with(DATABRICKS_COMMUNICATION_FAILURE_RETRY_POLICY)
-                .get(() -> env.executeDatabricksSql("SHOW TBLPROPERTIES " + schemaName + "." + tableName + "(" + propertyName + ")"));
-        return (String) getOnlyElement(result.rows()).get(1);
     }
 
     public static QueryResult dropDeltaTableWithRetry(DeltaLakeDatabricksEnvironment env, String tableName)

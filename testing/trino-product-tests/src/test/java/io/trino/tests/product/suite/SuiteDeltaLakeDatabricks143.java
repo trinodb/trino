@@ -32,7 +32,7 @@ public final class SuiteDeltaLakeDatabricks143
         List<TestRunResult> results = new ArrayList<>();
         results.add(SuiteRunner.forEnvironment(DeltaLakeDatabricks143Environment.class)
                 .includeTag(TestGroup.ConfiguredFeatures.class)
-                .includeTag(TestGroup.DeltaLakeDatabricks143.class)
+                .includeTag(TestGroup.DeltaLakeDatabricks.class)
                 .run());
 
         SuiteRunner.printSummary(results);
