@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mysql.cj.jdbc.exceptions.MysqlDataTruncation;
 import io.trino.Session;
@@ -555,6 +556,23 @@ public abstract class BaseMySqlConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testIsNotNullPredicatePushdown()
+    {
+        // IS NOT NULL is pushed down even for case insensitive columns
+        try (TestTable table = newTrinoTable(
+                "test_is_not_null_pushdown",
+                "(id bigint, name varchar(50))",
+                ImmutableList.of("1, 'ROMANIA'", "2, 'romania'", "3, NULL"))) {
+            // sanity check: name is a case insensitive column, so equality is not fully pushed down
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE name = 'ROMANIA'"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT id, name FROM " + table.getName() + " WHERE name IS NOT NULL"))
+                    .isFullyPushedDown();
+        }
     }
 
     @Test
