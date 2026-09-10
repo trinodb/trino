@@ -63,10 +63,17 @@ public class TestJoin
     }
 
     @Test
-    public void testFullJoinWithFalseConditionCount()
+    public void testFullJoinWithConstantConditionCount()
     {
-        assertThat(assertions.query("SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON false"))
-                .matches("VALUES BIGINT '2'");
+        assertThat(assertions.query("SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON true"))
+                .matches("VALUES BIGINT '1'");
+
+        for (String condition : ImmutableList.of("false", "CAST(NULL AS boolean)", "abs(-1) = 2")) {
+            assertions.assertQueryAndPlan(
+                    "SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON " + condition,
+                    "VALUES BIGINT '2'",
+                    anyTree(values(2)));
+        }
     }
 
     @Test
