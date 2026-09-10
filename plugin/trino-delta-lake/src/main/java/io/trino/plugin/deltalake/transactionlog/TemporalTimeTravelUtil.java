@@ -168,7 +168,7 @@ public final class TemporalTimeTravelUtil
         ImmutableList.Builder<Callable<Long>> versionSearchTasks = ImmutableList.builder();
         for (long start = 0; start <= end; start += maxLinearSearchSize) {
             long head = start;
-            long tail = start + maxLinearSearchSize - 1;
+            long tail = Math.min(end, start + maxLinearSearchSize - 1);
             versionSearchTasks.add(() -> searchTowardsHeadLinear(fileSystem, head, tail, transactionLogDir, epochMillis));
         }
         try {
