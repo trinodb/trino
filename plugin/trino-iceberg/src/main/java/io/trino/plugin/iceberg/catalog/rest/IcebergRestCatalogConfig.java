@@ -66,6 +66,7 @@ public class IcebergRestCatalogConfig
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
     private boolean serverAssignedTableLocationEnabled;
+    private boolean metricsReportingEnabled = true;
     private boolean caseInsensitiveNameMatching;
     private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
@@ -246,6 +247,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setServerAssignedTableLocationEnabled(boolean serverAssignedTableLocationEnabled)
     {
         this.serverAssignedTableLocationEnabled = serverAssignedTableLocationEnabled;
+        return this;
+    }
+
+    public boolean isMetricsReportingEnabled()
+    {
+        return metricsReportingEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.metrics-reporting-enabled")
+    @ConfigDescription("Report table scan and commit metrics to the REST catalog server")
+    public IcebergRestCatalogConfig setMetricsReportingEnabled(boolean metricsReportingEnabled)
+    {
+        this.metricsReportingEnabled = metricsReportingEnabled;
         return this;
     }
 
