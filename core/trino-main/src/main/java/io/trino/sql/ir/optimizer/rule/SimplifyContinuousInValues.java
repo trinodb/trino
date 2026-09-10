@@ -52,6 +52,7 @@ import static io.trino.sql.ir.Logical.Operator.AND;
  * Simplify IN expression with continuous range of constant test values into a BETWEEN expression. E.g,
  * <ul>
  *     <li>{@code $in(x, [1, 2, 3, 4]) -> $between(x, 1, 4)}
+ *     <li>{@code $in(x, [1, 2, 3, null]) -> $or($between(x, 1, 3), null)}
  * </ul>
  */
 public class SimplifyContinuousInValues
@@ -113,6 +114,7 @@ public class SimplifyContinuousInValues
         boolean includesNull = nullMatch;
         return Optional.of(bindIfNecessary(symbolAllocator, "range", value, operand -> {
             Expression rangeFilter = rangeFilter(session, operand, valueType, lowerBound, upperBound);
+            // An unmatched or null operand must yield NULL when the list contains NULL.
             return includesNull ? or(rangeFilter, NULL_BOOLEAN) : rangeFilter;
         }));
     }

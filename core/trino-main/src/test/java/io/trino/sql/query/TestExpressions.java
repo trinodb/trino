@@ -76,6 +76,25 @@ public class TestExpressions
     }
 
     @Test
+    public void testContinuousInValuesWithNullOnBoundOperand()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT x, (x + 1) IN (1, 2, NULL), (x + 1) NOT IN (1, 2, NULL)
+                FROM UNNEST(ARRAY[NULL, 0, 1, 2, 3]) t(x)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (NULL, NULL, NULL),
+                            (0, true, false),
+                            (1, true, false),
+                            (2, NULL, NULL),
+                            (3, NULL, NULL)
+                        """);
+    }
+
+    @Test
     public void testInShortCircuit()
     {
         // Because of the failing in-list item 5 / 0, the in-predicate cannot be simplified.
