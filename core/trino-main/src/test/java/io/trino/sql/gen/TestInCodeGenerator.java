@@ -13,16 +13,29 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.project.PageProjection;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -33,11 +46,34 @@ import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS
 import static io.trino.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
+import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInCodeGenerator
 {
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+
+    @Test
+    void testEmptyList()
+    {
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(
+                        new In(new Reference(BIGINT, "value"), ImmutableList.of()),
+                        ImmutableMap.of(new Symbol(BIGINT, "value"), 0),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        Page page = new Page(createLongsBlock(1L, null));
+        SourcePage inputPage = projection.getInputChannels().getInputChannels(SourcePage.create(page));
+        Block result = projection.project(SESSION, inputPage, positionsRange(0, page.getPositionCount()));
+
+        assertThat(BOOLEAN.getObjectValue(result, 0)).isEqualTo(false);
+        assertThat(BOOLEAN.getObjectValue(result, 1))
+                .describedAs("null value")
+                .isEqualTo(false);
+    }
 
     @Test
     public void testInteger()
