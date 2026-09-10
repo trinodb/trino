@@ -506,17 +506,17 @@ public class MySqlClient
     }
 
     @Override
-    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columnNames, List<String> columnDefinitions, ConnectorTableMetadata tableMetadata)
     {
-        ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
-        columnDefinitions.addAll(columns);
+        ImmutableList.Builder<String> columns = ImmutableList.builder();
+        columns.addAll(columnDefinitions);
 
         List<String> primaryKeys = MySqlTableProperties.getPrimaryKey(tableMetadata.getProperties());
         if (!primaryKeys.isEmpty()) {
             verifyPrimaryKey(primaryKeys, tableMetadata.getColumns());
-            columnDefinitions.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
+            columns.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
         }
-        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columnDefinitions.build()), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
+        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns.build()), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
     }
 
     private static void verifyPrimaryKey(List<String> primaryKeys, List<ColumnMetadata> columns)
