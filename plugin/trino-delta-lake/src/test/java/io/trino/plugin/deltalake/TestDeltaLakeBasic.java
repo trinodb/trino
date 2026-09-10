@@ -2272,6 +2272,28 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see deltalake.multipart_checkpoint
+     */
+    @Test
+    public void testTemporalTimeTravelUtilParallelSearchWithPartialFinalRange()
+            throws Exception
+    {
+        String tableName = "test_time_travel_util_parallel_partial_range_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        try (ExecutorService executorService = Executors.newCachedThreadPool()) {
+            // Version 5's commit timestamp
+            long version5CommitTimeMillis = Instant.parse("2023-10-16T06:53:09.907Z").toEpochMilli();
+            assertThat(findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), version5CommitTimeMillis, executorService, 5)).isEqualTo(5);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    /**
      * @see deltalake.partition_values_parsed
      */
     @Test
