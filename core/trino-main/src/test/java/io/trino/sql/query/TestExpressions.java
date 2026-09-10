@@ -112,6 +112,20 @@ public class TestExpressions
     }
 
     @Test
+    public void testNonDeterministicYearInPredicate()
+    {
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE year(date_add('year', 2 * CAST(floor(random() * 2) AS integer), DATE '2019-06-01')) IN (2019, 2021)"))
+                .matches("VALUES BIGINT '1000'");
+    }
+
+    @Test
+    public void testNonDeterministicYearIsNotDistinctFromInPredicate()
+    {
+        assertThat(assertions.query("SELECT count(*) BETWEEN 4000 AND 6000 FROM UNNEST(sequence(1, 10000)) t(x) WHERE year(IF(random() < 0.5, NULL, DATE '2019-06-01')) IS NOT DISTINCT FROM 2019"))
+                .matches("VALUES true");
+    }
+
+    @Test
     public void testNullableIfConditionInFilter()
     {
         assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[true, false, NULL]) t(x) WHERE IF(x, false, true)"))
