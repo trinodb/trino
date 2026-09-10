@@ -61,6 +61,7 @@ public class IcebergRestCatalogConfig
     private SessionType sessionType = SessionType.NONE;
     private Duration connectionTimeout;
     private Duration socketTimeout;
+    private int maxRetries = 5;
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
@@ -177,6 +178,20 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setSocketTimeout(Duration socketTimeout)
     {
         this.socketTimeout = socketTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxRetries()
+    {
+        return maxRetries;
+    }
+
+    @Config("iceberg.rest-catalog.max-retries")
+    @ConfigDescription("Maximum number of retry attempts for failed REST catalog HTTP requests")
+    public IcebergRestCatalogConfig setMaxRetries(int maxRetries)
+    {
+        this.maxRetries = maxRetries;
         return this;
     }
 

@@ -501,6 +501,10 @@ following properties:
 * - `iceberg.rest-catalog.socket-timeout`
   - Maximum time [Duration](prop-type-duration) allowed socket read/write operations
     before timing out.
+* - `iceberg.rest-catalog.max-retries`
+  - Maximum number of retry attempts for failed REST catalog HTTP requests
+    (default: `5`). Only idempotent requests, such as `GET`, are retried on
+    server errors; retries use exponential backoff.
 * - `iceberg.rest-catalog.session-timeout`
   - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`
