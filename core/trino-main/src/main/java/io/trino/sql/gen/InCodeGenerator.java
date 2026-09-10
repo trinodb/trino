@@ -122,6 +122,16 @@ public class InCodeGenerator
         Type type = valueExpression.type();
         Class<?> javaType = type.getJavaType();
 
+        if (testExpressions.isEmpty()) {
+            // an empty IN list is an empty disjunction, i.e. false, regardless of the value
+            return new BytecodeBlock()
+                    .comment("IN ()")
+                    .append(generatorContext.generate(valueExpression))
+                    .pop(javaType)
+                    .append(generatorContext.wasNull().set(constantFalse()))
+                    .push(false);
+        }
+
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, testExpressions);
 
         MethodHandle equalsMethodHandle = generatorContext.getScalarFunctionImplementation(resolvedEqualsFunction, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
