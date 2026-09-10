@@ -524,12 +524,11 @@ SQL Server compares character values with PAD SPACE semantics and with the colum
 so it can match values that Trino, which compares `varchar` with NO PAD and is always
 case-sensitive, treats as different. Pushdown on character columns is restricted accordingly:
 
-- On `CHAR` and `NCHAR` columns with a case-sensitive collation, `=`, `<>`, `IN`, and `NOT IN`
-  against a literal are pushed down. Between two such columns, `IN` and `NOT IN` are pushed down as
-  a filter.
-- On all other character columns, `=`, `<>`, `IN`, and `NOT IN` are not pushed down between two
-  columns or as a join condition, and against a literal `=` and `IN` are pushed only as a pre-filter
-  with Trino re-applying the comparison, so the query is not fully pushed down.
+- Fully pushed down, only on `CHAR` and `NCHAR` columns with a case-sensitive collation: `=`,
+  `<>`, `IN`, and `NOT IN` against a literal, and `IN`, `NOT IN`, and `NULLIF` between two such
+  columns.
+- Pushed down only as a pre-filter that Trino re-checks, on all other character columns: `=` and
+  `IN` against a literal. The query is not fully pushed down.
 - `=` and `<>` join conditions on `VARCHAR` and `NVARCHAR` columns are not pushed down.
 - Range predicates, such as `>` or `BETWEEN`, are never pushed down on character columns.
 
