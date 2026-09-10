@@ -2273,7 +2273,7 @@
             <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
-                <version>1.6.21</version>
+                <version>1.6.22</version>
             </dependency>
 
             <dependency>
