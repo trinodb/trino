@@ -34,7 +34,9 @@ import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSyntax;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 
@@ -251,7 +253,7 @@ public final class ViewReaderUtil
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
-                                typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeId(),
+                                TypeId.of(TypeSyntax.toSql(typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeDescriptor())),
                                 Optional.ofNullable(columnComments.get(field.getName()))))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(

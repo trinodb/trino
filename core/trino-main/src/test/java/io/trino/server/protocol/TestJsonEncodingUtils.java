@@ -72,12 +72,15 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.IntervalField.DAY;
+import static io.trino.spi.type.IntervalField.SECOND;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
+import static io.trino.type.IntervalDayTimeType.createIntervalDayTimeType;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -142,6 +145,38 @@ public class TestJsonEncodingUtils
         Page page = page(blockBuilder.build());
         assertThat(roundTrip(columns, page, "[[[0,1,2,3,4,5,6,7,8,9]]]"))
                 .isEqualTo(column(List.of(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L)));
+    }
+
+    @Test
+    public void testIntervalDayTimeSerialization()
+            throws IOException
+    {
+        Type type = createIntervalDayTimeType(DAY, SECOND, 9, 6);
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", type));
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        type.writeLong(blockBuilder, 1_234_567L); // 1.234567 seconds
+
+        // A client that advertises PARAMETRIC_INTERVAL receives every declared fractional digit
+        roundTrip(columns, page(blockBuilder.build()), "[[\"0 00:00:01.234567\"]]");
+    }
+
+    @Test
+    public void testIntervalDayTimeWithoutParametricIntervalSerialization()
+            throws IOException
+    {
+        Type type = createIntervalDayTimeType(DAY, SECOND, 9, 6);
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", type));
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        type.writeLong(blockBuilder, 1_234_567L); // 1.234567 seconds
+
+        // Without the capability the value is rounded to the legacy three-digit millisecond form,
+        // which a client from before parametric intervals parses as milliseconds
+        roundTrip(
+                sessionWithoutCapability(ClientCapabilities.PARAMETRIC_INTERVAL),
+                columns,
+                false,
+                page(blockBuilder.build()),
+                "[[\"0 00:00:01.235\"]]");
     }
 
     @Test

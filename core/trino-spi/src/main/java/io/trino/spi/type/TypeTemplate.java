@@ -13,8 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.type.TemplateParameter.NumericArgument;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -36,9 +34,9 @@ public sealed interface TypeTemplate
     /// The base name: the variable name for a [TypeVariable], the constructor name for a [TypeApplication].
     String baseName();
 
-    /// Renders this template in type syntax, e.g. `array(E)`, `decimal(p,s)`, `char(x + y)`. Mirrors the
-    /// [TypeDescriptor] formatting (unbounded varchar, time-zone syntax, quoted row field names) so error
-    /// messages and round-trips match.
+    /// Renders this template in the internal `base(arg, …)` IR form, e.g. `array(E)`, `decimal(p,s)`,
+    /// `char(x + y)`. Mirrors [TypeDescriptor#toString] so the open and ground forms share one
+    /// representation; the user-visible SQL spelling is produced separately by [TypeSyntax].
     String render();
 
     /// A type constructor applied to template parameters, e.g. `array(E)` or `decimal(p, s)`.
@@ -63,21 +61,6 @@ public sealed interface TypeTemplate
         {
             if (parameters.isEmpty()) {
                 return base;
-            }
-            if (base.equalsIgnoreCase(StandardTypes.VARCHAR)
-                    && parameters.size() == 1
-                    && parameters.getFirst() instanceof NumericArgument(NumericExpression.Literal(long length))
-                    && length == VarcharType.UNBOUNDED_LENGTH) {
-                return base;
-            }
-            if (base.equalsIgnoreCase(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)) {
-                return "timestamp(" + parameters.getFirst().render() + ") with time zone";
-            }
-            if (base.equalsIgnoreCase("timestamp without time zone")) {
-                return "timestamp(" + parameters.getFirst().render() + ") without time zone";
-            }
-            if (base.equalsIgnoreCase(StandardTypes.TIME_WITH_TIME_ZONE)) {
-                return "time(" + parameters.getFirst().render() + ") with time zone";
             }
             return base + parameters.stream().map(TemplateParameter::render).collect(joining(",", "(", ")"));
         }

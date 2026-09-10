@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.Test;
@@ -88,16 +89,16 @@ public class TestTypeDescriptor
         // named fields of types with spaces
         assertRowSignature(
                 "row(time time with time zone)",
-                rowSignature(namedParameter("time", signature("time with time zone"))));
+                rowSignature(namedParameter("time", signature(StandardTypes.TIME_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(time timestamp with time zone)",
-                rowSignature(namedParameter("time", signature("timestamp with time zone"))));
+                rowSignature(namedParameter("time", signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(interval interval day to second)",
-                rowSignature(namedParameter("interval", signature("interval day to second"))));
+                rowSignature(namedParameter("interval", interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5))));
         assertRowSignature(
                 "row(interval interval year to month)",
-                rowSignature(namedParameter("interval", signature("interval year to month"))));
+                rowSignature(namedParameter("interval", interval(StandardTypes.INTERVAL_YEAR_TO_MONTH, 0, 1))));
         assertRowSignature(
                 "row(double double precision)",
                 rowSignature(namedParameter("double", signature("double"))));
@@ -105,39 +106,39 @@ public class TestTypeDescriptor
         // unnamed fields of types with spaces
         assertRowSignature(
                 "row(time with time zone)",
-                rowSignature(unnamedParameter(signature("time with time zone"))));
+                rowSignature(unnamedParameter(signature(StandardTypes.TIME_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(timestamp with time zone)",
-                rowSignature(unnamedParameter(signature("timestamp with time zone"))));
+                rowSignature(unnamedParameter(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(interval day to second)",
-                rowSignature(unnamedParameter(signature("interval day to second"))));
+                rowSignature(unnamedParameter(interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5))));
         assertRowSignature(
                 "row(interval year to month)",
-                rowSignature(unnamedParameter(signature("interval year to month"))));
+                rowSignature(unnamedParameter(interval(StandardTypes.INTERVAL_YEAR_TO_MONTH, 0, 1))));
         assertRowSignature(
                 "row(double precision)",
                 rowSignature(unnamedParameter(signature("double"))));
         assertRowSignature(
                 "row(array(time with time zone))",
-                rowSignature(unnamedParameter(array(signature("time with time zone")))));
+                rowSignature(unnamedParameter(array(signature(StandardTypes.TIME_WITH_TIME_ZONE)))));
         assertRowSignature(
                 "row(map(timestamp with time zone,interval day to second))",
-                rowSignature(unnamedParameter(map(signature("timestamp with time zone"), signature("interval day to second")))));
+                rowSignature(unnamedParameter(map(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE), interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5)))));
 
         // quoted field names
         assertRowSignature(
                 "row(\"time with time zone\" time with time zone,\"double\" double)",
                 rowSignature(
-                        namedParameter("time with time zone", signature("time with time zone")),
+                        namedParameter("time with time zone", signature(StandardTypes.TIME_WITH_TIME_ZONE)),
                         namedParameter("double", signature("double"))));
 
         // allow spaces
         assertSignature(
                 "row( time  time with time zone, array( interval day to second ) )",
                 "row",
-                ImmutableList.of("\"time\" time with time zone", "array(interval day to second)"),
-                "row(\"time\" time with time zone,array(interval day to second))");
+                ImmutableList.of("\"time\" time with time zone", "array(interval day(2) to second(6))"),
+                "row(\"time\" time with time zone,array(interval day(2) to second(6)))");
 
         // preserve base name case
         assertRowSignature(
@@ -189,11 +190,24 @@ public class TestTypeDescriptor
         return new TypeDescriptor(name);
     }
 
+    // An interval signature is parametric: the parser fills a bare qualifier with the start and end
+    // field codes (year=0 .. second=5) and the implicit leading precision of 2. A day-time interval
+    // also carries the implicit fractional-seconds precision of 6 in a fourth parameter.
+    private static TypeDescriptor interval(String base, long startField, long endField)
+    {
+        if (base.equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
+            return new TypeDescriptor(base, numericParameter(startField), numericParameter(endField), numericParameter(2));
+        }
+        return new TypeDescriptor(base, numericParameter(startField), numericParameter(endField), numericParameter(2), numericParameter(6));
+    }
+
     @Test
     public void parseSignature()
     {
         assertSignature("boolean", "boolean", ImmutableList.of());
-        assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)));
+        // parsing the SQL `varchar` yields the unbounded descriptor, which renders back to the bare `varchar`
+        // surface even though the parameter carries the sentinel length
+        assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)), "varchar");
 
         assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
 
@@ -211,6 +225,7 @@ public class TestTypeDescriptor
                 "map(bigint,array(bigint))",
                 "map",
                 ImmutableList.of("bigint", "array(bigint)"));
+        // a nested unbounded varchar renders back to the bare `varchar` surface
         assertSignature(
                 "map(bigint,map(bigint,map(varchar,bigint)))",
                 "map",
@@ -232,9 +247,40 @@ public class TestTypeDescriptor
     }
 
     @Test
+    public void testInternalFormRoundTrip()
+    {
+        // TypeDescriptor.fromString parses the internal base(arg, …) IR (toString/jsonValue) back to an
+        // equal descriptor — the (de)serialization round-trip, including the special types whose IR
+        // diverges from their SQL spelling, and nested/named cases.
+        List<TypeDescriptor> descriptors = ImmutableList.of(
+                new TypeDescriptor("bigint"),
+                new TypeDescriptor("varchar", TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH)),
+                new TypeDescriptor("decimal", TypeParameter.numericParameter(10), TypeParameter.numericParameter(2)),
+                new TypeDescriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeParameter.numericParameter(6)),
+                new TypeDescriptor(StandardTypes.TIME_WITH_TIME_ZONE, TypeParameter.numericParameter(9)),
+                new TypeDescriptor("array", TypeParameter.typeParameter(new TypeDescriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeParameter.numericParameter(3)))),
+                new TypeDescriptor("map", TypeParameter.typeParameter(new TypeDescriptor("varchar", TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH))), TypeParameter.typeParameter(new TypeDescriptor("bigint"))),
+                new TypeDescriptor("row", TypeParameter.namedField("a", new TypeDescriptor("bigint")), TypeParameter.namedField("a\"b,c", new TypeDescriptor("varchar", TypeParameter.numericParameter(10)))));
+        for (TypeDescriptor descriptor : descriptors) {
+            assertThat(TypeDescriptor.fromString(descriptor.toString())).isEqualTo(descriptor);
+            assertThat(TypeDescriptor.fromString(descriptor.jsonValue())).isEqualTo(descriptor);
+            // The internal-form TypeId is the IR, and parses back through fromString.
+            assertThat(descriptor.toTypeId().getId()).isEqualTo(descriptor.jsonValue());
+            assertThat(TypeDescriptor.fromString(descriptor.toTypeId().getId())).isEqualTo(descriptor);
+        }
+
+        // Corruption in a machine-generated id surfaces as an exception, not a silently wrong descriptor.
+        assertThatThrownBy(() -> TypeDescriptor.fromString("array(bigint")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TypeDescriptor.fromString("varchar()")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     public void testVarchar()
     {
-        assertThat(VARCHAR.getTypeDescriptor().toString()).isEqualTo("varchar");
+        // toString() is the internal IR and keeps the sentinel length; getTypeId() is the serialized
+        // SQL spelling, which elides it.
+        assertThat(VARCHAR.getTypeDescriptor().toString()).isEqualTo("varchar(2147483647)");
+        assertThat(VARCHAR.getTypeId().getId()).isEqualTo("varchar");
         assertThat(createVarcharType(42).getTypeDescriptor().toString()).isEqualTo("varchar(42)");
         assertThat(VARCHAR.getTypeDescriptor()).isEqualTo(createUnboundedVarcharType().getTypeDescriptor());
         assertThat(createUnboundedVarcharType().getTypeDescriptor()).isEqualTo(VARCHAR.getTypeDescriptor());
@@ -266,9 +312,9 @@ public class TestTypeDescriptor
         assertThat(signature.getBase()).isEqualTo(base);
         assertThat(signature.getParameters()).hasSize(parameters.size());
         for (int i = 0; i < signature.getParameters().size(); i++) {
-            assertThat(signature.getParameters().get(i).toString()).isEqualTo(parameters.get(i));
+            assertThat(TypeSyntax.toSql(signature.getParameters().get(i))).isEqualTo(parameters.get(i));
         }
-        assertThat(signature.toString()).isEqualTo(expectedTypeName);
+        assertThat(TypeSyntax.toSql(signature)).isEqualTo(expectedTypeName);
     }
 
     private void assertSignatureFail(String typeName)
