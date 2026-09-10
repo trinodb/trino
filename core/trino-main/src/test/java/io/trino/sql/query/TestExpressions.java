@@ -126,6 +126,13 @@ public class TestExpressions
     }
 
     @Test
+    public void testNonDeterministicDateTruncIsNotDistinctFromInPredicate()
+    {
+        assertThat(assertions.query("SELECT count(*) BETWEEN 4000 AND 6000 FROM UNNEST(sequence(1, 10000)) t(x) WHERE date_trunc('year', IF(random() < 0.5, NULL, DATE '2019-06-01')) IS NOT DISTINCT FROM DATE '2019-01-01'"))
+                .matches("VALUES true");
+    }
+
+    @Test
     public void testNullableIfConditionInFilter()
     {
         assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[true, false, NULL]) t(x) WHERE IF(x, false, true)"))
