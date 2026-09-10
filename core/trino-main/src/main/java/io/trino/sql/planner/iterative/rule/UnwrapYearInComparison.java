@@ -51,11 +51,14 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.between;
+import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.IrUtils.preOrder;
 import static io.trino.sql.ir.Logical.and;
+import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
@@ -91,7 +94,8 @@ public class UnwrapYearInComparison
         return (expression, context) -> unwrapYear(context.getSession(), plannerContext, context.getSymbolAllocator(), expression);
     }
 
-    private static Expression unwrapYear(
+    @VisibleForTesting
+    public static Expression unwrapYear(
             Session session,
             PlannerContext plannerContext,
             SymbolAllocator symbolAllocator,
@@ -152,6 +156,8 @@ public class UnwrapYearInComparison
                 return in;
             }
 
+            Expression argument = getOnlyElement(call.arguments());
+
             // Convert each value to a comparison expression and try to unwrap it.
             // unwrap the InPredicate only in case we manage to unwrap the entire value list
             ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(node.valueList().size());
@@ -163,7 +169,11 @@ public class UnwrapYearInComparison
                 comparisonExpressions.add(unwrappedExpression.get());
             }
 
-            return or(comparisonExpressions.build());
+            Expression unwrapped = or(comparisonExpressions.build());
+            if (preOrder(unwrapped).filter(argument::equals).count() < 2) {
+                return unwrapped;
+            }
+            return bindIfNecessary(symbolAllocator, "operand", argument, operand -> replaceExpression(unwrapped, ImmutableMap.of(argument, operand)));
         }
 
         // Returns the unwrapped form of `year(d) ? value`, or empty when the comparison cannot be unwrapped
@@ -218,14 +228,14 @@ public class UnwrapYearInComparison
                         argument,
                         new Constant(argumentType, calculateRangeStartInclusive(year, argumentType)),
                         new Constant(argumentType, calculateRangeEndInclusive(year, argumentType))));
-                case IDENTICAL -> and(
-                        not(metadata, getCharVarcharCoercion(session), new IsNull(argument)),
+                case IDENTICAL -> bindIfNecessary(symbolAllocator, "operand", argument, operand -> and(
+                        not(metadata, getCharVarcharCoercion(session), new IsNull(operand)),
                         between(metadata,
                                 getCharVarcharCoercion(session),
                                 symbolAllocator,
-                                argument,
+                                operand,
                                 new Constant(argumentType, calculateRangeStartInclusive(year, argumentType)),
-                                new Constant(argumentType, calculateRangeEndInclusive(year, argumentType))));
+                                new Constant(argumentType, calculateRangeEndInclusive(year, argumentType)))));
                 case LESS_THAN -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
                     yield comparison(metadata, getCharVarcharCoercion(session), LESS_THAN, argument, new Constant(argumentType, value));

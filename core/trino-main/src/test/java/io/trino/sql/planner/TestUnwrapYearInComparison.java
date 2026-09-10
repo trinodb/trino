@@ -19,10 +19,13 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -37,6 +40,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -52,16 +56,19 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.UnwrapYearInComparison.calculateRangeEndInclusive;
+import static io.trino.sql.planner.iterative.rule.UnwrapYearInComparison.unwrapYear;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -73,6 +80,7 @@ public class TestUnwrapYearInComparison
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
+    private static final ResolvedFunction FROM_UNIXTIME = FUNCTIONS.resolveFunction("from_unixtime", fromTypes(DOUBLE));
     private static final ResolvedFunction YEAR_DATE = FUNCTIONS.resolveFunction("year", fromTypes(DATE));
     private static final ResolvedFunction YEAR_TIMESTAMP_3 = FUNCTIONS.resolveFunction("year", fromTypes(createTimestampType(3)));
 
@@ -343,6 +351,98 @@ public class TestUnwrapYearInComparison
         assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_PICOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)), 999_999));
     }
 
+    @Test
+    public void testUnwrapYearBindsNonDeterministicOperandOnce()
+    {
+        Reference operand = new Reference(TIMESTAMP_MILLIS, "operand");
+
+        assertThat(unwrap(comparison(IDENTICAL, yearTimestamp(randomTimestamp()), new Constant(BIGINT, 2021L))))
+                .isEqualTo(new Let(
+                        new Symbol(TIMESTAMP_MILLIS, "operand"),
+                        randomTimestamp(),
+                        new Logical(AND, ImmutableList.of(
+                                not(new IsNull(operand)),
+                                between(operand, timestampConstant("2021-01-01 00:00:00.000"), timestampConstant("2021-12-31 23:59:59.999"))))));
+    }
+
+    @Test
+    public void testUnwrapYearInBindsNonDeterministicOperandOnce()
+    {
+        Reference operand = new Reference(TIMESTAMP_MILLIS, "operand");
+
+        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), ImmutableList.of(new Constant(BIGINT, 2019L), new Constant(BIGINT, 2021L)))))
+                .isEqualTo(new Let(
+                        new Symbol(TIMESTAMP_MILLIS, "operand"),
+                        randomTimestamp(),
+                        new Logical(OR, ImmutableList.of(
+                                letBetween("between", operand, "2019-01-01 00:00:00.000", "2019-12-31 23:59:59.999"),
+                                letBetween("between_0", operand, "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999")))));
+    }
+
+    @Test
+    public void testUnwrapYearInKeepsSingleValueUnbound()
+    {
+        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), ImmutableList.of(new Constant(BIGINT, 2021L)))))
+                .isEqualTo(letBetween("between", randomTimestamp(), "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999"));
+    }
+
+    @Test
+    public void testUnwrapYearInKeepsUnreferencedOperandUnbound()
+    {
+        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), ImmutableList.of(new Constant(BIGINT, null)))))
+                .isEqualTo(new Constant(BOOLEAN, null));
+    }
+
+    @Test
+    public void testUnwrapYearInKeepsSingleOccurrenceUnbound()
+    {
+        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), ImmutableList.of(new Constant(BIGINT, 2019L), new Constant(BIGINT, null)))))
+                .isEqualTo(new Logical(OR, ImmutableList.of(
+                        letBetween("between", randomTimestamp(), "2019-01-01 00:00:00.000", "2019-12-31 23:59:59.999"),
+                        new Constant(BOOLEAN, null))));
+    }
+
+    @Test
+    public void testUnwrapYearKeepsTrivialOperandInline()
+    {
+        Reference operand = new Reference(TIMESTAMP_MILLIS, "a");
+
+        assertThat(unwrap(comparison(IDENTICAL, yearTimestamp(operand), new Constant(BIGINT, 2021L))))
+                .isEqualTo(new Logical(AND, ImmutableList.of(
+                        not(new IsNull(operand)),
+                        between(operand, timestampConstant("2021-01-01 00:00:00.000"), timestampConstant("2021-12-31 23:59:59.999")))));
+    }
+
+    @Test
+    public void testUnwrapYearBindsCastOperandOnce()
+    {
+        Expression cast = new Cast(new Reference(DATE, "a"), TIMESTAMP_MILLIS);
+        Reference operand = new Reference(TIMESTAMP_MILLIS, "operand");
+
+        assertThat(unwrap(comparison(IDENTICAL, yearTimestamp(cast), new Constant(BIGINT, 2021L))))
+                .isEqualTo(new Let(
+                        new Symbol(TIMESTAMP_MILLIS, "operand"),
+                        cast,
+                        new Logical(AND, ImmutableList.of(
+                                not(new IsNull(operand)),
+                                between(operand, timestampConstant("2021-01-01 00:00:00.000"), timestampConstant("2021-12-31 23:59:59.999"))))));
+    }
+
+    @Test
+    public void testUnwrapYearInBindsCastOperandOnce()
+    {
+        Expression cast = new Cast(new Reference(DATE, "a"), TIMESTAMP_MILLIS);
+        Reference operand = new Reference(TIMESTAMP_MILLIS, "operand");
+
+        assertThat(unwrap(new In(yearTimestamp(cast), ImmutableList.of(new Constant(BIGINT, 2019L), new Constant(BIGINT, 2021L)))))
+                .isEqualTo(new Let(
+                        new Symbol(TIMESTAMP_MILLIS, "operand"),
+                        cast,
+                        new Logical(OR, ImmutableList.of(
+                                letBetween("between", operand, "2019-01-01 00:00:00.000", "2019-12-31 23:59:59.999"),
+                                letBetween("between_0", operand, "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999")))));
+    }
+
     private static long toEpochMicros(LocalDateTime localDateTime)
     {
         return multiplyExact(localDateTime.toEpochSecond(UTC), MICROSECONDS_PER_SECOND)
@@ -376,6 +476,32 @@ public class TestUnwrapYearInComparison
             e.addSuppressed(new Exception("Query: " + sql));
             throw e;
         }
+    }
+
+    private static Expression unwrap(Expression expression)
+    {
+        return unwrapYear(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), expression);
+    }
+
+    private static Expression letBetween(String name, Expression value, String low, String high)
+    {
+        Reference bound = new Reference(value.type(), name);
+        return new Let(new Symbol(value.type(), name), value, between(bound, timestampConstant(low), timestampConstant(high)));
+    }
+
+    private static Expression yearTimestamp(Expression operand)
+    {
+        return new Call(YEAR_TIMESTAMP_3, ImmutableList.of(operand));
+    }
+
+    private static Expression randomTimestamp()
+    {
+        return new Cast(new Call(FROM_UNIXTIME, ImmutableList.of(new Call(RANDOM, ImmutableList.of()))), TIMESTAMP_MILLIS);
+    }
+
+    private static Constant timestampConstant(String timestamp)
+    {
+        return new Constant(TIMESTAMP_MILLIS, DateTimes.parseTimestamp(3, timestamp));
     }
 
     private static Expression not(Expression value)
