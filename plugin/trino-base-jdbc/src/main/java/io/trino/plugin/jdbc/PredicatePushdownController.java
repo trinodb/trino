@@ -48,7 +48,7 @@ public interface PredicatePushdownController
                 domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
                 "CASE_INSENSITIVE_CHARACTER_PUSHDOWN can be used only for chars and varchars");
 
-        if (domain.isOnlyNull()) {
+        if (domain.isOnlyNull() || domain.getValues().isAll()) {
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
