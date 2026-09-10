@@ -3516,6 +3516,9 @@ public class DeltaLakeMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LocatedTableHandle handle = (LocatedTableHandle) tableHandle;
+        if (handle instanceof DeltaLakeTableHandle deltaLakeTableHandle) {
+            checkUnsupportedUniversalFormat(deltaLakeTableHandle.getMetadataEntry());
+        }
         boolean deleteData = handle.managed();
         metastore.dropTable(handle.schemaTableName(), handle.location(), deleteData);
         if (deleteData) {

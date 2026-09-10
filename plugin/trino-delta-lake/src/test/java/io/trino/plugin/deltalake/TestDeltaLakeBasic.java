@@ -1819,6 +1819,7 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM uniform_hudi", "VALUES (123)");
         assertQueryFails("INSERT INTO uniform_hudi VALUES (456)", "\\QUnsupported universal formats: [hudi]");
         assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, 'uniform_hudi', '7d')", "\\QUnsupported universal formats: [hudi]");
+        assertQueryFails("DROP TABLE uniform_hudi", "\\QUnsupported universal formats: [hudi]");
     }
 
     /**
@@ -1829,6 +1830,7 @@ public class TestDeltaLakeBasic
     {
         assertQuery("SELECT * FROM uniform_iceberg_v1", "VALUES (1, 'test data')");
         assertQueryFails("INSERT INTO uniform_iceberg_v1 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("DROP TABLE uniform_iceberg_v1", "\\QUnsupported universal formats: [iceberg]");
     }
 
     /**
@@ -1839,6 +1841,7 @@ public class TestDeltaLakeBasic
     {
         assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("DROP TABLE uniform_iceberg_v2", "\\QUnsupported universal formats: [iceberg]");
     }
 
     /**
