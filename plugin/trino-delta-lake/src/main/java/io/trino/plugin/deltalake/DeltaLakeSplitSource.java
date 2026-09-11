@@ -136,7 +136,13 @@ public class DeltaLakeSplitSource
                                     split.statisticsPredicate().overlaps(dynamicFilterPredicate))
                             .collect(toImmutableList());
                     if (recordScannedFiles) {
-                        filteredSplits.forEach(split -> scannedFilePaths.add(new DeltaLakeScannedDataFile(((DeltaLakeSplit) split).path(), ((DeltaLakeSplit) split).partitionKeys())));
+                        filteredSplits.forEach(split -> {
+                            DeltaLakeSplit deltaLakeSplit = (DeltaLakeSplit) split;
+                            scannedFilePaths.add(new DeltaLakeScannedDataFile(
+                                    deltaLakeSplit.path(),
+                                    deltaLakeSplit.partitionKeys(),
+                                    deltaLakeSplit.deletionVector()));
+                        });
                     }
                     return filteredSplits;
                 },
