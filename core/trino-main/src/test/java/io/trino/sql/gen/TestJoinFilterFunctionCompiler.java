@@ -13,12 +13,15 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.TestingCatalogFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -30,6 +33,7 @@ import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
@@ -44,6 +48,39 @@ public class TestJoinFilterFunctionCompiler
             GREATER_THAN,
             new Reference(BIGINT, "left_col"),
             new Reference(BIGINT, "right_col"));
+
+    @Test
+    public void testCatalogFunctionReadsItsOwnCatalogSessionProperty()
+    {
+        TestingFunctionResolution functionResolution = TestingCatalogFunction.functionResolution();
+        // left.col < multiply(right.col)
+        Expression filter = comparison(
+                LESS_THAN,
+                new Reference(BIGINT, "left_col"),
+                new Call(TestingCatalogFunction.MULTIPLY, ImmutableList.of(new Reference(BIGINT, "right_col"))));
+
+        JoinFilterFunctionFactory factory = new JoinFilterFunctionCompiler(
+                functionResolution.getPlannerContext().getFunctionManager(),
+                functionResolution.getMetadata(),
+                functionResolution.getPlannerContext().getTypeManager())
+                .compileJoinFilterFunction(
+                        filter,
+                        ImmutableMap.of(new Symbol(BIGINT, "left_col"), 0, new Symbol(BIGINT, "right_col"), 1),
+                        1,
+                        SQL_STANDARD);
+
+        Page leftPage = createLongBlockPage(5, 10);
+        Page rightPage = createLongBlockPage(3, 3);
+        JoinFilterFunction filterFunction = factory.create(
+                TestingCatalogFunction.session().toConnectorSession(),
+                new LongArrayList(new long[] {0, 1}),
+                List.of(leftPage));
+
+        // 5 < 3 * 3
+        assertThat(filterFunction.filter(0, 0, rightPage)).isTrue();
+        // 10 < 3 * 3
+        assertThat(filterFunction.filter(1, 1, rightPage)).isFalse();
+    }
 
     @Test
     public void testCache()

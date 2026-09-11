@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.type.Type;
@@ -215,6 +216,8 @@ public final class ScalarFunctionAdapter
             throw new IllegalArgumentException("Instance method cannot be adapted to no instance");
         }
 
+        methodHandle = explicitCastArguments(methodHandle, getCanonicalMethodType(methodHandle.type(), returnType, actualArgumentTypes, actualConvention));
+
         // adapt return first, since return-null-on-null parameter convention must know if the return type is nullable
         methodHandle = adaptReturn(methodHandle, returnType, actualConvention.getReturnConvention(), expectedConvention.getReturnConvention());
 
@@ -242,6 +245,65 @@ public final class ScalarFunctionAdapter
             parameterIndex += expectedArgumentConvention.getParameterCount();
         }
         return methodHandle;
+    }
+
+    private static MethodType getCanonicalMethodType(
+            MethodType methodType,
+            Type returnType,
+            List<Type> argumentTypes,
+            InvocationConvention convention)
+    {
+        int parameterIndex = convention.supportsInstanceFactory() ? 1 : 0;
+        if (convention.supportsSession()) {
+            methodType = methodType.changeParameterType(parameterIndex++, ConnectorSession.class);
+        }
+
+        for (int argumentIndex = 0; argumentIndex < argumentTypes.size(); argumentIndex++) {
+            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
+            if (argumentConvention == FUNCTION) {
+                parameterIndex += argumentConvention.getParameterCount();
+                continue;
+            }
+
+            Class<?> javaType = argumentTypes.get(argumentIndex).getJavaType();
+            switch (argumentConvention) {
+                case NEVER_NULL -> methodType = methodType.changeParameterType(parameterIndex, javaType);
+                case BOXED_NULLABLE -> methodType = methodType.changeParameterType(parameterIndex, wrap(javaType));
+                case NULL_FLAG -> methodType = methodType
+                        .changeParameterType(parameterIndex, javaType)
+                        .changeParameterType(parameterIndex + 1, boolean.class);
+                case BLOCK_POSITION, BLOCK_POSITION_NOT_NULL -> methodType = methodType
+                        .changeParameterType(parameterIndex, Block.class)
+                        .changeParameterType(parameterIndex + 1, int.class);
+                case VALUE_BLOCK_POSITION, VALUE_BLOCK_POSITION_NOT_NULL -> methodType = methodType
+                        .changeParameterType(parameterIndex, ValueBlock.class)
+                        .changeParameterType(parameterIndex + 1, int.class);
+                case FLAT -> methodType = methodType
+                        .changeParameterType(parameterIndex, byte[].class)
+                        .changeParameterType(parameterIndex + 1, int.class)
+                        .changeParameterType(parameterIndex + 2, byte[].class)
+                        .changeParameterType(parameterIndex + 3, int.class);
+                case IN_OUT -> methodType = methodType.changeParameterType(parameterIndex, InOut.class);
+                case FUNCTION -> {}
+            }
+            parameterIndex += argumentConvention.getParameterCount();
+        }
+
+        return switch (convention.getReturnConvention()) {
+            case FAIL_ON_NULL, DEFAULT_ON_NULL -> methodType.returnType().isPrimitive()
+                    ? methodType
+                    : methodType.changeReturnType(returnType.getJavaType());
+            case NULLABLE_RETURN -> methodType.changeReturnType(wrap(returnType.getJavaType()));
+            case BLOCK_BUILDER -> methodType
+                    .changeReturnType(void.class)
+                    .changeParameterType(parameterIndex, BlockBuilder.class);
+            case FLAT_RETURN -> methodType
+                    .changeReturnType(void.class)
+                    .changeParameterType(parameterIndex, byte[].class)
+                    .changeParameterType(parameterIndex + 1, int.class)
+                    .changeParameterType(parameterIndex + 2, byte[].class)
+                    .changeParameterType(parameterIndex + 3, int.class);
+        };
     }
 
     private static MethodHandle adaptReturn(
@@ -301,11 +363,6 @@ public final class ScalarFunctionAdapter
             InvocationArgumentConvention expectedArgumentConvention,
             InvocationReturnConvention returnConvention)
     {
-        // For value block, cast specialized parameter to ValueBlock
-        if ((actualArgumentConvention == VALUE_BLOCK_POSITION || actualArgumentConvention == VALUE_BLOCK_POSITION_NOT_NULL) && methodHandle.type().parameterType(parameterIndex) != ValueBlock.class) {
-            methodHandle = methodHandle.asType(methodHandle.type().changeParameterType(parameterIndex, ValueBlock.class));
-        }
-
         if (actualArgumentConvention == expectedArgumentConvention) {
             return methodHandle;
         }
