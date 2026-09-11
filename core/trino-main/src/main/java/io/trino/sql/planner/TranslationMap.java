@@ -151,10 +151,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION_NAME;
-import static io.trino.operator.scalar.SessionFunctions.CURRENT_CATALOG_FUNCTION_NAME;
-import static io.trino.operator.scalar.SessionFunctions.CURRENT_PATH_FUNCTION_NAME;
-import static io.trino.operator.scalar.SessionFunctions.CURRENT_SCHEMA_FUNCTION_NAME;
-import static io.trino.operator.scalar.SessionFunctions.CURRENT_USER_FUNCTION_NAME;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST_FUNCTION_NAME;
 import static io.trino.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static io.trino.operator.scalar.time.LocalTimeFunction.LOCALTIME_FUNCTION_NAME;
@@ -1060,34 +1056,26 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(CurrentCatalog unused)
     {
-        return new Call(
-                plannerContext.getMetadata()
-                        .resolveBuiltinFunction(getCharVarcharCoercion(session), CURRENT_CATALOG_FUNCTION_NAME, ImmutableList.of()),
-                ImmutableList.of());
+        return session.getCatalog()
+                .map(catalog -> (io.trino.sql.ir.Expression) new Constant(VARCHAR, utf8Slice(catalog)))
+                .orElseGet(() -> new Constant(VARCHAR, null));
     }
 
     private io.trino.sql.ir.Expression translate(CurrentSchema unused)
     {
-        return new Call(
-                plannerContext.getMetadata()
-                        .resolveBuiltinFunction(getCharVarcharCoercion(session), CURRENT_SCHEMA_FUNCTION_NAME, ImmutableList.of()),
-                ImmutableList.of());
+        return session.getSchema()
+                .map(schema -> (io.trino.sql.ir.Expression) new Constant(VARCHAR, utf8Slice(schema)))
+                .orElseGet(() -> new Constant(VARCHAR, null));
     }
 
     private io.trino.sql.ir.Expression translate(CurrentPath unused)
     {
-        return new Call(
-                plannerContext.getMetadata()
-                        .resolveBuiltinFunction(getCharVarcharCoercion(session), CURRENT_PATH_FUNCTION_NAME, ImmutableList.of()),
-                ImmutableList.of());
+        return new Constant(VARCHAR, utf8Slice(session.getPath().toString()));
     }
 
     private io.trino.sql.ir.Expression translate(CurrentUser unused)
     {
-        return new Call(
-                plannerContext.getMetadata()
-                        .resolveBuiltinFunction(getCharVarcharCoercion(session), CURRENT_USER_FUNCTION_NAME, ImmutableList.of()),
-                ImmutableList.of());
+        return new Constant(VARCHAR, utf8Slice(session.getUser()));
     }
 
     private io.trino.sql.ir.Expression translate(CurrentDate unused)
