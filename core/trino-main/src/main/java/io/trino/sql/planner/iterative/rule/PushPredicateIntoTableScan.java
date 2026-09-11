@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.matching.Capture;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -77,13 +79,7 @@ import static java.util.Objects.requireNonNull;
  * chosen by AddExchanges
  */
 public class PushPredicateIntoTableScan
-        implements Rule<FilterNode>
 {
-    private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
-
-    private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
-            tableScan().capturedAs(TABLE_SCAN)));
-
     private final PlannerContext plannerContext;
     private final boolean pruneWithPredicateExpression;
 
@@ -93,55 +89,90 @@ public class PushPredicateIntoTableScan
         this.pruneWithPredicateExpression = pruneWithPredicateExpression;
     }
 
-    @Override
-    public Pattern<FilterNode> getPattern()
+    public Set<Rule<?>> rules()
     {
-        return PATTERN;
+        // pruneWithPredicateExpression only affects PushPredicateIntoTableScanWithoutProject:
+        // the derive-only rules push a domain-only constraint and have no engine-expression mode
+        return ImmutableSet.<Rule<?>>builder()
+                .add(new PushPredicateIntoTableScanWithoutProject(plannerContext, pruneWithPredicateExpression))
+                .addAll(new DeriveTableScanConstraintThroughProject(plannerContext).rules())
+                .build();
     }
 
-    @Override
-    public boolean isEnabled(Session session)
+    @VisibleForTesting
+    public static final class PushPredicateIntoTableScanWithoutProject
+            implements Rule<FilterNode>
     {
-        return isAllowPushdownIntoConnectors(session);
-    }
+        private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
 
-    @Override
-    public Result apply(FilterNode filterNode, Captures captures, Context context)
-    {
-        TableScanNode tableScan = captures.get(TABLE_SCAN);
+        private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
+                tableScan().capturedAs(TABLE_SCAN)));
 
-        Optional<PlanNode> rewritten = pushFilterIntoTableScan(
-                filterNode,
-                tableScan,
-                pruneWithPredicateExpression,
-                context.getSession(),
-                plannerContext,
-                context.getStatsProvider(),
-                context.getSymbolAllocator());
+        private final PlannerContext plannerContext;
+        private final boolean pruneWithPredicateExpression;
 
-        if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
-            return Result.empty();
+        public PushPredicateIntoTableScanWithoutProject(PlannerContext plannerContext, boolean pruneWithPredicateExpression)
+        {
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.pruneWithPredicateExpression = pruneWithPredicateExpression;
         }
 
-        return Result.ofPlanNode(rewritten.get());
-    }
-
-    private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
-    {
-        if (!(rewritten instanceof FilterNode rewrittenFilter)) {
-            return false;
+        @Override
+        public Pattern<FilterNode> getPattern()
+        {
+            return PATTERN;
         }
 
-        if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
-            return false;
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isAllowPushdownIntoConnectors(session);
         }
 
-        if (!(rewrittenFilter.getSource() instanceof TableScanNode rewrittenTableScan)) {
-            return false;
+        @Override
+        public Result apply(FilterNode filterNode, Captures captures, Context context)
+        {
+            TableScanNode tableScan = captures.get(TABLE_SCAN);
+
+            Optional<PlanNode> rewritten = pushFilterIntoTableScan(
+                    filterNode,
+                    tableScan,
+                    pruneWithPredicateExpression,
+                    context.getSession(),
+                    plannerContext,
+                    context.getStatsProvider(),
+                    context.getSymbolAllocator());
+
+            if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
+                return Result.empty();
+            }
+
+            return Result.ofPlanNode(rewritten.get());
         }
 
-        return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint()) &&
-                Objects.equals(tableScan.getTable(), rewrittenTableScan.getTable());
+        private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
+        {
+            if (!(rewritten instanceof FilterNode rewrittenFilter)) {
+                return false;
+            }
+
+            if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
+                return false;
+            }
+
+            if (!(rewrittenFilter.getSource() instanceof TableScanNode rewrittenTableScan)) {
+                return false;
+            }
+
+            return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint()) &&
+                    Objects.equals(tableScan.getTable(), rewrittenTableScan.getTable());
+        }
+
+        @VisibleForTesting
+        public boolean getPruneWithPredicateExpression()
+        {
+            return pruneWithPredicateExpression;
+        }
     }
 
     public static Optional<PlanNode> pushFilterIntoTableScan(
@@ -293,7 +324,7 @@ public class PushPredicateIntoTableScan
     // In that case, table scan node partitioning (if present) was used to fragment plan with ExchangeNodes.
     // Therefore table scan node partitioning should not change after AddExchanges is executed since it would
     // make plan with ExchangeNodes invalid.
-    private static void verifyTablePartitioning(
+    static void verifyTablePartitioning(
             Session session,
             Metadata metadata,
             TableScanNode oldTableScan,
@@ -392,12 +423,6 @@ public class PushPredicateIntoTableScan
             }
         }
         return TupleDomain.withColumnDomains(enforcedDomainsBuilder.buildOrThrow());
-    }
-
-    @VisibleForTesting
-    public boolean getPruneWithPredicateExpression()
-    {
-        return pruneWithPredicateExpression;
     }
 
     private static class SplitExpression
