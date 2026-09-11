@@ -42,6 +42,9 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.time.ZoneOffset.UTC;
@@ -298,6 +301,108 @@ final class TestDuckDbTypeMapping
                 .execute(getQueryRunner(), session, duckDbCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+    }
+
+    @Test
+    void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        timestampSecondsTests("timestamp_s")
+                .execute(getQueryRunner(), session, duckDbCreateAndInsert("test_timestamp_s"));
+        timestampMillisTests("timestamp_ms")
+                .execute(getQueryRunner(), session, duckDbCreateAndInsert("test_timestamp_ms"));
+        timestampMicrosTests("timestamp")
+                .execute(getQueryRunner(), session, duckDbCreateAndInsert("test_timestamp"));
+
+        timestampSecondsTests("timestamp(0)")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp_s"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp_s"));
+        timestampMillisTests("timestamp(3)")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp_ms"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp_ms"));
+        timestampMicrosTests("timestamp(6)")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
+    }
+
+    @Test
+    void testTimestampPrecisionMapping()
+    {
+        // DuckDB has TIMESTAMP_S / TIMESTAMP_MS / TIMESTAMP, so Trino precisions collapse onto those three types.
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:00'", TIMESTAMP_SECONDS, "TIMESTAMP '1970-01-01 00:00:00'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:00.1'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.100'")
+                .addRoundTrip("timestamp(2)", "TIMESTAMP '1970-01-01 00:00:00.12'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.120'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.123'")
+                .addRoundTrip("timestamp(4)", "TIMESTAMP '1970-01-01 00:00:00.1234'", TIMESTAMP_MICROS, "TIMESTAMP '1970-01-01 00:00:00.123400'")
+                .addRoundTrip("timestamp(5)", "TIMESTAMP '1970-01-01 00:00:00.12345'", TIMESTAMP_MICROS, "TIMESTAMP '1970-01-01 00:00:00.123450'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'", TIMESTAMP_MICROS, "TIMESTAMP '1970-01-01 00:00:00.123456'")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_precision"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_precision"));
+    }
+
+    private static SqlDataTypeTest timestampSecondsTests(String inputType)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00'", TIMESTAMP_SECONDS, "TIMESTAMP '1970-01-01 00:00:00'")
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-04 23:59:59'", TIMESTAMP_SECONDS, "TIMESTAMP '1582-10-04 23:59:59'") // before julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-05 00:00:00'", TIMESTAMP_SECONDS, "TIMESTAMP '1582-10-05 00:00:00'") // begin julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-14 23:59:59'", TIMESTAMP_SECONDS, "TIMESTAMP '1582-10-14 23:59:59'") // end julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1932-04-01 00:13:42'", TIMESTAMP_SECONDS, "TIMESTAMP '1932-04-01 00:13:42'") // time gap in JVM zone
+                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07'", TIMESTAMP_SECONDS, "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
+                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17'", TIMESTAMP_SECONDS, "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17'", TIMESTAMP_SECONDS, "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33'", TIMESTAMP_SECONDS, "TIMESTAMP '2018-10-28 03:33:33'") // time doubled in Vilnius
+                .addRoundTrip(inputType, "TIMESTAMP '0001-01-01 00:00:00'", TIMESTAMP_SECONDS, "TIMESTAMP '0001-01-01 00:00:00'")
+                .addRoundTrip(inputType, "TIMESTAMP '9999-12-31 23:59:59'", TIMESTAMP_SECONDS, "TIMESTAMP '9999-12-31 23:59:59'")
+                .addRoundTrip(inputType, "NULL", TIMESTAMP_SECONDS, "CAST(NULL AS TIMESTAMP(0))");
+    }
+
+    private static SqlDataTypeTest timestampMillisTests(String inputType)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-04 23:59:59.999'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-04 23:59:59.999'") // before julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-05 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-05 00:00:00.000'") // begin julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-14 23:59:59.999'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-14 23:59:59.999'") // end julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1932-04-01 00:13:42.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1932-04-01 00:13:42.123'") // time gap in JVM zone
+                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1986-01-01 00:13:07.123'") // time gap in Kathmandu
+                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17.123'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-03-25 03:17:17.123'") // time gap in Vilnius
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17.456'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 01:33:17.456'") // time doubled in JVM zone
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33.333'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 03:33:33.333'") // time doubled in Vilnius
+                .addRoundTrip(inputType, "TIMESTAMP '0001-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '0001-01-01 00:00:00.000'")
+                .addRoundTrip(inputType, "TIMESTAMP '9999-12-31 23:59:59.999'", TIMESTAMP_MILLIS, "TIMESTAMP '9999-12-31 23:59:59.999'")
+                .addRoundTrip(inputType, "NULL", TIMESTAMP_MILLIS, "CAST(NULL AS TIMESTAMP(3))");
+    }
+
+    private static SqlDataTypeTest timestampMicrosTests(String inputType)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000000'", TIMESTAMP_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000001'", TIMESTAMP_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000001'")
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-04 23:59:59.999999'", TIMESTAMP_MICROS, "TIMESTAMP '1582-10-04 23:59:59.999999'") // before julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-05 00:00:00.000000'", TIMESTAMP_MICROS, "TIMESTAMP '1582-10-05 00:00:00.000000'") // begin julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1582-10-14 23:59:59.999999'", TIMESTAMP_MICROS, "TIMESTAMP '1582-10-14 23:59:59.999999'") // end julian->gregorian switch
+                .addRoundTrip(inputType, "TIMESTAMP '1932-04-01 00:13:42.123000'", TIMESTAMP_MICROS, "TIMESTAMP '1932-04-01 00:13:42.123000'") // time gap in JVM zone
+                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07.123000'", TIMESTAMP_MICROS, "TIMESTAMP '1986-01-01 00:13:07.123000'") // time gap in Kathmandu
+                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17.000000'", TIMESTAMP_MICROS, "TIMESTAMP '2018-03-25 03:17:17.000000'") // time gap in Vilnius
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17.456789'", TIMESTAMP_MICROS, "TIMESTAMP '2018-10-28 01:33:17.456789'") // time doubled in JVM zone
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33.333333'", TIMESTAMP_MICROS, "TIMESTAMP '2018-10-28 03:33:33.333333'") // time doubled in Vilnius
+                .addRoundTrip(inputType, "TIMESTAMP '0001-01-01 00:00:00.000000'", TIMESTAMP_MICROS, "TIMESTAMP '0001-01-01 00:00:00.000000'")
+                .addRoundTrip(inputType, "TIMESTAMP '9999-12-31 23:59:59.999999'", TIMESTAMP_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999'")
+                .addRoundTrip(inputType, "NULL", TIMESTAMP_MICROS, "CAST(NULL AS TIMESTAMP(6))");
     }
 
     private DataSetup duckDbCreateAndInsert(String tableNamePrefix)
