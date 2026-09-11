@@ -201,6 +201,7 @@ class QueryPlanner
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
     private final PlannerContext plannerContext;
     private final Session session;
+    private final ExpressionBindings expressionBindings;
     private final SubqueryPlanner subqueryPlanner;
     private final Optional<TranslationMap> outerContext;
     private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
@@ -230,6 +231,7 @@ class QueryPlanner
         this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.plannerContext = plannerContext;
         this.session = session;
+        this.expressionBindings = new ExpressionBindings(plannerContext.getMetadata(), getCharVarcharCoercion(session), symbolAllocator);
         this.outerContext = outerContext;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries);
         this.recursiveSubqueries = recursiveSubqueries;
@@ -842,7 +844,6 @@ class QueryPlanner
         // The boolean present field, always TRUE for update
         // The tinyint operation number, always UPDATE_OPERATION_NUMBER for update
         // The integer merge case number, always 0 for update
-        Metadata metadata = plannerContext.getMetadata();
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
         Assignments.Builder assignments = Assignments.builder();
 
@@ -863,7 +864,7 @@ class QueryPlanner
                 // If the updated column is non-null, check that the value is not null
                 if (mergeAnalysis.getNonNullableColumnHandles().contains(dataColumnHandle)) {
                     String columnName = columnSchema.getName();
-                    rewritten = new Coalesce(rewritten, new Cast(failFunction(metadata, getCharVarcharCoercion(session), INVALID_ARGUMENTS, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
+                    rewritten = expressionBindings.nullNotAllowedColumn(rewritten, columnName, INVALID_ARGUMENTS);
                 }
                 rowBuilder.add(rewritten);
                 assignments.put(field, rewritten);
@@ -1032,7 +1033,7 @@ class QueryPlanner
                     if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                         ColumnSchema columnSchema = dataColumnSchemas.get(fieldNumber);
                         String columnName = columnSchema.getName();
-                        rewritten = new Coalesce(rewritten, new Cast(failFunction(metadata, getCharVarcharCoercion(session), CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
+                        rewritten = expressionBindings.nullNotAllowedColumn(rewritten, columnName, CONSTRAINT_VIOLATION);
                     }
                     rowBuilder.add(rewritten);
                     assignments.put(field, rewritten);
@@ -1048,7 +1049,7 @@ class QueryPlanner
                         }
                         if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                             String columnName = columnSchema.getName();
-                            expression = new Coalesce(expression, new Cast(failFunction(metadata, getCharVarcharCoercion(session), CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
+                            expression = expressionBindings.nullNotAllowedColumn(expression, columnName, CONSTRAINT_VIOLATION);
                         }
                     }
 

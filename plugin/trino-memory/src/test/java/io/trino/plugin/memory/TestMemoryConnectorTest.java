@@ -640,6 +640,31 @@ public class TestMemoryConnectorTest
         }
     }
 
+    @Test
+    void testRowNotNullConstraint()
+    {
+        try (TestTable table = newTrinoTable("test_row_not_null", "(c ROW(a integer, b integer) NOT NULL)")) {
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " SELECT CAST(NULL AS ROW(a integer, b integer))",
+                    errorMessageForInsertIntoNotNullColumn("c"));
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " SELECT CAST(ROW(null, null) AS ROW(a integer, b integer))",
+                    errorMessageForInsertIntoNotNullColumn("c"));
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " SELECT CAST(ROW(1, null) AS ROW(a integer, b integer))",
+                    errorMessageForInsertIntoNotNullColumn("c"));
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer))", 1);
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " SELECT CAST(ROW(x, x + 1) AS ROW(a integer, b integer)) FROM (VALUES 2) t(x)",
+                    1);
+            assertThat((String) computeScalar(
+                    "EXPLAIN INSERT INTO " + table.getName() + " SELECT ROW(x, x + 1) FROM (VALUES 3) t(x) WHERE random() >= 0"))
+                    .contains("$row_is_not_null");
+            assertThat(query("SELECT c.a, c.b FROM " + table.getName()))
+                    .matches("VALUES (1, 2), (2, 3)");
+        }
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
