@@ -19,6 +19,7 @@ import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 /**
@@ -32,6 +33,11 @@ public interface ResourceGroupManager<C>
     void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
 
     SelectionContext<C> selectGroup(SelectionCriteria criteria);
+
+    /**
+     * Node group the selected resource group's queries must run on. Empty places no restriction.
+     */
+    Optional<String> getNodeGroup(SelectionContext<C> selectionContext);
 
     void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
 

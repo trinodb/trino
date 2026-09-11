@@ -18,6 +18,8 @@ import io.trino.node.AllNodes;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.node.NodeState;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -27,10 +29,12 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 
 import java.util.Locale;
 import java.util.Set;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.node.NodeState.DRAINED;
@@ -53,6 +57,7 @@ public class NodeSystemTable
             .column("node_version", createUnboundedVarcharType())
             .column("coordinator", BOOLEAN)
             .column("state", createUnboundedVarcharType())
+            .column("node_groups", new ArrayType(createUnboundedVarcharType()))
             .build();
 
     private final InternalNodeManager nodeManager;
@@ -92,8 +97,24 @@ public class NodeSystemTable
     private void addRows(Builder table, Set<InternalNode> nodes, NodeState state)
     {
         for (InternalNode node : nodes) {
-            table.addRow(node.getNodeIdentifier(), node.getInternalUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase(Locale.ENGLISH));
+            table.addRow(
+                    node.getNodeIdentifier(),
+                    node.getInternalUri().toString(),
+                    getNodeVersion(node),
+                    isCoordinator(node),
+                    state.toString().toLowerCase(Locale.ENGLISH),
+                    nodeGroupsToBlock(node));
         }
+    }
+
+    private static Block nodeGroupsToBlock(InternalNode node)
+    {
+        Set<String> nodeGroups = node.getNodeGroups();
+        BlockBuilder blockBuilder = createUnboundedVarcharType().createBlockBuilder(null, nodeGroups.size());
+        for (String nodeGroup : nodeGroups) {
+            createUnboundedVarcharType().writeSlice(blockBuilder, utf8Slice(nodeGroup));
+        }
+        return blockBuilder.build();
     }
 
     private static String getNodeVersion(InternalNode node)

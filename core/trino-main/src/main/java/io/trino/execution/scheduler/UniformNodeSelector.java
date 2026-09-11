@@ -28,7 +28,6 @@ import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
-import io.trino.spi.TrinoException;
 import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
@@ -44,12 +43,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static io.trino.execution.scheduler.NodeScheduler.filterNodes;
 import static io.trino.execution.scheduler.NodeScheduler.getAllNodes;
+import static io.trino.execution.scheduler.NodeScheduler.noNodesAvailable;
 import static io.trino.execution.scheduler.NodeScheduler.randomizedNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectExactNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectNodes;
 import static io.trino.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
-import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -70,6 +69,7 @@ public class UniformNodeSelector
     private final boolean optimizedLocalScheduling;
     private final QueueSizeAdjuster queueSizeAdjuster;
     private final StableHostAddressProvider stableHostAddressProvider;
+    private final Optional<String> nodeGroup;
 
     public UniformNodeSelector(
             InternalNode currentNode,
@@ -83,7 +83,8 @@ public class UniformNodeSelector
             int maxUnacknowledgedSplitsPerTask,
             SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling,
-            StableHostAddressProvider stableHostAddressProvider)
+            StableHostAddressProvider stableHostAddressProvider,
+            Optional<String> nodeGroup)
     {
         this(currentNode,
                 nodeTaskMap,
@@ -96,7 +97,8 @@ public class UniformNodeSelector
                 splitsBalancingPolicy,
                 optimizedLocalScheduling,
                 new QueueSizeAdjuster(minPendingSplitsWeightPerTask, maxAdjustedPendingSplitsWeightPerTask),
-                stableHostAddressProvider);
+                stableHostAddressProvider,
+                nodeGroup);
     }
 
     @VisibleForTesting
@@ -112,7 +114,8 @@ public class UniformNodeSelector
             SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling,
             QueueSizeAdjuster queueSizeAdjuster,
-            StableHostAddressProvider stableHostAddressProvider)
+            StableHostAddressProvider stableHostAddressProvider,
+            Optional<String> nodeGroup)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -127,6 +130,7 @@ public class UniformNodeSelector
         this.optimizedLocalScheduling = optimizedLocalScheduling;
         this.queueSizeAdjuster = queueSizeAdjuster;
         this.stableHostAddressProvider = requireNonNull(stableHostAddressProvider, "stableHostAddressProvider is null");
+        this.nodeGroup = requireNonNull(nodeGroup, "nodeGroup is null");
     }
 
     @Override
@@ -200,7 +204,7 @@ public class UniformNodeSelector
             }
             if (candidateNodes.isEmpty()) {
                 log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
-                throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+                throw noNodesAvailable(split, nodeGroup);
             }
 
             InternalNode chosenNode = chooseNodeForSplit(assignmentStats, candidateNodes);

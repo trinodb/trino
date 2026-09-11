@@ -34,14 +34,18 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.node.NodeState.INACTIVE;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestCoordinatorNodeManager
@@ -213,6 +217,82 @@ class TestCoordinatorNodeManager
         }
     }
 
+    @Test
+    @Timeout(60)
+    void testNodeGroups()
+            throws Exception
+    {
+        NodeVersion version = new NodeVersion("1");
+        InternalNode current = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.9.1"), version, false);
+        InternalNode etl = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.9.2"), version, false, ImmutableSet.of("etl", "shared"));
+        InternalNode adhoc = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.9.3"), version, false, ImmutableSet.of("adhoc", "shared"));
+
+        AtomicReference<Set<String>> etlGroups = new AtomicReference<>(etl.getNodeGroups());
+        Map<String, InternalNode> nodesByHost = Stream.of(current, etl, adhoc)
+                .collect(toImmutableMap(InternalNode::getHost, identity()));
+        TestingHttpClient httpClient = new TestingHttpClient(request -> {
+            InternalNode node = nodesByHost.get(request.getUri().getHost());
+            ServerInfo serverInfo = new ServerInfo(
+                    node.getNodeIdentifier(),
+                    ACTIVE,
+                    node.getNodeVersion(),
+                    EXPECTED_ENVIRONMENT,
+                    node.isCoordinator(),
+                    Optional.empty(),
+                    false,
+                    Duration.ZERO,
+                    node.equals(etl) ? etlGroups.get() : node.getNodeGroups());
+            return new TestingResponse(
+                    OK,
+                    ImmutableListMultimap.of(CONTENT_TYPE, JSON_UTF_8.toString()),
+                    SERVER_INFO_JSON_CODEC.toJsonBytes(serverInfo));
+        });
+
+        Set<URI> announced = nodesByHost.values().stream()
+                .map(InternalNode::getInternalUri)
+                .collect(toImmutableSet());
+        CoordinatorNodeManager manager = new CoordinatorNodeManager(
+                () -> announced,
+                copy(current),
+                () -> ACTIVE,
+                EXPECTED_ENVIRONMENT,
+                httpClient,
+                new TestingTicker());
+        try {
+            BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
+            manager.addNodeChangeListener(notifications::add);
+            notifications.take();
+
+            manager.refreshNodes(true);
+            assertThat(manager.getNodes(ACTIVE)).containsExactlyInAnyOrder(current, etl, adhoc);
+
+            // a node belonging to several groups is returned for each of them
+            assertThat(manager.getActiveNodesInGroup(Optional.of("etl"))).containsExactly(etl);
+            assertThat(manager.getActiveNodesInGroup(Optional.of("adhoc"))).containsExactly(adhoc);
+            assertThat(manager.getActiveNodesInGroup(Optional.of("shared"))).containsExactlyInAnyOrder(etl, adhoc);
+            assertThat(manager.getActiveNodesInGroup(Optional.of("missing"))).isEmpty();
+            // an empty group means unrestricted, not "nodes without a group"
+            assertThat(manager.getActiveNodesInGroup(Optional.empty())).containsExactlyInAnyOrder(current, etl, adhoc);
+
+            // a node returning with different groups is observed as a node change
+            notifications.clear();
+            etlGroups.set(ImmutableSet.of("adhoc"));
+            manager.refreshNodes(true);
+            AllNodes allNodes = notifications.take();
+            assertThat(allNodes.activeNodes()).contains(new InternalNode(
+                    etl.getNodeIdentifier(),
+                    etl.getInternalUri(),
+                    version,
+                    false,
+                    ImmutableSet.of("adhoc")));
+            assertThat(manager.getActiveNodesInGroup(Optional.of("etl"))).isEmpty();
+            assertThat(manager.getActiveNodesInGroup(Optional.of("shared"))).containsExactly(adhoc);
+        }
+        finally {
+            manager.stop();
+        }
+    }
+
     private final class TestingNodeInventory
             implements NodeInventory
     {
@@ -254,7 +334,8 @@ class TestCoordinatorNodeManager
                 node.getNodeIdentifier(),
                 node.getInternalUri(),
                 node.getNodeVersion(),
-                node.isCoordinator());
+                node.isCoordinator(),
+                node.getNodeGroups());
     }
 
     private static ServerInfo toServerInfo(InternalNode inactiveNode, NodeState nodeState, String environment)
@@ -267,6 +348,7 @@ class TestCoordinatorNodeManager
                 inactiveNode.isCoordinator(),
                 Optional.empty(),
                 false,
-                Duration.ZERO);
+                Duration.ZERO,
+                inactiveNode.getNodeGroups());
     }
 }

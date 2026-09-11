@@ -1,0 +1,34 @@
+{
+  "rootGroups": [
+    {
+      "name": "etl",
+      "hardConcurrencyLimit": 10,
+      "maxQueued": 100,
+      "nodeGroup": "etl"
+    },
+    {
+      "name": "adhoc",
+      "hardConcurrencyLimit": 10,
+      "maxQueued": 100,
+      "nodeGroup": "adhoc"
+    },
+    {
+      "name": "anywhere",
+      "hardConcurrencyLimit": 10,
+      "maxQueued": 100
+    }
+  ],
+  "selectors": [
+    {
+      "user": "etl_user",
+      "group": "etl"
+    },
+    {
+      "user": "adhoc_user",
+      "group": "adhoc"
+    },
+    {
+      "group": "anywhere"
+    }
+  ]
+}

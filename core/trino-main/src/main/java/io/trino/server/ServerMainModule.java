@@ -504,7 +504,8 @@ public class ServerMainModule
                 nodeInfo.getNodeId(),
                 internalCommunicationConfig.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(),
                 nodeVersion,
-                serverConfig.isCoordinator());
+                serverConfig.isCoordinator(),
+                serverConfig.getNodeGroups());
     }
 
     private static class RegisterFunctionBundles

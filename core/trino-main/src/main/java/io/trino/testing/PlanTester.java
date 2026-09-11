@@ -583,7 +583,8 @@ public class PlanTester
                 defaultSession.getPreparedStatements(),
                 defaultSession.getProtocolHeaders(),
                 defaultSession.getExchangeEncryptionKey(),
-                defaultSession.getQueryDataEncoding());
+                defaultSession.getQueryDataEncoding(),
+                defaultSession.getNodeGroup());
     }
 
     private static SessionPropertyManager createSessionPropertyManager(
