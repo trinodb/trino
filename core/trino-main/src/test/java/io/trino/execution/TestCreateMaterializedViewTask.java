@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
@@ -35,10 +36,15 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IntervalField;
+import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalLiteral.Sign;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.testing.QueryRunner;
@@ -52,13 +58,17 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
+import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
+import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -66,6 +76,8 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
+import static io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior.FAIL;
+import static io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior.INLINE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -85,6 +97,18 @@ class TestCreateMaterializedViewTask
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
             ImmutableMap.of("baz", "property_value"));
 
+    private static final String OTHER_CATALOG_NAME = "other_catalog";
+    private static final IntervalLiteral ZERO_GRACE_PERIOD = new IntervalLiteral(
+            new NodeLocation(1, 1),
+            "0",
+            Sign.POSITIVE,
+            new SimpleIntervalQualifier(new NodeLocation(1, 1), OptionalInt.empty(), new IntervalField.Second(OptionalInt.empty())));
+    private static final IntervalLiteral ONE_HOUR_GRACE_PERIOD = new IntervalLiteral(
+            new NodeLocation(1, 1),
+            "1",
+            Sign.POSITIVE,
+            new SimpleIntervalQualifier(new NodeLocation(1, 1), OptionalInt.empty(), new IntervalField.Hour()));
+
     private QueryRunner queryRunner;
     private MockMetadata metadata;
     private CreateMaterializedViewTask task;
@@ -102,8 +126,10 @@ class TestCreateMaterializedViewTask
                         .add(stringProperty("foo", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE, false))
                         .add(integerProperty("bar", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE, false))
                         .build())
+                .withCapabilities(() -> ImmutableSet.of(MATERIALIZED_VIEW_GRACE_PERIOD, MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR))
                 .build()));
         queryRunner.createCatalog(TEST_CATALOG_NAME, "mock", ImmutableMap.of());
+        queryRunner.createCatalog(OTHER_CATALOG_NAME, "mock", ImmutableMap.of());
         Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(new Key<>() {});
         task = (CreateMaterializedViewTask) tasks.get(CreateMaterializedView.class);
         this.queryRunner = queryRunner;
@@ -232,6 +258,119 @@ class TestCreateMaterializedViewTask
                     .hasMessageContaining("Cannot create materialized view test_catalog.schema.test_mv");
             return null;
         });
+    }
+
+    @Test
+    void testCreateMaterializedViewWithZeroGracePeriodOnForeignSource()
+    {
+        // Such a view is never fresh, so WHEN STALE FAIL would reject every read of it.
+        CreateMaterializedView statement = createMaterializedViewStatement(
+                OTHER_CATALOG_NAME,
+                Optional.of(ZERO_GRACE_PERIOD),
+                Optional.of(FAIL));
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() -> createMaterializedView(transactionSession, statement))
+                    .hasErrorCode(NOT_SUPPORTED)
+                    .hasMessageContaining("cannot depend on another catalog")
+                    .hasMessageContaining("[other_catalog]");
+            return null;
+        });
+        assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(0);
+    }
+
+    @Test
+    void testCreateMaterializedViewIfNotExistsWithZeroGracePeriodOnForeignSource()
+    {
+        // The validation runs before the connector's existence check, so IF NOT EXISTS does not
+        // suppress it for a view that already exists. The GRACE PERIOD and WHEN STALE capability
+        // checks in this task behave the same way.
+        queryRunner.inTransaction(transactionSession -> {
+            createMaterializedView(transactionSession, createMaterializedViewStatement(
+                    OTHER_CATALOG_NAME,
+                    Optional.of(ONE_HOUR_GRACE_PERIOD),
+                    Optional.of(FAIL)));
+            return null;
+        });
+        assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(1);
+
+        CreateMaterializedView statement = createMaterializedViewStatement(
+                OTHER_CATALOG_NAME,
+                Optional.of(ZERO_GRACE_PERIOD),
+                Optional.of(FAIL));
+        assertThat(statement.isNotExists()).isTrue();
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() -> createMaterializedView(transactionSession, statement))
+                    .hasErrorCode(NOT_SUPPORTED)
+                    .hasMessageContaining("cannot depend on another catalog");
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateMaterializedViewWithZeroGracePeriodOnLocalSource()
+    {
+        // Freshness of a source in the view's own catalog is tracked, so this combination works.
+        CreateMaterializedView statement = createMaterializedViewStatement(
+                TEST_CATALOG_NAME,
+                Optional.of(ZERO_GRACE_PERIOD),
+                Optional.of(FAIL));
+
+        queryRunner.inTransaction(transactionSession -> {
+            createMaterializedView(transactionSession, statement);
+            assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(1);
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateMaterializedViewWithNonZeroGracePeriodOnForeignSource()
+    {
+        // A non-zero grace period accepts a view that cannot be proven fresh, so reads work.
+        CreateMaterializedView statement = createMaterializedViewStatement(
+                OTHER_CATALOG_NAME,
+                Optional.of(ONE_HOUR_GRACE_PERIOD),
+                Optional.of(FAIL));
+
+        queryRunner.inTransaction(transactionSession -> {
+            createMaterializedView(transactionSession, statement);
+            assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(1);
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateMaterializedViewWithZeroGracePeriodAndInlineOnForeignSource()
+    {
+        // WHEN STALE INLINE answers the read from the source query instead of failing.
+        CreateMaterializedView statement = createMaterializedViewStatement(
+                OTHER_CATALOG_NAME,
+                Optional.of(ZERO_GRACE_PERIOD),
+                Optional.of(INLINE));
+
+        queryRunner.inTransaction(transactionSession -> {
+            createMaterializedView(transactionSession, statement);
+            assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(1);
+            return null;
+        });
+    }
+
+    private static CreateMaterializedView createMaterializedViewStatement(
+            String sourceCatalog,
+            Optional<IntervalLiteral> gracePeriod,
+            Optional<WhenStaleBehavior> whenStaleBehavior)
+    {
+        return new CreateMaterializedView(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_mv_freshness"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(sourceCatalog, "schema", "mock_table"))),
+                false,
+                true,
+                gracePeriod,
+                whenStaleBehavior,
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     private void createMaterializedView(Session transactionSession, CreateMaterializedView statement)

@@ -161,35 +161,72 @@ public class TestIcebergMaterializedView
     @Test
     public void testForeignSourceWithZeroGracePeriodAndWhenStaleFail()
     {
-        Session defaultIceberg = getSession();
         assertUpdate(secondIceberg, "CREATE TABLE zero_grace_base_table AS SELECT 10 value", 1);
 
-        assertUpdate(defaultIceberg,
+        // Changes to a table in another catalog cannot be tracked, so such a view would never be reported
+        // as fresh, not even directly after a successful refresh. A zero grace period accepts no staleness,
+        // so WHEN STALE FAIL would reject every read of it. Creating it is rejected up front instead.
+        assertQueryFails(
                 """
                 CREATE MATERIALIZED VIEW iceberg.tpch.mv_zero_grace_on_iceberg2
                 GRACE PERIOD INTERVAL '0' SECOND
                 WHEN STALE FAIL
                 AS SELECT sum(value) AS s FROM iceberg2.tpch.zero_grace_base_table
-                """);
-
-        assertUpdate(defaultIceberg, "REFRESH MATERIALIZED VIEW mv_zero_grace_on_iceberg2", 1);
-
-        // Changes to a table in another catalog cannot be tracked, so the view is never reported as fresh,
-        // not even directly after a successful refresh. A zero grace period accepts no staleness, so
-        // WHEN STALE FAIL rejects every read of the view and refreshing again does not help.
-        assertThat(getFreshness("mv_zero_grace_on_iceberg2")).isEqualTo("UNKNOWN");
-        assertQueryFails("TABLE mv_zero_grace_on_iceberg2", "line 1:1: Materialized view 'iceberg.tpch.mv_zero_grace_on_iceberg2' is stale");
-        assertUpdate(defaultIceberg, "REFRESH MATERIALIZED VIEW mv_zero_grace_on_iceberg2", 1);
-        assertQueryFails("TABLE mv_zero_grace_on_iceberg2", "line 1:1: Materialized view 'iceberg.tpch.mv_zero_grace_on_iceberg2' is stale");
+                """,
+                "line 1:1: Materialized view with a zero GRACE PERIOD and WHEN STALE FAIL cannot depend on another catalog \\[iceberg2], " +
+                        "because such a source cannot be tracked for freshness and the view is never fresh\\. " +
+                        "Use a non-zero GRACE PERIOD, or WHEN STALE INLINE\\.");
 
         assertUpdate(secondIceberg, "DROP TABLE zero_grace_base_table");
-        assertUpdate("DROP MATERIALIZED VIEW mv_zero_grace_on_iceberg2");
     }
 
-    private String getFreshness(String viewName)
+    @Test
+    public void testTableFunctionSourceWithZeroGracePeriodAndWhenStaleFail()
     {
-        return (String) computeScalar(
-                "SELECT freshness FROM system.metadata.materialized_views " +
-                        "WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'");
+        // A table function result cannot be tracked either, so such a view would never be fresh
+        // and WHEN STALE FAIL would reject every read of it.
+        assertQueryFails(
+                """
+                CREATE MATERIALIZED VIEW iceberg.tpch.mv_zero_grace_on_ptf
+                GRACE PERIOD INTERVAL '0' SECOND
+                WHEN STALE FAIL
+                AS SELECT * FROM TABLE(mock.system.sequence_function())
+                """,
+                "line 1:1: Materialized view with a zero GRACE PERIOD and WHEN STALE FAIL cannot depend on a table function \\[mock.system.sequence_function], " +
+                        "because such a source cannot be tracked for freshness and the view is never fresh\\. " +
+                        "Use a non-zero GRACE PERIOD, or WHEN STALE INLINE\\.");
+    }
+
+    @Test
+    public void testNonDeterministicSourceWithZeroGracePeriodAndWhenStaleFail()
+    {
+        assertUpdate("CREATE TABLE zero_grace_nondeterministic_base_table AS SELECT 10 value", 1);
+
+        // A non-deterministic function changes value without any source changing, so such a view
+        // would never be fresh and WHEN STALE FAIL would reject every read of it.
+        assertQueryFails(
+                """
+                CREATE MATERIALIZED VIEW iceberg.tpch.mv_zero_grace_on_random
+                GRACE PERIOD INTERVAL '0' SECOND
+                WHEN STALE FAIL
+                AS SELECT value, random() r FROM zero_grace_nondeterministic_base_table
+                """,
+                "line 1:1: Materialized view with a zero GRACE PERIOD and WHEN STALE FAIL cannot depend on a non-deterministic function \\[random], " +
+                        "because such a source cannot be tracked for freshness and the view is never fresh\\. " +
+                        "Use a non-zero GRACE PERIOD, or WHEN STALE INLINE\\.");
+
+        // current_timestamp is not a resolved function, so it is detected separately.
+        assertQueryFails(
+                """
+                CREATE MATERIALIZED VIEW iceberg.tpch.mv_zero_grace_on_current_timestamp
+                GRACE PERIOD INTERVAL '0' SECOND
+                WHEN STALE FAIL
+                AS SELECT value, current_timestamp ts FROM zero_grace_nondeterministic_base_table
+                """,
+                "line 1:1: Materialized view with a zero GRACE PERIOD and WHEN STALE FAIL cannot depend on a current time function, " +
+                        "because such a source cannot be tracked for freshness and the view is never fresh\\. " +
+                        "Use a non-zero GRACE PERIOD, or WHEN STALE INLINE\\.");
+
+        assertUpdate("DROP TABLE zero_grace_nondeterministic_base_table");
     }
 }
