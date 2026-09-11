@@ -674,6 +674,16 @@
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::finishMerge(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;)</old>
                                     <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishMerge(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;)</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>class io.trino.spi.function.table.Argument</old>
+                                    <new>class io.trino.spi.function.table.Argument</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.function.table.DescriptorArgument.class, name = "descriptor"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.function.table.ScalarArgument.class, name = "scalar"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.function.table.TableArgument.class, name = "table")}</oldValue>
+                                    <newValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.function.table.DescriptorArgument.class, name = "descriptor"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.function.table.ScalarArgument.class, name = "scalar"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.function.table.TableArgument.class, name = "table"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.function.table.TableMetadataArgument.class, name = "tableMetadata")}</newValue>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
