@@ -1045,7 +1045,7 @@ public abstract class BaseIcebergMaterializedViewTest
         // mirroring the behavior for regular tables.
         assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$files\"")).isEqualTo(3L);
         assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$snapshots\"")).isEqualTo(2L);
-        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$history\"")).isEqualTo(2L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$history\"")).isEqualTo(1L);
         assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$partitions\"")).isEqualTo(3L);
         assertThat(query("SELECT file_path, record_count FROM \"" + mvName + "$files\"")).succeeds();
         assertThat(query("SELECT * FROM \"" + mvName + "$manifests\"")).succeeds();
