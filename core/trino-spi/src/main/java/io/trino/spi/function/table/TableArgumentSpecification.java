@@ -22,17 +22,21 @@ public class TableArgumentSpecification
     private final boolean rowSemantics;
     private final boolean pruneWhenEmpty;
     private final boolean passThroughColumns;
+    private final boolean useTableMetadata;
 
-    private TableArgumentSpecification(String name, boolean rowSemantics, Boolean pruneWhenEmpty, boolean passThroughColumns)
+    private TableArgumentSpecification(String name, boolean rowSemantics, Boolean pruneWhenEmpty, boolean passThroughColumns, boolean useTableMetadata)
     {
         super(name, true, null);
 
         requireNonNull(pruneWhenEmpty, "The pruneWhenEmpty property is not set");
         checkArgument(!rowSemantics || pruneWhenEmpty, "Cannot set the KEEP WHEN EMPTY property for a table argument with row semantics");
+        checkArgument(!useTableMetadata || !rowSemantics, "Cannot set the row semantics property for a table argument using table metadata");
+        checkArgument(!useTableMetadata || !passThroughColumns, "Cannot set the pass-through columns property for a table argument using table metadata");
 
         this.rowSemantics = rowSemantics;
         this.pruneWhenEmpty = pruneWhenEmpty;
         this.passThroughColumns = passThroughColumns;
+        this.useTableMetadata = useTableMetadata;
     }
 
     public boolean isRowSemantics()
@@ -50,6 +54,18 @@ public class TableArgumentSpecification
         return passThroughColumns;
     }
 
+    /**
+     * When {@code true}, the engine does not plan a source or read any rows for this
+     * argument. Instead, the argument must be passed as a plain {@code catalog.schema.table}
+     * reference (no aliasing, partitioning, ordering, or empty-table treatment), and the
+     * referenced table's {@link io.trino.spi.connector.ConnectorTableMetadata} is passed to
+     * the table function as a {@link TableMetadataArgument}.
+     */
+    public boolean isUseTableMetadata()
+    {
+        return useTableMetadata;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -61,6 +77,7 @@ public class TableArgumentSpecification
         private boolean rowSemantics;
         private Boolean pruneWhenEmpty;
         private boolean passThroughColumns;
+        private boolean useTableMetadata;
 
         private Builder() {}
 
@@ -95,9 +112,16 @@ public class TableArgumentSpecification
             return this;
         }
 
+        public Builder useTableMetadata()
+        {
+            this.useTableMetadata = true;
+            this.pruneWhenEmpty = true;
+            return this;
+        }
+
         public TableArgumentSpecification build()
         {
-            return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, passThroughColumns);
+            return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, passThroughColumns, useTableMetadata);
         }
     }
 }
