@@ -16,15 +16,18 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.join;
@@ -38,6 +41,8 @@ import static io.trino.sql.planner.plan.Patterns.join;
  * <p>
  * The join is replaced with the other source and an optional
  * pruning projection.
+ * A FULL join of two scalar sources with no output symbols and a constant
+ * filter is replaced with one row for TRUE, or two rows for FALSE or NULL.
  * <p>
  * Note: This rule does not transform plans where either join source
  * is empty. Such plans are transformed by RemoveRedundantJoin
@@ -98,6 +103,13 @@ public class ReplaceRedundantJoinWithSource
                                       .orElse(node.getRight())) :
                     Result.empty();
             case FULL -> {
+                if (node.getFilter().isPresent()) {
+                    if (leftSourceScalarWithNoOutputs && rightSourceScalarWithNoOutputs && node.getFilter().get() instanceof Constant filter) {
+                        yield Result.ofPlanNode(new ValuesNode(node.getId(), filter.equals(TRUE) ? 1 : 2));
+                    }
+                    // A filter can leave the scalar source unmatched, adding a null row to the result.
+                    yield Result.empty();
+                }
                 if (leftSourceScalarWithNoOutputs && rightCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
                             .orElse(node.getRight()));
