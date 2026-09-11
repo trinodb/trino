@@ -48,6 +48,7 @@ public record StageInfo(
         requireNonNull(subStages, "subStages is null");
         requireNonNull(tables, "tables is null");
         tasks = ImmutableList.copyOf(tasks);
+        subStages = ImmutableList.copyOf(subStages);
         tables = ImmutableMap.copyOf(tables);
     }
 
