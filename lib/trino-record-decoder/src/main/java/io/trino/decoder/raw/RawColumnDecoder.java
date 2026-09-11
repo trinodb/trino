@@ -164,10 +164,7 @@ public class RawColumnDecoder
         if (type instanceof VarcharType) {
             return true;
         }
-        if (ImmutableList.of(BIGINT, INTEGER, SMALLINT, TINYINT, BOOLEAN, DOUBLE).contains(type)) {
-            return true;
-        }
-        return false;
+        return ImmutableList.of(BIGINT, INTEGER, SMALLINT, TINYINT, BOOLEAN, DOUBLE).contains(type);
     }
 
     private void checkFieldTypeOneOf(FieldType declaredFieldType, String columnName, FieldType... allowedFieldTypes)
