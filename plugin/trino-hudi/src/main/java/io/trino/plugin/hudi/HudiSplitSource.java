@@ -129,6 +129,10 @@ public class HudiSplitSource
     @Override
     public boolean isFinished()
     {
+        TrinoException throwable = trinoException.get();
+        if (throwable != null) {
+            throw throwable;
+        }
         return splitLoaderFuture.isDone() && queue.isFinished();
     }
 
