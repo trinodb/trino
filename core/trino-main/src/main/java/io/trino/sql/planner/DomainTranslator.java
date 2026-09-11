@@ -696,11 +696,12 @@ public final class DomainTranslator
             // Handle comparisons against a non-NaN value when the compared value might be NaN
             return switch (comparisonOperator) {
                 /*
-                 For comparison operators: EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,
-                 the Domain should not contain NaN, but complemented Domain should contain NaN. It is currently not supported.
+                 For comparison operators: EQUAL, IDENTICAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,
+                 the Domain should not contain NaN, but complemented Domain should contain NaN (for IDENTICAL, null as well).
+                 It is currently not supported.
                  Currently, NaN is only included when ValueSet.isAll().
 
-                 For comparison operators: NOT_EQUAL, IS_DISTINCT_FROM,
+                 For comparison operator NOT_EQUAL,
                  the Domain should consist of ranges (which do not sum to the whole ValueSet), and NaN.
                  Currently, NaN is only included when ValueSet.isAll().
                   */
