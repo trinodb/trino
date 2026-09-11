@@ -1554,13 +1554,28 @@ The output of the query has the following columns:
     partition column values.
 * - `record_count`
   - `BIGINT`
-  - The number of records in the partition.
+  - The number of records in the data files of the partition. Records in
+    delete files are not counted.
 * - `file_count`
   - `BIGINT`
-  - The number of files mapped in the partition.
+  - The number of data files mapped in the partition. Delete files are not
+    counted.
 * - `total_size`
   - `BIGINT`
-  - The size of all the files in the partition.
+  - The size of all the data files in the partition. Delete files are not
+    included.
+* - `position_delete_record_count`
+  - `BIGINT`
+  - The number of records in the position delete files of the partition.
+* - `position_delete_file_count`
+  - `BIGINT`
+  - The number of position delete files mapped in the partition.
+* - `equality_delete_record_count`
+  - `BIGINT`
+  - The number of records in the equality delete files of the partition.
+* - `equality_delete_file_count`
+  - `BIGINT`
+  - The number of equality delete files mapped in the partition.
 * - `data`
   - `ROW(... ROW (min ..., max ... , null_count BIGINT, nan_count BIGINT))`
   - Partition range metadata.
