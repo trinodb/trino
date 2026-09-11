@@ -18,10 +18,12 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.plugin.datasketches.state.SketchState;
 import io.trino.plugin.datasketches.state.SketchStateFactory;
+import io.trino.plugin.datasketches.theta.CardinalityBounds;
 import io.trino.plugin.datasketches.theta.Estimate;
 import io.trino.plugin.datasketches.theta.SketchFunctionsPlugin;
 import io.trino.plugin.datasketches.theta.Union;
 import io.trino.plugin.datasketches.theta.UnionWithParams;
+import io.trino.spi.TrinoException;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -45,6 +47,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.apache.datasketches.common.Util.DEFAULT_UPDATE_SEED;
 import static org.apache.datasketches.thetacommon.ThetaUtil.DEFAULT_NOMINAL_ENTRIES;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDataSketches
         extends AbstractTestQueryFramework
@@ -230,6 +233,66 @@ public class TestDataSketches
         assertThat(estimate).isEqualTo(unionNominalEntries);
     }
 
+    // -------------------------------------------------------------------------
+    // Cardinality error bounds
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testCardinalityBoundsExactMode()
+    {
+        // A small sketch is in exact mode: lower = estimate = upper = exact count for any numStdDev
+        String sketch = toHexSketch(new int[] {1, 2, 3});
+        for (int numStdDev = 1; numStdDev <= 3; numStdDev++) {
+            double lower = (double) computeScalar(
+                    "SELECT theta_sketch_cardinality_lower_bound(X'%s', %d)".formatted(sketch, numStdDev));
+            double upper = (double) computeScalar(
+                    "SELECT theta_sketch_cardinality_upper_bound(X'%s', %d)".formatted(sketch, numStdDev));
+            assertThat(lower).isEqualTo(3d);
+            assertThat(upper).isEqualTo(3d);
+        }
+    }
+
+    @Test
+    public void testCardinalityBoundsEstimationMode()
+    {
+        // Force estimation mode: 20000 distinct values into a K=DEFAULT_NOMINAL_ENTRIES sketch
+        String sketch = toHexSketch(0, 20000, DEFAULT_NOMINAL_ENTRIES);
+        double estimate = (double) computeScalar("SELECT theta_sketch_cardinality(X'%s')".formatted(sketch));
+        double lower = (double) computeScalar("SELECT theta_sketch_cardinality_lower_bound(X'%s', 2)".formatted(sketch));
+        double upper = (double) computeScalar("SELECT theta_sketch_cardinality_upper_bound(X'%s', 2)".formatted(sketch));
+        assertThat(lower).isLessThan(estimate);
+        assertThat(estimate).isLessThan(upper);
+
+        // Wider confidence -> wider interval
+        double lower1 = (double) computeScalar("SELECT theta_sketch_cardinality_lower_bound(X'%s', 1)".formatted(sketch));
+        double lower3 = (double) computeScalar("SELECT theta_sketch_cardinality_lower_bound(X'%s', 3)".formatted(sketch));
+        double upper1 = (double) computeScalar("SELECT theta_sketch_cardinality_upper_bound(X'%s', 1)".formatted(sketch));
+        double upper3 = (double) computeScalar("SELECT theta_sketch_cardinality_upper_bound(X'%s', 3)".formatted(sketch));
+        assertThat(lower3).isLessThanOrEqualTo(lower1);
+        assertThat(upper3).isGreaterThanOrEqualTo(upper1);
+    }
+
+    @Test
+    public void testCardinalityBoundsMatchLibrary()
+    {
+        String sketch = toHexSketch(0, 20000, DEFAULT_NOMINAL_ENTRIES);
+        ThetaSketch reference = buildCompactSketch(0, 20000, DEFAULT_NOMINAL_ENTRIES, DEFAULT_UPDATE_SEED);
+        double lower = (double) computeScalar("SELECT theta_sketch_cardinality_lower_bound(X'%s', 2)".formatted(sketch));
+        double upper = (double) computeScalar("SELECT theta_sketch_cardinality_upper_bound(X'%s', 2)".formatted(sketch));
+        assertThat(lower).isEqualTo(reference.getLowerBound(2));
+        assertThat(upper).isEqualTo(reference.getUpperBound(2));
+    }
+
+    @Test
+    public void testCardinalityBoundsInvalidNumStdDev()
+    {
+        Slice sketch = toSketchSlice(new int[] {1, 2, 3}, DEFAULT_UPDATE_SEED, DEFAULT_ENTRIES);
+        assertThatThrownBy(() -> CardinalityBounds.lowerBound(sketch, 4))
+                .isInstanceOf(TrinoException.class);
+        assertThatThrownBy(() -> CardinalityBounds.upperBound(sketch, 0))
+                .isInstanceOf(TrinoException.class);
+    }
+
     private String toHexSketch(int[] data)
     {
         UpdatableThetaSketch sketch = UpdatableThetaSketch.builder()
@@ -251,6 +314,18 @@ public class TestDataSketches
             sketch.update(i);
         }
         return base16().lowerCase().encode(sketch.compact().toByteArray());
+    }
+
+    private static ThetaSketch buildCompactSketch(int from, int to, int nominalEntries, long seed)
+    {
+        UpdatableThetaSketch sketch = UpdatableThetaSketch.builder()
+                .setNominalEntries(nominalEntries)
+                .setSeed(seed)
+                .build();
+        for (int i = from; i < to; i++) {
+            sketch.update(i);
+        }
+        return ThetaSketch.wrap(MemorySegment.ofArray(sketch.compact().toByteArray()), seed);
     }
 
     private static Slice toSketchSlice(int[] data, long seed, int nominalEntries)

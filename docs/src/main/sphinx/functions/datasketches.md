@@ -8,8 +8,10 @@ approximate answers with mathematical guarantees much faster than traditional
 exact methods. DataSketches functions allow querying these serialized sketches
 from Trino. Support for the
 [Theta Sketch framework](https://datasketches.apache.org/docs/Theta/ThetaSketchFramework.html)
-is available through {func}`theta_sketch_union` and
-{func}`theta_sketch_cardinality`, typically used to replace expensive
+is available through {func}`theta_sketch_union`,
+{func}`theta_sketch_cardinality`,
+{func}`theta_sketch_cardinality_lower_bound`, and
+{func}`theta_sketch_cardinality_upper_bound`, typically used to replace expensive
 `COUNT(DISTINCT ...)` aggregations when sketches are precomputed and stored.
 
 ## Configuration
@@ -68,6 +70,21 @@ Returns the estimated value of the sketch.
 
 Returns the estimated value of the sketch using the supplied `seed`. Use this
 when the sketch was created with a non-default seed.
+:::
+
+:::{function} theta_sketch_cardinality_lower_bound(sketch, num_std_dev [, seed]) -> double
+Returns the lower bound of the sketch cardinality estimate for the given number
+of standard deviations. `num_std_dev` must be 1, 2, or 3, corresponding to
+approximately 68%, 95%, and 99.7% confidence. For a sketch in exact mode the
+lower bound equals the exact count. The optional `seed` parameter must match the
+seed used to build the sketch.
+:::
+
+:::{function} theta_sketch_cardinality_upper_bound(sketch, num_std_dev [, seed]) -> double
+Returns the upper bound of the sketch cardinality estimate for the given number
+of standard deviations. `num_std_dev` must be 1, 2, or 3. For a sketch in exact
+mode the upper bound equals the exact count. The optional `seed` parameter must
+match the seed used to build the sketch.
 :::
 
 ## Examples
