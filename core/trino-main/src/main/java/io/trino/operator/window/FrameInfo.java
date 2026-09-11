@@ -14,6 +14,7 @@
 package io.trino.operator.window;
 
 import io.trino.sql.planner.plan.FrameBoundType;
+import io.trino.sql.planner.plan.FrameExclusion;
 import io.trino.sql.planner.plan.WindowFrameType;
 
 import java.util.Objects;
@@ -33,6 +34,7 @@ public class FrameInfo
     private final int sortKeyChannelForEndComparison;
     private final int sortKeyChannel;
     private final Optional<Ordering> ordering;
+    private final FrameExclusion exclusion;
 
     public FrameInfo(
             WindowFrameType type,
@@ -43,7 +45,8 @@ public class FrameInfo
             Optional<Integer> endChannel,
             Optional<Integer> sortKeyChannelForEndComparison,
             Optional<Integer> sortKeyChannel,
-            Optional<Ordering> ordering)
+            Optional<Ordering> ordering,
+            FrameExclusion exclusion)
     {
         this.type = requireNonNull(type, "type is null");
         this.startType = requireNonNull(startType, "startType is null");
@@ -54,6 +57,7 @@ public class FrameInfo
         this.sortKeyChannelForEndComparison = sortKeyChannelForEndComparison.orElse(-1);
         this.sortKeyChannel = sortKeyChannel.orElse(-1);
         this.ordering = requireNonNull(ordering, "ordering is null");
+        this.exclusion = requireNonNull(exclusion, "exclusion is null");
     }
 
     public WindowFrameType getType()
@@ -101,10 +105,15 @@ public class FrameInfo
         return ordering;
     }
 
+    public FrameExclusion getExclusion()
+    {
+        return exclusion;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, startType, startChannel, sortKeyChannelForStartComparison, endType, endChannel, sortKeyChannelForEndComparison, sortKeyChannel, ordering);
+        return Objects.hash(type, startType, startChannel, sortKeyChannelForStartComparison, endType, endChannel, sortKeyChannelForEndComparison, sortKeyChannel, ordering, exclusion);
     }
 
     @Override
@@ -128,7 +137,8 @@ public class FrameInfo
                 this.endChannel == other.endChannel &&
                 this.sortKeyChannelForEndComparison == other.sortKeyChannelForEndComparison &&
                 this.sortKeyChannel == other.sortKeyChannel &&
-                Objects.equals(this.ordering, other.ordering);
+                Objects.equals(this.ordering, other.ordering) &&
+                this.exclusion == other.exclusion;
     }
 
     @Override
@@ -144,6 +154,7 @@ public class FrameInfo
                 .add("sortKeyChannelForEndComparison", sortKeyChannelForEndComparison)
                 .add("sortKeyChannel", sortKeyChannel)
                 .add("ordering", ordering)
+                .add("exclusion", exclusion)
                 .toString();
     }
 

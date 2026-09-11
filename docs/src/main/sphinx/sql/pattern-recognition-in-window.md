@@ -28,6 +28,7 @@ pattern recognition mechanisms.
 ```text
 [ MEASURES measure_definition [, ...] ]
 frame_extent
+[ frame_exclusion ]
 [ AFTER MATCH skip_to ]
 [ INITIAL | SEEK ]
 [ PATTERN ( row_pattern ) ]
