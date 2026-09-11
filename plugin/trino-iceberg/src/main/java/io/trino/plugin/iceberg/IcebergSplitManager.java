@@ -38,6 +38,7 @@ import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.types.TypeUtil;
@@ -48,9 +49,9 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
+import static io.trino.plugin.iceberg.IcebergUtil.snapshotScan;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public class IcebergSplitManager
         implements ConnectorSplitManager
@@ -151,14 +152,15 @@ public class IcebergSplitManager
             icebergMetadata.disableIncrementalRefresh();
         }
 
-        Schema schema = schemaFor(icebergTable, table.getSnapshotId().orElseThrow());
+        TableScan scan = snapshotScan(icebergTable, table);
+        // The scan binds filters and resolves column names against this schema, so the projection must be built from it
+        Schema schema = scan.schema();
         Set<Integer> projectedIds = table.getProjectedColumns().stream()
                 .map(IcebergColumnHandle::getId)
                 .filter(id -> schema.findField(id) != null) // Newly added column may not be found in current snapshot schema until new files are added
                 .collect(toImmutableSet());
 
-        return icebergTable.newScan()
-                .useSnapshot(table.getSnapshotId().orElseThrow())
+        return scan
                 .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
                 .planWith(executor)
                 .metricsReporter(metricsReporter);

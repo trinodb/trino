@@ -71,12 +71,14 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NotFoundException;
@@ -181,6 +183,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -1420,5 +1423,25 @@ public final class IcebergUtil
         catch (NotFoundException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
         }
+    }
+
+    public static TableScan snapshotScan(Table table, IcebergTableHandle handle)
+    {
+        long snapshotId = handle.getSnapshotId().orElseThrow();
+        // Iceberg reads a branch with the table's current schema only when the scan names the ref; a scan
+        // pinned by snapshot ID alone is treated as time travel and binds filters against the snapshot's schema.
+        // Naming main leaves the scan unpinned and resolves the head at planning time, so main is read like an
+        // unversioned query: pinned to the snapshot the handle was resolved with.
+        Optional<String> branchName = handle.getBranch().filter(name -> !name.equals(SnapshotRef.MAIN_BRANCH));
+        if (branchName.isEmpty()) {
+            return table.newScan().useSnapshot(snapshotId);
+        }
+        // The handle's schema and predicates were resolved against the branch head, so the ref must still point there
+        String branch = branchName.orElseThrow();
+        SnapshotRef ref = table.refs().get(branch);
+        if (ref == null || ref.snapshotId() != snapshotId) {
+            throw new TrinoException(TRANSACTION_CONFLICT, "Branch %s of table %s changed during query planning".formatted(branch, table.name()));
+        }
+        return table.newScan().useRef(branch);
     }
 }
