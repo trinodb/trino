@@ -56,6 +56,32 @@ public final class RedisTestUtils
         tpchLoader.execute(format("SELECT * from %s", tpchTableName));
     }
 
+    public static void loadTpchTable(RedisServer redisServer, TestingTrinoClient trinoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat, boolean clusterMode)
+    {
+        RedisLoader tpchLoader = new RedisLoader(trinoClient.getServer(), trinoClient.getDefaultSession(), redisServer.getClient(), tableName, dataFormat, clusterMode);
+        tpchLoader.execute(format("SELECT * from %s", tpchTableName));
+    }
+
+    public static void installRedisPlugin(RedisCluster redisCluster, QueryRunner queryRunner, Map<SchemaTableName, RedisTableDescription> tableDescriptions, Map<String, String> connectorProperties)
+    {
+        queryRunner.installPlugin(new TestingRedisPlugin(tableDescriptions));
+
+        connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+        connectorProperties.putIfAbsent("redis.nodes", redisCluster.getSeedAddressesString());
+        connectorProperties.putIfAbsent("redis.table-names", Joiner.on(",").join(tableDescriptions.keySet()));
+        connectorProperties.putIfAbsent("redis.default-schema", "default");
+        connectorProperties.putIfAbsent("redis.hide-internal-columns", "true");
+        connectorProperties.putIfAbsent("redis.key-prefix-schema-table", "true");
+
+        queryRunner.createCatalog("redis", "redis", connectorProperties);
+    }
+
+    public static void loadTpchTable(RedisCluster redisCluster, TestingTrinoClient trinoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat, boolean clusterMode)
+    {
+        RedisLoader tpchLoader = new RedisLoader(trinoClient.getServer(), trinoClient.getDefaultSession(), redisCluster.getRedisClusterClient(), tableName, dataFormat, clusterMode);
+        tpchLoader.execute(format("SELECT * from %s", tpchTableName));
+    }
+
     public static Map.Entry<SchemaTableName, RedisTableDescription> loadTpchTableDescription(
             JsonCodec<RedisTableDescription> tableDescriptionJsonCodec,
             SchemaTableName schemaTableName,

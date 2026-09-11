@@ -13,10 +13,14 @@
  */
 package io.trino.plugin.redis;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -26,13 +30,21 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.Ranges;
+import io.trino.spi.predicate.SortedRangeSet;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -43,6 +55,7 @@ public class RedisSplitManager
 {
     private final Set<HostAddress> nodes;
     private final RedisClientManager clientManager;
+    private final boolean clusterEnabled;
 
     private static final long REDIS_MAX_SPLITS = 100;
     private static final long REDIS_STRIDE_SPLITS = 100;
@@ -55,6 +68,7 @@ public class RedisSplitManager
         requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.nodes = ImmutableSet.copyOf(redisConnectorConfig.getNodes());
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
+        this.clusterEnabled = redisConnectorConfig.isClusterEnabled();
     }
 
     @Override
@@ -72,6 +86,66 @@ public class RedisSplitManager
 
         checkState(!nodes.isEmpty(), "No Redis nodes available");
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
+
+        // In cluster mode, discover the slot topology via CLUSTER SLOTS and create
+        // one scan split per primary.  When key predicates are pushed down, route
+        // each key to its slot owner so each key is fetched from the correct primary.
+        if (clusterEnabled) {
+            if (redisTableHandle.keyDataFormat().equals("zset")) {
+                throw new TrinoException(NOT_SUPPORTED,
+                        "ZSET key format is not supported with redis.cluster.enabled=true. "
+                                + "A ZSET key resides on a single cluster node and cannot be split across shards.");
+            }
+
+            // Refresh the topology so we don't create splits for a failed primary.
+            // This is especially important after a failover, when a promoted replica
+            // has taken over the failed primary's slots.
+            clientManager.refreshTopology();
+            RedisClusterTopology topology = clientManager.getClusterTopology();
+
+            // Check for pushed-down key predicates (=, IN) that can be routed by slot
+            List<String> pushdownKeys = extractPushdownKeys(redisTableHandle.constraint());
+            if (!pushdownKeys.isEmpty()) {
+                // Route each key to its slot-owning primary
+                ListMultimap<HostAddress, String> keysByPrimary = ArrayListMultimap.create();
+                for (String key : pushdownKeys) {
+                    HostAddress primary = topology.getPrimaryForKey(key);
+                    keysByPrimary.put(primary, key);
+                }
+                for (HostAddress primary : keysByPrimary.keySet()) {
+                    RedisSplit split = new RedisSplit(
+                            redisTableHandle.schemaName(),
+                            redisTableHandle.tableName(),
+                            redisTableHandle.keyDataFormat(),
+                            redisTableHandle.valueDataFormat(),
+                            redisTableHandle.keyName(),
+                            redisTableHandle.constraint(),
+                            0,
+                            -1,
+                            ImmutableList.of(primary),
+                            keysByPrimary.get(primary));
+                    builder.add(split);
+                }
+            }
+            else {
+                // Full scan: one split per primary, each scans its own shard
+                for (HostAddress primary : topology.getPrimaries()) {
+                    RedisSplit split = new RedisSplit(
+                            redisTableHandle.schemaName(),
+                            redisTableHandle.tableName(),
+                            redisTableHandle.keyDataFormat(),
+                            redisTableHandle.valueDataFormat(),
+                            redisTableHandle.keyName(),
+                            redisTableHandle.constraint(),
+                            0,
+                            -1,
+                            ImmutableList.of(primary),
+                            null);
+                    builder.add(split);
+                }
+            }
+            return new FixedSplitSource(builder.build());
+        }
 
         long numberOfKeys = 1;
         // when Redis keys are provides in a zset, create multiple
@@ -102,10 +176,50 @@ public class RedisSplitManager
                     redisTableHandle.constraint(),
                     startIndex,
                     endIndex,
-                    nodes);
+                    nodes,
+                    null);
 
             builder.add(split);
         }
         return new FixedSplitSource(builder.build());
+    }
+
+    /**
+     * Extracts pushed-down key values from the constraint when they are
+     * equality (=) or IN predicates on the key column.
+     *
+     * @return list of key string values, or empty list if no pushdown is possible
+     */
+    private List<String> extractPushdownKeys(TupleDomain<ColumnHandle> constraint)
+    {
+        if (constraint.isAll()) {
+            return ImmutableList.of();
+        }
+        Map<ColumnHandle, Domain> domains = constraint.getDomains().orElse(null);
+        if (domains == null) {
+            return ImmutableList.of();
+        }
+        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            if (!((RedisColumnHandle) entry.getKey()).isKeyDecoder()) {
+                continue;
+            }
+            Domain domain = entry.getValue();
+            if (domain.isSingleValue()) {
+                return ImmutableList.of(((Slice) domain.getSingleValue()).toStringUtf8());
+            }
+            ValueSet valueSet = domain.getValues();
+            if (valueSet instanceof SortedRangeSet sortedRangeSet) {
+                Ranges ranges = sortedRangeSet.getRanges();
+                List<Range> rangeList = ranges.getOrderedRanges();
+                if (rangeList.stream().allMatch(Range::isSingleValue)) {
+                    ImmutableList.Builder<String> keys = ImmutableList.builder();
+                    for (Range range : rangeList) {
+                        keys.add(((Slice) range.getSingleValue()).toStringUtf8());
+                    }
+                    return keys.build();
+                }
+            }
+        }
+        return ImmutableList.of();
     }
 }
