@@ -109,7 +109,7 @@ public class TestSqlServerJdbcConnectionAccesses
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 2, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 4, Optional.empty());
-        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_sqlserver'", 1041, Optional.empty());
+        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'counting_sqlserver'", 1041, Optional.empty());
     }
 
     private static final class TestingSqlServerModule

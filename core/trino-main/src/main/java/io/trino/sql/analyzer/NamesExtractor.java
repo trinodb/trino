@@ -72,7 +72,7 @@ public final class NamesExtractor
         @Override
         protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<QualifiedName> builder)
         {
-            builder.add(QualifiedName.of(node.getValue()));
+            builder.add(QualifiedName.of(node));
             return null;
         }
 

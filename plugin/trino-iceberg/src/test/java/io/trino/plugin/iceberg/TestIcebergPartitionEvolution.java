@@ -91,7 +91,7 @@ public class TestIcebergPartitionEvolution
         assertThat(unpartitionedFiles).hasSize(1);
         assertThat((long) unpartitionedFiles.get(0).getField(1)).isEqualTo(15);
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\"");
         // Most partitions have one record each. regionkey=2, trunc_name=I has two records, and 15 records are unpartitioned
         assertQuery("SELECT record_count, count(*) FROM \"" + tableName + "$partitions\" GROUP BY record_count", "VALUES (1, 8), (2, 1), (15, 1)");
         assertUpdate("DROP TABLE " + tableName);
@@ -123,7 +123,7 @@ public class TestIcebergPartitionEvolution
         assertThat(partitionedFiles).hasSize(expectedFinalFileCount);
         assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(15L);
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\"");
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['truncate(name, 1)']) AS SELECT * FROM nation WHERE nationkey < 10", 10);
@@ -148,7 +148,7 @@ public class TestIcebergPartitionEvolution
         assertThat(partitionedFiles).hasSize(expectedFinalFileCount);
         assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(15L);
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\"");
         assertUpdate("DROP TABLE " + tableName);
     }
 

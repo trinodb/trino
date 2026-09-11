@@ -97,7 +97,6 @@ import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -246,7 +245,6 @@ public class HiveSplitManager
 
         Set<String> neededColumnNames = Streams.concat(hiveTable.getProjectedColumns().stream(), hiveTable.getConstraintColumns().stream())
                 .map(columnHandle -> ((HiveColumnHandle) columnHandle).getBaseColumnName()) // possible duplicates are handled by toImmutableSet at the end
-                .map(columnName -> columnName.toLowerCase(ENGLISH))
                 .collect(toImmutableSet());
 
         DynamicFilterState dynamicFilterState = new DynamicFilterState();
@@ -468,7 +466,7 @@ public class HiveSplitManager
         }
         ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
         for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
-            if (!neededColumnNames.contains(tableColumns.get(i).getName().toLowerCase(ENGLISH))) {
+            if (!neededColumnNames.contains(tableColumns.get(i).getName())) {
                 // skip columns not used in the query
                 continue;
             }
@@ -508,7 +506,7 @@ public class HiveSplitManager
     {
         ImmutableMap.Builder<String, Integer> partitionColumnIndexesBuilder = ImmutableMap.builderWithExpectedSize(partitionColumns.size());
         for (int i = 0; i < partitionColumns.size(); i++) {
-            String columnName = partitionColumns.get(i).getName().toLowerCase(ENGLISH);
+            String columnName = partitionColumns.get(i).getName();
             if (!neededColumnNames.contains(columnName)) {
                 // skip columns not used in the query
                 continue;
@@ -521,7 +519,7 @@ public class HiveSplitManager
         for (int tableColumnIndex = 0; tableColumnIndex < tableColumns.size(); tableColumnIndex++) {
             Column tableColumn = tableColumns.get(tableColumnIndex);
             HiveType tableType = tableColumn.getType();
-            Integer partitionColumnIndex = partitionColumnsByIndex.get(tableColumn.getName().toLowerCase(ENGLISH));
+            Integer partitionColumnIndex = partitionColumnsByIndex.get(tableColumn.getName());
             if (partitionColumnIndex == null) {
                 continue;
             }

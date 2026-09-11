@@ -11,7 +11,7 @@ FROM
    , "d_moy"
    , "s_store_id"
    , "sumsales"
-   , "rank"() OVER (PARTITION BY "i_category" ORDER BY "sumsales" DESC) "rk"
+   , rank() OVER (PARTITION BY "i_category" ORDER BY "sumsales" DESC) "rk"
    FROM
      (
       SELECT
@@ -23,7 +23,7 @@ FROM
       , "d_qoy"
       , "d_moy"
       , "s_store_id"
-      , "sum"(COALESCE(("ss_sales_price" * "ss_quantity"), 0)) "sumsales"
+      , sum(COALESCE(("ss_sales_price" * "ss_quantity"), 0)) "sumsales"
       FROM
         ${database}.${schema}.store_sales
       , ${database}.${schema}.date_dim
@@ -33,7 +33,7 @@ FROM
          AND ("ss_item_sk" = "i_item_sk")
          AND ("ss_store_sk" = "s_store_sk")
          AND ("d_month_seq" BETWEEN 1200 AND (1200 + 11))
-      GROUP BY ROLLUP (i_category, i_class, i_brand, i_product_name, d_year, d_qoy, d_moy, s_store_id)
+      GROUP BY ROLLUP ("i_category", "i_class", "i_brand", "i_product_name", "d_year", "d_qoy", "d_moy", "s_store_id")
    )  dw1
 )  dw2
 WHERE ("rk" <= 100)

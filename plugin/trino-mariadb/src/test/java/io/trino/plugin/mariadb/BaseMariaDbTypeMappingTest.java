@@ -92,6 +92,12 @@ public abstract class BaseMariaDbTypeMappingTest
         verify(vilnius.getRules().getValidOffsets(LocalDate.of(1983, 10, 1).atStartOfDay().minusMinutes(1)).size() == 2);
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testBit()
     {
@@ -765,7 +771,7 @@ public abstract class BaseMariaDbTypeMappingTest
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
-                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
+                    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_unsupported_data_type'",
                     "VALUES 'supported_column'"); // no 'unsupported_column'
         }
         finally {
@@ -969,7 +975,7 @@ public abstract class BaseMariaDbTypeMappingTest
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -979,12 +985,12 @@ public abstract class BaseMariaDbTypeMappingTest
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup mariaDbCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(server::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(server::execute, tableNamePrefix, this::canonicalize);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDate date)

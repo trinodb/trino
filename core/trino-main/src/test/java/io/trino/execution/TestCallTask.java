@@ -57,6 +57,7 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.metadata.ResolverManager.getLowerCaseCanonicalizer;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -84,6 +85,7 @@ public class TestCallTask
         queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.create()));
         queryRunner.createCatalog(TEST_CATALOG_NAME, "mock", ImmutableMap.of());
+        queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver(TEST_CATALOG_NAME, getLowerCaseCanonicalizer());
         executor = newCachedThreadPool(daemonThreadsNamed("call-task-test-%s"));
     }
 

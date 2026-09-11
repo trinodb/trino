@@ -49,16 +49,16 @@ public class TestSortFieldUtils
         assertParse("\"order_key\" desc nulls first", sortOrder(builder -> builder.desc("order_key", NullOrder.NULLS_FIRST)));
 
         // uppercase
-        assertParse("ORDER_KEY ASC NULLS LAST", sortOrder(builder -> builder.asc("order_key", NullOrder.NULLS_LAST)));
-        assertParse("ORDER_KEY DESC NULLS FIRST", sortOrder(builder -> builder.desc("order_key", NullOrder.NULLS_FIRST)));
+        assertDoesNotParse("ORDER_KEY ASC NULLS LAST", "Cannot find field 'ORDER_KEY' .*");
+        assertDoesNotParse("ORDER_KEY DESC NULLS FIRST", "Cannot find field 'ORDER_KEY' .*");
         assertDoesNotParse("\"ORDER_KEY\" ASC NULLS LAST", "Cannot find field 'ORDER_KEY' .*");
         assertDoesNotParse("\"ORDER_KEY\" DESC NULLS FIRST", "Cannot find field 'ORDER_KEY' .*");
 
         // mixed case
         assertParse("\"MixedCase\" ASC NULLS LAST", sortOrder(builder -> builder.asc("MixedCase", NullOrder.NULLS_LAST)));
         assertParse("\"MixedCase\" DESC NULLS FIRST", sortOrder(builder -> builder.desc("MixedCase", NullOrder.NULLS_FIRST)));
-        assertParse("OrDER_keY Asc NullS LAst", sortOrder(builder -> builder.asc("order_key", NullOrder.NULLS_LAST)));
-        assertParse("OrDER_keY Desc NullS FIrsT", sortOrder(builder -> builder.desc("order_key", NullOrder.NULLS_FIRST)));
+        assertDoesNotParse("OrDER_keY Asc NullS LAst", "Cannot find field 'OrDER_keY' .*");
+        assertDoesNotParse("OrDER_keY Desc NullS FIrsT", "Cannot find field 'OrDER_keY' .*");
         assertDoesNotParse("\"OrDER_keY\" Asc NullS LAst", "Cannot find field 'OrDER_keY' .*");
         assertDoesNotParse("\"OrDER_keY\" Desc NullS FIrsT", "Cannot find field 'OrDER_keY' .*");
 

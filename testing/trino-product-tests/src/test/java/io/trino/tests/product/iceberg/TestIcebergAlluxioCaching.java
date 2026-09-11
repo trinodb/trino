@@ -115,15 +115,15 @@ class TestIcebergAlluxioCaching
     {
         var result = env.executeTrino(
                 "SELECT " +
-                        "  sum(\"cachereads.alltime.count\") as cacheReads, " +
-                        "  sum(\"externalreads.alltime.count\") as externalReads " +
-                        "FROM jmx.current.\"io.trino.blob.cache.alluxio:name=iceberg,type=alluxiocachestats\"");
+                        "  sum(\"CacheReads.AllTime.Count\") as cacheReads, " +
+                        "  sum(\"ExternalReads.AllTime.Count\") as externalReads " +
+                        "FROM jmx.current.\"io.trino.blob.cache.alluxio:name=iceberg,type=AlluxioCacheStats\"");
         var row = result.getRows().getFirst();
         return new CacheStats(
                 ((Number) row.getValues().get(0)).doubleValue(),
                 ((Number) row.getValues().get(1)).doubleValue(),
                 ((Number) env.executeTrino(
-                "SELECT sum(count) FROM jmx.current.\"org.alluxio:name=client.cachespaceusedcount,type=counters\"")
+                "SELECT sum(Count) FROM jmx.current.\"org.alluxio:name=Client.CacheSpaceUsedCount,type=counters\"")
                         .getOnlyValue()).longValue());
     }
 

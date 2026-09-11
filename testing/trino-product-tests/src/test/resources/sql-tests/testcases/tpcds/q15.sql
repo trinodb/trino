@@ -1,6 +1,6 @@
 SELECT
   "ca_zip"
-, "sum"("cs_sales_price")
+, sum("cs_sales_price")
 FROM
   catalog_sales
 , customer

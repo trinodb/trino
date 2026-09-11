@@ -33,6 +33,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static io.trino.metadata.ResolverManager.getIdentityCanonicalizer;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
@@ -64,9 +65,11 @@ public class TestInformationSchemaConnector
 
             queryRunner.installPlugin(countingMockConnector.getPlugin());
             queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
+            queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver("test_catalog", getIdentityCanonicalizer());
 
             queryRunner.installPlugin(new FailingMockConnectorPlugin());
             queryRunner.createCatalog("broken_catalog", "failing_mock", ImmutableMap.of());
+            queryRunner.getPlannerContext().getMetadata().getResolverManager().addResolver("broken_catalog", getIdentityCanonicalizer());
             return queryRunner;
         }
         catch (Exception e) {

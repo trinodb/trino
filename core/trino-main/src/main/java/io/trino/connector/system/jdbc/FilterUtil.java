@@ -20,8 +20,6 @@ import io.trino.spi.predicate.Domain.DiscreteSet;
 
 import java.util.Optional;
 
-import static java.util.Locale.ENGLISH;
-
 public final class FilterUtil
 {
     private FilterUtil() {}
@@ -58,8 +56,6 @@ public final class FilterUtil
 
     public static boolean isImpossibleObjectName(String candidate)
     {
-        return candidate.equals("") ||
-                // TODO (https://github.com/trinodb/trino/issues/17) Currently all object names are lowercase in Trino
-                !candidate.equals(candidate.toLowerCase(ENGLISH));
+        return candidate.isBlank();
     }
 }

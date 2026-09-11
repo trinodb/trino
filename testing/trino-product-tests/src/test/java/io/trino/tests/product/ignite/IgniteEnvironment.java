@@ -97,7 +97,7 @@ public class IgniteEnvironment
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty("user", user);
         connectionProperties.setProperty("catalog", "ignite");
-        connectionProperties.setProperty("schema", "public");
+        connectionProperties.setProperty("schema", "PUBLIC");
         return connectionProperties;
     }
 

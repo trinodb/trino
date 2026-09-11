@@ -4,8 +4,8 @@ SELECT
 , "d_year"
 , "d_qoy"
 , "i_category"
-, "count"(*) "sales_cnt"
-, "sum"("ext_sales_price") "sales_amt"
+, count(*) "sales_cnt"
+, sum("ext_sales_price") "sales_amt"
 FROM
   (
    SELECT

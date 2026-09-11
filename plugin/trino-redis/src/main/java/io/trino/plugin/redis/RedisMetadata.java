@@ -88,6 +88,12 @@ public class RedisMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         Set<String> schemas = getDefinedTables().keySet().stream()

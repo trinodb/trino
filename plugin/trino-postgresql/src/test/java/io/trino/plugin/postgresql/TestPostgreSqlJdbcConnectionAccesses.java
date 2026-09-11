@@ -42,6 +42,7 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 // TODO: Implement dedicated test to count number of queries executed.
@@ -76,6 +77,12 @@ public class TestPostgreSqlJdbcConnectionAccesses
                 .build();
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, ImmutableList.of(CUSTOMER, NATION, REGION));
         return queryRunner;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     private static ConnectionCountingConnectionFactory getConnectionCountingConnectionFactory(TestingPostgreSqlServer postgreSqlServer)
@@ -113,7 +120,7 @@ public class TestPostgreSqlJdbcConnectionAccesses
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 2, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 4, Optional.empty());
-        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_postgresql'", 7, Optional.empty());
+        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'counting_postgresql'", 7, Optional.empty());
 
         testJdbcMergeConnectionCreations();
     }

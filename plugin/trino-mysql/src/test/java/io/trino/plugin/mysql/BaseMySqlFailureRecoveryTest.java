@@ -55,6 +55,12 @@ public abstract class BaseMySqlFailureRecoveryTest
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     @Override
     protected void testDeleteWithSubquery()

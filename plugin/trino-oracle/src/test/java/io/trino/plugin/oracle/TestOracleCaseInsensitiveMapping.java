@@ -59,7 +59,7 @@ public class TestOracleCaseInsensitiveMapping
     @Override
     protected Optional<String> optionalFromDual()
     {
-        return Optional.of("FROM dual");
+        return Optional.of(" FROM dual");
     }
 
     @Override

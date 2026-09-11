@@ -41,12 +41,18 @@ final class TestFakerQueries
         return FakerQueryRunner.builder().build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     void testShowTables()
     {
         assertQuery("SHOW SCHEMAS FROM faker", "VALUES 'default', 'information_schema'");
         assertUpdate("CREATE TABLE faker.default.test (id INTEGER, name VARCHAR)");
-        assertTableColumnNames("faker.default.test", "id", "name");
+        assertTableColumnNames("test", "id", "name");
     }
 
     @Test

@@ -83,6 +83,11 @@ public class TableArgument
             return this;
         }
 
+        public List<String> getPartitionBy()
+        {
+            return partitionBy;
+        }
+
         public Builder partitionBy(List<String> partitionBy)
         {
             this.partitionBy = partitionBy;

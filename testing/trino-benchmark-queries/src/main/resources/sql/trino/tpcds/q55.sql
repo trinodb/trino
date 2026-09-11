@@ -1,7 +1,7 @@
 SELECT
   "i_brand_id" "brand_id"
 , "i_brand" "brand"
-, "sum"("ss_ext_sales_price") "ext_price"
+, sum("ss_ext_sales_price") "ext_price"
 FROM
   ${database}.${schema}.date_dim
 , ${database}.${schema}.store_sales

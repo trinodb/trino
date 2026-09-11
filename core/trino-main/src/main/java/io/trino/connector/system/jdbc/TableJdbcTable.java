@@ -60,16 +60,16 @@ public class TableJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "tables");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
-            .column("table_schem", VARCHAR)
-            .column("table_name", VARCHAR)
-            .column("table_type", VARCHAR)
-            .column("remarks", VARCHAR)
-            .column("type_cat", VARCHAR)
-            .column("type_schem", VARCHAR)
-            .column("type_name", VARCHAR)
-            .column("self_referencing_col_name", VARCHAR)
-            .column("ref_generation", VARCHAR)
+            .column("TABLE_CAT", VARCHAR)
+            .column("TABLE_SCHEM", VARCHAR)
+            .column("TABLE_NAME", VARCHAR)
+            .column("TABLE_TYPE", VARCHAR)
+            .column("REMARKS", VARCHAR)
+            .column("TYPE_CAT", VARCHAR)
+            .column("TYPE_SCHEM", VARCHAR)
+            .column("TYPE_NAME", VARCHAR)
+            .column("SELF_REFERENCING_COL_NAME", VARCHAR)
+            .column("REF_GENERATION", VARCHAR)
             .build();
 
     private static final ColumnHandle CATALOG_COLUMN = new SystemColumnHandle("table_cat");

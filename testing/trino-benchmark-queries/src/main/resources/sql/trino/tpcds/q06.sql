@@ -1,6 +1,6 @@
 SELECT
   "a"."ca_state" "STATE"
-, "count"(*) "cnt"
+, count(*) "cnt"
 FROM
   ${database}.${schema}.customer_address a
 , ${database}.${schema}.customer c
@@ -19,12 +19,12 @@ WHERE ("a"."ca_address_sk" = "c"."c_current_addr_sk")
          AND ("d_moy" = 1)
    ))
    AND ("i"."i_current_price" > (DECIMAL '1.2' * (
-         SELECT "avg"("j"."i_current_price")
+         SELECT avg("j"."i_current_price")
          FROM
            ${database}.${schema}.item j
          WHERE ("j"."i_category" = "i"."i_category")
       )))
 GROUP BY "a"."ca_state"
-HAVING ("count"(*) >= 10)
+HAVING (count(*) >= 10)
 ORDER BY "cnt" ASC, "a"."ca_state" ASC
 LIMIT 100

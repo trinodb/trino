@@ -1,4 +1,4 @@
-SELECT "sum"("ss_quantity")
+SELECT sum("ss_quantity")
 FROM
   ${database}.${schema}.store_sales
 , ${database}.${schema}.store
