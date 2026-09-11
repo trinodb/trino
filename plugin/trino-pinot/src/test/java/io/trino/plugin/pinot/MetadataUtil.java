@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
+import io.trino.plugin.pinot.client.InstanceInfo;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
@@ -34,6 +35,7 @@ public class MetadataUtil
     public static final JsonCodec<PinotClient.BrokersForTable> BROKERS_FOR_TABLE_JSON_CODEC;
     public static final JsonCodec<PinotClient.TimeBoundary> TIME_BOUNDARY_JSON_CODEC;
     public static final JsonCodec<BrokerResponseNative> BROKER_RESPONSE_NATIVE_JSON_CODEC;
+    public static final JsonCodec<InstanceInfo> INSTANCE_INFO_JSON_CODEC;
     public static final String TEST_TABLE = "airlineStats";
 
     private MetadataUtil() {}
@@ -52,5 +54,6 @@ public class MetadataUtil
         BROKERS_FOR_TABLE_JSON_CODEC = codecFactory.jsonCodec(PinotClient.BrokersForTable.class);
         TIME_BOUNDARY_JSON_CODEC = codecFactory.jsonCodec(PinotClient.TimeBoundary.class);
         BROKER_RESPONSE_NATIVE_JSON_CODEC = codecFactory.jsonCodec(BrokerResponseNative.class);
+        INSTANCE_INFO_JSON_CODEC = codecFactory.jsonCodec(InstanceInfo.class);
     }
 }
