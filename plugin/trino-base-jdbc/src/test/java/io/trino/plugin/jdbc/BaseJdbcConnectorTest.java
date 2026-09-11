@@ -1189,9 +1189,9 @@ public abstract class BaseJdbcConnectorTest
 
                 List<String> nonEqualities = Stream.concat(
                                 Stream.of(JoinCondition.Operator.values())
-                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL && operator != JoinCondition.Operator.IDENTICAL)
+                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL)
                                         .map(JoinCondition.Operator::getValue),
-                                Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
+                                Stream.of("IS DISTINCT FROM"))
                         .collect(toImmutableList());
 
                 // basic case
@@ -1413,9 +1413,6 @@ public abstract class BaseJdbcConnectorTest
 
     private JoinCondition.Operator toJoinConditionOperator(String operator)
     {
-        if (operator.equals("IS NOT DISTINCT FROM")) {
-            return JoinCondition.Operator.IDENTICAL;
-        }
         return Stream.of(JoinCondition.Operator.values())
                 .filter(joinOperator -> joinOperator.getValue().equals(operator))
                 .collect(toOptional())

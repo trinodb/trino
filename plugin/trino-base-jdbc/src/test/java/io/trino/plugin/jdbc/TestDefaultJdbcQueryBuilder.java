@@ -544,6 +544,13 @@ public class TestDefaultJdbcQueryBuilder
     public void testBuildJoinSqlLegacy()
             throws SQLException
     {
+        testBuildJoinSqlLegacy(JoinCondition.Operator.EQUAL, "=");
+        testBuildJoinSqlLegacy(JoinCondition.Operator.IDENTICAL, "IS NOT DISTINCT FROM");
+    }
+
+    private void testBuildJoinSqlLegacy(JoinCondition.Operator joinOperator, String sqlOperator)
+            throws SQLException
+    {
         Connection connection = database.getConnection();
 
         PreparedQuery preparedQuery = queryBuilder.legacyPrepareJoinQuery(
@@ -553,7 +560,7 @@ public class TestDefaultJdbcQueryBuilder
                 JoinType.INNER,
                 new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
                 new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
-                List.of(new JdbcJoinCondition(columns.get(7), JoinCondition.Operator.EQUAL, columns.get(8))),
+                List.of(new JdbcJoinCondition(columns.get(7), joinOperator, columns.get(8))),
                 Map.of(columns.get(2), "name1"),
                 Map.of(columns.get(3), "name2"));
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
@@ -562,7 +569,7 @@ public class TestDefaultJdbcQueryBuilder
                     "(SELECT * FROM \"test_table\") l " +
                     "INNER JOIN " +
                     "(SELECT * FROM \"test_table\") r " +
-                    "ON l.\"col_7\" = r.\"col_8\"");
+                    "ON l.\"col_7\" " + sqlOperator + " r.\"col_8\"");
             long count = 0;
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
