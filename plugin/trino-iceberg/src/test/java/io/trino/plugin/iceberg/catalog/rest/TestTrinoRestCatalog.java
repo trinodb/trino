@@ -34,11 +34,25 @@ import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Metrics;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.SupportsNamespaces;
+import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.RESTException;
+import org.apache.iceberg.expressions.Expressions;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.types.Conversions;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.view.View;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -362,5 +376,94 @@ public class TestTrinoRestCatalog
                 Optional.of(SESSION.getUser()),
                 false,
                 ImmutableList.of());
+    }
+
+    @Test
+    public void testServerRequestedScanPlanning()
+            throws Exception
+    {
+        Path warehouseLocation = Files.createTempDirectory(null);
+        Catalog backend = backendCatalog(warehouseLocation);
+        ScanPlanningRestCatalogAdapter adapter = new ScanPlanningRestCatalogAdapter(backend);
+        RESTSessionCatalog restSessionCatalog = DelegatingRestSessionCatalog.builder()
+                .delegate(backend)
+                .adapter(adapter)
+                .build();
+        restSessionCatalog.initialize("iceberg_rest", ImmutableMap.of());
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+
+        String namespace = "test_server_planning_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, "planned_table");
+        createTableWithIdRangeFiles(backend, warehouseLocation, schemaTableName, 3);
+
+        BaseTable icebergTable = catalog.loadTable(SESSION, schemaTableName);
+        assertThat(icebergTable.allowDistributedPlanning())
+                .as("table opted into server-side scan planning keeps the planning implementation")
+                .isFalse();
+        assertThat(icebergTable.name()).isEqualTo("\"" + namespace + "\".\"planned_table\"");
+
+        int planRequestsBefore = adapter.planRequests();
+        try (CloseableIterable<FileScanTask> fileScanTasks = icebergTable.newScan().planFiles()) {
+            assertThat(fileScanTasks).hasSize(3);
+        }
+        try (CloseableIterable<FileScanTask> fileScanTasks = icebergTable.newScan()
+                .filter(Expressions.greaterThanOrEqual("id", 200L))
+                .planFiles()) {
+            assertThat(fileScanTasks)
+                    .as("server-side planning should prune files by column bounds")
+                    .hasSize(1);
+        }
+        assertThat(adapter.planRequests())
+                .as("scan planning should go through the REST plan endpoint")
+                .isGreaterThan(planRequestsBefore);
+    }
+
+    @Test
+    public void testLoadTableWithoutServerScanPlanning()
+            throws Exception
+    {
+        Path warehouseLocation = Files.createTempDirectory(null);
+        Catalog backend = backendCatalog(warehouseLocation);
+        RESTSessionCatalog restSessionCatalog = DelegatingRestSessionCatalog.builder()
+                .delegate(backend)
+                .build();
+        restSessionCatalog.initialize("iceberg_rest", ImmutableMap.of());
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+
+        String namespace = "test_local_planning_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, "planned_table");
+        createTableWithIdRangeFiles(backend, warehouseLocation, schemaTableName, 1);
+
+        BaseTable loadedTable = catalog.loadTable(SESSION, schemaTableName);
+        assertThat(loadedTable.allowDistributedPlanning())
+                .as("tables without server-side scan planning are unaffected")
+                .isTrue();
+        assertThat(loadedTable).isNotInstanceOf(ServerPlannedTable.class);
+    }
+
+    private static void createTableWithIdRangeFiles(Catalog backend, Path warehouseLocation, SchemaTableName schemaTableName, int files)
+    {
+        ((SupportsNamespaces) backend).createNamespace(Namespace.of(schemaTableName.getSchemaName()));
+        Table table = backend.createTable(
+                TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName()),
+                new Schema(Types.NestedField.required(1, "id", Types.LongType.get())));
+        for (int file = 0; file < files; file++) {
+            long lowerBound = file * 100L;
+            long upperBound = lowerBound + 99;
+            table.newFastAppend()
+                    .appendFile(DataFiles.builder(PartitionSpec.unpartitioned())
+                            .withPath(warehouseLocation.resolve("data-" + file + ".parquet").toString())
+                            .withFileSizeInBytes(10)
+                            .withMetrics(new Metrics(
+                                    100L,
+                                    null,
+                                    ImmutableMap.of(1, 100L),
+                                    ImmutableMap.of(1, 0L),
+                                    null,
+                                    ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), lowerBound)),
+                                    ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), upperBound))))
+                            .build())
+                    .commit();
+        }
     }
 }
