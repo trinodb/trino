@@ -24,10 +24,12 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -45,13 +47,12 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.JSON
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_MICROS;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializeColumnValue;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.floorDiv;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
@@ -168,8 +169,7 @@ public class DeltaLakeJsonFileStatistics
             }
         }
         if (columnType instanceof TimestampWithTimeZoneType) {
-            long packedTimestamp = (long) columnValue;
-            long epochMillis = unpackMillisUtc(packedTimestamp);
+            long epochMillis = ((LongTimestampWithTimeZone) columnValue).getEpochMillis();
             if (floorDiv(epochMillis, MILLISECONDS_PER_DAY) < START_OF_MODERN_ERA_EPOCH_DAY) {
                 return Optional.empty();
             }
@@ -184,10 +184,11 @@ public class DeltaLakeJsonFileStatistics
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(localDateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
     }
 
-    private static Long readStatisticsTimestampWithZone(String timestamp)
+    private static LongTimestampWithTimeZone readStatisticsTimestampWithZone(String timestamp)
     {
         ZonedDateTime zonedDateTime = ZonedDateTime.parse(timestamp, JSON_STATISTICS_TIMESTAMP_FORMATTER);
-        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
+        Instant instant = zonedDateTime.toInstant();
+        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(instant.getEpochSecond(), (long) instant.getNano() * PICOSECONDS_PER_NANOSECOND, UTC_KEY);
     }
 
     @Override

@@ -72,13 +72,13 @@ public final class DeltaLakeComputedStatistics
         return statistics.getColumnStatistics().entrySet().stream()
                 .filter(stats -> stats.getKey().getStatisticType().equals(statisticType)
                         && lowercaseToColumnsHandles.containsKey(stats.getKey().getColumnName()))
-                .map(stats -> mapSingleStatisticsValueToJsonRepresentation(stats, lowercaseToColumnsHandles))
+                .map(stats -> mapSingleStatisticsValueToJsonRepresentation(stats, lowercaseToColumnsHandles, statisticType.equals(MAX_VALUE)))
                 .filter(Optional::isPresent)
                 .flatMap(Optional::stream)
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
-    private static Optional<Entry<String, Object>> mapSingleStatisticsValueToJsonRepresentation(Entry<ColumnStatisticMetadata, Block> statistics, Map</* lowercase */ String, DeltaLakeColumnHandle> lowercaseToColumnsHandles)
+    private static Optional<Entry<String, Object>> mapSingleStatisticsValueToJsonRepresentation(Entry<ColumnStatisticMetadata, Block> statistics, Map</* lowercase */ String, DeltaLakeColumnHandle> lowercaseToColumnsHandles, boolean roundUp)
     {
         Type columnType = lowercaseToColumnsHandles.get(statistics.getKey().getColumnName()).basePhysicalType();
         String physicalName = lowercaseToColumnsHandles.get(statistics.getKey().getColumnName()).basePhysicalColumnName();
@@ -87,7 +87,7 @@ public final class DeltaLakeComputedStatistics
         }
 
         Object value = readNativeValue(columnType, statistics.getValue(), 0);
-        Object jsonValue = toJsonValue(columnType, value);
+        Object jsonValue = toJsonValue(columnType, value, roundUp);
         if (jsonValue != null) {
             return Optional.of(Map.entry(physicalName, jsonValue));
         }

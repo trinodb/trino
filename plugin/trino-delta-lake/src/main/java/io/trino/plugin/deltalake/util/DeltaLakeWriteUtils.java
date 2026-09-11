@@ -19,10 +19,10 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -37,7 +37,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -46,9 +45,11 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -119,9 +120,12 @@ public final class DeltaLakeWriteUtils
             int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
             return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(DELTA_TIMESTAMP_FORMATTER);
         }
-        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-            long epochMillis = unpackMillisUtc(type.getLong(block, position));
-            return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneOffset.UTC).format(DELTA_TIMESTAMP_FORMATTER);
+        if (TIMESTAMP_TZ_MICROS.equals(type)) {
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) type.getObject(block, position);
+            long epochMicros = timestamp.getEpochMillis() * MICROSECONDS_PER_MILLISECOND + timestamp.getPicosOfMilli() / PICOSECONDS_PER_MICROSECOND;
+            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(DELTA_TIMESTAMP_FORMATTER);
         }
         if (type instanceof DecimalType decimalType) {
             return readBigDecimal(decimalType, block, position).stripTrailingZeros().toPlainString();

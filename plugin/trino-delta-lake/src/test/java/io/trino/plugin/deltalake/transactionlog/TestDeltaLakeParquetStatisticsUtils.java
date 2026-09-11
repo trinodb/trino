@@ -18,9 +18,12 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
+import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -32,7 +35,9 @@ import java.util.Optional;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValue;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -202,6 +207,95 @@ public class TestDeltaLakeParquetStatisticsUtils
 
         assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
         assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneComputedStatisticsRoundsMaxUp()
+    {
+        // Delta stats are millisecond-granular: floor the min and ceil the max so a microsecond value stays within the bounds
+        LongTimestampWithTimeZone value = LongTimestampWithTimeZone.fromEpochMillisAndFraction(Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli(), 456_000_000, UTC_KEY);
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_TZ_MICROS, value, false)).isEqualTo("2024-01-15T10:30:00.123Z");
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_TZ_MICROS, value, true)).isEqualTo("2024-01-15T10:30:00.124Z");
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneStatisticsInt64Micros()
+    {
+        String columnName = "t_timestamp";
+        Statistics<?> stats = Statistics.getBuilderForReading(int64TimestampType(columnName, LogicalTypeAnnotation.TimeUnit.MICROS))
+                .withMin(longToBytes(toEpochMicros(LocalDateTime.parse("2020-08-26T01:02:03.123456"))))
+                .withMax(longToBytes(toEpochMicros(LocalDateTime.parse("2020-08-26T01:02:03.987654"))))
+                .withNumNulls(2)
+                .build();
+
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.988Z"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneStatisticsInt64Millis()
+    {
+        String columnName = "t_timestamp";
+        Statistics<?> stats = Statistics.getBuilderForReading(int64TimestampType(columnName, LogicalTypeAnnotation.TimeUnit.MILLIS))
+                .withMin(longToBytes(Instant.parse("2020-08-26T01:02:03.123Z").toEpochMilli()))
+                .withMax(longToBytes(Instant.parse("2020-08-26T01:02:03.124Z").toEpochMilli()))
+                .withNumNulls(2)
+                .build();
+
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.124Z"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneStatisticsInt64Nanos()
+    {
+        String columnName = "t_timestamp";
+        Statistics<?> stats = Statistics.getBuilderForReading(int64TimestampType(columnName, LogicalTypeAnnotation.TimeUnit.NANOS))
+                .withMin(longToBytes(1_000_000_000L))
+                .withMax(longToBytes(2_000_000_000L))
+                .withNumNulls(2)
+                .build();
+
+        // NANOS is not a valid Delta timestamp encoding, so no statistic is produced rather than a misread value
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEmpty();
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS)))
+                .isEmpty();
+    }
+
+    private static PrimitiveType int64TimestampType(String columnName, LogicalTypeAnnotation.TimeUnit unit)
+    {
+        return Types.required(PrimitiveType.PrimitiveTypeName.INT64)
+                .as(LogicalTypeAnnotation.timestampType(true, unit))
+                .named(columnName);
+    }
+
+    private static long toEpochMicros(LocalDateTime localDateTime)
+    {
+        return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+    }
+
+    private static byte[] longToBytes(long value)
+    {
+        Slice slice = Slices.allocate(8);
+        slice.setLong(0, value);
+        return slice.byteArray();
+    }
+
+    @Test
+    public void testTimestampComputedStatisticsRoundsMaxUp()
+    {
+        long value = Instant.parse("2024-01-15T10:30:00Z").getEpochSecond() * MICROSECONDS_PER_SECOND + 123_456;
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, value, false)).isEqualTo("2024-01-15T10:30:00.123Z");
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, value, true)).isEqualTo("2024-01-15T10:30:00.124Z");
+
+        long exactMillis = Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, exactMillis, true)).isEqualTo("2024-01-15T10:30:00.123Z");
     }
 
     private static byte[] toParquetEncoding(LocalDateTime time)
