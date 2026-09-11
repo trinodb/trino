@@ -35,6 +35,7 @@ import io.trino.connector.TestingTableFunctions.PolymorphicStaticReturnTypeFunct
 import io.trino.connector.TestingTableFunctions.RequiredColumnsFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentRowSemanticsFunction;
+import io.trino.connector.TestingTableFunctions.TableMetadataArgumentFunction;
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
 import io.trino.connector.TestingTableFunctions.TwoTableArgumentsFunction;
 import io.trino.execution.DynamicFilterConfig;
@@ -7113,6 +7114,51 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testTableMetadataArgument()
+    {
+        // a table reference wrapped in TABLE(...) is accepted
+        analyze("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(t1)))");
+
+        // a fully qualified name is also accepted
+        analyze("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(tpch.s1.t1)))");
+
+        // a bare qualified name, without the TABLE(...) wrapper, is not accepted
+        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => t1))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:61: Invalid argument INPUT. Expected table, got expression");
+
+        // a query is not accepted for this argument kind
+        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(SELECT * FROM t1)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:61: Invalid argument INPUT. Table argument using table metadata must be a table name");
+
+        // an aliased table is not accepted
+        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(t1) AS x))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:61: Invalid argument INPUT. Table argument using table metadata must be a table name");
+
+        // partitioning, ordering, and empty behavior are not accepted
+        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(t1) PARTITION BY a))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:61: Invalid argument INPUT. Table argument using table metadata does not support partitioning, ordering, or empty behavior specification");
+
+        // the referenced table must exist
+        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(no_such_table)))")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:70: Table 'tpch.s1.no_such_table' does not exist");
+
+        // views are not supported
+        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(v1)))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:70: Invalid argument INPUT. Table argument using table metadata does not support views");
+
+        // materialized views are not supported
+        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(fresh_materialized_view)))")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:70: Table 'tpch.s1.fresh_materialized_view' does not exist");
+    }
+
+    @Test
     public void testTableArgumentProperties()
     {
         analyze(
@@ -9028,6 +9074,7 @@ public class TestAnalyzer
                         new TableArgumentFunction(),
                         new TableArgumentRowSemanticsFunction(),
                         new DescriptorArgumentFunction(),
+                        new TableMetadataArgumentFunction(),
                         new TwoTableArgumentsFunction(),
                         new OnlyPassThroughFunction(),
                         new MonomorphicStaticReturnTypeFunction(),

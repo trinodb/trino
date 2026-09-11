@@ -314,6 +314,33 @@ public class TestingTableFunctions
         }
     }
 
+    public static class TableMetadataArgumentFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TableMetadataArgumentFunction()
+        {
+            super(SCHEMA_NAME,
+                    "table_metadata_argument_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .useTableMetadata()
+                                    .build()),
+                    GENERIC_TABLE,
+                    "");
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
+        {
+            return ANALYSIS;
+        }
+    }
+
     public static class TwoTableArgumentsFunction
             extends AbstractConnectorTableFunction
     {
