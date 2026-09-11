@@ -104,7 +104,7 @@ public final class DuckDbClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session)
+    public Connection getConnection(ConnectorSession session, boolean readOnly)
             throws SQLException
     {
         // The method calls Connection.setReadOnly method, but DuckDB does not support changing read-only status on connection level

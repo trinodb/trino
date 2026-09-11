@@ -132,11 +132,11 @@ public class DefaultJdbcMetadata
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
 
-    private final JdbcClient jdbcClient;
     private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
+    protected final JdbcClient jdbcClient;
     protected final List<Runnable> rollbackActions = new ArrayList<>();
 
     public DefaultJdbcMetadata(
