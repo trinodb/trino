@@ -14,7 +14,7 @@
 package io.trino.plugin.datasketches.theta;
 
 import io.airlift.slice.Slice;
-import io.trino.plugin.datasketches.state.UnionState;
+import io.trino.plugin.datasketches.state.IntersectionState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -26,41 +26,29 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static java.lang.Math.toIntExact;
+import static org.apache.datasketches.common.Util.DEFAULT_UPDATE_SEED;
 
-@AggregationFunction("theta_sketch_union")
-public final class UnionWithParams
+@AggregationFunction("theta_sketch_intersection")
+public final class Intersection
 {
-    private UnionWithParams() {}
+    private Intersection() {}
 
     @InputFunction
-    public static void input(@AggregationState UnionState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) long nominalEntries, @SqlType(StandardTypes.BIGINT) long seed)
+    public static void input(@AggregationState IntersectionState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue)
     {
-        state.setNominalEntries(toIntExact(nominalEntries));
-        state.setSeed(seed);
+        state.setSeed(DEFAULT_UPDATE_SEED);
         state.addSketch(inputValue);
     }
 
     @CombineFunction
-    public static void combine(@AggregationState UnionState state, UnionState otherState)
+    public static void combine(@AggregationState IntersectionState state, IntersectionState otherState)
     {
-        if (otherState.getSketch() == null) {
-            return;
-        }
-
-        if (state.getSketch() == null) {
-            state.setSeed(otherState.getSeed());
-            state.setNominalEntries(otherState.getNominalEntries());
-            state.addSketch(otherState.getSketch());
-            return;
-        }
-
         state.merge(otherState);
     }
 
     @SqlNullable
     @OutputFunction(StandardTypes.VARBINARY)
-    public static void output(@AggregationState UnionState state, BlockBuilder out)
+    public static void output(@AggregationState IntersectionState state, BlockBuilder out)
     {
         Slice sketch = state.getSketch();
         if (sketch == null) {

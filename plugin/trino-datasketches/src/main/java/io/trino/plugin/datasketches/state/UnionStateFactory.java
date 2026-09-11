@@ -27,25 +27,25 @@ import java.lang.foreign.MemorySegment;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 
-public class SketchStateFactory
-        implements AccumulatorStateFactory<SketchState>
+public class UnionStateFactory
+        implements AccumulatorStateFactory<UnionState>
 {
     @Override
-    public SketchState createSingleState()
+    public UnionState createSingleState()
     {
-        return new SingleSketchState();
+        return new SingleUnionState();
     }
 
     @Override
-    public SketchState createGroupedState()
+    public UnionState createGroupedState()
     {
-        return new GroupedSketchState();
+        return new GroupedUnionState();
     }
 
-    public static class GroupedSketchState
-            implements GroupedAccumulatorState, SketchState
+    public static class GroupedUnionState
+            implements GroupedAccumulatorState, UnionState
     {
-        private static final long INSTANCE_SIZE = instanceSize(GroupedSketchState.class);
+        private static final long INSTANCE_SIZE = instanceSize(GroupedUnionState.class);
         private int nominalEntries;
         private long seed;
         private long groupId;
@@ -122,12 +122,34 @@ public class SketchStateFactory
         }
 
         @Override
-        public void merge(SketchState otherState)
+        public void setSketch(Slice value)
         {
-            if (otherState.getSketch() == null) {
+            ThetaUnion existing = getUnion();
+            int previousSize = existing == null ? 0 : existing.getCurrentBytes();
+            if (value == null) {
+                unions.set(groupId, null);
+                totalUnionSize -= previousSize;
                 return;
             }
-            addSketchToUnion(otherState.getSketch(), otherState.getNominalEntries());
+            checkState(nominalEntries > 0, "nominalEntries is not set");
+            checkState(seed != 0, "seed is not set");
+            ThetaSketch sketch = ThetaSketch.wrap(MemorySegment.ofArray(value.getBytes()), seed);
+            ThetaUnion groupedUnion = ThetaSetOperation.builder()
+                    .setSeed(seed)
+                    .setNominalEntries(nominalEntries)
+                    .buildUnion();
+            groupedUnion.union(sketch);
+            unions.set(groupId, groupedUnion);
+            updateMemoryUsage(groupedUnion, previousSize);
+        }
+
+        @Override
+        public void merge(SketchState other)
+        {
+            if (other.getSketch() == null) {
+                return;
+            }
+            addSketchToUnion(other.getSketch(), ((UnionState) other).getNominalEntries());
         }
 
         private void addSketchToUnion(Slice value, int nominalEntries)
@@ -158,10 +180,10 @@ public class SketchStateFactory
         }
     }
 
-    public static class SingleSketchState
-            implements SketchState
+    public static class SingleUnionState
+            implements UnionState
     {
-        private static final long INSTANCE_SIZE = instanceSize(SingleSketchState.class);
+        private static final long INSTANCE_SIZE = instanceSize(SingleUnionState.class);
         private ThetaUnion union;
         private int nominalEntries;
         private long seed;
@@ -201,6 +223,23 @@ public class SketchStateFactory
         }
 
         @Override
+        public void setSketch(Slice value)
+        {
+            if (value == null) {
+                union = null;
+                return;
+            }
+            checkState(nominalEntries > 0, "nominalEntries is not set");
+            checkState(seed != 0, "seed is not set");
+            ThetaSketch sketch = ThetaSketch.wrap(MemorySegment.ofArray(value.getBytes()), seed);
+            union = ThetaSetOperation.builder()
+                    .setSeed(seed)
+                    .setNominalEntries(nominalEntries)
+                    .buildUnion();
+            union.union(sketch);
+        }
+
+        @Override
         public void setNominalEntries(int value)
         {
             nominalEntries = value;
@@ -220,13 +259,13 @@ public class SketchStateFactory
         }
 
         @Override
-        public void merge(SketchState otherState)
+        public void merge(SketchState other)
         {
-            if (otherState.getSketch() == null) {
+            if (other.getSketch() == null) {
                 return;
             }
 
-            addSketchToUnion(otherState.getSketch(), otherState.getNominalEntries());
+            addSketchToUnion(other.getSketch(), ((UnionState) other).getNominalEntries());
         }
 
         private void addSketchToUnion(Slice value, int nominalEntries)

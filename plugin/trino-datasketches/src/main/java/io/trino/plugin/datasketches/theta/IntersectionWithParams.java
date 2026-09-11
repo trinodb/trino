@@ -14,7 +14,7 @@
 package io.trino.plugin.datasketches.theta;
 
 import io.airlift.slice.Slice;
-import io.trino.plugin.datasketches.state.UnionState;
+import io.trino.plugin.datasketches.state.IntersectionState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -25,32 +25,28 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static org.apache.datasketches.common.Util.DEFAULT_UPDATE_SEED;
-import static org.apache.datasketches.thetacommon.ThetaUtil.DEFAULT_NOMINAL_ENTRIES;
-
-@AggregationFunction("theta_sketch_union")
-public final class Union
+@AggregationFunction("theta_sketch_intersection")
+public final class IntersectionWithParams
 {
-    private Union() {}
+    private IntersectionWithParams() {}
 
     @InputFunction
-    public static void input(@AggregationState UnionState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue)
+    public static void input(@AggregationState IntersectionState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.BIGINT) long seed)
     {
-        state.setNominalEntries(DEFAULT_NOMINAL_ENTRIES);
-        state.setSeed(DEFAULT_UPDATE_SEED);
+        state.setSeed(seed);
         state.addSketch(inputValue);
     }
 
     @CombineFunction
-    public static void combine(@AggregationState UnionState state, UnionState otherState)
+    public static void combine(@AggregationState IntersectionState state, IntersectionState otherState)
     {
-        UnionWithParams.combine(state, otherState);
+        Intersection.combine(state, otherState);
     }
 
     @SqlNullable
     @OutputFunction(StandardTypes.VARBINARY)
-    public static void output(@AggregationState UnionState state, BlockBuilder out)
+    public static void output(@AggregationState IntersectionState state, BlockBuilder out)
     {
-        UnionWithParams.output(state, out);
+        Intersection.output(state, out);
     }
 }
