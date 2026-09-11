@@ -15,7 +15,10 @@ package io.trino.plugin.session.db;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
+import org.jdbi.v3.core.Jdbi;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -27,9 +30,17 @@ public class DbSessionPropertyManagerModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(DbSessionPropertyManagerConfig.class);
+        binder.bind(FlywayMigration.class).in(Scopes.SINGLETON);
         binder.bind(DbSessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertiesDao.class).toProvider(SessionPropertiesDaoProvider.class).in(Scopes.SINGLETON);
         binder.bind(DbSpecsProvider.class).to(RefreshingDbSpecsProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DbSpecsProvider.class).withGeneratedName();
+    }
+
+    @Provides
+    @Singleton
+    public static Jdbi create(DbSessionPropertyManagerConfig config)
+    {
+        return Jdbi.create(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword());
     }
 }

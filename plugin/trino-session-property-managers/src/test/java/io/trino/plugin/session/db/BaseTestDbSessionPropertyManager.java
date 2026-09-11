@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.session.AbstractTestSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
+import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.SessionConfigurationContext;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -26,47 +29,51 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
-public class TestDbSessionPropertyManager
+public abstract class BaseTestDbSessionPropertyManager
         extends AbstractTestSessionPropertyManager
 {
+    private static final ResourceGroupId TEST_RG = new ResourceGroupId("rg1");
+
+    private JdbcDatabaseContainer<?> container;
     private DbSessionPropertyManagerConfig config;
+    private Jdbi jdbi;
     private SessionPropertiesDao dao;
     private DbSessionPropertyManager manager;
     private RefreshingDbSpecsProvider specsProvider;
 
-    private TestingMySqlContainer mysqlContainer;
-
-    private static final ResourceGroupId TEST_RG = new ResourceGroupId("rg1");
+    protected abstract JdbcDatabaseContainer<?> startContainer();
 
     @BeforeAll
     public void setup()
     {
-        mysqlContainer = new TestingMySqlContainer();
-        mysqlContainer.start();
+        container = startContainer();
 
         config = new DbSessionPropertyManagerConfig()
-                .setConfigDbUrl(mysqlContainer.getJdbcUrl())
-                .setUsername(mysqlContainer.getUsername())
-                .setPassword(mysqlContainer.getPassword());
+                .setConfigDbUrl(container.getJdbcUrl())
+                .setConfigDbUser(container.getUsername())
+                .setConfigDbPassword(container.getPassword());
 
-        SessionPropertiesDaoProvider daoProvider = new SessionPropertiesDaoProvider(config);
-        dao = daoProvider.get();
+        jdbi = Jdbi.create(container.getJdbcUrl(), container.getUsername(), container.getPassword());
+        dao = jdbi.installPlugin(new SqlObjectPlugin()).onDemand(SessionPropertiesDao.class);
     }
 
     @BeforeEach
     public void setupTest()
     {
+        new FlywayMigration(config).migrate();
         specsProvider = new RefreshingDbSpecsProvider(config, dao);
         manager = new DbSessionPropertyManager(specsProvider);
     }
@@ -74,17 +81,18 @@ public class TestDbSessionPropertyManager
     @AfterEach
     public void teardown()
     {
+        specsProvider.destroy();
         dao.dropSessionPropertiesTable();
         dao.dropSessionClientTagsTable();
         dao.dropSessionSpecsTable();
+        jdbi.useHandle(handle -> handle.execute("DROP TABLE IF EXISTS flyway_schema_history"));
     }
 
     @AfterAll
     public void destroy()
     {
-        specsProvider.destroy();
-        mysqlContainer.close();
-        mysqlContainer = null;
+        container.close();
+        container = null;
     }
 
     @Override
@@ -261,5 +269,130 @@ public class TestDbSessionPropertyManager
         SessionConfigurationContext context1 = new SessionConfigurationContext("foo", Optional.empty(), ImmutableSet.of(), Optional.empty(), TEST_RG);
         assertThat(manager.getSystemSessionProperties(context1)).isEqualTo(ImmutableMap.of());
         assertThat(manager.getCatalogSessionProperties(context1)).isEqualTo(ImmutableMap.of());
+    }
+
+    /**
+     * Values and client tags containing commas must round-trip through the database unchanged. The previous
+     * {@code GROUP_CONCAT}-based read path joined child rows with commas and re-split them, mangling such values.
+     */
+    @Test
+    public void testValuesWithCommas()
+    {
+        dao.insertSpecRow(1, "foo.*", null, null, null, 0);
+        dao.insertClientTag(1, "tag,with,commas");
+        dao.insertSessionProperty(1, "prop_1", "a,b,c");
+        dao.insertSessionProperty(1, "prop_2", "plain");
+
+        specsProvider.refresh();
+        SessionConfigurationContext context = new SessionConfigurationContext(
+                "foo123",
+                Optional.of("src1"),
+                ImmutableSet.of("tag,with,commas"),
+                Optional.empty(),
+                TEST_RG);
+        assertThat(manager.getSystemSessionProperties(context))
+                .containsEntry("prop_1", "a,b,c")
+                .containsEntry("prop_2", "plain");
+    }
+
+    /**
+     * A rule that lists multiple client tags matches only when every one of those tags is present on the query.
+     */
+    @Test
+    public void testMultipleClientTagsRequireAll()
+    {
+        dao.insertSpecRow(1, null, null, null, null, 0);
+        dao.insertClientTag(1, "tagA");
+        dao.insertClientTag(1, "tagB");
+        dao.insertSessionProperty(1, "prop_1", "val_1");
+        specsProvider.refresh();
+
+        // All required tags present: matches
+        assertThat(manager.getSystemSessionProperties(contextWithTags("tagA", "tagB")))
+                .containsEntry("prop_1", "val_1");
+        // Superset of the required tags: still matches
+        assertThat(manager.getSystemSessionProperties(contextWithTags("tagA", "tagB", "tagC")))
+                .containsEntry("prop_1", "val_1");
+        // Only one of the required tags present: no match
+        assertThat(manager.getSystemSessionProperties(contextWithTags("tagA"))).isEmpty();
+        // None of the required tags present: no match
+        assertThat(manager.getSystemSessionProperties(contextWithTags())).isEmpty();
+    }
+
+    /**
+     * Documents and guards the intended behavior change: with migrations disabled and an empty database, the
+     * manager does not create the schema. Because it never loads a valid configuration, reads fail with
+     * {@code CONFIGURATION_UNAVAILABLE} rather than silently auto-creating tables as the old imperative code did.
+     */
+    @Test
+    public void testMigrationsDisabledWithEmptyDatabaseFailsFast()
+    {
+        // Start from a completely empty database with no schema.
+        dao.dropSessionPropertiesTable();
+        dao.dropSessionClientTagsTable();
+        dao.dropSessionSpecsTable();
+        jdbi.useHandle(handle -> handle.execute("DROP TABLE IF EXISTS flyway_schema_history"));
+
+        DbSessionPropertyManagerConfig migrationsDisabled = new DbSessionPropertyManagerConfig()
+                .setConfigDbUrl(config.getConfigDbUrl())
+                .setConfigDbUser(config.getConfigDbUser())
+                .setConfigDbPassword(config.getConfigDbPassword())
+                .setRunMigrationsEnabled(false);
+
+        // Mirror the factory startup path: migrations are skipped, so no tables are created.
+        new FlywayMigration(migrationsDisabled).migrate();
+
+        RefreshingDbSpecsProvider provider = new RefreshingDbSpecsProvider(migrationsDisabled, dao);
+        try {
+            long failuresBefore = provider.getDbLoadFailures().getTotalCount();
+            provider.refresh();
+            assertThat(provider.getDbLoadFailures().getTotalCount())
+                    .describedAs("a load failure is expected because the schema is absent")
+                    .isEqualTo(failuresBefore + 1);
+            assertThatThrownBy(provider::get)
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessageContaining("Session property configuration cannot be fetched from database");
+        }
+        finally {
+            provider.destroy();
+        }
+    }
+
+    /**
+     * A single row with a null {@code session_property_value} must not fail the whole reload. The malformed
+     * property is skipped and the remaining valid properties still load.
+     */
+    @Test
+    public void testNullPropertyValueIsSkipped()
+    {
+        dao.insertSpecRow(1, "foo.*", null, null, null, 0);
+        dao.insertSessionProperty(1, "prop_ok", "val_ok");
+        dao.insertSessionProperty(1, "prop_null", null);
+
+        long failuresBefore = specsProvider.getDbLoadFailures().getTotalCount();
+        specsProvider.refresh();
+        assertThat(specsProvider.getDbLoadFailures().getTotalCount())
+                .describedAs("a null property value must not cause a load failure")
+                .isEqualTo(failuresBefore);
+
+        SessionConfigurationContext context = new SessionConfigurationContext(
+                "foo123",
+                Optional.empty(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                TEST_RG);
+        assertThat(manager.getSystemSessionProperties(context))
+                .containsEntry("prop_ok", "val_ok")
+                .doesNotContainKey("prop_null");
+    }
+
+    private static SessionConfigurationContext contextWithTags(String... tags)
+    {
+        return new SessionConfigurationContext(
+                "user",
+                Optional.empty(),
+                ImmutableSet.copyOf(tags),
+                Optional.empty(),
+                TEST_RG);
     }
 }
