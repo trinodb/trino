@@ -13,6 +13,7 @@
  */
 package io.trino.spi;
 
+import io.trino.spi.admission.AdmissionPolicyFactory;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.cache.BlobCacheManagerFactory;
 import io.trino.spi.catalog.CatalogStoreFactory;
@@ -38,6 +39,11 @@ import static java.util.Collections.emptySet;
 
 public interface Plugin
 {
+    default Iterable<AdmissionPolicyFactory> getAdmissionPolicyFactories()
+    {
+        return emptyList();
+    }
+
     default Iterable<CatalogStoreFactory> getCatalogStoreFactories()
     {
         return emptyList();

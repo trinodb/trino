@@ -31,9 +31,13 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.admission.AdmissionPolicy;
+import io.trino.spi.admission.QueryAdmissionContext;
+import io.trino.spi.admission.WaitDecision;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -41,10 +45,12 @@ import java.util.function.Consumer;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.SystemSessionProperties.getRequiredWorkers;
 import static io.trino.SystemSessionProperties.getRequiredWorkersMaxWait;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -59,6 +65,7 @@ public class LocalDispatchQuery
 
     private final QueryMonitor queryMonitor;
     private final ClusterSizeMonitor clusterSizeMonitor;
+    private final AdmissionPolicy admissionPolicy;
 
     private final Executor queryExecutor;
 
@@ -72,6 +79,7 @@ public class LocalDispatchQuery
             ListenableFuture<QueryExecution> queryExecutionFuture,
             QueryMonitor queryMonitor,
             ClusterSizeMonitor clusterSizeMonitor,
+            AdmissionPolicy admissionPolicy,
             Executor queryExecutor,
             Consumer<QueryExecution> querySubmitter)
     {
@@ -79,6 +87,7 @@ public class LocalDispatchQuery
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        this.admissionPolicy = requireNonNull(admissionPolicy, "admissionPolicy is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
@@ -130,18 +139,78 @@ public class LocalDispatchQuery
             if (queryExecution.shouldWaitForMinWorkers()) {
                 executionMinCount = getRequiredWorkers(session);
             }
-            ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
-            // when worker requirement is met, start the execution
-            addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution), queryExecutor);
-            addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed, queryExecutor);
 
-            // cancel minimumWorkerFuture if query fails for some reason or is cancelled by user
-            stateMachine.addStateChangeListener(state -> {
-                if (state.isDone()) {
-                    minimumWorkerFuture.cancel(true);
+            QueryAdmissionContext context;
+            WaitDecision decision;
+            try {
+                context = buildAdmissionContext(session);
+                decision = admissionPolicy.shouldQueryWait(context);
+            }
+            catch (Throwable t) {
+                // Any unchecked exception from the policy fails the query with the cause preserved.
+                stateMachine.transitionToFailed(insufficientResources("Admission policy threw", t));
+                return;
+            }
+            if (decision == null) {
+                // A null decision is treated as a policy failure.
+                stateMachine.transitionToFailed(insufficientResources("Admission policy returned null decision", null));
+                return;
+            }
+
+            int minCount = executionMinCount;
+            switch (decision) {
+                case WaitDecision.ProceedNow _ -> startExecution(queryExecution);
+                case WaitDecision.Wait wait when wait.releaseCondition().isEmpty() -> {
+                    // Built-in cluster-capacity gate: wait for the minimum required workers using
+                    // the configured timeout, preserving today's behavior byte-for-byte.
+                    ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(minCount, getRequiredWorkersMaxWait(session));
+                    // when worker requirement is met, start the execution
+                    addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution), queryExecutor);
+                    addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed, queryExecutor);
+
+                    // cancel minimumWorkerFuture if query fails for some reason or is cancelled by user
+                    stateMachine.addStateChangeListener(state -> {
+                        if (state.isDone()) {
+                            minimumWorkerFuture.cancel(true);
+                        }
+                    });
                 }
-            });
+                case WaitDecision.Wait wait -> {
+                    // Policy-supplied release condition, bounded by the policy's maxWait. The query is
+                    // admitted when the condition completes normally; a timeout or exceptional completion
+                    // fails the query with GENERIC_INSUFFICIENT_RESOURCES.
+                    CompletableFuture<Void> releaseCondition = wait.releaseCondition().orElseThrow();
+                    releaseCondition.orTimeout(wait.maxWait().toMillis(), MILLISECONDS);
+                    ListenableFuture<Void> gate = toListenableFuture(releaseCondition);
+                    addSuccessCallback(gate, () -> startExecution(queryExecution), queryExecutor);
+                    addExceptionCallback(gate,
+                            throwable -> stateMachine.transitionToFailed(
+                                    insufficientResources("Admission policy release condition not satisfied within " + wait.maxWait() + " (" + wait.reason() + ")", throwable)),
+                            queryExecutor);
+
+                    // cancel the policy's release condition if the query fails for some reason or is cancelled by user
+                    stateMachine.addStateChangeListener(state -> {
+                        if (state.isDone()) {
+                            releaseCondition.cancel(true);
+                        }
+                    });
+                }
+            }
         });
+    }
+
+    private QueryAdmissionContext buildAdmissionContext(Session session)
+    {
+        return new QueryAdmissionContext(
+                session.getQueryId(),
+                session.getUser(),
+                stateMachine.getBasicQueryInfo(Optional.empty()).getResourceGroupId().map(Object::toString),
+                session.getSystemProperties());
+    }
+
+    private static TrinoException insufficientResources(String message, Throwable cause)
+    {
+        return new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, message, cause);
     }
 
     private void startExecution(QueryExecution queryExecution)
