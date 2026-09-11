@@ -157,4 +157,39 @@ public class TestIcebergMaterializedView
         assertUpdate(defaultIceberg, "DROP TABLE common_base_table");
         assertUpdate("DROP MATERIALIZED VIEW mv_on_iceberg2");
     }
+
+    @Test
+    public void testForeignSourceWithZeroGracePeriodAndWhenStaleFail()
+    {
+        Session defaultIceberg = getSession();
+        assertUpdate(secondIceberg, "CREATE TABLE zero_grace_base_table AS SELECT 10 value", 1);
+
+        assertUpdate(defaultIceberg,
+                """
+                CREATE MATERIALIZED VIEW iceberg.tpch.mv_zero_grace_on_iceberg2
+                GRACE PERIOD INTERVAL '0' SECOND
+                WHEN STALE FAIL
+                AS SELECT sum(value) AS s FROM iceberg2.tpch.zero_grace_base_table
+                """);
+
+        assertUpdate(defaultIceberg, "REFRESH MATERIALIZED VIEW mv_zero_grace_on_iceberg2", 1);
+
+        // Changes to a table in another catalog cannot be tracked, so the view is never reported as fresh,
+        // not even directly after a successful refresh. A zero grace period accepts no staleness, so
+        // WHEN STALE FAIL rejects every read of the view and refreshing again does not help.
+        assertThat(getFreshness("mv_zero_grace_on_iceberg2")).isEqualTo("UNKNOWN");
+        assertQueryFails("TABLE mv_zero_grace_on_iceberg2", "line 1:1: Materialized view 'iceberg.tpch.mv_zero_grace_on_iceberg2' is stale");
+        assertUpdate(defaultIceberg, "REFRESH MATERIALIZED VIEW mv_zero_grace_on_iceberg2", 1);
+        assertQueryFails("TABLE mv_zero_grace_on_iceberg2", "line 1:1: Materialized view 'iceberg.tpch.mv_zero_grace_on_iceberg2' is stale");
+
+        assertUpdate(secondIceberg, "DROP TABLE zero_grace_base_table");
+        assertUpdate("DROP MATERIALIZED VIEW mv_zero_grace_on_iceberg2");
+    }
+
+    private String getFreshness(String viewName)
+    {
+        return (String) computeScalar(
+                "SELECT freshness FROM system.metadata.materialized_views " +
+                        "WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'");
+    }
 }
