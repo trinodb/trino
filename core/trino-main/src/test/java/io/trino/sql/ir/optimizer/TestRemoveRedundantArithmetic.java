@@ -29,6 +29,7 @@ import io.trino.sql.ir.optimizer.rule.RemoveRedundantArithmetic;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.ADD;
@@ -37,16 +38,22 @@ import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.Reals.toReal;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -78,6 +85,79 @@ public class TestRemoveRedundantArithmetic
                     .isEqualTo(Optional.of(value));
             assertThat(optimize(operation(SUBTRACT, new Constant(type, 0L), value)))
                     .describedAs("0 - %s negates the value".formatted(type))
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    void testAddZeroIntervalDayToSecond()
+    {
+        List<Type> types = ImmutableList.of(
+                DATE,
+                createTimestampType(3),
+                createTimestampType(9),
+                createTimestampWithTimeZoneType(3),
+                createTimestampWithTimeZoneType(12),
+                createTimeType(3),
+                createTimeWithTimeZoneType(9),
+                INTERVAL_DAY_TIME);
+
+        for (Type type : types) {
+            Reference value = new Reference(type, "x");
+            assertThat(optimize(operation(ADD, value, new Constant(INTERVAL_DAY_TIME, 0L))))
+                    .describedAs("%s + INTERVAL '0' DAY".formatted(type))
+                    .isEqualTo(Optional.of(value));
+            assertThat(optimize(operation(ADD, new Constant(INTERVAL_DAY_TIME, 0L), value)))
+                    .describedAs("INTERVAL '0' DAY + %s".formatted(type))
+                    .isEqualTo(Optional.of(value));
+            assertThat(optimize(operation(SUBTRACT, value, new Constant(INTERVAL_DAY_TIME, 0L))))
+                    .describedAs("%s - INTERVAL '0' DAY".formatted(type))
+                    .isEqualTo(Optional.of(value));
+            assertThat(optimize(operation(ADD, value, new Constant(INTERVAL_DAY_TIME, 1L))))
+                    .describedAs("%s + INTERVAL '0.001' SECOND".formatted(type))
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    void testAddZeroIntervalYearToMonth()
+    {
+        List<Type> types = ImmutableList.of(
+                DATE,
+                createTimestampType(3),
+                createTimestampType(0),
+                createTimestampWithTimeZoneType(6),
+                INTERVAL_YEAR_MONTH);
+
+        for (Type type : types) {
+            Reference value = new Reference(type, "x");
+            assertThat(optimize(operation(ADD, value, new Constant(INTERVAL_YEAR_MONTH, 0L))))
+                    .describedAs("%s + INTERVAL '0' MONTH".formatted(type))
+                    .isEqualTo(Optional.of(value));
+            assertThat(optimize(operation(ADD, new Constant(INTERVAL_YEAR_MONTH, 0L), value)))
+                    .describedAs("INTERVAL '0' MONTH + %s".formatted(type))
+                    .isEqualTo(Optional.of(value));
+            assertThat(optimize(operation(SUBTRACT, value, new Constant(INTERVAL_YEAR_MONTH, 0L))))
+                    .describedAs("%s - INTERVAL '0' MONTH".formatted(type))
+                    .isEqualTo(Optional.of(value));
+            assertThat(optimize(operation(ADD, value, new Constant(INTERVAL_YEAR_MONTH, 1L))))
+                    .describedAs("%s + INTERVAL '1' MONTH".formatted(type))
+                    .isEmpty();
+        }
+    }
+
+    /**
+     * Interval arithmetic widens the temporal precision to at least 3, the precision of an interval.
+     */
+    @Test
+    void testKeepIntervalArithmeticThatWidensType()
+    {
+        for (Type type : ImmutableList.of(createTimestampType(0), createTimestampWithTimeZoneType(1), createTimeType(2), createTimeWithTimeZoneType(0))) {
+            Reference value = new Reference(type, "x");
+            assertThat(optimize(operation(ADD, value, new Constant(INTERVAL_DAY_TIME, 0L))))
+                    .describedAs("%s + INTERVAL '0' DAY is a timestamp(3)".formatted(type))
+                    .isEmpty();
+            assertThat(optimize(operation(SUBTRACT, value, new Constant(INTERVAL_DAY_TIME, 0L))))
                     .isEmpty();
         }
     }
