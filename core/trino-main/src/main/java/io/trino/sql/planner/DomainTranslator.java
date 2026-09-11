@@ -467,6 +467,38 @@ public final class DomainTranslator
                         return result.get();
                     }
                 }
+                if (castSourceType instanceof CharType charType && castTargetType instanceof VarcharType varcharType) {
+                    Optional<Expression> rewritten = rewriteCharCastToVarcharComparison(
+                            charType,
+                            varcharType,
+                            normalized.getComparisonOperator(),
+                            castExpression.expression(),
+                            normalized.getValue());
+                    if (rewritten.isPresent()) {
+                        return process(rewritten.get(), complement);
+                    }
+                    Optional<ExtractionResult> result = createCharCastToVarcharOrderingExtractionResult(
+                            normalized,
+                            charType,
+                            varcharType,
+                            complement,
+                            originalExpression);
+                    if (result.isPresent()) {
+                        return result.get();
+                    }
+                    return visitExpression(originalExpression, complement);
+                }
+                if (castSourceType instanceof VarcharType sourceVarcharType && castTargetType instanceof CharType) {
+                    Optional<ExtractionResult> result = createVarcharCastToCharComparisonExtractionResult(
+                            normalized,
+                            sourceVarcharType,
+                            complement,
+                            originalExpression);
+                    if (result.isPresent()) {
+                        return result.get();
+                    }
+                    return visitExpression(originalExpression, complement);
+                }
                 if (!isOrderPreserving(castExpression)) {
                     //
                     // we cannot use non-coercion cast to literal_type on symbol side to build tuple domain
@@ -526,10 +558,10 @@ public final class DomainTranslator
         private boolean isOrderPreserving(Cast cast)
         {
             if (cast.expression().type() instanceof CharType && cast.type() instanceof VarcharType) {
-                // CHAR -> VARCHAR trims trailing spaces, so it has no inverse on the value side: a VARCHAR constant
-                // carrying trailing spaces has no CHAR preimage. Peeling the cast and rounding the constant back to
-                // CHAR would drop those trailing spaces and build a domain that matches rows it should not
-                // (e.g. CAST(c AS varchar) = 'a ' is unsatisfiable, but would be rewritten to c = CHAR 'a'). Leave it.
+                // Char comparison is PAD SPACE while varchar comparison is NO PAD, so a char value ending with a
+                // character below the space sorts before its prefix as a char and after it as a varchar:
+                // CHAR 'a\0' < CHAR 'a', while 'a\0' > 'a' as varchar. Comparisons of such a cast are handled in
+                // processComparison, which does not rely on this method.
                 return false;
             }
             // Implicit coercions are typically order-preserving and injective.
@@ -642,6 +674,213 @@ public final class DomainTranslator
                 }
             }
             return (SortedRangeSet) ValueSet.ofRanges(valueRanges);
+        }
+
+        /**
+         * Rewrite {@code CAST(char_expression AS varchar) OP varchar_constant} into an equivalent comparison of the
+         * char expression with a char constant, so that a domain can be extracted for the char expression.
+         */
+        private Optional<Expression> rewriteCharCastToVarcharComparison(
+                CharType charType,
+                VarcharType varcharType,
+                ComparisonOperator operator,
+                Expression charExpression,
+                NullableValue value)
+        {
+            if (value.isNull()) {
+                return Optional.empty();
+            }
+            if (!(charExpression instanceof Reference)) {
+                // Calculation is not useful, and the always-false and always-true forms below mention the expression twice
+                return Optional.empty();
+            }
+            // Only the equality family translates to an equivalent comparison of char values. The cast is not
+            // order-preserving, so ordering comparisons only yield a wider domain; they are handled in
+            // createCharCastToVarcharOrderingExtractionResult.
+            if (operator != EQUAL && operator != NOT_EQUAL && operator != IDENTICAL) {
+                return Optional.empty();
+            }
+            // A cast to a varchar shorter than the char length maps distinct char values to the same varchar value,
+            // so a comparison of the cast values is not a comparison of the char values. The implicit coercion is
+            // char(n) -> varchar(n), so this only rejects explicit narrowing casts.
+            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() < charType.getLength()) {
+                return Optional.empty();
+            }
+
+            ResolvedFunction varcharToChar;
+            ResolvedFunction charToVarchar;
+            try {
+                varcharToChar = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), varcharType, charType);
+                charToVarchar = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), charType, varcharType);
+            }
+            catch (OperatorNotFoundException e) {
+                return Optional.empty();
+            }
+            // Both coercions are declared neverFails
+            Object literalInChar = functionInvoker.invoke(varcharToChar, session.toConnectorSession(), value.getValue());
+
+            Metadata metadata = plannerContext.getMetadata();
+            Constant charLiteral = new Constant(charType, literalInChar);
+            if (value.getValue().equals(functionInvoker.invoke(charToVarchar, session.toConnectorSession(), literalInChar))) {
+                // The constant is the varchar form of a char value, and the cast is injective, so comparing the cast
+                // values is the same as comparing the char values.
+                return Optional.of(comparison(metadata, getCharVarcharCoercion(session), operator, charExpression, charLiteral));
+            }
+            // No char value has the constant as its varchar form: the constant either carries trailing spaces the cast
+            // trims (default coercion), or lacks the padding the cast adds (legacy coercion).
+            return Optional.of(switch (operator) {
+                // Something that is false for all non-null values
+                case EQUAL -> and(
+                        comparison(metadata, getCharVarcharCoercion(session), GREATER_THAN, charExpression, charLiteral),
+                        comparison(metadata, getCharVarcharCoercion(session), LESS_THAN, charExpression, charLiteral));
+                // Something that is true for all non-null values
+                case NOT_EQUAL -> or(
+                        comparison(metadata, getCharVarcharCoercion(session), EQUAL, charExpression, charLiteral),
+                        comparison(metadata, getCharVarcharCoercion(session), NOT_EQUAL, charExpression, charLiteral));
+                case IDENTICAL -> FALSE;
+                case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> throw new IllegalStateException("Unexpected operator: " + operator);
+            });
+        }
+
+        /**
+         * Extract a domain from {@code CAST(char_expression AS varchar) OP varchar_constant} for an ordering
+         * {@code OP}. The cast is not order-preserving, so the domain is a superset of the values satisfying the
+         * comparison and the comparison must be retained.
+         */
+        private Optional<ExtractionResult> createCharCastToVarcharOrderingExtractionResult(
+                NormalizedSimpleComparison comparison,
+                CharType charType,
+                VarcharType varcharType,
+                boolean complement,
+                Expression originalExpression)
+        {
+            Expression sourceExpression = ((Cast) comparison.getSymbolExpression()).expression();
+            ComparisonOperator operator = comparison.getComparisonOperator();
+            NullableValue value = comparison.getValue();
+
+            // The domain is a superset of the values satisfying the comparison, and the complement of a superset is
+            // not a superset of the complement.
+            if (complement || value.isNull()) {
+                return Optional.empty();
+            }
+            if (!(sourceExpression instanceof Reference)) {
+                // Calculation is not useful
+                return Optional.empty();
+            }
+            if (operator != LESS_THAN && operator != LESS_THAN_OR_EQUAL && operator != GREATER_THAN && operator != GREATER_THAN_OR_EQUAL) {
+                return Optional.empty();
+            }
+            // A cast to a varchar shorter than the char length truncates, which reorders the values.
+            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() < charType.getLength()) {
+                return Optional.empty();
+            }
+
+            ResolvedFunction varcharToChar;
+            ResolvedFunction charToVarchar;
+            try {
+                varcharToChar = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), varcharType, charType);
+                charToVarchar = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), charType, varcharType);
+            }
+            catch (OperatorNotFoundException e) {
+                return Optional.empty();
+            }
+            Slice constant = (Slice) value.getValue();
+            // Both coercions are declared neverFails
+            Slice bound = (Slice) functionInvoker.invoke(varcharToChar, session.toConnectorSession(), constant);
+            Slice boundAsVarchar = (Slice) functionInvoker.invoke(charToVarchar, session.toConnectorSession(), bound);
+            for (int i = 0; i < bound.length(); i++) {
+                if (Byte.toUnsignedInt(bound.getByte(i)) < ' ') {
+                    // Char comparison pads with spaces, so a character below the space makes a value sort before its
+                    // own prefix as a char and after it as a varchar. Such a bound is not usable.
+                    return Optional.empty();
+                }
+            }
+
+            // The bound is the char value the constant is rounded down to; it satisfies the comparison exactly when
+            // its own varchar form does, and no other char value shares its position in the char ordering.
+            int boundCompared = boundAsVarchar.compareTo(constant);
+            boolean boundSatisfiesComparison = switch (operator) {
+                case LESS_THAN -> boundCompared < 0;
+                case LESS_THAN_OR_EQUAL -> boundCompared <= 0;
+                case GREATER_THAN -> boundCompared > 0;
+                case GREATER_THAN_OR_EQUAL -> boundCompared >= 0;
+                case EQUAL, NOT_EQUAL, IDENTICAL -> throw new IllegalStateException("Unexpected operator: " + operator);
+            };
+            Optional<Range> range = switch (operator) {
+                // A char value below the bound casts to a varchar below the constant, so the comparison holds for no
+                // value above the bound.
+                case LESS_THAN, LESS_THAN_OR_EQUAL -> Optional.of(boundSatisfiesComparison
+                        ? Range.lessThanOrEqual(charType, bound)
+                        : Range.lessThan(charType, bound));
+                case GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
+                    if (countCodePoints(bound) == charType.getLength()) {
+                        // No char value extends the bound
+                        yield Optional.of(boundSatisfiesComparison
+                                ? Range.greaterThanOrEqual(charType, bound)
+                                : Range.greaterThan(charType, bound));
+                    }
+                    // A value extending the bound casts to a varchar above the constant while sorting below the bound
+                    // as a char, when the extension starts below the space. Every such value is above the bound with
+                    // its last character decremented, which in turn is above every value below the bound.
+                    int lastByte = bound.length() == 0 ? 0 : Byte.toUnsignedInt(bound.getByte(bound.length() - 1));
+                    if (lastByte <= '!' || lastByte > 0x7F) {
+                        // The last character does not decrement within ASCII: the bound is empty, the character is a
+                        // '!', which would decrement to a trailing space, or it is not ASCII. Connectors are better
+                        // off without such a bound anyway.
+                        yield Optional.empty();
+                    }
+                    Slice loweredBound = Slices.wrappedBuffer(bound.getBytes());
+                    loweredBound.setByte(loweredBound.length() - 1, lastByte - 1);
+                    yield Optional.of(Range.greaterThan(charType, loweredBound));
+                }
+                case EQUAL, NOT_EQUAL, IDENTICAL -> throw new IllegalStateException("Unexpected operator: " + operator);
+            };
+            return range.map(boundRange -> new ExtractionResult(
+                    TupleDomain.withColumnDomains(ImmutableMap.of(Symbol.from(sourceExpression), Domain.create(ValueSet.ofRanges(boundRange), false))),
+                    originalExpression));
+        }
+
+        /**
+         * Extract a domain from {@code CAST(varchar_expression AS char) OP char_constant}. The cast truncates and trims
+         * trailing spaces, so it is neither injective nor order-preserving, but every value it maps to the constant
+         * starts with that constant.
+         */
+        private Optional<ExtractionResult> createVarcharCastToCharComparisonExtractionResult(
+                NormalizedSimpleComparison comparison,
+                VarcharType sourceType,
+                boolean complement,
+                Expression originalExpression)
+        {
+            Expression sourceExpression = ((Cast) comparison.getSymbolExpression()).expression();
+            ComparisonOperator operator = comparison.getComparisonOperator();
+            NullableValue value = comparison.getValue();
+
+            if (complement || value.isNull()) {
+                return Optional.empty();
+            }
+            if (!(sourceExpression instanceof Reference)) {
+                // Calculation is not useful
+                return Optional.empty();
+            }
+            // Ordering comparisons are not translatable because the cast is not order-preserving (char comparison is
+            // PAD SPACE while varchar comparison is NO PAD). NOT_EQUAL does not constrain the source either: the values
+            // that cast to something else than the constant are spread over the whole source domain, e.g. both 'x' and
+            // 'abcd' cast to a char value different from CHAR 'abc'.
+            if (operator != EQUAL && operator != IDENTICAL) {
+                return Optional.empty();
+            }
+            Symbol sourceSymbol = Symbol.from(sourceExpression);
+
+            Slice charValue = (Slice) value.getValue();
+            if (!sourceType.isUnbounded() && sourceType.getBoundedLength() < countCodePoints(charValue)) {
+                // No value of the source type is long enough to cast to the constant
+                return Optional.of(new ExtractionResult(TupleDomain.none(), TRUE));
+            }
+            // superset of possible values: the cast only trims trailing spaces and truncates
+            return createRangeDomain(sourceType, charValue)
+                    .map(domain -> new ExtractionResult(
+                            TupleDomain.withColumnDomains(ImmutableMap.of(sourceSymbol, domain)),
+                            originalExpression));
         }
 
         private static Optional<ExtractionResult> createComparisonExtractionResult(ComparisonOperator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
