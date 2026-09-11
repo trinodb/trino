@@ -118,7 +118,11 @@ public class CommentTask
 
     private void commentOnView(Comment statement, Session session)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName originalViewName = createQualifiedObjectName(session, statement, statement.getName());
+
+        // Resolve view redirection
+        QualifiedObjectName viewName = metadata.getRedirectedViewName(session, originalViewName).orElse(originalViewName);
+
         if (!metadata.isView(session, viewName)) {
             String additionalInformation;
             if (metadata.getMaterializedView(session, viewName).isPresent()) {
@@ -143,16 +147,20 @@ public class CommentTask
                 .orElseThrow(() -> semanticException(MISSING_TABLE, statement, "Table must be specified"));
 
         QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix);
-        Optional<ViewDefinition> view = metadata.getView(session, originalObjectName);
+
+        // Resolve view redirection for column comments on views
+        QualifiedObjectName resolvedObjectName = metadata.getRedirectedViewName(session, originalObjectName).orElse(originalObjectName);
+
+        Optional<ViewDefinition> view = metadata.getView(session, resolvedObjectName);
         if (view.isPresent()) {
             ViewDefinition viewDefinition = view.get();
-            ViewColumn viewColumn = findAndCheckViewColumn(statement, session, viewDefinition, originalObjectName);
-            metadata.setViewColumnComment(session, originalObjectName, viewColumn.name(), statement.getComment());
+            ViewColumn viewColumn = findAndCheckViewColumn(statement, session, viewDefinition, resolvedObjectName);
+            metadata.setViewColumnComment(session, resolvedObjectName, viewColumn.name(), statement.getComment());
         }
-        else if (metadata.isMaterializedView(session, originalObjectName)) {
-            MaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(session, originalObjectName).get();
-            ViewColumn viewColumn = findAndCheckViewColumn(statement, session, materializedViewDefinition, originalObjectName);
-            metadata.setMaterializedViewColumnComment(session, originalObjectName, viewColumn.name(), statement.getComment());
+        else if (metadata.isMaterializedView(session, resolvedObjectName)) {
+            MaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(session, resolvedObjectName).get();
+            ViewColumn viewColumn = findAndCheckViewColumn(statement, session, materializedViewDefinition, resolvedObjectName);
+            metadata.setMaterializedViewColumnComment(session, resolvedObjectName, viewColumn.name(), statement.getComment());
         }
         else {
             RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalObjectName);
