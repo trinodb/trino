@@ -1303,6 +1303,13 @@ write.format.default   | PARQUET  |
 The `$history` table provides a log of the metadata changes performed on the
 Iceberg table.
 
+The table is derived from the snapshot log, which records each change to the
+current snapshot. Snapshots which never became current, such as intermediate
+snapshots of a multi-snapshot commit or snapshots on a branch, do not appear.
+A snapshot which became current more than once, for example after
+`rollback_to_snapshot`, appears once per time. The `$snapshots` table lists all
+snapshots.
+
 You can retrieve the changelog of the Iceberg table `test_table` by using the
 following query:
 

@@ -365,6 +365,52 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    void testHistoryTableAfterRollback()
+    {
+        try (TestTable table = newTrinoTable("test_history_rollback", "AS SELECT 1 id")) {
+            long firstSnapshotId = latestSnapshotId(table.getName());
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            long secondSnapshotId = latestSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE rollback_to_snapshot(" + firstSnapshotId + ")");
+
+            // Rolling back adds a second log entry for the snapshot which became current again
+            assertThat(query("SELECT snapshot_id, count(*) FROM \"" + table.getName() + "$history\" GROUP BY snapshot_id"))
+                    .matches("VALUES (BIGINT '" + firstSnapshotId + "', BIGINT '2'), (BIGINT '" + secondSnapshotId + "', BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$snapshots\""))
+                    .matches("VALUES BIGINT '2'");
+            assertThat(query("SELECT DISTINCT is_current_ancestor FROM \"" + table.getName() + "$history\" WHERE snapshot_id = " + secondSnapshotId))
+                    .matches("VALUES false");
+        }
+    }
+
+    @Test
+    void testHistoryTableExcludesSnapshotNeverMadeCurrent()
+    {
+        // Trino cannot write to a branch, so commit the branch snapshot through the Iceberg API
+        try (TestTable table = newTrinoTable("test_history_branch", "AS SELECT 1 id")) {
+            Table icebergTable = loadTable(table.getName());
+            long mainSnapshotId = icebergTable.currentSnapshot().snapshotId();
+
+            DataFile dataFile = DataFiles.builder(icebergTable.spec())
+                    .withPath(icebergTable.location() + "/data/branch-only." + format.name().toLowerCase(ENGLISH))
+                    .withFormat(FileFormat.fromString(format.name()))
+                    .withFileSizeInBytes(1234)
+                    .withRecordCount(1)
+                    .build();
+            icebergTable.manageSnapshots().createBranch("test_branch", mainSnapshotId).commit();
+            icebergTable.newAppend().appendFile(dataFile).toBranch("test_branch").commit();
+            icebergTable.refresh();
+            long branchSnapshotId = icebergTable.snapshot("test_branch").snapshotId();
+
+            assertThat(query("SELECT snapshot_id FROM \"" + table.getName() + "$snapshots\""))
+                    .matches("VALUES BIGINT '" + mainSnapshotId + "', BIGINT '" + branchSnapshotId + "'");
+            assertThat(query("SELECT snapshot_id FROM \"" + table.getName() + "$history\""))
+                    .matches("VALUES BIGINT '" + mainSnapshotId + "'");
+        }
+    }
+
+    @Test
     public void testMetadataLogEntriesTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$metadata_log_entries\"",
@@ -1147,6 +1193,11 @@ public abstract class BaseIcebergSystemTables
     private Object value(Object parquet, Object orc)
     {
         return format == PARQUET ? parquet : orc;
+    }
+
+    private long latestSnapshotId(String tableName)
+    {
+        return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
     }
 
     private BaseTable loadTable(String tableName)

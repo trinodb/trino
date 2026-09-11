@@ -25,6 +25,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimeZoneKey;
+import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.util.SnapshotUtil;
@@ -76,13 +77,15 @@ public class HistoryTable
 
         Set<Long> ancestorIds = ImmutableSet.copyOf(SnapshotUtil.currentAncestorIds(icebergTable));
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
-        for (Snapshot snapshot : icebergTable.snapshots()) {
-            long snapshotId = snapshot.snapshotId();
+        for (HistoryEntry historyEntry : icebergTable.history()) {
+            long snapshotId = historyEntry.snapshotId();
+            // Null when the snapshot expired but its log entry was retained
+            Snapshot snapshot = icebergTable.snapshot(snapshotId);
 
             table.addRow(
-                    packDateTimeWithZone(snapshot.timestampMillis(), timeZoneKey),
+                    packDateTimeWithZone(historyEntry.timestampMillis(), timeZoneKey),
                     snapshotId,
-                    snapshot.parentId(),
+                    snapshot != null ? snapshot.parentId() : null,
                     ancestorIds.contains(snapshotId));
         }
 
