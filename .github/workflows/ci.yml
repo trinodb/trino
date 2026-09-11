@@ -430,6 +430,7 @@ jobs:
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift,
+            !:trino-trino,
             !:trino-web-ui'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
