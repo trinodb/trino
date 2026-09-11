@@ -31,13 +31,17 @@ import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import jakarta.annotation.PostConstruct;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
+import java.sql.SQLException;
 import java.time.Duration;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -48,7 +52,10 @@ public class MysqlEventListener
 {
     private static final Logger log = Logger.get(MysqlEventListener.class);
 
+    private static final int MYSQL_DUPLICATE_COLUMN_ERROR_CODE = 1060;
     private static final long MAX_OPERATOR_SUMMARIES_JSON_LENGTH = 16 * 1024 * 1024;
+    private static final DateTimeFormatter MYSQL_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS")
+            .withZone(UTC);
 
     private final boolean terminateOnInitializationFailure;
     private final QueryDao dao;
@@ -82,6 +89,7 @@ public class MysqlEventListener
     {
         try {
             dao.createTable();
+            addCreateTimeColumnIfMissing();
         }
         catch (Exception e) {
             if (terminateOnInitializationFailure) {
@@ -90,6 +98,32 @@ public class MysqlEventListener
             // Log the error but do not terminate, allowing the listener to continue functioning
             log.warn(e, "Unexpected error while creating MySQL event listener schema at startup. Ignoring error.");
         }
+    }
+
+    private void addCreateTimeColumnIfMissing()
+    {
+        if (dao.countCreateTimeColumn() != 0) {
+            return;
+        }
+        try {
+            dao.addCreateTimeColumn();
+        }
+        catch (UnableToExecuteStatementException e) {
+            if (!isDuplicateColumnException(e)) {
+                throw e;
+            }
+        }
+    }
+
+    private static boolean isDuplicateColumnException(Throwable throwable)
+    {
+        while (throwable != null) {
+            if (throwable instanceof SQLException sqlException && sqlException.getErrorCode() == MYSQL_DUPLICATE_COLUMN_ERROR_CODE) {
+                return true;
+            }
+            throwable = throwable.getCause();
+        }
+        return false;
     }
 
     @Override
@@ -101,6 +135,7 @@ public class MysqlEventListener
         QueryStatistics stats = event.getStatistics();
         QueryEntity entity = new QueryEntity(
                 metadata.getQueryId(),
+                MYSQL_TIMESTAMP_FORMATTER.format(event.getCreateTime()),
                 metadata.getTransactionId(),
                 metadata.getQuery(),
                 metadata.getUpdateType(),

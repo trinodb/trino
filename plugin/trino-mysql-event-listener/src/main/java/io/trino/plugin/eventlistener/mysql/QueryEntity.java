@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 
 public record QueryEntity(
         String queryId,
+        String createTime,
         Optional<String> transactionId,
         String query,
         Optional<String> updateType,
@@ -90,6 +91,7 @@ public record QueryEntity(
     public QueryEntity
     {
         requireNonNull(queryId, "queryId is null");
+        requireNonNull(createTime, "createTime is null");
         requireNonNull(transactionId, "transactionId is null");
         requireNonNull(query, "query is null");
         requireNonNull(updateType, "updateType is null");
