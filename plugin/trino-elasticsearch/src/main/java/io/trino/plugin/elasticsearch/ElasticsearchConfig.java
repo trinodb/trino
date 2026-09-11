@@ -57,6 +57,7 @@ public class ElasticsearchConfig
 
     private List<String> hosts;
     private int port = 9200;
+    private String pathPrefix;
     private String defaultSchema = "default";
     private int scrollSize = 1_000;
     private Duration scrollTimeout = new Duration(1, MINUTES);
@@ -101,6 +102,19 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setPort(int port)
     {
         this.port = port;
+        return this;
+    }
+
+    public Optional<String> getPathPrefix()
+    {
+        return Optional.ofNullable(pathPrefix);
+    }
+
+    @Config("elasticsearch.path-prefix")
+    @ConfigDescription("Path prefix for REST client")
+    public ElasticsearchConfig setPathPrefix(String pathPrefix)
+    {
+        this.pathPrefix = pathPrefix;
         return this;
     }
 
