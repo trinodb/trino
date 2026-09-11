@@ -1,8 +1,6 @@
 # Trino documentation
 
 ```{toctree}
-:titlesonly: true
-
 overview
 installation
 client
@@ -22,7 +20,5 @@ appendix
 
 ```{toctree}
 :maxdepth: 1
-:titlesonly: true
-
 release
 ```
