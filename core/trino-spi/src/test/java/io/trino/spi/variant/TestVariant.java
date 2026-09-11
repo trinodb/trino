@@ -53,6 +53,7 @@ import static io.trino.spi.variant.Header.metadataHeader;
 import static io.trino.spi.variant.Header.objectFieldIdSize;
 import static io.trino.spi.variant.Header.objectFieldOffsetSize;
 import static io.trino.spi.variant.Header.objectIsLarge;
+import static io.trino.spi.variant.Header.primitiveHeader;
 import static io.trino.spi.variant.Metadata.EMPTY_METADATA;
 import static io.trino.spi.variant.VariantEncoder.ENCODED_DECIMAL16_SIZE;
 import static io.trino.spi.variant.VariantEncoder.ENCODED_DECIMAL4_SIZE;
@@ -1548,6 +1549,125 @@ class TestVariant
         assertThat(left.metadata().get(1)).isNotEqualTo(right.metadata().get(1));
 
         assertEqualAndSameHash(left, right);
+    }
+
+    @Test
+    void testToStringPrimitiveValues()
+    {
+        assertThat(Variant.NULL_VALUE).hasToString("Variant[basicType=PRIMITIVE, primitiveType=NULL, value=null]");
+        assertThat(Variant.ofBoolean(true)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=BOOLEAN_TRUE, value=true]");
+        assertThat(Variant.ofBoolean(false)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=BOOLEAN_FALSE, value=false]");
+        assertThat(Variant.ofByte((byte) -12)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=INT8, value=-12]");
+        assertThat(Variant.ofShort((short) 1234)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=INT16, value=1234]");
+        assertThat(Variant.ofInt(123456)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=INT32, value=123456]");
+        assertThat(Variant.ofLong(1234567890123L)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=INT64, value=1234567890123]");
+        assertThat(Variant.ofFloat(1.5f)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=FLOAT, value=1.5]");
+        assertThat(Variant.ofDouble(-2.25)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=DOUBLE, value=-2.25]");
+        assertThat(Variant.ofDate(LocalDate.of(2026, 4, 7))).hasToString("Variant[basicType=PRIMITIVE, primitiveType=DATE, value=2026-04-07]");
+        assertThat(Variant.ofTimeMicrosNtz(LocalTime.of(1, 2, 3, 456_000_000))).hasToString("Variant[basicType=PRIMITIVE, primitiveType=TIME_NTZ_MICROS, value=01:02:03.456]");
+        assertThat(Variant.ofUuid(UUID.fromString("12151fd2-7586-11e9-8f9e-2a86e4085a59")))
+                .hasToString("Variant[basicType=PRIMITIVE, primitiveType=UUID, value=12151fd2-7586-11e9-8f9e-2a86e4085a59]");
+
+        // decimals are encoded in the smallest representation that fits the unscaled value,
+        // and are rendered with BigDecimal.toString() like the cast from VARIANT to VARCHAR
+        assertThat(Variant.ofDecimal(new BigDecimal("123.45"))).hasToString("Variant[basicType=PRIMITIVE, primitiveType=DECIMAL4, value=123.45]");
+        assertThat(Variant.ofDecimal(new BigDecimal("-0.000000000001"))).hasToString("Variant[basicType=PRIMITIVE, primitiveType=DECIMAL4, value=-1E-12]");
+        assertThat(Variant.ofDecimal(new BigDecimal("12345678901.23"))).hasToString("Variant[basicType=PRIMITIVE, primitiveType=DECIMAL8, value=12345678901.23]");
+        assertThat(Variant.ofDecimal(new BigDecimal("123456789012345678901.23"))).hasToString("Variant[basicType=PRIMITIVE, primitiveType=DECIMAL16, value=123456789012345678901.23]");
+
+        // binary is Base64 encoded, consistently with SqlVarbinary
+        assertThat(Variant.ofBinary(wrappedBuffer(new byte[] {0x01, 0x02, 0x03})))
+                .hasToString("Variant[basicType=PRIMITIVE, primitiveType=BINARY, value=AQID]");
+        assertThat(Variant.ofBinary(Slices.EMPTY_SLICE)).hasToString("Variant[basicType=PRIMITIVE, primitiveType=BINARY, value=]");
+    }
+
+    @Test
+    void testToStringTimestampValues()
+    {
+        Instant instant = Instant.parse("2026-04-07T07:26:21.123456Z");
+        assertThat(Variant.ofTimestampMicrosUtc(instant))
+                .hasToString("Variant[basicType=PRIMITIVE, primitiveType=TIMESTAMP_UTC_MICROS, value=2026-04-07T07:26:21.123456Z]");
+        assertThat(Variant.ofTimestampNanosUtc(instant))
+                .hasToString("Variant[basicType=PRIMITIVE, primitiveType=TIMESTAMP_UTC_NANOS, value=2026-04-07T07:26:21.123456Z]");
+
+        LocalDateTime localDateTime = LocalDateTime.parse("2026-04-07T07:26:21.123456");
+        assertThat(Variant.ofTimestampMicrosNtz(localDateTime))
+                .hasToString("Variant[basicType=PRIMITIVE, primitiveType=TIMESTAMP_NTZ_MICROS, value=2026-04-07T07:26:21.123456]");
+        assertThat(Variant.ofTimestampNanosNtz(localDateTime))
+                .hasToString("Variant[basicType=PRIMITIVE, primitiveType=TIMESTAMP_NTZ_NANOS, value=2026-04-07T07:26:21.123456]");
+    }
+
+    @Test
+    void testToStringStringValues()
+    {
+        assertThat(Variant.ofString("a")).hasToString("Variant[basicType=SHORT_STRING, primitiveType=null, value='a']");
+        assertThat(Variant.ofString("")).hasToString("Variant[basicType=SHORT_STRING, primitiveType=null, value='']");
+
+        // embedded single quotes are doubled, so the value boundaries stay unambiguous
+        assertThat(Variant.ofString("it's")).hasToString("Variant[basicType=SHORT_STRING, primitiveType=null, value='it''s']");
+
+        // strings longer than the short string limit use the STRING primitive encoding
+        String longString = "a".repeat(Header.SHORT_STRING_MAX_LENGTH + 1);
+        assertThat(Variant.ofString(longString))
+                .hasToString("Variant[basicType=PRIMITIVE, primitiveType=STRING, value='" + longString + "']");
+    }
+
+    @Test
+    void testToStringEmptyContainers()
+    {
+        assertThat(Variant.EMPTY_ARRAY).hasToString("Variant[basicType=ARRAY, primitiveType=null, value=[]]");
+        assertThat(Variant.EMPTY_OBJECT).hasToString("Variant[basicType=OBJECT, primitiveType=null, value={}]");
+    }
+
+    @Test
+    void testToStringContainerValues()
+    {
+        assertThat(Variant.ofArray(List.of(Variant.ofInt(1), Variant.ofString("two"), Variant.NULL_VALUE)))
+                .hasToString("Variant[basicType=ARRAY, primitiveType=null, value=[1, 'two', null]]");
+
+        Map<Slice, Variant> fields = new HashMap<>();
+        fields.put(utf8Slice("b"), Variant.ofString("two"));
+        fields.put(utf8Slice("a"), Variant.ofInt(1));
+        fields.put(utf8Slice("c"), Variant.NULL_VALUE);
+        // fields are rendered in field id order, which is the lexicographical field name order
+        assertThat(Variant.ofObject(fields))
+                .hasToString("Variant[basicType=OBJECT, primitiveType=null, value={a=1, b='two', c=null}]");
+    }
+
+    @Test
+    void testToStringNestedContainerValues()
+    {
+        Variant nested = Variant.ofObject(Map.of(
+                utf8Slice("id"), Variant.ofInt(1),
+                utf8Slice("tags"), Variant.ofArray(List.of(Variant.ofString("x"), Variant.NULL_VALUE)),
+                utf8Slice("child"), Variant.ofObject(Map.of(utf8Slice("flag"), Variant.ofBoolean(true)))));
+
+        assertThat(nested).hasToString("Variant[basicType=OBJECT, primitiveType=null, value={child={flag=true}, id=1, tags=['x', null]}]");
+
+        assertThat(Variant.ofArray(List.of(Variant.ofArray(List.of(Variant.ofInt(1))), Variant.EMPTY_OBJECT)))
+                .hasToString("Variant[basicType=ARRAY, primitiveType=null, value=[[1], {}]]");
+    }
+
+    @Test
+    void testToStringDistinguishesDifferentValuesOfSameType()
+    {
+        assertThat(Variant.ofString("a")).doesNotHaveToString(Variant.ofString("b").toString());
+        assertThat(Variant.ofInt(1)).doesNotHaveToString(Variant.ofInt(2).toString());
+        assertThat(Variant.ofArray(List.of(Variant.ofInt(1))))
+                .doesNotHaveToString(Variant.ofArray(List.of(Variant.ofInt(2))).toString());
+    }
+
+    @Test
+    void testToStringMalformedValue()
+    {
+        // the header declares a string, but the length and payload bytes are missing
+        Variant malformed = Variant.from(EMPTY_METADATA, wrappedBuffer(primitiveHeader(Header.PrimitiveType.STRING)));
+        assertThatThrownBy(malformed::getStringUtf8).isInstanceOf(IndexOutOfBoundsException.class);
+
+        assertThat(malformed.toString())
+                .startsWith("Variant[basicType=PRIMITIVE, primitiveType=STRING, value=<unreadable: ")
+                .contains(IndexOutOfBoundsException.class.getName())
+                .endsWith(">]");
     }
 
     private static void assertEqualAndSameHash(Variant leftValue, Variant rightValue)
