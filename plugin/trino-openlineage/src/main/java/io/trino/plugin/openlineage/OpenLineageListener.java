@@ -352,12 +352,16 @@ public class OpenLineageListener
                                                 .field(inputColumn.getColumnName())
                                                 .namespace(this.datasetNamespace)
                                                 .name(getDatasetName(inputColumn.getCatalog(), inputColumn.getSchema(), inputColumn.getTable()));
-                                        // Trino only tracks DIRECT lineage; attach this edge's subtype when known.
-                                        inputColumn.getTransformationType().ifPresent(subtype -> inputField.transformations(List.of(
-                                                openLineage.newInputFieldTransformationsBuilder()
-                                                        .type("DIRECT")
-                                                        .subtype(subtype.name())
-                                                        .build())));
+
+                                        // Trino only tracks DIRECT lineage; attach one transformation per known subtype of this edge.
+                                        if (!inputColumn.getTransformationTypes().isEmpty()) {
+                                            inputField.transformations(inputColumn.getTransformationTypes().stream()
+                                                    .map(subtype -> openLineage.newInputFieldTransformationsBuilder()
+                                                            .type("DIRECT")
+                                                            .subtype(subtype.name())
+                                                            .build())
+                                                    .toList());
+                                        }
                                         return inputField.build();
                                     })
                                     .toList())

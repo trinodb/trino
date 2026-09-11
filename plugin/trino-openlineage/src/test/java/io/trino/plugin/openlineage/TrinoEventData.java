@@ -194,11 +194,12 @@ public class TrinoEventData
                 "default",
                 "target",
                 Optional.of(List.of(
-                        new OutputColumnMetadata("identity_col", "bigint", Set.of(new ColumnDetail("marquez", "default", "base_table", "a", Optional.of(ColumnTransformationType.IDENTITY)))),
-                        new OutputColumnMetadata("transformation_col", "bigint", Set.of(new ColumnDetail("marquez", "default", "base_table", "c", Optional.of(ColumnTransformationType.TRANSFORMATION)))),
-                        new OutputColumnMetadata("aggregation_col", "bigint", Set.of(new ColumnDetail("marquez", "default", "base_table", "b", Optional.of(ColumnTransformationType.AGGREGATION)))))),
+                        new OutputColumnMetadata("identity_col", "bigint", Set.of(new ColumnDetail("marquez", "default", "base_table", "a", Set.of(ColumnTransformationType.IDENTITY)))),
+                        new OutputColumnMetadata("transformation_col", "bigint", Set.of(new ColumnDetail("marquez", "default", "base_table", "c", Set.of(ColumnTransformationType.TRANSFORMATION)))),
+                        new OutputColumnMetadata("aggregation_col", "bigint", Set.of(new ColumnDetail("marquez", "default", "base_table", "b", Set.of(ColumnTransformationType.AGGREGATION)))))),
                 Optional.empty(),
                 Optional.empty());
+
         queryCompleteEventWithColumnLineage = new QueryCompletedEvent(
                 queryMetadata,
                 queryStatistics,

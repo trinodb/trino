@@ -24,6 +24,7 @@ import io.trino.sql.analyzer.Analysis.SourceColumn;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -47,14 +48,14 @@ public class TestOutput
                                         new Column("column", "type"),
                                         ImmutableSet.of(
                                                 new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column")
-                                                        .withTransformationType(ColumnTransformationType.TRANSFORMATION))))));
+                                                        .withTransformationTypes(Set.of(ColumnTransformationType.TRANSFORMATION)))))));
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
 
         assertThat(actual).isEqualTo(expected);
         SourceColumn roundTripped = getOnlyElement(actual.getColumns().orElseThrow().get(0).getSourceColumns());
-        assertThat(roundTripped.getTransformationType()).contains(ColumnTransformationType.TRANSFORMATION);
+        assertThat(roundTripped.getTransformationTypes()).containsExactly(ColumnTransformationType.TRANSFORMATION);
     }
 
     @Test

@@ -92,7 +92,10 @@ If you want to disable this facet, add `trino_query_statistics` to
 For queries that write a table (`CREATE TABLE ... AS SELECT`, `INSERT`, and
 `REFRESH MATERIALIZED VIEW`), the output dataset carries a standard OpenLineage
 `columnLineage` dataset facet. Each output column lists the input fields it was
-derived from, and each input field carries its own `transformations` entry:
+derived from, and each input field carries a `transformations` list. Because a
+source column can reach an output column through several paths (for example the
+branches of a `UNION`), the list can hold more than one entry: every distinct
+subtype is reported rather than collapsing to one. Each entry has:
 
 - `type` - always `DIRECT`. Trino tracks direct value dependencies; it does not
   currently emit `INDIRECT` transformations (join, filter, group-by or sort
@@ -108,13 +111,16 @@ derived from, and each input field carries its own `transformations` entry:
     `SELECT count(*)`.
 
 Each source→output edge is classified independently, so a single output column
-can mix subtypes: in `SELECT a + sum(b) ... GROUP BY a` the edge from `a` is
-`TRANSFORMATION` (its raw value survives) while the edge from `b` is
-`AGGREGATION`. Subtypes propagate through subqueries, common table expressions,
-views and set operations: once a value is aggregated upstream its edge stays
-`AGGREGATION` even if a later layer transforms it, and if any path exposes the
-raw value the edge is not reported as `AGGREGATION`. When Trino cannot determine
-an edge's derivation, the `transformations` entry is omitted and consumers should
+can mix subtypes across its input fields: in `SELECT a + sum(b) ... GROUP BY a`
+the edge from `a` is `TRANSFORMATION` (its raw value survives) while the edge from
+`b` is `AGGREGATION`. A single source→output edge can itself carry several
+subtypes when the column reaches the output through more than one path: in
+`SELECT a FROM t UNION ALL SELECT sum(a) FROM t` the edge from `a` reports both
+`IDENTITY` (the copy branch) and `AGGREGATION` (the aggregate branch). Along any
+one path, once a value is aggregated upstream its subtype stays `AGGREGATION` even
+if a later layer transforms it. Subtypes propagate through subqueries, common
+table expressions, views and set operations. When Trino cannot determine an
+edge's derivation, the `transformations` list is omitted and consumers should
 assume a raw source value may survive.
 
 :::{note}

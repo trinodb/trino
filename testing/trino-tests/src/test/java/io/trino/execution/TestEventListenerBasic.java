@@ -1229,9 +1229,9 @@ public class TestEventListenerBasic
                 "CREATE TABLE mock.default.create_new_table AS " +
                         "SELECT orderkey AS identity_col, orderkey + 1 AS transformation_col, sum(totalprice) AS aggregation_col FROM orders GROUP BY orderkey")
                 .getQueryEvents().getQueryCompletedEvent();
-        assertThat(transformationTypeFor(event, "identity_col", "orderkey")).contains(ColumnTransformationType.IDENTITY);
-        assertThat(transformationTypeFor(event, "transformation_col", "orderkey")).contains(ColumnTransformationType.TRANSFORMATION);
-        assertThat(transformationTypeFor(event, "aggregation_col", "totalprice")).contains(ColumnTransformationType.AGGREGATION);
+        assertThat(transformationTypesFor(event, "identity_col", "orderkey")).containsExactly(ColumnTransformationType.IDENTITY);
+        assertThat(transformationTypesFor(event, "transformation_col", "orderkey")).containsExactly(ColumnTransformationType.TRANSFORMATION);
+        assertThat(transformationTypesFor(event, "aggregation_col", "totalprice")).containsExactly(ColumnTransformationType.AGGREGATION);
     }
 
     @Test
@@ -1243,22 +1243,22 @@ public class TestEventListenerBasic
                 "CREATE TABLE mock.default.create_new_table AS " +
                         "SELECT orderkey AS key_col, orderkey + count(*) AS mixed_col FROM orders GROUP BY orderkey")
                 .getQueryEvents().getQueryCompletedEvent();
-        assertThat(transformationTypeFor(event, "key_col", "orderkey")).contains(ColumnTransformationType.IDENTITY);
-        assertThat(transformationTypeFor(event, "mixed_col", "orderkey")).contains(ColumnTransformationType.TRANSFORMATION);
+        assertThat(transformationTypesFor(event, "key_col", "orderkey")).containsExactly(ColumnTransformationType.IDENTITY);
+        assertThat(transformationTypesFor(event, "mixed_col", "orderkey")).containsExactly(ColumnTransformationType.TRANSFORMATION);
     }
 
-    private static Optional<ColumnTransformationType> transformationTypeFor(QueryCompletedEvent event, String outputColumn, String sourceColumn)
+    private static Set<ColumnTransformationType> transformationTypesFor(QueryCompletedEvent event, String outputColumn, String sourceColumn)
     {
         for (OutputColumnMetadata column : event.getIoMetadata().getOutput().get().getColumns().get()) {
             if (column.getColumnName().equals(outputColumn)) {
                 for (ColumnDetail source : column.getSourceColumns()) {
                     if (source.getColumnName().equals(sourceColumn)) {
-                        return source.getTransformationType();
+                        return source.getTransformationTypes();
                     }
                 }
             }
         }
-        return Optional.empty();
+        return Set.of();
     }
 
     @Test

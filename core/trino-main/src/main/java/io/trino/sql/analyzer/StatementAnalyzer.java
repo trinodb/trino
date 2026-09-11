@@ -5318,22 +5318,36 @@ class StatementAnalyzer
 
         /**
          * Classifies how a single-column SELECT expression derives its value such as {@code a + sum(b)}.
-         * A field is AGGREGATION only if every reference is inside an aggregate; otherwise TRANSFORMATION.
-         * Each field's local subtype is composed with its upstream subtype via {@link Analysis#combineAlongPath}.
-         * Duplicate edges to the same source column are merged via {@link Analysis#combineAcrossPaths}
+         * A field is AGGREGATION only if every reference is inside an aggregate, and TRANSFORMATION otherwise;
+         * a bare scalar subquery instead passes the subquery's own subtype through unchanged.
+         * Each upstream subtype of the field is composed with the field's local subtype via {@link Analysis#combineAlongPath},
+         * and edges to the same source column arriving through several fields are merged via {@link Analysis#mergeAcrossPaths}
+         * so every distinct subtype is preserved.
          */
-        private Map<SourceColumn, ColumnTransformationType> classifyTransformationTypes(Expression expression)
+        private Map<SourceColumn, Set<ColumnTransformationType>> classifyTransformationTypes(Expression expression)
         {
             Set<Field> freeFields = new LinkedHashSet<>();
             Set<Field> aggregatedFields = new LinkedHashSet<>();
             collectFreeAndAggregatedFields(expression, freeFields, aggregatedFields);
-            Map<SourceColumn, ColumnTransformationType> result = new LinkedHashMap<>();
+            Map<SourceColumn, Set<ColumnTransformationType>> result = new LinkedHashMap<>();
             for (Field field : analysis.getExpressionFields(expression)) {
-                ColumnTransformationType local = aggregatedFields.contains(field) && !freeFields.contains(field)
-                        ? ColumnTransformationType.AGGREGATION
-                        : ColumnTransformationType.TRANSFORMATION;
-                analysis.getSourceColumnTransformationTypes(field).forEach((sourceColumn, upstream) ->
-                        result.merge(sourceColumn, Analysis.combineAlongPath(upstream, local), Analysis::combineAcrossPaths));
+                ColumnTransformationType local;
+                // A bare scalar subquery just copies its single output column up, so we forward the subtype that column already determined in its own scope rather than relabel it.
+                // combineAlongPath(upstream, local) then reduces to upstream, since local = IDENTITY is the neutral element (lowest rank) that changes nothing.
+                if (expression instanceof SubqueryExpression) {
+                    local = ColumnTransformationType.IDENTITY;
+                }
+                else {
+                    local = aggregatedFields.contains(field) && !freeFields.contains(field)
+                            ? ColumnTransformationType.AGGREGATION
+                            : ColumnTransformationType.TRANSFORMATION;
+                }
+                analysis.getSourceColumnTransformationTypes(field).forEach((sourceColumn, upstreamTypes) -> {
+                    Set<ColumnTransformationType> composed = upstreamTypes.stream()
+                            .map(upstream -> Analysis.combineAlongPath(upstream, local))
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                    result.merge(sourceColumn, composed, Analysis::mergeAcrossPaths);
+                });
             }
             return result;
         }

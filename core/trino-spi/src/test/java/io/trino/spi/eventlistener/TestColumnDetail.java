@@ -16,7 +16,7 @@ package io.trino.spi.eventlistener;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
+import java.util.Set;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,36 +26,54 @@ public class TestColumnDetail
     private final JsonCodec<ColumnDetail> codec = jsonCodec(ColumnDetail.class);
 
     @Test
-    public void testConvenienceConstructorHasEmptySubtype()
+    public void testConvenienceConstructorHasEmptySubtypes()
     {
         ColumnDetail detail = new ColumnDetail("c", "s", "t", "col");
-        assertThat(detail.getTransformationType()).isEmpty();
+        assertThat(detail.getTransformationTypes()).isEmpty();
     }
 
     @Test
-    public void testDeserializesOldPayloadWithoutTransformationType()
+    public void testDeserializesOldPayloadWithoutTransformationTypes()
     {
-        // A ColumnDetail emitted before transformationType existed has no such key; it must deserialize to
-        // Optional.empty() rather than fail, preserving backward compatibility for existing event consumers.
+        // A ColumnDetail emitted before transformationTypes existed has no such key; it must deserialize to
+        // an empty set rather than fail, preserving backward compatibility for existing event consumers.
         ColumnDetail detail = codec.fromJson("{\"catalog\":\"c\",\"schema\":\"s\",\"table\":\"t\",\"columnName\":\"col\"}");
-        assertThat(detail.getTransformationType()).isEmpty();
+        assertThat(detail.getTransformationTypes()).isEmpty();
         assertThat(detail).isEqualTo(new ColumnDetail("c", "s", "t", "col"));
     }
 
     @Test
-    public void testJsonRoundTripPreservesTransformationType()
+    public void testJsonRoundTripPreservesTransformationTypes()
     {
-        ColumnDetail detail = new ColumnDetail("c", "s", "t", "col", Optional.of(ColumnTransformationType.AGGREGATION));
-        assertThat(codec.fromJson(codec.toJson(detail)).getTransformationType()).contains(ColumnTransformationType.AGGREGATION);
+        ColumnDetail detail = new ColumnDetail("c", "s", "t", "col", Set.of(ColumnTransformationType.AGGREGATION));
+        assertThat(codec.fromJson(codec.toJson(detail)).getTransformationTypes()).containsExactly(ColumnTransformationType.AGGREGATION);
     }
 
     @Test
-    public void testSubtypeExcludedFromEqualsAndHashCode()
+    public void testJsonRoundTripPreservesMultipleTransformationTypes()
     {
-        ColumnDetail withIdentity = new ColumnDetail("c", "s", "t", "col", Optional.of(ColumnTransformationType.IDENTITY));
-        ColumnDetail withAggregation = new ColumnDetail("c", "s", "t", "col", Optional.of(ColumnTransformationType.AGGREGATION));
+        // A source column can reach an output through several paths (for example the branches of a UNION),
+        // so every distinct subtype must survive the round trip.
+        ColumnDetail detail = new ColumnDetail("c", "s", "t", "col", Set.of(ColumnTransformationType.IDENTITY, ColumnTransformationType.AGGREGATION));
+        assertThat(codec.fromJson(codec.toJson(detail)).getTransformationTypes())
+                .containsExactlyInAnyOrder(ColumnTransformationType.IDENTITY, ColumnTransformationType.AGGREGATION);
+    }
+
+    @Test
+    public void testEmptySubtypesOmittedFromJson()
+    {
+        // Most columns carry no subtype; the key must be omitted so events stay lean and match pre-feature payloads.
+        ColumnDetail detail = new ColumnDetail("c", "s", "t", "col");
+        assertThat(codec.toJson(detail)).doesNotContain("transformationTypes");
+    }
+
+    @Test
+    public void testSubtypesExcludedFromEqualsAndHashCode()
+    {
+        ColumnDetail withIdentity = new ColumnDetail("c", "s", "t", "col", Set.of(ColumnTransformationType.IDENTITY));
+        ColumnDetail withAggregation = new ColumnDetail("c", "s", "t", "col", Set.of(ColumnTransformationType.AGGREGATION));
         assertThat(withIdentity).isEqualTo(withAggregation);
         assertThat(withIdentity.hashCode()).isEqualTo(withAggregation.hashCode());
-        assertThat(withAggregation.getTransformationType()).contains(ColumnTransformationType.AGGREGATION);
+        assertThat(withAggregation.getTransformationTypes()).containsExactly(ColumnTransformationType.AGGREGATION);
     }
 }

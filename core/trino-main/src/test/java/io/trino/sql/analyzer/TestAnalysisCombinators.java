@@ -17,6 +17,8 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.eventlistener.ColumnDetail;
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
 import static io.trino.spi.eventlistener.ColumnTransformationType.AGGREGATION;
 import static io.trino.spi.eventlistener.ColumnTransformationType.IDENTITY;
 import static io.trino.spi.eventlistener.ColumnTransformationType.TRANSFORMATION;
@@ -25,11 +27,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestAnalysisCombinators
 {
     @Test
-    public void testCombineAcrossPathsKeepsMostExposing()
+    public void testMergeAcrossPathsKeepsEveryDistinctSubtype()
     {
-        assertThat(Analysis.combineAcrossPaths(IDENTITY, AGGREGATION)).isEqualTo(IDENTITY);
-        assertThat(Analysis.combineAcrossPaths(AGGREGATION, TRANSFORMATION)).isEqualTo(TRANSFORMATION);
-        assertThat(Analysis.combineAcrossPaths(AGGREGATION, AGGREGATION)).isEqualTo(AGGREGATION);
+        // A source column reaching an output through several paths keeps every subtype, not just the most exposing one.
+        assertThat(Analysis.mergeAcrossPaths(Set.of(IDENTITY), Set.of(AGGREGATION))).containsExactlyInAnyOrder(IDENTITY, AGGREGATION);
+        assertThat(Analysis.mergeAcrossPaths(Set.of(AGGREGATION), Set.of(TRANSFORMATION))).containsExactlyInAnyOrder(AGGREGATION, TRANSFORMATION);
+        assertThat(Analysis.mergeAcrossPaths(Set.of(AGGREGATION), Set.of(AGGREGATION))).containsExactly(AGGREGATION);
     }
 
     @Test
@@ -41,19 +44,19 @@ public class TestAnalysisCombinators
     }
 
     @Test
-    public void testSourceColumnCarriesSubtypeButExcludesItFromEquals()
+    public void testSourceColumnCarriesSubtypesButExcludesThemFromEquals()
     {
         QualifiedObjectName table = new QualifiedObjectName("c", "s", "t");
         Analysis.SourceColumn plain = new Analysis.SourceColumn(table, "col");
-        Analysis.SourceColumn typed = plain.withTransformationType(AGGREGATION);
+        Analysis.SourceColumn typed = plain.withTransformationTypes(Set.of(AGGREGATION));
 
-        assertThat(plain.getTransformationType()).isEmpty();
-        assertThat(typed.getTransformationType()).contains(AGGREGATION);
+        assertThat(plain.getTransformationTypes()).isEmpty();
+        assertThat(typed.getTransformationTypes()).containsExactly(AGGREGATION);
         assertThat(typed).isEqualTo(plain);
         assertThat(typed.hashCode()).isEqualTo(plain.hashCode());
 
         ColumnDetail detail = typed.getColumnDetail();
-        assertThat(detail.getTransformationType()).contains(AGGREGATION);
+        assertThat(detail.getTransformationTypes()).containsExactly(AGGREGATION);
         assertThat(detail.getCatalog()).isEqualTo("c");
         assertThat(detail.getColumnName()).isEqualTo("col");
     }
