@@ -161,6 +161,7 @@ public final class TypeRegistry
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
+        addParametricType(DecimalParametricType.NUMERIC);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);

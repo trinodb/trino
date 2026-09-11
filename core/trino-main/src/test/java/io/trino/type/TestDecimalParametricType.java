@@ -169,4 +169,37 @@ public class TestDecimalParametricType
                 .binding("a", "0").evaluate())
                 .hasMessage("DECIMAL precision must be in range [1, 38]: 0");
     }
+
+    @Test
+    public void numericIsAnAliasForDecimal()
+    {
+        assertThat(assertions.expression("cast(a as NUMERIC(2, 0))")
+                .binding("a", "1"))
+                .isEqualTo(decimal("01", createDecimalType(2, 0)));
+
+        assertThat(assertions.expression("cast(a as NUMERIC(2))")
+                .binding("a", "1"))
+                .isEqualTo(decimal("01", createDecimalType(2)));
+
+        assertThat(assertions.expression("cast(a as NUMERIC)")
+                .binding("a", "1"))
+                .isEqualTo(decimal("1", createDecimalType(38)));
+
+        assertThat(assertions.function("typeof", "CAST(NULL AS NUMERIC(5,1))"))
+                .isEqualTo("decimal(5,1)");
+        assertThat(assertions.function("typeof", "CAST(NULL AS NUMERIC)"))
+                .isEqualTo("decimal(38,0)");
+    }
+
+    @Test
+    public void numericRejectsInvalidPrecisionAndScale()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as NUMERIC(1,2))")
+                .binding("a", "1").evaluate())
+                .hasMessage("DECIMAL scale must be in range [0, precision (1)]: 2");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as NUMERIC(0))")
+                .binding("a", "1").evaluate())
+                .hasMessage("DECIMAL precision must be in range [1, 38]: 0");
+    }
 }
