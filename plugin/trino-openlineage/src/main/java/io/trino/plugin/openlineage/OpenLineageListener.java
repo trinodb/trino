@@ -342,18 +342,30 @@ public class OpenLineageListener
             List<OutputColumnMetadata> outputColumns = outputMetadata.getColumns().orElse(List.of());
 
             OpenLineage.ColumnLineageDatasetFacetFieldsBuilder columnLineageDatasetFacetFieldsBuilder = openLineage.newColumnLineageDatasetFacetFieldsBuilder();
-            outputColumns.forEach(column ->
-                    columnLineageDatasetFacetFieldsBuilder.put(column.getColumnName(),
-                            openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                                    .inputFields(column
-                                            .getSourceColumns()
-                                            .stream()
-                                            .map(inputColumn -> openLineage.newInputFieldBuilder()
-                                                    .field(inputColumn.getColumnName())
-                                                    .namespace(this.datasetNamespace)
-                                                    .name(getDatasetName(inputColumn.getCatalog(), inputColumn.getSchema(), inputColumn.getTable()))
-                                                    .build())
-                                            .toList()).build()));
+            outputColumns.forEach(column -> columnLineageDatasetFacetFieldsBuilder.put(column.getColumnName(),
+                    openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
+                            .inputFields(column
+                                    .getSourceColumns()
+                                    .stream()
+                                    .map(inputColumn -> {
+                                        OpenLineage.InputFieldBuilder inputField = openLineage.newInputFieldBuilder()
+                                                .field(inputColumn.getColumnName())
+                                                .namespace(this.datasetNamespace)
+                                                .name(getDatasetName(inputColumn.getCatalog(), inputColumn.getSchema(), inputColumn.getTable()));
+
+                                        // Trino only tracks DIRECT lineage; attach one transformation per known subtype of this edge.
+                                        if (!inputColumn.getTransformationTypes().isEmpty()) {
+                                            inputField.transformations(inputColumn.getTransformationTypes().stream()
+                                                    .map(subtype -> openLineage.newInputFieldTransformationsBuilder()
+                                                            .type("DIRECT")
+                                                            .subtype(subtype.name())
+                                                            .build())
+                                                    .toList());
+                                        }
+                                        return inputField.build();
+                                    })
+                                    .toList())
+                            .build()));
 
             ImmutableList.Builder<OpenLineage.InputField> inputFields = ImmutableList.builder();
             ioMetadata.getInputs().forEach(input -> {

@@ -74,6 +74,7 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.eventlistener.ColumnTransformationType;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
@@ -148,6 +149,7 @@ import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Deallocate;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
@@ -300,6 +302,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -1725,7 +1728,7 @@ class StatementAnalyzer
 
                 outputFields.addAll(expressionOutputs);
                 mappings.put(NodeRef.of(expression), expressionOutputs);
-                expressionOutputs.forEach(field -> analysis.addSourceColumns(field, analysis.getExpressionSourceColumns(expression)));
+                expressionOutputs.forEach(field -> analysis.addSourceColumns(field, classifyTransformationTypes(expression)));
             }
 
             Optional<Field> ordinalityField = Optional.empty();
@@ -2656,7 +2659,7 @@ class StatementAnalyzer
                                 inputField.getOriginColumnName(),
                                 inputField.isAliased());
                         fieldBuilder.add(field);
-                        analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
+                        analysis.addSourceColumns(field, analysis.getSourceColumnTransformationTypes(inputField));
                     }
                 }
                 fields = fieldBuilder.build();
@@ -2676,7 +2679,7 @@ class StatementAnalyzer
                                 inputField.getOriginColumnName(),
                                 inputField.isAliased());
                         fieldBuilder.add(field);
-                        analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
+                        analysis.addSourceColumns(field, analysis.getSourceColumnTransformationTypes(inputField));
                     }
                 }
                 fields = fieldBuilder.build();
@@ -2803,7 +2806,7 @@ class StatementAnalyzer
                     .build();
             analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
             analysis.registerTable(table, freshStorageTable, name, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
-            viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
+            viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow())), ColumnTransformationType.IDENTITY));
             return createAndAssignScope(table, scope, viewFields);
         }
 
@@ -2894,7 +2897,7 @@ class StatementAnalyzer
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
                 checkArgument(columnHandle != null, "Unknown field %s", field);
                 analysis.setColumn(field, columnHandle);
-                analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(tableName, column.getName())));
+                analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(tableName, column.getName())), ColumnTransformationType.IDENTITY);
             }
             return fields.build();
         }
@@ -3138,7 +3141,7 @@ class StatementAnalyzer
             Streams.forEachPair(
                     descriptor.getAllFields().stream(),
                     inputFields.stream(),
-                    (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
+                    (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumnTransformationTypes(field)));
 
             return createAndAssignScope(relation, scope, descriptor);
         }
@@ -3753,12 +3756,8 @@ class StatementAnalyzer
                         .build();
 
                 int index = i; // Variable used in Lambda should be final
-                analysis.addSourceColumns(
-                        outputDescriptorFields[index],
-                        childrenTypes.stream()
-                                .map(relationType -> relationType.getFieldByIndex(index))
-                                .flatMap(field -> analysis.getSourceColumns(field).stream())
-                                .collect(toImmutableSet()));
+                childrenTypes.forEach(relationType ->
+                        analysis.addSourceColumns(outputDescriptorFields[index], analysis.getSourceColumnTransformationTypes(relationType.getFieldByIndex(index))));
             }
 
             for (int i = 0; i < relations.size(); i++) {
@@ -5265,7 +5264,7 @@ class StatementAnalyzer
                         }
 
                         Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginBranch(), field.getOriginColumnName(), false);
-                        analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
+                        analysis.addSourceColumns(newField, analysis.getSourceColumnTransformationTypes(field));
                         outputFields.add(newField);
                     }
                 }
@@ -5302,10 +5301,10 @@ class StatementAnalyzer
 
                     Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originBranch, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                     if (originTable.isPresent()) {
-                        analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
+                        analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())), ColumnTransformationType.IDENTITY);
                     }
                     else {
-                        analysis.addSourceColumns(newField, analysis.getExpressionSourceColumns(expression));
+                        analysis.addSourceColumns(newField, classifyTransformationTypes(expression));
                     }
                     outputFields.add(newField);
                 }
@@ -5315,6 +5314,93 @@ class StatementAnalyzer
             }
 
             return createAndAssignScope(node, scope, outputFields.build());
+        }
+
+        /**
+         * Classifies how a single-column SELECT expression derives its value such as {@code a + sum(b)}.
+         * A field is AGGREGATION only if every reference is inside an aggregate, and TRANSFORMATION otherwise;
+         * a bare scalar subquery instead passes the subquery's own subtype through unchanged.
+         * Each upstream subtype of the field is composed with the field's local subtype via {@link Analysis#combineAlongPath},
+         * and edges to the same source column arriving through several fields are merged via {@link Analysis#mergeAcrossPaths}
+         * so every distinct subtype is preserved.
+         */
+        private Map<SourceColumn, Set<ColumnTransformationType>> classifyTransformationTypes(Expression expression)
+        {
+            Set<Field> freeFields = new LinkedHashSet<>();
+            Set<Field> aggregatedFields = new LinkedHashSet<>();
+            collectFreeAndAggregatedFields(expression, freeFields, aggregatedFields);
+            Map<SourceColumn, Set<ColumnTransformationType>> result = new LinkedHashMap<>();
+            for (Field field : analysis.getExpressionFields(expression)) {
+                ColumnTransformationType local;
+                // A bare scalar subquery just copies its single output column up, so we forward the subtype that column already determined in its own scope rather than relabel it.
+                // combineAlongPath(upstream, local) then reduces to upstream, since local = IDENTITY is the neutral element (lowest rank) that changes nothing.
+                if (expression instanceof SubqueryExpression) {
+                    local = ColumnTransformationType.IDENTITY;
+                }
+                else {
+                    local = aggregatedFields.contains(field) && !freeFields.contains(field)
+                            ? ColumnTransformationType.AGGREGATION
+                            : ColumnTransformationType.TRANSFORMATION;
+                }
+                analysis.getSourceColumnTransformationTypes(field).forEach((sourceColumn, upstreamTypes) -> {
+                    Set<ColumnTransformationType> composed = upstreamTypes.stream()
+                            .map(upstream -> Analysis.combineAlongPath(upstream, local))
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                    result.merge(sourceColumn, composed, Analysis::mergeAcrossPaths);
+                });
+            }
+            return result;
+        }
+
+        /**
+         * Splits the column-reference fields of {@code expression} into {@code freeFields} (reached outside any
+         * aggregate, so their raw values survive) and {@code aggregatedFields} (reached inside one). A field used
+         * both ways lands in both sets; the caller treats presence in {@code freeFields} as raw-exposing. Scalar
+         * subqueries are not traversed (see {@link DefaultExpressionTraversalVisitor}), so their fields appear in neither.
+         */
+        private void collectFreeAndAggregatedFields(Expression expression, Set<Field> freeFields, Set<Field> aggregatedFields)
+        {
+            new DefaultExpressionTraversalVisitor<Boolean>()
+            {
+                @Override
+                protected Void visitFunctionCall(FunctionCall node, Boolean insideAggregate)
+                {
+                    // Windowed calls like sum(a) OVER (...) are per-row, not aggregating.
+                    // FILTER and ORDER BY appear only on aggregates (filtered and ordered-set).
+                    // Once inside an aggregate, stay inside for the whole subtree.
+                    boolean insideThisAggregate = node.getWindow().isEmpty()
+                            && (functionResolver.isAggregationFunction(session, node.getName(), accessControl)
+                            || node.getFilter().isPresent()
+                            || node.getOrderBy().isPresent());
+                    return super.visitFunctionCall(node, insideAggregate || insideThisAggregate);
+                }
+
+                @Override
+                protected Void visitIdentifier(Identifier node, Boolean insideAggregate)
+                {
+                    addReferencedField(node, insideAggregate);
+                    return null;
+                }
+
+                @Override
+                protected Void visitDereferenceExpression(DereferenceExpression node, Boolean insideAggregate)
+                {
+                    if (analysis.getColumnReferenceFields().containsKey(NodeRef.of(node))) {
+                        addReferencedField(node, insideAggregate);
+                        return null;
+                    }
+                    // Not a column reference (e.g. row-field access); recurse to the resolvable base.
+                    return super.visitDereferenceExpression(node, insideAggregate);
+                }
+
+                private void addReferencedField(Expression node, boolean insideAggregate)
+                {
+                    ResolvedField resolved = analysis.getColumnReferenceFields().get(NodeRef.of(node));
+                    if (resolved != null) {
+                        (insideAggregate ? aggregatedFields : freeFields).add(resolved.getField());
+                    }
+                }
+            }.process(expression, false);
         }
 
         private Scope computeAndAssignOrderByScope(OrderBy node, Scope sourceScope, Scope outputScope)
@@ -5507,7 +5593,7 @@ class StatementAnalyzer
                         .aliased(!allColumns.getAliases().isEmpty() || field.isAliased())
                         .build();
                 itemOutputFieldBuilder.add(newField);
-                analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
+                analysis.addSourceColumns(newField, analysis.getSourceColumnTransformationTypes(field));
 
                 Type type = field.getType();
                 if (node.getSelect().isDistinct() && !type.isComparable()) {
@@ -6323,7 +6409,7 @@ class StatementAnalyzer
             Streams.forEachPair(
                     newDescriptor.getAllFields().stream(),
                     oldDescriptor.getAllFields().stream(),
-                    (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
+                    (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumnTransformationTypes(field)));
             return scope.withRelationType(newDescriptor);
         }
 

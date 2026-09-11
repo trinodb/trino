@@ -85,6 +85,53 @@ in OpenLineage `Complete/Fail` events.
 If you want to disable this facet, add `trino_query_statistics` to
 `openlineage-event-listener.disabled-facets`.
 
+(openlineage-event-listener-column-lineage)=
+
+### Column lineage
+
+For queries that write a table (`CREATE TABLE ... AS SELECT`, `INSERT`, and
+`REFRESH MATERIALIZED VIEW`), the output dataset carries a standard OpenLineage
+`columnLineage` dataset facet. Each output column lists the input fields it was
+derived from, and each input field carries a `transformations` list. Because a
+source column can reach an output column through several paths (for example the
+branches of a `UNION`), the list can hold more than one entry: every distinct
+subtype is reported rather than collapsing to one. Each entry has:
+
+- `type` - always `DIRECT`. Trino tracks direct value dependencies; it does not
+  currently emit `INDIRECT` transformations (join, filter, group-by or sort
+  dependencies).
+- `subtype` - how the output column derives from *that* source column:
+  - `IDENTITY` - the output column is a straight copy of the source column, for
+    example `SELECT a`.
+  - `TRANSFORMATION` - the output column is derived through a non-aggregate
+    expression in which the raw source value can survive, for example
+    `SELECT a + b` or `SELECT concat(a, b)`.
+  - `AGGREGATION` - the source column reaches the output only through an aggregate
+    expression, so no raw value survives, for example `SELECT sum(a)` or
+    `SELECT count(*)`.
+
+Each source→output edge is classified independently, so a single output column
+can mix subtypes across its input fields: in `SELECT a + sum(b) ... GROUP BY a`
+the edge from `a` is `TRANSFORMATION` (its raw value survives) while the edge from
+`b` is `AGGREGATION`. A single source→output edge can itself carry several
+subtypes when the column reaches the output through more than one path: in
+`SELECT a FROM t UNION ALL SELECT sum(a) FROM t` the edge from `a` reports both
+`IDENTITY` (the copy branch) and `AGGREGATION` (the aggregate branch). Along any
+one path, once a value is aggregated upstream its subtype stays `AGGREGATION` even
+if a later layer transforms it. Subtypes propagate through subqueries, common
+table expressions, views and set operations. When Trino cannot determine an
+edge's derivation, the `transformations` list is omitted and consumers should
+assume a raw source value may survive.
+
+:::{note}
+The OpenLineage `AGGREGATION` subtype also covers aggregates such as `min`,
+`max` and `first_value`, which return an actual source value (for example
+`max(ssn)` is a real value from the `ssn` column). Consumers making
+retention or masking decisions based on the subtype should therefore not treat
+`AGGREGATION` as blanket-safe; the decision must account for the specific
+aggregate function.
+:::
+
 (openlineage-event-listener-requirements)=
 
 ## Requirements
