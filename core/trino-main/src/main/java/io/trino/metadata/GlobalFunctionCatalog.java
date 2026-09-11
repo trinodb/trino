@@ -28,6 +28,7 @@ import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.ConstantSpecializedImplementation;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -37,6 +38,7 @@ import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.ScalarFunctionSpecializationContext;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -48,6 +50,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -195,6 +198,16 @@ public class GlobalFunctionCatalog
             InvocationConvention invocationConvention)
     {
         return functions.getFunctionBundle(functionId).getScalarFunctionImplementation(functionId, boundSignature, functionDependencies, invocationConvention);
+    }
+
+    @Override
+    public Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies,
+            ScalarFunctionSpecializationContext specializationContext)
+    {
+        return functions.getFunctionBundle(functionId).getConstantSpecializedScalarFunctionImplementation(functionId, boundSignature, functionDependencies, specializationContext);
     }
 
     @Override
