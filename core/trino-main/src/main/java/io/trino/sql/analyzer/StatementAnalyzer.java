@@ -90,6 +90,7 @@ import io.trino.spi.function.table.ScalarArgumentSpecification;
 import io.trino.spi.function.table.TableArgument;
 import io.trino.spi.function.table.TableArgumentSpecification;
 import io.trino.spi.function.table.TableFunctionAnalysis;
+import io.trino.spi.function.table.TableMetadataArgument;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
@@ -1928,7 +1929,7 @@ class StatementAnalyzer
 
             // next, columns derived from table arguments, in order of argument declarations
             List<String> tableArgumentNames = function.getArguments().stream()
-                    .filter(argumentSpecification -> argumentSpecification instanceof TableArgumentSpecification)
+                    .filter(argumentSpecification -> argumentSpecification instanceof TableArgumentSpecification tableArgumentSpecification && !tableArgumentSpecification.isUseTableMetadata())
                     .map(ArgumentSpecification::getName)
                     .collect(toImmutableList());
 
@@ -2094,6 +2095,10 @@ class StatementAnalyzer
         {
             TableFunctionTableArgument tableArgument = (TableFunctionTableArgument) argument.getValue();
 
+            if (argumentSpecification.isUseTableMetadata()) {
+                return analyzeTableMetadataArgument(argument, tableArgument, argumentSpecification);
+            }
+
             TableArgument.Builder argumentBuilder = TableArgument.builder();
             TableArgumentAnalysis.Builder analysisBuilder = TableArgumentAnalysis.builder();
             analysisBuilder.withArgumentName(argumentSpecification.getName());
@@ -2175,6 +2180,47 @@ class StatementAnalyzer
             analysisBuilder.withPassThroughColumns(argumentSpecification.isPassThroughColumns());
 
             return new ArgumentAnalysis(argumentBuilder.build(), Optional.of(analysisBuilder.build()));
+        }
+
+        /**
+         * Analyzes a {@link TableArgumentSpecification} argument with
+         * {@link TableArgumentSpecification#isUseTableMetadata()} set, passed as a bare
+         * {@code catalog.schema.table} reference. Unlike {@link #analyzeTableArgument}, this
+         * does not register a {@link TableArgumentAnalysis}: no source is planned and no rows
+         * are read for this argument. The table's {@link ConnectorTableMetadata} is fetched
+         * here and handed to the table function directly.
+         */
+        private ArgumentAnalysis analyzeTableMetadataArgument(
+                TableFunctionArgument argument,
+                TableFunctionTableArgument tableArgument,
+                TableArgumentSpecification argumentSpecification)
+        {
+            if (tableArgument.getPartitionBy().isPresent() || tableArgument.getOrderBy().isPresent() || tableArgument.getEmptyTableTreatment().isPresent()) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Table argument using table metadata does not support partitioning, ordering, or empty behavior specification", argumentSpecification.getName());
+            }
+            if (!(tableArgument.getTable() instanceof Table table)) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Table argument using table metadata must be a table name", argumentSpecification.getName());
+            }
+
+            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.isMaterializedView(session, name)) {
+                throw semanticException(NOT_SUPPORTED, table, "Invalid argument %s. Table argument using table metadata does not support materialized views", argumentSpecification.getName());
+            }
+            if (metadata.isView(session, name)) {
+                throw semanticException(NOT_SUPPORTED, table, "Invalid argument %s. Table argument using table metadata does not support views", argumentSpecification.getName());
+            }
+
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, name);
+            QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(name);
+            TableHandle tableHandle = redirection.tableHandle()
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", targetTableName));
+
+            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName, Optional.empty());
+
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle).metadata();
+            TableMetadataArgument tableMetadataArgument = new TableMetadataArgument(tableMetadata);
+
+            return new ArgumentAnalysis(tableMetadataArgument, Optional.empty());
         }
 
         private ArgumentAnalysis analyzeDescriptorArgument(TableFunctionDescriptorArgument argument)
