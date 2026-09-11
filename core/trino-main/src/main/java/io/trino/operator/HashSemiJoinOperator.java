@@ -190,8 +190,8 @@ public class HashSemiJoinOperator
                     }
                 }
                 else {
-                    boolean contains = channelSet.contains(probeBlock, position);
-                    if (!contains && channelSet.containsNull()) {
+                    Boolean contains = channelSet.containsSql(probeBlock, position);
+                    if (contains == null) {
                         blockBuilder.appendNull();
                     }
                     else {
