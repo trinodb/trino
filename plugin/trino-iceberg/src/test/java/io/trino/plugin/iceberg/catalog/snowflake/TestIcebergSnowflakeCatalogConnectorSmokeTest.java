@@ -28,7 +28,7 @@ import java.sql.SQLException;
 import java.util.Map;
 
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_JDBC_URI;
-import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_PASSWORD;
+import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_PRIVATE_KEY;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_ROLE;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_TEST_DATABASE;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_USER;
@@ -108,7 +108,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                 .put("iceberg.snowflake-catalog.database", SNOWFLAKE_TEST_DATABASE)
                 .put("iceberg.snowflake-catalog.account-uri", SNOWFLAKE_JDBC_URI)
                 .put("iceberg.snowflake-catalog.user", SNOWFLAKE_USER)
-                .put("iceberg.snowflake-catalog.password", SNOWFLAKE_PASSWORD)
+                .put("iceberg.snowflake-catalog.private-key", SNOWFLAKE_PRIVATE_KEY)
                 .buildOrThrow();
 
         return IcebergQueryRunner.builder(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH))
