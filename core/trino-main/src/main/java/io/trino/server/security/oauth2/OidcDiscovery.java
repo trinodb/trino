@@ -16,6 +16,8 @@ package io.trino.server.security.oauth2;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
@@ -58,6 +60,7 @@ public class OidcDiscovery
     private final Optional<String> jwksUrl;
     private final Optional<String> userinfoUrl;
     private final NimbusHttpClient httpClient;
+    private final Supplier<OAuth2ServerConfig> configCache;
 
     @Inject
     public OidcDiscovery(OAuth2Config oauthConfig, OidcDiscoveryConfig oidcConfig, NimbusHttpClient httpClient)
@@ -71,10 +74,16 @@ public class OidcDiscovery
         jwksUrl = requireNonNull(oidcConfig.getJwksUrl(), "jwksUrl is null");
         userinfoUrl = requireNonNull(oidcConfig.getUserinfoUrl(), "userinfoUrl is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.configCache = Suppliers.memoize(this::discover);
     }
 
     @Override
     public OAuth2ServerConfig get()
+    {
+        return configCache.get();
+    }
+
+    private OAuth2ServerConfig discover()
     {
         return Failsafe.with(RetryPolicy.builder()
                         .withMaxAttempts(-1)

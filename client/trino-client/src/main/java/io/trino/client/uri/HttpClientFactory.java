@@ -16,6 +16,7 @@ package io.trino.client.uri;
 import io.trino.client.ClientException;
 import io.trino.client.DisallowLocalRedirectInterceptor;
 import io.trino.client.DnsResolver;
+import io.trino.client.auth.external.ClientCredentialsAuthenticator;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.HttpTokenPoller;
@@ -107,6 +108,18 @@ public class HttpClientFactory
                 }
                 return externalAuthenticator.authenticate(route, response);
             });
+        }
+
+        if (uri.isClientCredentialsAuthenticationEnabled()) {
+            if (!uri.isUseSecureConnection()) {
+                throw new RuntimeException("TLS/SSL is required for authentication with client credentials");
+            }
+            ClientCredentialsAuthenticator clientCredentialsAuthenticator = new ClientCredentialsAuthenticator(
+                    builder.build(),
+                    uri.getOauth2ClientId().get(),
+                    uri.getOauth2ClientSecret().get());
+            builder.addNetworkInterceptor(clientCredentialsAuthenticator);
+            builder.authenticator(clientCredentialsAuthenticator);
         }
 
         if (!uri.getExtraHeaders().isEmpty()) {
