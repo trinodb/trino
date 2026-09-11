@@ -34,6 +34,8 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -58,12 +60,14 @@ import static java.lang.Math.toIntExact;
  * Removes arithmetic with a constant identity operand:
  * <ul>
  *     <li>{@code x + 0}, {@code 0 + x}, {@code x - 0 -> x}
+ *     <li>{@code x + INTERVAL '0' DAY}, {@code x - INTERVAL '0' DAY -> x}
  *     <li>{@code x * 1}, {@code 1 * x}, {@code x / 1 -> x}
  * </ul>
  * <p>
  * The remaining operand must already have the operation's result type. Decimal arithmetic widens it:
  * {@code decimal(10,2) + decimal(10,0)} is a {@code decimal(13,2)}, so dropping the addition there
- * would change the expression's type.
+ * would change the expression's type. Interval arithmetic widens the temporal precision to at least 3:
+ * {@code timestamp(0) + INTERVAL '0' DAY} is a {@code timestamp(3)}.
  * <p>
  * {@code real} and {@code double} have two zeros, and only one of them is an identity for a given
  * operation: {@code x + -0.0} and {@code x - 0.0} are {@code x} for every {@code x}, while
@@ -130,6 +134,7 @@ public class RemoveRedundantArithmetic
 
         return switch (type) {
             case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> (long) value == 0;
+            case IntervalDayTimeType _, IntervalYearMonthType _ -> (long) value == 0;
             case RealType _ -> toIntExact((long) value) == floatToRawIntBits(copySign(0f, floatingZeroExpectedSign));
             case DoubleType _ -> doubleToRawLongBits((double) value) == doubleToRawLongBits(copySign(0d, floatingZeroExpectedSign));
             case DecimalType decimal -> decimal.isShort() ? (long) value == 0 : ((Int128) value).isZero();
