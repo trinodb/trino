@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.filesystem.TrinoFileSystem;
@@ -39,6 +40,7 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.Decimals;
@@ -76,6 +78,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.createTable;
@@ -385,6 +388,44 @@ public class TestTransactionLogAccess
 
             assertThat(paths).isEqualTo(EXPECTED_ADD_FILE_PATHS);
         }
+    }
+
+    @Test
+    public void testReverseActiveAddEntriesAreLazy()
+            throws Exception
+    {
+        setupTransactionLogAccess(
+                "person_test_pruning",
+                getClass().getClassLoader().getResource("databricks73/person_test_pruning").toString(),
+                new DeltaLakeConfig().setTransactionLogMaxCachedFileSize(DataSize.ofBytes(0)),
+                Optional.empty());
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        DeltaLakeColumnHandle ageColumn = new DeltaLakeColumnHandle(
+                "age",
+                IntegerType.INTEGER,
+                OptionalInt.empty(),
+                "age",
+                IntegerType.INTEGER,
+                PARTITION_KEY,
+                Optional.empty());
+        TupleDomain<DeltaLakeColumnHandle> partitionConstraint = TupleDomain.withColumnDomains(ImmutableMap.of(ageColumn, Domain.singleValue(IntegerType.INTEGER, 28L)));
+
+        assertFileSystemAccesses(
+                () -> {
+                    try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(
+                            SESSION,
+                            createTable(metadataEntry, protocolEntry),
+                            Optional.empty(),
+                            tableSnapshot,
+                            partitionConstraint,
+                            alwaysTrue())) {
+                        AddFileEntry addFileEntry = activeFiles.findFirst().orElseThrow();
+                        assertThat(addFileEntry.getCanonicalPartitionValues()).containsEntry("age", Optional.of("28"));
+                        assertThat(addFileEntry.getModificationTime()).isEqualTo(9999999L);
+                    }
+                },
+                ImmutableMultiset.of(new FileOperation("00000000000000000014.json", "InputFile.newStream")));
     }
 
     @Test

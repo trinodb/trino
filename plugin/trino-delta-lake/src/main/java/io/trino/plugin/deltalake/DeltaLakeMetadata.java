@@ -186,6 +186,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -2863,16 +2864,20 @@ public class DeltaLakeMetadata
             return ImmutableMap.of();
         }
 
-        ImmutableMap.Builder<String, DeletionVectorEntry> deletionVectors = ImmutableMap.builder();
         try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(session, handle, getTableCredentials(handle.toCredentialsHandle()), getSnapshot(session, handle))) {
-            Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
-            while (addFileEntryIterator.hasNext()) {
-                AddFileEntry addFileEntry = addFileEntryIterator.next();
-                addFileEntry.getDeletionVector().ifPresent(deletionVector -> deletionVectors.put(addFileEntry.getPath(), deletionVector));
-            }
+            return collectLatestDeletionVectors(activeFiles.iterator());
         }
-        // The latest deletion vector contains all the past deleted rows
-        return deletionVectors.buildKeepingLast();
+    }
+
+    static Map<String, DeletionVectorEntry> collectLatestDeletionVectors(Iterator<AddFileEntry> activeFiles)
+    {
+        Map<String, DeletionVectorEntry> deletionVectors = new LinkedHashMap<>();
+        while (activeFiles.hasNext()) {
+            AddFileEntry addFileEntry = activeFiles.next();
+            addFileEntry.getDeletionVector().ifPresent(deletionVector -> deletionVectors.putIfAbsent(addFileEntry.getPath(), deletionVector));
+        }
+        // Active files are replayed newest first, and the latest deletion vector contains all the past deleted rows.
+        return ImmutableMap.copyOf(deletionVectors);
     }
 
     @Override
