@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -111,7 +112,8 @@ public final class TableStatisticsReader
     public TableStatistics getTableStatistics(
             IcebergTableHandle tableHandle,
             Set<IcebergColumnHandle> projectedColumns,
-            Table icebergTable)
+            Table icebergTable,
+            DataSize maxTotalManifestSize)
     {
         return makeTableStatistics(
                 typeManager,
@@ -120,7 +122,8 @@ public final class TableStatisticsReader
                 tableHandle.getEnforcedPredicate(),
                 tableHandle.getUnenforcedPredicate(),
                 projectedColumns,
-                icebergPlanningExecutor);
+                icebergPlanningExecutor,
+                maxTotalManifestSize);
     }
 
     @VisibleForTesting
@@ -131,7 +134,8 @@ public final class TableStatisticsReader
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
             Set<IcebergColumnHandle> projectedColumns,
-            ExecutorService icebergPlanningExecutor)
+            ExecutorService icebergPlanningExecutor,
+            DataSize maxTotalManifestSize)
     {
         if (snapshot.isEmpty()) {
             // No snapshot, so no data.
@@ -177,6 +181,25 @@ public final class TableStatisticsReader
                     return evaluator.eval(manifestFile);
                 })
                 .collect(toImmutableList());
+
+        // Decoding the per-data-file statistics dominates the cost, and it scales with manifest size rather
+        // than data file count, because every entry carries statistics for every column. The manifest list
+        // records each manifest's length, so the size is known without reading any of them.
+        long totalManifestSizeInBytes = filteredManifests.stream()
+                .mapToLong(ManifestFile::length)
+                .sum();
+        if (totalManifestSizeInBytes > maxTotalManifestSize.toBytes()) {
+            // Without row counts there is nothing cheaper to report, so read the manifests as usual
+            OptionalLong recordCount = manifestListRecordCount(filteredManifests);
+            if (recordCount.isPresent()) {
+                log.debug(
+                        "Skipping per-data-file statistics for table %s: data manifests total %s bytes, above the limit of %s",
+                        icebergTable.name(),
+                        totalManifestSizeInBytes,
+                        maxTotalManifestSize);
+                return manifestListTableStatistics(recordCount.orElseThrow(), icebergTable, snapshotId, projectedColumns, columnIds);
+            }
+        }
 
         ImmutableList.Builder<Types.NestedField> columnsBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
@@ -366,6 +389,55 @@ public final class TableStatisticsReader
                 return verifyNotNull(snapshot.parentId(), "snapshot.parentId()");
             }
         };
+    }
+
+    /**
+     * Total number of rows the given manifests record, without reading them. Empty when any manifest omits
+     * its row counts, which older writers are permitted to do.
+     */
+    private static OptionalLong manifestListRecordCount(List<ManifestFile> filteredManifests)
+    {
+        long recordCount = 0;
+        for (ManifestFile manifestFile : filteredManifests) {
+            Long addedRowsCount = manifestFile.addedRowsCount();
+            Long existingRowsCount = manifestFile.existingRowsCount();
+            if (addedRowsCount == null || existingRowsCount == null) {
+                return OptionalLong.empty();
+            }
+            recordCount += addedRowsCount + existingRowsCount;
+        }
+        return OptionalLong.of(recordCount);
+    }
+
+    /**
+     * Statistics derived without reading any manifest. The row count overestimates when a predicate filters
+     * data files out of the manifests it totals.
+     */
+    private static TableStatistics manifestListTableStatistics(
+            long recordCount,
+            Table icebergTable,
+            long snapshotId,
+            Set<IcebergColumnHandle> projectedColumns,
+            Set<Integer> columnIds)
+    {
+        Map<Integer, Long> ndvs = readNdvs(icebergTable, snapshotId, columnIds);
+        Map<Integer, org.apache.iceberg.types.Type> idToType = icebergTable.schema().columns().stream()
+                .filter(column -> columnIds.contains(column.fieldId()))
+                .collect(toUnmodifiableMap(Types.NestedField::fieldId, Types.NestedField::type));
+
+        ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
+        for (IcebergColumnHandle columnHandle : projectedColumns) {
+            ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
+            if (idToType.get(columnHandle.getId()) instanceof Types.FixedType fixedType) {
+                columnBuilder.setDataSize(Estimate.of(fixedType.length()));
+            }
+            columnBuilder.setDistinctValuesCount(
+                    Optional.ofNullable(ndvs.get(columnHandle.getId()))
+                            .map(Estimate::of)
+                            .orElseGet(Estimate::unknown));
+            columnHandleBuilder.put(columnHandle, columnBuilder.build());
+        }
+        return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
     private static void collectManifestStatistics(

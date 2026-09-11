@@ -151,6 +151,13 @@ implementation is used:
     query plan and therefore improve query processing performance. Setting to
     `false` is not recommended and does not disable statistics gathering.
   - `true`
+* - `iceberg.table-statistics-max-total-manifest-size`
+  - Maximum total size of the data manifests read to compute
+    [](/optimizer/statistics). Tables above this limit report only the row count
+    and distinct value counts, keeping planning fast at the cost of less precise
+    estimates. The equivalent [catalog session property](/sql/set-session) is
+    `table_statistics_max_total_manifest_size`.
+  - `512MB`
 * - `iceberg.extended-statistics.collect-on-write`
   - Enable collection of extended statistics for write operations. The
     equivalent catalog session property is
