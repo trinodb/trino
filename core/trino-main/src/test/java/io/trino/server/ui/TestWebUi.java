@@ -88,7 +88,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.net.HttpHeaders.ALLOW;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
@@ -112,6 +114,7 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_DISABLED;
 import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED;
 import static jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static jakarta.servlet.http.HttpServletResponse.SC_SEE_OTHER;
@@ -268,6 +271,9 @@ public class TestWebUi
         testLoggedOut(httpServerInfo.getHttpUri());
         testLoggedOut(httpServerInfo.getHttpsUri());
 
+        testDeprecatedLogin(httpServerInfo.getHttpUri());
+        testDeprecatedLogin(httpServerInfo.getHttpsUri());
+
         testLogIn(httpServerInfo.getHttpUri(), username, password, false);
         testLogIn(httpServerInfo.getHttpsUri(), username, password, sendPasswordForHttps);
 
@@ -334,6 +340,30 @@ public class TestWebUi
         assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
         assertRedirect(client, getLogoutLocation(baseUri), getLoginHtmlLocation(baseUri), false);
         assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
+    }
+
+    private void testDeprecatedLogin(URI baseUri)
+            throws IOException
+    {
+        CookieManager cookieManager = new CookieManager();
+        OkHttpClient client = this.client.newBuilder()
+                .cookieJar(new JavaNetCookieJar(cookieManager))
+                .build();
+        Request request = new Request.Builder()
+                .url(getLocation(baseUri, "/ui/login"))
+                .post(new FormBody.Builder()
+                        .add("username", "test")
+                        .add("password", "test")
+                        .build())
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            assertThat(response.code()).isEqualTo(SC_METHOD_NOT_ALLOWED);
+            assertThat(response.header(CONTENT_TYPE)).startsWith("text/plain");
+            assertThat(response.header(ALLOW)).contains("GET", "HEAD", "OPTIONS");
+            assertThat(requireNonNull(response.body()).string())
+                    .isEqualTo("Web UI form login moved to POST /ui/auth/login in Trino 483. The new endpoint expects an application/json request.");
+            assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
+        }
     }
 
     private void testFailedLogin(URI uri, boolean passwordAllowed, String password)
