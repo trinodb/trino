@@ -222,6 +222,16 @@ may not be specified using both methods.
   - Set to `true` to use the token from an existing Kerberos context. This
     allows client to use Kerberos authentication without passing the Keytab or
     credential cache. Defaults to `false`.
+* - `KerberosUseNativeGSS`
+  - Set to `true` to use the credentials acquired by the native GSS
+    implementation of the operating system. On Windows, this uses the Kerberos
+    tickets of the current Windows login through SSPI, without the need to
+    enter a username or password. Defaults to `false`. The JVM must be started
+    with the system properties `sun.security.jgss.native=true` and
+    `javax.security.auth.useSubjectCredsOnly=false`, configured before JGSS or
+    the JDBC driver is initialized. The `KerberosPrincipal`,
+    `KerberosConfigPath`, `KerberosKeytabPath`, `KerberosCredentialCachePath`,
+    and `KerberosDelegation` parameters cannot be combined with this parameter.
 * - `extraCredentials`
   - Extra credentials for connecting to external services, specified as a list
     of key-value pairs. For example, `foo:bar;abc:xyz` creates the credential
