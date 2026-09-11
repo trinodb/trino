@@ -5961,7 +5961,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimize()
             throws Exception
     {
-        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion < IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
+        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion <= IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
             String tableName = "test_optimize_" + randomNameSuffix();
             assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (format_version = " + formatVersion + ")");
 
@@ -6019,10 +6019,64 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testOptimizeMaterializedView()
+            throws Exception
+    {
+        // This keeps only the materialized-view-specific parts: optimizing an empty storage table,
+        // multiple incremental refreshes producing multiple small files, and OPTIMIZE compacting them while preserving contents.
+        String tableName = "test_optimize_mv_src_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar)");
+        String mvName = "test_optimize_mv_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + tableName);
+
+        // DistributedQueryRunner sets node-scheduler.include-coordinator by default, so include coordinator
+        int workerCount = getQueryRunner().getNodeCount();
+
+        // optimize an empty storage table
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE OPTIMIZE");
+        assertThat(getSnapshotIds(mvName)).isEmpty();
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'eleven')", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (12, 'zwölf')", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (13, 'trzynaście')", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (14, 'quatorze')", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (15, 'пʼятнадцять')", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+
+        List<String> initialFiles = getActiveFiles(mvName);
+        assertThat(initialFiles)
+                .hasSize(5)
+                // Verify we have sufficiently many test rows with respect to worker count.
+                .hasSizeGreaterThan(workerCount);
+
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+        assertUpdate(
+                withSingleWriterPerTask(getSession()),
+                "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE OPTIMIZE",
+                "VALUES ('rewritten_data_files_count', 5), ('removed_delete_files_count', 0), ('added_data_files_count', 1)");
+        assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + mvName))
+                .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
+        List<String> updatedFiles = getActiveFiles(mvName);
+        assertThat(updatedFiles)
+                .hasSizeBetween(1, workerCount)
+                .doesNotContainAnyElementsOf(initialFiles);
+        // No files should be removed (this is expire_snapshots's job, when it exists)
+        assertThat(getAllDataFilesFromMvStorageTableDirectory(mvName))
+                .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testOptimizeForPartitionedTable()
             throws IOException
     {
-        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion < IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
+        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion <= IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
             // This test will have its own session to make sure partitioning is indeed forced and is not a result
             // of session configuration
             Session session = testSessionBuilder()
@@ -6425,20 +6479,36 @@ public abstract class BaseIcebergConnectorTest
 
     protected String getTableLocation(String tableName)
     {
+        return getLocationFromShowCreate("SHOW CREATE TABLE " + tableName);
+    }
+
+    protected String getMvStorageTableLocation(String mvName)
+    {
+        return getLocationFromShowCreate("SHOW CREATE MATERIALIZED VIEW " + mvName);
+    }
+
+    private String getLocationFromShowCreate(String showCreateStatement)
+    {
         Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
-        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        Matcher m = locationPattern.matcher((String) computeActual(showCreateStatement).getOnlyValue());
         if (m.find()) {
             String location = m.group(1);
             verify(!m.find(), "Unexpected second match");
             return location;
         }
-        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
+        throw new IllegalStateException("Location not found in " + showCreateStatement + " result");
     }
 
     protected List<String> getAllDataFilesFromTableDirectory(String tableName)
             throws IOException
     {
         return listFiles(getIcebergTableDataPath(getTableLocation(tableName)));
+    }
+
+    protected List<String> getAllDataFilesFromMvStorageTableDirectory(String mvName)
+            throws IOException
+    {
+        return listFiles(getIcebergTableDataPath(getMvStorageTableLocation(mvName)));
     }
 
     @Test
@@ -7143,6 +7213,40 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExpireSnapshotsMaterializedView()
+            throws Exception
+    {
+        String tableName = "test_expiring_snapshots_" + randomNameSuffix();
+        String mvName = "test_expiring_snapshots_mv_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + mvName))
+                .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
+
+        List<Long> initialSnapshots = getSnapshotIds(mvName);
+        String storageTableLocation = getMvStorageTableLocation(mvName);
+        List<String> initialFiles = getAllMetadataFilesFromTableDirectory(storageTableLocation);
+        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + mvName))
+                .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
+        List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(storageTableLocation);
+        List<Long> updatedSnapshots = getSnapshotIds(mvName);
+        assertThat(updatedFiles).hasSizeLessThan(initialFiles.size());
+        assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
+        assertThat(updatedSnapshots).hasSize(1);
+        assertThat(initialSnapshots).containsAll(updatedSnapshots);
+    }
+
+    @Test
     public void testExpireSnapshotsPartitionedTable()
             throws Exception
     {
@@ -7390,6 +7494,44 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES ('one', 1), ('three', 3)");
 
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
+        assertThat(updatedDataFiles).doesNotContain(orphanFile1, orphanFile2);
+    }
+
+    @Test
+    public void testRemoveOrphanFilesMaterializedView()
+            throws Exception
+    {
+        String tableName = "test_deleting_orphan_files_unnecessary_files_" + randomNameSuffix();
+        String mvName = "test_deleting_orphan_files_unnecessary_files_mv_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 2);
+        assertUpdate("DELETE FROM " + tableName + " WHERE key = 'two'", 1);
+        // performs full refresh as there has been a DELETE, so refresh goes through whole table (2 rows)
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 2);
+        String location = getMvStorageTableLocation(mvName);
+        String orphanFile1 = getIcebergTableDataPath(location) + "/invalidData1." + format;
+        String orphanFile2 = getIcebergTableDataPath(location) + "/invalidData2." + format;
+        int orphanFile1Bytes = 123;
+        int orphanFile2Bytes = 456;
+        int totalOrphanBytes = orphanFile1Bytes + orphanFile2Bytes;
+        createFile(orphanFile1, new byte[orphanFile1Bytes]);
+        createFile(orphanFile2, new byte[orphanFile2Bytes]);
+        List<String> initialDataFiles = getAllDataFilesFromMvStorageTableDirectory(mvName);
+        assertThat(initialDataFiles).contains(orphanFile1, orphanFile2);
+
+        assertUpdate(
+                sessionWithShortRetentionUnlocked,
+                "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
+                "VALUES ('processed_manifests_count', 5), ('active_files_count', 17), ('scanned_files_count', 19), ('deleted_files_count', 2), ('deleted_bytes', " + totalOrphanBytes + ")");
+        assertQuery("SELECT * FROM " + mvName, "VALUES ('one', 1), ('three', 3)");
+
+        List<String> updatedDataFiles = getAllDataFilesFromMvStorageTableDirectory(mvName);
         assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
         assertThat(updatedDataFiles).doesNotContain(orphanFile1, orphanFile2);
     }
