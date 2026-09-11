@@ -229,4 +229,53 @@ public class TestIcebergMaterializedView
 
         assertUpdate("DROP TABLE zero_grace_nondeterministic_base_table");
     }
+
+    @Test
+    public void testZeroGracePeriodViewSwappedToForeignSourceExplainsPermanentStaleness()
+    {
+        // The combination is rejected at creation time, but a source view can be repointed at another
+        // catalog afterwards, which leaves a materialized view that can never be read again. The read
+        // failure says so, rather than suggesting a refresh that cannot help.
+        assertUpdate("CREATE TABLE swap_local_base_table AS SELECT 10 value", 1);
+        assertUpdate(secondIceberg, "CREATE TABLE swap_foreign_base_table AS SELECT 7 value", 1);
+        assertUpdate("CREATE VIEW swap_source_view AS SELECT value FROM swap_local_base_table");
+
+        assertUpdate(
+                """
+                CREATE MATERIALIZED VIEW iceberg.tpch.mv_on_swapped_view
+                GRACE PERIOD INTERVAL '0' SECOND
+                WHEN STALE FAIL
+                AS SELECT sum(value) AS s FROM swap_source_view
+                """);
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_swapped_view", 1);
+        assertThat(getFreshness("mv_on_swapped_view")).isEqualTo("FRESH");
+        assertThat(query("TABLE mv_on_swapped_view")).matches("VALUES BIGINT '10'");
+
+        // The source view now reads from another catalog, which cannot be tracked for freshness.
+        assertUpdate("CREATE OR REPLACE VIEW swap_source_view AS SELECT value FROM iceberg2.tpch.swap_foreign_base_table");
+        // The recorded dependency is still the local table, so the view stays fresh until that table
+        // changes and the next refresh actually runs.
+        assertThat(getFreshness("mv_on_swapped_view")).isEqualTo("FRESH");
+        assertUpdate("INSERT INTO swap_local_base_table VALUES 5", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_swapped_view", 1);
+        assertThat(getFreshness("mv_on_swapped_view")).isEqualTo("UNKNOWN");
+        assertQueryFails(
+                "TABLE mv_on_swapped_view",
+                "line 1:1: Materialized view 'iceberg.tpch.mv_on_swapped_view' is stale and can never be fresh, " +
+                        "because its freshness cannot be determined and its GRACE PERIOD is zero\\. " +
+                        "This happens when it depends on a table in another catalog, a table function, or a non-deterministic function\\. " +
+                        "Use a non-zero GRACE PERIOD, or WHEN STALE INLINE\\.");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_on_swapped_view");
+        assertUpdate("DROP VIEW swap_source_view");
+        assertUpdate("DROP TABLE swap_local_base_table");
+        assertUpdate(secondIceberg, "DROP TABLE swap_foreign_base_table");
+    }
+
+    private String getFreshness(String viewName)
+    {
+        return (String) computeScalar(
+                "SELECT freshness FROM system.metadata.materialized_views " +
+                        "WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'");
+    }
 }
