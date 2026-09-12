@@ -44,6 +44,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRemoveRedundantTry
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     private static final ResolvedFunction EQUAL_BIGINT = PLANNER_CONTEXT.getMetadata()
             .resolveOperator(getCharVarcharCoercion(testSession()), EQUAL, ImmutableList.of(BIGINT, BIGINT));
 
@@ -113,6 +115,6 @@ public class TestRemoveRedundantTry
 
     private static Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantTry(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new RemoveRedundantTry(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
