@@ -2712,6 +2712,12 @@ public final class MetadataManager
         return functionResolver.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
     }
 
+    @VisibleForTesting
+    ResolvedFunction resolveBuiltinFunctionUncached(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        return functionResolver.resolveBuiltinFunctionUncached(charVarcharCoercion, name, parameterTypes);
+    }
+
     @Override
     public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException

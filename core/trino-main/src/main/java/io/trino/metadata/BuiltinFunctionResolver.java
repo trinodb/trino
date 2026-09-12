@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -75,11 +76,10 @@ class BuiltinFunctionResolver
     ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
     {
         try {
-            return uncheckedCacheGet(functionCache, FunctionCacheKey.from(charVarcharCoercion, name, parameterTypes),
-                    () -> {
-                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(charVarcharCoercion, parameterTypes, getBuiltinFunctions(name), name);
-                        return resolveBuiltin(functionBinding, charVarcharCoercion);
-                    });
+            return uncheckedCacheGet(
+                    functionCache,
+                    FunctionCacheKey.from(charVarcharCoercion, name, parameterTypes),
+                    () -> resolveBuiltinFunctionUncached(charVarcharCoercion, name, parameterTypes));
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
@@ -87,6 +87,18 @@ class BuiltinFunctionResolver
             }
             throw e;
         }
+    }
+
+    /**
+     * Resolve a builtin function without consulting or populating the resolution cache, performing
+     * the full candidate binding and dependency wiring every time. Exposed for benchmarking the cost
+     * of a cache miss; the cached {@link #resolveBuiltinFunction} delegates here on a miss.
+     */
+    @VisibleForTesting
+    ResolvedFunction resolveBuiltinFunctionUncached(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(charVarcharCoercion, parameterTypes, getBuiltinFunctions(name), name);
+        return resolveBuiltin(functionBinding, charVarcharCoercion);
     }
 
     ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)

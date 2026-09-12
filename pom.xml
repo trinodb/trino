@@ -59,6 +59,7 @@
         <module>lib/trino-parquet</module>
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-record-decoder</module>
+        <module>lib/trino-type-solver</module>
         <module>plugin/trino-ai-functions</module>
         <module>plugin/trino-base-jdbc</module>
         <module>plugin/trino-bigquery</module>
@@ -137,6 +138,7 @@
         <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
+        <module>testing/trino-type-solver-verifier</module>
     </modules>
 
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
@@ -180,6 +182,9 @@
             --sun-misc-unsafe-memory-access=allow
             <!-- # Disable superfluous bootstrap logging in tests -->
             -Dairlift.quiet=true
+            <!-- # Shadow-verify every function resolution and expression analysis against the type solver -->
+            -Dtrino.solver-shadow=true
+            -Dtrino.solver-expression-shadow=true
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 

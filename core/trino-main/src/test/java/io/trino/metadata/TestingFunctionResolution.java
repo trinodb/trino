@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.Plugin;
@@ -31,6 +32,7 @@ import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.TestingPlannerContext;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.QueryRunner;
 import io.trino.transaction.TransactionManager;
 
@@ -165,6 +167,31 @@ public class TestingFunctionResolution
     public ResolvedFunction resolveFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return metadata.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, parameterTypes);
+    }
+
+    /// Resolve an instance method `receiver.name(args)`. The parameter types lead with the
+    /// receiver (self), the way the analyzer presents them to the engine's method resolution.
+    public ResolvedFunction resolveInstanceMethod(TypeDescriptor receiverType, String name, List<TypeDescriptorProvider> parameterTypesWithReceiver)
+    {
+        return inTransaction(session -> plannerContext.getFunctionResolver(WarningCollector.NOOP)
+                .resolveInstanceMethod(session, receiverType, QualifiedName.of(name), parameterTypesWithReceiver, new AllowAllAccessControl()));
+    }
+
+    /// Resolve a static method `Type::name(args)`. The receiver type is a selector only; the
+    /// parameter types are exactly the call's arguments.
+    public ResolvedFunction resolveStaticMethod(TypeDescriptor receiverType, String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        return inTransaction(session -> plannerContext.getFunctionResolver(WarningCollector.NOOP)
+                .resolveStaticMethod(session, receiverType, QualifiedName.of(name), parameterTypes, new AllowAllAccessControl()));
+    }
+
+    /**
+     * Resolve a builtin function bypassing the resolution cache, for benchmarking the cost of a
+     * cache miss (full candidate binding through SignatureBinder plus dependency wiring).
+     */
+    public ResolvedFunction resolveBuiltinFunctionUncached(String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        return ((MetadataManager) metadata).resolveBuiltinFunctionUncached(getCharVarcharCoercion(TEST_SESSION), name, parameterTypes);
     }
 
     public TestingAggregationFunction getAggregateFunction(String name, List<TypeDescriptorProvider> parameterTypes)
