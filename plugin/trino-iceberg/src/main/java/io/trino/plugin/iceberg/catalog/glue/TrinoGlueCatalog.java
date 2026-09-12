@@ -125,6 +125,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergExceptions.isNotFoundException;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
@@ -469,10 +470,8 @@ public class TrinoGlueCatalog
                 columns = getColumnMetadatas(icebergTable.schema(), typeManager, TableUtil.formatVersion(icebergTable));
             }
             catch (RuntimeException e) {
-                // Table may be concurrently deleted
-                // TODO detect file not found failure when reading metadata file and silently skip table in such case. Avoid logging warnings for legitimate situations.
-                LOG.warn(e, "Failed to get metadata for table: %s", tableName);
-                return;
+                logSkippedRelation(e, tableName);
+                continue;
             }
             resultsCollector.accept(RelationColumnsMetadata.forTable(tableName, columns));
         }
@@ -565,12 +564,21 @@ public class TrinoGlueCatalog
                 comment = getTableComment(loadTable(session, tableName));
             }
             catch (RuntimeException e) {
-                // Table may be concurrently deleted
-                // TODO detect file not found failure when reading metadata file and silently skip table in such case. Avoid logging warnings for legitimate situations.
-                LOG.warn(e, "Failed to get metadata for table: %s", tableName);
-                return;
+                logSkippedRelation(e, tableName);
+                continue;
             }
             resultsCollector.accept(RelationCommentMetadata.forRelation(tableName, comment));
+        }
+    }
+
+    private static void logSkippedRelation(RuntimeException exception, SchemaTableName tableName)
+    {
+        if (isNotFoundException(exception)) {
+            // A concurrently deleted table is legitimate, so do not warn about it.
+            LOG.debug(exception, "Skipping table with missing metadata: %s", tableName);
+        }
+        else {
+            LOG.warn(exception, "Skipping table with unreadable metadata: %s", tableName);
         }
     }
 
