@@ -44,11 +44,18 @@ export const WorkersList = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+        let cancelled = false
+        let timeoutId: number
         const runLoop = () => {
-            getWorkersList()
-            setTimeout(runLoop, 1000)
+            getWorkersList(() => cancelled)
+            timeoutId = setTimeout(runLoop, 1000)
         }
         runLoop()
+
+        return () => {
+            cancelled = true
+            clearTimeout(timeoutId)
+        }
     }, [])
 
     useEffect(() => {
@@ -57,9 +64,12 @@ export const WorkersList = () => {
         }
     }, [error, showSnackbar])
 
-    const getWorkersList = () => {
+    const getWorkersList = (isCancelled: () => boolean) => {
         setError(null)
         workerApi().then((apiResponse: ApiResponse<Worker[]>) => {
+            if (isCancelled()) {
+                return
+            }
             if (apiResponse.status === 200 && apiResponse.data) {
                 if (apiResponse.data) {
                     const sortedWorkers: Worker[] = apiResponse.data.sort((workerA, workerB) =>
