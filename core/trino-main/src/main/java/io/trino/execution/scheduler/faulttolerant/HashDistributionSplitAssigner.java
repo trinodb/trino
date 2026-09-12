@@ -41,6 +41,7 @@ import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -60,7 +61,8 @@ class HashDistributionSplitAssigner
     private final Set<PlanNodeId> replicatedSources;
     private final Set<PlanNodeId> allSources;
     private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
-    private final Map<Integer, TaskPartition> sourcePartitionToTaskPartition;
+    private final Supplier<Map<Integer, TaskPartition>> taskPartitionSupplier;
+    private Map<Integer, TaskPartition> sourcePartitionToTaskPartition;
 
     private final Set<Integer> createdTaskPartitions = new HashSet<>();
     private final Set<PlanNodeId> completedSources = new HashSet<>();
@@ -74,7 +76,7 @@ class HashDistributionSplitAssigner
             Set<PlanNodeId> partitionedSources,
             Set<PlanNodeId> replicatedSources,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates,
+            Supplier<Map<PlanNodeId, OutputDataSizeEstimate>> sourceDataSizeEstimates,
             PlanFragment fragment,
             long targetPartitionSizeInBytes,
             int targetMinTaskCount,
@@ -90,10 +92,10 @@ class HashDistributionSplitAssigner
                 partitionedSources,
                 replicatedSources,
                 sourcePartitioningScheme,
-                createSourcePartitionToTaskPartition(
+                () -> createSourcePartitionToTaskPartition(
                         sourcePartitioningScheme,
                         partitionedSources,
-                        sourceDataSizeEstimates,
+                        sourceDataSizeEstimates.get(),
                         targetPartitionSizeInBytes,
                         targetMinTaskCount,
                         targetMaxTaskCount,
@@ -111,6 +113,18 @@ class HashDistributionSplitAssigner
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             Map<Integer, TaskPartition> sourcePartitionToTaskPartition)
     {
+        this(fragmentId, catalogRequirement, partitionedSources, replicatedSources, sourcePartitioningScheme, () -> sourcePartitionToTaskPartition);
+    }
+
+    @VisibleForTesting
+    HashDistributionSplitAssigner(
+            PlanFragmentId fragmentId,
+            Optional<CatalogHandle> catalogRequirement,
+            Set<PlanNodeId> partitionedSources,
+            Set<PlanNodeId> replicatedSources,
+            FaultTolerantPartitioningScheme sourcePartitioningScheme,
+            Supplier<Map<Integer, TaskPartition>> taskPartitionSupplier)
+    {
         this.fragmentId = requireNonNull(fragmentId, "fragmentId is null");
         this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
         this.replicatedSources = ImmutableSet.copyOf(requireNonNull(replicatedSources, "replicatedSources is null"));
@@ -119,7 +133,19 @@ class HashDistributionSplitAssigner
                 .addAll(replicatedSources)
                 .build();
         this.sourcePartitioningScheme = requireNonNull(sourcePartitioningScheme, "sourcePartitioningScheme is null");
-        this.sourcePartitionToTaskPartition = ImmutableMap.copyOf(requireNonNull(sourcePartitionToTaskPartition, "sourcePartitionToTaskPartition is null"));
+        this.taskPartitionSupplier = requireNonNull(taskPartitionSupplier, "taskPartitionSupplier is null");
+    }
+
+    @Override
+    public AssignmentResult startWiring(PlanNodeId planNodeId)
+    {
+        checkState(createdTaskPartitions.isEmpty(), "wiring already started");
+        createdTaskPartitions.add(0);
+        Optional<HostAddress> hostRequirement = sourcePartitioningScheme.getNodeRequirement(0).map(InternalNode::getHostAndPort);
+        return AssignmentResult.builder()
+                .addPartition(new Partition(0, new NodeRequirements(catalogRequirement, hostRequirement, hostRequirement.isEmpty())))
+                .updatePartition(new PartitionUpdate(0, planNodeId, true, ImmutableListMultimap.of(), false, true))
+                .build();
     }
 
     @Override
@@ -128,6 +154,8 @@ class HashDistributionSplitAssigner
         AssignmentResult.Builder assignment = AssignmentResult.builder();
 
         if (!allTaskPartitionsCreated) {
+            // Size data partitions when input becomes available, after wiring.
+            sourcePartitionToTaskPartition = ImmutableMap.copyOf(taskPartitionSupplier.get());
             // create tasks all at once
             int nextTaskPartitionId = 0;
             for (int sourcePartitionId = 0; sourcePartitionId < sourcePartitioningScheme.getPartitionCount(); sourcePartitionId++) {
@@ -140,10 +168,11 @@ class HashDistributionSplitAssigner
                         subPartition.assignId(taskPartitionId);
                         Optional<HostAddress> hostRequirement = sourcePartitioningScheme.getNodeRequirement(sourcePartitionId)
                                 .map(InternalNode::getHostAndPort);
-                        assignment.addPartition(new Partition(
-                                taskPartitionId,
-                                new NodeRequirements(catalogRequirement, hostRequirement, hostRequirement.isEmpty())));
-                        createdTaskPartitions.add(taskPartitionId);
+                        if (createdTaskPartitions.add(taskPartitionId)) {
+                            assignment.addPartition(new Partition(
+                                    taskPartitionId,
+                                    new NodeRequirements(catalogRequirement, hostRequirement, hostRequirement.isEmpty())));
+                        }
                     }
                 }
             }

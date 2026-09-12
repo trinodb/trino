@@ -49,6 +49,11 @@ public class JoinProbe
             Page probePage = page.getColumns(probeJoinChannels);
             return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, hasFilter);
         }
+
+        public List<Integer> getOutputChannels()
+        {
+            return Ints.asList(probeOutputChannels);
+        }
     }
 
     private final int[] probeOutputChannels;

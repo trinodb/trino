@@ -32,7 +32,6 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
@@ -141,15 +140,14 @@ public class TestAnonymizeJsonRepresentation
                         ImmutableList.of(new JoinNode.EquiJoinClause(pb.symbol("a", BIGINT), pb.symbol("d", BIGINT))),
                         ImmutableList.of(pb.symbol("b", BIGINT)),
                         ImmutableList.of(),
-                        Optional.empty(),
-                        ImmutableMap.of(new DynamicFilterId("DF"), pb.symbol("d", BIGINT))),
+                        Optional.empty()),
                 new JsonRenderedNode(
                         "2",
                         "InnerJoin",
                         ImmutableMap.of(
                                 "criteria", "(\"symbol_1\" = \"symbol_2\")"),
                         ImmutableList.of(new Symbol(BIGINT, "symbol_3")),
-                        ImmutableList.of("dynamicFilterAssignments = {symbol_2 -> #DF}"),
+                        ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(
                                 valuesRepresentation(

@@ -22,7 +22,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.LegacyDynamicFilterService.DynamicFiltersStats;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.StandardErrorCode;

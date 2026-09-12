@@ -17,8 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.join.JoinFilterFunction;
+import io.trino.operator.join.RuntimeConstraintComparison;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -34,7 +38,12 @@ import java.util.Map;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -126,6 +135,53 @@ public class TestJoinFilterFunctionCompiler
         assertThat(filterFunction.filter(1, 1, rightPage)).isFalse();
         // left[2]=5 > right[2]=3 → true
         assertThat(filterFunction.filter(2, 2, rightPage)).isTrue();
+    }
+
+    @Test
+    public void testExtractsRuntimeConstraintComparisonInProbeDirection()
+    {
+        JoinFilterFunctionCompiler compiler = new JoinFilterFunctionCompiler(
+                FUNCTION_RESOLUTION.getPlannerContext().getFunctionManager(),
+                FUNCTION_RESOLUTION.getMetadata(),
+                FUNCTION_RESOLUTION.getPlannerContext().getTypeManager());
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "left_col"), 0,
+                new Symbol(BIGINT, "right_col"), 1);
+
+        JoinFilterFunctionFactory factory = compiler.compileJoinFilterFunction(JOIN_FILTER, layout, 1, SQL_STANDARD);
+
+        assertThat(factory.getRuntimeConstraintComparisons())
+                .containsExactly(new RuntimeConstraintComparison(0, 0, LESS_THAN, false, BIGINT));
+    }
+
+    @Test
+    public void testSkipsNullSafeComparisonOfValuesUnequalToThemselves()
+    {
+        JoinFilterFunctionCompiler compiler = new JoinFilterFunctionCompiler(
+                FUNCTION_RESOLUTION.getPlannerContext().getFunctionManager(),
+                FUNCTION_RESOLUTION.getMetadata(),
+                FUNCTION_RESOLUTION.getPlannerContext().getTypeManager());
+        // IS NOT DISTINCT FROM matches NaN and structural values containing nulls, which = based runtime constraints do not
+        for (Type type : List.of(DOUBLE, RowType.anonymousRow(INTEGER), new ArrayType(INTEGER))) {
+            Symbol build = new Symbol(type, "build_col");
+            Symbol probe = new Symbol(type, "probe_col");
+            JoinFilterFunctionFactory factory = compiler.compileJoinFilterFunction(
+                    comparison(IDENTICAL, probe.toSymbolReference(), build.toSymbolReference()),
+                    ImmutableMap.of(build, 0, probe, 1),
+                    1,
+                    SQL_STANDARD);
+            assertThat(factory.getRuntimeConstraintComparisons()).as("%s", type).isEmpty();
+        }
+
+        Symbol build = new Symbol(BIGINT, "build_col");
+        Symbol probe = new Symbol(BIGINT, "probe_col");
+        JoinFilterFunctionFactory factory = compiler.compileJoinFilterFunction(
+                comparison(IDENTICAL, probe.toSymbolReference(), build.toSymbolReference()),
+                ImmutableMap.of(build, 0, probe, 1),
+                1,
+                SQL_STANDARD);
+        assertThat(factory.getRuntimeConstraintComparisons())
+                .containsExactly(new RuntimeConstraintComparison(0, 0, EQUAL, true, BIGINT));
     }
 
     @Test

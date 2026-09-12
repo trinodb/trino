@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 package io.trino.server;
-
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
@@ -180,6 +179,7 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
+import static io.trino.sql.planner.runtimeconstraint.RuntimeConstraintProtocol.CURRENT_FORMAT_VERSION;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -509,7 +509,8 @@ public class ServerMainModule
                 nodeInfo.getInstanceId(),
                 internalCommunicationConfig.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(),
                 nodeVersion,
-                serverConfig.isCoordinator());
+                serverConfig.isCoordinator(),
+                CURRENT_FORMAT_VERSION);
     }
 
     private static class RegisterFunctionBundles

@@ -1,5 +1,13 @@
 # Dynamic filtering
 
+The default implementation uses planner-driven dynamic filtering. To enable
+runtime constraint propagation through physical operators, set
+`legacy-dynamic-filtering=false` in the coordinator configuration, or set the
+`legacy_dynamic_filtering` session property to `false`. The choice applies to the
+whole query, including planning, collection, transport, and split pruning.
+The `enable_dynamic_filtering` session property disables filtering in either
+implementation when set to `false`.
+
 Dynamic filtering optimizations significantly improve the performance of queries
 with selective joins by avoiding reading of data that would be filtered by join condition.
 
@@ -53,7 +61,7 @@ or the {ref}`Memory connector <memory-dynamic-filtering>`.
 
 Dynamic filtering depends on a number of factors:
 
-- Planner support for dynamic filtering for a given join operation in Trino.
+- Support for dynamic filtering for a given join operation in Trino.
   Currently inner and right joins with `=`, `<`, `<=`, `>`, `>=` or
   `IS NOT DISTINCT FROM` join conditions, and
   semi-joins with `IN` conditions are supported.
@@ -63,8 +71,13 @@ Dynamic filtering depends on a number of factors:
 - Connector support for utilizing dynamic filters at the splits enumeration stage.
 - Size of right (build) side of the join.
 
-You can take a closer look at the {doc}`EXPLAIN plan </sql/explain>` of the query
-to analyze if the planner is adding dynamic filters to a specific query's plan.
+With runtime constraint propagation, constraints are discovered while physical
+pipelines are initialized. Use the query and operator statistics described below
+to confirm collection and application; static plans do not contain
+`dynamicFilterAssignments` or dynamic-filter predicates.
+
+With `legacy_dynamic_filtering=true`, you can inspect the
+{doc}`EXPLAIN plan </sql/explain>` to see planner-generated dynamic filters.
 For example, the explain plan for the above query can be obtained by running
 the following statement:
 
@@ -157,9 +170,9 @@ processed after a dynamic filter is pushed down to the table scan.
 "dynamicFilterSplitsProcessed" : 1,
 ```
 
-Dynamic filters are reported as a part of the
+In legacy mode, dynamic filters are also reported in the
 {doc}`EXPLAIN ANALYZE plan </sql/explain-analyze>` in the statistics for
-`ScanFilterProject` nodes.
+`ScanFilterProject` nodes. The following plan uses the legacy implementation.
 
 ```text
 ...

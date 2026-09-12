@@ -462,6 +462,11 @@ public class LocalExchange
             return exchange.createSinkFactory();
         }
 
+        public LocalExchange getLocalExchange()
+        {
+            return exchange;
+        }
+
         @Override
         public void close()
         {

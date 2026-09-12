@@ -52,8 +52,8 @@ import io.trino.node.InternalNodeManager;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
-import io.trino.server.LegacyDynamicFilterService;
-import io.trino.server.LegacyDynamicFilterService.DynamicFiltersStats;
+import io.trino.server.DynamicFilterService;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.server.ResultQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
@@ -141,7 +141,7 @@ public class SqlQueryExecution
     private final boolean waitForMinWorkers;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
-    private final LegacyDynamicFilterService dynamicFilterService;
+    private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final SqlTaskManager coordinatorTaskManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -178,7 +178,7 @@ public class SqlQueryExecution
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            LegacyDynamicFilterService dynamicFilterService,
+            DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
             TableExecuteContextManager tableExecuteContextManager,
@@ -420,8 +420,7 @@ public class SqlQueryExecution
                 try {
                     CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession(), stateMachine::isDone);
                     PlanRoot plan = planQuery(tableStatsProvider);
-                    // LegacyDynamicFilterService needs plan for query to be registered.
-                    // Query should be registered before dynamic filter suppliers are requested in distribution planning.
+                    // Query should be registered before runtime constraint suppliers are requested in distribution planning.
                     registerDynamicFilteringQuery(plan);
                     planDistribution(plan, tableStatsProvider);
                 }
@@ -821,7 +820,7 @@ public class SqlQueryExecution
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
-        private final LegacyDynamicFilterService dynamicFilterService;
+        private final DynamicFilterService dynamicFilterService;
         private final TableExecuteContextManager tableExecuteContextManager;
         private final SqlTaskManager coordinatorTaskManager;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -854,7 +853,7 @@ public class SqlQueryExecution
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
-                LegacyDynamicFilterService dynamicFilterService,
+                DynamicFilterService dynamicFilterService,
                 TableExecuteContextManager tableExecuteContextManager,
                 SqlTaskManager coordinatorTaskManager,
                 ExchangeManagerRegistry exchangeManagerRegistry,

@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -200,6 +201,19 @@ public class WindowOperator
                     orderingCompiler,
                     measureTypes,
                     partitionerSupplier);
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < outputChannels.size() && partitionChannels.contains(outputChannels.get(channel)))) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request.mapChannels(outputChannels::get));
         }
     }
 

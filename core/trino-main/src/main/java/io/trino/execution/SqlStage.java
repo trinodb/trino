@@ -35,7 +35,6 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.ConnectorTableCredentialsVisitor;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -57,7 +56,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.server.LegacyDynamicFilterService.getOutboundDynamicFilters;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -80,7 +78,6 @@ public final class SqlStage
     private final InternalNodeManager nodeManager;
     private final boolean summarizeTaskInfo;
 
-    private final Set<DynamicFilterId> outboundDynamicFilterIds;
     private final LocalExchangeBucketCountProvider bucketCountProvider;
 
     private final Map<TaskId, RemoteTask> tasks = new ConcurrentHashMap<>();
@@ -160,7 +157,6 @@ public final class SqlStage
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
 
-        this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
         this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
@@ -320,7 +316,6 @@ public final class SqlStage
                 splits,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(currentNode, taskId),
-                outboundDynamicFilterIds,
                 estimatedMemory,
                 summarizeTaskInfo);
 
@@ -389,7 +384,6 @@ public final class SqlStage
         return toStringHelper(this)
                 .add("stateMachine", stateMachine)
                 .add("summarizeTaskInfo", summarizeTaskInfo)
-                .add("outboundDynamicFilterIds", outboundDynamicFilterIds)
                 .add("tasks", tasks)
                 .add("allTasks", allTasks)
                 .add("finishedTasks", finishedTasks)

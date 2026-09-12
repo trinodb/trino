@@ -46,6 +46,11 @@ public interface SplitSource
      */
     Metrics getMetrics();
 
+    default boolean isSplitSourceCreationDeferred()
+    {
+        return false;
+    }
+
     class SplitBatch
     {
         private final List<Split> splits;

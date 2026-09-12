@@ -59,6 +59,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
+    private boolean legacyDynamicFiltering = true;
     private boolean enableDynamicRowFiltering = true;
     private double dynamicRowFilterSelectivityThreshold = 0.7;
 
@@ -87,6 +88,19 @@ public class DynamicFilterConfig
     public boolean isEnableDynamicFiltering()
     {
         return enableDynamicFiltering;
+    }
+
+    public boolean isLegacyDynamicFiltering()
+    {
+        return legacyDynamicFiltering;
+    }
+
+    @Config("legacy-dynamic-filtering")
+    @ConfigDescription("Use the legacy planner-driven dynamic filtering implementation")
+    public DynamicFilterConfig setLegacyDynamicFiltering(boolean legacyDynamicFiltering)
+    {
+        this.legacyDynamicFiltering = legacyDynamicFiltering;
+        return this;
     }
 
     @Config("enable-dynamic-filtering")

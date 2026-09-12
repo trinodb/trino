@@ -22,16 +22,21 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.RuntimeConstraintRequest;
+import io.trino.operator.RuntimeConstraintWiringContext;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
+import jakarta.annotation.Nullable;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -51,6 +56,9 @@ public class NestedLoopJoinOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final JoinBridgeManager<NestedLoopJoinBridge> joinBridgeManager;
+        @Nullable
+        private final NestedLoopRuntimeConstraintSource runtimeConstraintSource;
+        private final List<Type> probeTypes;
         private final List<Integer> probeChannels;
         private final List<Integer> buildChannels;
         private boolean closed;
@@ -64,7 +72,28 @@ public class NestedLoopJoinOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.joinBridgeManager = requireNonNull(nestedLoopJoinBridgeManager, "nestedLoopJoinBridgeManager is null");
+            this.runtimeConstraintSource = null;
+            this.probeTypes = ImmutableList.of();
+            joinBridgeManager.incrementProbeFactoryCount();
+            this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
+            this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
+        }
+
+        public NestedLoopJoinOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager,
+                NestedLoopRuntimeConstraintSource runtimeConstraintSource,
+                List<Type> probeTypes,
+                List<Integer> probeChannels,
+                List<Integer> buildChannels)
+        {
+            this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.joinBridgeManager = nestedLoopJoinBridgeManager;
+            this.runtimeConstraintSource = requireNonNull(runtimeConstraintSource, "runtimeConstraintSource is null");
+            this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
             joinBridgeManager.incrementProbeFactoryCount();
             this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
             this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
@@ -77,6 +106,8 @@ public class NestedLoopJoinOperator
             this.planNodeId = other.planNodeId;
 
             this.joinBridgeManager = other.joinBridgeManager;
+            this.runtimeConstraintSource = other.runtimeConstraintSource;
+            this.probeTypes = other.probeTypes;
 
             this.probeChannels = ImmutableList.copyOf(other.probeChannels);
             this.buildChannels = ImmutableList.copyOf(other.buildChannels);
@@ -111,6 +142,45 @@ public class NestedLoopJoinOperator
                 return;
             }
             closed = true;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (request.isComparisonDemand()) {
+                if (runtimeConstraintSource == null) {
+                    context.stop(this, request);
+                    return;
+                }
+                int leftChannel = request.channel();
+                int rightChannel = request.relatedChannel().orElseThrow();
+                boolean leftIsProbe = leftChannel < probeChannels.size();
+                boolean rightIsProbe = rightChannel < probeChannels.size();
+                if (leftIsProbe == rightIsProbe || leftChannel >= probeChannels.size() + buildChannels.size() || rightChannel >= probeChannels.size() + buildChannels.size()) {
+                    context.stop(this, request);
+                    return;
+                }
+                int probeOutputChannel = leftIsProbe ? leftChannel : rightChannel;
+                int buildOutputChannel = (leftIsProbe ? rightChannel : leftChannel) - probeChannels.size();
+                int probeInputChannel = probeChannels.get(probeOutputChannel);
+                int buildInputChannel = buildChannels.get(buildOutputChannel);
+                input.accept(runtimeConstraintSource.addComparison(
+                        buildInputChannel,
+                        probeInputChannel,
+                        leftIsProbe ? request.operator() : request.operator().flip(),
+                        request.nullAllowed(),
+                        probeTypes.get(probeInputChannel),
+                        context));
+                return;
+            }
+            if (request.channel() >= probeChannels.size()) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request.withChannel(probeChannels.get(request.channel())));
         }
 
         @Override

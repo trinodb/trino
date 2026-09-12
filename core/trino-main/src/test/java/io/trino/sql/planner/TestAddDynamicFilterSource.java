@@ -80,6 +80,7 @@ public class TestAddDynamicFilterSource
         super(ImmutableMap.of(
                 RETRY_POLICY, RetryPolicy.TASK.name(),
                 ENABLE_DYNAMIC_FILTERING, "true",
+                "legacy_dynamic_filtering", "true",
                 JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name()));
     }
 

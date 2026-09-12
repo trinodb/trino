@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -73,6 +74,19 @@ public class MarkDistinctOperator
         public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(markDistinctChannels::contains)) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request);
         }
 
         @Override

@@ -19,11 +19,16 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.RuntimeConstraintRequest;
+import io.trino.operator.RuntimeConstraintWiringContext;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
+import jakarta.annotation.Nullable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -37,6 +42,8 @@ public class NestedLoopBuildOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager;
+        @Nullable
+        private final NestedLoopRuntimeConstraintSource runtimeConstraintSource;
 
         private boolean closed;
 
@@ -45,6 +52,19 @@ public class NestedLoopBuildOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.nestedLoopJoinBridgeManager = requireNonNull(nestedLoopJoinBridgeManager, "nestedLoopJoinBridgeManager is null");
+            this.runtimeConstraintSource = null;
+        }
+
+        public NestedLoopBuildOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager,
+                NestedLoopRuntimeConstraintSource runtimeConstraintSource)
+        {
+            this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.nestedLoopJoinBridgeManager = requireNonNull(nestedLoopJoinBridgeManager, "nestedLoopJoinBridgeManager is null");
+            this.runtimeConstraintSource = requireNonNull(runtimeConstraintSource, "runtimeConstraintSource is null");
         }
 
         @Override
@@ -52,7 +72,10 @@ public class NestedLoopBuildOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopBuildOperator.class.getSimpleName());
-            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinBridgeManager.getJoinBridge());
+            return new NestedLoopBuildOperator(
+                    operatorContext,
+                    nestedLoopJoinBridgeManager.getJoinBridge(),
+                    runtimeConstraintSource == null ? null : runtimeConstraintSource.createCollector(driverContext, operatorContext));
         }
 
         @Override
@@ -62,12 +85,36 @@ public class NestedLoopBuildOperator
                 return;
             }
             closed = true;
+            if (runtimeConstraintSource != null) {
+                runtimeConstraintSource.noMoreOperators();
+            }
+        }
+
+        @Override
+        public void registerRuntimeConstraintInput(Consumer<List<RuntimeConstraintRequest>> requests, RuntimeConstraintWiringContext context)
+        {
+            if (runtimeConstraintSource != null) {
+                runtimeConstraintSource.registerBuildInput(requests, context);
+            }
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (runtimeConstraintSource == null || !request.isCollection() || !runtimeConstraintSource.isBuildChannel(request.channel())) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request);
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new NestedLoopBuildOperatorFactory(operatorId, planNodeId, nestedLoopJoinBridgeManager);
+            return new NestedLoopBuildOperatorFactory(operatorId, planNodeId, nestedLoopJoinBridgeManager, runtimeConstraintSource);
         }
     }
 
@@ -75,18 +122,20 @@ public class NestedLoopBuildOperator
     private final NestedLoopJoinBridge nestedLoopJoinBridge;
     private final NestedLoopJoinPagesBuilder nestedLoopJoinPagesBuilder;
     private final LocalMemoryContext localUserMemoryContext;
+    private final Operator runtimeConstraintCollector;
 
     // Initially, probeDoneWithPages is not present.
     // Once finish is called, probeDoneWithPages will be set to a future that completes when the pages are no longer needed by the probe side.
     // When the pages are no longer needed, the isFinished method on this operator will return true.
     private Optional<ListenableFuture<Void>> probeDoneWithPages = Optional.empty();
 
-    public NestedLoopBuildOperator(OperatorContext operatorContext, NestedLoopJoinBridge nestedLoopJoinBridge)
+    public NestedLoopBuildOperator(OperatorContext operatorContext, NestedLoopJoinBridge nestedLoopJoinBridge, Operator runtimeConstraintCollector)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.nestedLoopJoinBridge = requireNonNull(nestedLoopJoinBridge, "nestedLoopJoinBridge is null");
         this.nestedLoopJoinPagesBuilder = new NestedLoopJoinPagesBuilder(operatorContext);
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.runtimeConstraintCollector = runtimeConstraintCollector;
     }
 
     @Override
@@ -100,6 +149,9 @@ public class NestedLoopBuildOperator
     {
         if (probeDoneWithPages.isPresent()) {
             return;
+        }
+        if (runtimeConstraintCollector != null) {
+            runtimeConstraintCollector.finish();
         }
 
         // nestedLoopJoinPagesBuilder and the built NestedLoopJoinPages will mostly share the same objects.
@@ -135,6 +187,11 @@ public class NestedLoopBuildOperator
             return;
         }
 
+        if (runtimeConstraintCollector != null) {
+            runtimeConstraintCollector.addInput(page);
+            runtimeConstraintCollector.getOutput();
+        }
+
         nestedLoopJoinPagesBuilder.addPage(page);
         if (!localUserMemoryContext.trySetBytes(nestedLoopJoinPagesBuilder.getEstimatedSize().toBytes())) {
             nestedLoopJoinPagesBuilder.compact();
@@ -147,5 +204,14 @@ public class NestedLoopBuildOperator
     public Page getOutput()
     {
         return null;
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        if (runtimeConstraintCollector != null) {
+            runtimeConstraintCollector.close();
+        }
     }
 }

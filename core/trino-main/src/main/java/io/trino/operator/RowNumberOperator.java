@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -98,6 +99,19 @@ public class RowNumberOperator
         public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < outputChannels.size() && partitionChannels.contains(outputChannels.get(channel)))) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request.mapChannels(outputChannels::get));
         }
 
         @Override

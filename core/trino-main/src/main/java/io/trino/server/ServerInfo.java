@@ -31,8 +31,23 @@ public record ServerInfo(
         boolean coordinator,
         Optional<String> coordinatorId,
         boolean starting,
-        Duration uptime)
+        Duration uptime,
+        int runtimeConstraintVersion)
 {
+    public ServerInfo(
+            String nodeId,
+            Optional<String> instanceId,
+            NodeState state,
+            NodeVersion nodeVersion,
+            String environment,
+            boolean coordinator,
+            Optional<String> coordinatorId,
+            boolean starting,
+            Duration uptime)
+    {
+        this(nodeId, instanceId, state, nodeVersion, environment, coordinator, coordinatorId, starting, uptime, 0);
+    }
+
     public ServerInfo
     {
         requireNonNull(nodeId, "nodeId is null");
@@ -42,5 +57,8 @@ public record ServerInfo(
         requireNonNull(environment, "environment is null");
         requireNonNull(coordinatorId, "coordinatorId is null");
         requireNonNull(uptime, "uptime is null");
+        if (runtimeConstraintVersion < 0) {
+            throw new IllegalArgumentException("runtimeConstraintVersion is negative");
+        }
     }
 }

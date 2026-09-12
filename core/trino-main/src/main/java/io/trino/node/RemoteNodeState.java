@@ -165,7 +165,8 @@ public class RemoteNodeState
                                     instanceId,
                                     serverUri,
                                     serverInfo.nodeVersion(),
-                                    serverInfo.coordinator()));
+                                    serverInfo.coordinator(),
+                                    serverInfo.runtimeConstraintVersion()));
                         }
 
                         RemoteNodeState.this.nodeState.set(nodeState);
