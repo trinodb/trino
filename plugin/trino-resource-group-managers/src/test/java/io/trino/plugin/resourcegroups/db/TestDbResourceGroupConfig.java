@@ -16,6 +16,7 @@ package io.trino.plugin.resourcegroups.db;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -70,7 +71,17 @@ public class TestDbResourceGroupConfig
     }
 
     @Test
-    public void testValidation()
+    public void testConfigDbUrlRequired()
+    {
+        assertFailsValidation(
+                new DbResourceGroupConfig(),
+                "configDbUrl",
+                "must not be null",
+                NotNull.class);
+    }
+
+    @Test
+    public void testRefreshIntervalMustNotExceedMaxRefreshInterval()
     {
         assertFailsValidation(
                 new DbResourceGroupConfig().setRefreshInterval(new Duration(2, HOURS)),
