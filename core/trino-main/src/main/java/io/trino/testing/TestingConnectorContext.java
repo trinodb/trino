@@ -32,6 +32,7 @@ import io.trino.spi.cache.ConnectorCacheFactory;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.security.credential.CredentialResolver;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.util.EmbedVersion;
@@ -123,5 +124,11 @@ public final class TestingConnectorContext
     public ConnectorCacheFactory getCacheFactory()
     {
         return new TestingConnectorCacheFactory();
+    }
+
+    @Override
+    public CredentialResolver getCredentialResolver()
+    {
+        return new TestingCredentialResolver();
     }
 }

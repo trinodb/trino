@@ -26,6 +26,7 @@ import io.trino.spi.security.GroupProviderFactory;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.security.credential.CredentialProviderFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.spool.SpoolingManagerFactory;
 import io.trino.spi.type.ParametricType;
@@ -124,6 +125,11 @@ public interface Plugin
     }
 
     default Iterable<BlobCacheManagerFactory> getBlobCacheManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<CredentialProviderFactory> getCredentialProviderFactories()
     {
         return emptyList();
     }
