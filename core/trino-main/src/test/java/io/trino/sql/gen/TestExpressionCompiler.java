@@ -18,10 +18,10 @@ import com.google.common.collect.ObjectArrays;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.operator.scalar.BitwiseFunctions;
-import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonPath;
 import io.trino.operator.scalar.MathFunctions;
+import io.trino.operator.scalar.SafeReRegexpFunctions;
 import io.trino.operator.scalar.StringFunctions;
 import io.trino.operator.scalar.timestamp.ExtractDay;
 import io.trino.operator.scalar.timestamp.ExtractDayOfWeek;
@@ -62,7 +62,6 @@ import java.util.function.BiPredicate;
 import java.util.stream.LongStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -80,6 +79,7 @@ import static io.trino.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.trino.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.SafeReRegexp.safeReRegexp;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.Math.cos;
@@ -2463,15 +2463,15 @@ public class TestExpressionCompiler
             for (String pattern : stringRights) {
                 assertThat(assertions.function("regexp_like", toLiteral(value), toLiteral(pattern)))
                         .hasType(BOOLEAN)
-                        .isEqualTo(value == null || pattern == null ? null : JoniRegexpFunctions.regexpLike(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
+                        .isEqualTo(value == null || pattern == null ? null : SafeReRegexpFunctions.regexpLike(utf8Slice(value), safeReRegexp(utf8Slice(pattern))));
 
                 assertThat(assertions.function("regexp_replace", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? VARCHAR : createVarcharType(value.length()))
-                        .isEqualTo(value == null || pattern == null ? null : JoniRegexpFunctions.regexpReplace(utf8Slice(value), joniRegexp(utf8Slice(pattern))).toStringUtf8());
+                        .isEqualTo(value == null || pattern == null ? null : SafeReRegexpFunctions.regexpReplace(utf8Slice(value), safeReRegexp(utf8Slice(pattern))).toStringUtf8());
 
                 assertThat(assertions.function("regexp_extract", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? VARCHAR : createVarcharType(value.length()))
-                        .isEqualTo(value == null || pattern == null ? null : toString(JoniRegexpFunctions.regexpExtract(utf8Slice(value), joniRegexp(utf8Slice(pattern)))));
+                        .isEqualTo(value == null || pattern == null ? null : toString(SafeReRegexpFunctions.regexpExtract(utf8Slice(value), safeReRegexp(utf8Slice(pattern)))));
             }
         }
     }

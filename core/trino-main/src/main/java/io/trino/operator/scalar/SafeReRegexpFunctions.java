@@ -14,9 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.trino.re2j.Matcher;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Constraint;
@@ -26,20 +24,20 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
-import io.trino.type.Re2JRegexp;
-import io.trino.type.Re2JRegexpType;
+import io.trino.type.SafeReRegexp;
+import io.trino.type.SafeReRegexpType;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
-public final class Re2JRegexpFunctions
+public final class SafeReRegexpFunctions
 {
-    private Re2JRegexpFunctions() {}
+    private SafeReRegexpFunctions() {}
 
     @Description("Returns substrings matching a regular expression")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean regexpLike(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static boolean regexpLike(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern)
     {
         return pattern.matches(source);
     }
@@ -48,7 +46,7 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern)
     {
         return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
@@ -63,7 +61,7 @@ public final class Re2JRegexpFunctions
     // to get the formula: x + max(x * y / 2, y) * (x + 1)
     @Constraint(variable = "z", expression = "min(2147483647, x + max(x * y / 2, y) * (x + 1))")
     @SqlType("varchar(z)")
-    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType("varchar(y)") Slice replacement)
+    public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern, @SqlType("varchar(y)") Slice replacement)
     {
         return pattern.replace(source, replacement);
     }
@@ -72,7 +70,7 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("array(varchar(x))")
-    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern)
     {
         return regexpExtractAll(source, pattern, 0);
     }
@@ -81,7 +79,7 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("array(varchar(x))")
-    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         return pattern.extractAll(source, groupIndex);
     }
@@ -91,7 +89,7 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern)
     {
         return regexpExtract(source, pattern, 0);
     }
@@ -101,7 +99,7 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         return pattern.extract(source, groupIndex);
     }
@@ -110,7 +108,7 @@ public final class Re2JRegexpFunctions
     @Description("Returns array of strings split by pattern")
     @LiteralParameters("x")
     @SqlType("array(varchar(x))")
-    public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern)
     {
         return pattern.split(source);
     }
@@ -119,7 +117,7 @@ public final class Re2JRegexpFunctions
     @Description("Returns the index of the matched substring.")
     @LiteralParameters("x")
     @SqlType(StandardTypes.INTEGER)
-    public static long regexpPosition(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static long regexpPosition(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern)
     {
         return regexpPosition(source, pattern, 1);
     }
@@ -130,7 +128,7 @@ public final class Re2JRegexpFunctions
     @SqlType(StandardTypes.INTEGER)
     public static long regexpPosition(
             @SqlType("varchar(x)") Slice source,
-            @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern,
+            @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern,
             @SqlType(StandardTypes.INTEGER) long start)
     {
         return regexpPosition(source, pattern, start, 1);
@@ -142,7 +140,7 @@ public final class Re2JRegexpFunctions
     @SqlType(StandardTypes.INTEGER)
     public static long regexpPosition(
             @SqlType("varchar(x)") Slice source,
-            @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern,
+            @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern,
             @SqlType(StandardTypes.INTEGER) long start,
             @SqlType(StandardTypes.INTEGER) long occurrence)
     {
@@ -154,38 +152,15 @@ public final class Re2JRegexpFunctions
         if (occurrence < 1) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "occurrence cannot be smaller than 1");
         }
-        // returns -1 if start is greater than the length of source
-        if (start > SliceUtf8.countCodePoints(source)) {
-            return -1;
-        }
-
-        int startBytePosition = SliceUtf8.offsetOfCodePoint(source, (int) start - 1);
-        int length = source.length() - startBytePosition;
-        Matcher matcher = pattern.matcher(source.slice(startBytePosition, length));
-        long count = 0;
-        while (matcher.find()) {
-            if (++count == occurrence) {
-                // Plus 1 because position returned start from 1
-                return SliceUtf8.countCodePoints(source, 0, startBytePosition + matcher.start()) + 1;
-            }
-        }
-
-        return -1;
+        return pattern.position(source, start, occurrence);
     }
 
     @ScalarFunction
     @Description("Returns the number of times that a pattern occurs in a string")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long regexpCount(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    public static long regexpCount(@SqlType("varchar(x)") Slice source, @SqlType(SafeReRegexpType.NAME) SafeReRegexp pattern)
     {
-        Matcher matcher = pattern.matcher(source);
-
-        int count = 0;
-        while (matcher.find()) {
-            count++;
-        }
-
-        return count;
+        return pattern.count(source);
     }
 }

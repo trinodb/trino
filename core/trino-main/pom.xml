@@ -126,11 +126,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>joni</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -271,11 +266,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-re2j</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
         </dependency>
 
@@ -363,6 +353,11 @@
         <dependency>
             <groupId>org.roaringbitmap</groupId>
             <artifactId>RoaringBitmap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.safere</groupId>
+            <artifactId>safere</artifactId>
         </dependency>
 
         <dependency>

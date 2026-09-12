@@ -54,9 +54,8 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.CharVarcharCoercion.LEGACY;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.CodePointsType.CODE_POINTS;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
-import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
+import static io.trino.type.SafeReRegexpType.SAFE_RE_REGEXP;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCoercion
@@ -363,7 +362,7 @@ public final class TypeCoercion
                      StandardTypes.JSON,
                      StandardTypes.INTERVAL_YEAR_TO_MONTH,
                      StandardTypes.INTERVAL_DAY_TO_SECOND,
-                     JoniRegexpType.NAME,
+                     SafeReRegexpType.NAME,
                      JsonPathType.NAME,
                      ColorType.NAME,
                      CodePointsType.NAME -> Optional.of(lookupType.apply(new TypeDescriptor(resultTypeBase)));
@@ -440,8 +439,7 @@ public final class TypeCoercion
                     }
                     yield Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getBoundedLength())));
                 }
-                case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
-                case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
+                case SafeReRegexpType.NAME -> Optional.of(SAFE_RE_REGEXP);
                 case JsonPathType.NAME -> Optional.of(JSON_PATH);
                 case CodePointsType.NAME -> Optional.of(CODE_POINTS);
                 default -> Optional.empty();
@@ -453,8 +451,7 @@ public final class TypeCoercion
                     }
                     yield Optional.of(createVarcharType(((CharType) sourceType).getLength()));
                 }
-                case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
-                case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
+                case SafeReRegexpType.NAME -> Optional.of(SAFE_RE_REGEXP);
                 case JsonPathType.NAME -> Optional.of(JSON_PATH);
                 case CodePointsType.NAME -> Optional.of(CODE_POINTS);
                 default -> Optional.empty();

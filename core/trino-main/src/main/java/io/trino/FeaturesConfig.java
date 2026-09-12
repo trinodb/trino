@@ -23,7 +23,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.trino.execution.buffer.CompressionCodec;
 import io.trino.plugin.base.configuration.ThreadCountParser;
-import io.trino.sql.analyzer.RegexLibrary;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -38,7 +37,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
-import static io.trino.sql.analyzer.RegexLibrary.JONI;
 
 @DefunctConfig({
         "analyzer.experimental-syntax-enabled",
@@ -55,6 +53,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.legacy-unnest-array-rows",
         "deprecated.legacy-update-delete-implementation",
         "deprecated.omit-datetime-type-precision",
+        "deprecated.regex-library",
         "experimental-syntax-enabled",
         "experimental.aggregation-operator-unspill-memory-limit",
         "experimental.filter-and-project-min-output-page-row-count",
@@ -77,6 +76,9 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "optimizer.iterative-rule-based-column-pruning",
         "optimizer.processing-optimization",
         "parse-decimal-literals-as-double",
+        "re2j.dfa-retries",
+        "re2j.dfa-states-limit",
+        "regex-library",
         "resource-group-manager",
         "spill-order-by",
         "spill-window-operator",
@@ -104,9 +106,6 @@ public class FeaturesConfig
     private boolean pagesIndexEagerCompactionEnabled;
     private int maxRecursionDepth = 10;
 
-    private int re2JDfaStatesLimit = Integer.MAX_VALUE;
-    private int re2JDfaRetries = 5;
-    private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
@@ -192,47 +191,6 @@ public class FeaturesConfig
     public FeaturesConfig setMaxMemoryPerPartitionWriter(DataSize maxMemoryPerPartitionWriter)
     {
         this.maxMemoryPerPartitionWriter = maxMemoryPerPartitionWriter;
-        return this;
-    }
-
-    @Min(2)
-    public int getRe2JDfaStatesLimit()
-    {
-        return re2JDfaStatesLimit;
-    }
-
-    @Config("re2j.dfa-states-limit")
-    public FeaturesConfig setRe2JDfaStatesLimit(int re2JDfaStatesLimit)
-    {
-        this.re2JDfaStatesLimit = re2JDfaStatesLimit;
-        return this;
-    }
-
-    @Min(0)
-    public int getRe2JDfaRetries()
-    {
-        return re2JDfaRetries;
-    }
-
-    @Config("re2j.dfa-retries")
-    public FeaturesConfig setRe2JDfaRetries(int re2JDfaRetries)
-    {
-        this.re2JDfaRetries = re2JDfaRetries;
-        return this;
-    }
-
-    @Deprecated
-    public RegexLibrary getRegexLibrary()
-    {
-        return regexLibrary;
-    }
-
-    @Deprecated
-    @Config("deprecated.regex-library")
-    @LegacyConfig("regex-library")
-    public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
-    {
-        this.regexLibrary = regexLibrary;
         return this;
     }
 

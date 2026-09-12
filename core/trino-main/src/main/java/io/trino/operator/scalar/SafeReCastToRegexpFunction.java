@@ -25,7 +25,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.type.Re2JRegexp;
+import io.trino.type.SafeReRegexp;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Set;
@@ -36,39 +36,35 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
-import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
+import static io.trino.type.SafeReRegexpType.SAFE_RE_REGEXP_SIGNATURE;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
 
-public class Re2JCastToRegexpFunction
+public class SafeReCastToRegexpFunction
         extends SqlScalarFunction
 {
-    private static final MethodHandle METHOD_HANDLE = methodHandle(Re2JCastToRegexpFunction.class, "castToRegexp", int.class, int.class, boolean.class, long.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(SafeReCastToRegexpFunction.class, "castToRegexp", boolean.class, long.class, Slice.class);
 
-    private final int dfaStatesLimit;
-    private final int dfaRetries;
     private final boolean padSpaces;
 
-    public static SqlScalarFunction castVarcharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
+    public static SqlScalarFunction castVarcharToSafeReRegexp()
     {
-        return new Re2JCastToRegexpFunction("varchar(x)", dfaStatesLimit, dfaRetries, false);
+        return new SafeReCastToRegexpFunction("varchar(x)", false);
     }
 
-    public static SqlScalarFunction castCharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
+    public static SqlScalarFunction castCharToSafeReRegexp()
     {
-        return new Re2JCastToRegexpFunction("char(x)", dfaStatesLimit, dfaRetries, true);
+        return new SafeReCastToRegexpFunction("char(x)", true);
     }
 
-    private Re2JCastToRegexpFunction(String sourceType, int dfaStatesLimit, int dfaRetries, boolean padSpaces)
+    private SafeReCastToRegexpFunction(String sourceType, boolean padSpaces)
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .returnType(RE2J_REGEXP_SIGNATURE)
+                        .returnType(SAFE_RE_REGEXP_SIGNATURE)
                         .argumentType(parseTypeTemplate(sourceType, Set.of(), Set.of("x")))
                         .build())
                 .build());
-        this.dfaStatesLimit = dfaStatesLimit;
-        this.dfaRetries = dfaRetries;
         this.padSpaces = padSpaces;
     }
 
@@ -87,17 +83,17 @@ public class Re2JCastToRegexpFunction
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
-                insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, length));
+                insertArguments(METHOD_HANDLE, 0, padSpaces, length));
     }
 
     @UsedByGeneratedCode
-    public static Re2JRegexp castToRegexp(int dfaStatesLimit, int dfaRetries, boolean padSpaces, long typeLength, Slice pattern)
+    public static SafeReRegexp castToRegexp(boolean padSpaces, long typeLength, Slice pattern)
     {
         try {
             if (padSpaces) {
                 pattern = padSpaces(pattern, (int) typeLength);
             }
-            return new Re2JRegexp(dfaStatesLimit, dfaRetries, pattern);
+            return new SafeReRegexp(pattern);
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
