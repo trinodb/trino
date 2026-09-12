@@ -1125,7 +1125,16 @@ class QueryPlanner
         Symbol uniqueIdSymbol = symbolAllocator.newSymbol("unique_id", BIGINT);
         Expression uniqueIdExpression = new Coalesce(targetUniqueIdSymbol.toSymbolReference(), sourceUniqueIdSymbol.toSymbolReference());
 
+        // AssignUniqueId values are unique within one plan node, but target and source use separate nodes.
+        // Keep their id namespaces separate when both nodes are executed in the same stage.
+        Symbol uniqueIdFromTargetSymbol = symbolAllocator.newSymbol("unique_id_from_target", BOOLEAN);
+        Expression uniqueIdFromTargetExpression = not(
+                metadata,
+                getCharVarcharCoercion(session),
+                new IsNull(targetUniqueIdSymbol.toSymbolReference()));
+
         projectionAssignmentsBuilder.put(uniqueIdSymbol, uniqueIdExpression);
+        projectionAssignmentsBuilder.put(uniqueIdFromTargetSymbol, uniqueIdFromTargetExpression);
         projectionAssignmentsBuilder.putIdentity(rowIdSymbol);
         projectionAssignmentsBuilder.put(mergeRowSymbol, caseExpression);
 
@@ -1143,12 +1152,16 @@ class QueryPlanner
                         .put(caseNumberSymbol, new FieldReference(mergeRowSymbol.toSymbolReference(), mergeAnalysis.getMergeRowType().getFields().size() - 1))
                         .build());
 
-        // Mark distinct combinations of the unique_id value and the case_number
+        // Mark distinct combinations of the unique_id value, its origin, and the case_number
         Symbol isDistinctSymbol = symbolAllocator.newSymbol("is_distinct", BOOLEAN);
-        MarkDistinctNode markDistinctNode = new MarkDistinctNode(idAllocator.getNextId(), project, isDistinctSymbol, ImmutableList.of(uniqueIdSymbol, caseNumberSymbol));
+        MarkDistinctNode markDistinctNode = new MarkDistinctNode(
+                idAllocator.getNextId(),
+                project,
+                isDistinctSymbol,
+                ImmutableList.of(uniqueIdSymbol, uniqueIdFromTargetSymbol, caseNumberSymbol));
 
         // The unique_id which originates from either the source or target table will not be null
-        // Raise an error if the unique_id/case_number combination was not distinct
+        // Raise an error if the unique_id/origin/case_number combination was not distinct
         Expression filter = ifExpression(
                 not(metadata, getCharVarcharCoercion(session), isDistinctSymbol.toSymbolReference()),
                 new Cast(
