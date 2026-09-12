@@ -202,7 +202,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -2240,7 +2239,7 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Dropping the last non-partition column is unsupported");
         }
         Map<String, String> lowerCaseToExactColumnNames = getExactColumnNames(metadataEntry).stream()
-                .collect(toImmutableMap(name -> name.toLowerCase(ENGLISH), name -> name));
+                .collect(toImmutableMap(name -> name.toLowerCase(ENGLISH), identity()));
         Map<String, String> physicalColumnNameMapping = columns.stream()
                 .collect(toImmutableMap(DeltaLakeColumnMetadata::name, DeltaLakeColumnMetadata::physicalName));
 
@@ -2411,18 +2410,12 @@ public class DeltaLakeMetadata
         Map<String, String> toOriginalColumnNames = originalColumnNames.stream()
                 .collect(toImmutableMap(name -> name.toLowerCase(ENGLISH), identity()));
         for (DataFileInfo info : dataFileInfos) {
-            // using Hashmap because partition values can be null
-            Map<String, String> partitionValues = new HashMap<>();
-            for (int i = 0; i < partitionColumnNames.size(); i++) {
-                partitionValues.put(partitionColumnNames.get(i), info.partitionValues().get(i));
-            }
+            Map<String, String> partitionValues = createPartitionValuesMap(partitionColumnNames, info.partitionValues());
 
             Optional<Map<String, Object>> minStats = toOriginalColumnNames(info.statistics().getMinValues(), toOriginalColumnNames);
             Optional<Map<String, Object>> maxStats = toOriginalColumnNames(info.statistics().getMaxValues(), toOriginalColumnNames);
             Optional<Map<String, Object>> nullStats = toOriginalColumnNames(info.statistics().getNullCount(), toOriginalColumnNames);
             DeltaLakeJsonFileStatistics statisticsWithExactNames = new DeltaLakeJsonFileStatistics(info.statistics().getNumRecords(), minStats, maxStats, nullStats);
-
-            partitionValues = unmodifiableMap(partitionValues);
 
             String path = cloneSourceLocation.isPresent() && info.path().startsWith(cloneSourceLocation.get())
                     ? info.path()
@@ -3025,12 +3018,7 @@ public class DeltaLakeMetadata
             List<String> partitionColumnNames)
     {
         for (DataFileInfo info : cdcFilesInfos) {
-            // using Hashmap because partition values can be null
-            Map<String, String> partitionValues = new HashMap<>();
-            for (int i = 0; i < partitionColumnNames.size(); i++) {
-                partitionValues.put(partitionColumnNames.get(i), info.partitionValues().get(i));
-            }
-            partitionValues = unmodifiableMap(partitionValues);
+            Map<String, String> partitionValues = createPartitionValuesMap(partitionColumnNames, info.partitionValues());
 
             transactionLogWriter.appendCdcEntry(
                     new CdcEntry(
@@ -4059,7 +4047,7 @@ public class DeltaLakeMetadata
         }
 
         List<DeltaLakeColumnMetadata> columnsMetadata = extractSchema(metadata, handle.getProtocolEntry(), typeManager);
-        Set<String> allColumnNames = columnsMetadata.stream().map(columnMetadata -> columnMetadata.name().toLowerCase(ENGLISH)).collect(Collectors.toSet());
+        Set<String> allColumnNames = columnsMetadata.stream().map(columnMetadata -> columnMetadata.name().toLowerCase(ENGLISH)).collect(toImmutableSet());
         Optional<Set<String>> analyzeColumnNames = getColumnNames(analyzeProperties);
         if (analyzeColumnNames.isPresent()) {
             Set<String> columnNames = analyzeColumnNames.get();
