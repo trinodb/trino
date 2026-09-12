@@ -351,13 +351,7 @@ public class DeltaLakeMergeSink
     {
         List<Slice> fragments = new ArrayList<>();
 
-        insertPageSink.finish().join().stream()
-                .map(Slice::getInput)
-                .map(dataFileInfoCodec::fromJson)
-                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
-                .map(mergeResultJsonCodec::toJsonBytes)
-                .map(Slices::wrappedBuffer)
-                .forEach(fragments::add);
+        fragments.addAll(newFileFragments(insertPageSink.finish().join()));
         writtenBytes = insertPageSink.getCompletedBytes();
 
         fileDeletions.forEach((path, deletion) -> {
@@ -370,17 +364,22 @@ public class DeltaLakeMergeSink
         });
 
         if (cdfEnabled && cdfPageSink != null) { // cdf may be enabled but there may be no update/deletion so sink was not instantiated
-            MoreFutures.getDone(cdfPageSink.finish()).stream()
-                    .map(Slice::getInput)
-                    .map(dataFileInfoCodec::fromJson)
-                    .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
-                    .map(mergeResultJsonCodec::toJsonBytes)
-                    .map(Slices::wrappedBuffer)
-                    .forEach(fragments::add);
+            fragments.addAll(newFileFragments(MoreFutures.getDone(cdfPageSink.finish())));
             writtenBytes += cdfPageSink.getCompletedBytes();
         }
 
         return completedFuture(fragments);
+    }
+
+    private List<Slice> newFileFragments(Collection<Slice> dataFileInfos)
+    {
+        return dataFileInfos.stream()
+                .map(Slice::getInput)
+                .map(dataFileInfoCodec::fromJson)
+                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
+                .map(mergeResultJsonCodec::toJsonBytes)
+                .map(Slices::wrappedBuffer)
+                .collect(toImmutableList());
     }
 
     private Slice writeMergeResult(Slice path, FileDeletion deletion)
