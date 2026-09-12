@@ -52,24 +52,34 @@ export const WorkerStatus = () => {
     const { nodeId } = useParams()
     const theme = useTheme()
     const initialFilledHistory = Array(MAX_HISTORY).fill(0)
-    const [workerStatus, setWorkerStatus] = useState<IWorkerStatus>({
+    const initialWorkerStatus: IWorkerStatus = {
         info: null,
         processCpuLoad: initialFilledHistory,
         systemCpuLoad: initialFilledHistory,
         heapPercentUsed: initialFilledHistory,
         nonHeapUsed: initialFilledHistory,
         lastRefresh: null,
-    })
+    }
+    const [workerStatus, setWorkerStatus] = useState<IWorkerStatus>(initialWorkerStatus)
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string | null>(null)
     useEffect(() => {
+        setWorkerStatus(initialWorkerStatus)
+        setLoading(true)
+        let cancelled = false
+        let timeoutId: number
         const runLoop = () => {
-            getWorkerStatus()
-            setTimeout(runLoop, 1000)
+            getWorkerStatus(() => cancelled)
+            timeoutId = setTimeout(runLoop, 1000)
         }
         runLoop()
+
+        return () => {
+            cancelled = true
+            clearTimeout(timeoutId)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [nodeId])
 
     useEffect(() => {
         if (error) {
@@ -77,10 +87,13 @@ export const WorkerStatus = () => {
         }
     }, [error, showSnackbar])
 
-    const getWorkerStatus = () => {
+    const getWorkerStatus = (isCancelled: () => boolean) => {
         setError(null)
         if (nodeId) {
             workerStatusApi(nodeId).then((apiResponse: ApiResponse<WorkerStatusInfo>) => {
+                if (isCancelled()) {
+                    return
+                }
                 setLoading(false)
                 if (apiResponse.status === 200 && apiResponse.data) {
                     const newWorkerStatusInfo: WorkerStatusInfo = apiResponse.data
@@ -407,7 +420,7 @@ export const WorkerStatus = () => {
                         </Grid>
                         <Grid size={{ sm: 12 }}>{renderPoolQueries(workerStatus.info.memoryInfo.pool)}</Grid>
                     </Grid>
-                    {nodeId && <WorkerThreadSnapshot nodeId={nodeId} />}
+                    {nodeId && <WorkerThreadSnapshot key={nodeId} nodeId={nodeId} />}
                 </>
             )}
         </>
