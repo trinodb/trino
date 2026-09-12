@@ -990,9 +990,11 @@ public class IcebergMetadata
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
+        // Predicates on hidden columns are enforced by the split source and cannot be applied to a scan
+        boolean hasHiddenColumnPredicate = !enforcedPredicate.filter((column, _) -> isMetadataColumnId(column.getId())).isAll();
 
         DiscretePredicates discretePredicates = null;
-        if (!partitionSourceIds.isEmpty()) {
+        if (!partitionSourceIds.isEmpty() && !hasHiddenColumnPredicate) {
             // Extract identity partition columns
             Map<Integer, IcebergColumnHandle> columns = getProjectedColumns(icebergTable.schema(), typeManager, partitionSourceIds).stream()
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
