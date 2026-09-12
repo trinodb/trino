@@ -2138,6 +2138,7 @@ public abstract class BaseIcebergConnectorTest
             assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$partition\"", "line 1:1: Cannot drop hidden column");
             assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$path\"", "line 1:1: Cannot drop hidden column");
             assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$file_modified_time\"", "line 1:1: Cannot drop hidden column");
+            assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$spec_id\"", "line 1:1: Cannot drop hidden column");
         }
     }
 
@@ -7055,6 +7056,142 @@ public abstract class BaseIcebergConnectorTest
             assertQuerySucceeds("SHOW STATS FOR (SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))");
             // EXPLAIN triggers stats calculation and also rendering
             assertQuerySucceeds("EXPLAIN SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+        }
+    }
+
+    @Test
+    public void testSpecIdHiddenColumn()
+    {
+        try (TestTable table = newTrinoTable("test_spec_id_", "(col integer, part integer)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10)", 1);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['part']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
+
+            // Describe output should not have the $spec_id hidden column
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('col', 'integer', '', ''), ('part', 'integer', '', '')");
+
+            assertThat(query("SELECT col, \"$spec_id\" FROM " + table.getName()))
+                    .matches("VALUES (1, 0), (2, 1)");
+
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" = 0"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" IN (0, 1)"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" <> 0"))
+                    .matches("VALUES 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" IS NOT NULL"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" IS NULL"))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+
+            // A $spec_id matching no specification prunes every file
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" = 99"))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" = 99 AND part = 10"))
+                    .returnsEmptyResult();
+
+            assertQuerySucceeds("SHOW STATS FOR (SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" = 0)");
+            // EXPLAIN triggers stats calculation and also rendering
+            assertQuerySucceeds("EXPLAIN SELECT col FROM " + table.getName() + " WHERE \"$spec_id\" = 0");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithSpecIdColumn()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_spec_id_", "(id integer, part integer)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 10)", 1);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['part']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 20)", 1);
+
+            assertThat(getActiveFiles(table.getName())).hasSize(3);
+            assertThat(query("SELECT DISTINCT \"$spec_id\" FROM " + table.getName())).matches("VALUES 0, 1");
+
+            // Optimizing the current specification leaves files written with the previous one untouched
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 1");
+            assertThat(query("SELECT DISTINCT \"$spec_id\" FROM " + table.getName())).matches("VALUES 0, 1");
+
+            // Optimizing the previous specification rewrites those files into the current partitioning
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 0");
+            assertThat(query("SELECT DISTINCT \"$spec_id\" FROM " + table.getName())).matches("VALUES 1");
+
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES (1, 10), (2, 10), (3, 20)");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithSpecIdColumnAndPartitionPredicate()
+    {
+        // spec 0 partitions by (foo, bar), spec 1 partitions by (baz)
+        try (TestTable table = newTrinoTable("test_optimize_spec_id_partition_", "(foo varchar, bar integer, baz integer) WITH (partitioning = ARRAY['foo', 'bar'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, 100)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, 200)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('b', 2, 300)", 1);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['baz']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('c', 3, 400)", 1);
+
+            // foo is not a partition column in spec 1, but the $spec_id predicate restricts the scan to spec 0 where it is
+            assertThat(query("SELECT baz FROM " + table.getName() + " WHERE \"$spec_id\" = 0 AND foo = 'a'"))
+                    .matches("VALUES 100, 200")
+                    .isFullyPushedDown();
+
+            // Spanning both specs leaves the filter to the engine, because spec 1 does not partition by foo
+            assertThat(query("SELECT baz FROM " + table.getName() + " WHERE \"$spec_id\" IN (0, 1) AND foo = 'a'"))
+                    .matches("VALUES 100, 200")
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(getActiveFiles(table.getName())).hasSize(4);
+
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 0 AND foo = 'a'");
+
+            // Only the targeted files are rewritten, into the current partitioning
+            assertThat(query("SELECT foo, \"$spec_id\" FROM " + table.getName()))
+                    .matches("VALUES (VARCHAR 'a', 1), (VARCHAR 'a', 1), (VARCHAR 'b', 0), (VARCHAR 'c', 1)");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (VARCHAR 'a', 1, 100), (VARCHAR 'a', 1, 200), (VARCHAR 'b', 2, 300), (VARCHAR 'c', 3, 400)");
+
+            // OPTIMIZE still fails when the predicate is not enforceable in every selected spec
+            assertThatThrownBy(() -> getQueryRunner().execute("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" IN (0, 1) AND foo = 'a'"))
+                    .isInstanceOf(QueryFailedException.class)
+                    .hasMessage("Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithSpecIdColumnAndPartitionPredicateRemovesDeleteFiles()
+    {
+        // spec 0 partitions by (foo, bar), spec 1 partitions by (foo, baz)
+        try (TestTable table = newTrinoTable("test_optimize_spec_id_deletes_", "(foo varchar, bar integer, baz integer) WITH (partitioning = ARRAY['foo', 'bar'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, 10)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, 11)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('b', 2, 20)", 1);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['foo', 'baz']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('c', 3, 30)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('c', 4, 30)", 1);
+
+            // One delete file in the spec 0 partition foo = 'a' and one in the spec 0 partition foo = 'b'
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE baz = 11", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE baz = 20", 1);
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1", "VALUES 2");
+
+            // The predicate selects whole partitions of spec 0, so the delete file of the rewritten foo = 'a' partition is
+            // cleaned up while the one of the unscanned foo = 'b' partition is untouched
+            assertUpdate(
+                    withSingleWriterPerTask(getSession()),
+                    "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 0 AND foo = 'a'",
+                    "VALUES ('rewritten_data_files_count', 2), ('removed_delete_files_count', 1), ('added_data_files_count', 1)");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1", "VALUES 1");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (VARCHAR 'a', 1, 10), (VARCHAR 'c', 3, 30), (VARCHAR 'c', 4, 30)");
         }
     }
 

@@ -2,22 +2,22 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (i_item_desc, w_warehouse_name, d_week_seq_22)
+                final aggregation over (i_item_desc, w_warehouse_name, d_week_seq_28)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [i_item_desc, w_warehouse_name, d_week_seq_22])
-                            partial aggregation over (i_item_desc, w_warehouse_name, d_week_seq_22)
+                        remote exchange (REPARTITION, HASH, [i_item_desc, w_warehouse_name, d_week_seq_28])
+                            partial aggregation over (i_item_desc, w_warehouse_name, d_week_seq_28)
                                 join (LEFT, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [inv_item_sk, cs_order_number])
                                         join (LEFT, REPLICATED):
                                             join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, [inv_item_sk, d_week_seq_22])
+                                                remote exchange (REPARTITION, HASH, [inv_item_sk, d_week_seq_28])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
                                                             dynamic filter (inv_item_sk::EQUAL, inv_quantity_on_hand::LESS_THAN, inv_warehouse_sk::EQUAL, inv_date_sk::EQUAL)
                                                                 scan inventory
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (d_week_seq_22::EQUAL)
+                                                                    dynamic filter (d_week_seq_28::EQUAL)
                                                                         scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

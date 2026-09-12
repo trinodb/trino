@@ -127,6 +127,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getSpecIdDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
@@ -173,6 +174,7 @@ public class IcebergSplitSource
     private final Domain partitionDomain;
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
+    private final Domain specIdDomain;
     private final OptionalLong limit;
     private final Set<Integer> predicatedColumnIds;
     private final ListeningExecutorService executor;
@@ -254,6 +256,7 @@ public class IcebergSplitSource
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
         this.fileModifiedTimeDomain = getFileModifiedTimeDomain(tableHandle.getEnforcedPredicate());
+        this.specIdDomain = getSpecIdDomain(tableHandle.getEnforcedPredicate());
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.metricsReporter = requireNonNull(metricsReporter, "metricsReporter is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -457,6 +460,10 @@ public class IcebergSplitSource
         }
 
         PartitionSpec partitionSpec = getFileScanPartitionSpec(fileScanTask, specsById);
+        Domain fullSpecIdDomain = specIdDomain.intersect(getSpecIdDomain(dynamicFilterPredicate));
+        if (!fullSpecIdDomain.isAll() && !fullSpecIdDomain.includesNullableValue((long) partitionSpec.specId())) {
+            return true;
+        }
         if (!partitionDomain.isAll()) {
             String partition = partitionSpec.partitionToPath(fileScanTask.partition());
             if (!partitionDomain.includesNullableValue(utf8Slice(partition))) {

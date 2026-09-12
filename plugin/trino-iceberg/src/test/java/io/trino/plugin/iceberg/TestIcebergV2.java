@@ -909,6 +909,147 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testOptimizeWithSpecIdColumnRemovesDeleteFiles()
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_spec_id_deletes_", "(id INT, part INT)")) {
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (2, 10)", 2);
+            assertUpdate("ALTER TABLE " + testTable.getName() + " SET PROPERTIES partitioning = ARRAY['part']");
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (3, 20), (4, 20)", 2);
+
+            // One position delete file per data file: one for the spec 0 file, one for the spec 1 file
+            assertUpdate("DELETE FROM " + testTable.getName() + " WHERE id = 1", 1);
+            assertUpdate("DELETE FROM " + testTable.getName() + " WHERE id = 3", 1);
+            assertQuery(
+                    "SELECT content, count(*) FROM \"" + testTable.getName() + "$files\" GROUP BY content",
+                    "VALUES (0, 2), (1, 2)");
+
+            // A $spec_id filter selects whole partitions of a spec, so OPTIMIZE cleans up the delete file of the spec 1
+            // file it rewrites, while the delete file of the spec 0 file, which is not scanned, is untouched
+            Session singleWriter = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertUpdate(
+                    singleWriter,
+                    "ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 1",
+                    "VALUES ('rewritten_data_files_count', 1), ('removed_delete_files_count', 1), ('added_data_files_count', 1)");
+            assertQuery(
+                    "SELECT content, count(*) FROM \"" + testTable.getName() + "$files\" GROUP BY content",
+                    "VALUES (0, 2), (1, 1)");
+            assertQuery("SELECT id, \"$spec_id\" FROM " + testTable.getName(), "VALUES (2, 0), (4, 1)");
+
+            assertUpdate(
+                    singleWriter,
+                    "ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 0",
+                    "VALUES ('rewritten_data_files_count', 1), ('removed_delete_files_count', 1), ('added_data_files_count', 1)");
+            assertQuery(
+                    "SELECT content, count(*) FROM \"" + testTable.getName() + "$files\" GROUP BY content",
+                    "VALUES (0, 2)");
+            assertQuery("SELECT id, \"$spec_id\" FROM " + testTable.getName(), "VALUES (2, 1), (4, 1)");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithSpecIdColumnPredicateShapes()
+    {
+        // A column partitioned on by every spec needs no $spec_id at all
+        assertOptimizeWithSpecIdSucceeds("foo = 'b'");
+
+        // A column partitioned on by only one spec, targeted with $spec_id
+        assertOptimizeWithSpecIdSucceeds("\"$spec_id\" = 0 AND bar = 1");
+        assertOptimizeWithSpecIdSucceeds("\"$spec_id\" = 1 AND baz = 30");
+
+        // Disjunction within the $spec_id column itself collapses to a single domain
+        assertOptimizeWithSpecIdSucceeds("(\"$spec_id\" = 0 OR \"$spec_id\" = 1) AND foo = 'c'");
+        assertOptimizeWithSpecIdSucceeds("\"$spec_id\" IN (0, 1) AND foo = 'c'");
+
+        // Complement and range predicates on $spec_id narrow just as well
+        assertOptimizeWithSpecIdSucceeds("\"$spec_id\" <> 1 AND bar = 2");
+        assertOptimizeWithSpecIdSucceeds("\"$spec_id\" < 1 AND bar = 2");
+
+        // Disjunction within a single data column collapses too
+        assertOptimizeWithSpecIdSucceeds("\"$spec_id\" = 0 AND (bar = 1 OR bar = 2)");
+
+        // OR branches differing in one column merge exactly, to spec 0 with bar in (1, 2)
+        assertOptimizeWithSpecIdSucceeds("(\"$spec_id\" = 0 AND bar = 1) OR (\"$spec_id\" = 0 AND bar = 2)");
+    }
+
+    @Test
+    public void testOptimizeWithSpecIdColumnUnsupportedPredicateShapes()
+    {
+        try (TestTable table = createTableWithTwoPartitionSpecs()) {
+            // bar is not partitioned on by spec 1, so it cannot be enforced across both
+            assertOptimizeWithSpecIdUnsupported(table.getName(), "\"$spec_id\" IN (0, 1) AND bar = 1");
+
+            // bar and baz each appear in only one OR branch, so the merge keeps just $spec_id in (0, 1) and the OR stays an engine filter
+            assertOptimizeWithSpecIdUnsupported(table.getName(), "(\"$spec_id\" = 0 AND bar = 1) OR (\"$spec_id\" = 1 AND baz = 30)");
+
+            // Disjunction across two columns, even when both are partition columns of the targeted spec
+            assertOptimizeWithSpecIdUnsupported(table.getName(), "\"$spec_id\" = 0 AND (bar = 1 OR foo = 'a')");
+
+            // Disjunction between $spec_id and a data column
+            assertOptimizeWithSpecIdUnsupported(table.getName(), "\"$spec_id\" = 0 OR bar = 1");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithSpecIdColumnIsRepeatable()
+    {
+        try (TestTable table = createTableWithTwoPartitionSpecs()) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+
+            // Migrate every spec 0 file into the current partitioning
+            assertQuerySucceeds(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 0");
+            assertThat(query("SELECT DISTINCT \"$spec_id\" FROM " + table.getName())).matches("VALUES 1");
+
+            // Re-running the same statement is a no-op rather than a failure, even though spec 0 no longer has any files
+            assertQuerySucceeds(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 0");
+            assertQuerySucceeds(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 0 AND bar = 1");
+
+            // A $spec_id matching no specification at all selects no files, so there is nothing to enforce
+            assertQuerySucceeds(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 99");
+            assertQuerySucceeds(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 99 AND bar = 1");
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (VARCHAR 'a', 1, 10), (VARCHAR 'a', 1, 11), (VARCHAR 'b', 2, 20), (VARCHAR 'c', 3, 30), (VARCHAR 'c', 4, 30)");
+        }
+    }
+
+    private void assertOptimizeWithSpecIdSucceeds(String predicate)
+    {
+        try (TestTable table = createTableWithTwoPartitionSpecs()) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE " + predicate);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .as("OPTIMIZE WHERE %s", predicate)
+                    .matches("VALUES (VARCHAR 'a', 1, 10), (VARCHAR 'a', 1, 11), (VARCHAR 'b', 2, 20), (VARCHAR 'c', 3, 30), (VARCHAR 'c', 4, 30)");
+        }
+    }
+
+    private void assertOptimizeWithSpecIdUnsupported(String tableName, String predicate)
+    {
+        assertThatThrownBy(() -> getQueryRunner().execute("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " + predicate))
+                .as("OPTIMIZE WHERE %s", predicate)
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+    }
+
+    private TestTable createTableWithTwoPartitionSpecs()
+    {
+        TestTable table = newTrinoTable("test_optimize_spec_id_shape_", "(foo varchar, bar integer, baz integer) WITH (partitioning = ARRAY['foo', 'bar'])");
+        assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, 10)", 1);
+        assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, 11)", 1);
+        assertUpdate("INSERT INTO " + table.getName() + " VALUES ('b', 2, 20)", 1);
+        assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['foo', 'baz']");
+        assertUpdate("INSERT INTO " + table.getName() + " VALUES ('c', 3, 30)", 1);
+        assertUpdate("INSERT INTO " + table.getName() + " VALUES ('c', 4, 30)", 1);
+        return table;
+    }
+
+    @Test
     public void testOptimizeWithOuterPartitionRemovesPartitionScopedEqualityDeletes()
             throws Exception
     {
