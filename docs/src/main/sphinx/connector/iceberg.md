@@ -986,6 +986,31 @@ ALTER TABLE test_table EXECUTE optimize
 WHERE "$file_modified_time" > date_trunc('day', CURRENT_TIMESTAMP);
 ```
 
+After [changing the partitioning](iceberg-alter-table-set-properties) of a
+table, use a `"$spec_id"` filter to rewrite the files still written with an
+older partition specification into the current partitioning, one specification
+at a time. Files without delete files that are larger than `file_size_threshold`
+are not rewritten, so set a threshold larger than the largest file to migrate
+every file of the specification:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '1TB')
+WHERE "$spec_id" = 0;
+```
+
+A `"$spec_id"` filter also lets you use a column that only some of the partition
+specifications partition by, because the filter restricts the operation to the
+specifications that do:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$spec_id" = 0 AND partition_key = 1;
+```
+
+The `WHERE` clause can only use fields of the `"$partition"` metadata column,
+the `"$path"`, `"$file_modified_time"`, and `"$spec_id"` metadata columns, and
+columns that every partition specification selected for rewriting partitions by.
+
 (iceberg-optimize-manifests)=
 ##### optimize_manifests
 
@@ -1852,13 +1877,14 @@ path metadata as a hidden column in each table:
 - `$path`: Full file system path name of the file for this row
 - `$file_modified_time`: Timestamp of the last modification of the file for
   this row
+- `$spec_id`: Iceberg partition specification ID of the file for this row
 
 You can use these columns in your SQL statements like any other column. This can
 be selected directly, or used in conditional statements. For example, you can
 inspect the file path for each record:
 
 ```sql
-SELECT *, "$partition", "$path", "$file_modified_time"
+SELECT *, "$partition", "$path", "$file_modified_time", "$spec_id"
 FROM example.web.page_views;
 ```
 
@@ -1890,6 +1916,17 @@ Retrieve all records that belong to a specific file using
 SELECT *
 FROM example.web.page_views
 WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS TIMESTAMP WITH TIME ZONE)
+```
+
+Retrieve all records written with a specific partition specification using a
+`"$spec_id"` filter, for example to find the files still written with an older
+specification after [changing the
+partitioning](iceberg-alter-table-set-properties) of a table:
+
+```sql
+SELECT *
+FROM example.web.page_views
+WHERE "$spec_id" = 0
 ```
 
 (iceberg-system-tables)=

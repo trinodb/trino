@@ -54,8 +54,8 @@ local exchange (GATHER, SINGLE, [])
                                                                     dynamic filter (ws_web_site_sk::EQUAL, ws_sold_date_sk::EQUAL)
                                                                         scan web_sales
                                                                     join (INNER, PARTITIONED):
-                                                                        remote exchange (REPARTITION, HASH, [ws_item_sk_87, ws_order_number_101])
-                                                                            dynamic filter (ws_web_site_sk_97::EQUAL, ws_item_sk_87::EQUAL, ws_order_number_101::EQUAL)
+                                                                        remote exchange (REPARTITION, HASH, [ws_item_sk_96, ws_order_number_110])
+                                                                            dynamic filter (ws_web_site_sk_106::EQUAL, ws_item_sk_96::EQUAL, ws_order_number_110::EQUAL)
                                                                                 scan web_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])

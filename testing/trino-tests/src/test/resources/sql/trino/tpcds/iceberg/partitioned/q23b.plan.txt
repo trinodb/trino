@@ -8,7 +8,7 @@ local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [cs_bill_customer_sk])
                                 join (INNER, PARTITIONED):
                                     single aggregation over (ss_item_sk)
-                                        final aggregation over (ss_item_sk, d_date_11, gid)
+                                        final aggregation over (ss_item_sk, d_date_14, gid)
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [ss_item_sk])
                                                     join (INNER, REPLICATED):
@@ -37,17 +37,17 @@ local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [c_customer_sk])
                                                         dynamic filter (c_customer_sk::EQUAL)
                                                             scan customer
-                            single aggregation over (ss_customer_sk_48)
+                            single aggregation over (ss_customer_sk_53)
                                 cross join (can skip output duplicates):
-                                    final aggregation over (ss_customer_sk_48)
+                                    final aggregation over (ss_customer_sk_53)
                                         local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, [ss_customer_sk_48])
-                                                    partial aggregation over (ss_customer_sk_48)
-                                                        dynamic filter (ss_customer_sk_48::EQUAL)
+                                                remote exchange (REPARTITION, HASH, [ss_customer_sk_53])
+                                                    partial aggregation over (ss_customer_sk_53)
+                                                        dynamic filter (ss_customer_sk_53::EQUAL)
                                                             scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, [c_customer_sk_72])
+                                                    remote exchange (REPARTITION, HASH, [c_customer_sk_78])
                                                         scan customer
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -55,42 +55,42 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (GATHER, SINGLE, [])
                                                         partial aggregation over ()
-                                                            final aggregation over (ss_customer_sk_95)
+                                                            final aggregation over (ss_customer_sk_102)
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, PARTITIONED):
-                                                                        remote exchange (REPARTITION, HASH, [ss_customer_sk_95])
-                                                                            partial aggregation over (ss_customer_sk_95)
+                                                                        remote exchange (REPARTITION, HASH, [ss_customer_sk_102])
+                                                                            partial aggregation over (ss_customer_sk_102)
                                                                                 join (INNER, REPLICATED):
-                                                                                    dynamic filter (ss_customer_sk_95::EQUAL, ss_sold_date_sk_115::EQUAL)
+                                                                                    dynamic filter (ss_customer_sk_102::EQUAL, ss_sold_date_sk_122::EQUAL)
                                                                                         scan store_sales
                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                                             scan date_dim
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, [c_customer_sk_119])
+                                                                            remote exchange (REPARTITION, HASH, [c_customer_sk_127])
                                                                                 scan customer
-        final aggregation over (c_last_name_187, c_first_name_186)
+        final aggregation over (c_last_name_198, c_first_name_197)
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, [c_last_name_187, c_first_name_186])
-                    partial aggregation over (c_last_name_187, c_first_name_186)
+                remote exchange (REPARTITION, HASH, [c_last_name_198, c_first_name_197])
+                    partial aggregation over (c_last_name_198, c_first_name_197)
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, [ws_bill_customer_sk])
                                 join (INNER, PARTITIONED):
-                                    single aggregation over (ss_item_sk_231)
-                                        final aggregation over (ss_item_sk_231, d_date_258, gid_311)
+                                    single aggregation over (ss_item_sk_244)
+                                        final aggregation over (ss_item_sk_244, d_date_272, gid_327)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ss_item_sk_231])
+                                                remote exchange (REPARTITION, HASH, [ss_item_sk_244])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            partial aggregation over (ss_item_sk_231, ss_sold_date_sk_252)
-                                                                dynamic filter (ss_item_sk_231::EQUAL, ss_item_sk_231::EQUAL, ss_sold_date_sk_252::EQUAL)
+                                                            partial aggregation over (ss_item_sk_244, ss_sold_date_sk_265)
+                                                                dynamic filter (ss_item_sk_244::EQUAL, ss_item_sk_244::EQUAL, ss_sold_date_sk_265::EQUAL)
                                                                     scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (i_item_sk_286::EQUAL)
+                                                                dynamic filter (i_item_sk_301::EQUAL)
                                                                     scan item
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [ws_item_sk])
@@ -103,20 +103,20 @@ local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, [c_customer_sk_178])
-                                                        dynamic filter (c_customer_sk_178::EQUAL)
+                                                    remote exchange (REPARTITION, HASH, [c_customer_sk_189])
+                                                        dynamic filter (c_customer_sk_189::EQUAL)
                                                             scan customer
-                            single aggregation over (ss_customer_sk_319)
+                            single aggregation over (ss_customer_sk_335)
                                 cross join (can skip output duplicates):
-                                    final aggregation over (ss_customer_sk_319)
+                                    final aggregation over (ss_customer_sk_335)
                                         local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, [ss_customer_sk_319])
-                                                    partial aggregation over (ss_customer_sk_319)
-                                                        dynamic filter (ss_customer_sk_319::EQUAL)
+                                                remote exchange (REPARTITION, HASH, [ss_customer_sk_335])
+                                                    partial aggregation over (ss_customer_sk_335)
+                                                        dynamic filter (ss_customer_sk_335::EQUAL)
                                                             scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, [c_customer_sk_343])
+                                                    remote exchange (REPARTITION, HASH, [c_customer_sk_360])
                                                         scan customer
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -124,17 +124,17 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (GATHER, SINGLE, [])
                                                         partial aggregation over ()
-                                                            final aggregation over (ss_customer_sk_367)
+                                                            final aggregation over (ss_customer_sk_385)
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, PARTITIONED):
-                                                                        remote exchange (REPARTITION, HASH, [ss_customer_sk_367])
-                                                                            partial aggregation over (ss_customer_sk_367)
+                                                                        remote exchange (REPARTITION, HASH, [ss_customer_sk_385])
+                                                                            partial aggregation over (ss_customer_sk_385)
                                                                                 join (INNER, REPLICATED):
-                                                                                    dynamic filter (ss_customer_sk_367::EQUAL, ss_sold_date_sk_387::EQUAL)
+                                                                                    dynamic filter (ss_customer_sk_385::EQUAL, ss_sold_date_sk_405::EQUAL)
                                                                                         scan store_sales
                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                                             scan date_dim
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, [c_customer_sk_391])
+                                                                            remote exchange (REPARTITION, HASH, [c_customer_sk_410])
                                                                                 scan customer

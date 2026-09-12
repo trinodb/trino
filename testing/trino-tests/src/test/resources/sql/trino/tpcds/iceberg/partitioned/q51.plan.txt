@@ -5,10 +5,10 @@ local exchange (GATHER, SINGLE, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [expr])
                         join (FULL, PARTITIONED):
-                            final aggregation over (ss_item_sk, d_date_8)
+                            final aggregation over (ss_item_sk, d_date_10)
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [ss_item_sk])
-                                        intermediate aggregation over (ss_item_sk, d_date_8)
+                                        intermediate aggregation over (ss_item_sk, d_date_10)
                                             join (INNER, REPLICATED):
                                                 partial aggregation over (ss_item_sk, ss_sold_date_sk)
                                                     dynamic filter (ss_sold_date_sk::EQUAL)
