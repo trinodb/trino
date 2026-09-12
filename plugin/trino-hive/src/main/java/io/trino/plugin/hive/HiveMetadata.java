@@ -2787,7 +2787,7 @@ public class HiveMetadata
             SchemaTableName viewName,
             ConnectorViewDefinition definition,
             Map<String, Object> viewProperties,
-            boolean replace)
+            SaveMode saveMode)
     {
         if (usingSystemSecurity) {
             definition = definition.withoutOwner();
@@ -2839,7 +2839,10 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isTrinoView(existing.get())) {
+            if (saveMode != SaveMode.REPLACE || !isTrinoView(existing.get())) {
+                if (saveMode == SaveMode.IGNORE) {
+                    return;
+                }
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -2851,7 +2854,10 @@ public class HiveMetadata
             metastore.createTable(session, table, principalPrivileges, Optional.empty(), Optional.empty(), false, new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()), false);
         }
         catch (TableAlreadyExistsException e) {
-            throw new ViewAlreadyExistsException(e.getTableName());
+            // lost a race with a concurrent create: honor the same ignoreExisting semantics as the fast-path check above
+            if (saveMode != SaveMode.IGNORE) {
+                throw new ViewAlreadyExistsException(e.getTableName());
+            }
         }
     }
 

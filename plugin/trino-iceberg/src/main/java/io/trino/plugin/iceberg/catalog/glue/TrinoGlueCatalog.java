@@ -47,6 +47,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -945,7 +946,7 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
         if (!viewProperties.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Glue catalog does not support creating views with properties");
@@ -960,17 +961,20 @@ public class TrinoGlueCatalog
         Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(3)
                         .withDelay(Duration.ofMillis(100))
-                        .handleIf(throwable -> replace && !(throwable instanceof ViewAlreadyExistsException))
+                        .handleIf(throwable -> saveMode == SaveMode.REPLACE && !(throwable instanceof ViewAlreadyExistsException))
                         .abortOn(TrinoFileSystem::isUnrecoverableException)
                         .build())
-                .run(() -> doCreateView(session, schemaViewName, viewTableInput, replace));
+                .run(() -> doCreateView(session, schemaViewName, viewTableInput, saveMode));
     }
 
-    private void doCreateView(ConnectorSession session, SchemaTableName schemaViewName, TableInput viewTableInput, boolean replace)
+    private void doCreateView(ConnectorSession session, SchemaTableName schemaViewName, TableInput viewTableInput, SaveMode saveMode)
     {
         Optional<Table> existing = getTableAndCacheMetadata(session, schemaViewName);
         if (existing.isPresent()) {
-            if (!replace || !isTrinoView(getTableType(existing.get()), existing.get().parameters())) {
+            if (saveMode != SaveMode.REPLACE || !isTrinoView(getTableType(existing.get()), existing.get().parameters())) {
+                if (saveMode == SaveMode.IGNORE) {
+                    return;
+                }
                 // TODO: ViewAlreadyExists is misleading if the name is used by a table https://github.com/trinodb/trino/issues/10037
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
@@ -983,7 +987,10 @@ public class TrinoGlueCatalog
             createTable(schemaViewName.getSchemaName(), viewTableInput);
         }
         catch (AlreadyExistsException e) {
-            throw new ViewAlreadyExistsException(schemaViewName);
+            // lost a race with a concurrent create: honor the same ignoreExisting semantics as the fast-path check above
+            if (saveMode != SaveMode.IGNORE) {
+                throw new ViewAlreadyExistsException(schemaViewName);
+            }
         }
     }
 

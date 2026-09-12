@@ -623,9 +623,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
         {
-            checkArgument(replace || !views.containsKey(viewName.asSchemaTableName()));
+            if (saveMode != SaveMode.REPLACE && views.containsKey(viewName.asSchemaTableName())) {
+                checkArgument(saveMode == SaveMode.IGNORE, "View already exists");
+                return;
+            }
             views.put(viewName.asSchemaTableName(), definition);
         }
 

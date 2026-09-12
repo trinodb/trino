@@ -811,11 +811,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
         Span span = startSpan("createView", viewName);
         try (var _ = scopedSpan(span)) {
-            delegate.createView(session, viewName, definition, viewProperties, replace);
+            delegate.createView(session, viewName, definition, viewProperties, saveMode);
         }
     }
 

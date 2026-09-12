@@ -46,6 +46,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.connector.SaveMode.FAIL;
+import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
@@ -93,7 +94,7 @@ public class TestCreateViewTask
     public void testCreateViewOnViewIfExists()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
@@ -104,7 +105,7 @@ public class TestCreateViewTask
     public void testReplaceViewOnViewIfExists()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         getFutureValue(executeCreateView(asQualifiedName(viewName), true));
         assertThat(metadata.isView(testSession, viewName)).isTrue();
@@ -144,6 +145,67 @@ public class TestCreateViewTask
     }
 
     @Test
+    public void testCreateViewIfNotExistsOnViewIfNotExists()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("new_view");
+        getFutureValue(executeCreateView(asQualifiedName(viewName), false, true));
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
+    }
+
+    @Test
+    public void testCreateViewIfNotExistsOnViewIfExists()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("existing_view");
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
+
+        // the pre-existing view is left untouched: no exception, and no attempt to replace it
+        getFutureValue(executeCreateView(asQualifiedName(viewName), false, true));
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
+    }
+
+    @Test
+    public void testCreateViewIfNotExistsOnTableIfExists()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), FAIL);
+
+        // IF NOT EXISTS only suppresses the "view already exists" case; a name collision with
+        // a table of the same name is still a hard error
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), false, true)))
+                .hasErrorCode(TABLE_ALREADY_EXISTS)
+                .hasMessage("line 1:1: Table already exists: '%s'", tableName, tableName);
+    }
+
+    @Test
+    public void testCreateViewIfNotExistsOnMaterializedView()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, viewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+
+        // IF NOT EXISTS only suppresses the "view already exists" case; a name collision with
+        // a materialized view of the same name is still a hard error
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false, true)))
+                .hasErrorCode(TABLE_ALREADY_EXISTS)
+                .hasMessage("line 1:1: Materialized view already exists: '%s'", viewName);
+    }
+
+    @Test
+    public void testCreateViewIfNotExistsHonoredByConnectorAfterEngineCheckLosesRace()
+    {
+        // CreateViewTask's own isView() check is a fast-path optimization, not the authority: if a
+        // view is created concurrently between that check and the metadata.createView() call below,
+        // it's the connector's own handling of ConnectorMetadata.createView's SaveMode.IGNORE that
+        // must make IF NOT EXISTS a no-op rather than a raw ALREADY_EXISTS failure. Simulate that
+        // race directly at the metadata layer, bypassing CreateViewTask's pre-check entirely.
+        QualifiedObjectName viewName = qualifiedObjectName("racing_view");
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
+
+        // no exception: the connector honors SaveMode.IGNORE even though the view already exists
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), IGNORE);
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
+    }
+
+    @Test
     public void testCreateViewWithUnknownProperty()
     {
         QualifiedObjectName viewName = qualifiedObjectName("view_with_unknown_property");
@@ -171,10 +233,20 @@ public class TestCreateViewTask
 
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace)
     {
-        return executeCreateView(viewName, ImmutableList.of(), replace);
+        return executeCreateView(viewName, ImmutableList.of(), replace, false);
     }
 
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, List<Property> viewProperties, boolean replace)
+    {
+        return executeCreateView(viewName, viewProperties, replace, false);
+    }
+
+    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace, boolean notExists)
+    {
+        return executeCreateView(viewName, ImmutableList.of(), replace, notExists);
+    }
+
+    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, List<Property> viewProperties, boolean replace, boolean notExists)
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("mock_table")));
         CreateView statement = new CreateView(
@@ -182,6 +254,7 @@ public class TestCreateViewTask
                 viewName,
                 query,
                 replace,
+                notExists,
                 Optional.empty(),
                 Optional.empty(),
                 viewProperties);

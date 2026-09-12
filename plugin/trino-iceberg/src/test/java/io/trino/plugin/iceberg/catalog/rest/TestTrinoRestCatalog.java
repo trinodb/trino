@@ -62,6 +62,8 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
+import static io.trino.spi.connector.SaveMode.FAIL;
+import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -326,7 +328,7 @@ public class TestTrinoRestCatalog
 
         catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
 
-        catalog.createView(SESSION, viewName, viewDefinition, ImmutableMap.of(), false);
+        catalog.createView(SESSION, viewName, viewDefinition, ImmutableMap.of(), FAIL);
         assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), viewDefinition);
 
         View initialView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);
@@ -339,7 +341,7 @@ public class TestTrinoRestCatalog
                 new ViewColumn("name", VARCHAR.getTypeId(), Optional.empty()),
                 new ViewColumn("comment", VARCHAR.getTypeId(), Optional.empty()));
 
-        catalog.createView(SESSION, viewName, updatedViewDefinition, ImmutableMap.of(), true);
+        catalog.createView(SESSION, viewName, updatedViewDefinition, ImmutableMap.of(), REPLACE);
         assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), updatedViewDefinition);
 
         View updatedView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);
