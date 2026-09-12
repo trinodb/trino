@@ -72,7 +72,7 @@ import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCata
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.SNOWFLAKE_S3_EXTERNAL_VOLUME;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.SNOWFLAKE_TEST_SCHEMA;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_JDBC_URI;
-import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_PASSWORD;
+import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_PRIVATE_KEY;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_ROLE;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_TEST_DATABASE;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_USER;
@@ -95,7 +95,7 @@ public class TestTrinoSnowflakeCatalog
                     .setUri(URI.create(SNOWFLAKE_JDBC_URI))
                     .setRole(SNOWFLAKE_ROLE)
                     .setUser(SNOWFLAKE_USER)
-                    .setPassword(SNOWFLAKE_PASSWORD);
+                    .setPrivateKey(SNOWFLAKE_PRIVATE_KEY);
 
     @BeforeAll
     public static void setupServer()
@@ -166,6 +166,9 @@ public class TestTrinoSnowflakeCatalog
                 CATALOG_CONFIG.getUri(),
                 CATALOG_CONFIG.getUser(),
                 CATALOG_CONFIG.getPassword(),
+                CATALOG_CONFIG.getPrivateKey(),
+                CATALOG_CONFIG.getPrivateKeyFile(),
+                CATALOG_CONFIG.getPrivateKeyPassphrase(),
                 CATALOG_CONFIG.getRole());
         JdbcClientPool connectionPool = new JdbcClientPool(SNOWFLAKE_JDBC_URI, properties);
         SnowflakeClient snowflakeClient = new JdbcSnowflakeClient(connectionPool);

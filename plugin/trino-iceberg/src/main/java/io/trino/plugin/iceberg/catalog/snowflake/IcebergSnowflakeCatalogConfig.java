@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg.catalog.snowflake;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import net.snowflake.client.api.driver.SnowflakeDriver;
@@ -25,11 +27,16 @@ import java.sql.Driver;
 import java.sql.SQLException;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public class IcebergSnowflakeCatalogConfig
 {
     private URI uri;
     private String user;
-    private String password;
+    private Optional<String> password = Optional.empty();
+    private Optional<String> privateKey = Optional.empty();
+    private Optional<String> privateKeyFile = Optional.empty();
+    private Optional<String> privateKeyPassphrase = Optional.empty();
     private String database;
     private Optional<String> role = Optional.empty();
 
@@ -69,8 +76,7 @@ public class IcebergSnowflakeCatalogConfig
         return this;
     }
 
-    @NotNull
-    public String getPassword()
+    public Optional<String> getPassword()
     {
         return password;
     }
@@ -80,8 +86,67 @@ public class IcebergSnowflakeCatalogConfig
     @ConfigSecuritySensitive
     public IcebergSnowflakeCatalogConfig setPassword(String password)
     {
-        this.password = password;
+        this.password = Optional.ofNullable(password);
         return this;
+    }
+
+    public Optional<String> getPrivateKey()
+    {
+        return privateKey;
+    }
+
+    @Config("iceberg.snowflake-catalog.private-key")
+    @ConfigDescription("The base64 encoded private key for key-pair authentication")
+    @ConfigSecuritySensitive
+    public IcebergSnowflakeCatalogConfig setPrivateKey(String privateKey)
+    {
+        this.privateKey = Optional.ofNullable(privateKey);
+        return this;
+    }
+
+    public Optional<@FileExists String> getPrivateKeyFile()
+    {
+        return privateKeyFile;
+    }
+
+    @Config("iceberg.snowflake-catalog.private-key-file")
+    @ConfigDescription("The file path of the private key for key-pair authentication")
+    public IcebergSnowflakeCatalogConfig setPrivateKeyFile(String privateKeyFile)
+    {
+        this.privateKeyFile = Optional.ofNullable(privateKeyFile);
+        return this;
+    }
+
+    public Optional<String> getPrivateKeyPassphrase()
+    {
+        return privateKeyPassphrase;
+    }
+
+    @Config("iceberg.snowflake-catalog.private-key.passphrase")
+    @ConfigDescription("The passphrase to the key-pair authentication private key")
+    @ConfigSecuritySensitive
+    public IcebergSnowflakeCatalogConfig setPrivateKeyPassphrase(String privateKeyPassphrase)
+    {
+        this.privateKeyPassphrase = Optional.ofNullable(privateKeyPassphrase);
+        return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        checkState(
+                (getPrivateKey().isPresent() || getPrivateKeyFile().isPresent()) != getPassword().isPresent(),
+                "Either password or private key must be set, but not both");
+        if (getPassword().isEmpty()) {
+            checkState(
+                    getPrivateKey().isPresent() != getPrivateKeyFile().isPresent(),
+                    "iceberg.snowflake-catalog.private-key and iceberg.snowflake-catalog.private-key-file cannot be set simultaneously");
+        }
+        if (getPrivateKeyPassphrase().isPresent()) {
+            checkState(
+                    getPrivateKey().isPresent() || getPrivateKeyFile().isPresent(),
+                    "iceberg.snowflake-catalog.private-key.passphrase is set, but iceberg.snowflake-catalog.private-key or iceberg.snowflake-catalog.private-key-file is missing");
+        }
     }
 
     public String getDatabase()
