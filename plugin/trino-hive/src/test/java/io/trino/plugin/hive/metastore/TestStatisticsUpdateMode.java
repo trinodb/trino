@@ -46,7 +46,6 @@ import static io.trino.metastore.StatisticsUpdateMode.CLEAR_ALL;
 import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
 import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_SOME_COLUMNS;
-import static io.trino.metastore.StatisticsUpdateMode.UNDO_MERGE_INCREMENTAL;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MIN_VALUE;
 import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
@@ -138,19 +137,6 @@ class TestStatisticsUpdateMode
                 new HiveBasicStatistics(11, 9, 7, 5),
                 new HiveBasicStatistics(1, 2, 3, 4)))
                 .isEqualTo(new HiveBasicStatistics(12, 11, 10, 9));
-    }
-
-    @Test
-    void testUndoMergeIncrementalBasicStats()
-    {
-        assertThat(merge(UNDO_MERGE_INCREMENTAL, createEmptyStatistics(), createEmptyStatistics())).isEqualTo(createEmptyStatistics());
-        assertThat(merge(UNDO_MERGE_INCREMENTAL, ONE_ROW, createEmptyStatistics())).isEqualTo(createEmptyStatistics());
-        assertThat(merge(UNDO_MERGE_INCREMENTAL, createEmptyStatistics(), ONE_ROW)).isEqualTo(createEmptyStatistics());
-        assertThat(merge(
-                UNDO_MERGE_INCREMENTAL,
-                new HiveBasicStatistics(11, 9, 7, 5),
-                new HiveBasicStatistics(1, 2, 3, 4)))
-                .isEqualTo(new HiveBasicStatistics(10, 7, 4, 1));
     }
 
     @Test

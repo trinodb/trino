@@ -13,8 +13,6 @@
  */
 package io.trino.metastore;
 
-import com.google.common.collect.ImmutableMap;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -57,17 +55,6 @@ public enum StatisticsUpdateMode
         public PartitionStatistics updatePartitionStatistics(PartitionStatistics oldPartitionStats, PartitionStatistics newPartitionStats)
         {
             return addIncrementalStatistics(oldPartitionStats, newPartitionStats);
-        }
-    },
-    /**
-     * Undo the effect of a previous MERGE_INCREMENTAL operation. This will clear all column statistics because min/max calculations are not reversible.
-     */
-    UNDO_MERGE_INCREMENTAL {
-        @Override
-        public PartitionStatistics updatePartitionStatistics(PartitionStatistics oldPartitionStats, PartitionStatistics newPartitionStats)
-        {
-            HiveBasicStatistics newTableStatistics = reduce(oldPartitionStats.basicStatistics(), newPartitionStats.basicStatistics(), Operator.SUBTRACT);
-            return new PartitionStatistics(newTableStatistics, ImmutableMap.of());
         }
     },
     /**
@@ -261,7 +248,6 @@ public enum StatisticsUpdateMode
         if (first.isPresent() && second.isPresent()) {
             return switch (operator) {
                 case ADD -> OptionalLong.of(first.orElseThrow() + second.orElseThrow());
-                case SUBTRACT -> OptionalLong.of(first.orElseThrow() - second.orElseThrow());
                 case MAX -> OptionalLong.of(max(first.orElseThrow(), second.orElseThrow()));
                 case MIN -> OptionalLong.of(min(first.orElseThrow(), second.orElseThrow()));
             };
@@ -277,7 +263,6 @@ public enum StatisticsUpdateMode
         if (first.isPresent() && second.isPresent()) {
             return switch (operator) {
                 case ADD -> OptionalDouble.of(first.orElseThrow() + second.orElseThrow());
-                case SUBTRACT -> OptionalDouble.of(first.orElseThrow() - second.orElseThrow());
                 case MAX -> OptionalDouble.of(max(first.orElseThrow(), second.orElseThrow()));
                 case MIN -> OptionalDouble.of(min(first.orElseThrow(), second.orElseThrow()));
             };
@@ -313,7 +298,6 @@ public enum StatisticsUpdateMode
     private enum Operator
     {
         ADD,
-        SUBTRACT,
         MIN,
         MAX,
     }
