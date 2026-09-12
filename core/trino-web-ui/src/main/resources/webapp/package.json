@@ -10,11 +10,12 @@
     "package": "bun install && bun run build",
     "package:clean": "bun install --frozen-lockfile && bun run build",
     "preview": "bun --bun vite preview",
-    "prettier:format": "bun --bun prettier --write \"./src/**/*.{ts,tsx}\"",
-    "prettier:check": "bun --bun prettier --check \"./src/**/*.{ts,tsx}\"",
-    "check": "bun install && bun run typecheck && bun run lint && bun run prettier:check && bun run check:licenses",
-    "check:clean": "bun install --frozen-lockfile && bun run typecheck && bun run lint && bun run prettier:check && bun run check:licenses",
-    "check:licenses": "USED_LICENSES=$(mktemp); find node_modules -name package.json -exec jq 'if (.license | type) == \"string\" then .license else empty end' {} + | sort -u > \"$USED_LICENSES\"; if DIFFERENCES=$(grep -Fvxf ../allowed-licenses.txt \"$USED_LICENSES\"); then echo '\\033[0;31mLicense found in node_modules that is not in allowed-licenses.txt' >&2; echo \"$DIFFERENCES\"; exit 1; fi"
+    "prettier:format": "bun --bun prettier --write \"./src/**/*.{js,ts,tsx}\"",
+    "prettier:check": "bun --bun prettier --check \"./src/**/*.{js,ts,tsx}\"",
+    "check": "bun install && bun run typecheck && bun run lint && bun run prettier:check && bun run test && bun run check:licenses",
+    "check:clean": "bun install --frozen-lockfile && bun run typecheck && bun run lint && bun run prettier:check && bun run test && bun run check:licenses",
+    "check:licenses": "USED_LICENSES=$(mktemp); find node_modules -name package.json -exec jq 'if (.license | type) == \"string\" then .license else empty end' {} + | sort -u > \"$USED_LICENSES\"; if DIFFERENCES=$(grep -Fvxf ../allowed-licenses.txt \"$USED_LICENSES\"); then echo '\\033[0;31mLicense found in node_modules that is not in allowed-licenses.txt' >&2; echo \"$DIFFERENCES\"; exit 1; fi",
+    "test": "bun test --preload ./src/test/setup.js"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.8",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@happy-dom/global-registrator": "20.14.5",
     "@types/lodash": "^4.17.25",
     "@types/lodash.merge": "^4.6.9",
     "@types/react": "^19.2.18",
