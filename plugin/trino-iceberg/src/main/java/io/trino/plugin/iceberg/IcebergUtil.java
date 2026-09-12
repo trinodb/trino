@@ -139,6 +139,8 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadat
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.rowIdColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.specIdColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.specIdColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.formatIcebergDefaultAsSql;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.parseDefaultValue;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
@@ -482,7 +484,7 @@ public final class IcebergUtil
     public static List<ColumnMetadata> getColumnMetadatas(Schema schema, Optional<IcebergPartitionColumn> partitionColumn, TypeManager typeManager, int formatVersion)
     {
         List<NestedField> icebergColumns = schema.columns();
-        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 5);
+        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 6);
         for (NestedField column : icebergColumns) {
             columns.add(ColumnMetadata.builder()
                     .setName(column.name())
@@ -499,6 +501,7 @@ public final class IcebergUtil
             columns.add(lastUpdatedSequenceNumberColumnMetadata());
         }
         columns.add(fileModifiedTimeColumnMetadata());
+        columns.add(specIdColumnMetadata());
         return columns.build();
     }
 
@@ -1407,6 +1410,17 @@ public final class IcebergUtil
                 .get(fileModifiedTimeColumn);
         if (domain == null) {
             return Domain.all(fileModifiedTimeColumn.getType());
+        }
+        return domain;
+    }
+
+    public static Domain getSpecIdDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
+    {
+        IcebergColumnHandle specIdColumn = specIdColumnHandle();
+        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
+                .get(specIdColumn);
+        if (domain == null) {
+            return Domain.all(specIdColumn.getType());
         }
         return domain;
     }

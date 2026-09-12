@@ -38,6 +38,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
@@ -249,6 +250,12 @@ public class IcebergColumnHandle
         return id == FILE_MODIFIED_TIME.getId();
     }
 
+    @JsonIgnore
+    public boolean isSpecIdColumn()
+    {
+        return id == SPEC_ID.getId();
+    }
+
     @Override
     public int hashCode()
     {
@@ -377,6 +384,22 @@ public class IcebergColumnHandle
         return ColumnMetadata.builder()
                 .setName(FILE_MODIFIED_TIME.getColumnName())
                 .setType(FILE_MODIFIED_TIME.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    public static IcebergColumnHandle specIdColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(SPEC_ID))
+                .columnType(SPEC_ID.getType())
+                .build();
+    }
+
+    public static ColumnMetadata specIdColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(SPEC_ID.getColumnName())
+                .setType(SPEC_ID.getType())
                 .setHidden(true)
                 .build();
     }

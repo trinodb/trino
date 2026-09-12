@@ -4,11 +4,11 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (channel, col_name, d_year, d_qoy, i_category)
                     local exchange (REPARTITION, HASH, [channel, col_name, d_year, d_qoy, i_category])
-                        remote exchange (REPARTITION, HASH, [expr_136, expr_137, d_year_9, d_qoy_10, i_category_6])
-                            intermediate aggregation over (expr_136, expr_137, d_year_9, d_qoy_10, i_category_6)
+                        remote exchange (REPARTITION, HASH, [expr_144, expr_145, d_year_10, d_qoy_11, i_category_6])
+                            intermediate aggregation over (expr_144, expr_145, d_year_10, d_qoy_11, i_category_6)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        partial aggregation over (expr_136, expr_137, ss_sold_date_sk, ss_item_sk)
+                                        partial aggregation over (expr_144, expr_145, ss_sold_date_sk, ss_item_sk)
                                             dynamic filter (ss_sold_date_sk::EQUAL, ss_item_sk::EQUAL)
                                                 scan store_sales
                                         local exchange (GATHER, SINGLE, [])
@@ -17,27 +17,27 @@ local exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan date_dim
-                        remote exchange (REPARTITION, HASH, [expr_142, expr_143, d_year_48, d_qoy_52, i_category_30])
-                            intermediate aggregation over (expr_142, expr_143, d_year_48, d_qoy_52, i_category_30)
+                        remote exchange (REPARTITION, HASH, [expr_150, expr_151, d_year_52, d_qoy_56, i_category_33])
+                            intermediate aggregation over (expr_150, expr_151, d_year_52, d_qoy_56, i_category_33)
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [ws_sold_date_sk])
-                                        intermediate aggregation over (expr_150, expr_151, i_category_152, ws_sold_date_sk)
+                                        intermediate aggregation over (expr_158, expr_159, i_category_160, ws_sold_date_sk)
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [ws_item_sk])
-                                                    partial aggregation over (expr_155, expr_156, ws_sold_date_sk_154, ws_item_sk)
+                                                    partial aggregation over (expr_163, expr_164, ws_sold_date_sk_162, ws_item_sk)
                                                         dynamic filter (ws_sold_date_sk::EQUAL, ws_item_sk::EQUAL)
                                                             scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, [i_item_sk_18])
+                                                    remote exchange (REPARTITION, HASH, [i_item_sk_21])
                                                         scan item
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [d_date_sk_42])
+                                        remote exchange (REPARTITION, HASH, [d_date_sk_46])
                                             scan date_dim
-                        remote exchange (REPARTITION, HASH, [expr_133, expr_135, d_year_109, d_qoy_113, i_category_91])
-                            intermediate aggregation over (expr_133, expr_135, d_year_109, d_qoy_113, i_category_91)
+                        remote exchange (REPARTITION, HASH, [expr_141, expr_143, d_year_116, d_qoy_120, i_category_97])
+                            intermediate aggregation over (expr_141, expr_143, d_year_116, d_qoy_120, i_category_97)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        partial aggregation over (expr_133, expr_135, cs_sold_date_sk, cs_item_sk)
+                                        partial aggregation over (expr_141, expr_143, cs_sold_date_sk, cs_item_sk)
                                             dynamic filter (cs_sold_date_sk::EQUAL, cs_item_sk::EQUAL)
                                                 scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
