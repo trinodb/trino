@@ -20,6 +20,9 @@ public final class InternalHeaders
     public static final String TRINO_CURRENT_VERSION = "X-Trino-Current-Version";
     public static final HeaderName TRINO_CURRENT_VERSION_HEADER = HeaderName.of(TRINO_CURRENT_VERSION);
 
+    public static final String TRINO_RUNTIME_CONSTRAINT_SEQUENCE = "X-Trino-Runtime-Constraint-Sequence";
+    public static final HeaderName TRINO_RUNTIME_CONSTRAINT_SEQUENCE_HEADER = HeaderName.of(TRINO_RUNTIME_CONSTRAINT_SEQUENCE);
+
     public static final String TRINO_MAX_WAIT = "X-Trino-Max-Wait";
     public static final HeaderName TRINO_MAX_WAIT_HEADER = HeaderName.of(TRINO_MAX_WAIT);
 

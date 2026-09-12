@@ -22,7 +22,7 @@ import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.node.InternalNode;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -50,21 +50,23 @@ public class MultiSourcePartitionedScheduler
     private final StageExecution stageExecution;
     private final Queue<SourceScheduler> partitionedSourceSchedulers;
     private final Map<InternalNode, RemoteTask> scheduledTasks = new HashMap<>();
-    private final LegacyDynamicFilterService dynamicFilterService;
+    private final DynamicFilterService dynamicFilterService;
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final PartitionIdAllocator partitionIdAllocator = new PartitionIdAllocator();
+    private final boolean splitSourceCreationDeferred;
 
     public MultiSourcePartitionedScheduler(
             StageExecution stageExecution,
             Map<PlanNodeId, SplitSource> partitionedSplitSources,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            LegacyDynamicFilterService dynamicFilterService,
+            DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked)
     {
         requireNonNull(partitionedSplitSources, "partitionedSplitSources is null");
         checkArgument(partitionedSplitSources.size() > 1, "It is expected that there will be more than one split sources");
+        splitSourceCreationDeferred = partitionedSplitSources.values().stream().anyMatch(SplitSource::isSplitSourceCreationDeferred);
 
         ImmutableList.Builder<SourceScheduler> sourceSchedulers = ImmutableList.builder();
         for (PlanNodeId planNodeId : partitionedSplitSources.keySet()) {
@@ -96,10 +98,11 @@ public class MultiSourcePartitionedScheduler
          *  * there can be task in other stage blocked waiting for the dynamic filters, or
          *  * connector split source for this stage might be blocked waiting the dynamic filters.
         */
-        if (dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().queryId(), stageExecution.getFragment())) {
+        if (splitSourceCreationDeferred ||
+                dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().queryId(), stageExecution.getFragment())) {
             stageExecution.beginScheduling();
             /*
-             * We can select node randomly because DynamicFilterSourceOperator is not dependent on splits
+             * We can select a node randomly because runtime constraint collection is not dependent on splits
              * scheduled by this scheduler.
              */
             scheduleTaskOnRandomNode();

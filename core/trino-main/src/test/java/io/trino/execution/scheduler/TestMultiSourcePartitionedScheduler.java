@@ -38,7 +38,7 @@ import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
@@ -50,16 +50,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.ConnectorAwareSplitSource;
 import io.trino.split.SplitSource;
-import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -93,25 +89,19 @@ import java.util.stream.IntStream;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy.STAGE;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
-import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
-import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -133,7 +123,6 @@ public class TestMultiSourcePartitionedScheduler
     private static final PlanNodeId TABLE_SCAN_1_NODE_ID = new PlanNodeId("1");
     private static final PlanNodeId TABLE_SCAN_2_NODE_ID = new PlanNodeId("2");
     private static final QueryId QUERY_ID = new QueryId("query");
-    private static final DynamicFilterId DYNAMIC_FILTER_ID = new DynamicFilterId("filter1");
 
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
@@ -378,52 +367,6 @@ public class TestMultiSourcePartitionedScheduler
     }
 
     @Test
-    public void testDynamicFiltersUnblockedOnBlockedBuildSource()
-    {
-        PlanFragment plan = createFragment();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        StageExecution stage = createStageExecution(plan, nodeTaskMap);
-        LegacyDynamicFilterService dynamicFilterService = new LegacyDynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig());
-        dynamicFilterService.registerQuery(
-                QUERY_ID,
-                TEST_SESSION,
-                ImmutableSet.of(DYNAMIC_FILTER_ID),
-                ImmutableSet.of(DYNAMIC_FILTER_ID),
-                ImmutableSet.of(DYNAMIC_FILTER_ID));
-
-        StageScheduler scheduler = prepareScheduler(
-                ImmutableMap.of(TABLE_SCAN_1_NODE_ID, new QueuedSplitSource(), TABLE_SCAN_2_NODE_ID, new QueuedSplitSource()),
-                createSplitPlacementPolicies(session, stage, nodeTaskMap, nodeManager),
-                stage,
-                dynamicFilterService,
-                () -> true,
-                15);
-
-        SymbolAllocator symbolAllocator = emptySymbolAllocator();
-        Symbol symbol = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
-        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
-                QUERY_ID,
-                ImmutableList.of(new DynamicFilters.Descriptor(DYNAMIC_FILTER_ID, symbol.toSymbolReference())),
-                ImmutableMap.of(symbol, new TestingColumnHandle("probeColumnA")));
-
-        // make sure dynamic filtering collecting task was created immediately
-        assertThat(stage.getState()).isEqualTo(PLANNED);
-        scheduler.start();
-        assertThat(stage.getAllTasks()).hasSize(1);
-        assertThat(stage.getState()).isEqualTo(SCHEDULING);
-
-        // make sure dynamic filter is initially blocked
-        assertThat(dynamicFilter.isBlocked().isDone()).isFalse();
-
-        // make sure dynamic filter is unblocked due to build side source tasks being blocked
-        ScheduleResult scheduleResult = scheduler.schedule();
-        assertThat(dynamicFilter.isBlocked().isDone()).isTrue();
-
-        // no new probe splits should be scheduled
-        assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(0);
-    }
-
-    @Test
     public void testNoNewTaskScheduledWhenChildStageBufferIsOverUtilized()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -439,7 +382,7 @@ public class TestMultiSourcePartitionedScheduler
                 ImmutableMap.of(TABLE_SCAN_1_NODE_ID, createFixedSplitSource(200), TABLE_SCAN_2_NODE_ID, createFixedSplitSource(200)),
                 createSplitPlacementPolicies(session, stage, nodeTaskMap, nodeManager),
                 stage,
-                new LegacyDynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 () -> true,
                 200);
         // the queues of 3 running nodes should be full
@@ -490,7 +433,7 @@ public class TestMultiSourcePartitionedScheduler
                 splitSources,
                 splitPlacementPolicy,
                 stage,
-                new LegacyDynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 () -> false,
                 splitBatchSize);
     }
@@ -499,7 +442,7 @@ public class TestMultiSourcePartitionedScheduler
             Map<PlanNodeId, ConnectorSplitSource> splitSources,
             SplitPlacementPolicy splitPlacementPolicy,
             StageExecution stage,
-            LegacyDynamicFilterService dynamicFilterService,
+            DynamicFilterService dynamicFilterService,
             BooleanSupplier anySourceTaskBlocked,
             int splitBatchSize)
     {
@@ -535,10 +478,6 @@ public class TestMultiSourcePartitionedScheduler
                 Optional.empty(),
                 false,
                 Optional.empty());
-        FilterNode filterNodeOne = new FilterNode(
-                new PlanNodeId("filter_node_id"),
-                tableScanOne,
-                createDynamicFilterExpression(createTestingMetadataManager(), getCharVarcharCoercion(TEST_SESSION), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
         TableScanNode tableScanTwo = new TableScanNode(
                 TABLE_SCAN_2_NODE_ID,
                 secondTableHandle,
@@ -548,10 +487,6 @@ public class TestMultiSourcePartitionedScheduler
                 Optional.empty(),
                 false,
                 Optional.empty());
-        FilterNode filterNodeTwo = new FilterNode(
-                new PlanNodeId("filter_node_id"),
-                tableScanTwo,
-                createDynamicFilterExpression(createTestingMetadataManager(), getCharVarcharCoercion(TEST_SESSION), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), REPLICATE, RetryPolicy.NONE);
 
@@ -568,8 +503,8 @@ public class TestMultiSourcePartitionedScheduler
                                         Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()),
                                         tableScanOne.getOutputSymbols()),
                                 ImmutableList.of(
-                                        filterNodeOne,
-                                        filterNodeTwo),
+                                        tableScanOne,
+                                        tableScanTwo),
                                 ImmutableList.of(tableScanOne.getOutputSymbols(), tableScanTwo.getOutputSymbols()),
                                 Optional.empty()),
                         remote,
@@ -580,7 +515,6 @@ public class TestMultiSourcePartitionedScheduler
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableMap.of(DYNAMIC_FILTER_ID, buildSymbol),
                         Optional.empty()),
                 ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,

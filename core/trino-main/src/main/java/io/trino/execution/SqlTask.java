@@ -12,8 +12,8 @@
  * limitations under the License.
  */
 package io.trino.execution;
-
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -40,7 +40,9 @@ import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.memory.QueryContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
+import io.trino.operator.RuntimeConstraintRequest;
 import io.trino.operator.TaskContext;
+import io.trino.operator.TaskRuntimeConstraintManager;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.connector.ConnectorTableCredentials;
@@ -48,6 +50,9 @@ import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintUpdateBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintWiringReport;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.annotation.Nullable;
 
@@ -209,9 +214,11 @@ public class SqlTask
                     synchronized (taskHolderLock) {
                         TaskHolder taskHolder = taskHolderReference.get();
                         if (!taskHolder.isFinished()) {
+                            TaskRuntimeConstraintManager runtimeConstraintManager = taskHolder.finishRuntimeConstraintManager();
                             TaskHolder newHolder = new TaskHolder(
                                     createTaskInfo(taskHolder),
                                     taskHolder.getIoStats(),
+                                    runtimeConstraintManager,
                                     taskHolder.getDynamicFilterDomains());
                             checkState(taskHolderReference.compareAndSet(taskHolder, newHolder), "unsynchronized concurrent task holder update");
                             finished = true;
@@ -331,6 +338,11 @@ public class SqlTask
         return taskHolderReference.get().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
     }
 
+    public RuntimeConstraintContributionBatch acknowledgeAndGetRuntimeConstraintContributions(long callersRuntimeConstraintSequence)
+    {
+        return taskHolderReference.get().acknowledgeAndGetRuntimeConstraintContributions(callersRuntimeConstraintSequence);
+    }
+
     private synchronized void notifyStatusChanged()
     {
         taskStatusVersion.incrementAndGet();
@@ -364,6 +376,8 @@ public class SqlTask
         long fullGcCount = 0;
         Duration fullGcTime = succinctDuration(0, MILLISECONDS);
         long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+        long runtimeConstraintContributionsSequence = 0;
+        long runtimeConstraintUpdateAcknowledgement = 0;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.stats();
@@ -381,6 +395,8 @@ public class SqlTask
             fullGcCount = taskStats.fullGcCount();
             fullGcTime = taskStats.fullGcTime();
             dynamicFiltersVersion = taskHolder.getDynamicFiltersVersion();
+            runtimeConstraintContributionsSequence = taskHolder.getRuntimeConstraintContributionsSequence();
+            runtimeConstraintUpdateAcknowledgement = taskInfo.taskStatus().runtimeConstraintUpdateAcknowledgement();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -403,11 +419,13 @@ public class SqlTask
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
+            runtimeConstraintContributionsSequence = taskContext.getRuntimeConstraintContributionsSequence();
+            runtimeConstraintUpdateAcknowledgement = taskContext.getRuntimeConstraintUpdateAcknowledgement();
         }
         else if (state == FINISHED) {
             // if task FINISHED successfully but taskHolder is not yet updated with SqlTaskExecution or FinalTaskInfo
             // we are masking the state and return RUNNING. This is important so coordinator would not consider incomplete
-            // task information (e.g. missing proper dynamicFiltersVersion as final).
+            // task information (e.g. missing a final runtime constraint sequence).
             // This covers only short time window between call to SqlTaskExecution.start() and updating taskHolder reference in tryCreateSqlTaskExecution,
             // so it will not add any noticable delays.
             state = RUNNING;
@@ -434,9 +452,11 @@ public class SqlTask
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
-                dynamicFiltersVersion,
+                runtimeConstraintContributionsSequence,
+                runtimeConstraintUpdateAcknowledgement,
                 queuedPartitionedSplitsWeight,
-                runningPartitionedSplitsWeight);
+                runningPartitionedSplitsWeight,
+                dynamicFiltersVersion);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -481,7 +501,19 @@ public class SqlTask
                 noMoreSplits,
                 taskStats,
                 Optional.empty(),
-                needsPlan.get());
+                needsPlan.get(),
+                getRuntimeConstraintWiringReport(taskHolder));
+    }
+
+    private static RuntimeConstraintWiringReport getRuntimeConstraintWiringReport(TaskHolder taskHolder)
+    {
+        if (taskHolder.getFinalTaskInfo() != null) {
+            return taskHolder.getFinalTaskInfo().runtimeConstraintWiringReport();
+        }
+        if (taskHolder.getTaskExecution() != null) {
+            return taskHolder.getTaskExecution().getRuntimeConstraintWiringReport();
+        }
+        return RuntimeConstraintWiringReport.EMPTY;
     }
 
     public synchronized ListenableFuture<TaskStatus> getTaskStatus(long callersCurrentVersion)
@@ -518,6 +550,51 @@ public class SqlTask
             Map<DynamicFilterId, Domain> dynamicFilterDomains,
             boolean speculative)
     {
+        return updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, dynamicFilterDomains, speculative, ImmutableList.of(), Optional.empty(), 0);
+    }
+
+    public TaskInfo updateTask(
+            Session session,
+            Span stageSpan,
+            Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            List<SplitAssignment> splitAssignments,
+            OutputBuffers outputBuffers,
+            Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+            long runtimeConstraintContributionAcknowledgement,
+            boolean speculative)
+    {
+        return updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, ImmutableList.of(), runtimeConstraintUpdates, runtimeConstraintContributionAcknowledgement, speculative);
+    }
+
+    public TaskInfo updateTask(
+            Session session,
+            Span stageSpan,
+            Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            List<SplitAssignment> splitAssignments,
+            OutputBuffers outputBuffers,
+            List<RuntimeConstraintRequest> runtimeConstraintWiringRequests,
+            Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+            long runtimeConstraintContributionAcknowledgement,
+            boolean speculative)
+    {
+        return updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, ImmutableMap.of(), speculative, runtimeConstraintWiringRequests, runtimeConstraintUpdates, runtimeConstraintContributionAcknowledgement);
+    }
+
+    public TaskInfo updateTask(
+            Session session,
+            Span stageSpan,
+            Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            List<SplitAssignment> splitAssignments,
+            OutputBuffers outputBuffers,
+            Map<DynamicFilterId, Domain> dynamicFilterDomains,
+            boolean speculative,
+            List<RuntimeConstraintRequest> runtimeConstraintWiringRequests,
+            Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+            long runtimeConstraintContributionAcknowledgement)
+    {
         try {
             // trace token must be set first to make sure failure injection for getTaskResults requests works as expected
             session.getTraceToken().ifPresent(traceToken::set);
@@ -536,11 +613,15 @@ public class SqlTask
             SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
             if (taskExecution == null) {
                 checkState(fragment.isPresent(), "fragment must be present");
-                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get(), tableCredentials);
+                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get(), tableCredentials, runtimeConstraintWiringRequests);
             }
             // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
-                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
+                TaskContext taskContext = taskExecution.getTaskContext();
+                taskContext.addDynamicFilter(dynamicFilterDomains);
+                taskContext.addRuntimeConstraintWiringRequests(runtimeConstraintWiringRequests);
+                runtimeConstraintUpdates.ifPresent(taskContext::addRuntimeConstraintUpdates);
+                taskContext.acknowledgeRuntimeConstraintContributions(runtimeConstraintContributionAcknowledgement);
                 taskExecution.addSplitAssignments(splitAssignments);
             }
 
@@ -559,7 +640,7 @@ public class SqlTask
     }
 
     @Nullable
-    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment, Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
+    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment, Map<PlanNodeId, ConnectorTableCredentials> tableCredentials, List<RuntimeConstraintRequest> runtimeConstraintWiringRequests)
     {
         SqlTaskExecution execution;
         synchronized (taskHolderLock) {
@@ -595,6 +676,7 @@ public class SqlTask
                     tableCredentials,
                     this::notifyStatusChanged);
             needsPlan.set(false);
+            execution.getTaskContext().addRuntimeConstraintWiringRequests(runtimeConstraintWiringRequests);
             execution.start();
             // this must happen after taskExecution.start(), otherwise it could become visible to a
             // concurrent update without being fully initialized
@@ -666,6 +748,7 @@ public class SqlTask
         private final TaskInfo finalTaskInfo;
         private final SqlTaskIoStats finalIoStats;
         private final VersionedDynamicFilterDomains finalDynamicFilterDomains;
+        private final TaskRuntimeConstraintManager runtimeConstraintManager;
 
         private TaskHolder()
         {
@@ -673,6 +756,7 @@ public class SqlTask
             this.finalTaskInfo = null;
             this.finalIoStats = null;
             this.finalDynamicFilterDomains = null;
+            this.runtimeConstraintManager = null;
         }
 
         private TaskHolder(SqlTaskExecution taskExecution)
@@ -681,14 +765,20 @@ public class SqlTask
             this.finalTaskInfo = null;
             this.finalIoStats = null;
             this.finalDynamicFilterDomains = null;
+            this.runtimeConstraintManager = null;
         }
 
-        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats, VersionedDynamicFilterDomains finalDynamicFilterDomains)
+        private TaskHolder(
+                TaskInfo finalTaskInfo,
+                SqlTaskIoStats finalIoStats,
+                TaskRuntimeConstraintManager runtimeConstraintManager,
+                VersionedDynamicFilterDomains finalDynamicFilterDomains)
         {
             this.taskExecution = null;
             this.finalTaskInfo = requireNonNull(finalTaskInfo, "finalTaskInfo is null");
             this.finalIoStats = requireNonNull(finalIoStats, "finalIoStats is null");
             this.finalDynamicFilterDomains = requireNonNull(finalDynamicFilterDomains, "finalDynamicFilterDomains is null");
+            this.runtimeConstraintManager = runtimeConstraintManager;
         }
 
         public boolean isFinished()
@@ -758,6 +848,49 @@ public class SqlTask
             // get VersionedDynamicFilterDomains from the current task execution
             return taskExecution.getTaskContext().getCurrentDynamicFilterDomains();
         }
+
+        public RuntimeConstraintContributionBatch acknowledgeAndGetRuntimeConstraintContributions(long callersRuntimeConstraintSequence)
+        {
+            if (finalTaskInfo != null) {
+                return runtimeConstraintManager == null
+                        ? RuntimeConstraintContributionBatch.empty(0)
+                        : runtimeConstraintManager.acknowledgeContributionsAndGetBatch(callersRuntimeConstraintSequence);
+            }
+            if (taskExecution == null) {
+                return RuntimeConstraintContributionBatch.empty(0);
+            }
+            return taskExecution.getTaskContext().acknowledgeAndGetRuntimeConstraintContributions(callersRuntimeConstraintSequence);
+        }
+
+        public long getRuntimeConstraintContributionsSequence()
+        {
+            if (finalTaskInfo != null) {
+                return runtimeConstraintManager == null ? 0 : runtimeConstraintManager.getContributionSequence();
+            }
+            requireNonNull(taskExecution, "taskExecution is null");
+            return taskExecution.getTaskContext().getRuntimeConstraintContributionsSequence();
+        }
+
+        @Nullable
+        public TaskRuntimeConstraintManager finishRuntimeConstraintManager()
+        {
+            if (taskExecution == null) {
+                return null;
+            }
+            TaskRuntimeConstraintManager manager = taskExecution.getTaskContext().getRuntimeConstraintManager();
+            manager.taskFinished();
+            return manager;
+        }
+
+        public void closeRuntimeConstraintManager()
+        {
+            if (runtimeConstraintManager != null) {
+                runtimeConstraintManager.close();
+            }
+            else if (taskExecution != null) {
+                taskExecution.getTaskContext().getRuntimeConstraintManager().close();
+            }
+        }
     }
 
     /**
@@ -792,5 +925,12 @@ public class SqlTask
     public Optional<String> getTraceToken()
     {
         return Optional.ofNullable(traceToken.get());
+    }
+
+    public void destroy()
+    {
+        synchronized (taskHolderLock) {
+            taskHolderReference.get().closeRuntimeConstraintManager();
+        }
     }
 }

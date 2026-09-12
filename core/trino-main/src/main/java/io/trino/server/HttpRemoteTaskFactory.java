@@ -41,15 +41,14 @@ import io.trino.server.remotetask.HttpRemoteTask;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -66,7 +65,8 @@ public class HttpRemoteTaskFactory
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskStatus> taskStatusCodec;
-    private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
+    private final JsonCodec<RuntimeConstraintContributionBatch> runtimeConstraintContributionsCodec;
+    private final JsonCodec<VersionedDynamicFilterDomains> legacyDynamicFilterDomainsCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final JsonCodec<FailTaskRequest> failTaskRequestCoded;
@@ -81,7 +81,7 @@ public class HttpRemoteTaskFactory
     private final ScheduledExecutorService errorScheduledExecutor;
     private final Tracer tracer;
     private final RemoteTaskStats stats;
-    private final LegacyDynamicFilterService dynamicFilterService;
+    private final DynamicFilterService dynamicFilterService;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -90,18 +90,20 @@ public class HttpRemoteTaskFactory
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusCodec,
-            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
+            JsonCodec<RuntimeConstraintContributionBatch> runtimeConstraintContributionsCodec,
+            JsonCodec<VersionedDynamicFilterDomains> legacyDynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             JsonCodec<FailTaskRequest> failTaskRequestCoded,
             Tracer tracer,
             RemoteTaskStats stats,
-            LegacyDynamicFilterService dynamicFilterService)
+            DynamicFilterService dynamicFilterService)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
         this.taskStatusCodec = taskStatusCodec;
-        this.dynamicFilterDomainsCodec = dynamicFilterDomainsCodec;
+        this.runtimeConstraintContributionsCodec = runtimeConstraintContributionsCodec;
+        this.legacyDynamicFilterDomainsCodec = legacyDynamicFilterDomainsCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.failTaskRequestCoded = failTaskRequestCoded;
@@ -147,7 +149,6 @@ public class HttpRemoteTaskFactory
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
@@ -172,7 +173,8 @@ public class HttpRemoteTaskFactory
                 taskTerminationTimeout,
                 summarizeTaskInfo,
                 taskStatusCodec,
-                dynamicFilterDomainsCodec,
+                runtimeConstraintContributionsCodec,
+                legacyDynamicFilterDomainsCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
                 failTaskRequestCoded,
@@ -180,7 +182,6 @@ public class HttpRemoteTaskFactory
                 tracer,
                 stats,
                 dynamicFilterService,
-                outboundDynamicFilterIds,
                 estimatedMemory);
     }
 }

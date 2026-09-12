@@ -25,7 +25,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.TaskId;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.TrinoException;
 
 import java.net.URI;
@@ -60,7 +60,7 @@ class DynamicFiltersFetcher
     private final Supplier<SpanBuilder> spanBuilderFactory;
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
-    private final LegacyDynamicFilterService dynamicFilterService;
+    private final DynamicFilterService dynamicFilterService;
 
     @GuardedBy("this")
     private long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
@@ -83,7 +83,7 @@ class DynamicFiltersFetcher
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
-            LegacyDynamicFilterService dynamicFilterService)
+            DynamicFilterService dynamicFilterService)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskUri = requireNonNull(taskUri, "taskUri is null");

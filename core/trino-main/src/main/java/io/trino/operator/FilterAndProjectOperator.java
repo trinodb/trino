@@ -24,20 +24,46 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonOperator;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.trino.operator.project.MergePages.mergePages;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static java.util.Objects.requireNonNull;
 
 public class FilterAndProjectOperator
         implements WorkProcessorOperator
 {
+    private static final Set<ComparisonOperator> SUPPORTED_RUNTIME_CONSTRAINT_COMPARISONS = Set.of(EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL);
     private final WorkProcessor<Page> pages;
     private final PageProcessorMetrics metrics = new PageProcessorMetrics();
 
@@ -84,13 +110,142 @@ public class FilterAndProjectOperator
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
     {
+        return createOperatorFactory(
+                operatorId,
+                planNodeId,
+                processor,
+                types,
+                types.stream().map(_ -> OptionalInt.empty()).collect(toImmutableList()),
+                ImmutableList.of(),
+                minOutputPageSize,
+                minOutputPageRowCount);
+    }
+
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            Supplier<PageProcessor> processor,
+            List<Type> types,
+            List<OptionalInt> inputChannels,
+            DataSize minOutputPageSize,
+            int minOutputPageRowCount)
+    {
+        return createOperatorFactory(operatorId, planNodeId, processor, types, inputChannels, ImmutableList.of(), minOutputPageSize, minOutputPageRowCount);
+    }
+
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            Supplier<PageProcessor> processor,
+            List<Type> types,
+            List<OptionalInt> inputChannels,
+            List<Integer> requiredTrueInputChannels,
+            DataSize minOutputPageSize,
+            int minOutputPageRowCount)
+    {
+        return createOperatorFactory(operatorId, planNodeId, processor, types, inputChannels, inputChannels.stream().map(_ -> Optional.<Type>empty()).toList(), requiredTrueInputChannels, minOutputPageSize, minOutputPageRowCount);
+    }
+
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            Supplier<PageProcessor> processor,
+            List<Type> types,
+            List<OptionalInt> inputChannels,
+            List<Optional<Type>> inputTypes,
+            List<Integer> requiredTrueInputChannels,
+            DataSize minOutputPageSize,
+            int minOutputPageRowCount)
+    {
         return createAdapterOperatorFactory(new Factory(
                 operatorId,
                 planNodeId,
                 processor,
                 types,
+                inputChannels,
+                inputTypes,
+                requiredTrueInputChannels.stream().map(RuntimeConstraintRequest::requireTrue).toList(),
                 minOutputPageSize,
                 minOutputPageRowCount));
+    }
+
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            Supplier<PageProcessor> processor,
+            List<Type> types,
+            List<OptionalInt> inputChannels,
+            List<Optional<Type>> inputTypes,
+            Optional<Expression> filter,
+            Map<Symbol, Integer> inputLayout,
+            DataSize minOutputPageSize,
+            int minOutputPageRowCount)
+    {
+        List<RuntimeConstraintRequest> inputRuntimeConstraints = filter.stream()
+                .flatMap(expression -> extractConjuncts(expression).stream())
+                .filter(Reference.class::isInstance)
+                .map(Reference.class::cast)
+                .map(Symbol::from)
+                .map(inputLayout::get)
+                .filter(Objects::nonNull)
+                .map(RuntimeConstraintRequest::requireTrue)
+                .toList();
+        inputRuntimeConstraints = Stream.concat(
+                        inputRuntimeConstraints.stream(),
+                        filter.stream().flatMap(expression -> extractComparisonDemands(expression, inputLayout).stream()))
+                .toList();
+        return createAdapterOperatorFactory(new Factory(
+                operatorId,
+                planNodeId,
+                processor,
+                types,
+                inputChannels,
+                inputTypes,
+                inputRuntimeConstraints,
+                minOutputPageSize,
+                minOutputPageRowCount));
+    }
+
+    private static List<RuntimeConstraintRequest> extractComparisonDemands(Expression filter, Map<Symbol, Integer> inputLayout)
+    {
+        ImmutableList.Builder<RuntimeConstraintRequest> comparisons = ImmutableList.builder();
+        for (Expression conjunct : extractConjuncts(filter)) {
+            Comparison comparison = matchComparison(conjunct);
+            if (comparison == null) {
+                continue;
+            }
+            ComparisonOperator operator = comparison.operator();
+            boolean nullAllowed = operator == IDENTICAL;
+            if (nullAllowed) {
+                if (comparison.left().type().equals(REAL) || comparison.right().type().equals(REAL) || comparison.left().type().equals(DOUBLE) || comparison.right().type().equals(DOUBLE)) {
+                    continue;
+                }
+                operator = EQUAL;
+            }
+            else if (!SUPPORTED_RUNTIME_CONSTRAINT_COMPARISONS.contains(operator)) {
+                continue;
+            }
+            Reference left = sourceReference(comparison.left());
+            Reference right = sourceReference(comparison.right());
+            if (left == null || right == null) {
+                continue;
+            }
+            Integer leftChannel = inputLayout.get(Symbol.from(left));
+            Integer rightChannel = inputLayout.get(Symbol.from(right));
+            if (leftChannel != null && rightChannel != null && !leftChannel.equals(rightChannel)) {
+                comparisons.add(RuntimeConstraintRequest.comparisonDemand(leftChannel, rightChannel, operator, nullAllowed));
+            }
+        }
+        return comparisons.build();
+    }
+
+    private static Reference sourceReference(Expression expression)
+    {
+        return switch (expression) {
+            case Reference reference -> reference;
+            case Cast(Reference reference, _, _) -> reference;
+            default -> null;
+        };
     }
 
     private static class Factory
@@ -100,6 +255,9 @@ public class FilterAndProjectOperator
         private final PlanNodeId planNodeId;
         private final Supplier<PageProcessor> processor;
         private final List<Type> types;
+        private final List<OptionalInt> inputChannels;
+        private final List<Optional<Type>> inputTypes;
+        private final List<RuntimeConstraintRequest> inputRuntimeConstraints;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
         private boolean closed;
@@ -109,6 +267,9 @@ public class FilterAndProjectOperator
                 PlanNodeId planNodeId,
                 Supplier<PageProcessor> processor,
                 List<Type> types,
+                List<OptionalInt> inputChannels,
+                List<Optional<Type>> inputTypes,
+                List<RuntimeConstraintRequest> inputRuntimeConstraints,
                 DataSize minOutputPageSize,
                 int minOutputPageRowCount)
         {
@@ -116,6 +277,10 @@ public class FilterAndProjectOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.processor = requireNonNull(processor, "processor is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
+            this.inputTypes = ImmutableList.copyOf(requireNonNull(inputTypes, "inputTypes is null"));
+            checkArgument(inputChannels.size() == inputTypes.size(), "inputChannels and inputTypes have different sizes");
+            this.inputRuntimeConstraints = ImmutableList.copyOf(requireNonNull(inputRuntimeConstraints, "inputRuntimeConstraints is null"));
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
         }
@@ -131,6 +296,33 @@ public class FilterAndProjectOperator
                     types,
                     minOutputPageSize,
                     minOutputPageRowCount);
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < inputChannels.size() && inputChannels.get(channel).isPresent())) {
+                context.stop(getOperatorType(), request);
+                return;
+            }
+            if (request.isComparisonDemand()) {
+                input.accept(request.mapChannels(channel -> inputChannels.get(channel).orElseThrow()));
+                return;
+            }
+            int inputChannel = inputChannels.get(request.channel()).orElseThrow();
+            RuntimeConstraintRequest mapped = inputTypes.get(request.channel())
+                    .map(type -> request.withChannelAndTargetType(inputChannel, type))
+                    .orElseGet(() -> request.withChannel(inputChannel));
+            input.accept(context.mapConstraint(getOperatorType(), request, mapped));
+        }
+
+        @Override
+        public List<RuntimeConstraintRequest> getInputRuntimeConstraints()
+        {
+            return inputRuntimeConstraints;
         }
 
         @Override
@@ -160,7 +352,7 @@ public class FilterAndProjectOperator
         @Override
         public WorkProcessorOperatorFactory duplicate()
         {
-            return new Factory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
+            return new Factory(operatorId, planNodeId, processor, types, inputChannels, inputTypes, inputRuntimeConstraints, minOutputPageSize, minOutputPageRowCount);
         }
     }
 }

@@ -36,4 +36,24 @@ public class TestServerInfoSerialization
         io.trino.client.ServerInfo clientServerInfo = new io.trino.client.ServerInfo(new NodeVersion("some-version"), "some-env", true, true, Optional.of(Duration.valueOf("1h")), Optional.of("some-coordinator-id"), Optional.of("some-node-id"));
         assertThat(CLIENT_SERVER_INFO_CODEC.fromJson(SERVER_SERVER_INFO_CODEC.toJson(serverServerInfo))).isEqualTo(clientServerInfo);
     }
+
+    @Test
+    void testMissingRuntimeConstraintVersionDefaultsToLegacy()
+    {
+        ServerInfo serverInfo = SERVER_SERVER_INFO_CODEC.fromJson(
+                """
+                {
+                  "nodeId": "legacy",
+                  "state": "ACTIVE",
+                  "nodeVersion": {"version": "test"},
+                  "environment": "test",
+                  "coordinator": false,
+                  "coordinatorId": null,
+                  "starting": false,
+                  "uptime": "1s"
+                }
+                """);
+
+        assertThat(serverInfo.runtimeConstraintVersion()).isZero();
+    }
 }

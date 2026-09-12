@@ -40,7 +40,7 @@ import io.trino.operator.OperatorStats;
 import io.trino.operator.TableFinishInfo;
 import io.trino.plugin.base.metrics.IntList;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
@@ -9792,7 +9792,7 @@ public abstract class BaseIcebergConnectorTest
                     selectQuery);
             assertEqualsIgnoreOrder(result.result(), expected);
 
-            LegacyDynamicFilterService.DynamicFiltersStats dynamicFiltersStats = getDistributedQueryRunner().getCoordinator()
+            DynamicFilterService.DynamicFiltersStats dynamicFiltersStats = getDistributedQueryRunner().getCoordinator()
                     .getQueryManager()
                     .getFullQueryInfo(result.queryId())
                     .getQueryStats()

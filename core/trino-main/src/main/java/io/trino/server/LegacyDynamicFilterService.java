@@ -13,10 +13,7 @@
  */
 package io.trino.server;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -35,6 +32,8 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.join.JoinUtils;
+import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -70,7 +69,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Functions.identity;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -202,13 +200,11 @@ public class LegacyDynamicFilterService
         dynamicFilterContexts.remove(queryId);
     }
 
-    /**
-     * Dynamic filters are collected in same stage as the join operator in pipelined execution. This can result in deadlock
-     * for source stage joins and connectors that wait for dynamic filters before generating splits
-     * (probe splits might be blocked on dynamic filters which require at least one probe task in order to be collected).
-     * To overcome this issue an initial task is created for source stages running broadcast join operator.
-     * This task allows for dynamic filters collection without any probe side splits being scheduled.
-     */
+    /// Dynamic filters are collected in same stage as the join operator in pipelined execution. This can result in deadlock
+    /// for source stage joins and connectors that wait for dynamic filters before generating splits
+    /// (probe splits might be blocked on dynamic filters which require at least one probe task in order to be collected).
+    /// To overcome this issue an initial task is created for source stages running broadcast join operator.
+    /// This task allows for dynamic filters collection without any probe side splits being scheduled.
     public boolean isCollectingTaskNeeded(QueryId queryId, PlanFragment plan)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
@@ -234,11 +230,9 @@ public class LegacyDynamicFilterService
         return !plan.getPartitioning().equals(SOURCE_DISTRIBUTION) && !getLazyDynamicFilters(plan).isEmpty();
     }
 
-    /**
-     * Join build source tasks might become blocked waiting for join stage to collect build data.
-     * In such case dynamic filters must be unblocked (and probe split generation resumed) for
-     * source stage containing joins to allow build source tasks to flush data and complete.
-     */
+    /// Join build source tasks might become blocked waiting for join stage to collect build data.
+    /// In such case dynamic filters must be unblocked (and probe split generation resumed) for
+    /// source stage containing joins to allow build source tasks to flush data and complete.
     public void unblockStageDynamicFilters(QueryId queryId, int attemptId, PlanFragment plan)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
@@ -503,157 +497,6 @@ public class LegacyDynamicFilterService
                 .flatMap(expression -> extractDynamicFilters(expression).dynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)
                 .collect(toImmutableSet());
-    }
-
-    public static class DynamicFiltersStats
-    {
-        public static final DynamicFiltersStats EMPTY = new DynamicFiltersStats(ImmutableList.of(), 0, 0, 0, 0);
-
-        private final List<DynamicFilterDomainStats> dynamicFilterDomainStats;
-        private final int lazyDynamicFilters;
-        private final int replicatedDynamicFilters;
-        private final int totalDynamicFilters;
-        private final int dynamicFiltersCompleted;
-
-        @JsonCreator
-        public DynamicFiltersStats(
-                @JsonProperty("dynamicFilterDomainStats") List<DynamicFilterDomainStats> dynamicFilterDomainStats,
-                @JsonProperty("lazyDynamicFilters") int lazyDynamicFilters,
-                @JsonProperty("replicatedDynamicFilters") int replicatedDynamicFilters,
-                @JsonProperty("totalDynamicFilters") int totalDynamicFilters,
-                @JsonProperty("dynamicFiltersCompleted") int dynamicFiltersCompleted)
-        {
-            this.dynamicFilterDomainStats = requireNonNull(dynamicFilterDomainStats, "dynamicFilterDomainStats is null");
-            this.lazyDynamicFilters = lazyDynamicFilters;
-            this.replicatedDynamicFilters = replicatedDynamicFilters;
-            this.totalDynamicFilters = totalDynamicFilters;
-            this.dynamicFiltersCompleted = dynamicFiltersCompleted;
-        }
-
-        @JsonProperty
-        public List<DynamicFilterDomainStats> getDynamicFilterDomainStats()
-        {
-            return dynamicFilterDomainStats;
-        }
-
-        @JsonProperty
-        public int getLazyDynamicFilters()
-        {
-            return lazyDynamicFilters;
-        }
-
-        @JsonProperty
-        public int getReplicatedDynamicFilters()
-        {
-            return replicatedDynamicFilters;
-        }
-
-        @JsonProperty
-        public int getTotalDynamicFilters()
-        {
-            return totalDynamicFilters;
-        }
-
-        @JsonProperty
-        public int getDynamicFiltersCompleted()
-        {
-            return dynamicFiltersCompleted;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            DynamicFiltersStats that = (DynamicFiltersStats) o;
-            return lazyDynamicFilters == that.lazyDynamicFilters &&
-                    replicatedDynamicFilters == that.replicatedDynamicFilters &&
-                    totalDynamicFilters == that.totalDynamicFilters &&
-                    dynamicFiltersCompleted == that.dynamicFiltersCompleted &&
-                    Objects.equals(dynamicFilterDomainStats, that.dynamicFilterDomainStats);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(dynamicFilterDomainStats, lazyDynamicFilters, replicatedDynamicFilters, totalDynamicFilters, dynamicFiltersCompleted);
-        }
-    }
-
-    public static class DynamicFilterDomainStats
-    {
-        private final DynamicFilterId dynamicFilterId;
-        private final String simplifiedDomain;
-        private final Optional<Duration> collectionDuration;
-
-        @VisibleForTesting
-        DynamicFilterDomainStats(DynamicFilterId dynamicFilterId, String simplifiedDomain)
-        {
-            this(dynamicFilterId, simplifiedDomain, Optional.empty());
-        }
-
-        @JsonCreator
-        public DynamicFilterDomainStats(
-                @JsonProperty("dynamicFilterId") DynamicFilterId dynamicFilterId,
-                @JsonProperty("simplifiedDomain") String simplifiedDomain,
-                @JsonProperty("collectionDuration") Optional<Duration> collectionDuration)
-        {
-            this.dynamicFilterId = requireNonNull(dynamicFilterId, "dynamicFilterId is null");
-            this.simplifiedDomain = requireNonNull(simplifiedDomain, "simplifiedDomain is null");
-            this.collectionDuration = requireNonNull(collectionDuration, "collectionDuration is null");
-        }
-
-        @JsonProperty
-        public DynamicFilterId getDynamicFilterId()
-        {
-            return dynamicFilterId;
-        }
-
-        @JsonProperty
-        public String getSimplifiedDomain()
-        {
-            return simplifiedDomain;
-        }
-
-        @JsonProperty
-        public Optional<Duration> getCollectionDuration()
-        {
-            return collectionDuration;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            DynamicFilterDomainStats stats = (DynamicFilterDomainStats) o;
-            return Objects.equals(dynamicFilterId, stats.dynamicFilterId) &&
-                    Objects.equals(simplifiedDomain, stats.simplifiedDomain);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(dynamicFilterId, simplifiedDomain);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("dynamicFilterId", dynamicFilterId)
-                    .add("simplifiedDomain", simplifiedDomain)
-                    .add("collectionDuration", collectionDuration)
-                    .toString();
-        }
     }
 
     private static class DynamicFilterCollectionContext

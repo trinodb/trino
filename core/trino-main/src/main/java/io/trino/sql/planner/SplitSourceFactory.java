@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 package io.trino.sql.planner;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -22,12 +21,13 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.expression.ConnectorExpressions;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.split.DeferredSplitSource;
 import io.trino.split.SampledSplitSource;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
@@ -85,9 +85,11 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
+import static io.trino.SystemSessionProperties.isLegacyDynamicFiltering;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.IrUtils.filterConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static java.util.Objects.requireNonNull;
 
 public class SplitSourceFactory
@@ -95,11 +97,11 @@ public class SplitSourceFactory
     private static final Logger log = Logger.get(SplitSourceFactory.class);
 
     private final SplitManager splitManager;
-    private final LegacyDynamicFilterService dynamicFilterService;
+    private final DynamicFilterService dynamicFilterService;
     private final JsonCodec<Expression> serializer;
 
     @Inject
-    public SplitSourceFactory(SplitManager splitManager, LegacyDynamicFilterService dynamicFilterService, JsonCodec<Expression> serializer)
+    public SplitSourceFactory(SplitManager splitManager, DynamicFilterService dynamicFilterService, JsonCodec<Expression> serializer)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -157,45 +159,62 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
-            SplitSource splitSource = createSplitSource(node.getTable(), node.getAssignments(), Optional.empty());
+            SplitSource splitSource = createSplitSource(node, Optional.empty());
 
             splitSources.add(splitSource);
 
             return ImmutableMap.of(node.getId(), splitSource);
         }
 
-        private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate)
+        private SplitSource createSplitSource(TableScanNode scan, Optional<Expression> filterPredicate)
         {
-            List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
-                    .map(DynamicFilters::extractDynamicFilters)
-                    .map(DynamicFilters.ExtractResult::dynamicConjuncts)
-                    .orElse(ImmutableList.of());
+            TableHandle table = scan.getTable();
+            Map<Symbol, ColumnHandle> assignments = scan.getAssignments();
+            List<ColumnHandle> columns = scan.getOutputSymbols().stream().map(assignments::get).toList();
 
-            DynamicFilter dynamicFilter = EMPTY;
-            if (!dynamicFilters.isEmpty()) {
-                log.debug("Dynamic filters: %s", dynamicFilters);
-                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, assignments);
-            }
-
-            Expression nonDynamicFilter = filterConjuncts(filterPredicate.orElse(TRUE), expression -> !DynamicFilters.isDynamicFilter(expression));
+            Expression predicate = filterPredicate.orElse(TRUE);
+            DynamicFilters.ExtractResult dynamicFilters = DynamicFilters.extractDynamicFilters(predicate);
+            predicate = combineConjuncts(dynamicFilters.staticConjuncts());
             Map<String, ColumnHandle> columnHandlesByName = assignments.entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
             ConnectorExpression expression = ConnectorExpressions.and(
-                    ConnectorExpressionTranslator.translateConjuncts(session, nonDynamicFilter, columnHandlesByName.keySet()).connectorExpression(),
-                    EngineExpressions.buildEngineExpression(nonDynamicFilter, serializer));
+                    ConnectorExpressionTranslator.translateConjuncts(session, predicate, columnHandlesByName.keySet()).connectorExpression(),
+                    EngineExpressions.buildEngineExpression(predicate, serializer));
             // we are interested only in functional predicate here, so we set the summary to ALL.
             Constraint constraint = new Constraint(
                     TupleDomain.all(),
                     expression,
                     columnHandlesByName);
 
+            if (!isEnableDynamicFiltering(session)) {
+                return splitManager.getSplits(session, stageSpan, table, DynamicFilter.EMPTY, constraint);
+            }
+
+            if (isLegacyDynamicFiltering(session)) {
+                return splitManager.getSplits(
+                        session,
+                        stageSpan,
+                        table,
+                        dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters.dynamicConjuncts(), assignments),
+                        constraint);
+            }
+
             // get dataSource for table
-            return splitManager.getSplits(
-                    session,
-                    stageSpan,
-                    table,
-                    dynamicFilter,
-                    constraint);
+            return new DeferredSplitSource(
+                    table.catalogHandle(),
+                    dynamicFilterService.discoverRuntimeConstraintDynamicFilter(session, scan.getId(), columns)
+                            .thenApply(dynamicFilter -> splitManager.getSplits(
+                                    session,
+                                    stageSpan,
+                                    table,
+                                    dynamicFilter,
+                                    constraint)));
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
 
         @Override
@@ -238,12 +257,6 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
-        {
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
         public Map<PlanNodeId, SplitSource> visitRemoteSource(RemoteSourceNode node, Void context)
         {
             // remote source node does not have splits
@@ -261,7 +274,7 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
             if (node.getSource() instanceof TableScanNode scan) {
-                SplitSource splitSource = createSplitSource(scan.getTable(), scan.getAssignments(), Optional.of(node.getPredicate()));
+                SplitSource splitSource = createSplitSource(scan, Optional.of(node.getPredicate()));
 
                 splitSources.add(splitSource);
 

@@ -22,7 +22,7 @@ import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -62,7 +62,7 @@ public class FixedSourcePartitionedScheduler
             BucketNodeMap bucketNodeMap,
             int splitBatchSize,
             NodeSelector nodeSelector,
-            LegacyDynamicFilterService dynamicFilterService,
+            DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager)
     {
         requireNonNull(stageExecution, "stageExecution is null");
@@ -104,21 +104,18 @@ public class FixedSourcePartitionedScheduler
     }
 
     @Override
+    public void start()
+    {
+        // Wiring must use the same partition-to-node mapping as the remote
+        // exchanges. A source scheduler must not choose a random first node.
+        scheduleTasks();
+        sourceSchedulers.forEach(SourceScheduler::start);
+    }
+
+    @Override
     public ScheduleResult schedule()
     {
-        // schedule a task on every node in the distribution
-        List<RemoteTask> newTasks = ImmutableList.of();
-        if (scheduledTasks.isEmpty()) {
-            ImmutableList.Builder<RemoteTask> newTasksBuilder = ImmutableList.builder();
-            for (InternalNode node : nodes) {
-                Optional<RemoteTask> task = stageExecution.scheduleTask(node, partitionIdAllocator.getNextId(), ImmutableMultimap.of());
-                if (task.isPresent()) {
-                    scheduledTasks.put(node, task.get());
-                    newTasksBuilder.add(task.get());
-                }
-            }
-            newTasks = newTasksBuilder.build();
-        }
+        List<RemoteTask> newTasks = scheduleTasks();
 
         ListenableFuture<Void> blocked = immediateFuture(null);
         ScheduleResult.BlockedReason blockedReason = null;
@@ -150,6 +147,25 @@ public class FixedSourcePartitionedScheduler
         }
         checkState(blocked.isDone(), "blockedReason not provided when scheduler is blocked");
         return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
+    }
+
+    private List<RemoteTask> scheduleTasks()
+    {
+        // schedule a task on every node in the distribution
+        List<RemoteTask> newTasks = ImmutableList.of();
+        if (scheduledTasks.isEmpty()) {
+            ImmutableList.Builder<RemoteTask> newTasksBuilder = ImmutableList.builder();
+            for (InternalNode node : nodes) {
+                Optional<RemoteTask> task = stageExecution.scheduleTask(node, partitionIdAllocator.getNextId(), ImmutableMultimap.of());
+                if (task.isPresent()) {
+                    scheduledTasks.put(node, task.get());
+                    newTasksBuilder.add(task.get());
+                }
+            }
+            newTasks = newTasksBuilder.build();
+        }
+
+        return newTasks;
     }
 
     @Override

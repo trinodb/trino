@@ -417,6 +417,20 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
 
     @Test
     @Timeout(30)
+    public void testConnectorPushdownDisabled()
+    {
+        Session session = Session.builder(noJoinReordering(BROADCAST))
+                .setSystemProperty("allow_pushdown_into_connectors", "false")
+                .build();
+        assertQueryDynamicFilters(
+                session,
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
+                Set.of(),
+                TupleDomain.all());
+    }
+
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithMultipleDynamicFiltersOnProbe()
     {
         testSemiJoinWithMultipleDynamicFiltersOnProbe(BROADCAST);
@@ -470,7 +484,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         expectedCoordinatorDynamicFilterAssertion = expectedTupleDomainAssertion;
         expectedTableScanDynamicFilterAssertion = expectedTupleDomainAssertion;
 
-        computeActual(session, query);
+        getQueryRunner().executeWithPlan(session, query);
     }
 
     private class TestingPlugin

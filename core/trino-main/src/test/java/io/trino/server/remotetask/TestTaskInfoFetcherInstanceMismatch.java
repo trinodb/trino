@@ -20,7 +20,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.DynamicFilterConfig;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
@@ -31,8 +30,9 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.TaskStats;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -182,7 +182,6 @@ public class TestTaskInfoFetcherInstanceMismatch
                 0,
                 new Duration(0, MILLISECONDS),
                 0,
-                0,
                 0);
 
         return new TaskInfo(
@@ -211,30 +210,31 @@ public class TestTaskInfoFetcherInstanceMismatch
             TaskStatus initialStatus,
             ScheduledExecutorService executor)
     {
-        DynamicFiltersFetcher dynamicFiltersFetcher = new DynamicFiltersFetcher(
+        RuntimeConstraintFetcher runtimeConstraintFetcher = new RuntimeConstraintFetcher(
                 _ -> {},
                 TASK_ID,
                 TASK_URI,
                 new Duration(10, SECONDS),
-                JsonCodec.jsonCodec(VersionedDynamicFilterDomains.class),
+                JsonCodec.jsonCodec(RuntimeConstraintContributionBatch.class),
                 executor,
                 new TestingHttpClient(_ -> { throw new UnsupportedOperationException(); }),
                 () -> noopTracer().spanBuilder("test"),
                 new Duration(10, SECONDS),
                 executor,
                 new RemoteTaskStats(),
-                new LegacyDynamicFilterService(
+                new DynamicFilterService(
                         createTestingMetadataManager(),
                         PLANNER_CONTEXT.getFunctionManager(),
                         new TypeOperators(),
-                        new DynamicFilterConfig()));
+                        new DynamicFilterConfig()),
+                () -> {});
 
         return new ContinuousTaskStatusFetcher(
                 _ -> {},
                 initialStatus,
                 new Duration(10, SECONDS),
                 JsonCodec.jsonCodec(TaskStatus.class),
-                dynamicFiltersFetcher,
+                runtimeConstraintFetcher,
                 executor,
                 new TestingHttpClient(_ -> { throw new UnsupportedOperationException(); }),
                 () -> noopTracer().spanBuilder("test"),

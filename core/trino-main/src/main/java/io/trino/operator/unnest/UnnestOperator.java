@@ -19,6 +19,8 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.RuntimeConstraintRequest;
+import io.trino.operator.RuntimeConstraintWiringContext;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
@@ -31,6 +33,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -84,6 +87,19 @@ public class UnnestOperator
         public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < replicateChannels.size())) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request.mapChannels(replicateChannels::get));
         }
 
         @Override

@@ -57,7 +57,7 @@ import io.trino.metadata.Metadata;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -121,6 +121,7 @@ import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
+import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.EMPTY;
 import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.ONE;
@@ -174,7 +175,7 @@ public class PipelinedQueryScheduler
     private final InternalNodeManager nodeManager;
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
-    private final LegacyDynamicFilterService dynamicFilterService;
+    private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final SplitSourceFactory splitSourceFactory;
 
@@ -212,7 +213,7 @@ public class PipelinedQueryScheduler
             ExecutionPolicy executionPolicy,
             Tracer tracer,
             SplitSchedulerStats schedulerStats,
-            LegacyDynamicFilterService dynamicFilterService,
+            DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             Metadata metadata,
             SplitSourceFactory splitSourceFactory,
@@ -851,7 +852,7 @@ public class PipelinedQueryScheduler
         private final ExecutionSchedule executionSchedule;
         private final Map<StageId, StageScheduler> stageSchedulers;
         private final Map<StageId, StageExecution> stageExecutions;
-        private final LegacyDynamicFilterService dynamicFilterService;
+        private final DynamicFilterService dynamicFilterService;
 
         private final AtomicBoolean started = new AtomicBoolean();
 
@@ -867,7 +868,7 @@ public class PipelinedQueryScheduler
                 ScheduledExecutorService executor,
                 SplitSourceFactory splitSourceFactory,
                 int splitBatchSize,
-                LegacyDynamicFilterService dynamicFilterService,
+                DynamicFilterService dynamicFilterService,
                 TableExecuteContextManager tableExecuteContextManager,
                 RetryPolicy retryPolicy,
                 int attempt)
@@ -1062,7 +1063,7 @@ public class PipelinedQueryScheduler
                 NodeScheduler nodeScheduler,
                 NodePartitioningManager nodePartitioningManager,
                 int splitBatchSize,
-                LegacyDynamicFilterService dynamicFilterService,
+                DynamicFilterService dynamicFilterService,
                 ScheduledExecutorService executor,
                 TableExecuteContextManager tableExecuteContextManager)
         {
@@ -1156,7 +1157,7 @@ public class PipelinedQueryScheduler
                 List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-                return new FixedCountScheduler(stageExecution, partitionToNode);
+                return new FixedCountScheduler(stageExecution, partitionToNode, isEnableDynamicFiltering(session));
             }
 
             // contains local source
@@ -1234,7 +1235,7 @@ public class PipelinedQueryScheduler
                 ExecutionSchedule executionSchedule,
                 Map<StageId, StageScheduler> stageSchedulers,
                 Map<StageId, StageExecution> stageExecutions,
-                LegacyDynamicFilterService dynamicFilterService)
+                DynamicFilterService dynamicFilterService)
         {
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
@@ -1267,9 +1268,14 @@ public class PipelinedQueryScheduler
                     if (stateMachine.getState().isDone()) {
                         return;
                     }
-                    int numberOfTasks = stageExecution.getAllTasks().size();
                     if (!state.canScheduleMoreTasks()) {
-                        dynamicFilterService.stageCannotScheduleMoreTasks(stageExecution.getStageId(), stageExecution.getAttemptId(), numberOfTasks);
+                        dynamicFilterService.stageCannotScheduleMoreTasks(
+                                stageExecution.getStageId(),
+                                stageExecution.getAttemptId(),
+                                stageExecution.getAllTasks().stream()
+                                        .map(RemoteTask::getTaskId)
+                                        .map(TaskId::partitionId)
+                                        .collect(toImmutableSet()));
                     }
                     if (state == FAILED) {
                         RuntimeException failureCause = stageExecution.getFailureCause()

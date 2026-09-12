@@ -106,6 +106,25 @@ class ArbitraryDistributionSplitAssigner
     }
 
     @Override
+    public AssignmentResult startWiring(PlanNodeId planNodeId)
+    {
+        NodeRequirements nodeRequirements = new NodeRequirements(catalogRequirement, Optional.empty(), true);
+        PartitionAssignment partitionAssignment = new PartitionAssignment(nextPartitionId++);
+        allAssignments.add(partitionAssignment);
+        openAssignments.put(nodeRequirements, partitionAssignment);
+        return AssignmentResult.builder()
+                .addPartition(new Partition(partitionAssignment.getPartitionId(), nodeRequirements))
+                .updatePartition(new PartitionUpdate(
+                        partitionAssignment.getPartitionId(),
+                        planNodeId,
+                        true,
+                        ImmutableListMultimap.of(),
+                        false,
+                        true))
+                .build();
+    }
+
+    @Override
     public AssignmentResult assign(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits)
     {
         for (Split split : splits.values()) {

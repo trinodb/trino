@@ -15,7 +15,7 @@ package io.trino.execution.scheduler.policy;
 
 import com.google.inject.Inject;
 import io.trino.execution.scheduler.StageExecution;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 
 import java.util.Collection;
 
@@ -24,10 +24,10 @@ import static java.util.Objects.requireNonNull;
 public class PhasedExecutionPolicy
         implements ExecutionPolicy
 {
-    private final LegacyDynamicFilterService dynamicFilterService;
+    private final DynamicFilterService dynamicFilterService;
 
     @Inject
-    public PhasedExecutionPolicy(LegacyDynamicFilterService dynamicFilterService)
+    public PhasedExecutionPolicy(DynamicFilterService dynamicFilterService)
     {
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
     }

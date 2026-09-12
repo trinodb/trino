@@ -145,7 +145,7 @@ public class TestWindow
                                                 .left(
                                                         exchange(REMOTE,
                                                                 REPARTITION,
-                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))))
+                                                                tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey"))))
                                                 .right(
                                                         exchange(LOCAL, GATHER,
                                                                 exchange(REMOTE,
@@ -167,7 +167,7 @@ public class TestWindow
                                                         .left(
                                                                 exchange(REMOTE,
                                                                         REPARTITION,
-                                                                        anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))))
+                                                                        tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey"))))
                                                         .right(
                                                                 exchange(LOCAL, GATHER,
                                                                         exchange(REMOTE,
@@ -189,7 +189,7 @@ public class TestWindow
                                                 join(INNER, builder -> builder
                                                         .equiCriteria("orderstatus", "linestatus")
                                                         .distributionType(REPLICATED)
-                                                        .left(anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))))
+                                                        .left(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey")))
                                                         .right(
                                                                 exchange(LOCAL, GATHER,
                                                                         exchange(REMOTE,

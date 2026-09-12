@@ -41,7 +41,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.metrics.DistributionSnapshot;
-import io.trino.server.LegacyDynamicFilterService.DynamicFilterDomainStats;
+import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.FunctionName;
@@ -162,6 +162,7 @@ import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isLegacyDynamicFiltering;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
@@ -180,6 +181,7 @@ import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
@@ -474,6 +476,22 @@ public class PlanPrinter
                 queryStats.getPlanningTime().convertToMostSuccinctTimeUnit(),
                 queryStats.getExecutionTime().convertToMostSuccinctTimeUnit(),
                 queryStats.getFinishingTime().convertToMostSuccinctTimeUnit()));
+
+        // Runtime constraints are discovered by physical operators and have no
+        // logical scan predicates to attach their statistics to.
+        if (!isLegacyDynamicFiltering(valuePrinter.getSession()) && !dynamicFilterDomainStats.isEmpty()) {
+            builder.append("Dynamic filters: \n");
+            dynamicFilterDomainStats.values().stream()
+                    .sorted(comparing(stats -> stats.getDynamicFilterId().toString()))
+                    .forEach(stats -> {
+                        if (anonymizer instanceof NoOpAnonymizer) {
+                            builder.append(format("    - %s, %s, collection time=%s\n", stats.getDynamicFilterId(), stats.getSimplifiedDomain(), stats.getCollectionDuration().map(Duration::toString).orElse("uncollected")));
+                        }
+                        else {
+                            builder.append(format("    - %s, collection time=%s\n", stats.getDynamicFilterId(), stats.getCollectionDuration().map(Duration::toString).orElse("uncollected")));
+                        }
+                    });
+        }
 
         for (StageInfo stageInfo : stages) {
             if (stageInfo.plan() == null) {

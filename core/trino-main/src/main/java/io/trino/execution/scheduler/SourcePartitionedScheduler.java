@@ -24,7 +24,7 @@ import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
-import io.trino.server.LegacyDynamicFilterService;
+import io.trino.server.DynamicFilterService;
 import io.trino.split.EmptySplit;
 import io.trino.split.SplitSource;
 import io.trino.split.SplitSource.SplitBatch;
@@ -87,7 +87,7 @@ public class SourcePartitionedScheduler
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final int splitBatchSize;
     private final PlanNodeId partitionedNode;
-    private final LegacyDynamicFilterService dynamicFilterService;
+    private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final BooleanSupplier anySourceTaskBlocked;
     private final PartitionIdAllocator partitionIdAllocator;
@@ -104,7 +104,7 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            LegacyDynamicFilterService dynamicFilterService,
+            DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked,
             PartitionIdAllocator partitionIdAllocator,
@@ -142,7 +142,7 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            LegacyDynamicFilterService dynamicFilterService,
+            DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked)
     {
@@ -193,7 +193,7 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            LegacyDynamicFilterService dynamicFilterService,
+            DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked,
             PartitionIdAllocator partitionIdAllocator,
@@ -218,7 +218,7 @@ public class SourcePartitionedScheduler
         // Avoid deadlocks by immediately scheduling a task for collecting dynamic filters because:
         // * there can be task in other stage blocked waiting for the dynamic filters, or
         // * connector split source for this stage might be blocked waiting the dynamic filters.
-        if (dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().queryId(), stageExecution.getFragment())) {
+        if (dynamicFilterService.isRuntimeConstraintWiringEnabled(stageExecution.getStageId().queryId()) || splitSource.isSplitSourceCreationDeferred() || dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().queryId(), stageExecution.getFragment())) {
             stageExecution.beginScheduling();
             createTaskOnRandomNode();
         }
@@ -398,7 +398,9 @@ public class SourcePartitionedScheduler
 
     private void createTaskOnRandomNode()
     {
-        checkState(scheduledTasks.isEmpty(), "Stage task is already scheduled on node");
+        if (!scheduledTasks.isEmpty()) {
+            return;
+        }
         List<InternalNode> allNodes = splitPlacementPolicy.allNodes();
         checkState(allNodes.size() > 0, "No nodes available");
         InternalNode node = allNodes.get(ThreadLocalRandom.current().nextInt(0, allNodes.size()));

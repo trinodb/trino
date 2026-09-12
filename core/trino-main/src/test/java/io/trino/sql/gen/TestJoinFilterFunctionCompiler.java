@@ -16,6 +16,7 @@ package io.trino.sql.gen;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.join.JoinFilterFunction;
+import io.trino.operator.join.RuntimeConstraintComparison;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -30,6 +31,7 @@ import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
@@ -80,6 +82,23 @@ public class TestJoinFilterFunctionCompiler
         assertThat(filterFunction.filter(1, 1, rightPage)).isFalse();
         // left[2]=5 > right[2]=3 → true
         assertThat(filterFunction.filter(2, 2, rightPage)).isTrue();
+    }
+
+    @Test
+    public void testExtractsRuntimeConstraintComparisonInProbeDirection()
+    {
+        JoinFilterFunctionCompiler compiler = new JoinFilterFunctionCompiler(
+                FUNCTION_RESOLUTION.getPlannerContext().getFunctionManager(),
+                FUNCTION_RESOLUTION.getMetadata(),
+                FUNCTION_RESOLUTION.getPlannerContext().getTypeManager());
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "left_col"), 0,
+                new Symbol(BIGINT, "right_col"), 1);
+
+        JoinFilterFunctionFactory factory = compiler.compileJoinFilterFunction(JOIN_FILTER, layout, 1, SQL_STANDARD);
+
+        assertThat(factory.getRuntimeConstraintComparisons())
+                .containsExactly(new RuntimeConstraintComparison(0, 0, LESS_THAN, false, BIGINT));
     }
 
     @Test

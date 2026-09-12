@@ -322,7 +322,6 @@ public class TestSchedulingUtils
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
     }
 
@@ -335,7 +334,6 @@ public class TestSchedulingUtils
                 left.getOutputSymbols().get(0),
                 right.getOutputSymbols().get(0),
                 new Symbol(UNKNOWN, id),
-                Optional.empty(),
                 Optional.empty());
     }
 

@@ -87,7 +87,6 @@ class TestIncrementalRefreshVisitor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(root);

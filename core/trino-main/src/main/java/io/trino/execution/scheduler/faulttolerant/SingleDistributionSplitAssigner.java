@@ -45,6 +45,19 @@ class SingleDistributionSplitAssigner
     }
 
     @Override
+    public AssignmentResult startWiring(PlanNodeId planNodeId)
+    {
+        AssignmentResult.Builder assignment = AssignmentResult.builder();
+        if (!partitionAdded) {
+            partitionAdded = true;
+            assignment.addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement, hostRequirement.isEmpty())));
+            assignment.setNoMorePartitions();
+        }
+        assignment.updatePartition(new PartitionUpdate(0, planNodeId, true, ImmutableListMultimap.of(), false, true));
+        return assignment.build();
+    }
+
+    @Override
     public AssignmentResult assign(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits)
     {
         AssignmentResult.Builder assignment = AssignmentResult.builder();

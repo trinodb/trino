@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -39,7 +40,12 @@ public class AssignUniqueIdOperator
 
     public static OperatorFactory createOperatorFactory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, valuePool));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, valuePool, 0));
+    }
+
+    public static OperatorFactory createOperatorFactory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool, int inputChannelCount)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, valuePool, inputChannelCount));
     }
 
     private static class Factory
@@ -51,12 +57,14 @@ public class AssignUniqueIdOperator
         // The unique id embeds only the stage and partition of the task, so all AssignUniqueId
         // operators in a task must draw row ids from a single pool for their ids to be distinct
         private final AtomicLong valuePool;
+        private final int inputChannelCount;
 
-        private Factory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool)
+        private Factory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool, int inputChannelCount)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.valuePool = requireNonNull(valuePool, "valuePool is null");
+            this.inputChannelCount = inputChannelCount;
         }
 
         @Override
@@ -91,9 +99,22 @@ public class AssignUniqueIdOperator
         }
 
         @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < inputChannelCount)) {
+                context.stop(getOperatorType(), request);
+                return;
+            }
+            input.accept(request);
+        }
+
+        @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, valuePool);
+            return new Factory(operatorId, planNodeId, valuePool, inputChannelCount);
         }
     }
 

@@ -26,7 +26,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.succinctDuration;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskState.PLANNED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -52,9 +51,11 @@ public record TaskStatus(
         DataSize revocableMemoryReservation,
         long fullGcCount,
         Duration fullGcTime,
-        long dynamicFiltersVersion,
+        long runtimeConstraintContributionsSequence,
+        long runtimeConstraintUpdateAcknowledgement,
         long queuedPartitionedSplitsWeight,
-        long runningPartitionedSplitsWeight)
+        long runningPartitionedSplitsWeight,
+        long dynamicFiltersVersion)
 {
     /**
      * Version of task status that can be used to create an initial local task
@@ -67,6 +68,35 @@ public record TaskStatus(
      * a final local task that is always newer than any remote task.
      */
     private static final long MAX_VERSION = Long.MAX_VALUE;
+
+    public TaskStatus(
+            TaskId taskId,
+            long taskInstanceId,
+            long version,
+            TaskState state,
+            URI self,
+            String nodeId,
+            boolean speculative,
+            List<ExecutionFailureInfo> failures,
+            int queuedPartitionedDrivers,
+            int runningPartitionedDrivers,
+            OutputBufferStatus outputBufferStatus,
+            DataSize outputDataSize,
+            DataSize writerInputDataSize,
+            DataSize physicalWrittenDataSize,
+            OptionalInt maxWriterCount,
+            DataSize memoryReservation,
+            DataSize peakMemoryReservation,
+            DataSize revocableMemoryReservation,
+            long fullGcCount,
+            Duration fullGcTime,
+            long runtimeConstraintContributionsSequence,
+            long runtimeConstraintUpdateAcknowledgement,
+            long queuedPartitionedSplitsWeight,
+            long runningPartitionedSplitsWeight)
+    {
+        this(taskId, taskInstanceId, version, state, self, nodeId, speculative, failures, queuedPartitionedDrivers, runningPartitionedDrivers, outputBufferStatus, outputDataSize, writerInputDataSize, physicalWrittenDataSize, maxWriterCount, memoryReservation, peakMemoryReservation, revocableMemoryReservation, fullGcCount, fullGcTime, runtimeConstraintContributionsSequence, runtimeConstraintUpdateAcknowledgement, queuedPartitionedSplitsWeight, runningPartitionedSplitsWeight, 0);
+    }
 
     public TaskStatus
     {
@@ -95,7 +125,59 @@ public record TaskStatus(
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         requireNonNull(fullGcTime, "fullGcTime is null");
-        checkArgument(dynamicFiltersVersion >= INITIAL_DYNAMIC_FILTERS_VERSION, "dynamicFiltersVersion must be >= INITIAL_DYNAMIC_FILTERS_VERSION");
+        checkArgument(runtimeConstraintContributionsSequence >= 0, "runtimeConstraintContributionsSequence is negative");
+        checkArgument(runtimeConstraintUpdateAcknowledgement >= 0, "runtimeConstraintUpdateAcknowledgement is negative");
+        checkArgument(dynamicFiltersVersion >= 0, "dynamicFiltersVersion is negative");
+    }
+
+    public TaskStatus(
+            TaskId taskId,
+            long taskInstanceId,
+            long version,
+            TaskState state,
+            URI self,
+            String nodeId,
+            boolean speculative,
+            List<ExecutionFailureInfo> failures,
+            int queuedPartitionedDrivers,
+            int runningPartitionedDrivers,
+            OutputBufferStatus outputBufferStatus,
+            DataSize outputDataSize,
+            DataSize writerInputDataSize,
+            DataSize physicalWrittenDataSize,
+            OptionalInt maxWriterCount,
+            DataSize memoryReservation,
+            DataSize peakMemoryReservation,
+            DataSize revocableMemoryReservation,
+            long fullGcCount,
+            Duration fullGcTime,
+            long queuedPartitionedSplitsWeight,
+            long runningPartitionedSplitsWeight)
+    {
+        this(taskId,
+                taskInstanceId,
+                version,
+                state,
+                self,
+                nodeId,
+                speculative,
+                failures,
+                queuedPartitionedDrivers,
+                runningPartitionedDrivers,
+                outputBufferStatus,
+                outputDataSize,
+                writerInputDataSize,
+                physicalWrittenDataSize,
+                maxWriterCount,
+                memoryReservation,
+                peakMemoryReservation,
+                revocableMemoryReservation,
+                fullGcCount,
+                fullGcTime,
+                0,
+                0,
+                queuedPartitionedSplitsWeight,
+                runningPartitionedSplitsWeight);
     }
 
     @Override
@@ -130,7 +212,6 @@ public record TaskStatus(
                 DataSize.ofBytes(0),
                 0,
                 succinctDuration(0, MILLISECONDS),
-                INITIAL_DYNAMIC_FILTERS_VERSION,
                 0L,
                 0L);
     }
@@ -158,8 +239,10 @@ public record TaskStatus(
                 taskStatus.revocableMemoryReservation(),
                 taskStatus.fullGcCount(),
                 taskStatus.fullGcTime(),
-                taskStatus.dynamicFiltersVersion(),
+                taskStatus.runtimeConstraintContributionsSequence(),
+                taskStatus.runtimeConstraintUpdateAcknowledgement(),
                 taskStatus.queuedPartitionedSplitsWeight(),
-                taskStatus.runningPartitionedSplitsWeight());
+                taskStatus.runningPartitionedSplitsWeight(),
+                taskStatus.dynamicFiltersVersion());
     }
 }

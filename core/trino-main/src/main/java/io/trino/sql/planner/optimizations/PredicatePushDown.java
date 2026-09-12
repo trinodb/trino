@@ -82,6 +82,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
+import static io.trino.SystemSessionProperties.isLegacyDynamicFiltering;
 import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -601,7 +602,7 @@ public class PredicatePushDown
                 Session session,
                 PlanNodeIdAllocator idAllocator)
         {
-            if ((node.getType() != INNER && node.getType() != RIGHT) || !isEnableDynamicFiltering(session) || !dynamicFiltering) {
+            if ((node.getType() != INNER && node.getType() != RIGHT) || !isEnableDynamicFiltering(session) || !isLegacyDynamicFiltering(session) || !dynamicFiltering) {
                 return new DynamicFiltersResult(ImmutableMap.of(), ImmutableList.of());
             }
 
@@ -1339,7 +1340,7 @@ public class PredicatePushDown
 
             // Add dynamic filtering predicate
             Optional<DynamicFilterId> dynamicFilterId = node.getDynamicFilterId();
-            if (dynamicFilterId.isEmpty() && isEnableDynamicFiltering(session) && dynamicFiltering) {
+            if (dynamicFilterId.isEmpty() && isEnableDynamicFiltering(session) && isLegacyDynamicFiltering(session) && dynamicFiltering) {
                 dynamicFilterId = Optional.of(new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
                 Symbol sourceSymbol = node.getSourceJoinSymbol();
                 sourceConjuncts.add(createDynamicFilterExpression(

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.units.DataSize;
 import io.trino.memory.context.CoarseGrainLocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.HashArraySizeSupplier;
@@ -24,16 +25,33 @@ import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.RuntimeConstraintCollectionLimits;
+import io.trino.operator.RuntimeConstraintRequest;
+import io.trino.operator.RuntimeConstraintSourceConsumer;
+import io.trino.operator.RuntimeConstraintSourceOperator;
+import io.trino.operator.RuntimeConstraintWiringContext;
+import io.trino.operator.TaskRuntimeConstraintManager;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.LookupSourceSupplier;
+import io.trino.operator.join.RuntimeConstraintComparison;
 import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.trino.sql.ir.ComparisonOperator;
+import io.trino.sql.planner.LocalRuntimeConstraintConsumer;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.DistributedCompletionPolicy;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintWiringReport.CollectedConstraint;
 import jakarta.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -64,8 +82,14 @@ public class HashBuilderOperator
 
         private final int expectedPositions;
         private final HashArraySizeSupplier hashArraySizeSupplier;
+        private final RuntimeConstraintCollectionLimits runtimeConstraintLimits;
+        private final TypeOperators typeOperators;
+        private final DistributedCompletionPolicy runtimeConstraintCompletionPolicy;
 
         private int partitionIndex;
+        private final AtomicReference<TaskRuntimeConstraintManager> runtimeConstraintManager = new AtomicReference<>();
+        private RuntimeConstraintSourceConsumer runtimeConstraintConsumer;
+        private boolean runtimeConstraintCollectionRelocated;
 
         private boolean closed;
 
@@ -81,6 +105,56 @@ public class HashBuilderOperator
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory,
                 HashArraySizeSupplier hashArraySizeSupplier)
+        {
+            this(operatorId,
+                    planNodeId,
+                    lookupSourceFactoryManager,
+                    outputChannels,
+                    hashChannels,
+                    filterFunctionFactory,
+                    sortChannel,
+                    searchFunctionFactories,
+                    expectedPositions,
+                    pagesIndexFactory,
+                    hashArraySizeSupplier,
+                    new RuntimeConstraintCollectionLimits(50_000, DataSize.of(4, DataSize.Unit.MEGABYTE), 100_000, DataSize.of(5, DataSize.Unit.MEGABYTE)),
+                    new TypeOperators(),
+                    DistributedCompletionPolicy.UNION_ALL_PARTITIONS);
+        }
+
+        public HashBuilderOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
+                List<Integer> outputChannels,
+                List<Integer> hashChannels,
+                Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+                OptionalInt sortChannel,
+                List<JoinFilterFunctionFactory> searchFunctionFactories,
+                int expectedPositions,
+                PagesIndex.Factory pagesIndexFactory,
+                HashArraySizeSupplier hashArraySizeSupplier,
+                RuntimeConstraintCollectionLimits runtimeConstraintLimits,
+                TypeOperators typeOperators)
+        {
+            this(operatorId, planNodeId, lookupSourceFactoryManager, outputChannels, hashChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, expectedPositions, pagesIndexFactory, hashArraySizeSupplier, runtimeConstraintLimits, typeOperators, DistributedCompletionPolicy.UNION_ALL_PARTITIONS);
+        }
+
+        public HashBuilderOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
+                List<Integer> outputChannels,
+                List<Integer> hashChannels,
+                Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+                OptionalInt sortChannel,
+                List<JoinFilterFunctionFactory> searchFunctionFactories,
+                int expectedPositions,
+                PagesIndex.Factory pagesIndexFactory,
+                HashArraySizeSupplier hashArraySizeSupplier,
+                RuntimeConstraintCollectionLimits runtimeConstraintLimits,
+                TypeOperators typeOperators,
+                DistributedCompletionPolicy runtimeConstraintCompletionPolicy)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -98,17 +172,40 @@ public class HashBuilderOperator
             this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
 
             this.expectedPositions = expectedPositions;
+            this.runtimeConstraintLimits = requireNonNull(runtimeConstraintLimits, "runtimeConstraintLimits is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+            this.runtimeConstraintCompletionPolicy = requireNonNull(runtimeConstraintCompletionPolicy, "runtimeConstraintCompletionPolicy is null");
         }
 
         @Override
         public HashBuilderOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            if (!runtimeConstraintCollectionRelocated) {
+                initializeRuntimeConstraintSource();
+            }
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
+            TaskRuntimeConstraintManager manager = driverContext.getPipelineContext().getTaskContext().getRuntimeConstraintManager();
+            runtimeConstraintManager.compareAndSet(null, manager);
+            checkState(runtimeConstraintManager.get() == manager, "runtime constraint manager changed");
 
             PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge();
             verify(partitionIndex < lookupSourceFactory.partitions());
             partitionIndex++;
+            List<Integer> runtimeConstraintChannels = runtimeConstraintChannels();
+            List<Type> buildTypes = runtimeConstraintChannels.stream().map(lookupSourceFactory.getTypes()::get).toList();
+            Operator runtimeConstraintCollector = runtimeConstraintChannels.isEmpty() || runtimeConstraintCollectionRelocated
+                    ? null
+                    : RuntimeConstraintSourceOperator.createCollector(
+                    operatorContext,
+                    requireNonNull(runtimeConstraintConsumer, "runtimeConstraintConsumer is not initialized"),
+                    IntStream.range(0, runtimeConstraintChannels.size())
+                    .mapToObj(index -> new RuntimeConstraintSourceOperator.Channel(buildTypes.get(index), runtimeConstraintChannels.get(index)))
+                    .toList(),
+                    runtimeConstraintLimits.maxDistinctValues(),
+                    runtimeConstraintLimits.maxFilterSize(),
+                    runtimeConstraintLimits.minMaxCollectionLimit(),
+                    typeOperators);
             return new HashBuilderOperator(
                     operatorContext,
                     lookupSourceFactory,
@@ -120,13 +217,110 @@ public class HashBuilderOperator
                     searchFunctionFactories,
                     expectedPositions,
                     pagesIndexFactory,
-                    hashArraySizeSupplier);
+                    hashArraySizeSupplier,
+                    runtimeConstraintCollector);
         }
 
         @Override
         public void noMoreOperators()
         {
             closed = true;
+            if (runtimeConstraintConsumer != null && partitionIndex > 0) {
+                runtimeConstraintConsumer.setPartitionCount(partitionIndex);
+            }
+        }
+
+        @Override
+        public void completeRuntimeConstraintWiring(RuntimeConstraintWiringContext context)
+        {
+            if (runtimeConstraintCollectionRelocated) {
+                return;
+            }
+            List<Type> buildTypes = lookupSourceFactoryManager.getJoinBridge().getTypes();
+            List<Integer> channels = runtimeConstraintChannels();
+            if (!channels.isEmpty()) {
+                context.registerSource(
+                        planNodeId,
+                        runtimeConstraintRequests().stream()
+                                .map(request -> new CollectedConstraint(request.constraintId(), request.operator(), request.nullAllowed(), channels.indexOf(request.channel())))
+                                .toList(),
+                        channels.stream().map(buildTypes::get).toList(),
+                        runtimeConstraintCompletionPolicy);
+                initializeRuntimeConstraintSource();
+            }
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(RuntimeConstraintRequest request, Consumer<RuntimeConstraintRequest> input, RuntimeConstraintWiringContext context)
+        {
+            if (!request.isConstraint() || !request.channelsMatch(channel -> channel < outputChannels.size())) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request.mapChannels(outputChannels::get));
+        }
+
+        @Override
+        public void registerRuntimeConstraintInput(Consumer<List<RuntimeConstraintRequest>> requests, RuntimeConstraintWiringContext context)
+        {
+            context.registerLocalConsumer(lookupSourceFactoryManager, requests);
+        }
+
+        @Override
+        public List<RuntimeConstraintRequest> getInputRuntimeConstraints(RuntimeConstraintWiringContext context)
+        {
+            if (!context.isTaskRetry()) {
+                return ImmutableList.of();
+            }
+            runtimeConstraintCollectionRelocated = true;
+            return runtimeConstraintRequests();
+        }
+
+        private List<Integer> runtimeConstraintChannels()
+        {
+            return runtimeConstraintRequests().stream().map(RuntimeConstraintRequest::channel).distinct().toList();
+        }
+
+        private List<RuntimeConstraintRequest> runtimeConstraintRequests()
+        {
+            List<Type> buildTypes = lookupSourceFactoryManager.getJoinBridge().getTypes();
+            boolean replicated = runtimeConstraintCompletionPolicy == DistributedCompletionPolicy.EQUIVALENT_REPLICAS;
+            List<RuntimeConstraintRequest> requests = new ArrayList<>();
+            for (int channel : hashChannels) {
+                requests.add(RuntimeConstraintRequest.collection(
+                        RuntimeConstraintRequest.joinConstraintId(planNodeId, requests.size()),
+                        channel,
+                        ComparisonOperator.EQUAL,
+                        false,
+                        buildTypes.get(channel),
+                        replicated));
+            }
+            for (RuntimeConstraintComparison comparison : filterFunctionFactory.stream()
+                    .flatMap(factory -> factory.getRuntimeConstraintComparisons().stream())
+                    .toList()) {
+                requests.add(RuntimeConstraintRequest.collection(
+                        RuntimeConstraintRequest.joinConstraintId(planNodeId, requests.size()),
+                        comparison.buildChannel(),
+                        comparison.operator(),
+                        comparison.nullAllowed(),
+                        buildTypes.get(comparison.buildChannel()),
+                        replicated));
+            }
+            return ImmutableList.copyOf(requests);
+        }
+
+        private void initializeRuntimeConstraintSource()
+        {
+            if (runtimeConstraintConsumer != null || runtimeConstraintChannels().isEmpty()) {
+                return;
+            }
+            List<Type> buildTypes = lookupSourceFactoryManager.getJoinBridge().getTypes();
+            List<Integer> channels = runtimeConstraintChannels();
+            runtimeConstraintConsumer = new LocalRuntimeConstraintConsumer(
+                    channels,
+                    channels.stream().map(buildTypes::get).toList(),
+                    payload -> runtimeConstraintManager.get().addContribution(planNodeId, payload),
+                    runtimeConstraintLimits.maxSizePerOperator());
         }
 
         @Override
@@ -167,6 +361,8 @@ public class HashBuilderOperator
     private final OptionalInt sortChannel;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
     private final HashArraySizeSupplier hashArraySizeSupplier;
+    @Nullable
+    private final Operator runtimeConstraintCollector;
 
     private State state = State.CONSUMING_INPUT;
     @Nullable
@@ -188,7 +384,24 @@ public class HashBuilderOperator
             PagesIndex.Factory pagesIndexFactory,
             HashArraySizeSupplier hashArraySizeSupplier)
     {
-        this(operatorContext, lookupSourceFactory, partitionIndex, outputChannels, hashChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, expectedPositions, pagesIndexFactory, hashArraySizeSupplier, DEFAULT_GRANULARITY);
+        this(operatorContext, lookupSourceFactory, partitionIndex, outputChannels, hashChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, expectedPositions, pagesIndexFactory, hashArraySizeSupplier, null, DEFAULT_GRANULARITY);
+    }
+
+    private HashBuilderOperator(
+            OperatorContext operatorContext,
+            PartitionedLookupSourceFactory lookupSourceFactory,
+            int partitionIndex,
+            List<Integer> outputChannels,
+            List<Integer> hashChannels,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            OptionalInt sortChannel,
+            List<JoinFilterFunctionFactory> searchFunctionFactories,
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory,
+            HashArraySizeSupplier hashArraySizeSupplier,
+            Operator runtimeConstraintCollector)
+    {
+        this(operatorContext, lookupSourceFactory, partitionIndex, outputChannels, hashChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, expectedPositions, pagesIndexFactory, hashArraySizeSupplier, runtimeConstraintCollector, DEFAULT_GRANULARITY);
     }
 
     @VisibleForTesting
@@ -204,6 +417,24 @@ public class HashBuilderOperator
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,
             HashArraySizeSupplier hashArraySizeSupplier,
+            long memorySyncThreshold)
+    {
+        this(operatorContext, lookupSourceFactory, partitionIndex, outputChannels, hashChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, expectedPositions, pagesIndexFactory, hashArraySizeSupplier, null, memorySyncThreshold);
+    }
+
+    private HashBuilderOperator(
+            OperatorContext operatorContext,
+            PartitionedLookupSourceFactory lookupSourceFactory,
+            int partitionIndex,
+            List<Integer> outputChannels,
+            List<Integer> hashChannels,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            OptionalInt sortChannel,
+            List<JoinFilterFunctionFactory> searchFunctionFactories,
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory,
+            HashArraySizeSupplier hashArraySizeSupplier,
+            Operator runtimeConstraintCollector,
             long memorySyncThreshold)
     {
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
@@ -223,6 +454,7 @@ public class HashBuilderOperator
         this.hashChannels = hashChannels;
 
         this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
+        this.runtimeConstraintCollector = runtimeConstraintCollector;
     }
 
     @Override
@@ -260,6 +492,10 @@ public class HashBuilderOperator
         }
 
         checkState(state == State.CONSUMING_INPUT);
+        if (runtimeConstraintCollector != null) {
+            runtimeConstraintCollector.addInput(page);
+            runtimeConstraintCollector.getOutput();
+        }
         updateIndex(page);
     }
 
@@ -310,6 +546,9 @@ public class HashBuilderOperator
 
     private void finishInput()
     {
+        if (runtimeConstraintCollector != null) {
+            runtimeConstraintCollector.finish();
+        }
         checkState(state == State.CONSUMING_INPUT);
         if (lookupSourceFactoryDestroyed.isDone()) {
             close();
@@ -377,6 +616,14 @@ public class HashBuilderOperator
         lookupSourceSupplier = null;
         index = null;
         localUserMemoryContext.setBytes(0);
+        if (runtimeConstraintCollector != null) {
+            try {
+                runtimeConstraintCollector.close();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
         state = State.CLOSED;
     }
 

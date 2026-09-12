@@ -79,6 +79,7 @@ import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_RUNTIME_CONSTRAINT_SEQUENCE;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
@@ -169,7 +170,10 @@ public class TaskResource
                 taskUpdateRequest.splitAssignments(),
                 taskUpdateRequest.outputIds(),
                 taskUpdateRequest.dynamicFilterDomains(),
-                taskUpdateRequest.speculative());
+                taskUpdateRequest.speculative(),
+                taskUpdateRequest.runtimeConstraintWiringRequests(),
+                taskUpdateRequest.runtimeConstraintUpdates(),
+                taskUpdateRequest.runtimeConstraintContributionAcknowledgement());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
@@ -289,6 +293,26 @@ public class TaskResource
         }
 
         asyncResponse.resume(taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion));
+    }
+
+    @GET
+    @Path("{taskId}/runtimeconstraints")
+    @Produces(MediaType.APPLICATION_JSON)
+    public void acknowledgeAndGetRuntimeConstraintContributions(
+            @PathParam("taskId") TaskId taskId,
+            @HeaderParam(TRINO_RUNTIME_CONSTRAINT_SEQUENCE) @DefaultValue("0") long currentRuntimeConstraintSequence,
+            @Suspended AsyncResponse asyncResponse)
+    {
+        requireNonNull(taskId, "taskId is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
+
+        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
+            return;
+        }
+
+        asyncResponse.resume(taskManager.acknowledgeAndGetRuntimeConstraintContributions(taskId, currentRuntimeConstraintSequence));
     }
 
     @DELETE
