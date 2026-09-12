@@ -45,6 +45,7 @@ public class TestThriftHiveMetastoreClient
                     return new TTransportMock();
                 },
                 "dummy",
+                _ -> {},
                 Optional.empty(),
                 new MetastoreSupportsDateStatistics(),
                 new AtomicInteger(),
@@ -68,6 +69,46 @@ public class TestThriftHiveMetastoreClient
                 .isEqualTo("first");
         // Alternative call should use chosenOption
         assertThat(connectionCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    public void testInitializerRunsOnReconnect()
+            throws TException
+    {
+        AtomicInteger connectionCount = new AtomicInteger();
+        AtomicInteger initializerCount = new AtomicInteger();
+        ThriftMetastoreClientInitializer initializer = _ -> initializerCount.incrementAndGet();
+
+        ThriftHiveMetastoreClient client = new ThriftHiveMetastoreClient(
+                () -> {
+                    connectionCount.incrementAndGet();
+                    return new TTransportMock();
+                },
+                "dummy",
+                initializer,
+                Optional.empty(),
+                new MetastoreSupportsDateStatistics(),
+                new AtomicInteger(),
+                new AtomicInteger(),
+                new AtomicInteger(),
+                new AtomicInteger());
+
+        // initializer runs once for the initial transport
+        assertThat(connectionCount.get()).isEqualTo(1);
+        assertThat(initializerCount.get()).isEqualTo(1);
+
+        // Force alternativeCall to fall back, which tears down and re-opens the transport
+        AlternativeCall<String> failure = () -> {
+            throw new RuntimeException("force reconnect");
+        };
+        AtomicInteger chosenOption = new AtomicInteger(Integer.MAX_VALUE);
+        assertThat(client.alternativeCall(_ -> false, chosenOption, failure, () -> "ok"))
+                .isEqualTo("ok");
+
+        // A new transport was opened, and the initializer ran again so per-session state
+        // (e.g. setUGI from the factory) is re-applied. This is the bug fix.
+        assertThat(connectionCount.get()).isEqualTo(2);
+        assertThat(initializerCount.get()).isEqualTo(2);
     }
 
     private static class TTransportMock
