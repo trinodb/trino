@@ -3790,6 +3790,40 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testWidthBucketLargeBounds()
+    {
+        // Preserve boundary rounding when the original arithmetic does not overflow.
+        assertThat(assertions.function("width_bucket", "15E0", "0E0", "22E0", "22"))
+                .isEqualTo(16L);
+        assertThat(assertions.function("width_bucket", "15E0", "22E0", "0E0", "22"))
+                .isEqualTo(7L);
+        assertThat(assertions.function("width_bucket", "0E0", "-1E308", "1E308", "10"))
+                .isEqualTo(6L);
+        assertThat(assertions.function("width_bucket", "5E307", "0E0", "1E308", "10"))
+                .isEqualTo(6L);
+        assertThat(assertions.function("width_bucket", "-5E307", "-1E308", "0E0", "10"))
+                .isEqualTo(6L);
+        assertThat(assertions.function("width_bucket", "-5E307", "-1E308", "1E308", "10"))
+                .isEqualTo(3L);
+        assertThat(assertions.function("width_bucket", "5E307", "-1E308", "1E308", "10"))
+                .isEqualTo(8L);
+        assertThat(assertions.function("width_bucket", "-5E307", "1E308", "-1E308", "10"))
+                .isEqualTo(8L);
+        assertThat(assertions.function("width_bucket", "5E307", "1E308", "-1E308", "10"))
+                .isEqualTo(3L);
+        assertThat(assertions.function("width_bucket", "-1E308", "-1E308", "1E308", "10"))
+                .isEqualTo(1L);
+        assertThat(assertions.function("width_bucket", "1E308", "-1E308", "1E308", "10"))
+                .isEqualTo(11L);
+        assertThat(assertions.function("width_bucket", "-1.5E308", "-1E308", "1E308", "10"))
+                .isEqualTo(0L);
+        assertThat(assertions.function("width_bucket", "1.5E308", "-1E308", "1E308", "10"))
+                .isEqualTo(11L);
+        assertThat(assertions.function("width_bucket", "1E-310", "0E0", "2E-310", "10"))
+                .isEqualTo(6L);
+    }
+
+    @Test
     public void testWidthBucketOverflowAscending()
     {
         assertTrinoExceptionThrownBy(assertions.function("width_bucket", "infinity()", "0", "4", Long.toString(Long.MAX_VALUE))::evaluate)
