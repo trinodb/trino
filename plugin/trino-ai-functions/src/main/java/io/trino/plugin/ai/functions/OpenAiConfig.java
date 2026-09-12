@@ -14,7 +14,6 @@
 package io.trino.plugin.ai.functions;
 
 import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -22,7 +21,6 @@ import java.net.URI;
 public class OpenAiConfig
 {
     private URI endpoint = URI.create("https://api.openai.com");
-    private String apiKey;
 
     @NotNull
     public URI getEndpoint()
@@ -34,19 +32,6 @@ public class OpenAiConfig
     public OpenAiConfig setEndpoint(URI endpoint)
     {
         this.endpoint = endpoint;
-        return this;
-    }
-
-    @NotEmpty
-    public String getApiKey()
-    {
-        return apiKey;
-    }
-
-    @Config("ai.openai.api-key")
-    public OpenAiConfig setApiKey(String apiKey)
-    {
-        this.apiKey = apiKey;
         return this;
     }
 }

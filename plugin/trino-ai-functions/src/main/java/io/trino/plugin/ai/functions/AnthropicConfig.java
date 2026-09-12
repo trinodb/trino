@@ -14,7 +14,6 @@
 package io.trino.plugin.ai.functions;
 
 import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -22,7 +21,6 @@ import java.net.URI;
 public class AnthropicConfig
 {
     private URI endpoint = URI.create("https://api.anthropic.com");
-    private String apiKey;
 
     @NotNull
     public URI getEndpoint()
@@ -34,19 +32,6 @@ public class AnthropicConfig
     public AnthropicConfig setEndpoint(URI endpoint)
     {
         this.endpoint = endpoint;
-        return this;
-    }
-
-    @NotEmpty
-    public String getApiKey()
-    {
-        return apiKey;
-    }
-
-    @Config("ai.anthropic.api-key")
-    public AnthropicConfig setApiKey(String apiKey)
-    {
-        this.apiKey = apiKey;
         return this;
     }
 }
