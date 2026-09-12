@@ -968,6 +968,47 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    void testEntriesHistoryAfterManifestRewrite()
+    {
+        try (TestTable table = newTrinoTable("test_entries_history", "(id BIGINT)")) {
+            assertThat(query("SELECT * FROM \"%s$entries\"".formatted(table.getName()))).returnsEmptyResult();
+            assertThat(query("SELECT * FROM \"%s$all_entries\"".formatted(table.getName()))).returnsEmptyResult();
+            Table icebergTable = loadTable(table.getName());
+            for (int i = 0; i < 2; i++) {
+                icebergTable.newFastAppend().appendFile(DataFiles.builder(icebergTable.spec())
+                        .withPath(icebergTable.location() + "/data/synthetic-" + i + ".parquet")
+                        .withFileSizeInBytes(1)
+                        .withRecordCount(1)
+                        .build()).commit();
+            }
+            List<MaterializedRow> addedEntries = computeActual("SELECT * FROM \"%s$entries\"".formatted(table.getName())).getMaterializedRows();
+            assertThat(addedEntries).hasSize(2);
+            assertThat(computeActual("SELECT * FROM \"%s$all_entries\"".formatted(table.getName())).getMaterializedRows())
+                    .containsExactlyInAnyOrderElementsOf(addedEntries);
+
+            icebergTable.rewriteManifests().clusterBy(_ -> 0).rewriteIf(_ -> true).commit();
+            List<MaterializedRow> rewrittenEntries = computeActual("SELECT * FROM \"%s$entries\"".formatted(table.getName())).getMaterializedRows();
+            assertThat(rewrittenEntries).hasSize(2);
+            assertThat(rewrittenEntries).extracting(row -> row.getField(0)).containsExactly(0, 0);
+            assertThat(computeActual("SELECT * FROM \"%s$all_entries\"".formatted(table.getName())).getMaterializedRows())
+                    .containsExactlyInAnyOrderElementsOf(ImmutableList.<MaterializedRow>builder().addAll(addedEntries).addAll(rewrittenEntries).build());
+            assertQuery("SELECT count(*) FROM \"%s$entries\"".formatted(table.getName()), "VALUES 2");
+            assertQuery("SELECT count(*) FROM \"%s$all_entries\"".formatted(table.getName()), "VALUES 4");
+            assertQuery("SELECT status, data_file.record_count FROM \"%s$all_entries\"".formatted(table.getName()), "VALUES (1, 1), (1, 1), (0, 1), (0, 1)");
+
+            icebergTable.newDelete().deleteFile(icebergTable.location() + "/data/synthetic-0.parquet").commit();
+            List<MaterializedRow> deletedEntries = computeActual("SELECT * FROM \"%s$entries\"".formatted(table.getName())).getMaterializedRows();
+            assertThat(deletedEntries).extracting(row -> row.getField(0)).containsExactlyInAnyOrder(0, 2);
+            assertThat(computeActual("SELECT * FROM \"%s$all_entries\"".formatted(table.getName())).getMaterializedRows())
+                    .containsExactlyInAnyOrderElementsOf(ImmutableList.<MaterializedRow>builder()
+                            .addAll(addedEntries)
+                            .addAll(rewrittenEntries)
+                            .addAll(deletedEntries)
+                            .build());
+        }
+    }
+
+    @Test
     void testEntriesAfterEqualityDelete()
             throws Exception
     {
