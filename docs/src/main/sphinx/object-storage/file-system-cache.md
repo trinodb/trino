@@ -130,12 +130,12 @@ fs.cache.max-sizes=500GB
 A cluster can load at most one cache manager for each kind of caching. Loading
 both `alluxio` and `memory` therefore uses `alluxio` for table data, since it is
 the only one that can cache more data than fits on the heap, and `memory` for
-coordinator metadata caching.
+coordinator metadata caching of catalogs that do not enable table data caching.
 
-If `cache-manager.config-files` is not set, Trino loads the `memory` cache
-manager with default configuration, so that the coordinator caches metadata
-files. Once the property is set, only the listed cache managers are loaded, and
-metadata caching requires listing a `memory` cache manager explicitly.
+Trino loads the `memory` cache manager with default configuration unless
+`cache-manager.config-files` lists it, so that the coordinator caches metadata
+files even when only `alluxio` is listed. List `memory` explicitly to change its
+configuration.
 
 :::{list-table} Alluxio cache manager properties
 :widths: 25, 75
@@ -205,10 +205,8 @@ fs.cache.enabled=true
 Every node must have a cache manager that can cache table data, `alluxio`, when
 a catalog enables caching. Trino fails to start the catalog otherwise.
 
-Enabling table data caching does not replace metadata caching on the
-coordinator. If a `memory` cache manager is loaded as well, the coordinator
-looks up that cache first and reads through to `alluxio` on a miss, so planning
-keeps the lower latency of the heap cache.
+A catalog that enables table data caching serves coordinator metadata reads
+from `alluxio` as well and does not use the `memory` cache.
 
 ## Monitoring
 
