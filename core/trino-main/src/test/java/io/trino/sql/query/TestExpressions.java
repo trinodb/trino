@@ -112,6 +112,13 @@ public class TestExpressions
     }
 
     @Test
+    public void testNonDeterministicYearInPredicate()
+    {
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE year(date_add('year', 2 * CAST(floor(random() * 2) AS integer), DATE '2019-06-01')) IN (2019, 2021)"))
+                .matches("VALUES BIGINT '1000'");
+    }
+
+    @Test
     public void testNullableIfConditionInFilter()
     {
         assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[true, false, NULL]) t(x) WHERE IF(x, false, true)"))
