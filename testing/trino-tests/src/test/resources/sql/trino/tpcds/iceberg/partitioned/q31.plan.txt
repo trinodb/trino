@@ -4,31 +4,31 @@ remote exchange (GATHER, SINGLE, [])
             join (INNER, PARTITIONED):
                 join (INNER, PARTITIONED):
                     join (INNER, PARTITIONED):
-                        final aggregation over (ca_county_139, d_qoy_112, d_year_108)
+                        final aggregation over (ca_county_146, d_qoy_118, d_year_114)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_county_139])
-                                    intermediate aggregation over (ca_county_139, d_qoy_112, d_year_108)
+                                remote exchange (REPARTITION, HASH, [ca_county_146])
+                                    intermediate aggregation over (ca_county_146, d_qoy_118, d_year_114)
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [ss_addr_sk_81])
-                                                intermediate aggregation over (d_qoy_112, d_year_108, ss_addr_sk_81)
+                                            remote exchange (REPARTITION, HASH, [ss_addr_sk_86])
+                                                intermediate aggregation over (d_qoy_118, d_year_114, ss_addr_sk_86)
                                                     join (INNER, REPLICATED):
-                                                        partial aggregation over (ss_addr_sk_81, ss_sold_date_sk_98)
-                                                            dynamic filter (ss_addr_sk_81::EQUAL, ss_sold_date_sk_98::EQUAL)
+                                                        partial aggregation over (ss_addr_sk_86, ss_sold_date_sk_103)
+                                                            dynamic filter (ss_addr_sk_86::EQUAL, ss_sold_date_sk_103::EQUAL)
                                                                 scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ca_address_sk_132])
-                                                    dynamic filter (ca_county_139::EQUAL, ca_county_139::EQUAL, ca_county_139::EQUAL)
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk_139])
+                                                    dynamic filter (ca_county_146::EQUAL, ca_county_146::EQUAL, ca_county_146::EQUAL)
                                                         scan customer_address
-                        final aggregation over (ca_county_188, d_qoy_161, d_year_157)
+                        final aggregation over (ca_county_198, d_qoy_170, d_year_166)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_county_188])
-                                    intermediate aggregation over (ca_county_188, d_qoy_161, d_year_157)
+                                remote exchange (REPARTITION, HASH, [ca_county_198])
+                                    intermediate aggregation over (ca_county_198, d_qoy_170, d_year_166)
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [ws_bill_addr_sk])
-                                                intermediate aggregation over (d_qoy_161, d_year_157, ws_bill_addr_sk)
+                                                intermediate aggregation over (d_qoy_170, d_year_166, ws_bill_addr_sk)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ws_bill_addr_sk, ws_sold_date_sk)
                                                             dynamic filter (ws_bill_addr_sk::EQUAL, ws_sold_date_sk::EQUAL)
@@ -37,45 +37,45 @@ remote exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ca_address_sk_181])
-                                                    dynamic filter (ca_county_188::EQUAL, ca_county_188::EQUAL)
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk_191])
+                                                    dynamic filter (ca_county_198::EQUAL, ca_county_198::EQUAL)
                                                         scan customer_address
                     join (INNER, PARTITIONED):
-                        final aggregation over (ca_county_271, d_qoy_244, d_year_240)
+                        final aggregation over (ca_county_284, d_qoy_256, d_year_252)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_county_271])
-                                    intermediate aggregation over (ca_county_271, d_qoy_244, d_year_240)
+                                remote exchange (REPARTITION, HASH, [ca_county_284])
+                                    intermediate aggregation over (ca_county_284, d_qoy_256, d_year_252)
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [ws_bill_addr_sk_203])
-                                                intermediate aggregation over (d_qoy_244, d_year_240, ws_bill_addr_sk_203)
+                                            remote exchange (REPARTITION, HASH, [ws_bill_addr_sk_214])
+                                                intermediate aggregation over (d_qoy_256, d_year_252, ws_bill_addr_sk_214)
                                                     join (INNER, REPLICATED):
-                                                        partial aggregation over (ws_bill_addr_sk_203, ws_sold_date_sk_230)
-                                                            dynamic filter (ws_bill_addr_sk_203::EQUAL, ws_sold_date_sk_230::EQUAL)
+                                                        partial aggregation over (ws_bill_addr_sk_214, ws_sold_date_sk_241)
+                                                            dynamic filter (ws_bill_addr_sk_214::EQUAL, ws_sold_date_sk_241::EQUAL)
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ca_address_sk_264])
-                                                    dynamic filter (ca_county_271::EQUAL, ca_county_271::EQUAL)
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk_277])
+                                                    dynamic filter (ca_county_284::EQUAL, ca_county_284::EQUAL)
                                                         scan customer_address
-                        final aggregation over (ca_county_354, d_qoy_327, d_year_323)
+                        final aggregation over (ca_county_370, d_qoy_342, d_year_338)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_county_354])
-                                    intermediate aggregation over (ca_county_354, d_qoy_327, d_year_323)
+                                remote exchange (REPARTITION, HASH, [ca_county_370])
+                                    intermediate aggregation over (ca_county_370, d_qoy_342, d_year_338)
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [ws_bill_addr_sk_286])
-                                                intermediate aggregation over (d_qoy_327, d_year_323, ws_bill_addr_sk_286)
+                                            remote exchange (REPARTITION, HASH, [ws_bill_addr_sk_300])
+                                                intermediate aggregation over (d_qoy_342, d_year_338, ws_bill_addr_sk_300)
                                                     join (INNER, REPLICATED):
-                                                        partial aggregation over (ws_bill_addr_sk_286, ws_sold_date_sk_313)
-                                                            dynamic filter (ws_bill_addr_sk_286::EQUAL, ws_sold_date_sk_313::EQUAL)
+                                                        partial aggregation over (ws_bill_addr_sk_300, ws_sold_date_sk_327)
+                                                            dynamic filter (ws_bill_addr_sk_300::EQUAL, ws_sold_date_sk_327::EQUAL)
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ca_address_sk_347])
-                                                    dynamic filter (ca_county_354::EQUAL)
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk_363])
+                                                    dynamic filter (ca_county_370::EQUAL)
                                                         scan customer_address
                 join (INNER, PARTITIONED):
                     final aggregation over (ca_county, d_qoy, d_year)
@@ -96,20 +96,20 @@ remote exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ca_address_sk])
                                                 dynamic filter (ca_county::EQUAL)
                                                     scan customer_address
-                    final aggregation over (ca_county_67, d_qoy_40, d_year_36)
+                    final aggregation over (ca_county_71, d_qoy_43, d_year_39)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, [ca_county_67])
-                                intermediate aggregation over (ca_county_67, d_qoy_40, d_year_36)
+                            remote exchange (REPARTITION, HASH, [ca_county_71])
+                                intermediate aggregation over (ca_county_71, d_qoy_43, d_year_39)
                                     join (INNER, PARTITIONED):
-                                        remote exchange (REPARTITION, HASH, [ss_addr_sk_9])
-                                            intermediate aggregation over (d_qoy_40, d_year_36, ss_addr_sk_9)
+                                        remote exchange (REPARTITION, HASH, [ss_addr_sk_11])
+                                            intermediate aggregation over (d_qoy_43, d_year_39, ss_addr_sk_11)
                                                 join (INNER, REPLICATED):
-                                                    partial aggregation over (ss_addr_sk_9, ss_sold_date_sk_26)
-                                                        dynamic filter (ss_addr_sk_9::EQUAL, ss_sold_date_sk_26::EQUAL)
+                                                    partial aggregation over (ss_addr_sk_11, ss_sold_date_sk_28)
+                                                        dynamic filter (ss_addr_sk_11::EQUAL, ss_sold_date_sk_28::EQUAL)
                                                             scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, [ca_address_sk_60])
+                                            remote exchange (REPARTITION, HASH, [ca_address_sk_64])
                                                 scan customer_address

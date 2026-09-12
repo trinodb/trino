@@ -29,22 +29,22 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [i_item_sk])
                                                             dynamic filter (i_brand_id::EQUAL, i_class_id::EQUAL, i_category_id::EQUAL, i_item_sk::EQUAL)
                                                                 scan item
-                                                        final aggregation over (i_item_sk_4)
+                                                        final aggregation over (i_item_sk_6)
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPARTITION, HASH, [i_item_sk_4])
-                                                                    partial aggregation over (i_item_sk_4)
+                                                                remote exchange (REPARTITION, HASH, [i_item_sk_6])
+                                                                    partial aggregation over (i_item_sk_6)
                                                                         join (INNER, PARTITIONED, can skip output duplicates):
-                                                                            remote exchange (REPARTITION, HASH, [i_brand_id_11, i_class_id_13, i_category_id_15])
-                                                                                dynamic filter (i_brand_id_11::EQUAL, i_class_id_13::EQUAL, i_category_id_15::EQUAL)
+                                                                            remote exchange (REPARTITION, HASH, [i_brand_id_13, i_class_id_15, i_category_id_17])
+                                                                                dynamic filter (i_brand_id_13::EQUAL, i_class_id_15::EQUAL, i_category_id_17::EQUAL)
                                                                                     scan item
                                                                             final aggregation over (brand_id, class_id, category_id)
                                                                                 local exchange (GATHER, SINGLE, [])
-                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_64, i_class_id_66, i_category_id_68])
-                                                                                        intermediate aggregation over (i_brand_id_64, i_class_id_66, i_category_id_68)
+                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_68, i_class_id_70, i_category_id_72])
+                                                                                        intermediate aggregation over (i_brand_id_68, i_class_id_70, i_category_id_72)
                                                                                             join (INNER, REPLICATED):
-                                                                                                partial aggregation over (ss_item_sk_32)
+                                                                                                partial aggregation over (ss_item_sk_35)
                                                                                                     join (INNER, REPLICATED):
-                                                                                                        dynamic filter (ss_item_sk_32::EQUAL, ss_sold_date_sk_53::EQUAL)
+                                                                                                        dynamic filter (ss_item_sk_35::EQUAL, ss_sold_date_sk_56::EQUAL)
                                                                                                             scan store_sales
                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -52,8 +52,8 @@ local exchange (GATHER, SINGLE, [])
                                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                                         scan item
-                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_121, i_class_id_123, i_category_id_125])
-                                                                                        intermediate aggregation over (i_brand_id_121, i_class_id_123, i_category_id_125)
+                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_128, i_class_id_130, i_category_id_132])
+                                                                                        intermediate aggregation over (i_brand_id_128, i_class_id_130, i_category_id_132)
                                                                                             join (INNER, REPLICATED):
                                                                                                 partial aggregation over (cs_item_sk)
                                                                                                     join (INNER, REPLICATED):
@@ -65,8 +65,8 @@ local exchange (GATHER, SINGLE, [])
                                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                                         scan item
-                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_178, i_class_id_180, i_category_id_182])
-                                                                                        intermediate aggregation over (i_brand_id_178, i_class_id_180, i_category_id_182)
+                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_188, i_class_id_190, i_category_id_192])
+                                                                                        intermediate aggregation over (i_brand_id_188, i_class_id_190, i_category_id_192)
                                                                                             join (INNER, REPLICATED):
                                                                                                 partial aggregation over (ws_item_sk)
                                                                                                     join (INNER, REPLICATED):
@@ -85,39 +85,39 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (GATHER, SINGLE, [])
                                             partial aggregation over ()
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ss_sold_date_sk_282::EQUAL)
+                                                    dynamic filter (ss_sold_date_sk_295::EQUAL)
                                                         scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim
                                             partial aggregation over ()
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (cs_sold_date_sk_349::EQUAL)
+                                                    dynamic filter (cs_sold_date_sk_364::EQUAL)
                                                         scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim
                                             partial aggregation over ()
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ws_sold_date_sk_416::EQUAL)
+                                                    dynamic filter (ws_sold_date_sk_433::EQUAL)
                                                         scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim
                     cross join:
-                        final aggregation over (i_brand_id_485, i_class_id_487, i_category_id_489)
+                        final aggregation over (i_brand_id_505, i_class_id_507, i_category_id_509)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [i_brand_id_485, i_class_id_487, i_category_id_489])
-                                    intermediate aggregation over (i_brand_id_485, i_class_id_487, i_category_id_489)
+                                remote exchange (REPARTITION, HASH, [i_brand_id_505, i_class_id_507, i_category_id_509])
+                                    intermediate aggregation over (i_brand_id_505, i_class_id_507, i_category_id_509)
                                         join (INNER, REPLICATED):
-                                            partial aggregation over (ss_item_sk_453)
+                                            partial aggregation over (ss_item_sk_472)
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ss_item_sk_453::EQUAL, ss_sold_date_sk_474::EQUAL)
+                                                    dynamic filter (ss_item_sk_472::EQUAL, ss_sold_date_sk_493::EQUAL)
                                                         scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (d_week_seq_506::EQUAL)
+                                                                dynamic filter (d_week_seq_527::EQUAL)
                                                                     scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -127,25 +127,25 @@ local exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, [i_item_sk_478])
-                                                            dynamic filter (i_item_sk_478::EQUAL)
+                                                        remote exchange (REPARTITION, HASH, [i_item_sk_498])
+                                                            dynamic filter (i_item_sk_498::EQUAL)
                                                                 scan item
-                                                        final aggregation over (i_item_sk_534)
+                                                        final aggregation over (i_item_sk_556)
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPARTITION, HASH, [i_item_sk_534])
-                                                                    partial aggregation over (i_item_sk_534)
+                                                                remote exchange (REPARTITION, HASH, [i_item_sk_556])
+                                                                    partial aggregation over (i_item_sk_556)
                                                                         join (INNER, PARTITIONED, can skip output duplicates):
-                                                                            remote exchange (REPARTITION, HASH, [i_brand_id_541, i_class_id_543, i_category_id_545])
-                                                                                dynamic filter (i_brand_id_541::EQUAL, i_class_id_543::EQUAL, i_category_id_545::EQUAL)
+                                                                            remote exchange (REPARTITION, HASH, [i_brand_id_563, i_class_id_565, i_category_id_567])
+                                                                                dynamic filter (i_brand_id_563::EQUAL, i_class_id_565::EQUAL, i_category_id_567::EQUAL)
                                                                                     scan item
-                                                                            final aggregation over (brand_id_558, class_id_559, category_id_560)
+                                                                            final aggregation over (brand_id_581, class_id_582, category_id_583)
                                                                                 local exchange (GATHER, SINGLE, [])
-                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_597, i_class_id_599, i_category_id_601])
-                                                                                        intermediate aggregation over (i_brand_id_597, i_class_id_599, i_category_id_601)
+                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_621, i_class_id_623, i_category_id_625])
+                                                                                        intermediate aggregation over (i_brand_id_621, i_class_id_623, i_category_id_625)
                                                                                             join (INNER, REPLICATED):
-                                                                                                partial aggregation over (ss_item_sk_565)
+                                                                                                partial aggregation over (ss_item_sk_588)
                                                                                                     join (INNER, REPLICATED):
-                                                                                                        dynamic filter (ss_item_sk_565::EQUAL, ss_sold_date_sk_586::EQUAL)
+                                                                                                        dynamic filter (ss_item_sk_588::EQUAL, ss_sold_date_sk_609::EQUAL)
                                                                                                             scan store_sales
                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -153,12 +153,12 @@ local exchange (GATHER, SINGLE, [])
                                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                                         scan item
-                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_688, i_class_id_690, i_category_id_692])
-                                                                                        intermediate aggregation over (i_brand_id_688, i_class_id_690, i_category_id_692)
+                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_715, i_class_id_717, i_category_id_719])
+                                                                                        intermediate aggregation over (i_brand_id_715, i_class_id_717, i_category_id_719)
                                                                                             join (INNER, REPLICATED):
-                                                                                                partial aggregation over (cs_item_sk_658)
+                                                                                                partial aggregation over (cs_item_sk_684)
                                                                                                     join (INNER, REPLICATED):
-                                                                                                        dynamic filter (cs_item_sk_658::EQUAL, cs_sold_date_sk_677::EQUAL)
+                                                                                                        dynamic filter (cs_item_sk_684::EQUAL, cs_sold_date_sk_703::EQUAL)
                                                                                                             scan catalog_sales
                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -166,12 +166,12 @@ local exchange (GATHER, SINGLE, [])
                                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                                         scan item
-                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_779, i_class_id_781, i_category_id_783])
-                                                                                        intermediate aggregation over (i_brand_id_779, i_class_id_781, i_category_id_783)
+                                                                                    remote exchange (REPARTITION, HASH, [i_brand_id_809, i_class_id_811, i_category_id_813])
+                                                                                        intermediate aggregation over (i_brand_id_809, i_class_id_811, i_category_id_813)
                                                                                             join (INNER, REPLICATED):
-                                                                                                partial aggregation over (ws_item_sk_737)
+                                                                                                partial aggregation over (ws_item_sk_766)
                                                                                                     join (INNER, REPLICATED):
-                                                                                                        dynamic filter (ws_item_sk_737::EQUAL, ws_sold_date_sk_768::EQUAL)
+                                                                                                        dynamic filter (ws_item_sk_766::EQUAL, ws_sold_date_sk_797::EQUAL)
                                                                                                             scan web_sales
                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -186,21 +186,21 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (GATHER, SINGLE, [])
                                             partial aggregation over ()
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ss_sold_date_sk_887::EQUAL)
+                                                    dynamic filter (ss_sold_date_sk_920::EQUAL)
                                                         scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim
                                             partial aggregation over ()
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (cs_sold_date_sk_954::EQUAL)
+                                                    dynamic filter (cs_sold_date_sk_989::EQUAL)
                                                         scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim
                                             partial aggregation over ()
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ws_sold_date_sk_1021::EQUAL)
+                                                    dynamic filter (ws_sold_date_sk_1058::EQUAL)
                                                         scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

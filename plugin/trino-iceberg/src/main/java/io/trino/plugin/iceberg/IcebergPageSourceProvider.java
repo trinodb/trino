@@ -185,6 +185,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.arePlaintextFilesAllowedForEncryptedTables;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
@@ -857,6 +858,9 @@ public class IcebergPageSourceProvider
                 else if (column.isFileModifiedTimeColumn()) {
                     transforms.constantValue(writeNativeValue(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
                 }
+                else if (column.isSpecIdColumn()) {
+                    transforms.constantValue(writeNativeValue(SPEC_ID.getType(), (long) partitionSpecId));
+                }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
                     Integer sourceRowIdOrdinal = baseColumnIdToOrdinal.get(IcebergMetadataColumn.ROW_ID.getId());
@@ -1216,6 +1220,9 @@ public class IcebergPageSourceProvider
                 else if (column.isFileModifiedTimeColumn()) {
                     transforms.constantValue(writeNativeValue(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
                 }
+                else if (column.isSpecIdColumn()) {
+                    transforms.constantValue(writeNativeValue(SPEC_ID.getType(), (long) partitionSpecId));
+                }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
                     Integer sourceRowIdOrdinal = baseColumnIdToOrdinal.get(IcebergMetadataColumn.ROW_ID.getId());
@@ -1507,6 +1514,9 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.isFileModifiedTimeColumn()) {
                     transforms.constantValue(writeNativeValue(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
+                }
+                else if (column.isSpecIdColumn()) {
+                    transforms.constantValue(writeNativeValue(SPEC_ID.getType(), (long) partitionSpecId));
                 }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;

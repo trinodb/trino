@@ -125,6 +125,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getSpecIdDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
@@ -171,6 +172,7 @@ public class IcebergSplitSource
     private final PartitionFieldPredicate partitionFieldPredicate;
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
+    private final Domain specIdDomain;
     private final OptionalLong limit;
     private final Set<Integer> predicatedColumnIds;
     private final ListeningExecutorService executor;
@@ -254,6 +256,7 @@ public class IcebergSplitSource
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
         this.fileModifiedTimeDomain = getFileModifiedTimeDomain(tableHandle.getEnforcedPredicate());
+        this.specIdDomain = getSpecIdDomain(tableHandle.getEnforcedPredicate());
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.metricsReporter = requireNonNull(metricsReporter, "metricsReporter is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -457,11 +460,9 @@ public class IcebergSplitSource
         }
 
         PartitionSpec partitionSpec = getFileScanPartitionSpec(fileScanTask, specsById);
-        if (!partitionFieldPredicate.isAll() && !partitionFieldPredicate.matches(partitionSpec, fileScanTask.partition())) {
-            return true;
-        }
+        Domain fullSpecIdDomain = specIdDomain.intersect(getSpecIdDomain(dynamicFilterPredicate));
         Domain fullPathDomain = pathDomain.intersect(getPathDomain(dynamicFilterPredicate));
-        if (!fullPathDomain.isAll() && !fullPathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
+        if (!fileMatchesMetadataColumnPredicates(fullSpecIdDomain, partitionFieldPredicate, fullPathDomain, partitionSpec, fileScanTask.partition(), fileScanTask.file().location())) {
             return true;
         }
         Domain fullFileModifiedTimeDomain = fileModifiedTimeDomain.intersect(getFileModifiedTimeDomain(dynamicFilterPredicate));
@@ -826,6 +827,27 @@ public class IcebergSplitSource
                         };
                     });
         }
+    }
+
+    /**
+     * Whether a file matches the predicates on the {@code $spec_id}, {@code $partition} field and {@code $path} metadata columns,
+     * which can be evaluated without reading the file.
+     */
+    static boolean fileMatchesMetadataColumnPredicates(
+            Domain specIdDomain,
+            PartitionFieldPredicate partitionFieldPredicate,
+            Domain pathDomain,
+            PartitionSpec partitionSpec,
+            StructLike partition,
+            String location)
+    {
+        if (!specIdDomain.isAll() && !specIdDomain.includesNullableValue((long) partitionSpec.specId())) {
+            return false;
+        }
+        if (!partitionFieldPredicate.isAll() && !partitionFieldPredicate.matches(partitionSpec, partition)) {
+            return false;
+        }
+        return pathDomain.isAll() || pathDomain.includesNullableValue(utf8Slice(location));
     }
 
     @VisibleForTesting
