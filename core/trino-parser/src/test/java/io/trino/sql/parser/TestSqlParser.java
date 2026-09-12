@@ -5604,24 +5604,29 @@ public class TestSqlParser
     public void testCreateView()
     {
         assertThat(statement("CREATE VIEW a AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(18), false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(18), false, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
         assertThat(statement("CREATE OR REPLACE VIEW a AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 24), "a"), selectAllFromT(29), true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 24), "a"), selectAllFromT(29), true, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertThat(statement("CREATE VIEW IF NOT EXISTS a AS SELECT * FROM t"))
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 27), "a"), selectAllFromT(32), false, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+
+        assertStatementIsInvalid("CREATE OR REPLACE VIEW IF NOT EXISTS a AS SELECT * FROM t")
+                .withMessage("line 1:1: 'OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
 
         assertThat(statement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(35), false, false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a COMMENT 'comment' SECURITY DEFINER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(53), false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(53), false, false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a COMMENT '' SECURITY INVOKER AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(46), false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(46), false, false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a COMMENT 'comment' AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(36), false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(36), false, false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
         assertThat(statement("CREATE VIEW a COMMENT '' AS SELECT * FROM t"))
-                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(29), false, Optional.of(""), Optional.empty(), ImmutableList.of()));
+                .isEqualTo(new CreateView(location(1, 1), qualifiedName(location(1, 13), "a"), selectAllFromT(29), false, false, Optional.of(""), Optional.empty(), ImmutableList.of()));
 
         assertThat(statement("CREATE VIEW a WITH (property_1 = 'value_1', property_2 = 2) AS SELECT * FROM t"))
                 .isEqualTo(
@@ -5629,6 +5634,7 @@ public class TestSqlParser
                                 location(1, 1),
                                 qualifiedName(location(1, 13), "a"),
                                 selectAllFromT(64),
+                                false,
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),
@@ -5642,6 +5648,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "bar", false), new Identifier(location(1, 17), "foo", false))),
                         selectAllFromT(24),
                         false,
+                        false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -5651,6 +5658,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "awesome view", true))),
                         selectAllFromT(31),
                         false,
+                        false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
@@ -5659,6 +5667,7 @@ public class TestSqlParser
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "awesome schema", true), new Identifier(location(1, 30), "awesome view", true))),
                         selectAllFromT(48),
+                        false,
                         false,
                         Optional.empty(),
                         Optional.empty(),

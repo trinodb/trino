@@ -1017,11 +1017,16 @@ class AstBuilder
             properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
+        if (context.REPLACE() != null && context.EXISTS() != null) {
+            throw parseError("'OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together", context);
+        }
+
         return new CreateView(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.rootQuery()),
                 context.REPLACE() != null,
+                context.EXISTS() != null,
                 comment,
                 security,
                 properties);

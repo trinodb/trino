@@ -248,6 +248,12 @@
                                     <justification>Related dictionary compaction can produce simpler block representations.</justification>
                                 </item>
                                 <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.connector.ConnectorMetadata::createView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorViewDefinition, java.util.Map&lt;java.lang.String, java.lang.Object&gt;, ===boolean===)</old>
+                                    <new>parameter void io.trino.spi.connector.ConnectorMetadata::createView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorViewDefinition, java.util.Map&lt;java.lang.String, java.lang.Object&gt;, ===io.trino.spi.connector.SaveMode===)</new>
+                                    <justification>createView now takes a SaveMode, mirroring createTable, in place of the previous boolean replace parameter and the separate 6-arg overload's boolean ignoreExisting parameter, which is now expressed as SaveMode.IGNORE.</justification>
+                                </item>
+                                <item>
                                     <code>java.method.removed</code>
                                     <old>method long io.trino.spi.connector.ConnectorPageSourceProvider::getMemoryUsage()</old>
                                 </item>
