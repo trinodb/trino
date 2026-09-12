@@ -98,7 +98,6 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
@@ -572,13 +571,10 @@ public final class DomainTranslator
 
             // superset of possible values, for the "normal case"
             ValueSet valueSet;
-            boolean nullAllowed = false;
 
             switch (operator) {
-                case EQUAL, IDENTICAL -> {
-                    valueSet = dateStringRanges(date, sourceType);
-                    nullAllowed = operator == IDENTICAL;
-                }
+                // the value is not null, so a null source value satisfies neither EQUAL (unknown) nor IDENTICAL (false)
+                case EQUAL, IDENTICAL -> valueSet = dateStringRanges(date, sourceType);
                 case NOT_EQUAL -> {
                     if (date.getDayOfMonth() < 10) {
                         // TODO: possible to handle but cumbersome
@@ -601,7 +597,7 @@ public final class DomainTranslator
                     Range.greaterThan(sourceType, utf8Slice("9"))));
 
             return Optional.of(new ExtractionResult(
-                    TupleDomain.withColumnDomains(ImmutableMap.of(sourceSymbol, Domain.create(valueSet, nullAllowed))),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(sourceSymbol, Domain.create(valueSet, false))),
                     originalExpression));
         }
 
@@ -700,11 +696,12 @@ public final class DomainTranslator
             // Handle comparisons against a non-NaN value when the compared value might be NaN
             return switch (comparisonOperator) {
                 /*
-                 For comparison operators: EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,
-                 the Domain should not contain NaN, but complemented Domain should contain NaN. It is currently not supported.
+                 For comparison operators: EQUAL, IDENTICAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,
+                 the Domain should not contain NaN, but complemented Domain should contain NaN (for IDENTICAL, null as well).
+                 It is currently not supported.
                  Currently, NaN is only included when ValueSet.isAll().
 
-                 For comparison operators: NOT_EQUAL, IS_DISTINCT_FROM,
+                 For comparison operator NOT_EQUAL,
                  the Domain should consist of ranges (which do not sum to the whole ValueSet), and NaN.
                  Currently, NaN is only included when ValueSet.isAll().
                   */
@@ -823,9 +820,10 @@ public final class DomainTranslator
                     yield or(comparison(metadata, getCharVarcharCoercion(session), EQUAL, symbolExpression, coercedLiteral),
                             comparison(metadata, getCharVarcharCoercion(session), NOT_EQUAL, symbolExpression, coercedLiteral));
                 }
+                // IDENTICAL is null-safe, so an unsatisfiable predicate is FALSE, not "false for all non-null values"
                 case IDENTICAL -> coercedValueIsEqualToOriginal ?
-                        TRUE :
-                        comparison(metadata, getCharVarcharCoercion(session), comparisonOperator, symbolExpression, coercedLiteral);
+                        comparison(metadata, getCharVarcharCoercion(session), comparisonOperator, symbolExpression, coercedLiteral) :
+                        FALSE;
             };
         }
 
