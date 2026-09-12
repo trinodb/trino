@@ -20,11 +20,14 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
+import io.trino.sql.analyzer.Output;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.Expression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -89,7 +92,18 @@ public class DropTableTask
         QualifiedObjectName tableName = redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName);
         accessControl.checkCanDropTable(session.toSecurityContext(), tableName);
 
-        metadata.dropTable(session, redirectionAwareTableHandle.tableHandle().get(), tableName.asCatalogSchemaTableName());
+        TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
+        Optional<Object> connectorInfo = metadata.getInfo(session, tableHandle);
+
+        metadata.dropTable(session, tableHandle, tableName.asCatalogSchemaTableName());
+
+        stateMachine.setOutput(Optional.of(new Output(
+                tableName.catalogName(),
+                tableHandle.catalogHandle().getVersion(),
+                tableName.schemaName(),
+                tableName.objectName(),
+                Optional.empty(),
+                connectorInfo)));
 
         return immediateVoidFuture();
     }

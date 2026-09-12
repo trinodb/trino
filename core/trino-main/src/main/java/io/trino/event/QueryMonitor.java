@@ -100,6 +100,8 @@ import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.sql.planner.planprinter.PlanPrinter.jsonDistributedPlan;
@@ -114,6 +116,8 @@ public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
     private static final ZoneId ZONE_ID = ZoneId.systemDefault();
+    private static final int CONNECTOR_INFO_JSON_LIMIT = toIntExact(DataSize.of(10, MEGABYTE).toBytes());
+    private static final JsonCodec<Object> OBJECT_CODEC = jsonCodec(Object.class);
 
     private final JsonCodec<StagesInfo> stagesInfoCodec;
     private final JsonCodec<OperatorStats> operatorStatsCodec;
@@ -509,6 +513,25 @@ public class QueryMonitor
                                             .collect(toImmutableSet())))
                             .collect(toImmutableList()));
 
+            Optional<String> connectorOutputMetadata;
+            Optional<Boolean> jsonLengthLimitExceeded;
+            if (tableFinishInfo.isPresent()) {
+                connectorOutputMetadata = tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata);
+                jsonLengthLimitExceeded = tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded);
+            }
+            else {
+                Optional<Object> connectorInfo = queryInfo.getOutput().get().getConnectorInfo();
+                if (connectorInfo.isPresent()) {
+                    Optional<String> serialized = OBJECT_CODEC.toJsonWithLengthLimit(connectorInfo.get(), CONNECTOR_INFO_JSON_LIMIT);
+                    connectorOutputMetadata = serialized;
+                    jsonLengthLimitExceeded = Optional.of(serialized.isEmpty());
+                }
+                else {
+                    connectorOutputMetadata = Optional.empty();
+                    jsonLengthLimitExceeded = Optional.empty();
+                }
+            }
+
             output = Optional.of(
                     new QueryOutputMetadata(
                             queryInfo.getOutput().get().getCatalogName(),
@@ -516,8 +539,8 @@ public class QueryMonitor
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
                             outputColumnsMetadata,
-                            tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
-                            tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
+                            connectorOutputMetadata,
+                            jsonLengthLimitExceeded));
         }
         return new QueryIOMetadata(inputs.build(), output);
     }

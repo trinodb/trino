@@ -320,7 +320,8 @@ public class CreateTableTask
                 tableName.objectName(),
                 Optional.of(tableMetadata.getColumns().stream()
                         .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
-                        .collect(toImmutableList()))));
+                        .collect(toImmutableList())),
+                Optional.empty()));
         return immediateVoidFuture();
     }
 

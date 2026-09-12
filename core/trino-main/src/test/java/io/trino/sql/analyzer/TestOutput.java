@@ -44,7 +44,8 @@ public class TestOutput
                                 new OutputColumn(
                                         new Column("column", "type"),
                                         ImmutableSet.of(
-                                                new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column"))))));
+                                                new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column"))))),
+                Optional.empty());
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
@@ -65,7 +66,8 @@ public class TestOutput
                                 new OutputColumn(
                                         new Column("ko.LU-mieńka", "type"),
                                         ImmutableSet.of(
-                                                new SourceColumn(new QualifiedObjectName("catalog.twój", "schema.ściema", "tabel.tabelkówna"), "co-lumn.słodziak\""))))));
+                                                new SourceColumn(new QualifiedObjectName("catalog.twój", "schema.ściema", "tabel.tabelkówna"), "co-lumn.słodziak\""))))),
+                Optional.empty());
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
