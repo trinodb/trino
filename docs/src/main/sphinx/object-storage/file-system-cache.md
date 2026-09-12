@@ -132,10 +132,10 @@ both `alluxio` and `memory` therefore uses `alluxio` for table data, since it is
 the only one that can cache more data than fits on the heap, and `memory` for
 coordinator metadata caching of catalogs that do not enable table data caching.
 
-If `cache-manager.config-files` is not set, Trino loads the `memory` cache
-manager with default configuration, so that the coordinator caches metadata
-files. Once the property is set, only the listed cache managers are loaded, and
-metadata caching requires listing a `memory` cache manager explicitly.
+Trino loads the `memory` cache manager with default configuration unless
+`cache-manager.config-files` lists it, so that the coordinator caches metadata
+files even when only `alluxio` is listed. List `memory` explicitly to change its
+configuration.
 
 :::{list-table} Alluxio cache manager properties
 :widths: 25, 75
