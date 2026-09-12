@@ -38,6 +38,7 @@ import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogCleanup;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
@@ -109,6 +110,7 @@ public class DeltaLakeModule
         binder.bind(CheckpointSchemaManager.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(LastCheckpoint.class);
         binder.bind(CheckpointWriterManager.class).in(Scopes.SINGLETON);
+        binder.bind(TransactionLogCleanup.class).in(Scopes.SINGLETON);
         binder.bind(TransactionLogAccess.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TransactionLogAccess.class)
                 .as(generator -> generator.generatedNameOf(TransactionLogAccess.class, catalogName.get().toString()));
