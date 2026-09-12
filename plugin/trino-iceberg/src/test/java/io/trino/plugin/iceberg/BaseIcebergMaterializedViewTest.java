@@ -226,6 +226,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "\\QCREATE MATERIALIZED VIEW iceberg." + schema + ".test_mv_show_create\n" +
                                 "WHEN STALE INLINE\n" +
                                 "WITH (\n" +
+                                "   compression_codec = 'ZSTD',\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
                                 "   location = '" + getSchemaDirectory() + "/test_mv_show_create-\\E[0-9a-f]+\\Q',\n" +
@@ -544,6 +545,7 @@ public abstract class BaseIcebergMaterializedViewTest
                 .matches("\\QCREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + "\n" +
                         "WHEN STALE INLINE\n" +
                         "WITH (\n" +
+                        "   compression_codec = 'ZSTD',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = '" + getSchemaDirectory() + "/materialized_view_window-\\E[0-9a-f]+\\Q',\n" +

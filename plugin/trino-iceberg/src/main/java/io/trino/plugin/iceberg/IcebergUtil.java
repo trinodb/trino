@@ -957,27 +957,39 @@ public final class IcebergUtil
             Predicate<String> allowedExtraProperties,
             List<PartitionField> existingPartitionFields)
     {
+        return newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties, existingPartitionFields, HiveCompressionCodec.ZSTD);
+    }
+
+    public static Transaction newCreateTableTransaction(
+            TrinoCatalog catalog,
+            ConnectorTableMetadata tableMetadata,
+            ConnectorSession session,
+            boolean replace,
+            String tableLocation,
+            Predicate<String> allowedExtraProperties,
+            List<PartitionField> existingPartitionFields,
+            HiveCompressionCodec defaultCompressionCodec)
+    {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()), existingPartitionFields);
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
 
         Transaction transaction;
-
         if (replace) {
-            transaction = catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties));
+            transaction = catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties, defaultCompressionCodec));
         }
         else {
             try {
-                transaction = catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, Optional.ofNullable(tableLocation), createTableProperties(tableMetadata, allowedExtraProperties));
+                transaction = catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, Optional.ofNullable(tableLocation), createTableProperties(tableMetadata, allowedExtraProperties, defaultCompressionCodec));
             }
             catch (AlreadyExistsException e) {
                 throw new TrinoException(TABLE_ALREADY_EXISTS, "Table %s already exists".formatted(schemaTableName), e);
             }
         }
 
-        // If user doesn't set compression-codec for parquet, we need to remove write.parquet.compression-codec property,
-        // Otherwise Iceberg will set write.parquet.compression-codec to zstd by default.
+        // Remove the sentinel empty string written by createTableProperties to suppress the Iceberg
+        // library's default injection of write.parquet.compression-codec on non-Parquet tables.
         String parquetCompressionValue = transaction.table().properties().get(PARQUET_COMPRESSION);
         if (parquetCompressionValue != null && parquetCompressionValue.isEmpty()) {
             transaction.updateProperties()
@@ -989,6 +1001,11 @@ public final class IcebergUtil
     }
 
     public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties)
+    {
+        return createTableProperties(tableMetadata, allowedExtraProperties, HiveCompressionCodec.ZSTD);
+    }
+
+    public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties, HiveCompressionCodec defaultCompressionCodec)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
@@ -1005,13 +1022,15 @@ public final class IcebergUtil
 
         validateCompression(fileFormat, compressionCodec);
 
-        Map<String, String> tableCompressionProperties = calculateTableCompressionProperties(fileFormat, fileFormat, ImmutableMap.of(), tableMetadata.getProperties());
+        Map<String, String> tableCompressionProperties = calculateTableCompressionProperties(fileFormat, fileFormat, ImmutableMap.of(), tableMetadata.getProperties(), Optional.of(defaultCompressionCodec));
 
         tableCompressionProperties.forEach(propertiesBuilder::put);
 
-        // Iceberg will set write.parquet.compression-codec to zstd by default if this property is not set: https://github.com/trinodb/trino/issues/20401,
-        // but we don't want to set this property if this is not explicitly set by customer via set table properties.
-        if (!(fileFormat == PARQUET && compressionCodec.isPresent())) {
+        // For non-Parquet tables, the Iceberg library still injects write.parquet.compression-codec = zstd
+        // by default when the property is absent. Write a sentinel empty string to suppress that injection;
+        // newCreateTableTransaction removes it after the transaction is opened. 
+        // Parquet tables are not affected because the explicit codec above blocks the library default.
+        if (fileFormat != PARQUET) {
             propertiesBuilder.put(PARQUET_COMPRESSION, "");
         }
 

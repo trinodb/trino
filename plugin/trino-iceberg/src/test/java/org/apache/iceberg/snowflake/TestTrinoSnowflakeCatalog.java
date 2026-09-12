@@ -21,6 +21,7 @@ import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -241,6 +242,7 @@ public class TestTrinoSnowflakeCatalog
                 Optional.empty(),
                 false,
                 _ -> false,
+                HiveCompressionCodec.ZSTD,
                 newDirectExecutorService(),
                 directExecutor(),
                 newDirectExecutorService(),

@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.nessie;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
@@ -224,6 +225,7 @@ public class TestTrinoNessieCatalog
                     Optional.empty(),
                     false,
                     _ -> false,
+                    HiveCompressionCodec.ZSTD,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),

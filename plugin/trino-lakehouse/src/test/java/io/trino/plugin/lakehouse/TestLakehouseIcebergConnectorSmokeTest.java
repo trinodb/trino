@@ -51,6 +51,7 @@ public class TestLakehouseIcebergConnectorSmokeTest
                    comment varchar
                 )
                 WITH (
+                   compression_codec = 'ZSTD',
                    format = 'PARQUET',
                    format_version = 2,
                    location = \\E's3://test-bucket-.*/tpch/region-.*'\\Q,
@@ -70,7 +71,7 @@ public class TestLakehouseIcebergConnectorSmokeTest
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$files\"")).matches("VALUES (CAST(1 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$all_entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
-        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).matches("VALUES (CAST(6 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).matches("VALUES (CAST(7 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$refs\"")).matches("VALUES (CAST(1 AS BIGINT))");
 
         // This test should get updated if a new system table is added

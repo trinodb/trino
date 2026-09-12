@@ -996,7 +996,11 @@ public abstract class BaseIcebergSystemTables
             assertThat(dataFile.getField(3)).isEqualTo(0); // spec_id
             assertThat(dataFile.getField(4)).isEqualTo(1L); // record_count
             assertThat((long) dataFile.getField(5)).isPositive(); // file_size_in_bytes
-            assertThat(dataFile.getField(6)).isEqualTo(Map.of(1, 51L)); // column_sizes
+            // Equality delete files are always written as Parquet. When the table is a Parquet table,
+            // write.parquet.compression-codec = zstd is present in the metadata so the delete is
+            // ZSTD-compressed (smaller). ORC tables have no such property so the library default applies.
+            long equalityDeleteColumnSize = (long) value(45L, 51L);
+            assertThat(dataFile.getField(6)).isEqualTo(Map.of(1, equalityDeleteColumnSize)); // column_sizes
             assertThat(dataFile.getField(7)).isEqualTo(Map.of(1, 1L)); // value_counts
             assertThat(dataFile.getField(8)).isEqualTo(Map.of(1, 0L)); // null_value_counts
             assertThat(dataFile.getField(9)).isEqualTo(Map.of()); // nan_value_counts
@@ -1012,8 +1016,8 @@ public abstract class BaseIcebergSystemTables
                             """
                             {\
                             "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
-                            "id":{"column_size":51,"value_count":1,"null_value_count":0,"nan_value_count":null,"lower_bound":1,"upper_bound":1}\
-                            }""");
+                            "id":{"column_size":%d,"value_count":1,"null_value_count":0,"nan_value_count":null,"lower_bound":1,"upper_bound":1}\
+                            }""".formatted(equalityDeleteColumnSize));
         }
     }
 
