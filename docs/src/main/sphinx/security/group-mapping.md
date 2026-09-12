@@ -158,7 +158,20 @@ include the user DN. This requires the following properties:
 * - `ldap.group-search-member-attribute`
   - Attribute from group documents used for filtering by member. For example,
     `cn`.
+* - `ldap.group-search-mode`
+  - Group resolution mode. Supported values are `DIRECT`, `RECURSIVE`, and
+    `MATCHING_RULE_IN_CHAIN`. Defaults to `DIRECT`.
 :::
+
+The `DIRECT` mode returns only direct groups.
+
+The `RECURSIVE` mode recursively resolves
+nested group memberships (for example user → group A → group B) by repeatedly
+searching groups that contain the previously resolved group DN as a member.
+
+For Active Directory deployments, use `MATCHING_RULE_IN_CHAIN` to delegate
+nested group resolution to LDAP with the `LDAP_MATCHING_RULE_IN_CHAIN` matching
+rule (`1.2.840.113556.1.4.1941`).
 
 In case of attribute-based group resolution, Trino reads the group list
 directly from a user attribute. This requires the following property:
@@ -172,6 +185,11 @@ directly from a user attribute. This requires the following property:
 * - `ldap.user-member-of-attribute`
   - Group membership attribute in user documents. For example, `memberOf`.
 :::
+
+Nested group resolution is only supported with search-based group resolution.
+With attribute-based group resolution, Trino returns the groups provided by the
+configured user membership attribute and does not recursively resolve group
+membership.
 
 ### Example configurations
 
