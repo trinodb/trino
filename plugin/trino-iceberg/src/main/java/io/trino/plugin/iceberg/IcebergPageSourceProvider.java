@@ -67,6 +67,8 @@ import io.trino.plugin.iceberg.delete.PageFilter;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.plugin.iceberg.system.entries.EntriesTablePageSource;
+import io.trino.plugin.iceberg.system.entries.EntriesTableSplit;
 import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
 import io.trino.plugin.iceberg.system.files.FilesTableSplit;
 import io.trino.spi.BlocksHashFactory;
@@ -314,6 +316,21 @@ public class IcebergPageSourceProvider
                     fileIO,
                     columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
                     filesTableSplit);
+        }
+
+        if (connectorSplit instanceof EntriesTableSplit entriesTableSplit) {
+            FileIO fileIO = fileIoFactory.create(fileSystemFactory.create(session.getIdentity(), icebergTableCredentials));
+            if (entriesTableSplit.encryptionKeyId().isPresent()) {
+                EncryptionManager encryptionManager = encryptionManagerFactory.create(
+                        ImmutableList.of(),
+                        ImmutableMap.of(ENCRYPTION_TABLE_KEY, entriesTableSplit.encryptionKeyId().get()));
+                fileIO = EncryptingFileIO.combine(fileIO, encryptionManager);
+            }
+            return new EntriesTablePageSource(
+                    typeManager,
+                    fileIO,
+                    columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
+                    entriesTableSplit);
         }
 
         IcebergSplit split = (IcebergSplit) connectorSplit;

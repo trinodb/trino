@@ -93,6 +93,38 @@ final class TestIcebergParquetEncryption
     }
 
     @Test
+    void testEncryptedEntriesMetadata()
+            throws Exception
+    {
+        String tableName = "test_encrypted_entries_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+        createIcebergTable(schemaTableName, TABLE_SCHEMA);
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            setTableEncryptionKey(table, schemaTableName);
+            table = catalog.loadTable(SESSION, schemaTableName);
+            EncryptionManager encryptionManager = createEncryptionManager(TEST_KEY_ID, KMS_CLIENT);
+            for (int i = 0; i < 2; i++) {
+                table.newFastAppend()
+                        .appendFile(writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 1)))
+                        .commit();
+            }
+            invalidateTableCache(schemaTableName);
+            Table encryptedTable = catalog.loadTable(SESSION, schemaTableName);
+            assertThat(encryptedTable.currentSnapshot().keyId()).isNotNull();
+            assertThat(encryptedTable.currentSnapshot().allManifests(encryptedTable.io()))
+                    .allSatisfy(manifest -> assertThat(manifest.keyMetadata()).isNotNull());
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$entries\"", "VALUES 2");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$all_entries\"", "VALUES 2");
+            assertThat(computeActual("SELECT * FROM \"" + tableName + "$all_entries\"").getMaterializedRows())
+                    .containsExactlyInAnyOrderElementsOf(computeActual("SELECT * FROM \"" + tableName + "$entries\"").getMaterializedRows());
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     void testReadEncryptedParquetTable()
             throws Exception
     {
