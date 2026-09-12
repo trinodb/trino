@@ -267,6 +267,16 @@ Returns the day-to-second `interval` as milliseconds.
 Returns `timestamp` as a UNIX timestamp.
 :::
 
+:::{function} to_unixtime_nanos(timestamp) -> bigint
+Returns `timestamp` as a UNIX timestamp in nanoseconds. Unlike `to_unixtime`, this function
+returns a `BIGINT` and preserves sub-millisecond precision without rounding:
+
+```
+SELECT to_unixtime_nanos(TIMESTAMP '2021-01-01 00:00:00.123456789 UTC');
+-- 1609459200123456789
+```
+:::
+
 :::{note}
 The following SQL-standard functions do not use parenthesis:
 
