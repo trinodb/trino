@@ -3113,6 +3113,13 @@ public class TestArrayOperators
         assertThat(assertions.function("element_at", "ARRAY[1, 2, 3]", "-4"))
                 .isNull(INTEGER);
 
+        // an index that cannot be negated without overflowing is out of range like any other index past the array bounds
+        assertThat(assertions.function("element_at", "ARRAY[1, 2, 3]", "-9223372036854775808"))
+                .isNull(INTEGER);
+
+        assertThat(assertions.function("element_at", "ARRAY[1, 2, 3]", "9223372036854775807"))
+                .isNull(INTEGER);
+
         assertThat(assertions.function("element_at", "ARRAY[NULL]", "1"))
                 .isNull(UNKNOWN);
 
@@ -3829,6 +3836,23 @@ public class TestArrayOperators
 
         assertTrinoExceptionThrownBy(assertions.function("slice", "ARRAY[1, 2, 3, 4]", "0", "1")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        // a length large enough to overflow the end index must still return everything from the start index onwards
+        assertThat(assertions.function("slice", "ARRAY[1, 2, 3, 4]", "1", "9223372036854775807"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(1, 2, 3, 4));
+
+        assertThat(assertions.function("slice", "ARRAY[1, 2, 3, 4]", "3", "9223372036854775807"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(3, 4));
+
+        assertThat(assertions.function("slice", "ARRAY[1, 2, 3, 4]", "-1", "9223372036854775807"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(4));
+
+        assertThat(assertions.function("slice", "ARRAY[1, 2, 3, 4]", "-9223372036854775808", "9223372036854775807"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of());
     }
 
     @Test
