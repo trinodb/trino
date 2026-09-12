@@ -76,6 +76,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -445,7 +446,7 @@ public abstract class BaseTrinoCatalogTest
 
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            catalog.createView(SESSION, schemaTableName, viewDefinition, ImmutableMap.of(), false);
+            catalog.createView(SESSION, schemaTableName, viewDefinition, ImmutableMap.of(), FAIL);
 
             assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, getViewType()));
 
@@ -545,9 +546,9 @@ public abstract class BaseTrinoCatalogTest
                     Optional.of(SESSION.getUser()),
                     false,
                     ImmutableList.of());
-            catalog.createView(SESSION, viewName1, viewDefinition, ImmutableMap.of(), false);
+            catalog.createView(SESSION, viewName1, viewDefinition, ImmutableMap.of(), FAIL);
             closer.register(() -> catalog.dropView(SESSION, viewName1));
-            catalog.createView(SESSION, viewName2, viewDefinition, ImmutableMap.of(), false);
+            catalog.createView(SESSION, viewName2, viewDefinition, ImmutableMap.of(), FAIL);
             closer.register(() -> catalog.dropView(SESSION, viewName2));
 
             // getViews without a filter returns views from all namespaces
@@ -634,6 +635,7 @@ public abstract class BaseTrinoCatalogTest
                                 false,
                                 ImmutableList.of()),
                         ImmutableMap.of(),
+                        false,
                         false);
                 closer.register(() -> catalog.dropView(SESSION, view));
                 allTables.add(new TableInfo(view, getViewType()));

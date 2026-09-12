@@ -44,6 +44,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -62,6 +63,7 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
@@ -684,8 +686,12 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
+        if (saveMode == SaveMode.IGNORE && getIcebergView(session, schemaViewName, true).isPresent()) {
+            return;
+        }
+
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
@@ -693,7 +699,7 @@ public class TrinoRestCatalog
         ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, schemaViewName, true));
         Optional<String> locationProperty = IcebergViewProperties.getLocation(viewProperties);
         String viewLocation = locationProperty.map(LocationUtil::stripTrailingSlash).orElse(defaultTableLocation(session, schemaViewName));
-        if (replace) {
+        if (saveMode == SaveMode.REPLACE) {
             Optional<View> view = getIcebergView(session, schemaViewName, true);
             if (view.isPresent()) {
                 viewLocation = view.get().location();
@@ -709,11 +715,17 @@ public class TrinoRestCatalog
                 .withProperties(properties.buildOrThrow())
                 .withLocation(viewLocation);
         try {
-            if (replace) {
+            if (saveMode == SaveMode.REPLACE) {
                 viewBuilder.createOrReplace();
             }
             else {
                 viewBuilder.create();
+            }
+        }
+        catch (AlreadyExistsException e) {
+            // lost a race with a concurrent create: honor the same ignoreExisting semantics as the fast-path check above
+            if (saveMode != SaveMode.IGNORE) {
+                throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to create view '%s'".formatted(schemaViewName.getTableName()), e);
             }
         }
         catch (RESTException e) {

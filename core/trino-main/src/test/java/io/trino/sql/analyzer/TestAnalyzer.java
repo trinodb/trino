@@ -8653,7 +8653,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), FAIL));
 
         // stale view (different column type)
         ViewDefinition viewData2 = new ViewDefinition(
@@ -8664,7 +8664,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), FAIL));
 
         // valid view with uppercase column name
         ViewDefinition viewData4 = new ViewDefinition(
@@ -8675,7 +8675,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, ImmutableMap.of(), FAIL));
 
         // recursive view referencing to itself
         ViewDefinition viewData5 = new ViewDefinition(
@@ -8686,7 +8686,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), FAIL));
 
         // type analysis for INSERT
         SchemaTableName table8 = new SchemaTableName("s1", "t8");
@@ -8796,6 +8796,7 @@ public class TestAnalyzer
                 tableViewAndMaterializedView,
                 viewDefinition,
                 ImmutableMap.of(),
+                false,
                 false));
         inSetupTransaction(session -> metadata.createTable(
                 session,
@@ -8811,6 +8812,7 @@ public class TestAnalyzer
                 tableAndView,
                 viewDefinition,
                 ImmutableMap.of(),
+                false,
                 false));
         inSetupTransaction(session -> metadata.createTable(
                 session,

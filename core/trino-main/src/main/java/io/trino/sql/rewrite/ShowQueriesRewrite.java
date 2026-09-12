@@ -606,6 +606,7 @@ public final class ShowQueriesRewrite
                     QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                     query,
                     false,
+                    false,
                     viewDefinition.get().getComment(),
                     Optional.of(security),
                     propertyNodes))

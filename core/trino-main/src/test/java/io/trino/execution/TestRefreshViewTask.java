@@ -98,6 +98,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
+                false,
                 false);
 
         metadata.addColumn(
@@ -141,6 +142,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
+                false,
                 false);
 
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).orElseThrow();
@@ -172,6 +174,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
+                false,
                 false);
 
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).orElseThrow();
@@ -204,6 +207,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
+                false,
                 false);
 
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).orElseThrow();
@@ -235,6 +239,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
+                false,
                 false);
 
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).orElseThrow();
@@ -262,6 +267,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
+                false,
                 false);
 
         assertThatThrownBy(() -> getFutureValue(
@@ -289,6 +295,7 @@ final class TestRefreshViewTask
                         Optional.of(Identity.ofUser("owner")),
                         ImmutableList.of()),
                 ImmutableMap.of(),
+                false,
                 false);
 
         assertThatThrownBy(() -> getFutureValue(
