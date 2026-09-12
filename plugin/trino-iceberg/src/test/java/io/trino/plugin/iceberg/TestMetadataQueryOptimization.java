@@ -178,6 +178,30 @@ public class TestMetadataQueryOptimization
                                 ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, null))))));
     }
 
+    @Test
+    public void testOptimizationWithMetadataColumnPredicate()
+    {
+        String testTable = "test_metadata_optimization_with_metadata_column_predicate";
+
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c']) AS VALUES (5, 6, 7), (8, 9, 10)",
+                testTable));
+
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty("optimize_metadata_queries", "true")
+                .build();
+
+        // Metadata column predicates are enforced by the connector and have no Iceberg expression equivalent
+        assertPlan(
+                format("SELECT DISTINCT b, c FROM %s WHERE \"$path\" IS NOT NULL", testTable),
+                session,
+                anyTree(values(
+                        ImmutableList.of("b", "c"),
+                        ImmutableList.of(
+                                ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L)),
+                                ImmutableList.of(new Constant(INTEGER, 6L), new Constant(INTEGER, 7L))))));
+    }
+
     @AfterAll
     public void cleanup()
             throws Exception
