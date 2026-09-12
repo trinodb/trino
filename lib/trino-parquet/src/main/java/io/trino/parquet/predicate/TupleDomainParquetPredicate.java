@@ -28,6 +28,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -53,6 +54,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
 
 import java.io.Serializable;
@@ -66,12 +68,14 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.parquet.ParquetMetadataConverter.isMinMaxStatsSupported;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.trino.parquet.reader.ColumnReaderFactory.isDecimalRescaled;
+import static io.trino.parquet.reader.ColumnReaderFactory.isSupported;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -82,12 +86,16 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.Varchars.byteCount;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
@@ -136,6 +144,11 @@ public class TupleDomainParquetPredicate
             if (effectivePredicateDomain == null) {
                 continue;
             }
+            // Page stats and the dictionary decode a column whose type does not match no differently from the
+            // row-group statistics, so neither can narrow its domain and neither is worth reading
+            if (!canNarrowDomain(effectivePredicateDomain.getType(), column.getPrimitiveType())) {
+                continue;
+            }
 
             Statistics<?> columnStatistics = statistics.get(column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
@@ -160,9 +173,10 @@ public class TupleDomainParquetPredicate
             }
             // If the predicate domain on a column includes the entire domain from column row-group statistics,
             // then more granular statistics from page stats or dictionary for this column will not help to eliminate the row-group.
-            if (!effectivePredicateDomain.contains(domain)) {
-                candidateColumns.add(column);
+            if (effectivePredicateDomain.contains(domain)) {
+                continue;
             }
+            candidateColumns.add(column);
         }
         return Optional.of(candidateColumns.build());
     }
@@ -258,6 +272,12 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // decided once for the column, which also skips the range expansion below when the filter cannot match
+            Optional<BloomFilterHasher> hasher = bloomFilterHasher(effectivePredicateDomain.getType(), column.getPrimitiveType());
+            if (hasher.isEmpty()) {
+                continue;
+            }
+
             Optional<Collection<Object>> discreteValues = extractDiscreteValues(domainCompactionThreshold, effectivePredicateDomain.getValues());
             // values are not discrete, so bloom filter isn't helpful
             if (discreteValues.isEmpty()) {
@@ -269,7 +289,8 @@ public class TupleDomainParquetPredicate
                 continue;
             }
             BloomFilter bloomFilter = bloomFilterOptional.get();
-            if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, effectivePredicateDomain.getType()))) {
+            BloomFilterHasher columnHasher = hasher.orElseThrow();
+            if (discreteValues.get().stream().noneMatch(value -> bloomFilter.findHash(columnHasher.hash(bloomFilter, value)))) {
                 return false;
             }
         }
@@ -333,6 +354,73 @@ public class TupleDomainParquetPredicate
     }
 
     /**
+     * Whether a domain may be narrowed from the statistics of this column.
+     * <p>
+     * Statistics, column indexes and dictionaries are decoded according to the physical type of the column in the file,
+     * while the domain being narrowed carries the type from the table schema, and schema evolution makes the two
+     * disagree. A bound is usable only when the reader can produce the column at all, which
+     * {@link ColumnReaderFactory#isSupported} decides, when what the reader produces is ordered the same way as what
+     * the file stores, and when the statistics of the physical type arrive as the Java value the branch which builds
+     * the domain reads them as. The conversions below are readable but fail one of the other two.
+     */
+    private static boolean canNarrowDomain(Type type, PrimitiveType parquetType)
+    {
+        if (!isSupported(type, parquetType)) {
+            return false;
+        }
+        PrimitiveTypeName primitiveType = parquetType.getPrimitiveTypeName();
+        // RealType is an integer type, so isSupported takes a real over an integral column, where the reader
+        // reinterprets the stored integer as float bits instead of reading the value it holds
+        if (type.equals(REAL) && primitiveType != FLOAT) {
+            return false;
+        }
+        // A zero scale short decimal is read as an integer whatever it is stored in, but a byte array holds its
+        // statistics as two's complement bytes rather than as a number, which the integral branch does not read
+        if (isIntegralType(type) && primitiveType != INT32 && primitiveType != INT64) {
+            return false;
+        }
+        // Trino orders a char as if the shorter value were padded with spaces, while the reader trims the trailing
+        // spaces off the stored bytes, so a bound taken from those bytes is not a bound in the order the domain uses
+        if (type instanceof CharType) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * The lowest value the reader can produce for a column whose stored values are at or above {@code minimum}.
+     * <p>
+     * The reader cuts a bounded varchar down to its length, counting the bytes which are not UTF-8 continuation
+     * bytes, so the bound is the longest prefix of the minimum that nothing readable sorts below: its first
+     * {@code n - 1} code points followed by the leading byte of the {@code n}th. A stored value which agrees with
+     * the minimum that far scans those bytes identically and so cannot be cut any shorter, and one which differs
+     * inside them differs upwards on a byte the reader keeps. Cutting the {@code n}th code point off whole would
+     * not hold, since through a {@code varchar(1)} a minimum of {@code C3 A9} is cut to itself while a larger
+     * {@code C3 C3 A9} is cut to {@code C3}.
+     */
+    private static Slice readableLowerBound(Slice minimum, VarcharType varcharType)
+    {
+        if (varcharType.isUnbounded()) {
+            return minimum;
+        }
+        int boundedLength = varcharType.getBoundedLength();
+        if (boundedLength == 0) {
+            // the reader produces nothing but the empty slice, which no varchar sorts below
+            return EMPTY_SLICE;
+        }
+        int precedingLength = byteCount(minimum, 0, minimum.length(), boundedLength - 1);
+        return minimum.slice(0, min(precedingLength + 1, minimum.length()));
+    }
+
+    /**
+     * The types whose bounds are read through {@link #asLong}, which accepts a boxed integer and nothing else.
+     */
+    private static boolean isIntegralType(Type type)
+    {
+        return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT);
+    }
+
+    /**
      * Get a domain for the ranges defined by each pair of elements from {@code minimums} and {@code maximums}.
      * Both arrays must have the same length.
      */
@@ -345,6 +433,10 @@ public class TupleDomainParquetPredicate
             DateTimeZone timeZone)
     {
         checkArgument(minimums.size() == maximums.size(), "Expected minimums and maximums to have the same size");
+
+        if (!canNarrowDomain(type, column.getPrimitiveType())) {
+            return Domain.create(ValueSet.all(type), hasNullValue);
+        }
 
         if (type.equals(BOOLEAN)) {
             boolean hasTrueValues = minimums.stream().anyMatch(value -> (boolean) value) || maximums.stream().anyMatch(value -> (boolean) value);
@@ -362,7 +454,7 @@ public class TupleDomainParquetPredicate
             throw new VerifyException("Impossible boolean statistics");
         }
 
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT)) {
+        if (isIntegralType(type)) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 long min = asLong(minimums.get(i));
@@ -421,10 +513,12 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE)) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Double min = (Double) minimums.get(i);
-                Double max = (Double) maximums.get(i);
+                // ColumnReaderFactory widens a float column to double, and every float has an exact double, so these
+                // bounds are the values the reader itself produces
+                double min = ((Number) minimums.get(i)).doubleValue();
+                double max = ((Number) maximums.get(i)).doubleValue();
 
-                if (min.isNaN() || max.isNaN()) {
+                if (Double.isNaN(min) || Double.isNaN(max)) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
@@ -433,12 +527,12 @@ public class TupleDomainParquetPredicate
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType varcharType) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Slice min = (Slice) minimums.get(i);
-                Slice max = (Slice) maximums.get(i);
-                rangesBuilder.addRangeInclusive(min, max);
+                // the stored maximum bounds what the reader produces as it stands, since the reader only ever cuts a
+                // prefix off a bounded varchar and a prefix never sorts above the value it was cut from
+                rangesBuilder.addRangeInclusive(readableLowerBound((Slice) minimums.get(i), varcharType), (Slice) maximums.get(i));
             }
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
@@ -691,37 +785,65 @@ public class TupleDomainParquetPredicate
     }
 
     /**
-     * Check if the predicateValue might be in the bloomfilter
-     *
-     * @param bloomFilter parquet bloomfilter.
-     * @param predicateValue effective discrete predicate value.
-     * @param sqlType Type that contains information about the type schema from connector's metadata
-     * @return true if the predicateValue might be in the bloomfilter, false if the predicateValue absolutely is not in the bloomfilter
+     * How a predicate value has to be hashed to be looked up in the bloom filter of this column, or empty when the
+     * filter cannot answer for this column at all and has to be ignored rather than trusted.
+     * <p>
+     * parquet-mr builds a filter by hashing each value at the physical width of the column, so a lookup performed as a
+     * type of a different width never finds a value which is present. Binary values are hashed by their bytes alone,
+     * which makes the two byte array physical types interchangeable, but only where the reader hands those same bytes
+     * back, as it does not for a bounded varchar or a char.
      */
     @VisibleForTesting
-    public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
+    public static Optional<BloomFilterHasher> bloomFilterHasher(Type sqlType, PrimitiveType parquetType)
     {
+        PrimitiveTypeName primitiveType = parquetType.getPrimitiveTypeName();
+
         // TODO: Support TIMESTAMP, CHAR and DECIMAL
         if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == DATE) {
-            return bloomFilter.findHash(bloomFilter.hash(toIntExact(((Number) predicateValue).longValue())));
+            if (primitiveType != INT32) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(toIntExact(((Number) value).longValue())));
         }
         if (sqlType == BIGINT) {
-            return bloomFilter.findHash(bloomFilter.hash(((Number) predicateValue).longValue()));
+            if (primitiveType != INT64) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(((Number) value).longValue()));
         }
-        else if (sqlType == DOUBLE) {
-            return bloomFilter.findHash(bloomFilter.hash(((Double) predicateValue).doubleValue()));
+        if (sqlType == DOUBLE) {
+            if (primitiveType != PrimitiveTypeName.DOUBLE) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(((Double) value).doubleValue()));
         }
-        else if (sqlType == REAL) {
-            return bloomFilter.findHash(bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).longValue()))));
+        if (sqlType == REAL) {
+            if (primitiveType != FLOAT) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(intBitsToFloat(toIntExact(((Number) value).longValue()))));
         }
-        else if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
-            return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) predicateValue).toByteBuffer())));
-        }
-        else if (sqlType instanceof UuidType) {
-            return bloomFilter.findHash(bloomFilter.hash(Binary.fromConstantByteArray(((Slice) predicateValue).getBytes())));
+        // The filter hashed whole values, so a byte array column only answers where the reader hands those same bytes
+        // back, which a bounded varchar is cut too short for. Note that this is stronger than the condition the
+        // statistics of the same column are usable under, which needs only the order to survive the read. A char is
+        // none of the three types below and falls through to the empty result
+        if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType || sqlType instanceof UuidType) {
+            if (!isSupported(sqlType, parquetType) || (sqlType instanceof VarcharType varcharType && !varcharType.isUnbounded())) {
+                return Optional.empty();
+            }
+            return Optional.of((bloomFilter, value) -> bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) value).toByteBuffer())));
         }
 
-        return true;
+        return Optional.empty();
+    }
+
+    /**
+     * Hashes one predicate value the way the bloom filter of a particular column was built.
+     */
+    @FunctionalInterface
+    public interface BloomFilterHasher
+    {
+        long hash(BloomFilter bloomFilter, Object predicateValue);
     }
 
     private static Optional<Collection<Object>> extractDiscreteValues(int domainCompactionThreshold, ValueSet valueSet)
