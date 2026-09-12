@@ -972,7 +972,7 @@ public class IcebergMetadata
             Supplier<Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec>> lazyUniquePartitions = Suppliers.memoize(() -> {
                 TableScan tableScan = icebergTable.newScan()
                         .useSnapshot(table.getSnapshotId().orElseThrow())
-                        .filter(toIcebergExpression(enforcedPredicate))
+                        .filter(toIcebergExpression(enforcedPredicate.filter((column, _) -> !isMetadataColumnId(column.getId()))))
                         .planWith(icebergPlanningExecutor);
 
                 Map<Integer, PartitionSpec> specsById = icebergTable.specs();
