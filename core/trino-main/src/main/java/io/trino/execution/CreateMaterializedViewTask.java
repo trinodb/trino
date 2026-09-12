@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -24,9 +25,11 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
 import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -44,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -60,10 +64,12 @@ import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRA
 import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
+import static io.trino.sql.analyzer.DeterminismEvaluator.containsCurrentTimeFunctions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class CreateMaterializedViewTask
         implements DataDefinitionTask<CreateMaterializedView>
@@ -164,6 +170,7 @@ public class CreateMaterializedViewTask
         if (!isWhenStaleBehaviorSupported(session, whenStale, catalogHandle)) {
             throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support WHEN STALE", catalogName);
         }
+        validateSourcesCanBeTrackedForFreshness(statement, analysis, catalogHandle, gracePeriod, whenStale);
 
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
@@ -191,6 +198,62 @@ public class CreateMaterializedViewTask
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, properties, statement.isReplace(), statement.isNotExists());
         return analysis;
+    }
+
+    /// A zero grace period means no staleness is accepted, so the view is read from its storage
+    /// table only while it is fresh. Several kinds of source, validated in this method, cannot be tracked for freshness at all.
+    /// Reject the combination at creation time instead of failing at every read.
+    private static void validateSourcesCanBeTrackedForFreshness(
+            CreateMaterializedView statement,
+            Analysis analysis,
+            CatalogHandle catalogHandle,
+            Optional<Duration> gracePeriod,
+            WhenStaleBehavior whenStale)
+    {
+        if (whenStale != WhenStaleBehavior.FAIL || !gracePeriod.map(Duration::isZero).orElse(false)) {
+            return;
+        }
+
+        ImmutableList.Builder<String> untrackedSources = ImmutableList.builder();
+        Set<CatalogName> foreignCatalogs = analysis.getTables().stream()
+                .map(TableHandle::catalogHandle)
+                .filter(sourceCatalogHandle -> !sourceCatalogHandle.equals(catalogHandle))
+                .map(CatalogHandle::getCatalogName)
+                .collect(toImmutableSet());
+        if (!foreignCatalogs.isEmpty()) {
+            untrackedSources.add("another catalog " + formatNames(foreignCatalogs.stream().map(CatalogName::toString)));
+        }
+        Set<String> tableFunctions = analysis.getPolymorphicTableFunctions().stream()
+                .map(tableFunction -> tableFunction.getNode().getName().toString())
+                .collect(toImmutableSet());
+        if (!tableFunctions.isEmpty()) {
+            untrackedSources.add("a table function " + formatNames(tableFunctions.stream()));
+        }
+        Set<String> nonDeterministicFunctions = analysis.getResolvedFunctions().stream()
+                .filter(function -> !function.deterministic())
+                .map(function -> function.name().functionName())
+                .collect(toImmutableSet());
+        if (!nonDeterministicFunctions.isEmpty()) {
+            untrackedSources.add("a non-deterministic function " + formatNames(nonDeterministicFunctions.stream()));
+        }
+        if (containsCurrentTimeFunctions(statement.getQuery())) {
+            untrackedSources.add("a current time function");
+        }
+
+        List<String> sources = untrackedSources.build();
+        if (sources.isEmpty()) {
+            return;
+        }
+        throw semanticException(
+                NOT_SUPPORTED,
+                statement,
+                "Materialized view with a zero GRACE PERIOD and WHEN STALE FAIL cannot depend on %s, because such a source cannot be tracked for freshness and the view is never fresh. Use a non-zero GRACE PERIOD, or WHEN STALE INLINE.",
+                String.join(" and ", sources));
+    }
+
+    private static String formatNames(Stream<String> names)
+    {
+        return names.sorted().collect(joining(", ", "[", "]"));
     }
 
     private boolean isWhenStaleBehaviorSupported(Session session, WhenStaleBehavior whenStale, CatalogHandle catalogHandle)
