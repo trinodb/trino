@@ -48,7 +48,8 @@ public class TestLdapConfig
                 .setTruststorePassword(null)
                 .setIgnoreReferrals(false)
                 .setLdapConnectionTimeout(succinctDuration(1, MINUTES))
-                .setLdapReadTimeout(succinctDuration(1, MINUTES)));
+                .setLdapReadTimeout(succinctDuration(1, MINUTES))
+                .setLdapPagingSize(1000));
     }
 
     @Test
@@ -68,6 +69,7 @@ public class TestLdapConfig
                 .put("ldap.ignore-referrals", "true")
                 .put("ldap.timeout.connect", "3m")
                 .put("ldap.timeout.read", "4m")
+                .put("ldap.paging.size", "500")
                 .buildOrThrow();
 
         LdapClientConfig expected = new LdapClientConfig()
@@ -79,7 +81,8 @@ public class TestLdapConfig
                 .setTruststorePassword("54321")
                 .setIgnoreReferrals(true)
                 .setLdapConnectionTimeout(new Duration(3, TimeUnit.MINUTES))
-                .setLdapReadTimeout(new Duration(4, TimeUnit.MINUTES));
+                .setLdapReadTimeout(new Duration(4, TimeUnit.MINUTES))
+                .setLdapPagingSize(500);
 
         assertFullMapping(properties, expected);
     }
