@@ -1,15 +1,15 @@
 remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
-            final aggregation over (name_21)
+            final aggregation over (name_24)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [name_21])
-                        partial aggregation over (name_21)
+                    remote exchange (REPARTITION, HASH, [name_24])
+                        partial aggregation over (name_24)
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [suppkey, nationkey])
                                     join (INNER, PARTITIONED):
-                                        remote exchange (REPARTITION, HASH, [orderkey_5])
-                                            dynamic filter (suppkey::EQUAL, orderkey_5::EQUAL)
+                                        remote exchange (REPARTITION, HASH, [orderkey_6])
+                                            dynamic filter (suppkey::EQUAL, orderkey_6::EQUAL)
                                                 scan lineitem
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [orderkey])
@@ -25,11 +25,11 @@ remote exchange (GATHER, SINGLE, [])
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         join (INNER, REPLICATED):
-                                                                            dynamic filter (nationkey_20::EQUAL, regionkey::EQUAL)
+                                                                            dynamic filter (nationkey_23::EQUAL, regionkey::EQUAL)
                                                                                 scan nation
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                     scan region
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [suppkey_10, nationkey_13])
+                                    remote exchange (REPARTITION, HASH, [suppkey_12, nationkey_15])
                                         scan supplier

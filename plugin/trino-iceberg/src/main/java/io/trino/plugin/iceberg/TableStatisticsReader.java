@@ -78,6 +78,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getSpecIdDomain;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -157,6 +158,7 @@ public final class TableStatisticsReader
 
         Domain partitionDomain = getPartitionDomain(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
+        Domain specIdDomain = getSpecIdDomain(effectivePredicate);
         Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !isMetadataColumnId(column.getId())));
 
         NonEvictableLoadingCache<Integer, ManifestEvaluator> manifestPartitionFilterEvaluators = buildNonEvictableCache(
@@ -171,6 +173,8 @@ public final class TableStatisticsReader
                 .stream()
                 // remove any manifests that don't have any existing or added files
                 .filter(manifest -> manifest.hasAddedFiles() || manifest.hasExistingFiles())
+                // Remove manifests of specs the $spec_id domain excludes, since a manifest has a single spec
+                .filter(manifestFile -> specIdDomain.includesNullableValue((long) manifestFile.partitionSpecId()))
                 // remove manifests that don't match the scan filter
                 .filter(manifestFile -> {
                     ManifestEvaluator evaluator = manifestPartitionFilterEvaluators.getUnchecked(manifestFile.partitionSpecId());
