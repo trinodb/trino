@@ -715,8 +715,7 @@ public class IcebergMetadata
 
         if (endVersion.isPresent()) {
             ResolvedVersion resolved = resolveVersion(session, table, endVersion.get());
-            // A branch is a mutable reference and reads with the table's current schema;
-            // a tag or snapshot ID reads with the schema of the snapshot it points to
+            // Branches use the current table schema; other versions use the snapshot's schema.
             Schema schema = resolved.branch().isPresent() ? table.schema() : schemaFor(table, resolved.snapshotId());
             return tableHandleForSnapshot(
                     session,

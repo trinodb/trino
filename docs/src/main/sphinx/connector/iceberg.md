@@ -2112,9 +2112,8 @@ SELECT *
 FROM example.testdb.customer_orders FOR VERSION AS OF 'test-branch';
 ```
 
-A branch is read with the current schema of the table, because a branch is a
-mutable reference that continues to receive writes. A tag, a snapshot ID, and a
-timestamp are read with the schema of the snapshot they resolve to.
+Branches use the current table schema. Tags, snapshot IDs, and timestamps use the
+schema of the snapshot they resolve to.
 
 ##### Rolling back to a previous snapshot
 

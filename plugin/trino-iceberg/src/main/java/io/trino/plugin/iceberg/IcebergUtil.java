@@ -1428,15 +1428,13 @@ public final class IcebergUtil
     public static TableScan snapshotScan(Table table, IcebergTableHandle handle)
     {
         long snapshotId = handle.getSnapshotId().orElseThrow();
-        // Iceberg reads a branch with the table's current schema only when the scan names the ref; a scan
-        // pinned by snapshot ID alone is treated as time travel and binds filters against the snapshot's schema.
-        // Naming main leaves the scan unpinned and resolves the head at planning time, so main is read like an
-        // unversioned query: pinned to the snapshot the handle was resolved with.
+        // useRef reads branches with the current table schema; useSnapshot uses the snapshot's schema.
+        // Keep main pinned to the handle's snapshot, as for unversioned reads.
         Optional<String> branchName = handle.getBranch().filter(name -> !name.equals(SnapshotRef.MAIN_BRANCH));
         if (branchName.isEmpty()) {
             return table.newScan().useSnapshot(snapshotId);
         }
-        // The handle's schema and predicates were resolved against the branch head, so the ref must still point there
+        // Reject a branch head that differs from the snapshot resolved for the handle.
         String branch = branchName.orElseThrow();
         SnapshotRef ref = table.refs().get(branch);
         if (ref == null || ref.snapshotId() != snapshotId) {

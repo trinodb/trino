@@ -1572,12 +1572,7 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_reading_snapshot_reference_cleanup_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
             String tableName = table.getName();
-            Table icebergTable = loadTable(tableName);
-            long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
-            icebergTable.manageSnapshots()
-                    .createTag("test-tag", refSnapshotId)
-                    .createBranch("test-branch", refSnapshotId)
-                    .commit();
+            long refSnapshotId = createTagAndBranchAtCurrentSnapshot(tableName);
             assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
                     "VALUES ('test-tag', 'TAG', " + refSnapshotId + ", null, null, null)," +
                             "('test-branch', 'BRANCH', " + refSnapshotId + ", null, null, null)," +
