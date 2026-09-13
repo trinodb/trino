@@ -69,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -132,6 +133,7 @@ public class PinotClient
     private final NonEvictableLoadingCache<String, List<String>> brokersForTableCache;
     private final NonEvictableLoadingCache<Object, Multimap<String, String>> allTablesCache;
     private final NonEvictableLoadingCache<String, InstanceInfo> instanceInfoCache;
+    private final Map<String, InstanceInfo> instanceInfoFromSplits = new ConcurrentHashMap<>();
 
     private final JsonCodec<GetTables> tablesJsonCodec;
     private final JsonCodec<BrokersForTable> brokersForTableJsonCodec;
@@ -420,7 +422,31 @@ public class PinotClient
     }
 
     /**
-     * Returns the instance config of {@code instanceId} as reported by the controller.
+     * Returns the instance config of {@code instanceId}: the one that arrived with the split being processed when
+     * this node received one, otherwise the one resolved from the controller. A worker therefore never calls the
+     * controller for a server it is about to query.
+     */
+    public InstanceInfo getInstanceInfo(String instanceId)
+    {
+        InstanceInfo fromSplit = instanceInfoFromSplits.get(instanceId);
+        if (fromSplit != null) {
+            return fromSplit;
+        }
+        return resolveInstanceInfo(instanceId);
+    }
+
+    /**
+     * Records the instance config that arrived with a split. It is kept apart from the resolved cache so that a
+     * node which is both coordinator and worker keeps refreshing its own resolutions; the value shipped with the
+     * most recent split is always the coordinator's most recent resolution.
+     */
+    public void cacheInstanceInfoFromSplit(String instanceId, InstanceInfo instanceInfo)
+    {
+        instanceInfoFromSplits.put(instanceId, instanceInfo);
+    }
+
+    /**
+     * Resolves the instance config of {@code instanceId} from the controller.
      * <p>
      * The instance id carried by a routing table is only a name: it is not required to contain, and with a custom
      * {@code pinot.server.instance.id} may not contain, the host the instance is reachable at. The controller is
@@ -429,8 +455,9 @@ public class PinotClient
      * Only the first lookup of an instance blocks on the controller. The cached value is then refreshed in the
      * background every {@code pinot.instance-config-refresh-interval}, and a refresh that fails keeps the last
      * good value, so a slow or unreachable controller cannot stall a query on a server that was already resolved.
+     * A changed host is picked up one refresh interval late.
      */
-    public InstanceInfo getInstanceInfo(String instanceId)
+    public InstanceInfo resolveInstanceInfo(String instanceId)
     {
         try {
             // The loader only throws unchecked exceptions, which Guava wraps in UncheckedExecutionException
