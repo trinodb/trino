@@ -110,6 +110,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
+import static io.trino.SystemSessionProperties.getMinInputRowsPerTask;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.ignoreDownStreamPreferences;
@@ -130,6 +131,7 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.partiti
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.singlePartition;
 import static io.trino.sql.planner.optimizations.LocalProperties.grouped;
 import static io.trino.sql.planner.optimizations.PreferredProperties.partitionedWithLocal;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -138,6 +140,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.roundRobinExchange;
+import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -1034,6 +1037,14 @@ public class AddExchanges
             // Broadcast Join
             PlanWithProperties right = node.getRight().accept(this, PreferredProperties.any());
 
+            if (left.getProperties().isSingleNode() && node.isCrossJoin() && shouldDistributeCrossJoin(node)) {
+                // A cross join multiplies its inputs, so spread a single-node probe (e.g. the output of a LIMIT)
+                // across all nodes and replicate the build side instead of running the join on one node
+                left = withDerivedProperties(
+                        roundRobinExchange(idAllocator.getNextId(), REMOTE, left.getNode()),
+                        left.getProperties());
+            }
+
             if (left.getProperties().isSingleNode()) {
                 if (!right.getProperties().isSingleNode() ||
                         (!isColocatedJoinEnabled(session) && hasMultipleSources(left.getNode(), right.getNode()))) {
@@ -1049,6 +1060,21 @@ public class AddExchanges
             }
 
             return buildJoin(node, left, right, JoinNode.DistributionType.REPLICATED);
+        }
+
+        private boolean shouldDistributeCrossJoin(JoinNode node)
+        {
+            // A scalar probe has nothing to spread, and a zero threshold disables the rewrite
+            long minInputRowsPerTask = getMinInputRowsPerTask(session);
+            if (minInputRowsPerTask == 0 || isAtMostScalar(node.getLeft())) {
+                return false;
+            }
+            // The join stays on one node only when the output is known to fit in a single task
+            double outputRowCount = statsProvider.getStats(node).getOutputRowCount();
+            if (isNaN(outputRowCount)) {
+                return true;
+            }
+            return outputRowCount >= minInputRowsPerTask;
         }
 
         private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
