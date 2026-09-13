@@ -53,6 +53,7 @@ public class PinotConfig
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
 
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
+    private Duration instanceConfigRefreshInterval = new Duration(30, TimeUnit.MINUTES);
 
     private boolean preferBrokerQueries;
     private boolean forbidSegmentQueries;
@@ -118,6 +119,20 @@ public class PinotConfig
     public PinotConfig setMetadataCacheExpiry(Duration metadataCacheExpiry)
     {
         this.metadataCacheExpiry = metadataCacheExpiry;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @NotNull
+    public Duration getInstanceConfigRefreshInterval()
+    {
+        return instanceConfigRefreshInterval;
+    }
+
+    @Config("pinot.instance-config-refresh-interval")
+    public PinotConfig setInstanceConfigRefreshInterval(Duration instanceConfigRefreshInterval)
+    {
+        this.instanceConfigRefreshInterval = instanceConfigRefreshInterval;
         return this;
     }
 

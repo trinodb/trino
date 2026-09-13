@@ -181,8 +181,8 @@ public class PinotClient
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.instanceInfoCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .expireAfterWrite(config.getMetadataCacheExpiry().toJavaTime()),
-                CacheLoader.from(this::fetchInstanceInfo));
+                        .refreshAfterWrite(config.getInstanceConfigRefreshInterval().toJavaTime()),
+                asyncReloading(CacheLoader.from(this::fetchInstanceInfo), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
         brokerHostAndPort = config.getBrokerUrl();
@@ -424,7 +424,11 @@ public class PinotClient
      * <p>
      * The instance id carried by a routing table is only a name: it is not required to contain, and with a custom
      * {@code pinot.server.instance.id} may not contain, the host the instance is reachable at. The controller is
-     * the source of truth for that, so the config is fetched from it and cached for the metadata cache expiry.
+     * the source of truth for that, so the config is fetched from it.
+     * <p>
+     * Only the first lookup of an instance blocks on the controller. The cached value is then refreshed in the
+     * background every {@code pinot.instance-config-refresh-interval}, and a refresh that fails keeps the last
+     * good value, so a slow or unreachable controller cannot stall a query on a server that was already resolved.
      */
     public InstanceInfo getInstanceInfo(String instanceId)
     {
