@@ -29,6 +29,7 @@ import io.trino.plugin.pinot.client.PinotClient;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -82,6 +83,7 @@ public class TestPinotClient
                 "}"));
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
+                .setInstanceConfigRefreshInterval(new Duration(1, TimeUnit.MILLISECONDS))
                 .setControllerUrls(ImmutableList.of("localhost:7900"));
         AtomicReference<PinotClient> clientReference = new AtomicReference<>();
         PinotClient pinotClient = new PinotClient(
@@ -133,10 +135,37 @@ public class TestPinotClient
                 .isInstanceOf(PinotException.class);
     }
 
+    @Test
+    public void testInstanceInfoStaleValueServedWhileRefreshFails()
+            throws Exception
+    {
+        // The controller answers the first lookup and then becomes unavailable. Once an instance has been resolved,
+        // a failing background refresh must keep serving the last good value rather than surface to the query.
+        AtomicInteger controllerCalls = new AtomicInteger();
+        HttpClient httpClient = new TestingHttpClient(_ -> controllerCalls.getAndIncrement() == 0
+                ? TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8,
+                """
+                {"instanceName": "Server_dummy-server-host1-datacenter1_8098", "hostName": "Server_dummy-server-host1-datacenter1", "port": "8098", "grpcPort": 8091}
+                """)
+                : TestingResponse.mockResponse(HttpStatus.SERVICE_UNAVAILABLE, MediaType.JSON_UTF_8, "{}"));
+        PinotClient pinotClient = createPinotClient(httpClient);
+        InstanceInfo resolved = pinotClient.getInstanceInfo("Server_dummy-server-host1-datacenter1_8098");
+        assertThat(resolved.hostName()).isEqualTo("Server_dummy-server-host1-datacenter1");
+
+        // The refresh interval configured by createPinotClient is 1ms; wait it out so the next lookup triggers a refresh
+        Thread.sleep(20);
+        assertThat(pinotClient.getInstanceInfo("Server_dummy-server-host1-datacenter1_8098")).isEqualTo(resolved);
+        // Let the background refresh fail, then confirm the cached value survived it
+        Thread.sleep(100);
+        assertThat(pinotClient.getInstanceInfo("Server_dummy-server-host1-datacenter1_8098")).isEqualTo(resolved);
+        assertThat(controllerCalls.get()).isGreaterThan(1);
+    }
+
     private static PinotClient createPinotClient(HttpClient httpClient)
     {
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
+                .setInstanceConfigRefreshInterval(new Duration(1, TimeUnit.MILLISECONDS))
                 .setControllerUrls(ImmutableList.of("localhost:7900"));
         AtomicReference<PinotClient> clientReference = new AtomicReference<>();
         PinotClient pinotClient = new PinotClient(
