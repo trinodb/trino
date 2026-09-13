@@ -11,27 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.ai.functions;
+package io.trino.spi.secrets;
 
-import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+import io.airlift.spi.secrets.Secret;
+import io.trino.spi.Unstable;
 
-import java.net.URI;
+import java.util.Optional;
+import java.util.function.Function;
 
-public class AnthropicConfig
+@Unstable
+public interface RuntimeSecretResolver
 {
-    private URI endpoint = URI.create("https://api.anthropic.com");
-
-    @NotNull
-    public URI getEndpoint()
-    {
-        return endpoint;
-    }
-
-    @Config("ai.anthropic.endpoint")
-    public AnthropicConfig setEndpoint(URI endpoint)
-    {
-        this.endpoint = endpoint;
-        return this;
-    }
+    <T extends Secret> Optional<T> resolveSecret(String secretProviderName, String keyName, Class<T> type, Function<String, Optional<Object>> contextResolver);
 }

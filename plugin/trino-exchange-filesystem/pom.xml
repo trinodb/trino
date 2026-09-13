@@ -27,7 +27,6 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-core-http-netty</artifactId>
         </dependency>
-
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-identity</artifactId>
@@ -315,6 +314,12 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>secrets-spi</artifactId>
             <scope>provided</scope>
         </dependency>
 

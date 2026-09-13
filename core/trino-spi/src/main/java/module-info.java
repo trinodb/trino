@@ -18,6 +18,7 @@ module trino.spi {
     requires jakarta.annotation;
     requires transitive slice;
     requires jdk.incubator.vector;
+    requires secrets.spi;
 
     exports io.trino.spi;
     exports io.trino.spi.block;
@@ -35,6 +36,7 @@ module trino.spi {
     exports io.trino.spi.predicate;
     exports io.trino.spi.resourcegroups;
     exports io.trino.spi.security;
+    exports io.trino.spi.secrets;
     exports io.trino.spi.session;
     exports io.trino.spi.spool;
     exports io.trino.spi.statistics;

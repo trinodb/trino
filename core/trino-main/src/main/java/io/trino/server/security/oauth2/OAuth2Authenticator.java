@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.AbstractBearerAuthenticator;
@@ -80,6 +81,7 @@ public class OAuth2Authenticator
         }
         Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal.get()));
         builder.withPrincipal(new BasicPrincipal(principal.get()));
+        builder.withExtraCredentials(ImmutableMap.of("oauth2_access_token", tokenPair.accessToken()));
         return Optional.of(builder.build());
     }
 

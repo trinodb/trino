@@ -19,16 +19,19 @@ import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
+import io.airlift.spi.secrets.HttpHeadersSecret;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.TrinoException;
+import io.trino.spi.secrets.RuntimeSecretResolver;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.airlift.http.client.HeaderNames.AUTHORIZATION;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -59,23 +62,30 @@ public class OpenAiClient
 
     private final HttpClient httpClient;
     private final Tracer tracer;
-    private final URI endpoint;
-    private final String apiKey;
+    private final OpenAiConfig openAiConfig;
+    private final RuntimeSecretResolver secretsResolver;
 
     @Inject
-    public OpenAiClient(@ForAiClient HttpClient httpClient, Tracer tracer, OpenAiConfig openAiConfig, AiConfig aiConfig)
+    public OpenAiClient(@ForAiClient HttpClient httpClient, Tracer tracer, OpenAiConfig openAiConfig, AiConfig aiConfig, RuntimeSecretResolver secretsResolver)
     {
         super(aiConfig);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
-        this.endpoint = openAiConfig.getEndpoint();
-        this.apiKey = openAiConfig.getApiKey();
+        this.openAiConfig = requireNonNull(openAiConfig, "openAiConfig is null");
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     @Override
-    protected String generateCompletion(String model, String prompt)
+    protected String generateCompletion(ConnectorIdentity identity, String model, String prompt)
     {
-        URI uri = uriBuilderFrom(endpoint)
+        HttpHeadersSecret secret = secretsResolver.resolveSecret(openAiConfig.getSecretsProvider(), "access_token", HttpHeadersSecret.class, value -> {
+            if ("subject_token".equals(value)) {
+                return Optional.ofNullable(identity.getExtraCredentials().get("oauth2_access_token"));
+            }
+            return Optional.empty();
+        }).orElseThrow();
+
+        URI uri = uriBuilderFrom(openAiConfig.getEndpoint())
                 .appendPath("/v1/chat/completions")
                 .build();
 
@@ -84,7 +94,7 @@ public class OpenAiClient
 
         Request request = preparePost()
                 .setUri(uri)
-                .setHeader(AUTHORIZATION, "Bearer " + apiKey)
+                .setHeaders(secret)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(CHAT_REQUEST_CODEC, body))
                 .build();

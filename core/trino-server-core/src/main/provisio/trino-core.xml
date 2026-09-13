@@ -32,6 +32,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="secrets-plugin/oidc-secrets-plugin">
+        <artifact id="io.airlift:secrets-oidc-plugin:zip:${dep.airlift.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <!-- Plugins -->
     <artifactSet to="plugin/exchange-filesystem">
         <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
