@@ -25,6 +25,7 @@ import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
+import io.trino.plugin.pinot.client.InstanceInfo;
 import io.trino.plugin.pinot.client.PinotClient;
 import org.apache.pinot.spi.data.Schema;
 
@@ -107,6 +108,12 @@ public class MockPinotClient
                         .map(key -> new AbstractMap.SimpleEntry<>(key.toLowerCase(ENGLISH), key))
                         .collect(toList()))
                 .build();
+    }
+
+    @Override
+    public InstanceInfo resolveInstanceInfo(String instanceId)
+    {
+        return new InstanceInfo(instanceId, instanceId + ".pinot.svc.cluster.local", 8098, 8090);
     }
 
     @Override
