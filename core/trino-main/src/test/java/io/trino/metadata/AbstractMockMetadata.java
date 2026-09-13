@@ -665,6 +665,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<String> getSchemaComment(Session session, CatalogSchemaName schemaName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
     {
         throw new UnsupportedOperationException();

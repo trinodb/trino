@@ -718,6 +718,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public Optional<String> getSchemaComment(ConnectorSession session, String schemaName)
+    {
+        return hiveMetadata.getSchemaComment(session, schemaName);
+    }
+
+    @Override
     public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
     {
         return hiveMetadata.getSchemaOwner(session, schemaName);

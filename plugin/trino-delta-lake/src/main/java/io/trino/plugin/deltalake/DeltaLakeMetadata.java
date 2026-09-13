@@ -3646,6 +3646,17 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public Optional<String> getSchemaComment(ConnectorSession session, String schemaName)
+    {
+        if (isHiveSystemSchema(schemaName)) {
+            return Optional.empty();
+        }
+        return metastore.getDatabase(schemaName)
+                .orElseThrow(() -> new SchemaNotFoundException(schemaName))
+                .getComment();
+    }
+
+    @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
     {
         if (isHiveSystemSchema(schemaName)) {

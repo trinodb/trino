@@ -51,6 +51,7 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(TablesAuthorization.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(FunctionsAuthorization.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TableCommentSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(SchemaCommentSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(SchemaPropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TablePropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(MaterializedViewSystemTable.class).in(Scopes.SINGLETON);

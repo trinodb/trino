@@ -1063,6 +1063,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the comment for the specified schema.
+     * An empty result means that the schema has no comment or schema comments are not supported.
+     *
+     * @throws SchemaNotFoundException if the connector detects that the schema no longer exists
+     */
+    default Optional<String> getSchemaComment(ConnectorSession session, String schemaName)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Get the schema properties for the specified schema.
      */
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
