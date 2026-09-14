@@ -15,6 +15,7 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.plan.JoinNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
@@ -80,10 +82,27 @@ public class TestJoin
     }
 
     @Test
-    public void testFullJoinWithFalseConditionCount()
+    public void testFullJoinWithConstantConditionCount()
     {
-        assertThat(assertions.query("SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON false"))
-                .matches("VALUES BIGINT '2'");
+        assertions.assertQueryAndPlan(
+                "SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON true",
+                "VALUES BIGINT '1'",
+                anyTree(values(ImmutableList.of("count"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L))))));
+
+        assertions.assertQueryAndPlan(
+                "SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON false",
+                "VALUES BIGINT '2'",
+                anyTree(values(2)));
+
+        assertions.assertQueryAndPlan(
+                "SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON CAST(NULL AS boolean)",
+                "VALUES BIGINT '2'",
+                anyTree(values(2)));
+
+        assertions.assertQueryAndPlan(
+                "SELECT count(*) FROM (VALUES 1) l(a) FULL JOIN (VALUES 2) r(b) ON abs(-1) = 2",
+                "VALUES BIGINT '2'",
+                anyTree(values(2)));
     }
 
     @Test
