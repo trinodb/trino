@@ -718,7 +718,9 @@ public class IcebergMetadata
         if (endVersion.isPresent()) {
             ResolvedVersion resolved = resolveVersion(session, table, endVersion.get());
             // Branches use the current table schema; other versions use the snapshot's schema.
-            Schema schema = resolved.branch().isPresent() ? table.schema() : schemaFor(table, resolved.snapshotId());
+            Schema schema = resolved.branch().isPresent()
+                    ? table.schema()
+                    : schemaFor(table, resolved.snapshotId().orElseThrow());
             // Branch writes use the current partition spec
             Optional<PartitionSpec> partitionSpec = resolved.branch().isPresent()
                     ? Optional.of(table.spec())
@@ -727,7 +729,7 @@ public class IcebergMetadata
                     session,
                     tableName,
                     table,
-                    OptionalLong.of(resolved.snapshotId()),
+                    resolved.snapshotId(),
                     schema,
                     partitionSpec,
                     resolved.branch());
@@ -830,7 +832,9 @@ public class IcebergMetadata
     {
         io.trino.spi.type.Type versionType = version.getVersionType();
         return switch (version.getPointerType()) {
-            case TEMPORAL -> new ResolvedVersion(getTemporalSnapshotIdFromVersion(session, table, version, versionType), Optional.empty());
+            case TEMPORAL -> new ResolvedVersion(
+                    OptionalLong.of(getTemporalSnapshotIdFromVersion(session, table, version, versionType)),
+                    Optional.empty());
             case TARGET_ID -> resolveTargetVersion(table, version, versionType);
         };
     }
@@ -846,6 +850,9 @@ public class IcebergMetadata
             String refName = ((Slice) version.getVersion()).toStringUtf8();
             SnapshotRef ref = table.refs().get(refName);
             if (ref == null) {
+                if (refName.equals(SnapshotRef.MAIN_BRANCH)) {
+                    return new ResolvedVersion(OptionalLong.empty(), Optional.of(refName));
+                }
                 throw new TrinoException(INVALID_ARGUMENTS, "Cannot find snapshot with reference name: " + refName);
             }
             snapshotId = ref.snapshotId();
@@ -860,10 +867,10 @@ public class IcebergMetadata
         if (table.snapshot(snapshotId) == null) {
             throw new TrinoException(INVALID_ARGUMENTS, "Iceberg snapshot ID does not exists: " + snapshotId);
         }
-        return new ResolvedVersion(snapshotId, branch);
+        return new ResolvedVersion(OptionalLong.of(snapshotId), branch);
     }
 
-    private record ResolvedVersion(long snapshotId, Optional<String> branch) {}
+    private record ResolvedVersion(OptionalLong snapshotId, Optional<String> branch) {}
 
     private static long getTemporalSnapshotIdFromVersion(ConnectorSession session, Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
     {
@@ -2337,9 +2344,12 @@ public class IcebergMetadata
     public Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
     {
         BaseTable table = catalog.loadTable(session, tableName);
-        return table.refs().entrySet().stream()
-                .filter(entry -> entry.getValue().isBranch())
-                .map(Map.Entry::getKey)
+        return Stream.concat(
+                        Stream.of(SnapshotRef.MAIN_BRANCH),
+                        table.refs().entrySet().stream()
+                                .filter(entry -> entry.getValue().isBranch())
+                                .map(Map.Entry::getKey))
+                .distinct()
                 .collect(toImmutableList());
     }
 
@@ -2347,7 +2357,7 @@ public class IcebergMetadata
     public boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
     {
         SnapshotRef ref = catalog.loadTable(session, tableName).refs().get(branch);
-        return ref != null && ref.isBranch();
+        return branch.equals(SnapshotRef.MAIN_BRANCH) || (ref != null && ref.isBranch());
     }
 
     @Override
@@ -2363,6 +2373,7 @@ public class IcebergMetadata
         BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         Optional<Long> snapshotId = fromBranch
+                .filter(source -> !source.equals(SnapshotRef.MAIN_BRANCH))
                 .map(source -> {
                     SnapshotRef sourceRef = icebergTable.refs().get(source);
                     if (sourceRef == null || !sourceRef.isBranch()) {
@@ -2430,10 +2441,13 @@ public class IcebergMetadata
         BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         SnapshotRef sourceRef = icebergTable.refs().get(sourceBranch);
-        if (sourceRef == null || !sourceRef.isBranch()) {
+        if (!sourceBranch.equals(SnapshotRef.MAIN_BRANCH) && (sourceRef == null || !sourceRef.isBranch())) {
             throw new TrinoException(BRANCH_NOT_FOUND, "Branch '%s' does not exist".formatted(sourceBranch));
         }
         SnapshotRef targetRef = icebergTable.refs().get(targetBranch);
+        if (targetRef == null && targetBranch.equals(SnapshotRef.MAIN_BRANCH)) {
+            throw new TrinoException(INVALID_ARGUMENTS, "Cannot fast-forward to branch 'main' without a snapshot");
+        }
         if (targetRef == null || !targetRef.isBranch()) {
             throw new TrinoException(BRANCH_NOT_FOUND, "Branch '%s' does not exist".formatted(targetBranch));
         }
