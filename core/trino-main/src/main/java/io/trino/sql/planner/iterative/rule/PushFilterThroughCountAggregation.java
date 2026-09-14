@@ -186,7 +186,7 @@ public class PushFilterThroughCountAggregation
         Aggregation aggregation = getOnlyElement(aggregationNode.getAggregations().values());
 
         DomainTranslator.ExtractionResult extractionResult = getExtractionResult(plannerContext, context.getSession(), filterNode.getPredicate());
-        TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+        TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
 
         if (tupleDomain.isNone()) {
             // Filter predicate is never satisfied. Replace filter with empty values.
@@ -231,7 +231,7 @@ public class PushFilterThroughCountAggregation
             TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(countSymbol));
             Expression newPredicate = combineConjuncts(
                     new DomainTranslator(plannerContext.getMetadata()).toPredicate(getCharVarcharCoercion(context.getSession()), newTupleDomain),
-                    extractionResult.getRemainingExpression());
+                    extractionResult.remainingExpression());
             if (newPredicate.equals(TRUE)) {
                 return Result.ofPlanNode(filterSource);
             }

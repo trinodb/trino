@@ -506,9 +506,9 @@ public class TestSimplifyFilterPredicate
         Expression predicate = not(comparison(IDENTICAL, symbol.toSymbolReference(), TRUE));
         DomainTranslator.ExtractionResult result = DomainTranslator.getExtractionResult(PLANNER_CONTEXT, TEST_SESSION, predicate);
 
-        assertThat(result.getTupleDomain())
+        assertThat(result.tupleDomain())
                 .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, Domain.singleValue(BOOLEAN, true).complement())));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
     }
 
     private static Expression not(Expression expression)

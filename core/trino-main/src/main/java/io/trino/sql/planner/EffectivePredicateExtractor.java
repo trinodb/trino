@@ -171,7 +171,7 @@ public class EffectivePredicateExtractor
 
             DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
 
-            if (underlying.getTupleDomain().isNone()) {
+            if (underlying.tupleDomain().isNone()) {
                 // Effective predicate extraction is incorrect in the presence of nulls, which manifests as a NONE domain
                 // In that case, ignore it and combine it into the filter directly
                 // See EffectivePredicateExtractor.Visitor#entryToEquality
@@ -181,9 +181,9 @@ public class EffectivePredicateExtractor
 
             DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
             return combineConjuncts(
-                    domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.getTupleDomain().intersect(current.getTupleDomain())),
-                    underlying.getRemainingExpression(),
-                    current.getRemainingExpression());
+                    domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.tupleDomain().intersect(current.tupleDomain())),
+                    underlying.remainingExpression(),
+                    current.remainingExpression());
         }
 
         @Override

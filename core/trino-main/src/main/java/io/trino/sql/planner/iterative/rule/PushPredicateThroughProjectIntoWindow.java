@@ -122,7 +122,7 @@ public class PushPredicateThroughProjectIntoWindow
                 plannerContext,
                 context.getSession(),
                 filter.getPredicate());
-        TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+        TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
         if (upperBound.isEmpty()) {
             return Result.empty();
@@ -145,7 +145,7 @@ public class PushPredicateThroughProjectIntoWindow
         // Remove the ranking domain because it is absorbed into the node
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
-                extractionResult.getRemainingExpression(),
+                extractionResult.remainingExpression(),
                 domainTranslator.toPredicate(getCharVarcharCoercion(context.getSession()), newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);

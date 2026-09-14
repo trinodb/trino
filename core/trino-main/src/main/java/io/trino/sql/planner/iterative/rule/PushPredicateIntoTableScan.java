@@ -164,7 +164,7 @@ public class PushPredicateIntoTableScan
                 session,
                 splitExpression.getDeterministicPredicate());
 
-        TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
+        TupleDomain<ColumnHandle> newDomain = decomposedPredicate.tupleDomain()
                 .transformKeys(node.getAssignments()::get)
                 .intersect(node.getEnforcedConstraint());
 
@@ -173,7 +173,7 @@ public class PushPredicateIntoTableScan
                 .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
         ConnectorExpressionTranslation expressionTranslation = ConnectorExpressionTranslator.translateConjuncts(
                 session,
-                decomposedPredicate.getRemainingExpression(),
+                decomposedPredicate.remainingExpression(),
                 connectorExpressionAssignments.keySet());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
@@ -182,7 +182,7 @@ public class PushPredicateIntoTableScan
 
         Constraint constraint;
         // use engine expression only when there is some predicate which could not be translated into tuple domain
-        if (pruneWithPredicateExpression && !Booleans.TRUE.equals(decomposedPredicate.getRemainingExpression())) {
+        if (pruneWithPredicateExpression && !Booleans.TRUE.equals(decomposedPredicate.remainingExpression())) {
             Expression predicate = combineConjuncts(
                     splitExpression.getDeterministicPredicate(),
                     // Simplify the tuple domain to avoid creating an expression with too many nodes,
@@ -209,7 +209,7 @@ public class PushPredicateIntoTableScan
                     splitExpression.getDynamicFilter(),
                     Booleans.TRUE,
                     splitExpression.getNonDeterministicPredicate(),
-                    decomposedPredicate.getRemainingExpression());
+                    decomposedPredicate.remainingExpression());
 
             if (!Booleans.TRUE.equals(resultingPredicate)) {
                 return Optional.of(new FilterNode(filterNode.getId(), node, resultingPredicate));
@@ -258,7 +258,7 @@ public class PushPredicateIntoTableScan
 
         Expression remainingDecomposedPredicate;
         if (remainingConnectorExpression.isEmpty() || remainingConnectorExpression.get().equals(constraint.getExpression())) {
-            remainingDecomposedPredicate = decomposedPredicate.getRemainingExpression();
+            remainingDecomposedPredicate = decomposedPredicate.remainingExpression();
         }
         else {
             Map<String, Symbol> variableMappings = assignments.values().stream()

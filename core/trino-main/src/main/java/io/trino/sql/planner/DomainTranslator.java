@@ -374,7 +374,7 @@ public final class DomainTranslator
                     },
                     node.body());
             ExtractionResult result = process(inlined, complement);
-            if (result.getTupleDomain().isAll()) {
+            if (result.tupleDomain().isAll()) {
                 // Nothing was extracted; keep the original Let as the remainder so the residual
                 // predicate still evaluates the bound value exactly once.
                 return new ExtractionResult(TupleDomain.all(), complementIfNecessary(node, complement));
@@ -390,11 +390,11 @@ public final class DomainTranslator
                     .collect(toImmutableList());
 
             List<TupleDomain<Symbol>> tupleDomains = results.stream()
-                    .map(ExtractionResult::getTupleDomain)
+                    .map(ExtractionResult::tupleDomain)
                     .collect(toImmutableList());
 
             List<Expression> residuals = results.stream()
-                    .map(ExtractionResult::getRemainingExpression)
+                    .map(ExtractionResult::remainingExpression)
                     .collect(toImmutableList());
 
             Logical.Operator operator = complement ? node.operator().flip() : node.operator();
@@ -519,22 +519,22 @@ public final class DomainTranslator
         {
             ExtractionResult result = process(operand, !value);
             if (!complement) {
-                if (result.getTupleDomain().isAll() && !result.getRemainingExpression().equals(TRUE)) {
+                if (result.tupleDomain().isAll() && !result.remainingExpression().equals(TRUE)) {
                     // no domain was extracted, so rewriting the predicate to the operand alone would gain nothing
                     return Optional.empty();
                 }
                 return Optional.of(result);
             }
 
-            if (result.getTupleDomain().isNone()) {
+            if (result.tupleDomain().isNone()) {
                 // the domain is a superset of the rows the operand selects, so an empty one means the operand is never true
                 return Optional.of(new ExtractionResult(TupleDomain.all(), TRUE));
             }
-            if (!result.getRemainingExpression().equals(TRUE)) {
+            if (!result.remainingExpression().equals(TRUE)) {
                 // the domain is a superset of the values the operand selects, so its complement would be a subset of what the negation selects
                 return Optional.empty();
             }
-            Map<Symbol, Domain> domains = result.getTupleDomain().getDomains().orElseThrow();
+            Map<Symbol, Domain> domains = result.tupleDomain().getDomains().orElseThrow();
             if (domains.size() != 1) {
                 // a TupleDomain is a conjunction of per-column domains, so complementing more than one of them is not expressible
                 return Optional.empty();
@@ -936,12 +936,12 @@ public final class DomainTranslator
             ExtractionResult extractionResult = process(or(disjuncts.build()), complement);
 
             // preserve original IN predicate as remaining predicate
-            if (extractionResult.tupleDomain.isAll()) {
+            if (extractionResult.tupleDomain().isAll()) {
                 Expression originalPredicate = node;
                 if (complement) {
                     originalPredicate = not(plannerContext.getMetadata(), getCharVarcharCoercion(session), originalPredicate);
                 }
-                return new ExtractionResult(extractionResult.tupleDomain, originalPredicate);
+                return new ExtractionResult(extractionResult.tupleDomain(), originalPredicate);
             }
             return extractionResult;
         }
@@ -1214,25 +1214,12 @@ public final class DomainTranslator
         }
     }
 
-    public static class ExtractionResult
+    public record ExtractionResult(TupleDomain<Symbol> tupleDomain, Expression remainingExpression)
     {
-        private final TupleDomain<Symbol> tupleDomain;
-        private final Expression remainingExpression;
-
-        public ExtractionResult(TupleDomain<Symbol> tupleDomain, Expression remainingExpression)
+        public ExtractionResult
         {
-            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-            this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
-        }
-
-        public TupleDomain<Symbol> getTupleDomain()
-        {
-            return tupleDomain;
-        }
-
-        public Expression getRemainingExpression()
-        {
-            return remainingExpression;
+            requireNonNull(tupleDomain, "tupleDomain is null");
+            requireNonNull(remainingExpression, "remainingExpression is null");
         }
     }
 }
