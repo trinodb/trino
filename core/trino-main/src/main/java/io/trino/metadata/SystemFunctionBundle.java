@@ -168,6 +168,9 @@ import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
 import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
+import io.trino.operator.scalar.RegulatorRegexpCasts;
+import io.trino.operator.scalar.RegulatorRegexpFunctions;
+import io.trino.operator.scalar.RegulatorRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.RepeatFunction;
 import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
@@ -533,6 +536,7 @@ public final class SystemFunctionBundle
                 .scalars(JsonOperators.class)
                 .scalars(FailureFunction.class)
                 .scalars(JoniRegexpCasts.class)
+                .scalars(RegulatorRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharToVarcharCast.class)
                 .scalars(LuhnCheckFunction.class)
@@ -787,6 +791,10 @@ public final class SystemFunctionBundle
             case JONI -> {
                 builder.scalars(JoniRegexpFunctions.class);
                 builder.scalar(JoniRegexpReplaceLambdaFunction.class);
+            }
+            case REGULATOR -> {
+                builder.scalars(RegulatorRegexpFunctions.class);
+                builder.scalar(RegulatorRegexpReplaceLambdaFunction.class);
             }
             case RE2J -> {
                 builder.scalars(Re2JRegexpFunctions.class);

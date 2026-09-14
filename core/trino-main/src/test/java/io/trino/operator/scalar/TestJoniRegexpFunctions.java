@@ -49,6 +49,21 @@ public class TestJoniRegexpFunctions
     }
 
     @Test
+    public void testMultilineBeginLineOperations()
+    {
+        assertMultilineBeginLineOperations();
+    }
+
+    @Test
+    public void testBacktrackingPatterns()
+    {
+        for (String pattern : new String[] {"(?=a)", "(?<=a)", "(a)\\1", "(?>a)", "a++"}) {
+            assertThat(assertions.function("regexp_like", "'aa'", "'" + pattern + "'"))
+                    .isEqualTo(true);
+        }
+    }
+
+    @Test
     public void testSliceWithNonZeroOffset()
     {
         // A slice read out of a block is a view into a shared buffer, so its byteArrayOffset is not

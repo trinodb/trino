@@ -13,21 +13,13 @@
  */
 package io.trino.sql.query;
 
-import org.junit.jupiter.api.Test;
+import static io.trino.sql.analyzer.RegexLibrary.RE2J;
 
-import static io.trino.sql.analyzer.RegexLibrary.JONI;
-
-public class TestJsonExistsFunction
+public class TestRe2jJsonExistsFunction
         extends AbstractTestJsonExistsFunction
 {
-    public TestJsonExistsFunction()
+    public TestRe2jJsonExistsFunction()
     {
-        super(JONI);
-    }
-
-    @Test
-    public void testMultilineBeginLineOperations()
-    {
-        assertMultilineBeginLineOperations();
+        super(RE2J);
     }
 }

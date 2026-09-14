@@ -13,11 +13,15 @@
  */
 package io.trino.jsonpath;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.metadata.Metadata;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.spi.type.Type;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.JoniRegexp;
 import io.trino.type.Re2JRegexp;
+import io.trino.type.RegulatorRegexp;
 
 import java.util.function.Predicate;
 
@@ -29,11 +33,19 @@ public final class JsonPathRegex
 {
     private JsonPathRegex() {}
 
+    public static Type resolveRegexType(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
+    {
+        // Use the same engine as the configured SQL functions, including its type parameters.
+        return metadata.resolveBuiltinFunction(charVarcharCoercion, "regexp_like", ImmutableList.of(VARCHAR, VARCHAR))
+                .signature().getArgumentTypes().get(1);
+    }
+
     public static Predicate<Slice> compile(Type regexType, String pattern)
     {
         Object regex = regexType.getObject(writeNativeValue(VARCHAR, utf8Slice(pattern)), 0);
         return switch (regex) {
             case JoniRegexp joni -> source -> JoniRegexpFunctions.regexpLike(source, joni);
+            case RegulatorRegexp regulator -> regulator.regex()::contains;
             case Re2JRegexp re2j -> re2j::matches;
             default -> throw new IllegalArgumentException("Unsupported regex type: " + regexType);
         };

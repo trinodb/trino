@@ -345,4 +345,11 @@ public abstract class AbstractTestJsonExistsFunction
                 "SELECT json_exists('{\"s\":\"A\"}', 'lax $.s ? (@ like_regex \"\\x{41}\")')"))
                 .matches("VALUES true");
     }
+
+    protected void assertMultilineBeginLineOperations()
+    {
+        assertThat(assertions.query(
+                "SELECT json_exists('\"a\\n\"', 'lax $ ? (@ like_regex \"^$\" flag \"m\")')"))
+                .matches("VALUES false");
+    }
 }

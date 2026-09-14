@@ -78,6 +78,7 @@ import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
+import static io.trino.type.RegulatorRegexpType.REGULATOR_REGEXP;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlJsonPathTypeSerialization
@@ -223,8 +224,10 @@ public class TestSqlJsonPathTypeSerialization
     {
         assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$", JONI_REGEXP)));
         assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$", RE2J_REGEXP)));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$", REGULATOR_REGEXP)));
         assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "(?im)^a+$", JONI_REGEXP)));
         assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "(?im)^a+$", RE2J_REGEXP)));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "(?im)^a+$", REGULATOR_REGEXP)));
     }
 
     @Test

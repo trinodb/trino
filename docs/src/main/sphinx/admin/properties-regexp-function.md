@@ -5,13 +5,31 @@ These properties allow tuning the {doc}`/functions/regexp`.
 ## `regex-library`
 
 - **Type:** {ref}`prop-type-string`
-- **Allowed values:** `JONI`, `RE2J`
+- **Allowed values:** `JONI`, `REGULATOR`, `RE2J`
 - **Default value:** `JONI`
 
-Which library to use for regular expression functions.
-`JONI` is generally faster for common usage, but can require exponential
-time for certain expression patterns. `RE2J` uses a different algorithm,
-which guarantees linear time, but is often slower.
+Selects the regular expression engine for the server, including JSON path
+`like_regex` predicates. Set the same value on the coordinator and all workers.
+There is no session override. For example, to use Regulator:
+
+```properties
+regex-library=REGULATOR
+```
+
+`JONI` uses Trino's fork of Joni. It supports backtracking, which can require
+exponential time for some patterns. `REGULATOR` uses Airlift Regulator 1.1 and
+provides linear-time matching with bounded memory. It operates directly on
+Trino's UTF-8 strings. `RE2J` remains available as a legacy option.
+
+Regulator supports the regular subset of Trino's regex language. It rejects
+lookahead, lookbehind, backreferences, atomic groups, possessive quantifiers,
+`\G`, `\Z`, and repetition counts above 1,000. Unsupported patterns fail with
+an error; the server does not fall back to Joni. Supported patterns can also
+differ in Unicode case folding and capture-sensitive loops that match empty
+input. See the [Regulator 1.1 language reference](https://github.com/airlift/regulator/blob/1.1/docs/reference/languages/TRINO_REGEXP.md)
+for the full compatibility details.
+
+The former `deprecated.regex-library` property is accepted as an alias.
 
 ## `re2j.dfa-states-limit`
 
