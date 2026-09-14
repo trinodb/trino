@@ -19,11 +19,13 @@ import io.trino.plugin.exchange.filesystem.TestExchangeManagerContext;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.spi.exchange.ExchangeManager;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
 
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerPropertiesWithSseS3;
 import static java.util.UUID.randomUUID;
 
+@Disabled // TODO https://github.com/trinodb/trino/issues/31126 Replace minio/kes with different image
 public class TestS3FileSystemExchangeManagerSseS3
         extends AbstractTestExchangeManager
 {
