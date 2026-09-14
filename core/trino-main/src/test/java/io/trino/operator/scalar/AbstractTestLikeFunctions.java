@@ -15,7 +15,10 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.type.LikePattern;
 import org.junit.jupiter.api.AfterAll;
@@ -27,6 +30,9 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.likeChar;
 import static io.trino.type.LikeFunctions.likeVarchar;
@@ -53,6 +59,7 @@ public abstract class AbstractTestLikeFunctions
     public void init()
     {
         assertions = createQueryAssertions();
+        assertions.addFunctions(InternalFunctionBundle.builder().scalars(AbstractTestLikeFunctions.class).build());
     }
 
     @AfterAll
@@ -68,6 +75,46 @@ public abstract class AbstractTestLikeFunctions
         Slice result = Slices.allocate(source.length() + 5);
         result.setBytes(2, source);
         return result.slice(2, source.length());
+    }
+
+    @ScalarFunction(deterministic = false)
+    @SqlType("varchar")
+    public static Slice shiftedLikeInput(@SqlType("varchar") Slice value)
+    {
+        Slice buffer = Slices.allocate(value.length() + 8);
+        buffer.setBytes(5, value);
+        return buffer.slice(5, value.length());
+    }
+
+    @Test
+    public void testDynamicPatterns()
+    {
+        assertThat(assertions.expression("shifted_like_input('aé💰b') LIKE shifted_like_input('a__b')"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("shifted_like_input('axxz') LIKE shifted_like_input('a__b')"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("shifted_like_input('a_b') LIKE shifted_like_input('a#_b') ESCAPE shifted_like_input('#')"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("shifted_like_input('a%b') LIKE shifted_like_input('a#%b') ESCAPE shifted_like_input('#')"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("shifted_like_input('a#b') LIKE shifted_like_input('a##b') ESCAPE shifted_like_input('#')"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("shifted_like_input('a') LIKE CAST(NULL AS varchar)"))
+                .isNull(BOOLEAN);
+        assertThat(assertions.expression("TRY(shifted_like_input('a') LIKE shifted_like_input('a#') ESCAPE '#')"))
+                .isNull(BOOLEAN);
+        for (String escape : new String[] {"", "xx", "💰"}) {
+            assertTrinoExceptionThrownBy(assertions.expression("shifted_like_input('a') LIKE shifted_like_input('a') ESCAPE '" + escape + "'")::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("Escape string must be a single character");
+        }
+    }
+
+    @Test
+    public void testLikeFilter()
+    {
+        assertThat(assertions.query("SELECT value FROM (VALUES 'aé💰b', 'axxz', 'a__b') t(value) WHERE shifted_like_input(value) LIKE 'a__b'"))
+                .matches("VALUES 'aé💰b', 'a__b'");
     }
 
     @Test

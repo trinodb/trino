@@ -24,6 +24,7 @@ import io.airlift.units.MaxDataSize;
 import io.trino.execution.buffer.CompressionCodec;
 import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.sql.analyzer.RegexLibrary;
+import io.trino.type.LikeLibrary;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -39,6 +40,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
+import static io.trino.type.LikeLibrary.TRINO;
 
 @DefunctConfig({
         "analyzer.experimental-syntax-enabled",
@@ -107,6 +109,7 @@ public class FeaturesConfig
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
+    private LikeLibrary likeLibrary = TRINO;
     private boolean spillEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
@@ -239,6 +242,19 @@ public class FeaturesConfig
     public FeaturesConfig setDeprecatedRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
+        return this;
+    }
+
+    public LikeLibrary getLikeLibrary()
+    {
+        return likeLibrary;
+    }
+
+    @Config("like-library")
+    @ConfigDescription("LIKE pattern matching library to use")
+    public FeaturesConfig setLikeLibrary(LikeLibrary likeLibrary)
+    {
+        this.likeLibrary = likeLibrary;
         return this;
     }
 

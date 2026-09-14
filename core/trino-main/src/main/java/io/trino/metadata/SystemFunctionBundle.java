@@ -284,6 +284,7 @@ import io.trino.type.LikePatternFunctions;
 import io.trino.type.NumberOperators;
 import io.trino.type.QuantileDigestOperators;
 import io.trino.type.RealOperators;
+import io.trino.type.RegulatorLikePatternFunctions;
 import io.trino.type.SmallintOperators;
 import io.trino.type.TDigestOperators;
 import io.trino.type.TinyintOperators;
@@ -524,7 +525,6 @@ public final class SystemFunctionBundle
                 .scalars(IpAddressFunctions.class)
                 .scalars(UuidOperators.class)
                 .scalars(LikeFunctions.class)
-                .scalars(LikePatternFunctions.class)
                 .scalars(HmacFunctions.class)
                 .scalars(DataSizeFunctions.class)
                 .scalars(FormatNumberFunction.class)
@@ -802,6 +802,11 @@ public final class SystemFunctionBundle
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
             }
+        }
+
+        switch (featuresConfig.getLikeLibrary()) {
+            case TRINO -> builder.scalars(LikePatternFunctions.class);
+            case REGULATOR -> builder.scalars(RegulatorLikePatternFunctions.class);
         }
 
         return builder.build();

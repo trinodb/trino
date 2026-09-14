@@ -1,6 +1,6 @@
-# Regular expression function properties
+# Regular expression function and LIKE operator properties
 
-These properties allow tuning the {doc}`/functions/regexp`.
+These properties configure {doc}`/functions/regexp` and the SQL `LIKE` operator.
 
 ## `regex-library`
 
@@ -30,6 +30,30 @@ input. See the [Regulator 1.1 language reference](https://github.com/airlift/reg
 for the full compatibility details.
 
 The former `deprecated.regex-library` property is accepted as an alias.
+
+## `like-library`
+
+- **Type:** {ref}`prop-type-string`
+- **Allowed values:** `TRINO`, `REGULATOR`
+- **Default value:** `TRINO`
+
+Selects the engine for SQL `LIKE` and `NOT LIKE` expressions. `TRINO` uses the
+existing Trino LIKE matcher. `REGULATOR` uses Airlift Regulator's dedicated LIKE
+matcher, which supports `%`, `_`, and escape characters directly.
+
+This setting is independent of `regex-library` and has no session override.
+Set the same value on the coordinator and all workers. To use Regulator for
+both regular expressions and LIKE:
+
+```properties
+regex-library=REGULATOR
+like-library=REGULATOR
+```
+
+Both engines preserve Trino's CHAR padding and escape validation. As with the
+Trino matcher, escape characters outside the Unicode Basic Multilingual Plane
+are rejected. Regulator LIKE does not translate patterns to regular expressions
+or fall back to the Trino matcher.
 
 ## `re2j.dfa-states-limit`
 

@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.type.LikeLibrary;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -33,6 +34,7 @@ import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.CompressionCodec.ZSTD;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static io.trino.sql.analyzer.RegexLibrary.REGULATOR;
+import static io.trino.type.LikeLibrary.TRINO;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFeaturesConfig
@@ -46,6 +48,7 @@ public class TestFeaturesConfig
                 .setWriterScalingMinDataProcessed(DataSize.of(120, MEGABYTE))
                 .setMaxMemoryPerPartitionWriter(DataSize.of(256, MEGABYTE))
                 .setRegexLibrary(JONI)
+                .setLikeLibrary(TRINO)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
@@ -83,6 +86,7 @@ public class TestFeaturesConfig
                 .put("writer-scaling-min-data-processed", "4GB")
                 .put("max-memory-per-partition-writer", "4GB")
                 .put("regex-library", "REGULATOR")
+                .put("like-library", "REGULATOR")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("spill-enabled", "true")
@@ -117,6 +121,7 @@ public class TestFeaturesConfig
                 .setWriterScalingMinDataProcessed(DataSize.of(4, GIGABYTE))
                 .setMaxMemoryPerPartitionWriter(DataSize.of(4, GIGABYTE))
                 .setRegexLibrary(REGULATOR)
+                .setLikeLibrary(LikeLibrary.REGULATOR)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
