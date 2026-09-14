@@ -352,7 +352,7 @@ Trino and the data source. Refer to the following sections for type mapping in
 each direction.
 
 The Iceberg specification includes supported data types and the mapping to the
-formating in the Avro, ORC, or Parquet files:
+formatting in the Avro, ORC, or Parquet files:
 
 - [Iceberg to Avro](https://iceberg.apache.org/spec/#avro)
 - [Iceberg to ORC](https://iceberg.apache.org/spec/#orc)
