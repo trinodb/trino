@@ -13,23 +13,44 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
+import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.spi.RefreshType.INCREMENTAL;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -105,6 +126,62 @@ public class TestIcebergMaterializedView
     {
         Table table = metastore.getTable("tpch", materializedViewName).orElseThrow();
         return table.getParameters().get(METADATA_LOCATION_PROP);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true, false", "true, true", "false, false", "false, true"})
+    public void testConcurrentIncrementalRefresh(boolean hiddenStorage, boolean emptyFullRefresh)
+    {
+        String sourceTableName = "source_table_" + randomNameSuffix();
+        String materializedViewName = "materialized_view_" + randomNameSuffix();
+        String catalogName = hiddenStorage ? "iceberg" : "iceberg_legacy_mv";
+        String qualifiedMaterializedViewName = catalogName + ".tpch." + materializedViewName;
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 1 AS value", 1);
+        assertUpdate("CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT value FROM " + catalogName + ".tpch." + sourceTableName);
+        try {
+            assertUpdate("REFRESH MATERIALIZED VIEW " + qualifiedMaterializedViewName, 1);
+            assertUpdate("INSERT INTO " + sourceTableName + " VALUES 2", 1);
+
+            IcebergMetadata metadata = getConnectorService(getQueryRunner(), IcebergMetadataFactory.class).create(SESSION.getIdentity());
+            SchemaTableName storageTableName = metadata.getMaterializedView(SESSION, new SchemaTableName("tpch", materializedViewName))
+                    .orElseThrow().getStorageTable().orElseThrow().getSchemaTableName();
+            ConnectorTableHandle storageTable = metadata.getTableHandle(SESSION, storageTableName, Optional.empty(), Optional.empty());
+            List<ConnectorTableHandle> sourceTables = List.of(metadata.getTableHandle(
+                    SESSION, new SchemaTableName("tpch", sourceTableName), Optional.empty(), Optional.empty()));
+            IcebergWritableTableHandle insertHandle = (IcebergWritableTableHandle) metadata.beginRefreshMaterializedView(
+                    SESSION, storageTable, sourceTables, false, NO_RETRIES, INCREMENTAL);
+            assertThat(metadata.getIncrementalRefreshFromSnapshot()).isPresent();
+
+            // Prepare one refresh's output before another refresh commits the same source rows.
+            ConnectorPageSink pageSink = getConnectorService(getQueryRunner(), ConnectorPageSinkProvider.class).createPageSink(
+                    new HiveTransactionHandle(true), SESSION, (ConnectorInsertTableHandle) insertHandle, metadata.getTableCredentials(SESSION, insertHandle), () -> 0);
+            try {
+                pageSink.appendPage(new Page(createIntsBlock(2))).join();
+                Collection<Slice> fragments = pageSink.finish().join();
+
+                if (emptyFullRefresh) {
+                    // A concurrent full refresh can also invalidate the incremental input without adding any data files.
+                    assertUpdate("DELETE FROM " + sourceTableName, 2);
+                }
+                assertUpdate("REFRESH MATERIALIZED VIEW " + qualifiedMaterializedViewName, emptyFullRefresh ? 0 : 1);
+
+                assertTrinoExceptionThrownBy(() -> metadata.finishRefreshMaterializedView(
+                        SESSION, storageTable, insertHandle, fragments, List.of(), sourceTables, false, false, false))
+                        .hasErrorCode(ICEBERG_COMMIT_ERROR)
+                        .hasMessageContaining("Materialized view storage table changed during incremental refresh");
+
+                assertQuery("TABLE " + qualifiedMaterializedViewName, emptyFullRefresh ? "SELECT 1 WHERE false" : "VALUES 1, 2");
+                assertUpdate("REFRESH MATERIALIZED VIEW " + qualifiedMaterializedViewName, 0);
+            }
+            finally {
+                pageSink.abort();
+                metadata.rollback();
+            }
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW " + qualifiedMaterializedViewName);
+            assertUpdate("DROP TABLE " + sourceTableName);
+        }
     }
 
     @Test
