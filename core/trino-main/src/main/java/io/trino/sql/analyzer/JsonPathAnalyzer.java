@@ -16,13 +16,12 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.jsonpath.JsonDateTimeTemplate;
+import io.trino.jsonpath.JsonPathRegex;
 import io.trino.jsonpath.XQueryRegex;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
-import io.trino.operator.scalar.JoniRegexpCasts;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
@@ -87,6 +86,7 @@ import static io.trino.sql.analyzer.ExpressionAnalyzer.isStringType;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.jsonpath.tree.ArithmeticUnary.Sign.PLUS;
+import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static java.util.Objects.requireNonNull;
 
@@ -522,7 +522,7 @@ public class JsonPathAnalyzer
             //   1. XQueryRegex.validatePattern rejects Joni-isms that aren't valid XQuery regex
             //      (POSIX classes, named groups, lookaround, possessive quantifiers, hex / unicode
             //      escapes outside the XQuery \x{HHHH} form, etc.) — keeps the dialect honest.
-            //   2. JoniRegexpCasts.joniRegexp catches the remaining structural errors (unbalanced
+            //   2. JsonPathRegex.compile catches the remaining structural errors (unbalanced
             //      brackets, dangling quantifiers, ...) via Joni's parser.
             try {
                 XQueryRegex.validatePattern(node.getPattern());
@@ -532,7 +532,7 @@ public class JsonPathAnalyzer
             }
             String translated = XQueryRegex.patternWithFlags(node.getPattern(), flags);
             try {
-                JoniRegexpCasts.joniRegexp(Slices.utf8Slice(translated));
+                JsonPathRegex.compile(JONI_REGEXP, translated);
             }
             catch (TrinoException e) {
                 throw semanticException(INVALID_PATH, pathNode, e, "invalid like_regex pattern in JSON path: %s", e.getMessage());

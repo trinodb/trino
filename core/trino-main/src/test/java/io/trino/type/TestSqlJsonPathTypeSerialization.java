@@ -76,6 +76,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlJsonPathTypeSerialization
@@ -90,6 +92,7 @@ public class TestSqlJsonPathTypeSerialization
             .get();
     public static final JsonCodec<IrJsonPath> JSON_PATH_CODEC = new JsonCodecFactory(OBJECT_MAPPER).jsonCodec(IrJsonPath.class);
     public static final Type JSON_PATH_2016 = new SqlJsonPathType(JSON_PATH_CODEC);
+    private static final Type RE2J_REGEXP = TESTING_TYPE_MANAGER.getType(RE2J_REGEXP_SIGNATURE);
     private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
     @Test
@@ -218,8 +221,10 @@ public class TestSqlJsonPathTypeSerialization
     @Test
     public void testPredicates()
     {
-        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$")));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "(?im)^a+$")));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$", JONI_REGEXP)));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$", RE2J_REGEXP)));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "(?im)^a+$", JONI_REGEXP)));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "(?im)^a+$", RE2J_REGEXP)));
     }
 
     @Test

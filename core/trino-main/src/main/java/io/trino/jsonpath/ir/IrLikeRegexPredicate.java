@@ -16,32 +16,34 @@ package io.trino.jsonpath.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.trino.operator.scalar.JoniRegexpCasts;
-import io.trino.operator.scalar.JoniRegexpFunctions;
-import io.trino.type.JoniRegexp;
+import io.trino.jsonpath.JsonPathRegex;
+import io.trino.spi.type.Type;
 
 import java.util.Objects;
+import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 
-/// `like_regex` JSON path predicate. The pattern is pre-translated from XQuery syntax to Java
-/// regex syntax (with inline flags) at IR construction time, and compiled to a [JoniRegexp]
-/// eagerly in the constructor. The runtime visitor then just invokes the regex engine — no
-/// per-row resolution or compilation.
+/// A JSON path `like_regex` predicate with a translated pattern and the configured regex type.
+/// Compiles once on construction, including after deserialization on a worker.
 public final class IrLikeRegexPredicate
         implements IrPredicate
 {
     private final IrPathNode path;
     private final String pattern;
-    private final JoniRegexp regex;
+    private final Type regexType;
+    private final Predicate<Slice> regex;
 
     @JsonCreator
-    public IrLikeRegexPredicate(@JsonProperty("path") IrPathNode path, @JsonProperty("pattern") String pattern)
+    public IrLikeRegexPredicate(
+            @JsonProperty("path") IrPathNode path,
+            @JsonProperty("pattern") String pattern,
+            @JsonProperty("regexType") Type regexType)
     {
         this.path = requireNonNull(path, "path is null");
         this.pattern = requireNonNull(pattern, "pattern is null");
-        this.regex = JoniRegexpCasts.joniRegexp(Slices.utf8Slice(pattern));
+        this.regexType = requireNonNull(regexType, "regexType is null");
+        this.regex = JsonPathRegex.compile(regexType, pattern);
     }
 
     @JsonProperty
@@ -56,9 +58,15 @@ public final class IrLikeRegexPredicate
         return pattern;
     }
 
+    @JsonProperty
+    public Type regexType()
+    {
+        return regexType;
+    }
+
     public boolean matches(Slice source)
     {
-        return JoniRegexpFunctions.regexpLike(source, regex);
+        return regex.test(source);
     }
 
     @Override
@@ -76,12 +84,12 @@ public final class IrLikeRegexPredicate
         if (!(o instanceof IrLikeRegexPredicate other)) {
             return false;
         }
-        return path.equals(other.path) && pattern.equals(other.pattern);
+        return path.equals(other.path) && pattern.equals(other.pattern) && regexType.equals(other.regexType);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(path, pattern);
+        return Objects.hash(path, pattern, regexType);
     }
 }

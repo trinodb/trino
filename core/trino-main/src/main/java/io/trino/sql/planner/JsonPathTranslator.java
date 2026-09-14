@@ -107,6 +107,7 @@ import static io.trino.jsonpath.ir.IrComparisonPredicate.Operator.LESS_THAN_OR_E
 import static io.trino.jsonpath.ir.IrComparisonPredicate.Operator.NOT_EQUAL;
 import static io.trino.jsonpath.ir.IrJsonNull.JSON_NULL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static java.util.Objects.requireNonNull;
 
 class JsonPathTranslator
@@ -394,7 +395,7 @@ class JsonPathTranslator
             // rides in the IR; JsonPathAnalyzer has already validated both the flag set and the
             // regex syntax, so reaching here means the pattern is well-formed.
             String translated = XQueryRegex.patternWithFlags(node.getPattern(), XQueryRegex.parseFlags(node.getFlag().orElse("")));
-            return new IrLikeRegexPredicate(path, translated);
+            return new IrLikeRegexPredicate(path, translated, JONI_REGEXP);
         }
 
         @Override
