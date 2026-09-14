@@ -211,6 +211,32 @@ public class TestMongoConnectorTest
         }
     }
 
+    @Test
+    void testOnlyNonLowercaseCollectionIsNotQueryable()
+    {
+        String suffix = randomNameSuffix();
+        String schema = "test_db_" + suffix;
+        String table = "test_collection_" + suffix;
+        String upperCaseTable = table.toUpperCase(ENGLISH);
+        try {
+            MongoDatabase db = client.getDatabase(schema);
+            db.createCollection(upperCaseTable);
+            db.getCollection(upperCaseTable).insertOne(new Document("uppercase", 1));
+
+            assertThat(query("SELECT table_name FROM mongodb.information_schema.tables WHERE table_schema = '" + schema + "'"))
+                    .matches("VALUES VARCHAR '" + table + "'");
+
+            assertThat(query("SELECT * FROM " + schema + "." + table)).failure()
+                    .hasMessageMatching(".*Table 'mongodb\\.%s\\.%s' does not exist".formatted(schema, table));
+
+            assertThat(db.getCollection("_schema").find(new Document("table", table)).first())
+                    .isNull();
+        }
+        finally {
+            client.getDatabase(schema).drop();
+        }
+    }
+
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
