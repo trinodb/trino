@@ -1712,6 +1712,30 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testMaterializedViewWhenStaleFail()
+    {
+        String sourceTableName = "source_table_" + randomNameSuffix();
+        String mvName = "mv_when_stale_fail_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (a bigint)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " GRACE PERIOD INTERVAL '0' SECOND WHEN STALE FAIL AS SELECT * FROM " + sourceTableName);
+
+        // never refreshed, so stale by definition
+        assertQueryFails("SELECT * FROM " + mvName, ".* Materialized view '.*" + mvName + "' is stale");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertQuery("SELECT * FROM " + mvName, "VALUES 1");
+
+        // altering the source makes the MV stale again
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 2", 1);
+        assertQueryFails("SELECT * FROM " + mvName, ".* Materialized view '.*" + mvName + "' is stale");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
     public void testIncrementalRefresh()
     {
         String sourceTableName = "source_table" + randomNameSuffix();
