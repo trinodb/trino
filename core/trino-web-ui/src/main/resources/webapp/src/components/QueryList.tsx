@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import {
     Alert,
     Box,
@@ -126,14 +126,23 @@ export const QueryList = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+        let cancelled = false
         let timeoutId: number
         const runLoop = () => {
-            getQueryListStatus()
-            timeoutId = setTimeout(runLoop, 1000)
+            queryApi().then((apiResponse) => {
+                if (cancelled) {
+                    return
+                }
+                updateQueryList(apiResponse)
+                timeoutId = setTimeout(runLoop, 1000)
+            })
         }
         runLoop()
 
-        return () => clearTimeout(timeoutId)
+        return () => {
+            cancelled = true
+            clearTimeout(timeoutId)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchString, stateFilters, errorTypeFilters, sortType, sortOrder, reorderInterval, maxQueries])
 
@@ -197,58 +206,56 @@ export const QueryList = () => {
               })
     }
 
-    const getQueryListStatus = () => {
+    const updateQueryList = useEffectEvent((apiResponse: ApiResponse<QueryInfo[]>) => {
         setError(null)
-        queryApi().then((apiResponse: ApiResponse<QueryInfo[]>) => {
-            setLoading(false)
-            if (apiResponse.status === 200 && apiResponse.data) {
-                const queriesList = apiResponse.data
+        setLoading(false)
+        if (apiResponse.status === 200 && apiResponse.data) {
+            const queriesList = apiResponse.data
 
-                const queryMap = queriesList.reduce((map: Record<string, QueryInfo>, queryInfo: QueryInfo) => {
-                    map[queryInfo.queryId] = queryInfo
-                    return map
-                }, {})
+            const queryMap = queriesList.reduce((map: Record<string, QueryInfo>, queryInfo: QueryInfo) => {
+                map[queryInfo.queryId] = queryInfo
+                return map
+            }, {})
 
-                let updatedQueries: QueryInfo[] = []
-                displayedQueries.forEach((oldQuery: QueryInfo) => {
-                    if (oldQuery.queryId in queryMap) {
-                        updatedQueries.push(queryMap[oldQuery.queryId])
-                        delete queryMap[oldQuery.queryId]
-                    }
-                })
-
-                let newQueries: QueryInfo[] = []
-                for (const queryId in queryMap) {
-                    if (queryMap[queryId]) {
-                        newQueries.push(queryMap[queryId])
-                    }
+            let updatedQueries: QueryInfo[] = []
+            displayedQueries.forEach((oldQuery: QueryInfo) => {
+                if (oldQuery.queryId in queryMap) {
+                    updatedQueries.push(queryMap[oldQuery.queryId])
+                    delete queryMap[oldQuery.queryId]
                 }
+            })
 
-                newQueries = filterQueries(newQueries, stateFilters, errorTypeFilters, searchString)
-
-                const now: number = Date.now()
-
-                if (reorderInterval !== 0 && now - lastReorder > reorderInterval) {
-                    updatedQueries = filterQueries(updatedQueries, stateFilters, errorTypeFilters, searchString)
-                    updatedQueries = updatedQueries.concat(newQueries)
-                    sortQueries(updatedQueries, sortType, sortOrder)
-                    setLastReorder(now)
-                } else {
-                    sortQueries(newQueries, sortType, sortOrder)
-                    updatedQueries = updatedQueries.concat(newQueries)
+            let newQueries: QueryInfo[] = []
+            for (const queryId in queryMap) {
+                if (queryMap[queryId]) {
+                    newQueries.push(queryMap[queryId])
                 }
-
-                if (maxQueries !== 0 && updatedQueries.length > maxQueries) {
-                    updatedQueries.splice(maxQueries, updatedQueries.length - maxQueries)
-                }
-
-                setAllQueries(queriesList)
-                setDisplayedQueries(updatedQueries)
-            } else {
-                setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
             }
-        })
-    }
+
+            newQueries = filterQueries(newQueries, stateFilters, errorTypeFilters, searchString)
+
+            const now: number = Date.now()
+
+            if (reorderInterval !== 0 && now - lastReorder > reorderInterval) {
+                updatedQueries = filterQueries(updatedQueries, stateFilters, errorTypeFilters, searchString)
+                updatedQueries = updatedQueries.concat(newQueries)
+                sortQueries(updatedQueries, sortType, sortOrder)
+                setLastReorder(now)
+            } else {
+                sortQueries(newQueries, sortType, sortOrder)
+                updatedQueries = updatedQueries.concat(newQueries)
+            }
+
+            if (maxQueries !== 0 && updatedQueries.length > maxQueries) {
+                updatedQueries.splice(maxQueries, updatedQueries.length - maxQueries)
+            }
+
+            setAllQueries(queriesList)
+            setDisplayedQueries(updatedQueries)
+        } else {
+            setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
+        }
+    })
 
     const smallFormControlSx = {
         fontSize: '0.8rem',
