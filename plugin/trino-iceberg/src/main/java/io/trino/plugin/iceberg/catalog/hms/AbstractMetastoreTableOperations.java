@@ -78,11 +78,10 @@ public abstract class AbstractMetastoreTableOperations
     @Override
     protected String getRefreshedLocation(boolean invalidateCaches)
     {
-        if (invalidateCaches) {
-            metastore.invalidateTable(database, tableName);
-        }
-
         boolean isMaterializedViewStorageTable = isMaterializedViewStorage(tableName);
+        if (invalidateCaches) {
+            metastore.invalidateTable(database, isMaterializedViewStorageTable ? tableNameFrom(tableName) : tableName);
+        }
 
         Table table;
         if (isMaterializedViewStorageTable) {
