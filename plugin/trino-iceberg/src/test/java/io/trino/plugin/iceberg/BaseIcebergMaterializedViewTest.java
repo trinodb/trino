@@ -43,6 +43,7 @@ import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Identity;
+import io.trino.sql.SqlPath;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
@@ -1756,6 +1757,26 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
+    public void testMaterializedViewPath()
+    {
+        String mvName = "mv_path_" + randomNameSuffix();
+
+        // unqualified, and "mock.system" isn't on the default path
+        assertQueryFails("SELECT * FROM TABLE(sequence_function())", "line 1:21: Table function 'sequence_function' not registered");
+
+        Session withPath = Session.builder(getSession())
+                .setPath(SqlPath.buildPath("mock.system", Optional.empty()))
+                .build();
+        assertUpdate(withPath, "CREATE MATERIALIZED VIEW " + mvName + " WHEN STALE INLINE AS SELECT * FROM TABLE(sequence_function())");
+
+        // never refreshed, so stale, so the inline path re-analyzes the unqualified call using
+        // the path stored at creation time, not this (path-less) session's own
+        assertThat(computeActual("SELECT * FROM " + mvName).getRowCount()).isEqualTo(1);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
     }
 
     @Test
