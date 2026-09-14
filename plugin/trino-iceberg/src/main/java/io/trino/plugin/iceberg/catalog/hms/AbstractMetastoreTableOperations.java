@@ -188,7 +188,7 @@ public abstract class AbstractMetastoreTableOperations
         return committed ? CommitStatus.SUCCESS : CommitStatus.FAILURE;
     }
 
-    private enum CommitStatus
+    enum CommitStatus
     {
         SUCCESS,
         FAILURE,

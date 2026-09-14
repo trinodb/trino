@@ -13,36 +13,52 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.concurrent.MoreFutures;
+import io.trino.hive.thrift.metastore.Table;
 import io.trino.plugin.hive.containers.Hive4FlociDataLake;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
 
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.iceberg.catalog.hms.HiveMetastoreTableOperations.isConcurrentModificationRejection;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
 import static io.trino.testing.containers.Floci.FLOCI_REGION;
 import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
 final class TestIcebergHiveCatalogWithoutLock
         extends AbstractTestQueryFramework
 {
+    private Hive4FlociDataLake hiveFlociDataLake;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         String bucketName = "test-bucket" + randomNameSuffix();
-        Hive4FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive4FlociDataLake(bucketName));
+        hiveFlociDataLake = closeAfterClass(new Hive4FlociDataLake(bucketName));
         hiveFlociDataLake.start();
 
         return IcebergQueryRunner.builder()
@@ -50,6 +66,8 @@ final class TestIcebergHiveCatalogWithoutLock
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", hiveFlociDataLake.getHiveMetastoreEndpoint().toString())
+                                // Four writers serialize on alter_table in the metastore; the default 10s makes some of them time out
+                                .put("hive.metastore.thrift.client.read-timeout", "2m")
                                 .put("iceberg.hive-catalog.locking-enabled", "false")
                                 .put("fs.s3.enabled", "true")
                                 .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
@@ -77,6 +95,62 @@ final class TestIcebergHiveCatalogWithoutLock
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES 3");
+        }
+    }
+
+    @RepeatedTest(3)
+    void testConcurrentInsertsWithoutLock()
+            throws Exception
+    {
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_inserts_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (x int)");
+        try {
+            ImmutableList.Builder<Callable<Void>> inserts = ImmutableList.builder();
+            for (int i = 0; i < threads; i++) {
+                int value = i;
+                inserts.add(() -> {
+                    barrier.await(10, SECONDS);
+                    getQueryRunner().execute("INSERT INTO " + tableName + " VALUES " + value);
+                    return null;
+                });
+            }
+            executor.invokeAll(inserts.build()).forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES 0, 1, 2, 3");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    void testConcurrentModificationRejectedByMetastoreIsRecognized()
+    {
+        // The rejection message is what HiveMetastoreTableOperations relies on to tell a definite conflict from an unknown outcome
+        try (TestTable table = newTrinoTable("test_conditional_update", "(x int)", List.of("1"))) {
+            ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
+                    .metastoreClient(hiveFlociDataLake.getHiveMetastoreEndpoint())
+                    .build(this::closeAfterClass);
+            Table hiveTable = thriftMetastore.getTable("tpch", table.getName()).orElseThrow();
+            String currentMetadataLocation = hiveTable.getParameters().get(METADATA_LOCATION_PROP);
+
+            Table updatedTable = hiveTable.deepCopy();
+            updatedTable.getParameters().put(METADATA_LOCATION_PROP, currentMetadataLocation + ".rejected");
+            assertThatThrownBy(() -> thriftMetastore.alterTable("tpch", table.getName(), updatedTable, ImmutableMap.of(
+                    "expected_parameter_key", METADATA_LOCATION_PROP,
+                    "expected_parameter_value", currentMetadataLocation + ".stale")))
+                    .satisfies(exception -> assertThat(isConcurrentModificationRejection(exception)).isTrue());
+
+            assertThat(thriftMetastore.getTable("tpch", table.getName()).orElseThrow().getParameters())
+                    .containsEntry(METADATA_LOCATION_PROP, currentMetadataLocation);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES 1");
         }
     }
 }
