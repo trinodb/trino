@@ -52,7 +52,7 @@ public final class LikeFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
     {
-        return pattern.getMatcher().match(value.byteArray(), value.byteArrayOffset(), value.length());
+        return pattern.matches(value);
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)

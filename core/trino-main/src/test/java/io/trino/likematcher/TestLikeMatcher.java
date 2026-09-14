@@ -13,7 +13,6 @@
  */
 package io.trino.likematcher;
 
-import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -100,10 +99,10 @@ public class TestLikeMatcher
         assertThat(match("%paya%", "papapapapapaya")).isTrue();
 
         // utf-8
-        LikeMatcher singleOptimized = LikePattern.compile("_", Optional.empty(), true).getMatcher();
-        LikeMatcher multipleOptimized = LikePattern.compile("_a%b_", Optional.empty(), true).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
-        LikeMatcher single = LikePattern.compile("_", Optional.empty(), false).getMatcher();
-        LikeMatcher multiple = LikePattern.compile("_a%b_", Optional.empty(), false).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher singleOptimized = LikeMatcher.compile("_", Optional.empty(), true);
+        LikeMatcher multipleOptimized = LikeMatcher.compile("_a%b_", Optional.empty(), true); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher single = LikeMatcher.compile("_", Optional.empty(), false);
+        LikeMatcher multiple = LikeMatcher.compile("_a%b_", Optional.empty(), false); // prefix and suffix with _a and b_ to avoid optimizations
         for (int i = 0; i < Character.MAX_CODE_POINT; i++) {
             assertThat(singleOptimized.match(Character.toString(i).getBytes(StandardCharsets.UTF_8))).isTrue();
             assertThat(single.match(Character.toString(i).getBytes(StandardCharsets.UTF_8))).isTrue();

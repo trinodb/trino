@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.airlift.slice.Slice;
 import io.trino.likematcher.LikeMatcher;
 
 import java.util.Objects;
@@ -58,9 +59,9 @@ public class LikePattern
         return escape;
     }
 
-    public LikeMatcher getMatcher()
+    public boolean matches(Slice value)
     {
-        return matcher;
+        return matcher.match(value.byteArray(), value.byteArrayOffset(), value.length());
     }
 
     @Override
