@@ -15,8 +15,10 @@ package io.trino.jsonpath.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.scalar.JoniRegexpCasts;
+import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.type.JoniRegexp;
 
 import java.util.Objects;
@@ -54,9 +56,9 @@ public final class IrLikeRegexPredicate
         return pattern;
     }
 
-    public JoniRegexp regex()
+    public boolean matches(Slice source)
     {
-        return regex;
+        return JoniRegexpFunctions.regexpLike(source, regex);
     }
 
     @Override
