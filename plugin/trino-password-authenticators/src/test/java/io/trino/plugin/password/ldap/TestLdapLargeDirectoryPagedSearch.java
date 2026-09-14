@@ -178,6 +178,7 @@ public class TestLdapLargeDirectoryPagedSearch
         }
     }
 
+    @SuppressWarnings("BanJNDI")
     private void nonPagedSearch(String filter)
             throws NamingException
     {

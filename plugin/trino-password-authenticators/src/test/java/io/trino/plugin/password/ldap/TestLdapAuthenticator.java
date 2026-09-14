@@ -327,6 +327,7 @@ public class TestLdapAuthenticator
         }
     }
 
+    @SuppressWarnings("BanJNDI")
     private List<Integer> pageSizes(String searchBase, String filter, int pageSize)
             throws Exception
     {
