@@ -126,6 +126,46 @@ public abstract class BaseIcebergBranchingTest
     }
 
     @Test
+    public void testShowBranchesWithSnapshotlessMain()
+    {
+        String tableName = "test_show_branches_snapshotless_main_" + randomNameSuffix();
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                    .skippingTypesCheck()
+                    .matches("VALUES VARCHAR '" + MAIN_BRANCH + "'");
+
+            assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+            assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES 1", 1);
+            assertThat(loadTable(tableName).currentSnapshot()).isNull();
+
+            assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                    .skippingTypesCheck()
+                    .matches("VALUES VARCHAR '" + MAIN_BRANCH + "', VARCHAR 'test_branch'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testCreateBranchFromSnapshotlessMain()
+    {
+        String tableName = "test_branch_from_snapshotless_main_" + randomNameSuffix();
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName + " FROM " + MAIN_BRANCH);
+
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                    .returnsEmptyResult();
+            assertThat(loadTable(tableName).currentSnapshot()).isNull();
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testCreateBranchIfNotExists()
     {
         String tableName = "test_branch_if_not_exists_" + randomNameSuffix();
@@ -327,6 +367,46 @@ public abstract class BaseIcebergBranchingTest
     }
 
     @Test
+    public void testFastForwardSnapshotlessMain()
+    {
+        String tableName = "test_fast_forward_snapshotless_main_" + randomNameSuffix();
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+            assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES 1", 1);
+            assertThat(loadTable(tableName).currentSnapshot()).isNull();
+
+            assertUpdate("ALTER BRANCH " + MAIN_BRANCH + " IN TABLE " + tableName + " FAST FORWARD TO test_branch");
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                    .matches("VALUES 1");
+            Table table = loadTable(tableName);
+            assertThat(table.currentSnapshot().snapshotId()).isEqualTo(table.refs().get("test_branch").snapshotId());
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testFastForwardToSnapshotlessMainFails()
+    {
+        String tableName = "test_fast_forward_to_snapshotless_main_" + randomNameSuffix();
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+            assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES 1", 1);
+
+            assertThat(query("ALTER BRANCH test_branch IN TABLE " + tableName + " FAST FORWARD TO " + MAIN_BRANCH))
+                    .failure().hasMessageContaining("Cannot fast-forward to branch 'main' without a snapshot");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testFastForwardBranchNonAncestorFails()
     {
         String tableName = "test_ff_non_ancestor_" + randomNameSuffix();
@@ -362,6 +442,26 @@ public abstract class BaseIcebergBranchingTest
                 .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInsertIntoSnapshotlessMain()
+    {
+        String tableName = "test_insert_snapshotless_main_" + randomNameSuffix();
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+            assertThat(loadTable(tableName).currentSnapshot()).isNull();
+
+            assertUpdate("INSERT INTO " + tableName + "@" + MAIN_BRANCH + " VALUES 1", 1);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                    .returnsEmptyResult();
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
