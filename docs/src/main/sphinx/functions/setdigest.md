@@ -171,7 +171,7 @@ FROM (VALUES (1, 1), (NULL,2), (2, 3), (NULL, 4)) T(v1, v2);
 
 :::{function} hash_counts(x) -> map(bigint, smallint)
 Returns a map containing the [Murmur3Hash128](https://wikipedia.org/wiki/MurmurHash#MurmurHash3)
-hashed values and the count of their occurences within
+hashed values and the count of their occurrences within
 the internal `MinHash` structure belonging to `x`.
 
 `x` must be of type  `setdigest`.

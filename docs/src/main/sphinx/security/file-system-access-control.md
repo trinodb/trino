@@ -464,7 +464,7 @@ The following example allows the `admin` user to execute and grant execution
 rights to call `register_table` and `unregister_table` in the `system` schema of
 a catalog called  `delta`, that uses the [Delta Lake
 connector](/connector/delta-lake). It allows all users to execute the
-`delta.sytem.vacuum` procedure.
+`delta.system.vacuum` procedure.
 
 ```json
 {

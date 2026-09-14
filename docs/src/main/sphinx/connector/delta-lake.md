@@ -162,7 +162,7 @@ values. Typical usage does not require you to configure them.
     metastore cache.
   - `1000`
 * - `delta.metastore.store-table-metadata`
-  - Store table comments and colum definitions in the metastore. The write
+  - Store table comments and column definitions in the metastore. The write
     permission is required to update the metastore.
   - `false`
 * - `delta.metastore.store-table-metadata-threads`
@@ -745,7 +745,7 @@ WHERE "$path" <> 'skipping-file-path'
 ```
 
 ```sql
--- optimze files smaller than 1MB
+-- optimize files smaller than 1MB
 ALTER TABLE test_table EXECUTE optimize
 WHERE "$file_size" <= 1024 * 1024
 ```
