@@ -828,7 +828,7 @@ public class MongoSession
     public boolean collectionExists(MongoDatabase db, String collectionName)
     {
         for (String name : listCollectionNames(db.getName())) {
-            if (name.equalsIgnoreCase(collectionName)) {
+            if (name.equals(collectionName)) {
                 return true;
             }
         }
