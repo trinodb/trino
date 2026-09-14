@@ -134,7 +134,7 @@ export const QueryList = () => {
                     return
                 }
                 updateQueryList(apiResponse)
-                timeoutId = setTimeout(runLoop, 1000)
+                timeoutId = window.setTimeout(runLoop, 1000)
             })
         }
         runLoop()
