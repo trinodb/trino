@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -130,6 +131,34 @@ public class TestExpressions
     {
         assertThat(assertions.query("SELECT count(*) BETWEEN 4000 AND 6000 FROM UNNEST(sequence(1, 10000)) t(x) WHERE date_trunc('year', IF(random() < 0.5, NULL, DATE '2019-06-01')) IS NOT DISTINCT FROM DATE '2019-01-01'"))
                 .matches("VALUES true");
+    }
+
+    @Test
+    public void testNonDeterministicEqualityDisjunction()
+    {
+        // random(0, 5) draws from {0, 1, 2, 3, 4}. Each disjunct draws independently, so a row passes with
+        // probability 1 - 0.8^5 (~6723/10000). If the disjuncts are merged into a single IN predicate, this
+        // would result in an always-true predicate.
+        MaterializedResult result = assertions.execute("SELECT count(*) FROM UNNEST(sequence(1, 10000)) t(x) WHERE random(0, 5) = 0 OR random(0, 5) = 1 OR random(0, 5) = 2 OR random(0, 5) = 3 OR random(0, 5) = 4");
+        assertThat((long) result.getOnlyValue()).isBetween(3000L, 9000L);
+    }
+
+    @Test
+    public void testNonDeterministicInListValues()
+    {
+        // Each row has high chance of passing. If the IN list was de-duplicated, only 20% of rows would pass.
+        // The OR + IN is necessary precondition to trigger NormalizeOrExpressionRewriter.
+        MaterializedResult result = assertions.execute("SELECT count(*) FROM UNNEST(sequence(1, 10000)) t(i) WHERE mod(i, 5) = 7 OR mod(i, 5) IN (random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5))");
+        assertThat((long) result.getOnlyValue()).isBetween(9000L, 9999L);
+    }
+
+    @Test
+    public void testNonDeterministicDisjunctAmongMergedDisjuncts()
+    {
+        // mod(i, 5) is never 7 or 8, so only the non-deterministic disjunct can match, with probability 1/5.
+        // Merging the deterministic disjuncts into an IN predicate must not drop it.
+        MaterializedResult result = assertions.execute("SELECT count(*) FROM UNNEST(sequence(1, 10000)) t(i) WHERE mod(i, 5) = 7 OR mod(i, 5) = 8 OR mod(i, 5) = random(5)");
+        assertThat((long) result.getOnlyValue()).isBetween(1000L, 4000L);
     }
 
     @Test
