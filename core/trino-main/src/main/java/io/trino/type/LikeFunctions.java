@@ -55,25 +55,6 @@ public final class LikeFunctions
         return pattern.matches(value);
     }
 
-    @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
-    @SqlType(LikePatternType.NAME)
-    public static LikePattern likePattern(@SqlType("varchar") Slice pattern)
-    {
-        return LikePattern.compile(pattern.toStringUtf8(), Optional.empty(), false);
-    }
-
-    @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
-    @SqlType(LikePatternType.NAME)
-    public static LikePattern likePattern(@SqlType("varchar") Slice pattern, @SqlType("varchar") Slice escape)
-    {
-        try {
-            return LikePattern.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)), false);
-        }
-        catch (RuntimeException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
-        }
-    }
-
     public static boolean isLikePattern(Slice pattern, Optional<Slice> escape)
     {
         return patternConstantPrefixBytes(pattern, escape) < pattern.length();
@@ -135,7 +116,7 @@ public final class LikeFunctions
         return output.slice();
     }
 
-    private static Optional<Character> getEscapeCharacter(Optional<Slice> escape)
+    static Optional<Character> getEscapeCharacter(Optional<Slice> escape)
     {
         if (escape.isEmpty()) {
             return Optional.empty();

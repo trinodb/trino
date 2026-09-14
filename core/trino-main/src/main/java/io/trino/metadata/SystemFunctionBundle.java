@@ -280,6 +280,7 @@ import io.trino.type.IntervalDayTimeOperators;
 import io.trino.type.IntervalYearMonthOperators;
 import io.trino.type.IpAddressOperators;
 import io.trino.type.LikeFunctions;
+import io.trino.type.LikePatternFunctions;
 import io.trino.type.NumberOperators;
 import io.trino.type.QuantileDigestOperators;
 import io.trino.type.RealOperators;
@@ -523,6 +524,7 @@ public final class SystemFunctionBundle
                 .scalars(IpAddressFunctions.class)
                 .scalars(UuidOperators.class)
                 .scalars(LikeFunctions.class)
+                .scalars(LikePatternFunctions.class)
                 .scalars(HmacFunctions.class)
                 .scalars(DataSizeFunctions.class)
                 .scalars(FormatNumberFunction.class)
