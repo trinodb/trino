@@ -2376,19 +2376,31 @@ public class IcebergMetadata
         if (existingRef != null && existingRef.isTag()) {
             throw new TrinoException(INVALID_ARGUMENTS, "Cannot create branch '%s': a tag with that name already exists".formatted(branch));
         }
-        // Remove and re-create the branch in one transaction to make replacement atomic
+        boolean replace = saveMode == SaveMode.REPLACE && existingRef != null && existingRef.isBranch();
         Transaction transaction = icebergTable.newTransaction();
-        if (saveMode == SaveMode.REPLACE) {
-            if (existingRef != null && existingRef.isBranch()) {
-                transaction.manageSnapshots().removeBranch(branch).commit();
-            }
+        if (replace && snapshotId.isEmpty()) {
+            // Re-create the branch with an empty snapshot, preserving retention in the same transaction.
+            transaction.manageSnapshots().removeBranch(branch).commit();
         }
         ManageSnapshots manageSnapshots = transaction.manageSnapshots();
         if (snapshotId.isPresent()) {
-            manageSnapshots.createBranch(branch, snapshotId.orElseThrow());
+            if (replace) {
+                manageSnapshots.replaceBranch(branch, snapshotId.orElseThrow());
+            }
+            else {
+                manageSnapshots.createBranch(branch, snapshotId.orElseThrow());
+            }
         }
         else {
             manageSnapshots.createBranch(branch);
+            if (replace) {
+                Optional.ofNullable(existingRef.minSnapshotsToKeep())
+                        .ifPresent(value -> manageSnapshots.setMinSnapshotsToKeep(branch, value));
+                Optional.ofNullable(existingRef.maxSnapshotAgeMs())
+                        .ifPresent(value -> manageSnapshots.setMaxSnapshotAgeMs(branch, value));
+                Optional.ofNullable(existingRef.maxRefAgeMs())
+                        .ifPresent(value -> manageSnapshots.setMaxRefAgeMs(branch, value));
+            }
         }
         manageSnapshots.commit();
         transaction.commitTransaction();

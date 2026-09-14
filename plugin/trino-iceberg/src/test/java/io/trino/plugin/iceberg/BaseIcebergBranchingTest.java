@@ -13,21 +13,34 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotRef;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseIcebergBranchingTest
@@ -128,34 +141,64 @@ public abstract class BaseIcebergBranchingTest
     @Test
     public void testCreateOrReplaceBranch()
     {
-        String tableName = "test_branch_or_replace_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+        try (TestTable testTable = newTrinoTable("test_branch_or_replace_", "AS SELECT 1 AS id")) {
+            String tableName = testTable.getName();
+            assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+            SnapshotRef originalRef = setBranchRetention(tableName);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
 
-        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
-        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
-        assertUpdate("CREATE OR REPLACE BRANCH test_branch IN TABLE " + tableName);
+            assertUpdate("CREATE OR REPLACE BRANCH test_branch IN TABLE " + tableName);
 
-        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
-                .matches("VALUES 1, 2");
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                    .matches("VALUES 1, 2");
+            Table table = loadTable(tableName);
+            assertThat(table.refs().get("test_branch"))
+                    .isEqualTo(SnapshotRef.builderFrom(originalRef, table.currentSnapshot().snapshotId()).build());
+        }
     }
 
     @Test
-    public void testCreateOrReplaceBranchOnTableWithoutSnapshots()
+    public void testCreateOrReplaceMainBranch()
+    {
+        try (TestTable testTable = newTrinoTable("test_replace_main_", "AS SELECT 1 AS id")) {
+            String tableName = testTable.getName();
+            assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+            assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES 2", 1);
+            // Replacement must also work when main has diverged from the source branch.
+            assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+
+            assertUpdate("CREATE OR REPLACE BRANCH " + MAIN_BRANCH + " IN TABLE " + tableName + " FROM test_branch");
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                    .matches("VALUES 1, 2");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceBranchFromSnapshotlessMain()
     {
         String tableName = "test_branch_replace_no_snapshot_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+            assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES 1", 1);
+            SnapshotRef originalRef = setBranchRetention(tableName);
+            assertThat(loadTable(tableName).currentSnapshot()).isNull();
 
-        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
-        assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES 1", 1);
-        assertUpdate("CREATE OR REPLACE BRANCH test_branch IN TABLE " + tableName);
+            assertUpdate("CREATE OR REPLACE BRANCH test_branch IN TABLE " + tableName);
 
-        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
-                .returnsEmptyResult();
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                    .returnsEmptyResult();
+            Table table = loadTable(tableName);
+            assertThat(table.currentSnapshot()).isNull();
+            SnapshotRef replacementRef = table.refs().get("test_branch");
+            assertThat(replacementRef)
+                    .isEqualTo(SnapshotRef.builderFrom(originalRef, replacementRef.snapshotId()).build());
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
@@ -488,6 +531,34 @@ public abstract class BaseIcebergBranchingTest
                 .failure().hasMessageContaining("Branch 'test_tag' does not exist");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private void createTableWithoutSnapshot(String tableName)
+    {
+        // Trino CREATE TABLE adds an empty snapshot, so use the Iceberg API instead.
+        var catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
+        SchemaTableName name = new SchemaTableName("tpch", tableName);
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        name,
+                        new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, name)),
+                        ImmutableMap.of(FORMAT_VERSION, String.valueOf(formatVersion)))
+                .commitTransaction();
+        assertThat(loadTable(tableName).currentSnapshot()).isNull();
+    }
+
+    private SnapshotRef setBranchRetention(String tableName)
+    {
+        Table table = loadTable(tableName);
+        table.manageSnapshots()
+                .setMinSnapshotsToKeep("test_branch", 7)
+                .setMaxSnapshotAgeMs("test_branch", DAYS.toMillis(30))
+                .setMaxRefAgeMs("test_branch", DAYS.toMillis(60))
+                .commit();
+        return table.refs().get("test_branch");
     }
 
     private Table loadTable(String tableName)
