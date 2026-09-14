@@ -13,150 +13,48 @@
  */
 package io.trino.likematcher;
 
+import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLikeMatcher
+        extends AbstractTestLikeMatcher
 {
-    @Test
-    public void test()
+    @Override
+    protected LikePattern compile(String pattern, Optional<Character> escape)
     {
-        // min length short-circuit
-        assertThat(match("__", "a")).isFalse();
+        return LikePattern.compile(pattern, escape);
+    }
 
-        // max length short-circuit
-        assertThat(match("__", "abcdefghi")).isFalse();
-
-        // prefix short-circuit
-        assertThat(match("a%", "xyz")).isFalse();
-
-        // prefix match
-        assertThat(match("a%", "a")).isTrue();
-        assertThat(match("a%", "ab")).isTrue();
-        assertThat(match("a_", "ab")).isTrue();
-
-        // suffix short-circuit
-        assertThat(match("%a", "xyz")).isFalse();
-
-        // suffix match
-        assertThat(match("%z", "z")).isTrue();
-        assertThat(match("%z", "yz")).isTrue();
-        assertThat(match("_z", "yz")).isTrue();
-
-        // match literal
-        assertThat(match("abcd", "abcd")).isTrue();
-
-        // match one
-        assertThat(match("_", "")).isFalse();
-        assertThat(match("_", "a")).isTrue();
-        assertThat(match("_", "ab")).isFalse();
-
-        // match zero or more
-        assertThat(match("%", "")).isTrue();
-        assertThat(match("%", "a")).isTrue();
-        assertThat(match("%", "ab")).isTrue();
-
-        // non-strict matching
-        assertThat(match("_%", "abcdefg")).isTrue();
-        assertThat(match("_a%", "abcdefg")).isFalse();
-
-        // strict matching
-        assertThat(match("_ab_", "xabc")).isTrue();
-        assertThat(match("_ab_", "xyxw")).isFalse();
-        assertThat(match("_a%b_", "xaxxxbx")).isTrue();
-
-        // optimization of consecutive _ and %
-        assertThat(match("_%_%_%_%", "abcdefghij")).isTrue();
-
-        assertThat(match("%a%a%a%a%a%a%", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).isTrue();
-        assertThat(match("%a%a%a%a%a%a%", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab")).isTrue();
-        assertThat(match("%a%b%a%b%a%b%", "aabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabb")).isTrue();
-        assertThat(match("%aaaa%bbbb%aaaa%bbbb%aaaa%bbbb%", "aaaabbbbaaaabbbbaaaabbbb")).isTrue();
-        assertThat(match("%aaaaaaaaaaaaaaaaaaaaaaaaaa%", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).isTrue();
-
-        assertThat(match("%aab%bba%aab%bba%", "aaaabbbbaaaabbbbaaaa")).isTrue();
-        assertThat(match("%aab%bba%aab%bba%", "aaaabbbbaaaabbbbcccc")).isFalse();
-        assertThat(match("%abaca%", "abababababacabababa")).isTrue();
-        assertThat(match("%bcccccccca%", "bbbbbbbbxax")).isFalse();
-        assertThat(match("%bbxxxxxa%", "bbbxxxxaz")).isFalse();
-        assertThat(match("%aaaaaaxaaaaaa%", "a".repeat(20) +
-                "b".repeat(20) +
-                "a".repeat(20) +
-                "b".repeat(20) +
-                "the quick brown fox jumps over the lazy dog")).isFalse();
-
-        assertThat(match("%abaaa%", "ababaa")).isFalse();
-
-        assertThat(match("%paya%", "papaya")).isTrue();
-        assertThat(match("%paya%", "papapaya")).isTrue();
-        assertThat(match("%paya%", "papapapaya")).isTrue();
-        assertThat(match("%paya%", "papapapapaya")).isTrue();
-        assertThat(match("%paya%", "papapapapapaya")).isTrue();
-
-        // utf-8
-        LikeMatcher singleOptimized = LikeMatcher.compile("_", Optional.empty(), true);
-        LikeMatcher multipleOptimized = LikeMatcher.compile("_a%b_", Optional.empty(), true); // prefix and suffix with _a and b_ to avoid optimizations
-        LikeMatcher single = LikeMatcher.compile("_", Optional.empty(), false);
-        LikeMatcher multiple = LikeMatcher.compile("_a%b_", Optional.empty(), false); // prefix and suffix with _a and b_ to avoid optimizations
-        for (int i = 0; i < Character.MAX_CODE_POINT; i++) {
-            assertThat(singleOptimized.match(Character.toString(i).getBytes(StandardCharsets.UTF_8))).isTrue();
-            assertThat(single.match(Character.toString(i).getBytes(StandardCharsets.UTF_8))).isTrue();
-
-            String value = "aa" + (char) i + "bb";
-            assertThat(multipleOptimized.match(value.getBytes(StandardCharsets.UTF_8))).isTrue();
-            assertThat(multiple.match(value.getBytes(StandardCharsets.UTF_8))).isTrue();
-        }
+    @Test
+    public void testWithoutOptimization()
+    {
+        assertMatches(TestLikeMatcher::compileWithoutOptimization);
     }
 
     @Test
     @Timeout(2)
-    public void testExponentialBehavior()
+    public void testExponentialBehaviorWithoutOptimization()
     {
-        assertThat(match("%a________________", "xyza1234567890123456")).isTrue();
+        assertThat(match(TestLikeMatcher::compileWithoutOptimization, "%a________________", "xyza1234567890123456")).isTrue();
     }
 
     @Test
-    public void testEscape()
+    public void testEscapeWithoutOptimization()
     {
-        assertThat(match("-%", "%", '-')).isTrue();
-        assertThat(match("-_", "_", '-')).isTrue();
-        assertThat(match("--", "-", '-')).isTrue();
+        assertThat(match(TestLikeMatcher::compileWithoutOptimization, "-%", "%", '-')).isTrue();
+        assertThat(match(TestLikeMatcher::compileWithoutOptimization, "-_", "_", '-')).isTrue();
+        assertThat(match(TestLikeMatcher::compileWithoutOptimization, "--", "-", '-')).isTrue();
 
-        assertThat(match("%$_%", "xxxxx_xxxxx", '$')).isTrue();
+        assertThat(match(TestLikeMatcher::compileWithoutOptimization, "%$_%", "xxxxx_xxxxx", '$')).isTrue();
     }
 
-    private static boolean match(String pattern, String value)
+    private static LikePattern compileWithoutOptimization(String pattern, Optional<Character> escape)
     {
-        return match(pattern, value, Optional.empty());
-    }
-
-    private static boolean match(String pattern, String value, char escape)
-    {
-        return match(pattern, value, Optional.of(escape));
-    }
-
-    private static boolean match(String pattern, String value, Optional<Character> escape)
-    {
-        String padding = "++++";
-        String padded = padding + value + padding;
-        byte[] bytes = padded.getBytes(StandardCharsets.UTF_8);
-
-        boolean optimizedWithoutPadding = LikeMatcher.compile(pattern, escape, true).match(value.getBytes(StandardCharsets.UTF_8));
-
-        boolean optimizedWithPadding = LikeMatcher.compile(pattern, escape, true).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
-        assertThat(optimizedWithPadding).isEqualTo(optimizedWithoutPadding);
-
-        boolean withoutPadding = LikeMatcher.compile(pattern, escape, false).match(value.getBytes(StandardCharsets.UTF_8));
-        assertThat(withoutPadding).isEqualTo(optimizedWithoutPadding);
-
-        boolean withPadding = LikeMatcher.compile(pattern, escape, false).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
-        assertThat(withPadding).isEqualTo(optimizedWithoutPadding);
-
-        return withPadding;
+        return LikePattern.compile(pattern, escape, false);
     }
 }
