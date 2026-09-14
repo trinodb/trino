@@ -281,7 +281,7 @@ public class IndexJoinOptimizer
                     session,
                     predicate);
 
-            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
+            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.tupleDomain()
                     .transformKeys(node.getAssignments()::get)
                     .intersect(node.getEnforcedConstraint());
 
@@ -312,7 +312,7 @@ public class IndexJoinOptimizer
 
             Expression resultingPredicate = combineConjuncts(
                     domainTranslator.toPredicate(getCharVarcharCoercion(session), resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
-                    decomposedPredicate.getRemainingExpression());
+                    decomposedPredicate.remainingExpression());
 
             if (!resultingPredicate.equals(TRUE)) {
                 // todo it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again

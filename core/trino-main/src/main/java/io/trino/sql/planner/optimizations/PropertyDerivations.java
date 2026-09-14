@@ -753,7 +753,7 @@ public final class PropertyDerivations
                     node.getPredicate());
 
             Map<Symbol, NullableValue> constants = new HashMap<>(properties.getConstants());
-            constants.putAll(extractFixedValues(decomposedPredicate.getTupleDomain()).orElse(ImmutableMap.of()));
+            constants.putAll(extractFixedValues(decomposedPredicate.tupleDomain()).orElse(ImmutableMap.of()));
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)

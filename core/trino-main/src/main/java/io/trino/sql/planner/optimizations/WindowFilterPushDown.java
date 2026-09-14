@@ -154,7 +154,7 @@ public class WindowFilterPushDown
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate()).getTupleDomain();
+            TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate()).tupleDomain();
 
             if (source instanceof RowNumberNode) {
                 Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
@@ -189,7 +189,7 @@ public class WindowFilterPushDown
         private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rankingSymbol, int upperBound)
         {
             ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, filterNode.getPredicate());
-            TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+            TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
 
             if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound)) {
                 return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
@@ -198,7 +198,7 @@ public class WindowFilterPushDown
             // Remove the ranking domain because it is absorbed into the node
             TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
             Expression newPredicate = combineConjuncts(
-                    extractionResult.getRemainingExpression(),
+                    extractionResult.remainingExpression(),
                     domainTranslator.toPredicate(getCharVarcharCoercion(session), newTupleDomain));
 
             if (newPredicate.equals(Booleans.TRUE)) {
