@@ -81,6 +81,7 @@ public sealed interface FilterEvaluator
     {
         return switch (expression) {
             case Constant constant when constant.value() instanceof Boolean booleanValue -> booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
+            case Constant constant when constant.type().equals(BOOLEAN) && constant.value() == null -> Optional.of(SelectNoneEvaluator::new);
             case Reference reference when reference.type().equals(BOOLEAN) -> createReferenceExpressionEvaluator(charVarcharCoercion, compiler, reference, layout, dynamicFilter);
             case Call call -> {
                 if (isNotExpression(call)) {
