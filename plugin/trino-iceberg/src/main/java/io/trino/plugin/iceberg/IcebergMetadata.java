@@ -923,8 +923,8 @@ public class IcebergMetadata
             case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table, icebergScanExecutor));
             case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
             case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
-            case ALL_ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ALL_ENTRIES, icebergScanExecutor));
-            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ENTRIES, icebergScanExecutor));
+            case ALL_ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ALL_ENTRIES));
+            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ENTRIES));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
             case REFS -> Optional.of(new RefsTable(tableName, table, icebergScanExecutor));
             default -> Optional.empty();
