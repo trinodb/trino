@@ -13,19 +13,25 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.hive.thrift.metastore.MetaException;
 import io.trino.metastore.AcidTransactionOwner;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
+import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
@@ -33,6 +39,8 @@ import org.apache.iceberg.io.FileIO;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
@@ -52,6 +60,9 @@ public class HiveMetastoreTableOperations
         extends AbstractMetastoreTableOperations
 {
     private static final Logger log = Logger.get(HiveMetastoreTableOperations.class);
+    // Emitted by Hive's HiveAlterHandler when the expected 'metadata_location' does not match (HIVE-26882) or the conditional UPDATE affects no row (HIVE-28121)
+    private static final String CONCURRENT_MODIFICATION_MESSAGE_PREFIX = "The table has been modified. The parameter value for key '" + METADATA_LOCATION_PROP + "' is";
+
     private final ThriftMetastore thriftMetastore;
     private final boolean lockingEnabled;
 
@@ -135,9 +146,19 @@ public class HiveMetastoreTableOperations
                 metastore.replaceTable(table.getDatabaseName(), table.getTableName(), updatedTable, privileges, environmentContext);
             }
             catch (RuntimeException e) {
-                // Cannot determine whether the `replaceTable` operation was successful,
-                // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
-                throw new CommitStateUnknownException(e);
+                // The exception alone does not tell whether the update was applied: the response may have been lost on a
+                // timeout, or a retried request may have been rejected because the first attempt succeeded.
+                switch (checkExistingTableCommitStatus(table, metadataLocation, newMetadataLocation, e)) {
+                    // The table points at the metadata we wrote, or descends from it: the commit succeeded despite the exception.
+                    case SUCCESS -> log.warn(e, "Received an error from metastore while committing to table %s, but the commit was actually applied; treating the commit as successful", getSchemaTableName());
+                    // Cannot determine whether the update was applied. CommitStateUnknownException stops the Iceberg
+                    // transaction layer from cleaning up the new files.
+                    case UNKNOWN -> throw new CommitStateUnknownException(e);
+                    // The metastore rejected the conditional update and the table state proves the commit was not
+                    // applied, so Iceberg can retry it on the current state. Like the stale-location check above, the
+                    // new metadata file is left behind for remove_orphan_files.
+                    case FAILURE -> throw new CommitFailedException(e, "Failed to commit to table %s due to a concurrent update", getSchemaTableName());
+                }
             }
         }
         finally {
@@ -145,6 +166,86 @@ public class HiveMetastoreTableOperations
         }
 
         shouldRefresh = true;
+    }
+
+    private CommitStatus checkExistingTableCommitStatus(Table table, String expectedMetadataLocation, String newMetadataLocation, RuntimeException commitException)
+    {
+        // re-read the table the update was sent to: for a materialized view that is the view itself, not the storage table
+        return checkCommitStatus(
+                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                expectedMetadataLocation,
+                newMetadataLocation,
+                commitException,
+                () -> thriftMetastore.getTable(table.getDatabaseName(), table.getTableName())
+                        .map(current -> current.getParameters().get(METADATA_LOCATION_PROP))
+                        .map(IcebergUtil::fixBrokenMetadataLocation),
+                location -> TableMetadataParser.read(io(), location));
+    }
+
+    /**
+     * Determines whether a commit whose metastore call failed was actually applied. Like
+     * {@link AbstractMetastoreTableOperations#commitNewTable}, the check is biased towards {@link CommitStatus#UNKNOWN}.
+     * The commit is known to be applied when the metastore points at the new metadata location, or when that location
+     * is in the current metadata log. {@link CommitStatus#FAILURE} is only returned when the metastore reported that it
+     * rejected the conditional update (HIVE-26882, HIVE-28121) and the location this commit expected is still in the
+     * current metadata log: the rejection means the request was processed without being applied, and every attempt of
+     * the same request carries the same expected value, so it cannot be applied later either. Once
+     * {@code write.metadata.previous-versions-max} has pushed the expected location out of the log, the outcome stays
+     * unknown.
+     */
+    @VisibleForTesting
+    static CommitStatus checkCommitStatus(
+            SchemaTableName schemaTableName,
+            String expectedMetadataLocation,
+            String newMetadataLocation,
+            RuntimeException commitException,
+            Supplier<Optional<String>> committedMetadataLocation,
+            Function<String, TableMetadata> metadataLoader)
+    {
+        Optional<String> committedLocation;
+        try {
+            committedLocation = committedMetadataLocation.get();
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Could not determine commit status for table %s; treating commit state as unknown", schemaTableName);
+            return CommitStatus.UNKNOWN;
+        }
+        if (committedLocation.isEmpty()) {
+            return CommitStatus.UNKNOWN;
+        }
+        if (newMetadataLocation.equals(committedLocation.get())) {
+            return CommitStatus.SUCCESS;
+        }
+        TableMetadata committedMetadata;
+        try {
+            committedMetadata = metadataLoader.apply(committedLocation.get());
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Could not read current metadata %s of table %s to determine commit status; treating commit state as unknown", committedLocation.get(), schemaTableName);
+            return CommitStatus.UNKNOWN;
+        }
+        // a later commit by another writer built on the metadata we wrote and lists its location in the metadata log
+        if (isInMetadataLog(committedMetadata, newMetadataLocation)) {
+            return CommitStatus.SUCCESS;
+        }
+        // the metadata log is a contiguous suffix of the table history, so if the location this commit expected is still
+        // in it, an applied commit would be in it too; a rejection on top of that is a definite concurrent-update failure
+        if (isConcurrentModificationRejection(commitException) && isInMetadataLog(committedMetadata, expectedMetadataLocation)) {
+            return CommitStatus.FAILURE;
+        }
+        return CommitStatus.UNKNOWN;
+    }
+
+    private static boolean isInMetadataLog(TableMetadata metadata, String metadataLocation)
+    {
+        return metadata.previousFiles().stream().anyMatch(entry -> metadataLocation.equals(entry.file()));
+    }
+
+    @VisibleForTesting
+    static boolean isConcurrentModificationRejection(Throwable throwable)
+    {
+        return Throwables.getCausalChain(throwable).stream()
+                .anyMatch(cause -> cause instanceof MetaException && cause.getMessage() != null && cause.getMessage().contains(CONCURRENT_MODIFICATION_MESSAGE_PREFIX));
     }
 
     private static Map<String, String> environmentContext(String metadataLocation)

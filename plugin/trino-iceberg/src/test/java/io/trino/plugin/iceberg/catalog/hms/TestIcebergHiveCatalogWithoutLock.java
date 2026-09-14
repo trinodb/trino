@@ -14,7 +14,9 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hive.thrift.metastore.Table;
 import io.trino.plugin.hive.containers.Hive4FlociDataLake;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -26,23 +28,29 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.iceberg.catalog.hms.HiveMetastoreTableOperations.isConcurrentModificationRejection;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
 import static io.trino.testing.containers.Floci.FLOCI_REGION;
 import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
 final class TestIcebergHiveCatalogWithoutLock
         extends AbstractTestQueryFramework
 {
+    private Hive4FlociDataLake hiveFlociDataLake;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         String bucketName = "test-bucket" + randomNameSuffix();
-        Hive4FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive4FlociDataLake(bucketName));
+        hiveFlociDataLake = closeAfterClass(new Hive4FlociDataLake(bucketName));
         hiveFlociDataLake.start();
 
         return IcebergQueryRunner.builder()
@@ -77,6 +85,31 @@ final class TestIcebergHiveCatalogWithoutLock
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES 3");
+        }
+    }
+
+    @Test
+    void testConcurrentModificationRejectedByMetastoreIsRecognized()
+    {
+        // The rejection message is what HiveMetastoreTableOperations relies on to tell a definite conflict from an unknown outcome
+        try (TestTable table = newTrinoTable("test_conditional_update", "(x int)", List.of("1"))) {
+            ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
+                    .metastoreClient(hiveFlociDataLake.getHiveMetastoreEndpoint())
+                    .build(this::closeAfterClass);
+            Table hiveTable = thriftMetastore.getTable("tpch", table.getName()).orElseThrow();
+            String currentMetadataLocation = hiveTable.getParameters().get(METADATA_LOCATION_PROP);
+
+            Table updatedTable = hiveTable.deepCopy();
+            updatedTable.getParameters().put(METADATA_LOCATION_PROP, currentMetadataLocation + ".rejected");
+            assertThatThrownBy(() -> thriftMetastore.alterTable("tpch", table.getName(), updatedTable, ImmutableMap.of(
+                    "expected_parameter_key", METADATA_LOCATION_PROP,
+                    "expected_parameter_value", currentMetadataLocation + ".stale")))
+                    .satisfies(exception -> assertThat(isConcurrentModificationRejection(exception)).isTrue());
+
+            assertThat(thriftMetastore.getTable("tpch", table.getName()).orElseThrow().getParameters())
+                    .containsEntry(METADATA_LOCATION_PROP, currentMetadataLocation);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES 1");
         }
     }
 }
