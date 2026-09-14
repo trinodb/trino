@@ -68,6 +68,7 @@ import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -370,6 +371,11 @@ public class PreAggregateCaseAggregations
         }
 
         if (caseExpression.whenClauses().size() != 1) {
+            return Optional.empty();
+        }
+
+        // The pre-aggregation evaluates the operand once per group and shares one result between aggregations
+        if (!isDeterministic(caseExpression)) {
             return Optional.empty();
         }
 
