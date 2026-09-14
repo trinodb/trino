@@ -4075,7 +4075,8 @@ public class IcebergMetadata
     @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(
             ConnectorSession session,
-            ConnectorTableHandle tableHandle,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
             List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
@@ -4084,7 +4085,7 @@ public class IcebergMetadata
             RefreshType refreshType)
     {
         checkState(fromSnapshotForRefresh.isEmpty(), "From Snapshot must be empty at the start of MV refresh operation.");
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        IcebergTableHandle table = (IcebergTableHandle) storageTableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         validateNotEncryptedForWrite(icebergTable);
         beginTransaction(icebergTable);
@@ -4119,7 +4120,8 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
-            ConnectorTableHandle tableHandle,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
@@ -4200,7 +4202,7 @@ public class IcebergMetadata
         try {
             executeExpireSnapshots(
                     session,
-                    ((IcebergTableHandle) tableHandle).getSchemaTableName(),
+                    ((IcebergTableHandle) storageTableHandle).getSchemaTableName(),
                     materializedViewRefreshSnapshotRetentionPeriod,
                     ZERO,
                     snapshotsToRetain,

@@ -760,7 +760,8 @@ public class TracingConnectorMetadata
     @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(
             ConnectorSession session,
-            ConnectorTableHandle tableHandle,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
             List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
@@ -768,9 +769,9 @@ public class TracingConnectorMetadata
             RetryMode retryMode,
             RefreshType refreshType)
     {
-        Span span = startSpan("beginRefreshMaterializedView", tableHandle);
+        Span span = startSpan("beginRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, retryMode, refreshType);
+            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, retryMode, refreshType);
         }
     }
 
@@ -795,7 +796,8 @@ public class TracingConnectorMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
-            ConnectorTableHandle tableHandle,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
@@ -806,9 +808,9 @@ public class TracingConnectorMetadata
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
-        Span span = startSpan("finishRefreshMaterializedView", tableHandle);
+        Span span = startSpan("finishRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, hasSourceTableFunctions, hasNonDeterministicFunctions);
+            return delegate.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, hasSourceTableFunctions, hasNonDeterministicFunctions);
         }
     }
 

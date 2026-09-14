@@ -438,7 +438,8 @@ public interface Metadata
      */
     InsertTableHandle beginRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             List<TableHandle> sourceTableHandles,
             List<ViewHandle> sourceViewHandles,
             RefreshType refreshType);
@@ -448,7 +449,8 @@ public interface Metadata
      */
     Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             InsertTableHandle insertTableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,

@@ -532,7 +532,8 @@ public abstract class AbstractMockMetadata
     @Override
     public InsertTableHandle beginRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             List<TableHandle> sourceTableHandles,
             List<ViewHandle> sourceViewHandles,
             RefreshType refreshType)
@@ -543,7 +544,8 @@ public abstract class AbstractMockMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,

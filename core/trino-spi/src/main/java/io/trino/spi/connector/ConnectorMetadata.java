@@ -889,12 +889,15 @@ public interface ConnectorMetadata
 
     /**
      * Same as {@link #beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, boolean, RetryMode, RefreshType)},
-     * with the addition of {@code sourceViewHandles} and {@code hasForeignSourceViews}, the
+     * with the addition of {@code materializedViewHandle} (the handle of the
+     * materialized view being refreshed; {@code storageTableHandle} identifies its storage table,
+     * not the materialized view itself), {@code sourceViewHandles} and {@code hasForeignSourceViews}, the
      * view-level counterparts of {@code sourceTableHandles} and {@code hasForeignSourceTables}.
      */
     default ConnectorInsertTableHandle beginRefreshMaterializedView(
             ConnectorSession session,
-            ConnectorTableHandle tableHandle,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
             List<ConnectorViewHandle> sourceViewHandles,
             boolean hasForeignSourceTables,
@@ -902,7 +905,7 @@ public interface ConnectorMetadata
             RetryMode retryMode,
             RefreshType refreshType)
     {
-        return beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
+        return beginRefreshMaterializedView(session, storageTableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
     }
 
     /**
@@ -939,12 +942,15 @@ public interface ConnectorMetadata
      * Finish materialized view query.
      * <p>
      * Same as {@link #finishRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, ConnectorInsertTableHandle, Collection, Collection, List, boolean, boolean, boolean)},
-     * with the addition of {@code sourceViewHandles} and {@code hasForeignSourceViews}, the
+     * with the addition of {@code materializedViewHandle} (the handle of the
+     * materialized view being refreshed; {@code storageTableHandle} identifies its storage table,
+     * not the materialized view itself), {@code sourceViewHandles} and {@code hasForeignSourceViews}, the
      * view-level counterparts of {@code sourceTableHandles} and {@code hasForeignSourceTables}.
      */
     default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
-            ConnectorTableHandle tableHandle,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
@@ -957,7 +963,7 @@ public interface ConnectorMetadata
     {
         return finishRefreshMaterializedView(
                 session,
-                tableHandle,
+                storageTableHandle,
                 insertHandle,
                 fragments,
                 computedStatistics,

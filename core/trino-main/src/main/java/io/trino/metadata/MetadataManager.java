@@ -1318,12 +1318,13 @@ public final class MetadataManager
     @Override
     public InsertTableHandle beginRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             List<TableHandle> sourceTableHandles,
             List<ViewHandle> sourceViewHandles,
             RefreshType refreshType)
     {
-        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogHandle catalogHandle = storageTableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogHandle);
@@ -1340,7 +1341,8 @@ public final class MetadataManager
 
         ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
-                tableHandle.connectorHandle(),
+                materializedViewHandle.connectorHandle(),
+                storageTableHandle.connectorHandle(),
                 sourceConnectorHandles,
                 sourceConnectorViewHandles,
                 sourceConnectorHandles.size() < sourceTableHandles.size(),
@@ -1348,13 +1350,14 @@ public final class MetadataManager
                 getRetryPolicy(session).getRetryMode(),
                 refreshType);
 
-        return new InsertTableHandle(tableHandle.catalogHandle(), transactionHandle, handle);
+        return new InsertTableHandle(storageTableHandle.catalogHandle(), transactionHandle, handle);
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
@@ -1378,7 +1381,8 @@ public final class MetadataManager
 
         return metadata.finishRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
-                tableHandle.connectorHandle(),
+                materializedViewHandle.connectorHandle(),
+                storageTableHandle.connectorHandle(),
                 insertHandle.connectorHandle(),
                 fragments,
                 computedStatistics,

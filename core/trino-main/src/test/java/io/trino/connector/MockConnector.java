@@ -782,7 +782,8 @@ public class MockConnector
         @Override
         public ConnectorInsertTableHandle beginRefreshMaterializedView(
                 ConnectorSession session,
-                ConnectorTableHandle tableHandle,
+                ConnectorViewHandle materializedViewHandle,
+                ConnectorTableHandle storageTableHandle,
                 List<ConnectorTableHandle> sourceTableHandles,
                 List<ConnectorViewHandle> sourceViewHandles,
                 boolean hasForeignSourceTables,
@@ -790,13 +791,14 @@ public class MockConnector
                 RetryMode retryMode,
                 RefreshType refreshType)
         {
-            return new MockConnectorInsertTableHandle(((MockConnectorTableHandle) tableHandle).getTableName());
+            return new MockConnectorInsertTableHandle(((MockConnectorTableHandle) storageTableHandle).getTableName());
         }
 
         @Override
         public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
                 ConnectorSession session,
-                ConnectorTableHandle tableHandle,
+                ConnectorViewHandle materializedViewHandle,
+                ConnectorTableHandle storageTableHandle,
                 ConnectorInsertTableHandle insertHandle,
                 Collection<Slice> fragments,
                 Collection<ComputedStatistics> computedStatistics,

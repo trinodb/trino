@@ -789,14 +789,15 @@ public class TracingMetadata
     @Override
     public InsertTableHandle beginRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             List<TableHandle> sourceTableHandles,
             List<ViewHandle> sourceViewHandles,
             RefreshType refreshType)
     {
-        Span span = startSpan("beginRefreshMaterializedView", tableHandle);
+        Span span = startSpan("beginRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, sourceViewHandles, refreshType);
+            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, sourceViewHandles, refreshType);
         }
     }
 
@@ -812,7 +813,8 @@ public class TracingMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             InsertTableHandle insertTableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
@@ -821,11 +823,12 @@ public class TracingMetadata
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
-        Span span = startSpan("finishRefreshMaterializedView", tableHandle);
+        Span span = startSpan("finishRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.finishRefreshMaterializedView(
                     session,
-                    tableHandle,
+                    materializedViewHandle,
+                    storageTableHandle,
                     insertTableHandle,
                     fragments,
                     computedStatistics,

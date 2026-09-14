@@ -1770,17 +1770,24 @@ public class Analysis
     public static final class RefreshMaterializedViewAnalysis
     {
         private final Table table;
+        private final ViewHandle materializedViewHandle;
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
 
-        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(Table table, ViewHandle materializedViewHandle, TableHandle target, Query query, List<ColumnHandle> columns)
         {
             this.table = requireNonNull(table, "table is null");
+            this.materializedViewHandle = requireNonNull(materializedViewHandle, "materializedViewHandle is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
             checkArgument(columns.size() > 0, "No columns given to refresh materialized view");
+        }
+
+        public ViewHandle getMaterializedViewHandle()
+        {
+            return materializedViewHandle;
         }
 
         public Query getQuery()

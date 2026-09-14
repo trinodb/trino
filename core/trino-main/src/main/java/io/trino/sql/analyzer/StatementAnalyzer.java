@@ -55,6 +55,7 @@ import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
+import io.trino.metadata.ViewHandle;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
@@ -737,6 +738,8 @@ class StatementAnalyzer
             QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName());
             MaterializedViewDefinition view = metadata.getMaterializedView(session, name)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name));
+            ViewHandle materializedViewHandle = metadata.getViewHandle(session, name)
+                    .orElseThrow(() -> semanticException(INVALID_VIEW, refreshMaterializedView, "Materialized view '%s' does not exist", name));
 
             accessControl.checkCanRefreshMaterializedView(session.toSecurityContext(), name);
             analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
@@ -778,6 +781,7 @@ class StatementAnalyzer
 
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
                     refreshMaterializedView.getTable(),
+                    materializedViewHandle,
                     targetTableHandle,
                     query,
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
