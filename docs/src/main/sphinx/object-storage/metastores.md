@@ -745,7 +745,21 @@ properties:
 * - `iceberg.snowflake-catalog.user`
   - Snowflake user (required).
 * - `iceberg.snowflake-catalog.password`
-  - Snowflake password (required).
+  - Snowflake password. Required, unless `iceberg.snowflake-catalog.private-key`
+    or `iceberg.snowflake-catalog.private-key-file` is set. Deprecated: Snowflake
+    is phasing out password authentication for non-human accounts; use
+    key-pair authentication instead.
+* - `iceberg.snowflake-catalog.private-key`
+  - Base64 encoded private key for key-pair authentication. Cannot be used
+    together with `iceberg.snowflake-catalog.password` or
+    `iceberg.snowflake-catalog.private-key-file`.
+* - `iceberg.snowflake-catalog.private-key-file`
+  - File path of the private key for key-pair authentication. Cannot be used
+    together with `iceberg.snowflake-catalog.password` or
+    `iceberg.snowflake-catalog.private-key`.
+* - `iceberg.snowflake-catalog.private-key.passphrase`
+  - Passphrase for the key-pair authentication private key, if it is
+    encrypted.
 * - `iceberg.snowflake-catalog.database`
   - Snowflake database name (required).
 * - `iceberg.snowflake-catalog.role`
@@ -757,7 +771,7 @@ connector.name=iceberg
 iceberg.catalog.type=snowflake
 iceberg.snowflake-catalog.account-uri=jdbc:snowflake://example1234567890.snowflakecomputing.com
 iceberg.snowflake-catalog.user=user
-iceberg.snowflake-catalog.password=secret
+iceberg.snowflake-catalog.private-key=base64-encoded-key
 iceberg.snowflake-catalog.database=db
 ```
 
