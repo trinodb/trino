@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.sql.ir.IrExpressions.Between;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrExpressions.NullIf;
@@ -126,6 +128,21 @@ public class TestIrExpressions
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, nullIf(emptySymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
+    }
+
+    @Test
+    public void testNestedNullComparison()
+    {
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            for (var type : ImmutableList.of(RowType.anonymousRow(BIGINT), new ArrayType(BIGINT))) {
+                Expression comparison = comparison(operator, new Reference(type, "a"), new Reference(type, "b"));
+                assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, comparison))
+                        .isEqualTo(operator != IDENTICAL);
+            }
+        }
+        Expression row = new Row(ImmutableList.of(constantNull(BIGINT)));
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, comparison(EQUAL, row, row))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new In(row, ImmutableList.of(row)))).isTrue();
     }
 
     @Test
