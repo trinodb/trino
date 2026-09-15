@@ -135,6 +135,19 @@ public class TestJsonArrayFunction
     }
 
     @Test
+    public void testNumberElement()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/31150): a number is cast to varchar, so it is rendered as a JSON string instead of a JSON number
+        assertThat(assertions.query(
+                "SELECT json_array(CAST(1 AS number))"))
+                .matches("VALUES VARCHAR '[\"1\"]'");
+
+        assertThat(assertions.query(
+                "SELECT json_array(CAST(1.5 AS number))"))
+                .matches("VALUES VARCHAR '[\"1.5\"]'");
+    }
+
+    @Test
     public void testJsonReturningFunctionAsElement()
     {
         assertThat(assertions.query(
