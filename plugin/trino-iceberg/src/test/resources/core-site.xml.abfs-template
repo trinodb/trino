@@ -20,6 +20,26 @@
     </property>
 
     <property>
+        <name>fs.abfs.impl</name>
+        <value>org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem</value>
+    </property>
+
+    <property>
+        <name>fs.abfss.impl</name>
+        <value>org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem</value>
+    </property>
+
+    <property>
+        <name>fs.AbstractFileSystem.abfs.impl</name>
+        <value>org.apache.hadoop.fs.azurebfs.Abfs</value>
+    </property>
+
+    <property>
+        <name>fs.AbstractFileSystem.abfss.impl</name>
+        <value>org.apache.hadoop.fs.azurebfs.Abfss</value>
+    </property>
+
+    <property>
       <name>fs.azure.account.key.%ABFS_ACCOUNT%.dfs.core.windows.net</name>
       <value>%ABFS_ACCESS_KEY%</value>
     </property>
