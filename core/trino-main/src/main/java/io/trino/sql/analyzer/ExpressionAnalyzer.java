@@ -269,6 +269,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
@@ -2604,14 +2605,16 @@ public class ExpressionAnalyzer
             else {
                 sortKeyType = getExpressionType(sortKey);
             }
-            if (!isNumericType(sortKeyType) && !isDateTimeType(sortKeyType)) {
+            // TODO: Support NUMBER as the sort key type and the frame bound type of a RANGE frame with offsets
+            boolean numericSortKey = isNumericType(sortKeyType) && !sortKeyType.equals(NUMBER);
+            if (!numericSortKey && !isDateTimeType(sortKeyType)) {
                 throw semanticException(TYPE_MISMATCH, sortKey, "Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: %s)", sortKeyType);
             }
 
             Type offsetValueType = process(offsetValue, context);
 
-            if (isNumericType(sortKeyType)) {
-                if (!isNumericType(offsetValueType)) {
+            if (numericSortKey) {
+                if (!isNumericType(offsetValueType) || offsetValueType.equals(NUMBER)) {
                     throw semanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
                 }
             }
@@ -3821,7 +3824,7 @@ public class ExpressionAnalyzer
             }
 
             if (!isCharacterStringType(returnedType) &&
-                    !isNumericType(returnedType) &&
+                    !isNumericTypeSupportedInJson(returnedType) &&
                     !returnedType.equals(BOOLEAN) &&
                     !isDateTimeType(returnedType) ||
                     returnedType.equals(INTERVAL_DAY_TIME) ||
@@ -4075,7 +4078,7 @@ public class ExpressionAnalyzer
                         }
                         passedType = parameterType;
                     }
-                    else if (isNumericType(parameterType) || parameterType.equals(BOOLEAN)) {
+                    else if (isNumericTypeSupportedInJson(parameterType) || parameterType.equals(BOOLEAN)) {
                         passedType = parameterType;
                     }
                     else if (isDatetime(parameterType)) {
@@ -4242,7 +4245,7 @@ public class ExpressionAnalyzer
                         }
                     }
 
-                    if (!isStringType(valueType) && !isNumericType(valueType) && !valueType.equals(BOOLEAN)) {
+                    if (!isStringType(valueType) && !isNumericTypeSupportedInJson(valueType) && !valueType.equals(BOOLEAN)) {
                         try {
                             plannerContext.getMetadata().getCoercion(charVarcharCoercion, valueType, VARCHAR);
                         }
@@ -4354,7 +4357,7 @@ public class ExpressionAnalyzer
                         }
                     }
 
-                    if (!isStringType(elementType) && !isNumericType(elementType) && !elementType.equals(BOOLEAN)) {
+                    if (!isStringType(elementType) && !isNumericTypeSupportedInJson(elementType) && !elementType.equals(BOOLEAN)) {
                         try {
                             plannerContext.getMetadata().getCoercion(charVarcharCoercion, elementType, VARCHAR);
                         }
@@ -5182,7 +5185,14 @@ public class ExpressionAnalyzer
                 type.equals(TINYINT) ||
                 type.equals(DOUBLE) ||
                 type.equals(REAL) ||
-                type instanceof DecimalType;
+                type instanceof DecimalType ||
+                type.equals(NUMBER);
+    }
+
+    // TODO (https://github.com/trinodb/trino/issues/31150): Support NUMBER as number in JSON functions
+    static boolean isNumericTypeSupportedInJson(Type type)
+    {
+        return isNumericType(type) && !type.equals(NUMBER);
     }
 
     private static boolean isExactNumericWithScaleZero(Type type)
