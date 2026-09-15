@@ -54,7 +54,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.trino.spi.type.Chars.padSpaces;
-import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_CODE_POINT;
@@ -527,15 +526,6 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice);
     }
 
-    @Description("Removes whitespace from the beginning of a string")
-    @ScalarFunction(value = "ltrim", neverFails = true)
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice)
-    {
-        return SliceUtf8.leftTrim(slice);
-    }
-
     @Description("Removes whitespace from the end of a string")
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
@@ -543,15 +533,6 @@ public final class StringFunctions
     public static Slice rightTrim(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.rightTrim(slice);
-    }
-
-    @Description("Removes whitespace from the end of a string")
-    @ScalarFunction(value = "rtrim", neverFails = true)
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice charRightTrim(@SqlType("char(x)") Slice slice)
-    {
-        return rightTrim(slice);
     }
 
     @Description("Removes whitespace from the beginning and end of a string")
@@ -563,15 +544,6 @@ public final class StringFunctions
         return SliceUtf8.trim(slice);
     }
 
-    @Description("Removes whitespace from the beginning and end of a string")
-    @ScalarFunction(value = "trim", neverFails = true)
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice charTrim(@SqlType("char(x)") Slice slice)
-    {
-        return trim(slice);
-    }
-
     @Description("Remove the longest string containing only given characters from the beginning of a string")
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
@@ -579,15 +551,6 @@ public final class StringFunctions
     public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return SliceUtf8.leftTrim(slice, codePointsToTrim);
-    }
-
-    @Description("Remove the longest string containing only given characters from the beginning of a string")
-    @ScalarFunction(value = "ltrim", neverFails = true)
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
-    {
-        return leftTrim(slice, codePointsToTrim);
     }
 
     @Description("Remove the longest string containing only given characters from the end of a string")
@@ -599,15 +562,6 @@ public final class StringFunctions
         return SliceUtf8.rightTrim(slice, codePointsToTrim);
     }
 
-    @Description("Remove the longest string containing only given characters from the end of a string")
-    @ScalarFunction(value = "rtrim", neverFails = true)
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
-    {
-        return trimTrailingSpaces(rightTrim(slice, codePointsToTrim));
-    }
-
     @Description("Remove the longest string containing only given characters from the beginning and end of a string")
     @ScalarFunction(value = "trim", neverFails = true)
     @LiteralParameters("x")
@@ -615,15 +569,6 @@ public final class StringFunctions
     public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return SliceUtf8.trim(slice, codePointsToTrim);
-    }
-
-    @Description("Remove the longest string containing only given characters from the beginning and end of a string")
-    @ScalarFunction(value = "trim", neverFails = true)
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
-    {
-        return trimTrailingSpaces(trim(slice, codePointsToTrim));
     }
 
     @ScalarOperator(OperatorType.CAST)

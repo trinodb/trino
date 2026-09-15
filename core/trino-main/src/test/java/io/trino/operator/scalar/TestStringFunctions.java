@@ -1978,7 +1978,7 @@ public class TestStringFunctions
 
         assertThat(assertions.function("rtrim", "CAST('abc def' AS CHAR(7))", "'def'"))
                 .hasType(createVarcharType(7))
-                .isEqualTo("abc");
+                .isEqualTo("abc ");
 
         // non latin characters
         assertThat(assertions.function("rtrim", "'\u017a\u00f3\u0142\u0107'", "'\u0107\u0142'"))

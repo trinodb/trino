@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import io.trino.Session;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.TestStringFunctions;
 import org.intellij.lang.annotations.Language;
@@ -21,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -168,7 +171,7 @@ public class TestTrim
         assertFunction("TRIM(TRAILING ' ld' FROM ' hello world ')", "CAST(' hello wor' AS VARCHAR(13))");
         assertFunction("TRIM(TRAILING ' ehlowrd' FROM ' hello world ')", "CAST('' AS VARCHAR(13))");
         assertFunction("TRIM(TRAILING ' x' FROM ' hello world ')", "CAST(' hello world' AS VARCHAR(13))");
-        assertFunction("TRIM(TRAILING 'def' FROM CAST('abc def' AS CHAR(7)))", "CAST('abc' AS VARCHAR(7))");
+        assertFunction("TRIM(TRAILING 'def' FROM CAST('abc def' AS CHAR(7)))", "CAST('abc ' AS VARCHAR(7))");
 
         // non latin characters
         assertFunction("TRIM(TRAILING '\u0107\u0142' FROM '\u017a\u00f3\u0142\u0107')", "CAST('\u017a\u00f3' AS VARCHAR(4))");
@@ -253,7 +256,7 @@ public class TestTrim
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", "CAST('llo world' AS VARCHAR(13))");
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", "CAST('' AS VARCHAR(13))");
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' x')", "CAST('hello world' AS VARCHAR(13))");
-        assertFunction("TRIM(CAST('abc def' AS CHAR(7)), 'def')", "CAST('abc' AS VARCHAR(7))");
+        assertFunction("TRIM(CAST('abc def' AS CHAR(7)), 'def')", "CAST('abc ' AS VARCHAR(7))");
         assertFunction("TRIM(BOTH '' FROM CAST('' AS CHAR(1)))", "CAST('' AS VARCHAR(1))");
         assertFunction("TRIM(BOTH '' FROM CAST('   ' AS CHAR(3)))", "CAST('' AS VARCHAR(3))");
         assertFunction("TRIM(BOTH '' FROM CAST('  hello  ' AS CHAR(9)))", "CAST('  hello' AS VARCHAR(9))");
@@ -266,11 +269,16 @@ public class TestTrim
         assertFunction("TRIM(BOTH ' eh' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('llo world' AS VARCHAR(13))");
         assertFunction("TRIM(BOTH ' ehlowrd' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('' AS VARCHAR(13))");
         assertFunction("TRIM(BOTH ' x' FROM CAST(' hello world ' AS CHAR(13)))", "CAST('hello world' AS VARCHAR(13))");
-        assertFunction("TRIM(BOTH 'def' FROM CAST('abc def' AS CHAR(7)))", "CAST('abc' AS VARCHAR(7))");
+        assertFunction("TRIM(BOTH 'def' FROM CAST('abc def' AS CHAR(7)))", "CAST('abc ' AS VARCHAR(7))");
 
         // non latin characters
         assertFunction("TRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u017a\u0107\u0142')", "CAST('\u00f3' AS VARCHAR(4))");
         assertFunction("TRIM(BOTH '\u017a\u0107\u0142' FROM CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)))", "CAST('\u00f3' AS VARCHAR(4))");
+
+        assertFunction("TRIM(CAST('ab  c' AS CHAR(5)), 'c')", "CAST('ab  ' AS VARCHAR(5))");
+        assertFunction("TRIM(CAST('abc  ' AS CHAR(5)), 'c')", "CAST('ab' AS VARCHAR(5))");
+        assertFunction("TRIM(CAST('abc' AS CHAR(10)), 'c')", "CAST('ab' AS VARCHAR(10))");
+        assertFunction("TRIM(CAST('abc' AS CHAR(10)), 'c ')", "CAST('ab' AS VARCHAR(10))");
     }
 
     @Test
@@ -321,9 +329,32 @@ public class TestTrim
         assertInvalidFunction("TRIM(BOTH utf8(from_hex('3281')) FROM 'hello world')", "Invalid UTF-8 encoding in characters: 2�");
     }
 
+    @Test
+    public void testCharTrimUnderLegacyCoercion()
+    {
+        // legacy_varchar_to_char_coercion disables CHAR -> VARCHAR implicit coercion entirely
+        // (TypeCoercion.getCommonSuperType), so with no CHAR-specific overload left, none of
+        // these can resolve a CHAR argument.
+        Session legacySession = assertions.sessionBuilder()
+                .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
+                .build();
+
+        assertInvalidFunction(legacySession, "LTRIM(CAST('  hello' AS CHAR(7)), '')", "char(7), varchar(0)", "ltrim");
+        assertInvalidFunction(legacySession, "TRIM(CAST('' AS CHAR(1)), '')", "char(1), varchar(0)", "trim");
+        assertInvalidFunction(legacySession, "RTRIM(CAST('abc def' AS CHAR(7)), 'def')", "char(7), varchar(3)", "rtrim");
+    }
+
     private void assertFunction(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertThat(assertions.query("SELECT " + actual)).matches("SELECT " + expected);
+    }
+
+    private void assertInvalidFunction(Session session, @Language("SQL") String actual, String parameters, String functionName)
+    {
+        assertThat(assertions.query(session, "SELECT " + actual))
+                .failure()
+                .hasMessageContaining("Unexpected parameters (%s) for function %s".formatted(parameters, functionName))
+                .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
     private void assertInvalidFunction(@Language("SQL") String actual, String message)
