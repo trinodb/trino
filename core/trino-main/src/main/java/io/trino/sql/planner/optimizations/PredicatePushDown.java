@@ -1036,7 +1036,16 @@ public class PredicatePushDown
                     TRUE);
         }
 
-        private record InnerJoinPushDownResult(Expression leftPredicate, Expression rightPredicate, Expression joinPredicate, Expression postJoinPredicate) {}
+        private record InnerJoinPushDownResult(Expression leftPredicate, Expression rightPredicate, Expression joinPredicate, Expression postJoinPredicate)
+        {
+            private InnerJoinPushDownResult
+            {
+                requireNonNull(leftPredicate, "leftPredicate is null");
+                requireNonNull(rightPredicate, "rightPredicate is null");
+                requireNonNull(joinPredicate, "joinPredicate is null");
+                requireNonNull(postJoinPredicate, "postJoinPredicate is null");
+            }
+        }
 
         private Expression extractJoinPredicate(JoinNode joinNode)
         {
