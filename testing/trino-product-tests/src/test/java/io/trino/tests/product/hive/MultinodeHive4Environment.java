@@ -13,9 +13,9 @@
  */
 package io.trino.tests.product.hive;
 
+import io.trino.testing.containers.Floci;
 import io.trino.testing.containers.Hive4HiveServerContainer;
 import io.trino.testing.containers.Hive4MetastoreContainer;
-import io.trino.testing.containers.Minio;
 import io.trino.testing.containers.MultiNodeTrinoCluster;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
@@ -32,11 +32,11 @@ import java.util.Map;
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
 
 /**
- * Multinode Hive 4 product test environment with S3-compatible storage (MinIO).
+ * Multinode Hive 4 product test environment with S3-compatible storage (Floci).
  * <p>
  * This environment provides:
  * <ul>
- *   <li>MinIO container providing S3-compatible object storage</li>
+ *   <li>Floci container providing S3-compatible object storage</li>
  *   <li>Hive 4 Metastore container (standalone metastore service)</li>
  *   <li>Hive 4 HiveServer2 container (connects to remote metastore)</li>
  *   <li>Multinode Trino cluster (1 coordinator + 1 worker) with Hive connector configured for S3</li>
@@ -48,8 +48,8 @@ import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatal
  * |                       Docker Network                         |
  * |                                                              |
  * |  +-------------+                                             |
- * |  |    MinIO    |  S3-compatible storage                      |
- * |  |   (minio)   |                                             |
+ * |  |    Floci    |  S3-compatible storage                      |
+ * |  |   (floci)   |                                             |
  * |  |    :4566    |                                             |
  * |  +------+------+                                             |
  * |         |                                                    |
@@ -70,8 +70,8 @@ import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatal
  * <b>Hive catalog configuration:</b>
  * <ul>
  *   <li>connector.name=hive</li>
- *   <li>fs.native-s3.enabled=true with MinIO endpoint</li>
- *   <li>Path-style S3 access for MinIO compatibility</li>
+ *   <li>fs.native-s3.enabled=true with Floci endpoint</li>
+ *   <li>Path-style S3 access for Floci compatibility</li>
  * </ul>
  */
 public class MultinodeHive4Environment
@@ -91,7 +91,7 @@ public class MultinodeHive4Environment
     private static final String BUCKET_NAME = "multinode-hive4-test-bucket";
 
     private Network network;
-    private Minio minio;
+    private Floci floci;
     private Hive4MetastoreContainer metastore;
     private Hive4HiveServerContainer hiveServer;
     private MultiNodeTrinoCluster trinoCluster;
@@ -106,12 +106,12 @@ public class MultinodeHive4Environment
 
         network = Network.newNetwork();
 
-        // Start MinIO first (provides S3-compatible storage)
-        minio = Minio.builder()
+        // Start Floci first (provides S3-compatible storage)
+        floci = new Floci()
                 .withNetwork(network)
-                .build();
-        minio.start();
-        minio.createBucket(BUCKET_NAME);
+                .withNetworkAliases("floci");
+        floci.start();
+        floci.createBucket(BUCKET_NAME);
 
         // Configure warehouse path to use S3 storage
         String warehouseDir = "s3a://" + BUCKET_NAME + "/warehouse";
@@ -131,9 +131,9 @@ public class MultinodeHive4Environment
                 .withWarehouseDir(warehouseDir);
         hiveServer.start();
 
-        // Build Hive catalog configuration for S3 (MinIO)
+        // Build Hive catalog configuration for S3 (Floci)
         Map<String, String> hiveCatalog = hiveCatalog(metastore.getInternalHiveMetastoreUri())
-                .withMinioS3()
+                .withFlociS3()
                 .withCommonProperties()
                 .withPartitionProcedures()
                 .withHadoopFileSystemDisabled()
@@ -209,7 +209,7 @@ public class MultinodeHive4Environment
     }
 
     /**
-     * Returns the name of the test bucket created in MinIO.
+     * Returns the name of the test bucket created in Floci.
      *
      * @return the bucket name
      */
@@ -271,9 +271,9 @@ public class MultinodeHive4Environment
             metastore.close();
             metastore = null;
         }
-        if (minio != null) {
-            minio.close();
-            minio = null;
+        if (floci != null) {
+            floci.close();
+            floci = null;
         }
         if (network != null) {
             network.close();
@@ -298,11 +298,11 @@ public class MultinodeHive4Environment
     }
 
     /**
-     * Returns the MinIO container.
+     * Returns the Floci container.
      */
-    public Minio getMinio()
+    public Floci getFloci()
     {
-        return minio;
+        return floci;
     }
 
     /**

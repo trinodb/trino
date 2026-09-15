@@ -33,7 +33,7 @@ import java.time.Duration;
  * <ul>
  *   <li>HiveServer2 (Thrift) on port 10000</li>
  *   <li>Connects to remote Hive Metastore via SERVICE_OPTS</li>
- *   <li>Configured for S3 (MinIO) storage via hive-site.xml</li>
+ *   <li>Configured for S3 (Floci) storage via hive-site.xml</li>
  *   <li>Supports beeline command execution</li>
  * </ul>
  *
@@ -134,17 +134,17 @@ public class Hive4HiveServerContainer
         withEnv("SERVICE_NAME", "hiveserver2");
         withEnv("HIVE_SERVER2_THRIFT_PORT", String.valueOf(HIVE_SERVER_PORT));
         withEnv("IS_RESUME", "true");
-        // Default S3 credentials for MinIO
-        withEnv("AWS_ACCESS_KEY_ID", Minio.MINIO_ROOT_USER);
-        withEnv("AWS_SECRET_KEY", Minio.MINIO_ROOT_PASSWORD);
-        // Default S3 configuration pointing to MinIO
+        // Default S3 credentials for Floci
+        withEnv("AWS_ACCESS_KEY_ID", Floci.FLOCI_ACCESS_KEY);
+        withEnv("AWS_SECRET_KEY", Floci.FLOCI_SECRET_KEY);
+        // Default S3 configuration pointing to Floci
         withCopyToContainer(
                 Transferable.of(getHiveSiteXml(
                         DEFAULT_WAREHOUSE_DIR,
-                        Minio.MINIO_ROOT_USER,
-                        Minio.MINIO_ROOT_PASSWORD,
-                        Minio.DEFAULT_HOST_NAME,
-                        Minio.MINIO_API_PORT)),
+                        Floci.FLOCI_ACCESS_KEY,
+                        Floci.FLOCI_SECRET_KEY,
+                        "floci",
+                        Floci.FLOCI_PORT)),
                 "/opt/hive/conf/hive-site.xml");
         waitingFor(Wait.forListeningPort()
                 .withStartupTimeout(Duration.ofMinutes(3)));
@@ -215,10 +215,10 @@ public class Hive4HiveServerContainer
         withCopyToContainer(
                 Transferable.of(getHiveSiteXml(
                         warehouseDir,
-                        Minio.MINIO_ROOT_USER,
-                        Minio.MINIO_ROOT_PASSWORD,
-                        Minio.DEFAULT_HOST_NAME,
-                        Minio.MINIO_API_PORT)),
+                        Floci.FLOCI_ACCESS_KEY,
+                        Floci.FLOCI_SECRET_KEY,
+                        "floci",
+                        Floci.FLOCI_PORT)),
                 "/opt/hive/conf/hive-site.xml");
         super.start();
     }
