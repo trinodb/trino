@@ -136,7 +136,7 @@ public class Hive4HiveServerContainer
         withEnv("IS_RESUME", "true");
         // Default S3 credentials for Floci
         withEnv("AWS_ACCESS_KEY_ID", Floci.FLOCI_ACCESS_KEY);
-        withEnv("AWS_SECRET_KEY", Floci.FLOCI_SECRET_KEY);
+        withEnv("AWS_SECRET_ACCESS_KEY", Floci.FLOCI_SECRET_KEY);
         // Default S3 configuration pointing to Floci
         withCopyToContainer(
                 Transferable.of(getHiveSiteXml(
@@ -197,7 +197,7 @@ public class Hive4HiveServerContainer
     public Hive4HiveServerContainer withS3Config(String accessKey, String secretKey, String s3Host, int s3Port)
     {
         withEnv("AWS_ACCESS_KEY_ID", accessKey);
-        withEnv("AWS_SECRET_KEY", secretKey);
+        withEnv("AWS_SECRET_ACCESS_KEY", secretKey);
         withCopyToContainer(
                 Transferable.of(getHiveSiteXml(warehouseDir, accessKey, secretKey, s3Host, s3Port)),
                 "/opt/hive/conf/hive-site.xml");
