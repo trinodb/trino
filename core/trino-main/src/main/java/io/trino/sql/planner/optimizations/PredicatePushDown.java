@@ -453,10 +453,10 @@ public class PredicatePushDown
                             joinPredicate,
                             node.getLeft().getOutputSymbols(),
                             node.getRight().getOutputSymbols());
-                    leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
-                    rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
-                    postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
-                    newJoinPredicate = leftOuterJoinPushDownResult.getJoinPredicate();
+                    leftPredicate = leftOuterJoinPushDownResult.outerJoinPredicate();
+                    rightPredicate = leftOuterJoinPushDownResult.innerJoinPredicate();
+                    postJoinPredicate = leftOuterJoinPushDownResult.postJoinPredicate();
+                    newJoinPredicate = leftOuterJoinPushDownResult.joinPredicate();
                 }
                 case RIGHT -> {
                     OuterJoinPushDownResult rightOuterJoinPushDownResult = processLimitedOuterJoin(
@@ -466,10 +466,10 @@ public class PredicatePushDown
                             joinPredicate,
                             node.getRight().getOutputSymbols(),
                             node.getLeft().getOutputSymbols());
-                    leftPredicate = rightOuterJoinPushDownResult.getInnerJoinPredicate();
-                    rightPredicate = rightOuterJoinPushDownResult.getOuterJoinPredicate();
-                    postJoinPredicate = rightOuterJoinPushDownResult.getPostJoinPredicate();
-                    newJoinPredicate = rightOuterJoinPushDownResult.getJoinPredicate();
+                    leftPredicate = rightOuterJoinPushDownResult.innerJoinPredicate();
+                    rightPredicate = rightOuterJoinPushDownResult.outerJoinPredicate();
+                    postJoinPredicate = rightOuterJoinPushDownResult.postJoinPredicate();
+                    newJoinPredicate = rightOuterJoinPushDownResult.joinPredicate();
                 }
                 case FULL -> {
                     leftPredicate = TRUE;
@@ -722,10 +722,10 @@ public class PredicatePushDown
                             joinPredicate,
                             node.getLeft().getOutputSymbols(),
                             node.getRight().getOutputSymbols());
-                    leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
-                    rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
-                    postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
-                    newJoinPredicate = leftOuterJoinPushDownResult.getJoinPredicate();
+                    leftPredicate = leftOuterJoinPushDownResult.outerJoinPredicate();
+                    rightPredicate = leftOuterJoinPushDownResult.innerJoinPredicate();
+                    postJoinPredicate = leftOuterJoinPushDownResult.postJoinPredicate();
+                    newJoinPredicate = leftOuterJoinPushDownResult.joinPredicate();
                 }
                 default -> throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
@@ -880,41 +880,7 @@ public class PredicatePushDown
                     combineConjuncts(postJoinConjuncts.build()));
         }
 
-        private static class OuterJoinPushDownResult
-        {
-            private final Expression outerJoinPredicate;
-            private final Expression innerJoinPredicate;
-            private final Expression joinPredicate;
-            private final Expression postJoinPredicate;
-
-            private OuterJoinPushDownResult(Expression outerJoinPredicate, Expression innerJoinPredicate, Expression joinPredicate, Expression postJoinPredicate)
-            {
-                this.outerJoinPredicate = outerJoinPredicate;
-                this.innerJoinPredicate = innerJoinPredicate;
-                this.joinPredicate = joinPredicate;
-                this.postJoinPredicate = postJoinPredicate;
-            }
-
-            private Expression getOuterJoinPredicate()
-            {
-                return outerJoinPredicate;
-            }
-
-            private Expression getInnerJoinPredicate()
-            {
-                return innerJoinPredicate;
-            }
-
-            public Expression getJoinPredicate()
-            {
-                return joinPredicate;
-            }
-
-            private Expression getPostJoinPredicate()
-            {
-                return postJoinPredicate;
-            }
-        }
+        private record OuterJoinPushDownResult(Expression outerJoinPredicate, Expression innerJoinPredicate, Expression joinPredicate, Expression postJoinPredicate) {}
 
         private InnerJoinPushDownResult processInnerJoin(
                 Expression inheritedPredicate,
