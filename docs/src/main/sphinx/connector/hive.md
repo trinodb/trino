@@ -1041,6 +1041,11 @@ WITH (format='CSV',
     `CSV`, and `REGEX`. The catalog property `hive.storage-format` sets the
     default value and can change it to a different default.
   -
+* - `last_column_takes_rest`
+  - Set this property to `true` so that the last column absorbs the remainder
+    of the line, including any further occurrences of the field separator.
+    Requires TextFile, RCText, or SequenceFile format.
+  -
 * - `null_format`
   - The serialization format for `NULL` value. Requires TextFile, RCText, or
     SequenceFile format.

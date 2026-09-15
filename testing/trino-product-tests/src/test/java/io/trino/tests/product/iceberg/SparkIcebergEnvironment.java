@@ -129,8 +129,6 @@ public class SparkIcebergEnvironment
                         "connector.name", "hive",
                         "hive.metastore.uri", "thrift://" + HadoopContainer.HOST_NAME + ":" + HadoopContainer.HIVE_METASTORE_PORT,
                         "fs.hadoop.enabled", "true",
-                        // testMigrateUnsupportedTransactionalTable creates a transactional (ACID) table that requires ORC
-                        "hive.storage-format", "ORC",
                         "hive.config.resources", "/etc/trino/hdfs-site.xml"))
                 .build();
         TrinoProductTestContainer.startAndWait(trino);

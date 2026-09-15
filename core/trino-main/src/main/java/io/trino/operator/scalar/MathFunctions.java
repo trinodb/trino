@@ -36,9 +36,13 @@ import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TrinoNumber.BigDecimalValue;
 import io.trino.spi.type.TrinoNumber.Infinity;
 import io.trino.spi.type.TrinoNumber.NotANumber;
+import io.trino.type.BigintOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
+import io.trino.type.IntegerOperators;
 import io.trino.type.NumberOperators;
+import io.trino.type.SmallintOperators;
+import io.trino.type.TinyintOperators;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.TDistribution;
 import org.apache.commons.math3.special.Erf;
@@ -546,35 +550,35 @@ public final class MathFunctions
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction(value = "mod", neverFails = true)
+    @ScalarFunction("mod")
     @SqlType(StandardTypes.TINYINT)
     public static long modTinyint(@SqlType(StandardTypes.TINYINT) long num1, @SqlType(StandardTypes.TINYINT) long num2)
     {
-        return num1 % num2;
+        return TinyintOperators.modulo(num1, num2);
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction(value = "mod", neverFails = true)
+    @ScalarFunction("mod")
     @SqlType(StandardTypes.SMALLINT)
     public static long modSmallint(@SqlType(StandardTypes.SMALLINT) long num1, @SqlType(StandardTypes.SMALLINT) long num2)
     {
-        return num1 % num2;
+        return SmallintOperators.modulo(num1, num2);
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction(value = "mod", neverFails = true)
+    @ScalarFunction("mod")
     @SqlType(StandardTypes.INTEGER)
     public static long modInteger(@SqlType(StandardTypes.INTEGER) long num1, @SqlType(StandardTypes.INTEGER) long num2)
     {
-        return num1 % num2;
+        return IntegerOperators.modulo(num1, num2);
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long mod(@SqlType(StandardTypes.BIGINT) long num1, @SqlType(StandardTypes.BIGINT) long num2)
     {
-        return num1 % num2;
+        return BigintOperators.modulo(num1, num2);
     }
 
     @Description("Remainder of given quotient")
@@ -594,7 +598,7 @@ public final class MathFunctions
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber mod(@SqlType(StandardTypes.NUMBER) TrinoNumber num1, @SqlType(StandardTypes.NUMBER) TrinoNumber num2)
     {

@@ -14,20 +14,23 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
-import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
@@ -42,16 +45,17 @@ import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
-import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyFilterPredicate
         extends BaseRuleTest
@@ -89,7 +93,7 @@ public class TestSimplifyFilterPredicate
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                new Logical(OR, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "a")), not(new Reference(BOOLEAN, "a")))),
+                                not(comparison(IDENTICAL, new Reference(BOOLEAN, "a"), TRUE)),
                                 values("a")));
 
         // true result iff the condition is null or false
@@ -99,7 +103,7 @@ public class TestSimplifyFilterPredicate
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                new Logical(OR, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "a")), not(new Reference(BOOLEAN, "a")))),
+                                not(comparison(IDENTICAL, new Reference(BOOLEAN, "a"), TRUE)),
                                 values("a")));
 
         // always true
@@ -205,9 +209,7 @@ public class TestSimplifyFilterPredicate
                         filter(
                                 new Logical(AND, ImmutableList.of(
                                         new Reference(BOOLEAN, "a"),
-                                        new Logical(OR, ImmutableList.of(
-                                                new IsNull(new Reference(BOOLEAN, "b")),
-                                                not(new Reference(BOOLEAN, "b")))))),
+                                        not(comparison(IDENTICAL, new Reference(BOOLEAN, "b"), TRUE)))),
                                 values("a", "b")));
     }
 
@@ -277,7 +279,7 @@ public class TestSimplifyFilterPredicate
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))), not(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), new Logical(OR, ImmutableList.of(new IsNull(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))), not(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))),
+                                new Logical(AND, ImmutableList.of(not(comparison(IDENTICAL, comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)), not(comparison(IDENTICAL, comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))),
                                 values("a")));
 
         // first result true, and remaining results not true
@@ -306,15 +308,9 @@ public class TestSimplifyFilterPredicate
                 .matches(
                         filter(
                                 new Logical(AND, ImmutableList.of(
-                                        new Logical(OR, ImmutableList.of(
-                                                new IsNull(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
-                                                not(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))),
-                                        new Logical(OR, ImmutableList.of(
-                                                new IsNull(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
-                                                not(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))),
-                                        new Logical(OR, ImmutableList.of(
-                                                new IsNull(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
-                                                not(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))))),
+                                        not(comparison(IDENTICAL, comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
+                                        not(comparison(IDENTICAL, comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
+                                        not(comparison(IDENTICAL, comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)))),
                                 values("a")));
 
         // all conditions not true - return the default
@@ -490,6 +486,29 @@ public class TestSimplifyFilterPredicate
                         filter(
                                 FALSE,
                                 values("a", "b")));
+    }
+
+    @Test
+    public void testNullableNonDeterministicCondition()
+    {
+        Call random = new Call(FUNCTIONS.resolveFunction("random", ImmutableList.of()), ImmutableList.of());
+        Expression condition = ifExpression(comparison(LESS_THAN, random, new Constant(DOUBLE, 0.5)), NULL_BOOLEAN, FALSE);
+
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(ifExpression(condition, FALSE, TRUE), p.values(1)))
+                .matches(filter(not(comparison(IDENTICAL, condition, TRUE)), values(1)));
+    }
+
+    @Test
+    public void testFalseOrNullPredicateDomain()
+    {
+        Symbol symbol = new Symbol(BOOLEAN, "a");
+        Expression predicate = not(comparison(IDENTICAL, symbol.toSymbolReference(), TRUE));
+        DomainTranslator.ExtractionResult result = DomainTranslator.getExtractionResult(PLANNER_CONTEXT, TEST_SESSION, predicate);
+
+        assertThat(result.getTupleDomain())
+                .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, Domain.singleValue(BOOLEAN, true).complement())));
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
     }
 
     private static Expression not(Expression expression)

@@ -53,8 +53,10 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -126,6 +128,7 @@ import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRI
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -162,6 +165,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -293,7 +297,6 @@ public abstract class BaseIcebergConnectorTest
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_LIMIT_PUSHDOWN,
-                 SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
             case SUPPORTS_DEFAULT_COLUMN_VALUE -> formatVersion >= 3;
@@ -1285,6 +1288,55 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/30639
+    public void testMergeWithPartitionedJoinAndUnmodifiedRows()
+    {
+        // The join with a bucket-partitioned target is colocated with the table partitioning, so
+        // the target and source AssignUniqueId nodes execute in the same stage and must not
+        // assign the same id to different rows
+        try (TestTable target = newTrinoTable(
+                "test_merge_unique_id_target_",
+                "WITH (partitioning = ARRAY['bucket(k1, 16)', 'bucket(k2, 8)']) AS " +
+                        "SELECT 'a-' || CAST(i AS varchar) AS k1, 'b-' || CAST(i AS varchar) AS k2, " +
+                        "'UPDATED' AS value, TIMESTAMP '2026-01-01 00:00:00.000000' AS updated_at " +
+                        "FROM UNNEST(sequence(1, 20)) t(i)");
+                // Every fifth source row matches a target row, so matched and unmatched rows are
+                // interleaved and each AssignUniqueId driver assigns its first ids to both kinds
+                TestTable source = newTrinoTable(
+                        "test_merge_unique_id_source_",
+                        "AS SELECT " +
+                                "IF(i % 5 = 0, 'a-' || CAST(i / 5 AS varchar), 'x-' || CAST(i AS varchar)) AS k1, " +
+                                "IF(i % 5 = 0, 'b-' || CAST(i / 5 AS varchar), 'y-' || CAST(i AS varchar)) AS k2, " +
+                                "'DELETED' AS value, TIMESTAMP '2026-01-01 00:00:00.000000' AS updated_at " +
+                                "FROM UNNEST(sequence(1, 100)) t(i)")) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, BUCKET_EXECUTION_ENABLED, "true")
+                    .build();
+
+            // Every row is excluded by a WHEN condition, so the merge must change nothing
+            // instead of failing with MERGE_TARGET_ROW_MULTIPLE_MATCHES
+            assertUpdate(
+                    session,
+                    "MERGE INTO %s t USING %s s ".formatted(target.getName(), source.getName()) +
+                            "ON t.k1 = s.k1 AND t.k2 = s.k2 " +
+                            "WHEN MATCHED AND s.updated_at > t.updated_at THEN UPDATE SET value = s.value, updated_at = s.updated_at " +
+                            "WHEN NOT MATCHED AND s.value <> 'DELETED' THEN INSERT (k1, k2, value, updated_at) VALUES (s.k1, s.k2, s.value, s.updated_at)",
+                    0,
+                    // Both AssignUniqueId nodes must be reachable from the join without crossing a
+                    // remote exchange, otherwise the test no longer exercises a shared task
+                    plan -> {
+                        JoinNode join = (JoinNode) searchFrom(plan.getRoot()).where(JoinNode.class::isInstance).findOnlyElement();
+                        assertThat(searchFrom(join)
+                                .recurseOnlyWhen(planNode -> !(planNode instanceof ExchangeNode exchange && exchange.getScope() == REMOTE))
+                                .where(AssignUniqueId.class::isInstance)
+                                .count())
+                                .isEqualTo(2);
+                    });
+            assertQuery("SELECT count(*) FROM " + target.getName(), "VALUES 20");
+        }
+    }
+
     @Test
     public void testSchemaEvolutionWithNestedFieldPartitioning()
     {
@@ -1644,6 +1696,126 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSortedByNestedField()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+
+        // Verify 1-level nesting
+        try (TestTable table = newTrinoTable(
+                "test_sorted_by_nested_field",
+                "(id INT, row_t ROW(other VARCHAR, name VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY[ '\"row_t.name\"' ])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    // other field contains reverse-ordered values to ensure the sort check targets the correct (name) field
+                    "INSERT INTO " + table.getName() + "(id, row_t) " +
+                            "SELECT id, ROW(CONCAT('r', LPAD(CAST(501 - id AS VARCHAR), 3, '0')), CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0'))) " +
+                            "FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "row_t.name")).isTrue();
+            }
+            assertThat(query("SELECT id, row_t.name FROM " + table.getName()))
+                    .matches("SELECT CAST(id AS integer), CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0')) FROM UNNEST(sequence(1, 500)) AS t(id)");
+        }
+
+        // Verify 2-level nesting
+        try (TestTable table = newTrinoTable(
+                "test_sorted_by_deeply_nested_field",
+                "(id INT, outer_t ROW(other VARCHAR, inner_t ROW(other VARCHAR, name VARCHAR))) WITH (format = '" + format.name() + "', sorted_by = ARRAY[ '\"outer_t.inner_t.name\"' ])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    // other fields contain reverse-ordered values to ensure the sort check targets the correct (name) field
+                    "INSERT INTO " + table.getName() + "(id, outer_t) " +
+                            "SELECT id, ROW(CONCAT('r', LPAD(CAST(501 - id AS VARCHAR), 3, '0')), ROW(CONCAT('r', LPAD(CAST(501 - id AS VARCHAR), 3, '0')), CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0')))) " +
+                            "FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "outer_t.inner_t.name")).isTrue();
+            }
+            assertThat(query("SELECT id, outer_t.inner_t.name FROM " + table.getName()))
+                    .matches("SELECT CAST(id AS integer), CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0')) FROM UNNEST(sequence(1, 500)) AS t(id)");
+        }
+
+        // Verify NULL values in the sort field are handled
+        try (TestTable table = newTrinoTable(
+                "test_sorted_by_nested_field_with_nulls",
+                "(id INT, row_t ROW(name VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY['\"row_t.name\"'])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    "INSERT INTO " + table.getName() + "(id, row_t) " +
+                            "SELECT id, IF(id % 100 = 0, NULL, ROW(CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0')))) " +
+                            "FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "row_t.name")).isTrue();
+            }
+            assertThat(query("SELECT count(*) FROM " + table.getName() + " WHERE row_t IS NULL"))
+                    .matches("VALUES BIGINT '5'");
+            assertThat(query("SELECT count(*) FROM " + table.getName() + " WHERE row_t.name IS NOT NULL"))
+                    .matches("VALUES BIGINT '495'");
+        }
+
+        // Uses tpch.tiny.lineitem (60k rows) to force spilling through temp files
+        try (TestTable table = newTrinoTable(
+                "test_sorted_nested_spill",
+                "(orderkey BIGINT, row_t ROW(comment VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY['\"row_t.comment\"'])")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " SELECT orderkey, ROW(comment) FROM tpch.tiny.lineitem",
+                    "VALUES 60175");
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "row_t.comment")).isTrue();
+            }
+        }
+
+        // Verify mixed sort key (top-level column + nested field); channel/path alignment must be correct or sort targets wrong column
+        try (TestTable table = newTrinoTable(
+                "test_sorted_mixed_key",
+                "(id INT, row_t ROW(name VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY['id', '\"row_t.name\"'])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    "INSERT INTO " + table.getName() + "(id, row_t) " +
+                            "SELECT id, ROW(CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0'))) " +
+                            "FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "row_t.name")).isTrue();
+            }
+        }
+
+        // Verify nested sort on a partitioned table (opens more than one writer)
+        try (TestTable table = newTrinoTable(
+                "test_sorted_nested_partitioned",
+                "(id INT, part VARCHAR, row_t ROW(name VARCHAR)) WITH (format = '" + format.name() + "', partitioning = ARRAY['part'], sorted_by = ARRAY['\"row_t.name\"'])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    "INSERT INTO " + table.getName() + "(id, part, row_t) " +
+                            "SELECT id, IF(id % 2 = 0, 'even', 'odd'), ROW(CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0'))) " +
+                            "FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "row_t.name")).isTrue();
+            }
+        }
+
+        // Verify ALTER TABLE SET PROPERTIES and OPTIMIZE with nested sort field
+        try (TestTable table = newTrinoTable(
+                "test_sorted_nested_optimize",
+                "(id INT, row_t ROW(name VARCHAR)) WITH (format = '" + format.name() + "')")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(id, row_t) VALUES (1, ROW('b')), (2, ROW('a'))", 2);
+            assertUpdate("INSERT INTO " + table.getName() + "(id, row_t) VALUES (3, ROW('d')), (4, ROW('c'))", 2);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['\"row_t.name\"']");
+            assertUpdate(withSingleWriterPerTask(getSession()), "ALTER TABLE " + table.getName() + " EXECUTE optimize");
+            for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\"").getMaterializedRows()) {
+                assertThat(isFileSorted((String) row.getField(0), "row_t.name")).isTrue();
+                assertThat((Integer) row.getField(1)).isEqualTo(1);
+            }
+            assertQuery("SELECT id FROM " + table.getName() + " ORDER BY row_t.name", "VALUES 2, 1, 4, 3");
+        }
+    }
+
+    @Test
     public void testSortingDisabled()
     {
         Session withSortingDisabled = Session.builder(getSession())
@@ -1739,9 +1911,32 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['\"row_t\".\"comment\"'])"))
                 .failure().hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
-        assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
-                "WITH (sorted_by = ARRAY['\"row_t.comment\"'])"))
-                .failure().hasMessageContaining("Column not found: row_t.comment");
+
+        assertUpdate("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['\"row_t.comment\"'])");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("sorted_by = ARRAY['\"row_t.comment\" ASC NULLS FIRST']");
+
+        assertThat(query("ALTER TABLE " + tableName + " DROP COLUMN row_t")).failure()
+                .hasMessage("Failed to drop column: Cannot find source column for sort field: identity(5) ASC NULLS FIRST");
+        assertThat(query("ALTER TABLE " + tableName + " DROP COLUMN row_t.comment")).failure()
+                .hasMessage("Cannot drop sort field: row_t.comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSortingOnNonStructNestedField()
+    {
+        String tableName = "test_non_struct_sort_" + randomNameSuffix();
+        assertThat(query("CREATE TABLE " + tableName + " (arr ARRAY(VARCHAR)) WITH (sorted_by = ARRAY['\"arr.element\"'])")).failure()
+                .hasMessage("Column not found: arr.element");
+        assertThat(query("CREATE TABLE " + tableName + " (m MAP(VARCHAR, VARCHAR)) WITH (sorted_by = ARRAY['\"m.key\"'])")).failure()
+                .hasMessage("Column not found: m.key");
+        assertThat(query("CREATE TABLE " + tableName + " (m MAP(VARCHAR, VARCHAR)) WITH (sorted_by = ARRAY['\"m.value\"'])")).failure()
+                .hasMessage("Column not found: m.value");
+        assertThat(query("CREATE TABLE " + tableName + " (arrs ARRAY(ROW(x VARCHAR))) WITH (sorted_by = ARRAY['\"arrs.element.x\"'])")).failure()
+                .hasMessage("Column not found: arrs.element.x");
     }
 
     @Test

@@ -32,6 +32,7 @@ import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROP
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -471,6 +472,26 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.operator(ADD, "INTERVAL '3' month", "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'"))
                 .matches("TIMESTAMP '2001-04-22 03:04:05.321 +05:09'");
 
+        // the time zone is packed into the low bits of the epoch millis, so the representable range is the same at every precision
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '73326-09-11 20:14:45.247 UTC'", "INTERVAL '1' second")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '73326-09-11 20:14:45.2470000 UTC'", "INTERVAL '1' second")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '73326-09-11 20:14:45.247 UTC'", "INTERVAL '1' month")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TIMESTAMP '73326-09-11 20:14:45.2470000 UTC'", "INTERVAL '1' month")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "INTERVAL '1' second", "TIMESTAMP '73326-09-11 20:14:45.2470000 UTC'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "INTERVAL '1' month", "TIMESTAMP '73326-09-11 20:14:45.2470000 UTC'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+
         assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'", "INTERVAL '3' year"))
                 .matches("TIMESTAMP '2004-01-22 03:04:05.321 +05:09'");
 
@@ -486,6 +507,20 @@ public class TestTimestampWithTimeZone
 
         assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'", "INTERVAL '3' month"))
                 .matches("TIMESTAMP '2000-10-22 03:04:05.321 +05:09'");
+
+        // subtracting a negative interval runs past the largest representable value
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "TIMESTAMP '73326-09-11 20:14:45.247 UTC'", "INTERVAL '-1' second")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "TIMESTAMP '73326-09-11 20:14:45.2470000 UTC'", "INTERVAL '-1' second")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "TIMESTAMP '73326-09-11 20:14:45.247 UTC'", "INTERVAL '-1' month")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "TIMESTAMP '73326-09-11 20:14:45.2470000 UTC'", "INTERVAL '-1' month")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
     }
 
     @Test
@@ -2709,17 +2744,20 @@ public class TestTimestampWithTimeZone
         assertTrinoExceptionThrownBy(assertions.expression("date_add('day', " + value + ", TIMESTAMP '0001-01-01 00:00:00 Asia/Kathmandu')")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageMatching("Millis overflow: .*");
-        assertThatThrownBy(() -> assertions.expression("date_add('day', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000 Asia/Kathmandu')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('day', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000 Asia/Kathmandu')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageMatching("Millis overflow: .*");
         assertTrinoExceptionThrownBy(assertions.expression("date_add('week', " + value + ", TIMESTAMP '0001-01-01 00:00:00 Asia/Kathmandu')")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageMatching("Millis overflow: .*");
-        assertThatThrownBy(() -> assertions.expression("date_add('week', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000 Asia/Kathmandu')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('week', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000 Asia/Kathmandu')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageMatching("Millis overflow: .*");
         assertTrinoExceptionThrownBy(assertions.expression("date_add('month', " + value + ", TIMESTAMP '0001-01-01 00:00:00 Asia/Kathmandu')")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageMatching("Millis overflow: .*");
-        assertThatThrownBy(() -> assertions.expression("date_add('month', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000 Asia/Kathmandu')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('month', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000 Asia/Kathmandu')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageMatching("Millis overflow: .*");
         assertTrinoExceptionThrownBy(assertions.expression("date_add('quarter', " + value + ", TIMESTAMP '0001-01-01 00:00:00 Asia/Kathmandu')")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
@@ -3011,6 +3049,21 @@ public class TestTimestampWithTimeZone
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
                 .neverFails();
+    }
+
+    @Test
+    public void testIn()
+    {
+        // A short IN list of values close to the epoch makes the compiler switch over the raw long representation,
+        // which packs the time zone, while equality compares the instant only.
+        // A single-element list would be rewritten to an equality comparison.
+        assertThat(assertions.expression("a IN (TIMESTAMP '1970-01-01 01:00:00 Europe/Warsaw', TIMESTAMP '1970-01-01 00:00:02 UTC')")
+                .binding("a", "TIMESTAMP '1970-01-01 00:00:00 UTC'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (TIMESTAMP '1970-01-01 01:00:00 Europe/Warsaw', TIMESTAMP '1970-01-01 00:00:02 UTC')")
+                .binding("a", "TIMESTAMP '1970-01-01 00:00:01 UTC'"))
+                .isEqualTo(false);
     }
 
     private BiFunction<Session, QueryRunner, Object> timestampWithTimeZone(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond, TimeZoneKey timeZoneKey)

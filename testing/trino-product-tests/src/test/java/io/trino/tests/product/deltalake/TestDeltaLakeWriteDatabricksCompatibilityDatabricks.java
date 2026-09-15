@@ -294,7 +294,6 @@ class TestDeltaLakeWriteDatabricksCompatibilityDatabricks
     }
 
     @Test
-    @TestGroup.DeltaLakeExclude18
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     void testTrinoVacuumRemoveChangeDataFeedFiles(DeltaLakeDatabricksEnvironment env)
     {
@@ -322,10 +321,17 @@ class TestDeltaLakeWriteDatabricksCompatibilityDatabricks
         String directoryName = "databricks-compatibility-test-" + tableName;
         String changeDataPrefix = directoryName + "/_change_data";
 
+        // Force Delta Writer v6 and disable Deletion Vectors so Databricks 14.3+ does not
+        // write Table Features (writerFeatures: [identityColumns]), allowing Trino to alter the table.
         env.executeDatabricksSql("CREATE TABLE default." + tableName + " (a INT) " +
                 "USING DELTA " +
                 "LOCATION 's3://" + env.getBucketName() + "/" + directoryName + "'" +
-                "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                "TBLPROPERTIES (" +
+                "'delta.minWriterVersion' = '6'," +
+                "'delta.minReaderVersion' = '1'," +
+                "'delta.enableDeletionVectors' = false," +
+                "'delta.enableChangeDataFeed' = true" +
+                ")");
 
         try {
             env.executeDatabricksSql("INSERT INTO " + tableName + " VALUES (1)");

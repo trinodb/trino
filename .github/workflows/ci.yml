@@ -74,7 +74,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run zizmor
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
         with:
           inputs: .github
           # Version of the zizmor tool to install and run
@@ -115,7 +115,7 @@ jobs:
         include:
           - { java-version: 25.0.4, cache: 'true', cleanup-node: true }
           - { java-version: 26, cache: 'restore', cleanup-node: true }
-          - { java-version: 27-ea, cache: 'restore', cleanup-node: true }
+          #- { java-version: 27-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
@@ -483,89 +483,20 @@ jobs:
           $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies
       - name: Set matrix
         id: set-matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
         run: |
           # GIB doesn't run on master, so make sure the file always exist
           touch gib-impacted.log
-          cat <<EOF > .github/test-matrix.yaml
-          include:
-            - modules:
-                - client/trino-jdbc
-                - core/trino-spi
-                - core/trino-web-ui
-            - modules:
-                - plugin/trino-base-jdbc
-                - plugin/trino-faker
-                - plugin/trino-geospatial
-                - plugin/trino-memory
-                - plugin/trino-openlineage
-                - plugin/trino-thrift
-            - modules:
-                - lib/trino-orc
-                - lib/trino-parquet
-            - modules:
-                - lib/trino-filesystem
-                - lib/trino-filesystem-azure
-                - lib/trino-filesystem-gcs
-                - lib/trino-filesystem-manager
-                - lib/trino-filesystem-s3
-                - lib/trino-hdfs
-                - lib/trino-hive-formats
-                - plugin/trino-blob-cache-alluxio
-                - plugin/trino-blob-cache-memory
-            - { modules: core/trino-main }
-            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
-            - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
-            - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
-            - { modules: plugin/trino-bigquery }
-            - { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
-            - { modules: plugin/trino-cassandra }
-            - { modules: plugin/trino-clickhouse }
-            - { modules: plugin/trino-delta-lake }
-            - { modules: plugin/trino-delta-lake, profile: cloud-tests }
-            - { modules: plugin/trino-delta-lake, profile: fte-tests }
-            - { modules: plugin/trino-druid }
-            - { modules: plugin/trino-duckdb }
-            - { modules: plugin/trino-elasticsearch }
-            - { modules: plugin/trino-exchange-filesystem, profile: cloud-tests }
-            - { modules: plugin/trino-exasol }
-            - { modules: plugin/trino-google-sheets }
-            - { modules: plugin/trino-google-sheets, profile: cloud-tests }
-            - { modules: plugin/trino-hive }
-            - { modules: plugin/trino-hive, profile: cloud-tests }
-            - { modules: plugin/trino-hive, profile: fte-tests }
-            - { modules: plugin/trino-hive, profile: test-parquet }
-            - { modules: plugin/trino-hudi }
-            - { modules: plugin/trino-iceberg }
-            - { modules: plugin/trino-iceberg, profile: cloud-tests }
-            - { modules: plugin/trino-iceberg, profile: fte-tests }
-            - { modules: plugin/trino-iceberg, profile: floci-and-avro }
-            - { modules: plugin/trino-ignite }
-            - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-lakehouse }
-            - { modules: plugin/trino-mariadb }
-            - { modules: plugin/trino-mongodb }
-            - { modules: plugin/trino-mysql }
-            - { modules: plugin/trino-opensearch }
-            - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-pinot }
-            - { modules: plugin/trino-postgresql }
-            - { modules: plugin/trino-redis }
-            - { modules: plugin/trino-redshift }
-            - { modules: plugin/trino-redshift, profile: cloud-tests }
-            - { modules: plugin/trino-redshift, profile: fte-tests }
-            - { modules: plugin/trino-resource-group-managers }
-            - { modules: plugin/trino-singlestore }
-            - { modules: plugin/trino-snowflake }
-            # TODO re-enable Snowflake cloud tests https://github.com/trinodb/trino/issues/30823
-            # - { modules: plugin/trino-snowflake, profile: cloud-tests }
-            - { modules: plugin/trino-sqlserver }
-            - { modules: testing/trino-faulttolerant-tests, profile: default }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: testing/trino-tests }
-          EOF
-          ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
+          ./.github/bin/build-matrix-schedule-aware.py build \
+            --schedule-config ./.github/schedule-config.yml \
+            --impacted gib-impacted.log \
+            --event-name "$EVENT_NAME" \
+            --event-schedule "$EVENT_SCHEDULE" \
+            --pr-labels "$PR_LABELS" \
+            --verbose > matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
@@ -1056,8 +987,6 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_122_JDBC_URL: ${{ vars.DATABRICKS_122_JDBC_URL }}
-          DATABRICKS_133_JDBC_URL: ${{ vars.DATABRICKS_133_JDBC_URL }}
           DATABRICKS_143_JDBC_URL: ${{ vars.DATABRICKS_143_JDBC_URL }}
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
           DATABRICKS_164_JDBC_URL: ${{ vars.DATABRICKS_164_JDBC_URL }}
@@ -1110,10 +1039,6 @@ jobs:
               SuiteSnowflake)
                 availability_env=SNOWFLAKE_PASSWORD
                 required_env+=(SNOWFLAKE_URL SNOWFLAKE_USER SNOWFLAKE_PASSWORD SNOWFLAKE_DATABASE SNOWFLAKE_ROLE SNOWFLAKE_WAREHOUSE)
-                ;;
-              SuiteDeltaLakeDatabricks133)
-                availability_env=DATABRICKS_TOKEN
-                required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_133_JDBC_URL)
                 ;;
               SuiteDeltaLakeDatabricks143)
                 availability_env=DATABRICKS_TOKEN

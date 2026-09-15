@@ -43,7 +43,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @RequiresEnvironment(DeltaLakeDatabricksEnvironment.class)
 @TestGroup.ConfiguredFeatures
 @TestGroup.DeltaLakeDatabricks
-@TestGroup.DeltaLakeExclude18
 @TestGroup.ProfileSpecificTests
 class TestDeltaLakeIdentityColumnCompatibility
 {
@@ -54,10 +53,17 @@ class TestDeltaLakeIdentityColumnCompatibility
         String tableName = "test_identity_column_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
+        // Force Delta Writer v6 and disable Deletion Vectors so Databricks 14.3+ does not
+        // write Table Features (writerFeatures: [identityColumns]), allowing Trino to alter the table.
         env.executeDatabricksSql(format(
                 """
                 CREATE TABLE default.%s (a INT, b BIGINT GENERATED ALWAYS AS IDENTITY)
                 USING DELTA LOCATION 's3://%s/%s'
+                TBLPROPERTIES (
+                  'delta.minWriterVersion' = '6',
+                  'delta.minReaderVersion' = '1',
+                  'delta.enableDeletionVectors' = false
+                )
                 """,
                 tableName,
                 env.getBucketName(),
@@ -91,12 +97,19 @@ class TestDeltaLakeIdentityColumnCompatibility
     {
         String tableName = "test_rename_identity_column_" + randomNameSuffix();
 
+        // Force Delta Writer v6 and disable Deletion Vectors so Databricks 14.3+ does not
+        // write Table Features (writerFeatures: [identityColumns]), allowing Trino to alter the table.
         env.executeDatabricksSql(
                 """
                 CREATE TABLE default.%1$s (data INT, col_identity BIGINT GENERATED ALWAYS AS IDENTITY)
                 USING DELTA
                 LOCATION 's3://%2$s/databricks-compatibility-test-%1$s'
-                TBLPROPERTIES ('delta.columnMapping.mode'='%3$s')
+                TBLPROPERTIES (
+                  'delta.minWriterVersion' = '6',
+                  'delta.minReaderVersion' = '1',
+                  'delta.enableDeletionVectors' = false,
+                  'delta.columnMapping.mode'='%3$s'
+                )
                 """.formatted(tableName, env.getBucketName(), mode));
         try {
             env.executeDatabricksSql("ALTER TABLE default." + tableName + " RENAME COLUMN col_identity TO delta_col_identity");
@@ -131,6 +144,8 @@ class TestDeltaLakeIdentityColumnCompatibility
     {
         String tableName = "test_drop_identity_column_" + randomNameSuffix();
 
+        // Force Delta Writer v6 and disable Deletion Vectors so Databricks 14.3+ does not
+        // write Table Features (writerFeatures: [identityColumns]), allowing Trino to alter the table.
         env.executeDatabricksSql(
                 """
                 CREATE TABLE default.%1$s (
@@ -139,7 +154,13 @@ class TestDeltaLakeIdentityColumnCompatibility
                     second_identity BIGINT GENERATED ALWAYS AS IDENTITY)
                 USING DELTA
                 LOCATION 's3://%2$s/databricks-compatibility-test-%1$s'
-                TBLPROPERTIES ('delta.columnMapping.mode'='%3$s')
+                TBLPROPERTIES (
+                  'delta.minWriterVersion' = '6',
+                  'delta.minReaderVersion' = '1',
+                  'delta.enableDeletionVectors' = false,
+                  'delta.columnMapping.mode'='%3$s'
+                )
+
                 """.formatted(tableName, env.getBucketName(), mode));
         try {
             assertThatThrownBy(() -> env.executeTrinoSql("INSERT INTO delta.default." + tableName + " (data) VALUES (1)"))
@@ -174,11 +195,18 @@ class TestDeltaLakeIdentityColumnCompatibility
     {
         String tableName = "test_vacuum_identity_column_" + randomNameSuffix();
 
+        // Force Delta Writer v6 and disable Deletion Vectors so Databricks 14.3+ does not
+        // write Table Features (writerFeatures: [identityColumns]), allowing Trino to alter the table.
         env.executeDatabricksSql(
                 """
                 CREATE TABLE default.%1$s (data INT, col_identity BIGINT GENERATED ALWAYS AS IDENTITY)
                 USING DELTA
                 LOCATION 's3://%2$s/databricks-compatibility-test-%1$s'
+                TBLPROPERTIES (
+                  'delta.minWriterVersion' = '6',
+                  'delta.minReaderVersion' = '1',
+                  'delta.enableDeletionVectors' = false
+                )
                 """.formatted(tableName, env.getBucketName()));
         try {
             env.executeDatabricksSql("INSERT INTO default." + tableName + " (data) VALUES 10");
@@ -206,12 +234,19 @@ class TestDeltaLakeIdentityColumnCompatibility
     {
         String tableName = "test_identity_column_checkpoint_interval_" + randomNameSuffix();
 
+        // Force Delta Writer v6 and disable Deletion Vectors so Databricks 14.3+ does not
+        // write Table Features (writerFeatures: [identityColumns]), allowing Trino to alter the table.
         env.executeDatabricksSql(
                 """
                 CREATE TABLE default.%1$s (data INT, col_identity BIGINT GENERATED ALWAYS AS IDENTITY)
                 USING DELTA
                 LOCATION 's3://%2$s/databricks-compatibility-test-%1$s'
-                TBLPROPERTIES ('delta.checkpointInterval' = 1)
+                TBLPROPERTIES (
+                  'delta.minWriterVersion' = '6',
+                  'delta.minReaderVersion' = '1',
+                  'delta.enableDeletionVectors' = false,
+                  'delta.checkpointInterval' = 1
+                )
                 """.formatted(tableName, env.getBucketName()));
         try {
             env.executeTrinoSql("COMMENT ON COLUMN delta.default." + tableName + ".col_identity IS 'test column comment'");

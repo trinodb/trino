@@ -25,6 +25,7 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
+import io.trino.operator.UpdateMemory;
 import io.trino.operator.window.InternalWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -210,7 +211,7 @@ public final class AccumulatorCompiler
             generateGroupedEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, "evaluateFinal", stateFields, implementation.getOutputFunction(), callSiteBinder);
+            generateEvaluateFinal(definition, "evaluateFinal", true, stateFields, implementation.getOutputFunction(), callSiteBinder);
         }
 
         if (grouped) {
@@ -291,7 +292,7 @@ public final class AccumulatorCompiler
                 implementation.getInputFunction(),
                 callSiteBinder);
 
-        generateEvaluateFinal(definition, "output", stateFields, implementation.getOutputFunction(), callSiteBinder);
+        generateEvaluateFinal(definition, "output", false, stateFields, implementation.getOutputFunction(), callSiteBinder);
         generateGetEstimatedSize(definition, stateFields);
 
         Class<? extends WindowAccumulator> windowAccumulatorClass = defineHiddenClass(definition, WindowAccumulator.class, callSiteBinder.getClassData());
@@ -933,16 +934,23 @@ public final class AccumulatorCompiler
     private static void generateEvaluateFinal(
             ClassDefinition definition,
             String methodName,
+            boolean acceptUpdateMemory,
             List<FieldDefinition> stateFields,
             MethodHandle outputFunction,
             CallSiteBinder callSiteBinder)
     {
         Parameter out = arg("out", BlockBuilder.class);
+        List<Parameter> parameters = new ArrayList<>();
+        parameters.add(out);
+        if (acceptUpdateMemory) {
+            // the callback is only used by accumulators that move data while producing final output
+            parameters.add(arg("updateMemory", UpdateMemory.class));
+        }
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC),
                 methodName,
                 type(void.class),
-                out);
+                parameters);
 
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -967,7 +975,8 @@ public final class AccumulatorCompiler
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC),
                 "prepareFinal",
-                type(void.class));
+                type(void.class),
+                arg("updateMemory", UpdateMemory.class));
         method.getBody().ret();
     }
 

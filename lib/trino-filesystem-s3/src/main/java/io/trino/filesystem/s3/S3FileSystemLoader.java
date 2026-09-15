@@ -29,8 +29,8 @@ import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsPr
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.apache5.Apache5HttpClient;
+import software.amazon.awssdk.http.apache5.ProxyConfiguration;
 import software.amazon.awssdk.http.auth.aws.scheme.AwsV4AuthScheme;
 import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
 import software.amazon.awssdk.http.auth.spi.scheme.AuthSchemeOption;
@@ -272,7 +272,7 @@ final class S3FileSystemLoader
 
     private static SdkHttpClient createHttpClient(S3FileSystemConfig config)
     {
-        ApacheHttpClient.Builder client = ApacheHttpClient.builder()
+        Apache5HttpClient.Builder client = Apache5HttpClient.builder()
                 .maxConnections(config.getMaxConnections())
                 .tcpKeepAlive(config.getTcpKeepAlive())
                 .expectContinueEnabled(config.isExpectContinueEnabled());

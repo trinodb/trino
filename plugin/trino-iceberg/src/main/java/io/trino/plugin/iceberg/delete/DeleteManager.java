@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Schema;
@@ -68,7 +69,8 @@ public class DeleteManager
             OptionalLong startRowPosition,
             OptionalLong endRowPosition,
             DeletionVectorReader deletionVectorReader,
-            DeletePageSourceProvider deletePageSourceProvider)
+            DeletePageSourceProvider deletePageSourceProvider,
+            MemoryContext memoryContext)
     {
         if (deleteFiles.isEmpty()) {
             return Optional.empty();
@@ -104,7 +106,10 @@ public class DeleteManager
                         startRowPosition,
                         endRowPosition,
                         deletePageSourceProvider,
-                        typeManager));
+                        typeManager,
+                        memoryContext));
+        // the vector is retained by the page filter until the page source memory context is closed
+        deletionVector.ifPresent(vector -> memoryContext.setBytes(vector.retainedSizeInBytes()));
 
         Optional<PageFilter> positionDeletes = deletionVector
                 .map(vector -> {

@@ -555,7 +555,7 @@ public class HashAggregationOperator
             }
 
             for (AggregatorFactory aggregatorFactory : aggregatorFactories) {
-                aggregatorFactory.createAggregator(aggregationMetrics).evaluate(output.getBlockBuilder(channel));
+                aggregatorFactory.createAggregator(aggregationMetrics).evaluate(output.getBlockBuilder(channel), UpdateMemory.NOOP);
                 channel++;
             }
         }

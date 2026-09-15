@@ -521,7 +521,8 @@ public class HiveWriterFactory
                     sortFields,
                     sortOrders,
                     pageSorter,
-                    typeManager.getTypeOperators());
+                    typeManager.getTypeOperators(),
+                    ImmutableList.of());
         }
 
         return new HiveWriter(
@@ -560,7 +561,8 @@ public class HiveWriterFactory
                 sortFields,
                 sortOrders,
                 pageSorter,
-                typeManager.getTypeOperators());
+                typeManager.getTypeOperators(),
+                ImmutableList.of());
     }
 
     private void validateSchema(Optional<String> partitionName, Map<String, String> schema)

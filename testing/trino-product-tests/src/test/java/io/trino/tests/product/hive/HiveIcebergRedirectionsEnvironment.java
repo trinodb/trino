@@ -94,8 +94,6 @@ public class HiveIcebergRedirectionsEnvironment
                 .withCatalog("hive", hiveCatalog(metastoreUri)
                         .withHadoopFileSystem()
                         .withCommonProperties()
-                        // testAlterTableRenameColumn relies on ORC accessing columns by index (Parquet reads by name, so a rename orphans existing data); keep ORC as the default
-                        .withOrcStorageFormat()
                         .put("hive.iceberg-catalog-name", "iceberg")
                         .build())
                 .withCatalog("iceberg", icebergCatalog(metastoreUri)

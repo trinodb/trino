@@ -67,6 +67,7 @@ public class HiveMetadataFactory
     private final BoundedExecutor fileSystemExecutor;
     private final BoundedExecutor dropExecutor;
     private final Executor updateExecutor;
+    private final int maxPartitionBatchSize;
     private final long maxPartitionDropsPerQuery;
     private final String trinoVersion;
     private final Set<SystemTableProvider> systemTableProviders;
@@ -112,6 +113,7 @@ public class HiveMetadataFactory
                 hiveConfig.getMaxConcurrentFileSystemOperations(),
                 hiveConfig.getMaxConcurrentMetastoreDrops(),
                 hiveConfig.getMaxConcurrentMetastoreUpdates(),
+                hiveConfig.getMaxPartitionBatchSize(),
                 hiveConfig.getMaxPartitionDropsPerQuery(),
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
@@ -150,6 +152,7 @@ public class HiveMetadataFactory
             int maxConcurrentFileSystemOperations,
             int maxConcurrentMetastoreDrops,
             int maxConcurrentMetastoreUpdates,
+            int maxPartitionBatchSize,
             long maxPartitionDropsPerQuery,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
@@ -211,6 +214,7 @@ public class HiveMetadataFactory
         else {
             updateExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreUpdates);
         }
+        this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
@@ -241,6 +245,7 @@ public class HiveMetadataFactory
                 fileSystemExecutor,
                 dropExecutor,
                 updateExecutor,
+                maxPartitionBatchSize,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,
                 deleteSchemaLocationsFallback,

@@ -89,4 +89,32 @@ public class TestExpressions
         // the Let-bound operand may itself fail, in which case TRY must swallow the failure
         assertThat(assertions.query("SELECT try(nullif(x / 0, 1)) FROM (VALUES 1) t(x)")).matches("VALUES cast(null AS integer)");
     }
+
+    @Test
+    public void testNullableNonDeterministicConditionsInFilter()
+    {
+        // The inner IF is always false or NULL, so these predicates must retain every row.
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE IF(IF(random() < 0.5, CAST(NULL AS boolean), false), false, true)"))
+                .matches("VALUES BIGINT '1000'");
+
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE CASE WHEN IF(random() < 0.5, CAST(NULL AS boolean), false) THEN false WHEN x < 0 THEN NULL ELSE true END"))
+                .matches("VALUES BIGINT '1000'");
+
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE NULLIF(true, IF(random() < 0.5, CAST(NULL AS boolean), false))"))
+                .matches("VALUES BIGINT '1000'");
+    }
+
+    @Test
+    public void testNullableNonDeterministicConditionInProjection()
+    {
+        assertThat(assertions.query("SELECT count_if(IF(IF(random() < 0.5, CAST(NULL AS boolean), false), false, true)) FROM UNNEST(sequence(1, 1000)) t(x)"))
+                .matches("VALUES BIGINT '1000'");
+    }
+
+    @Test
+    public void testNullableIfConditionInFilter()
+    {
+        assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[true, false, NULL]) t(x) WHERE IF(x, false, true)"))
+                .matches("VALUES false, CAST(NULL AS boolean)");
+    }
 }

@@ -52,4 +52,18 @@ public class TestUnknownType
     {
         // unknown is always mull, so flat methods don't work
     }
+
+    @Test
+    @Override
+    public void testPreviousValueContract()
+    {
+        // unknown has no value so Type.getPrevousValue() cannot be called in a valid way
+    }
+
+    @Test
+    @Override
+    public void testNextValueContract()
+    {
+        // unknown has no value so Type.getNextValue() cannot be called in a valid way
+    }
 }

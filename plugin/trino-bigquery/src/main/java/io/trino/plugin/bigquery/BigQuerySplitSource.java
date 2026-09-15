@@ -212,7 +212,7 @@ public class BigQuerySplitSource
 
         String schemaString = getSchemaAsString(readSession);
         return readSession.getStreamsList().stream()
-                .map(stream -> BigQuerySplit.forStream(stream.getName(), schemaString, columns, OptionalInt.of(stream.getSerializedSize())))
+                .map(stream -> BigQuerySplit.forStream(readSession.getTraceId(), stream.getName(), schemaString, columns, OptionalInt.of(stream.getSerializedSize())))
                 .collect(toImmutableList());
     }
 

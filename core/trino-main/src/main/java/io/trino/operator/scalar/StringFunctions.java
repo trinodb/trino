@@ -964,7 +964,6 @@ public final class StringFunctions
         return Chars.padSpaces(slice, toIntExact(x));
     }
 
-    // TODO: implement N arguments char concat
     @Description("Concatenates given character strings")
     // Given CHAR type max length, if the result type is valid, allocation cannot fail.
     @ScalarFunction(neverFails = true)

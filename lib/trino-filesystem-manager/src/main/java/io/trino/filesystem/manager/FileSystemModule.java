@@ -31,7 +31,6 @@ import io.trino.filesystem.cache.CacheSplitAffinityProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.filesystem.cache.SplitAffinityProvider;
-import io.trino.filesystem.cache.TieredBlobCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.local.LocalFileSystemConfig;
@@ -135,31 +134,20 @@ public class FileSystemModule
     @Singleton
     Optional<BlobCache> createBlobCache(FileSystemConfig config)
     {
-        Optional<BlobCache> metadataCache = Optional.empty();
+        if (config.isCacheEnabled()) {
+            // The operator explicitly enabled caching for this catalog, so every node must have a
+            // manager providing it. The data cache also serves coordinator metadata reads.
+            return Optional.of(context.getCacheFactory().createBlobCache(DATA_CACHE_REQUIREMENTS)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "fs.cache.enabled is set for catalog %s but no loaded blob cache manager provides %s: configure one via cache-manager.config-files".formatted(
+                                    catalogName, DATA_CACHE_REQUIREMENTS.capabilities()))));
+        }
         if (coordinatorFileCaching && isCoordinator) {
             // Metadata caching is an engine default, not an operator opt-in: degrade quietly
             // when no manager provides it
-            metadataCache = context.getCacheFactory().createBlobCache(METADATA_CACHE_REQUIREMENTS);
+            return context.getCacheFactory().createBlobCache(METADATA_CACHE_REQUIREMENTS);
         }
-
-        if (!config.isCacheEnabled()) {
-            return metadataCache;
-        }
-
-        // The operator explicitly enabled caching for this catalog, so every node must have a
-        // manager providing it
-        BlobCache dataCache = context.getCacheFactory().createBlobCache(DATA_CACHE_REQUIREMENTS)
-                .orElseThrow(() -> new IllegalStateException(
-                        "fs.cache.enabled is set for catalog %s but no loaded blob cache manager provides %s: configure one via cache-manager.config-files".formatted(
-                                catalogName, DATA_CACHE_REQUIREMENTS.capabilities())));
-
-        if (metadataCache.isEmpty()) {
-            return Optional.of(dataCache);
-        }
-        // The coordinator plans over small metadata files, which the data cache holds as well
-        // but without the latency a hit in the metadata cache guarantees, so keep that tier in
-        // front of it rather than letting data caching displace it
-        return Optional.of(new TieredBlobCache(metadataCache.orElseThrow(), dataCache));
+        return Optional.empty();
     }
 
     @Provides

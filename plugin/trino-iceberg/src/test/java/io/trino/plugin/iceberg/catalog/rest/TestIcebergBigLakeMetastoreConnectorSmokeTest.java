@@ -20,7 +20,6 @@ import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -37,6 +36,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Base64;
 
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -117,7 +117,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
+        TrinoCatalogFactory catalogFactory = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class);
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
         BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
         return table.operations().current().metadataFileLocation();

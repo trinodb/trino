@@ -54,6 +54,7 @@ import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
+import static io.trino.util.FastutilSetHelper.isDirectLongComparisonValidType;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
 import static java.lang.Math.toIntExact;
 
@@ -94,7 +95,10 @@ public class InCodeGenerator
             return SwitchGenerationCase.SET_CONTAINS;
         }
 
-        if (type.getJavaType() != long.class) {
+        // A white-list is used to select types eligible for DIRECT_SWITCH.
+        // For other types the long representation is not a faithful identity, e.g. REAL NaN
+        // is equal to itself bit-wise, but the EQUAL operator returns false for it.
+        if (!isDirectLongComparisonValidType(type)) {
             return SwitchGenerationCase.HASH_SWITCH;
         }
         for (Expression expression : values) {
@@ -121,6 +125,16 @@ public class InCodeGenerator
     {
         Type type = valueExpression.type();
         Class<?> javaType = type.getJavaType();
+
+        if (testExpressions.isEmpty()) {
+            // an empty IN list is an empty disjunction, i.e. false, regardless of the value
+            return new BytecodeBlock()
+                    .comment("IN ()")
+                    .append(generatorContext.generate(valueExpression))
+                    .pop(javaType)
+                    .append(generatorContext.wasNull().set(constantFalse()))
+                    .push(false);
+        }
 
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, testExpressions);
 
@@ -174,8 +188,6 @@ public class InCodeGenerator
 
         switch (switchGenerationCase) {
             case DIRECT_SWITCH -> {
-                // A white-list is used to select types eligible for DIRECT_SWITCH.
-                // For these types, it's safe to not use Trino HASH_CODE and EQUAL operator.
                 for (Object constantValue : constantValues) {
                     switchBuilder.addCase(toIntExact((Long) constantValue), jump(match));
                 }

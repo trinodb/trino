@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -20,6 +21,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -28,11 +30,13 @@ import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.type.DateTimes.roundToNearest;
 import static io.trino.util.DateTimeZoneIndex.unpackChronology;
+import static java.lang.Math.addExact;
 
 public final class TimestampWithTimeZoneOperators
 {
     private TimestampWithTimeZoneOperators() {}
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalDayToSecond
     {
@@ -45,7 +49,12 @@ public final class TimestampWithTimeZoneOperators
                 @SqlType("timestamp(p) with time zone") long packedEpochMillis,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis) + interval, unpackZoneKey(packedEpochMillis));
+            try {
+                return packDateTimeWithZone(addExact(unpackMillisUtc(packedEpochMillis), interval), unpackZoneKey(packedEpochMillis));
+            }
+            catch (IllegalArgumentException | ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+            }
         }
 
         @LiteralParameters({"p", "u"})
@@ -55,10 +64,16 @@ public final class TimestampWithTimeZoneOperators
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis() + interval, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
+            try {
+                return LongTimestampWithTimeZone.fromEpochMillisAndFraction(addExact(timestamp.getEpochMillis(), interval), timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
+            }
+            catch (IllegalArgumentException | ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+            }
         }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class IntervalDayToSecondPlusTimestamp
     {
@@ -85,6 +100,7 @@ public final class TimestampWithTimeZoneOperators
         }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalYearToMonth
     {
@@ -96,10 +112,15 @@ public final class TimestampWithTimeZoneOperators
                 @SqlType("timestamp(p) with time zone") long packedEpochMillis,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            long epochMillis = unpackMillisUtc(packedEpochMillis);
-            long result = unpackChronology(packedEpochMillis).monthOfYear().add(epochMillis, interval);
+            try {
+                long epochMillis = unpackMillisUtc(packedEpochMillis);
+                long result = unpackChronology(packedEpochMillis).monthOfYear().add(epochMillis, interval);
 
-            return packDateTimeWithZone(result, unpackZoneKey(packedEpochMillis));
+                return packDateTimeWithZone(result, unpackZoneKey(packedEpochMillis));
+            }
+            catch (IllegalArgumentException | ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+            }
         }
 
         @LiteralParameters("p")
@@ -108,13 +129,19 @@ public final class TimestampWithTimeZoneOperators
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            long epochMillis = timestamp.getEpochMillis();
-            long result = unpackChronology(timestamp.getTimeZoneKey()).monthOfYear().add(epochMillis, interval);
+            try {
+                long epochMillis = timestamp.getEpochMillis();
+                long result = unpackChronology(timestamp.getTimeZoneKey()).monthOfYear().add(epochMillis, interval);
 
-            return LongTimestampWithTimeZone.fromEpochMillisAndFraction(result, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
+                return LongTimestampWithTimeZone.fromEpochMillisAndFraction(result, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
+            }
+            catch (IllegalArgumentException | ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+            }
         }
     }
 
+    // fallible
     @ScalarOperator(ADD)
     public static final class IntervalYearToMonthPlusTimestamp
     {
@@ -139,6 +166,7 @@ public final class TimestampWithTimeZoneOperators
         }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusIntervalYearToMonth
     {
@@ -163,6 +191,7 @@ public final class TimestampWithTimeZoneOperators
         }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     public static final class TimestampMinusIntervalDayToSecond
     {

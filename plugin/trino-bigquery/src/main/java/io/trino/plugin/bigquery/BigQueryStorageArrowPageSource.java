@@ -75,7 +75,7 @@ public class BigQueryStorageArrowPageSource
         this.split = requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
         Schema schema = deserializeSchema(split.schemaString());
-        log.debug("Starting to read from %s", split.streamName());
+        log.debug("Trace id: %s, Stream: %s, Starting to read", split.traceId(), split.streamName());
         responses = new ReadRowsHelper(bigQueryReadClient, split.streamName(), maxReadRowsRetries).readRows();
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
         this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(typeManager, schema, columns);
@@ -165,7 +165,7 @@ public class BigQueryStorageArrowPageSource
     {
         int serializedSize = response.getArrowRecordBatch().getSerializedSize();
         long totalReadSize = readBytes.addAndGet(serializedSize);
-        log.debug("Read %d bytes (total %d) from %s", serializedSize, totalReadSize, split.streamName());
+        log.debug("Trace id: %s, Stream: %s, Read %d bytes (total %d)", split.traceId(), split.streamName(), serializedSize, totalReadSize);
 
         try {
             return MessageSerializer.deserializeRecordBatch(readChannelForByteString(response.getArrowRecordBatch().getSerializedRecordBatch()), allocator);

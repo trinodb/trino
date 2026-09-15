@@ -376,7 +376,9 @@ public class TableWriterOperator
     public void close()
             throws Exception
     {
+        // closer runs in reverse registration order, so the sink memory is released after the abort completes
         AutoCloseableCloser closer = AutoCloseableCloser.create();
+        closer.register(pageSinkMemoryContext::close);
         if (!closed) {
             closed = true;
             if (!committed) {
@@ -385,7 +387,6 @@ public class TableWriterOperator
         }
         closer.register(() -> statisticAggregationOperator.getOperatorContext().destroy());
         closer.register(statisticAggregationOperator);
-        closer.register(pageSinkMemoryContext::close);
         closer.close();
     }
 

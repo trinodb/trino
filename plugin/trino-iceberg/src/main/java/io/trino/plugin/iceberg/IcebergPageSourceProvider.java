@@ -199,6 +199,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetSmallFi
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetIgnoreStatistics;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetVectorizedDecodingEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
@@ -439,6 +440,7 @@ public class IcebergPageSourceProvider
         // filter out deleted rows
         if (!deletes.isEmpty()) {
             Supplier<Optional<PageFilter>> deletePredicate = memoize(() -> {
+                LocalMemoryContext deletionVectorMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
                 Optional<PageFilter> pageFilter = getDeleteManager(partitionSpec, partitionData)
                         .getDeletePageFilter(
                                 path,
@@ -448,8 +450,9 @@ public class IcebergPageSourceProvider
                                 tableSchema,
                                 readerPageSourceWithRowPositions.startRowPosition(),
                                 readerPageSourceWithRowPositions.endRowPosition(),
-                                deleteFile -> readDeletionVector(fileSystem, deleteFile),
-                                (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext()));
+                                deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext),
+                                (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext()),
+                                deletionVectorMemoryContext::setBytes);
                 return pageFilter;
             });
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
@@ -568,16 +571,22 @@ public class IcebergPageSourceProvider
         return requiredColumns.build();
     }
 
-    private static DeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete)
+    private static DeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete, AggregatedMemoryContext memoryContext)
     {
         verify(delete.isDeletionVector(), "Not a deletion vector: %s", delete);
         TrinoInputFile trinoInputFile = fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes());
+        LocalMemoryContext readBufferMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
         try (TrinoInput trinoInput = trinoInputFile.newInput()) {
-            Slice slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), toIntExact(delete.contentSizeInBytes().orElseThrow()));
+            int contentSize = toIntExact(delete.contentSizeInBytes().orElseThrow());
+            readBufferMemoryContext.setBytes(contentSize);
+            Slice slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), contentSize);
             return DeletionVector.builder().deserialize(slice).build().orElseThrow();
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "Failed to read deletion vector file: " + delete.path(), e);
+        }
+        finally {
+            readBufferMemoryContext.close();
         }
     }
 
@@ -673,8 +682,7 @@ public class IcebergPageSourceProvider
                             .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                             .withIgnoreStatistics(isParquetIgnoreStatistics(session))
                             .withBloomFilter(useParquetBloomFilter(session))
-                            // TODO https://github.com/trinodb/trino/issues/11000
-                            .withUseColumnIndex(false)
+                            .withUseColumnIndex(isParquetUseColumnIndex(session))
                             .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
                             .build(),
                     predicate,
@@ -1278,7 +1286,7 @@ public class IcebergPageSourceProvider
                     memoryContext,
                     options,
                     exception -> handleException(dataSourceId, exception),
-                    Optional.empty(),
+                    Optional.of(parquetPredicate),
                     Optional.empty(),
                     parquetMetadata.getDecryptionContext());
 
@@ -2200,6 +2208,12 @@ public class IcebergPageSourceProvider
         public Page getPage()
         {
             return sourcePage.getColumns(channels);
+        }
+
+        @Override
+        public boolean trySelectPositions(int[] positions, int offset, int size)
+        {
+            return sourcePage.trySelectPositions(positions, offset, size);
         }
 
         @Override

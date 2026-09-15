@@ -783,7 +783,8 @@ a object storage path specified with the required `location` parameter. The
 files must use the specified `format`, with `ORC` and `PARQUET` as valid values.
 The target Iceberg table must use the same format as the added files. The
 procedure does not validate file schemas for compatibility with the target
-Iceberg table. The `location` property is supported for partitioned tables.
+Iceberg table. The `location` property is not supported for partitioned
+tables.
 
 The following examples copy `ORC`-format files from the location
 `s3://my-bucket/a/path` into the Iceberg table `iceberg_customer_orders` in the
@@ -1301,6 +1302,13 @@ write.format.default   | PARQUET  |
 
 The `$history` table provides a log of the metadata changes performed on the
 Iceberg table.
+
+The table is derived from the snapshot log, which records each change to the
+current snapshot. Snapshots which never became current, such as intermediate
+snapshots of a multi-snapshot commit or snapshots on a branch, do not appear.
+A snapshot which became current more than once, for example after
+`rollback_to_snapshot`, appears once for each time it became current. The 
+`$snapshots` table lists all snapshots.
 
 You can retrieve the changelog of the Iceberg table `test_table` by using the
 following query:

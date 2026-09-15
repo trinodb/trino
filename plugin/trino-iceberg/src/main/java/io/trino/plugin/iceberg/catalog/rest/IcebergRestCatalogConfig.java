@@ -61,10 +61,12 @@ public class IcebergRestCatalogConfig
     private SessionType sessionType = SessionType.NONE;
     private Duration connectionTimeout;
     private Duration socketTimeout;
+    private int maxRetries = 5;
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
     private boolean serverAssignedTableLocationEnabled;
+    private boolean metricsReportingEnabled = true;
     private boolean caseInsensitiveNameMatching;
     private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
@@ -180,6 +182,20 @@ public class IcebergRestCatalogConfig
         return this;
     }
 
+    @Min(1)
+    public int getMaxRetries()
+    {
+        return maxRetries;
+    }
+
+    @Config("iceberg.rest-catalog.max-retries")
+    @ConfigDescription("Maximum number of retry attempts for failed REST catalog HTTP requests")
+    public IcebergRestCatalogConfig setMaxRetries(int maxRetries)
+    {
+        this.maxRetries = maxRetries;
+        return this;
+    }
+
     @NotNull
     @MinDuration("0ms")
     public Duration getSessionTimeout()
@@ -231,6 +247,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setServerAssignedTableLocationEnabled(boolean serverAssignedTableLocationEnabled)
     {
         this.serverAssignedTableLocationEnabled = serverAssignedTableLocationEnabled;
+        return this;
+    }
+
+    public boolean isMetricsReportingEnabled()
+    {
+        return metricsReportingEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.metrics-reporting-enabled")
+    @ConfigDescription("Report table scan and commit metrics to the REST catalog server")
+    public IcebergRestCatalogConfig setMetricsReportingEnabled(boolean metricsReportingEnabled)
+    {
+        this.metricsReportingEnabled = metricsReportingEnabled;
         return this;
     }
 

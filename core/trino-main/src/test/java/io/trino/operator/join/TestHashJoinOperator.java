@@ -30,6 +30,7 @@ import io.trino.execution.TaskStateMachine;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
+import io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorAssertion;
@@ -60,6 +61,7 @@ import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -97,8 +99,10 @@ import static io.trino.operator.join.JoinTestUtils.innerJoinOperatorFactory;
 import static io.trino.operator.join.JoinTestUtils.instantiateBuildDrivers;
 import static io.trino.operator.join.JoinTestUtils.runDriverInThread;
 import static io.trino.operator.join.JoinTestUtils.setupBuildSide;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
@@ -140,6 +144,22 @@ public class TestHashJoinOperator
     {
         testInnerJoin(true);
         testInnerJoin(false);
+    }
+
+    @Test
+    public void testHashTableSizeLimit()
+    {
+        assertTrinoExceptionThrownBy(() -> JoinHashSupplier.getEstimatedRetainedSizeInBytes(
+                1_000_000_001,
+                new LongArrayList(),
+                ImmutableList.of(),
+                0,
+                OptionalInt.empty(),
+                OptionalInt.empty(),
+                new IncrementalLoadFactorHashArraySizeSupplier(1)))
+                .hasErrorCode(GENERIC_INTERNAL_ERROR)
+                .hasMessage("Failed to determine hash table size: Too large (1000000001 expected elements with load factor 0.75)")
+                .hasCauseInstanceOf(IllegalArgumentException.class);
     }
 
     private void testInnerJoin(boolean parallelBuild)

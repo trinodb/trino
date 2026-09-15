@@ -11,16 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.deltalake;
+package io.trino;
 
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import io.airlift.units.DataSize;
+import io.trino.spi.TrinoException;
 
-public class DeltaLakeDatabricks133Environment
-        extends DeltaLakeDatabricksEnvironment
+import static io.trino.spi.StandardErrorCode.EXCEEDED_OUTPUT_LIMIT;
+
+public class ExceededOutputLimitException
+        extends TrinoException
 {
-    @Override
-    protected String databricksJdbcUrl()
+    public ExceededOutputLimitException(DataSize limit)
     {
-        return appendJdbcOption(requireEnv("DATABRICKS_133_JDBC_URL"), "EnableArrow=0");
+        super(EXCEEDED_OUTPUT_LIMIT, "Exceeded output data size limit of " + limit);
     }
 }

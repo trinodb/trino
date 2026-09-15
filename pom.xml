@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>405</version>
+        <version>411</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -185,7 +185,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>445</dep.airlift.version>
+        <dep.airlift.version>448</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.2</dep.avro.version>
@@ -204,18 +204,18 @@
         <dep.jna.version>5.19.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
-        <dep.netty.version>4.2.17.Final</dep.netty.version>
+        <dep.netty.version>4.2.18.Final</dep.netty.version>
         <dep.okhttp.version>5.5.0</dep.okhttp.version>
-        <dep.okio.version>3.18.1</dep.okio.version>
-        <dep.parquet.version>1.18.0</dep.parquet.version>
-        <dep.protobuf.version>4.36.0</dep.protobuf.version>
+        <dep.okio.version>3.18.2</dep.okio.version>
+        <dep.parquet.version>1.18.1</dep.parquet.version>
+        <dep.protobuf.version>4.36.1</dep.protobuf.version>
         <dep.sis.version>1.6</dep.sis.version>
-        <dep.snowflake.version>4.3.3</dep.snowflake.version>
-        <dep.swagger.version>2.2.54</dep.swagger.version>
+        <dep.snowflake.version>4.3.4</dep.snowflake.version>
+        <dep.swagger.version>2.2.55</dep.swagger.version>
         <dep.takari.version>2.3.4</dep.takari.version>
-        <dep.tcnative.version>2.0.81.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.84.Final</dep.tcnative.version>
         <dep.testng.version>7.8.0</dep.testng.version>
-        <dep.zookeeper.version>3.9.5</dep.zookeeper.version>
+        <dep.zookeeper.version>3.9.6</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
         Instructs Provisio to write runtime dependencies in the format groupId_artifactId-version.jar.
@@ -248,7 +248,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.87.0</version>
+                <version>26.88.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -328,7 +328,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.54.4</version>
+                <version>2.54.15</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -350,7 +350,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-core-tracing-opentelemetry</artifactId>
-                <version>1.0.0-beta.65</version>
+                <version>1.0.0-beta.66</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.azure</groupId>
@@ -410,7 +410,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>26.2.8</version>
+                <version>26.2.9</version>
             </dependency>
 
             <dependency>
@@ -440,7 +440,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>4.0.4</version>
+                <version>4.0.5</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -617,6 +617,12 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
+                <artifactId>guice</artifactId>
+                <version>${dep.airlift.guice.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.3</version>
             </dependency>
@@ -638,7 +644,7 @@
                 <artifactId>discovery-server</artifactId>
                 <version>1.37</version>
                 <exclusions>
-                    <!-- exclude shaded guice dependency as we bring classes only variant -->
+                    <!-- exclude shaded guice dependency as we use the io.airlift:guice fork -->
                     <exclusion>
                         <groupId>com.google.inject</groupId>
                         <artifactId>guice</artifactId>
@@ -760,7 +766,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.39</version>
+                <version>4.2.40</version>
             </dependency>
 
             <dependency>
@@ -2159,7 +2165,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>4.2.2</version>
+                <version>4.2.3</version>
             </dependency>
 
             <dependency>
@@ -2183,7 +2189,7 @@
             <dependency>
                 <groupId>org.conscrypt</groupId>
                 <artifactId>conscrypt-openjdk-uber</artifactId>
-                <version>2.6.3</version>
+                <version>2.7.0</version>
             </dependency>
 
             <dependency>
@@ -2268,7 +2274,7 @@
             <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
-                <version>1.6.20</version>
+                <version>1.6.22</version>
             </dependency>
 
             <dependency>
@@ -2287,7 +2293,7 @@
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>2.6</version>
+                <version>2.7</version>
             </dependency>
 
             <dependency>
@@ -2439,6 +2445,9 @@
                                     <exclude>org.apache.logging.log4j:log4j-core</exclude>
                                     <!-- 1.x versions are banned due to https://www.cve.org/CVERecord?id=CVE-2022-1471 -->
                                     <exclude>org.yaml:snakeyaml</exclude>
+                                    <!-- use the io.airlift:guice fork -->
+                                    <exclude>com.google.inject:guice</exclude>
+                                    <exclude>aopalliance:aopalliance</exclude>
                                     <!-- use Guice version -->
                                     <exclude>javax.inject:javax.inject</exclude>
                                     <!-- use Jakarta version -->

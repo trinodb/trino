@@ -226,6 +226,11 @@ public class IrExpressionEvaluator
     {
         Object value = evaluate(expression.value(), session, bindings);
 
+        if (expression.valueList().isEmpty()) {
+            // an empty IN list is an empty disjunction, i.e. false, regardless of the value
+            return false;
+        }
+
         if (value == null) {
             return null;
         }

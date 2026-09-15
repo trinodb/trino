@@ -89,6 +89,7 @@ import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockPosi
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.updateOutputPositions;
 import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.FastutilSetHelper.isDirectLongComparisonValidType;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -206,8 +207,6 @@ public class InColumnarFilterGenerator
         }
 
         if (useSwitchCase) {
-            // A white-list is used to select types eligible for DIRECT_SWITCH.
-            // For these types, it's safe to not use Trino HASH_CODE and EQUAL operator.
             LabelNode end = new LabelNode("end");
             LabelNode match = new LabelNode("match");
             LabelNode defaultLabel = new LabelNode("default");
@@ -287,7 +286,10 @@ public class InColumnarFilterGenerator
             return false;
         }
 
-        if (type.getJavaType() != long.class) {
+        // A white-list is used to select types eligible for switch case generation.
+        // For other types the long representation is not a faithful identity, e.g. REAL NaN
+        // is equal to itself bit-wise, but the EQUAL operator returns false for it.
+        if (!isDirectLongComparisonValidType(type)) {
             return false;
         }
         for (Expression expression : values) {

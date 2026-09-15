@@ -501,6 +501,10 @@ following properties:
 * - `iceberg.rest-catalog.socket-timeout`
   - Maximum time [Duration](prop-type-duration) allowed socket read/write operations
     before timing out.
+* - `iceberg.rest-catalog.max-retries`
+  - Maximum number of retry attempts for failed REST catalog HTTP requests
+    (default: `5`). Only idempotent requests, such as `GET`, are retried on
+    server errors; retries use exponential backoff.
 * - `iceberg.rest-catalog.session-timeout`
   - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`
@@ -529,6 +533,9 @@ following properties:
     Defaults to `false`.
 * - `iceberg.rest-catalog.view-endpoints-enabled`
   - Enable view endpoints. Defaults to `true`.
+* - `iceberg.rest-catalog.metrics-reporting-enabled`
+  - Report table scan and commit metrics to the REST catalog server. Defaults
+    to `true`.
 * - `iceberg.rest-catalog.server-assigned-table-location-enabled`
   - Let the REST catalog server assign locations for created tables instead of
     computing a default location from the namespace location. Must be enabled

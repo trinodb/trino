@@ -135,6 +135,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
         int readTimes = 3;
         assertCacheOperations(0, location, content, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 11), readTimes)
                         .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 11), readTimes)
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 11))
@@ -151,6 +153,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
         readTimes = 7;
         assertCacheOperations(0, location, modifiedContent, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .add(new CacheOperationSpan("Input.readFully", location.toString(), 16))
                         .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 16))
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 16))
@@ -174,6 +178,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
         assertCacheOperations(location, Arrays.copyOf(content, PAGE_SIZE),
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .add(new CacheOperationSpan("Alluxio.readCached", "memory:///partial", 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("Input.readFully", location.toString(), 0, PAGE_SIZE))
@@ -183,6 +189,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
         assertCacheOperations(location, Arrays.copyOf(content, PAGE_SIZE + 10),
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), 0, PAGE_SIZE + 10))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), PAGE_SIZE, 10))
@@ -193,6 +201,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
         assertCacheOperations(location, Arrays.copyOf(content, PAGE_SIZE + 10),
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), PAGE_SIZE, 10))
                         .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), PAGE_SIZE + 10))
@@ -200,6 +209,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
         assertCacheOperations(location, content,
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), PAGE_SIZE, PAGE_SIZE))
                         .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), 0, PAGE_SIZE * 2))
@@ -221,6 +231,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
         assertCacheOperations(location, Arrays.copyOf(content, PAGE_SIZE + 1),
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), PAGE_SIZE, PAGE_SIZE))
@@ -231,6 +243,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
         cacheKeyProvider.increaseCacheVersion();
         assertCacheOperations(location, Arrays.copyOf(content, 2 * PAGE_SIZE),
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, PAGE_SIZE))
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), PAGE_SIZE, PAGE_SIZE))
@@ -283,6 +297,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
         int readTimes = 3;
         assertCacheOperations(0, location, content, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 12), readTimes)
                         .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 12), readTimes)
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 12))
@@ -298,6 +314,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
         assertCacheOperations(location, content,
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), 12))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 12))
                         .add(new CacheOperationSpan("Input.readFully", location.toString(), 12))
@@ -320,6 +338,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
         int readTimes = 3;
         assertCacheOperations(0, location, content, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 14), readTimes)
                         .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 14), readTimes)
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 14))
@@ -335,6 +355,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
         assertCacheOperations(location, content,
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), 14))
                         .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 14))
                         .add(new CacheOperationSpan("Input.readFully", location.toString(), 14))
@@ -357,6 +379,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
         int readTimes = 5;
         assertCacheOperations(8, location, readContent, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                        .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 8, 2), readTimes)
                         .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 8, 2), readTimes)
                         .add(new CacheOperationSpan("Input.readFully", location.toString(), 0, 11))
@@ -384,6 +408,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
             throws IOException
     {
         ImmutableMultiset.Builder<CacheOperationSpan> builder = ImmutableMultiset.<CacheOperationSpan>builder()
+                .add(new CacheOperationSpan("InputFile.length", location.toString()))
                 .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), 0, fileSize));
 
         for (int offset = 0; offset < fileSize; offset = offset + PAGE_SIZE) {
@@ -397,6 +422,8 @@ public class TestAlluxioCacheFileSystemAccessOperations
             throws IOException
     {
         ImmutableMultiset.Builder<CacheOperationSpan> builder = ImmutableMultiset.<CacheOperationSpan>builder()
+                .add(new CacheOperationSpan("InputFile.length", location.toString()))
+                .add(new CacheOperationSpan("InputFile.newInput", location.toString()))
                 .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), fileSize))
                 .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), fileSize))
                 .add(new CacheOperationSpan("Input.readFully", location.toString(), fileSize));
@@ -446,20 +473,30 @@ public class TestAlluxioCacheFileSystemAccessOperations
     private Multiset<CacheOperationSpan> getCacheOperations(List<SpanData> spans)
     {
         return spans.stream()
-                .filter(span -> span.getName().startsWith("Input.") || span.getName().startsWith("Alluxio"))
+                .filter(span -> span.getName().startsWith("Input.") || span.getName().startsWith("InputFile.") || span.getName().startsWith("Alluxio"))
                 .map(CacheOperationSpan::create)
                 .collect(toCollection(HashMultiset::create));
     }
 
     private record CacheOperationSpan(String spanName, String location, long position, long length)
     {
-        public CacheOperationSpan(String spanName, String location, long length)
+        CacheOperationSpan(String spanName, String location, long length)
         {
             this(spanName, location, 0, length);
         }
 
-        public static CacheOperationSpan create(SpanData span)
+        CacheOperationSpan(String spanName, String location)
         {
+            this(spanName, location, 0, 0);
+        }
+
+        static CacheOperationSpan create(SpanData span)
+        {
+            // Delegate calls made by the cache itself, which cost a round trip to remote storage
+            if (span.getName().startsWith("InputFile.")) {
+                return new CacheOperationSpan(span.getName(), getLocation(span));
+            }
+
             Attributes attributes = span.getAttributes();
 
             long length = switch (span.getName()) {
@@ -493,7 +530,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
     private static String getLocation(SpanData span)
     {
-        if (span.getName().startsWith("Input.")) {
+        if (span.getName().startsWith("Input.") || span.getName().startsWith("InputFile.")) {
             return requireNonNull(span.getAttributes().get(FILE_LOCATION));
         }
         return requireNonNullElse(span.getAttributes().get(CACHE_FILE_LOCATION), span.getAttributes().get(CACHE_KEY));

@@ -134,12 +134,19 @@ public class AggregationOperator
         checkState(needsInput(), "Operator is already finishing");
         requireNonNull(page, "page is null");
 
-        long memorySize = 0;
         for (Aggregator aggregate : aggregates) {
             aggregate.processPage(page);
+        }
+        updateMemoryUsage();
+    }
+
+    private boolean updateMemoryUsage()
+    {
+        long memorySize = 0;
+        for (Aggregator aggregate : aggregates) {
             memorySize += aggregate.getEstimatedSize();
         }
-        userMemoryContext.setBytes(memorySize);
+        return userMemoryContext.setBytes(memorySize).isDone();
     }
 
     @Override
@@ -157,11 +164,15 @@ public class AggregationOperator
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
         PageBuilder pageBuilder = new PageBuilder(1, types);
 
+        // an aggregator can grow while producing final output (e.g. ordered aggregation replaying
+        // its buffered pages into a distinct hash); report that growth as it happens
+        UpdateMemory updateMemory = this::updateMemoryUsage;
+
         pageBuilder.declarePosition();
         for (int i = 0; i < aggregates.size(); i++) {
             Aggregator aggregator = aggregates.get(i);
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-            aggregator.evaluate(blockBuilder);
+            aggregator.evaluate(blockBuilder, updateMemory);
         }
 
         state = State.FINISHED;

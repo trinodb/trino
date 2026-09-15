@@ -36,7 +36,6 @@ import static java.lang.String.format;
 class TestDeltaLakeCreateTableAsSelectCompatibilityDatabricks
 {
     @Test
-    @TestGroup.DeltaLakeDatabricks143
     @TestGroup.DeltaLakeDatabricks154
     @TestGroup.DeltaLakeDatabricks164
     @TestGroup.DeltaLakeDatabricks173
