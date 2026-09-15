@@ -35,6 +35,7 @@ import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.view.ViewMetadata;
 
 import java.util.Iterator;
 import java.util.List;
@@ -179,6 +180,8 @@ public interface TrinoCatalog
     void setViewPrincipal(ConnectorSession session, SchemaTableName schemaViewName, TrinoPrincipal principal);
 
     void dropView(ConnectorSession session, SchemaTableName schemaViewName);
+
+    void registerView(ConnectorSession session, SchemaTableName schemaViewName, ViewMetadata viewMetadata);
 
     Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace);
 

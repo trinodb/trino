@@ -536,6 +536,15 @@ public class TrinoJdbcCatalog
     }
 
     @Override
+    public void registerView(ConnectorSession session, SchemaTableName schemaViewName, ViewMetadata viewMetadata)
+    {
+        if (schemaVersion == SchemaVersion.V0) {
+            throw new TrinoException(NOT_SUPPORTED, "Schema version V0 does not support views");
+        }
+        jdbcCatalog.registerView(toIdentifier(schemaViewName), viewMetadata.metadataFileLocation());
+    }
+
+    @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
         if (schemaVersion == SchemaVersion.V0) {
