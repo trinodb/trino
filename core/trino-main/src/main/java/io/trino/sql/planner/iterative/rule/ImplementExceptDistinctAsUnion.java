@@ -91,14 +91,14 @@ public class ImplementExceptDistinctAsUnion
 
         // except predicate: the row must be present in the first source and absent in all the other sources
         ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-        predicatesBuilder.add(comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN_OR_EQUAL, result.getCountSymbols().get(0).toSymbolReference(), new Constant(BIGINT, 1L)));
+        predicatesBuilder.add(comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN_OR_EQUAL, result.countSymbols().get(0).toSymbolReference(), new Constant(BIGINT, 1L)));
         for (int i = 1; i < node.getSources().size(); i++) {
-            predicatesBuilder.add(comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, result.getCountSymbols().get(i).toSymbolReference(), new Constant(BIGINT, 0L)));
+            predicatesBuilder.add(comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, result.countSymbols().get(i).toSymbolReference(), new Constant(BIGINT, 0L)));
         }
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        new FilterNode(context.getIdAllocator().getNextId(), result.getPlanNode(), and(predicatesBuilder.build())),
+                        new FilterNode(context.getIdAllocator().getNextId(), result.planNode(), and(predicatesBuilder.build())),
                         Assignments.identity(node.getOutputSymbols())));
     }
 }
