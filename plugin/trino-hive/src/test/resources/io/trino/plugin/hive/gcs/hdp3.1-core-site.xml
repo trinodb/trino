@@ -58,7 +58,7 @@
 
     <property>
       <name>google.cloud.auth.service.account.json.keyfile</name>
-      <value>/etc/hadoop/conf/gcp-credentials.json</value>
+      <value>/opt/hadoop/etc/hadoop/gcp-credentials.json</value>
       <description>
         The JSON key file of the service account used for GCS
         access when google.cloud.auth.service.account.enable is true.

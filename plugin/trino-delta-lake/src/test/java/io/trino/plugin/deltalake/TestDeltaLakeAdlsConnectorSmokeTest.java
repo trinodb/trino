@@ -102,7 +102,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         HiveHadoop hiveHadoop = HiveHadoop.builder()
                 .withImage(HIVE3_IMAGE)
                 .withNetwork(closeAfterClass(newNetwork()))
-                .withFilesToMount(ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()))
+                .withFilesToMount(ImmutableMap.of("/opt/hadoop/etc/hadoop/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()))
                 .build();
         hiveHadoop.start();
         return hiveHadoop; // closed by superclass

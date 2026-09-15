@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.containers;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
@@ -37,7 +37,7 @@ public class HiveHadoop
 {
     private static final Logger log = Logger.get(HiveHadoop.class);
 
-    public static final String HIVE3_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive:" + TestingProperties.getDockerImagesVersion();
+    public static final String HIVE3_IMAGE = "ghcr.io/trinodb/testing/hive3.1:" + TestingProperties.getDockerImagesVersion();
 
     public static final String HOST_NAME = "hadoop-master";
 
@@ -61,7 +61,10 @@ public class HiveHadoop
                 hostName,
                 ports,
                 filesToMount,
-                envVars,
+                ImmutableMap.<String, String>builder()
+                        .put("HIVE_METASTORE_HADOOP_OPTS", "-Dhive.users.in.admin.role=hdfs,hive")
+                        .putAll(envVars)
+                        .buildKeepingLast(),
                 network,
                 startupRetryLimit);
     }
@@ -70,12 +73,6 @@ public class HiveHadoop
     protected void setupContainer()
     {
         super.setupContainer();
-        String runCmd = "/usr/local/hadoop-run.sh";
-        copyResourceToContainer("containers/hive_hadoop/hadoop-run.sh", runCmd);
-        withRunCommand(
-                ImmutableList.of(
-                        "/bin/bash",
-                        runCmd));
         withLogConsumer(new PrintingLogConsumer("Hadoop"));
     }
 

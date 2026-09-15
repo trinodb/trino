@@ -74,7 +74,7 @@ public class TestIcebergAbfsConnectorSmokeTest
 
         this.hiveHadoop = closeAfterClass(HiveHadoop.builder()
                 .withImage(HiveHadoop.HIVE3_IMAGE)
-                .withFilesToMount(ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()))
+                .withFilesToMount(ImmutableMap.of("/opt/hadoop/etc/hadoop/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()))
                 .build());
         this.hiveHadoop.start();
 

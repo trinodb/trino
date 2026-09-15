@@ -60,8 +60,8 @@ public final class GcsHiveQueryRunner
                 .withImage(HIVE3_IMAGE)
                 .withNetwork(newNetwork())
                 .withFilesToMount(ImmutableMap.of(
-                        "/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("io/trino/plugin/hive/gcs/hdp3.1-core-site.xml"),
-                        "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()))
+                        "/opt/hadoop/etc/hadoop/core-site.xml", getPathFromClassPathResource("io/trino/plugin/hive/gcs/hdp3.1-core-site.xml"),
+                        "/opt/hadoop/etc/hadoop/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()))
                 .build();
     }
 
