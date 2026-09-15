@@ -880,7 +880,16 @@ public class PredicatePushDown
                     combineConjuncts(postJoinConjuncts.build()));
         }
 
-        private record OuterJoinPushDownResult(Expression outerJoinPredicate, Expression innerJoinPredicate, Expression joinPredicate, Expression postJoinPredicate) {}
+        private record OuterJoinPushDownResult(Expression outerJoinPredicate, Expression innerJoinPredicate, Expression joinPredicate, Expression postJoinPredicate)
+        {
+            private OuterJoinPushDownResult
+            {
+                requireNonNull(outerJoinPredicate, "outerJoinPredicate is null");
+                requireNonNull(innerJoinPredicate, "innerJoinPredicate is null");
+                requireNonNull(joinPredicate, "joinPredicate is null");
+                requireNonNull(postJoinPredicate, "postJoinPredicate is null");
+            }
+        }
 
         private InnerJoinPushDownResult processInnerJoin(
                 Expression inheritedPredicate,
