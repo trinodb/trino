@@ -34,22 +34,17 @@ import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.containers.Floci;
 import io.trino.testing.containers.IcebergS3RestCatalogBackendContainer;
-import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.testcontainers.containers.Network;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
 import java.io.File;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -68,11 +63,9 @@ import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_PORT;
 import static io.trino.testing.containers.Floci.FLOCI_REGION;
 import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
@@ -252,9 +245,9 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static final class IcebergMinioRestQueryRunnerMain
+    public static final class IcebergFlociRestQueryRunnerMain
     {
-        private IcebergMinioRestQueryRunnerMain() {}
+        private IcebergFlociRestQueryRunnerMain() {}
 
         static void main()
                 throws Exception
@@ -262,21 +255,21 @@ public final class IcebergQueryRunner
             String bucketName = "test-bucket";
             Network network = Network.newNetwork();
             @SuppressWarnings("resource")
-            Minio minio = Minio.builder().withNetwork(network).build();
-            minio.start();
-            minio.createBucket(bucketName);
+            Floci floci = new Floci().withNetwork(network).withNetworkAliases("floci");
+            floci.start();
+            floci.createBucket(bucketName);
 
             String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
-            AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
             @SuppressWarnings("resource")
             StsClient stsClient = StsClient.builder()
-                    .endpointOverride(URI.create(minio.getMinioAddress()))
-                    .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                    .region(Region.of(MINIO_REGION))
+                    .applyMutation(floci::updateClient)
                     .build();
 
-            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
+            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder()
+                    .roleArn("arn:aws:iam::000000000000:role/iceberg")
+                    .roleSessionName("iceberg-rest")
+                    .build());
             @SuppressWarnings("resource")
             IcebergS3RestCatalogBackendContainer restCatalogBackendContainer = new IcebergS3RestCatalogBackendContainer(
                     Optional.of(network),
@@ -284,8 +277,8 @@ public final class IcebergQueryRunner
                     assumeRoleResponse.credentials().accessKeyId(),
                     assumeRoleResponse.credentials().secretAccessKey(),
                     assumeRoleResponse.credentials().sessionToken(),
-                    "http://minio:4566",
-                    MINIO_REGION);
+                    "http://floci:" + FLOCI_PORT,
+                    FLOCI_REGION);
             restCatalogBackendContainer.start();
 
             @SuppressWarnings("resource")
@@ -297,24 +290,24 @@ public final class IcebergQueryRunner
                                     .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
                                     .put("iceberg.writer-sort-buffer-size", "1MB")
                                     .put("fs.s3.enabled", "true")
-                                    .put("s3.aws-access-key", MINIO_ROOT_USER)
-                                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                                    .put("s3.region", MINIO_REGION)
-                                    .put("s3.endpoint", minio.getMinioAddress())
+                                    .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                                    .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                                    .put("s3.region", FLOCI_REGION)
+                                    .put("s3.endpoint", floci.endpoint().toString())
                                     .put("s3.path-style-access", "true")
                                     .buildOrThrow())
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
-            Logger log = Logger.get(IcebergMinioRestQueryRunnerMain.class);
+            Logger log = Logger.get(IcebergFlociRestQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
     }
 
-    public static final class IcebergMinioRestVendingQueryRunnerMain
+    public static final class IcebergFlociRestVendingQueryRunnerMain
     {
-        private IcebergMinioRestVendingQueryRunnerMain() {}
+        private IcebergFlociRestVendingQueryRunnerMain() {}
 
         static void main()
                 throws Exception
@@ -322,21 +315,21 @@ public final class IcebergQueryRunner
             String bucketName = "test-bucket";
             Network network = Network.newNetwork();
             @SuppressWarnings("resource")
-            Minio minio = Minio.builder().withNetwork(network).build();
-            minio.start();
-            minio.createBucket(bucketName);
+            Floci floci = new Floci().withNetwork(network).withNetworkAliases("floci");
+            floci.start();
+            floci.createBucket(bucketName);
 
             String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
-            AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
             @SuppressWarnings("resource")
             StsClient stsClient = StsClient.builder()
-                    .endpointOverride(URI.create(minio.getMinioAddress()))
-                    .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                    .region(Region.of(MINIO_REGION))
+                    .applyMutation(floci::updateClient)
                     .build();
 
-            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
+            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder()
+                    .roleArn("arn:aws:iam::000000000000:role/iceberg")
+                    .roleSessionName("iceberg-rest")
+                    .build());
             @SuppressWarnings("resource")
             IcebergS3RestCatalogBackendContainer restCatalogBackendContainer = new IcebergS3RestCatalogBackendContainer(
                     Optional.of(network),
@@ -344,8 +337,8 @@ public final class IcebergQueryRunner
                     assumeRoleResponse.credentials().accessKeyId(),
                     assumeRoleResponse.credentials().secretAccessKey(),
                     assumeRoleResponse.credentials().sessionToken(),
-                    "http://minio:4566",
-                    MINIO_REGION);
+                    "http://floci:" + FLOCI_PORT,
+                    FLOCI_REGION);
             restCatalogBackendContainer.start();
 
             @SuppressWarnings("resource")
@@ -358,14 +351,14 @@ public final class IcebergQueryRunner
                                     .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                     .put("iceberg.writer-sort-buffer-size", "1MB")
                                     .put("fs.s3.enabled", "true")
-                                    .put("s3.region", MINIO_REGION)
-                                    .put("s3.endpoint", minio.getMinioAddress())
+                                    .put("s3.region", FLOCI_REGION)
+                                    .put("s3.endpoint", floci.endpoint().toString())
                                     .put("s3.path-style-access", "true")
                                     .buildOrThrow())
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
-            Logger log = Logger.get(IcebergMinioRestVendingQueryRunnerMain.class);
+            Logger log = Logger.get(IcebergFlociRestVendingQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -594,9 +587,9 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static final class IcebergMinioQueryRunnerMain
+    public static final class IcebergFlociQueryRunnerMain
     {
-        private IcebergMinioQueryRunnerMain() {}
+        private IcebergFlociQueryRunnerMain() {}
 
         static void main()
                 throws Exception
@@ -605,9 +598,9 @@ public final class IcebergQueryRunner
 
             String bucketName = "test-bucket";
             @SuppressWarnings("resource")
-            Minio minio = Minio.builder().build();
-            minio.start();
-            minio.createBucket(bucketName);
+            Floci floci = new Floci();
+            floci.start();
+            floci.createBucket(bucketName);
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
@@ -615,10 +608,10 @@ public final class IcebergQueryRunner
                             "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                             "hive.metastore.catalog.dir", "s3://%s/".formatted(bucketName),
                             "fs.s3.enabled", "true",
-                            "s3.aws-access-key", MINIO_ROOT_USER,
-                            "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
-                            "s3.region", MINIO_REGION,
-                            "s3.endpoint", "http://" + minio.getMinioApiEndpoint(),
+                            "s3.aws-access-key", FLOCI_ACCESS_KEY,
+                            "s3.aws-secret-key", FLOCI_SECRET_KEY,
+                            "s3.region", FLOCI_REGION,
+                            "s3.endpoint", floci.endpoint().toString(),
                             "s3.path-style-access", "true",
                             "s3.streaming.part-size", "5MB"))
                     .setSchemaInitializer(
@@ -628,7 +621,7 @@ public final class IcebergQueryRunner
                                     .build())
                     .build();
 
-            Logger log = Logger.get(IcebergMinioQueryRunnerMain.class);
+            Logger log = Logger.get(IcebergFlociQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
