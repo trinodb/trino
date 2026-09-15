@@ -1310,9 +1310,9 @@ public class PlanPrinter
                 operatorName += "Filter";
                 Expression predicate = filterNode.get().getPredicate();
                 DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
-                descriptor.put("filterPredicate", formatFilter(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
-                if (!extractResult.getDynamicConjuncts().isEmpty()) {
-                    dynamicFilters = extractResult.getDynamicConjuncts();
+                descriptor.put("filterPredicate", formatFilter(combineConjunctsWithDuplicates(extractResult.staticConjuncts())));
+                if (!extractResult.dynamicConjuncts().isEmpty()) {
+                    dynamicFilters = extractResult.dynamicConjuncts();
                     descriptor.put("dynamicFilters", printDynamicFilters(dynamicFilters));
                 }
             }

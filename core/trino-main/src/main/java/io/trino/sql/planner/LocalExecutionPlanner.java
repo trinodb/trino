@@ -2204,7 +2204,7 @@ public class LocalExecutionPlanner
         private Optional<Expression> getStaticFilter(Expression filterExpression)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-            Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
+            Expression staticFilter = combineConjuncts(extractDynamicFilterResult.staticConjuncts());
             if (staticFilter.equals(TRUE)) {
                 return Optional.empty();
             }
@@ -2217,7 +2217,7 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext context)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-            List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.getDynamicConjuncts();
+            List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.dynamicConjuncts();
             if (dynamicFilters.isEmpty()) {
                 return DynamicFilter.EMPTY;
             }
@@ -4265,7 +4265,7 @@ public class LocalExecutionPlanner
     {
         return extractExpressions(node)
                 .stream()
-                .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
+                .flatMap(expression -> extractDynamicFilters(expression).dynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)
                 .collect(toImmutableSet());
     }

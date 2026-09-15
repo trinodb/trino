@@ -192,25 +192,12 @@ public final class DynamicFilters
         return functionName.equals(builtinFunctionName(Function.NAME)) || functionName.equals(builtinFunctionName(NullableFunction.NAME));
     }
 
-    public static class ExtractResult
+    public record ExtractResult(List<Expression> staticConjuncts, List<Descriptor> dynamicConjuncts)
     {
-        private final List<Expression> staticConjuncts;
-        private final List<Descriptor> dynamicConjuncts;
-
-        public ExtractResult(List<Expression> staticConjuncts, List<Descriptor> dynamicConjuncts)
+        public ExtractResult
         {
-            this.staticConjuncts = ImmutableList.copyOf(requireNonNull(staticConjuncts, "staticConjuncts is null"));
-            this.dynamicConjuncts = ImmutableList.copyOf(requireNonNull(dynamicConjuncts, "dynamicConjuncts is null"));
-        }
-
-        public List<Expression> getStaticConjuncts()
-        {
-            return staticConjuncts;
-        }
-
-        public List<Descriptor> getDynamicConjuncts()
-        {
-            return dynamicConjuncts;
+            staticConjuncts = ImmutableList.copyOf(requireNonNull(staticConjuncts, "staticConjuncts is null"));
+            dynamicConjuncts = ImmutableList.copyOf(requireNonNull(dynamicConjuncts, "dynamicConjuncts is null"));
         }
     }
 

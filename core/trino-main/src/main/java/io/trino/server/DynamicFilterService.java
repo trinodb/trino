@@ -500,7 +500,7 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getConsumedDynamicFilters(PlanNode planNode)
     {
         return extractExpressions(planNode).stream()
-                .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
+                .flatMap(expression -> extractDynamicFilters(expression).dynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)
                 .collect(toImmutableSet());
     }
