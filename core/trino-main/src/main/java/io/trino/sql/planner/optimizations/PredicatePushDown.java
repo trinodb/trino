@@ -819,25 +819,25 @@ public class PredicatePushDown
             Set<Symbol> outerScope = ImmutableSet.copyOf(outerSymbols);
 
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(outerScope);
-            Expression outerOnlyInheritedEqualities = combineConjuncts(equalityPartition.getScopeEqualities());
+            Expression outerOnlyInheritedEqualities = combineConjuncts(equalityPartition.scopeEqualities());
             EqualityInference potentialNullSymbolInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
 
             // Push outer and join equalities into the inner side. For example:
             // SELECT * FROM nation LEFT OUTER JOIN region ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'
 
             EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = new EqualityInference(plannerContext, getCharVarcharCoercion(session), outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
-            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(innerScope).getScopeEqualities());
+            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(innerScope).scopeEqualities());
 
             // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
             EqualityInference.EqualityPartition joinEqualityPartition = new EqualityInference(plannerContext, getCharVarcharCoercion(session), joinPredicate).generateEqualitiesPartitionedBy(innerScope);
-            innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
-            joinConjuncts.addAll(joinEqualityPartition.getScopeComplementEqualities())
-                    .addAll(joinEqualityPartition.getScopeStraddlingEqualities());
+            innerPushdownConjuncts.addAll(joinEqualityPartition.scopeEqualities());
+            joinConjuncts.addAll(joinEqualityPartition.scopeComplementEqualities())
+                    .addAll(joinEqualityPartition.scopeStraddlingEqualities());
 
             // Add the equalities from the inferences back in
-            outerPushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
+            outerPushdownConjuncts.addAll(equalityPartition.scopeEqualities());
+            postJoinConjuncts.addAll(equalityPartition.scopeComplementEqualities());
+            postJoinConjuncts.addAll(equalityPartition.scopeStraddlingEqualities());
 
             // See if we can push inherited predicates down
             EqualityInference.nonInferrableConjuncts(plannerContext, getCharVarcharCoercion(session), inheritedPredicate).forEach(conjunct -> {
@@ -971,21 +971,21 @@ public class PredicatePushDown
                             .build());
 
             ImmutableList.Builder<Expression> leftPushDownConjuncts = ImmutableList.<Expression>builder()
-                    .addAll(inferenceWithoutLeft.generateEqualitiesPartitionedBy(leftScope).getScopeEqualities())
+                    .addAll(inferenceWithoutLeft.generateEqualitiesPartitionedBy(leftScope).scopeEqualities())
                     .addAll(rightResiduals.stream()
                             .map(conjunct -> allInference.rewrite(conjunct, leftScope))
                             .filter(Objects::nonNull)
                             .toList());
 
             ImmutableList.Builder<Expression> rightPushDownConjuncts = ImmutableList.<Expression>builder()
-                    .addAll(inferenceWithoutRight.generateEqualitiesPartitionedBy(rightScope).getScopeEqualities())
+                    .addAll(inferenceWithoutRight.generateEqualitiesPartitionedBy(rightScope).scopeEqualities())
                     .addAll(leftResiduals.stream()
                             .map(conjunct -> allInference.rewrite(conjunct, rightScope))
                             .filter(Objects::nonNull)
                             .toList());
 
             ImmutableList.Builder<Expression> joinConjuncts = ImmutableList.<Expression>builder()
-                    .addAll(allInference.generateEqualitiesPartitionedBy(leftScope).getScopeStraddlingEqualities())
+                    .addAll(allInference.generateEqualitiesPartitionedBy(leftScope).scopeStraddlingEqualities())
                     .addAll(nonDeterministic);
 
             residuals.forEach(conjunct -> {
@@ -1247,9 +1247,9 @@ public class PredicatePushDown
 
             // Add the inherited equality predicates back in
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(sourceScope);
-            sourceConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
+            sourceConjuncts.addAll(equalityPartition.scopeEqualities());
+            postJoinConjuncts.addAll(equalityPartition.scopeComplementEqualities());
+            postJoinConjuncts.addAll(equalityPartition.scopeStraddlingEqualities());
 
             PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(sourceConjuncts));
 
@@ -1334,8 +1334,8 @@ public class PredicatePushDown
                     .forEach(filteringSourceConjuncts::add);
 
             // Add equalities from the inference back in
-            sourceConjuncts.addAll(allInferenceWithoutSourceInferred.generateEqualitiesPartitionedBy(sourceScope).getScopeEqualities());
-            filteringSourceConjuncts.addAll(allInferenceWithoutFilteringSourceInferred.generateEqualitiesPartitionedBy(filterScope).getScopeEqualities());
+            sourceConjuncts.addAll(allInferenceWithoutSourceInferred.generateEqualitiesPartitionedBy(sourceScope).scopeEqualities());
+            filteringSourceConjuncts.addAll(allInferenceWithoutFilteringSourceInferred.generateEqualitiesPartitionedBy(filterScope).scopeEqualities());
 
             // Add dynamic filtering predicate
             Optional<DynamicFilterId> dynamicFilterId = node.getDynamicFilterId();
@@ -1398,9 +1398,9 @@ public class PredicatePushDown
 
             // Add the equality predicates back in
             EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(groupingKeys);
-            pushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postAggregationConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
-            postAggregationConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
+            pushdownConjuncts.addAll(equalityPartition.scopeEqualities());
+            postAggregationConjuncts.addAll(equalityPartition.scopeComplementEqualities());
+            postAggregationConjuncts.addAll(equalityPartition.scopeStraddlingEqualities());
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             EqualityInference.nonInferrableConjuncts(plannerContext, getCharVarcharCoercion(session), inheritedPredicate).forEach(conjunct -> {
@@ -1461,9 +1461,9 @@ public class PredicatePushDown
 
             // Add the equality predicates back in
             EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(replicatedSymbols);
-            pushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postUnnestConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
-            postUnnestConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
+            pushdownConjuncts.addAll(equalityPartition.scopeEqualities());
+            postUnnestConjuncts.addAll(equalityPartition.scopeComplementEqualities());
+            postUnnestConjuncts.addAll(equalityPartition.scopeStraddlingEqualities());
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             EqualityInference.nonInferrableConjuncts(plannerContext, getCharVarcharCoercion(session), inheritedPredicate).forEach(conjunct -> {

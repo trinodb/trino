@@ -262,7 +262,7 @@ public class EqualityInference
             }
         }
 
-        return new EqualityPartition(scopeEqualities.build(), scopeComplementEqualities.build(), scopeStraddlingEqualities.build());
+        return new EqualityPartition(scopeEqualities.build().asList(), scopeComplementEqualities.build().asList(), scopeStraddlingEqualities.build().asList());
     }
 
     /**
@@ -381,32 +381,13 @@ public class EqualityInference
         return symbolsCache.computeIfAbsent(expression, SymbolsExtractor::extractAll);
     }
 
-    public static class EqualityPartition
+    public record EqualityPartition(List<Expression> scopeEqualities, List<Expression> scopeComplementEqualities, List<Expression> scopeStraddlingEqualities)
     {
-        private final List<Expression> scopeEqualities;
-        private final List<Expression> scopeComplementEqualities;
-        private final List<Expression> scopeStraddlingEqualities;
-
-        public EqualityPartition(Iterable<Expression> scopeEqualities, Iterable<Expression> scopeComplementEqualities, Iterable<Expression> scopeStraddlingEqualities)
+        public EqualityPartition
         {
-            this.scopeEqualities = ImmutableList.copyOf(requireNonNull(scopeEqualities, "scopeEqualities is null"));
-            this.scopeComplementEqualities = ImmutableList.copyOf(requireNonNull(scopeComplementEqualities, "scopeComplementEqualities is null"));
-            this.scopeStraddlingEqualities = ImmutableList.copyOf(requireNonNull(scopeStraddlingEqualities, "scopeStraddlingEqualities is null"));
-        }
-
-        public List<Expression> getScopeEqualities()
-        {
-            return scopeEqualities;
-        }
-
-        public List<Expression> getScopeComplementEqualities()
-        {
-            return scopeComplementEqualities;
-        }
-
-        public List<Expression> getScopeStraddlingEqualities()
-        {
-            return scopeStraddlingEqualities;
+            scopeEqualities = ImmutableList.copyOf(requireNonNull(scopeEqualities, "scopeEqualities is null"));
+            scopeComplementEqualities = ImmutableList.copyOf(requireNonNull(scopeComplementEqualities, "scopeComplementEqualities is null"));
+            scopeStraddlingEqualities = ImmutableList.copyOf(requireNonNull(scopeStraddlingEqualities, "scopeStraddlingEqualities is null"));
         }
     }
 }
