@@ -616,29 +616,20 @@ public class PlanNodeDecorrelator
         return Sets.union(SymbolsExtractor.extractUnique(node, lookup), SymbolsExtractor.extractOutputSymbols(node, lookup)).stream().anyMatch(correlation::contains);
     }
 
-    public static class DecorrelatedNode
+    public record DecorrelatedNode(List<Expression> correlatedPredicates, PlanNode node)
     {
-        private final List<Expression> correlatedPredicates;
-        private final PlanNode node;
-
-        public DecorrelatedNode(List<Expression> correlatedPredicates, PlanNode node)
+        public DecorrelatedNode
         {
-            requireNonNull(correlatedPredicates, "correlatedPredicates is null");
-            this.correlatedPredicates = ImmutableList.copyOf(correlatedPredicates);
-            this.node = requireNonNull(node, "node is null");
+            correlatedPredicates = ImmutableList.copyOf(requireNonNull(correlatedPredicates, "correlatedPredicates is null"));
+            requireNonNull(node, "node is null");
         }
 
-        public Optional<Expression> getCorrelatedPredicates()
+        public Optional<Expression> correlatedPredicate()
         {
             if (correlatedPredicates.isEmpty()) {
                 return Optional.empty();
             }
             return Optional.of(and(correlatedPredicates));
-        }
-
-        public PlanNode getNode()
-        {
-            return node;
         }
     }
 }
