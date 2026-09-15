@@ -40,6 +40,7 @@ import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
+import io.trino.spi.TrinoException;
 import io.trino.spi.cache.BlobCache;
 import io.trino.spi.cache.CacheRequirements;
 import io.trino.spi.connector.ConnectorContext;
@@ -52,6 +53,7 @@ import java.util.function.Function;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.cache.CacheCapability.CAN_EXCEED_HEAP_SIZE;
 import static io.trino.spi.cache.CacheCapability.LOW_LATENCY;
 import static java.util.Objects.requireNonNull;
@@ -165,7 +167,7 @@ public class FileSystemModule
         Function<Location, TrinoFileSystemFactory> loader = location -> location.scheme()
                 .map(factories::get)
                 .or(() -> hdfsFactory)
-                .orElseThrow(() -> new IllegalArgumentException("No factory for location: " + location));
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Unsupported file system scheme %s for location: %s. Supported schemes: %s".formatted(location.scheme().orElse("(none)"), location, factories.keySet())));
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(loader);
         delegate = new TracingFileSystemFactory(tracer, delegate);
