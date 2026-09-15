@@ -30,7 +30,7 @@ public class TableTypeJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "table_types");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_type", VARCHAR)
+            .column("TABLE_TYPE", VARCHAR)
             .build();
 
     @Override

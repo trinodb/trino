@@ -2,10 +2,10 @@ SELECT
   "i_item_id"
 , "s_state"
 , GROUPING ("s_state") "g_state"
-, "avg"("ss_quantity") "agg1"
-, "avg"("ss_list_price") "agg2"
-, "avg"("ss_coupon_amt") "agg3"
-, "avg"("ss_sales_price") "agg4"
+, avg("ss_quantity") "agg1"
+, avg("ss_list_price") "agg2"
+, avg("ss_coupon_amt") "agg3"
+, avg("ss_sales_price") "agg4"
 FROM
   ${database}.${schema}.store_sales
 , ${database}.${schema}.customer_demographics

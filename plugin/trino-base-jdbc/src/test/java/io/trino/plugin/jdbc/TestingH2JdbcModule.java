@@ -78,6 +78,7 @@ public class TestingH2JdbcModule
 
     public static String createH2ConnectionUrl()
     {
+        // FIXME: H2 must implement its own canonicalizer and don't use DATABASE_TO_LOWER=true anymore.
         return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1;DEFAULT_LOCK_TIMEOUT=30000", System.nanoTime() + ThreadLocalRandom.current().nextLong());
     }
 

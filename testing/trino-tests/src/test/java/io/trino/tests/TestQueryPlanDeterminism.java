@@ -35,6 +35,7 @@ import java.util.List;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.CustomFunctionBundle.CUSTOM_FUNCTIONS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Locale.ENGLISH;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -74,6 +75,12 @@ public class TestQueryPlanDeterminism
         queryRunner.addFunctions(CUSTOM_FUNCTIONS);
 
         return queryRunner;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override

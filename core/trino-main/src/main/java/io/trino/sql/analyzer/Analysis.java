@@ -126,6 +126,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.trino.sql.QueryUtil.delimitedIdentifier;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
@@ -300,7 +301,7 @@ public class Analysis
         //  - INSERT/UPDATE/DELETE/MERGE ✓
         //  - ALTER TABLE ADD COLUMN ✓
         //  - SET COLUMN TYPE or any other DDL ✓
-        if (!(root instanceof Query)) {
+        if (!isQuery()) {
             return Optional.empty();
         }
 
@@ -861,6 +862,28 @@ public class Analysis
         return columns.get(field);
     }
 
+    public boolean isQuery()
+    {
+        return root instanceof Query;
+    }
+
+    public List<Field> getColumnFields(List<String> columnNames, final boolean isQuery)
+    {
+        return isQuery ? getColumnFields(columnNames) : ImmutableList.of();
+    }
+
+    private List<Field> getColumnFields(List<String> columnNames)
+    {
+        Collection<Field> fields = getOutputDescriptor().getVisibleFields();
+        checkArgument(columnNames.size() == fields.size(), "Column names and fields size mismatch");
+
+        ImmutableList.Builder<Field> columnFields = ImmutableList.builder();
+        for (Field field : fields) {
+            columnFields.add(field);
+        }
+        return columnFields.build();
+    }
+
     public CorrespondingAnalysis getCorrespondingAnalysis(Node node)
     {
         return correspondingAnalysis.get(NodeRef.of(node));
@@ -1413,6 +1436,7 @@ public class Analysis
     private static Optional<Expression> resolveColumnMask(QualifiedName tableName, String fieldName, Map<Field, Expression> expressions)
     {
         QualifiedName qualifiedFieldName = concatIdentifier(tableName, fieldName);
+        // System.out.println("Analysis.resolveColumnMask() qualifiedFieldName: " + qualifiedFieldName);
         return expressions.entrySet().stream()
                 .filter(fieldExpression -> fieldExpression.getKey().canResolve(qualifiedFieldName))
                 .collect(toOptional())
@@ -1423,7 +1447,7 @@ public class Analysis
     {
         return QualifiedName.of(Stream.concat(
                         tableName.getOriginalParts().stream(),
-                        Stream.of(new Identifier(fieldName)))
+                        Stream.of(delimitedIdentifier(fieldName)))
                 .collect(toImmutableList()));
     }
 

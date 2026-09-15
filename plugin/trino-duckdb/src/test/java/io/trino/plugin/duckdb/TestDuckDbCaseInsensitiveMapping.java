@@ -22,6 +22,7 @@ import java.nio.file.Path;
 
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -42,6 +43,18 @@ final class TestDuckDbCaseInsensitiveMapping
                 .addConnectorProperty("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
                 .addConnectorProperty("case-insensitive-name-matching.config-file.refresh-period", REFRESH_PERIOD_DURATION.toString())
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override

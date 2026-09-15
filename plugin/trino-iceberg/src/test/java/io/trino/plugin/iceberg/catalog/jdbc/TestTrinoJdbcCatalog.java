@@ -153,8 +153,8 @@ final class TestTrinoJdbcCatalog
                     .isFalse();
             assertThat(catalog.listNamespaces(SESSION)).as("catalog.listNamespaces")
                     // JDBC catalog lowercases namespaces returned from listNamespaces
-                    .doesNotContain(namespace)
-                    .contains(schema);
+                    .contains(namespace)
+                    .doesNotContain(schema);
         }
         finally {
             catalog.dropNamespace(SESSION, namespace);

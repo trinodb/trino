@@ -51,6 +51,12 @@ final class TestPinotPasswordAuthentication
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     void testSelect()
     {

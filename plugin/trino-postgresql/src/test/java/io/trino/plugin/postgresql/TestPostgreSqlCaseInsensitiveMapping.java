@@ -22,6 +22,7 @@ import java.nio.file.Path;
 
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
@@ -45,6 +46,12 @@ public class TestPostgreSqlCaseInsensitiveMapping
                         .put("case-insensitive-name-matching.config-file.refresh-period", REFRESH_PERIOD_DURATION.toString())
                         .buildOrThrow())
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override

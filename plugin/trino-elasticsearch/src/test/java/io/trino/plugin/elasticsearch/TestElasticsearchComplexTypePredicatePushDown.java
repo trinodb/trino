@@ -53,6 +53,12 @@ final class TestElasticsearchComplexTypePredicatePushDown
         return ElasticsearchQueryRunner.builder(elasticsearch).build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     void testRowTypeOnlyNullsRowGroupPruning()
             throws IOException
@@ -82,7 +88,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         createIndex(tableName, properties);
         bulkIndex(tableName, payload.toString());
 
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col IS NOT NULL");
+        assertNoDataRead("SELECT * FROM \"" + tableName + "\" WHERE col IS NOT NULL");
 
         tableName = "test_nested_column_nulls_pruning_" + randomNameSuffix();
         properties =
@@ -134,37 +140,37 @@ final class TestElasticsearchComplexTypePredicatePushDown
         createIndex(tableName, properties);
         bulkIndex(tableName, payload.toString());
 
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col.a IS NOT NULL");
+        assertNoDataRead("SELECT * FROM \"" + tableName + "\" WHERE col.a IS NOT NULL");
 
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col.a IS NULL",
+                "SELECT * FROM \"" + tableName + "\" WHERE col.a IS NULL",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(4096));
 
         // no predicate push down for the entire array type
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col.b IS NOT NULL",
+                "SELECT * FROM \"" + tableName + "\" WHERE col.b IS NOT NULL",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(4096));
 
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col.b IS NULL",
+                "SELECT * FROM \"" + tableName + "\" WHERE col.b IS NULL",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 
         // no predicate push down for entire ROW
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col IS NOT NULL",
+                "SELECT * FROM \"" + tableName + "\" WHERE col IS NOT NULL",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(4096));
 
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col IS NULL",
+                "SELECT * FROM \"" + tableName + "\" WHERE col IS NULL",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
@@ -246,38 +252,38 @@ final class TestElasticsearchComplexTypePredicatePushDown
         bulkIndex(tableName, payload.toString());
 
         // no data read since the row dereference predicate is pushed down
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.a = -1");
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.a IS NULL");
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.c.c2.c22 = -1");
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.a = -1 AND col1ROW.b = -1 AND col1ROW.c.c1 = -1 AND col1Row.c.c2.c22 = -1");
+        assertNoDataRead("SELECT * FROM \"" + tableName + "\" WHERE col1Row.a = -1");
+        assertNoDataRead("SELECT * FROM \"" + tableName + "\" WHERE col1Row.a IS NULL");
+        assertNoDataRead("SELECT * FROM \"" + tableName + "\" WHERE col1Row.c.c2.c22 = -1");
+        assertNoDataRead("SELECT * FROM \"" + tableName + "\" WHERE col1Row.a = -1 AND col1Row.b = -1 AND col1Row.c.c1 = -1 AND col1Row.c.c2.c22 = -1");
 
         // read all since predicate case matches with the data
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col1Row.b = 100",
+                "SELECT * FROM \"" + tableName + "\" WHERE col1Row.b = 100",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(10000));
 
         // no predicate push down for matching with ROW type, as file format only stores stats for primitives
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col1Row.c = ROW(-1, ROW(-1, -1))",
+                "SELECT * FROM \"" + tableName + "\" WHERE col1Row.c = ROW(-1, ROW(-1, -1))",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col1Row.c = ROW(-1, ROW(-1, -1)) OR col1Row.a = -1 ",
+                "SELECT * FROM \"" + tableName + "\" WHERE col1Row.c = ROW(-1, ROW(-1, -1)) OR col1Row.a = -1 ",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 
         // no data read since the row group get filtered by primitives in the predicate
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.c = ROW(-1, ROW(-1, -1)) AND col1Row.a = -1 ");
+        assertNoDataRead("SELECT * FROM \"" + tableName + "\" WHERE col1Row.c = ROW(-1, ROW(-1, -1)) AND col1Row.a = -1 ");
 
         // no predicate push down for entire ROW, as file format only stores stats for primitives
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col1Row = ROW(-1, -1, ROW(-1, ROW(-1, -1)))",
+                "SELECT * FROM \"" + tableName + "\" WHERE col1Row = ROW(-1, -1, ROW(-1, ROW(-1, -1)))",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 
@@ -328,14 +334,14 @@ final class TestElasticsearchComplexTypePredicatePushDown
         // no predicate push down for ARRAY type dereference
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE colArray[1] = -1",
+                "SELECT * FROM \"" + tableName + "\" WHERE \"colArray\"[1] = -1",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 
         // no predicate push down for entire ARRAY type
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE colArray = ARRAY[-1, -1]",
+                "SELECT * FROM \"" + tableName + "\" WHERE colArray = ARRAY[-1, -1]",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 

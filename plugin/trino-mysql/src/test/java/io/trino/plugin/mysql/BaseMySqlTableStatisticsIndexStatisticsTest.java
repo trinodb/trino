@@ -40,7 +40,7 @@ public abstract class BaseMySqlTableStatisticsIndexStatisticsTest
             }
             executeInMysql(format("CREATE INDEX %2$s ON %1$s (%2$s)", tableName, columnName).replace("\"", "`"));
         }
-        executeInMysql("ANALYZE TABLE " + tableName.replace("\"", "`"));
+        executeInMysql(format("ANALYZE TABLE %s", tableName).replace("\"", "`"));
     }
 
     @Test

@@ -37,6 +37,12 @@ public class TestGoogleSheetsWithoutMetadataSheetId
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     @Disabled // TODO https://github.com/trinodb/trino/issues/29407 Fix 'Invalid JWT Signature' failure
     public void testSheetQuerySimple()

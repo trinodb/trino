@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolverManager;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnMetadata;
@@ -58,6 +59,7 @@ public class TestDropNotNullConstraintConstraintTask
     {
         super.setUp();
         metadata = new MockMetadataWithNotNull(TEST_CATALOG_NAME);
+        metadata.getResolverManager().addResolver(TEST_CATALOG_NAME, ResolverManager.getLowerCaseCanonicalizer());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
     }
 
@@ -142,7 +144,7 @@ public class TestDropNotNullConstraintConstraintTask
 
     private ListenableFuture<Void> executeDropNotNullConstraint(QualifiedName table, Identifier column, boolean tableExists)
     {
-        return new DropNotNullConstraintTask(plannerContext.getMetadata(), new AllowAllAccessControl())
+        return new DropNotNullConstraintTask(metadata, new AllowAllAccessControl())
                 .execute(new DropNotNullConstraint(new NodeLocation(1, 1), table, column, tableExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

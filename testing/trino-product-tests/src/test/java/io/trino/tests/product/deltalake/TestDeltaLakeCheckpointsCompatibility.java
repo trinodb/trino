@@ -67,8 +67,8 @@ class TestDeltaLakeCheckpointsCompatibility
             env.executeSparkUpdate("INSERT INTO default." + tableName + " VALUES (3, 'osla')");
             env.executeTrinoUpdate("INSERT INTO delta.default." + tableName + " VALUES (3, 'psa'), (4, 'bobra')");
             env.executeTrinoUpdate("INSERT INTO delta.default." + tableName + " VALUES (4, 'lwa'), (5, 'jeza')");
-            env.executeSparkUpdate("DELETE FROM default." + tableName + " WHERE a_string = 'jeza'");
-            env.executeTrinoUpdate("DELETE FROM delta.default." + tableName + " WHERE a_string = 'bobra'");
+            env.executeSparkUpdate("DELETE FROM default." + tableName + " WHERE a_StRiNg = 'jeza'");
+            env.executeTrinoUpdate("DELETE FROM delta.default." + tableName + " WHERE a_StRiNg = 'bobra'");
 
             List<Row> expectedRows = ImmutableList.of(
                     row(1, "ala"),
@@ -84,9 +84,9 @@ class TestDeltaLakeCheckpointsCompatibility
             assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
 
-            assertThat(env.executeSpark("SELECT * FROM default." + tableName + " WHERE a_string <> 'fill'"))
+            assertThat(env.executeSpark("SELECT * FROM default." + tableName + " WHERE a_StRiNg <> 'fill'"))
                     .containsOnly(expectedRows);
-            assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'fill'"))
+            assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName + " WHERE a_StRiNg <> 'fill'"))
                     .containsOnly(expectedRows);
 
             // fill with inserts to trigger checkpoint
@@ -97,9 +97,9 @@ class TestDeltaLakeCheckpointsCompatibility
 
             // check we can still query data
             assertThat(listCheckpointFiles(env, tableDirectory)).hasSize(1);
-            assertThat(env.executeSpark("SELECT * FROM default." + tableName + " WHERE a_string <> 'fill'"))
+            assertThat(env.executeSpark("SELECT * FROM default." + tableName + " WHERE a_StRiNg <> 'fill'"))
                     .containsOnly(expectedRows);
-            assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'fill'"))
+            assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName + " WHERE a_StRiNg <> 'fill'"))
                     .containsOnly(expectedRows);
         }
         finally {
@@ -232,7 +232,7 @@ class TestDeltaLakeCheckpointsCompatibility
             // sanity check
             fillWithInserts(env, "delta.default." + tableName, "(1, 'trino')", 4);
             assertThat(listCheckpointFiles(env, tableDirectory)).isEmpty();
-            assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'trino'")).hasNoRows();
+            assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName + " WHERE a_StRiNg <> 'trino'")).hasNoRows();
 
             // fill to first checkpoint using Trino
             env.executeTrinoUpdate("INSERT INTO delta.default." + tableName + " VALUES (1, 'ala'), (2, 'kota')");
@@ -241,7 +241,7 @@ class TestDeltaLakeCheckpointsCompatibility
             // fill to next checkpoint using a mix of Trino and Spark
             fillWithInserts(env, "delta.default." + tableName, "(2, 'trino')", 3);
             env.executeSparkUpdate("INSERT INTO default." + tableName + " VALUES (3, 'psa'), (4, 'bobra')");
-            env.executeSparkUpdate("DELETE FROM default." + tableName + " WHERE a_string = 'trino'");
+            env.executeSparkUpdate("DELETE FROM default." + tableName + " WHERE a_StRiNg = 'trino'");
 
             env.executeSparkUpdate("ALTER TABLE default." + tableName + " SET TBLPROPERTIES ('delta.checkpointInterval' = '2')");
             // Starting with Databricks Runtime 8.4 checkpoint writing is dynamic rather than relying on a set interval

@@ -49,7 +49,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TableChangesFunction
@@ -127,7 +126,7 @@ public class TableChangesFunction
                     .collect(toImmutableList());
             accessControl.checkCanSelectFromColumns(null, schemaTableName, Optional.empty(), columnHandles.stream()
                     // Lowercase column names because users don't know the original names
-                    .map(column -> column.columnName().toLowerCase(ENGLISH))
+                    .map(column -> column.columnName())
                     .collect(toImmutableSet()));
 
             ImmutableList.Builder<Descriptor.Field> outputFields = ImmutableList.builder();

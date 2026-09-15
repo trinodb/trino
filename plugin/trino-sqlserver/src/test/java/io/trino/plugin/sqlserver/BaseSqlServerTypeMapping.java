@@ -105,6 +105,12 @@ public abstract class BaseSqlServerTypeMapping
         checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testTrinoBoolean()
     {
@@ -1028,7 +1034,7 @@ public abstract class BaseSqlServerTypeMapping
 
     protected DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -1038,12 +1044,12 @@ public abstract class BaseSqlServerTypeMapping
 
     protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup sqlServerCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup sqlServerCreateAndTrinoInsert(String tableNamePrefix)

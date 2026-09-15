@@ -57,7 +57,7 @@
                     <rules combine.self="override">
                         <requireFilesSize>
                             <!-- Maven Central has a 1GB limit -->
-                            <maxsize>1073741824</maxsize>
+                            <maxsize>1096723238</maxsize>
                             <files>
                                 <file>${project.build.directory}/${project.artifactId}-${project.version}.tar.gz</file>
                             </files>

@@ -80,7 +80,7 @@ public final class DynamicTableBuilder
         QueryContext queryContext = QueryContextConverterUtils.getQueryContext(pinotQuery);
 
         String tableName = request.getQuerySource().getTableName();
-        String trinoTableName = stripSuffix(tableName).toLowerCase(ENGLISH);
+        String trinoTableName = stripSuffix(tableName);
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(trinoTableName);
         Optional<String> suffix = getSuffix(tableName);
 

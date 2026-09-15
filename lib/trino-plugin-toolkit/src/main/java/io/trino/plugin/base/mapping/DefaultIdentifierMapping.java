@@ -15,52 +15,42 @@ package io.trino.plugin.base.mapping;
 
 import io.trino.spi.security.ConnectorIdentity;
 
-import static java.util.Locale.ENGLISH;
-
 public class DefaultIdentifierMapping
         implements IdentifierMapping
 {
     @Override
     public String fromRemoteSchemaName(String remoteSchemaName)
     {
-        return remoteSchemaName.toLowerCase(ENGLISH);
+        return remoteSchemaName;
     }
 
     @Override
     public String fromRemoteTableName(String remoteSchemaName, String remoteTableName)
     {
-        return remoteTableName.toLowerCase(ENGLISH);
+        return remoteTableName;
     }
 
     @Override
     public String fromRemoteColumnName(String remoteColumnName)
     {
-        return remoteColumnName.toLowerCase(ENGLISH);
+        return remoteColumnName;
     }
 
     @Override
     public String toRemoteSchemaName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String schemaName)
     {
-        return toRemoteIdentifier(schemaName, remoteIdentifiers);
+        return schemaName;
     }
 
     @Override
     public String toRemoteTableName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchema, String tableName)
     {
-        return toRemoteIdentifier(tableName, remoteIdentifiers);
+        return tableName;
     }
 
     @Override
     public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
     {
-        return toRemoteIdentifier(columnName, remoteIdentifiers);
-    }
-
-    private String toRemoteIdentifier(String identifier, RemoteIdentifiers remoteIdentifiers)
-    {
-        if (remoteIdentifiers.storesUpperCaseIdentifiers()) {
-            return identifier.toUpperCase(ENGLISH);
-        }
-        return identifier;
+        return columnName;
     }
 }

@@ -18,6 +18,7 @@ import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.sql.SqlExecutor;
 
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static java.lang.String.format;
@@ -26,9 +27,9 @@ import static java.util.stream.Collectors.joining;
 public class IgniteCreateAndInsertDataSetup
         extends CreateAndInsertDataSetup
 {
-    public IgniteCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix)
+    public IgniteCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix, Function<String, String> canonicalizer)
     {
-        super(sqlExecutor, tableNamePrefix);
+        super(sqlExecutor, tableNamePrefix, canonicalizer);
     }
 
     @Override

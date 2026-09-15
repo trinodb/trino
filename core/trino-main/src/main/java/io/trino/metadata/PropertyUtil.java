@@ -205,7 +205,7 @@ public final class PropertyUtil
         });
 
         return sqlProperties.build().entrySet().stream()
-                .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
+                .map(entry -> new Property(new Identifier(entry.getKey(), false), entry.getValue()))
                 .collect(toImmutableList());
     }
 

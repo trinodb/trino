@@ -91,6 +91,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/firebird">
+        <artifact id="${project.groupId}:trino-firebird:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/google-sheets">
         <artifact id="${project.groupId}:trino-google-sheets:zip:${project.version}">
             <unpack />
@@ -103,6 +109,12 @@
         </artifact>
         <artifact id="${project.groupId}:trino-hdfs:zip:${project.version}">
             <unpack useRoot="true" />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/hsqldb">
+        <artifact id="${project.groupId}:trino-hsqldb:zip:${project.version}">
+            <unpack />
         </artifact>
     </artifactSet>
 
@@ -280,6 +292,12 @@
 
     <artifactSet to="plugin/snowflake">
         <artifact id="${project.groupId}:trino-snowflake:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/sqlite">
+        <artifact id="${project.groupId}:trino-sqlite:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

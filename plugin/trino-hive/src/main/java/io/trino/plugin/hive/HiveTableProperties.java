@@ -44,7 +44,6 @@ import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
 {
@@ -103,7 +102,7 @@ public class HiveTableProperties
                         ImmutableList.of(),
                         false,
                         value -> ((List<?>) value).stream()
-                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .map(String.class::cast)
                                 .collect(toImmutableList()),
                         value -> value),
                 new PropertyMetadata<>(
@@ -114,7 +113,7 @@ public class HiveTableProperties
                         ImmutableList.of(),
                         false,
                         value -> ((List<?>) value).stream()
-                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .map(String.class::cast)
                                 .collect(toImmutableList()),
                         value -> value),
                 new PropertyMetadata<>(
@@ -141,7 +140,6 @@ public class HiveTableProperties
                         false,
                         value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
-                                .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value),
                 doubleProperty(
@@ -158,7 +156,6 @@ public class HiveTableProperties
                         false,
                         value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
-                                .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value),
                 integerProperty(BUCKETING_VERSION, "Bucketing version", null, false),

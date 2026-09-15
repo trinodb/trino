@@ -87,6 +87,12 @@ public class TestGoogleSheetsInsert
         dropSheet(TEST_METADATA_SHEET_ID, metadataSheetId);
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testInsertIntoTable()
             throws Exception

@@ -51,6 +51,7 @@ import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -127,6 +128,16 @@ public class TestDirectTrinoClient
         }
     }
 
+    private String sqlCanonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
+    private String memoryCanonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     @Timeout(value = 20, unit = TimeUnit.SECONDS)
     public void testDirectTrinoClientLongQuery()
@@ -141,7 +152,7 @@ public class TestDirectTrinoClient
 
         assertThat(result.getRowCount()).isEqualTo(1);
         assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(1);
-        assertThat(result.getColumnNames()).containsExactly("col");
+        assertThat(result.getColumnNames()).containsExactly(sqlCanonicalize("col"));
     }
 
     @Test
@@ -150,7 +161,7 @@ public class TestDirectTrinoClient
         MaterializedResult result = queryRunner.execute(TEST_SESSION, "SELECT * FROM (SELECT 'hello' AS col) WHERE 1 = 0");
 
         assertThat(result.getRowCount()).isEqualTo(0);
-        assertThat(result.getColumnNames()).containsExactly("col");
+        assertThat(result.getColumnNames()).containsExactly(sqlCanonicalize("col"));
     }
 
     @Test
@@ -163,10 +174,10 @@ public class TestDirectTrinoClient
 
         String tableName = "test_table_" + randomNameSuffix();
         queryRunner.execute(session, "CREATE TABLE %s (id BIGINT)".formatted(tableName));
-        assertThat(queryRunner.tableExists(session, tableName)).isTrue();
+        assertThat(queryRunner.tableExists(session, memoryCanonicalize(tableName))).isTrue();
 
         queryRunner.execute(session, "DROP TABLE %s".formatted(tableName));
-        assertThat(queryRunner.tableExists(session, tableName)).isFalse();
+        assertThat(queryRunner.tableExists(session, memoryCanonicalize(tableName))).isFalse();
     }
 
     @Test

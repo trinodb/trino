@@ -119,6 +119,7 @@ import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.isSystemView;
 import static io.trino.plugin.lakehouse.LakehouseTableProperties.getTableType;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class LakehouseMetadata
@@ -142,6 +143,12 @@ public class LakehouseMetadata
         this.icebergMetadata = requireNonNull(icebergMetadata, "icebergMetadata is null");
         this.deltaMetadata = requireNonNull(deltaMetadata, "deltaMetadata is null");
         this.hudiMetadata = requireNonNull(hudiMetadata, "hudiMetadata is null");
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override
