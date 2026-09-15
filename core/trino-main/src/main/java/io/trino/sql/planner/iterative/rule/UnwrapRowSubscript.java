@@ -102,11 +102,11 @@ public class UnwrapRowSubscript
 
                 while (!coercions.isEmpty()) {
                     Coercion coercion = coercions.pop();
-                    result = coercion.isSafe() ?
+                    result = coercion.safe() ?
                             new Call(
-                                    metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(TRY_CAST_FUNCTION_NAME), result.type(), coercion.getType()),
+                                    metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(TRY_CAST_FUNCTION_NAME), result.type(), coercion.type()),
                                     ImmutableList.of(result)) :
-                            cast(typeManager, getCharVarcharCoercion(session), result, coercion.getType());
+                            cast(typeManager, getCharVarcharCoercion(session), result, coercion.type());
                 }
 
                 return result;
@@ -119,25 +119,5 @@ public class UnwrapRowSubscript
         }
     }
 
-    private static class Coercion
-    {
-        private final Type type;
-        private final boolean safe;
-
-        public Coercion(Type type, boolean safe)
-        {
-            this.type = type;
-            this.safe = safe;
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public boolean isSafe()
-        {
-            return safe;
-        }
-    }
+    private record Coercion(Type type, boolean safe) {}
 }
