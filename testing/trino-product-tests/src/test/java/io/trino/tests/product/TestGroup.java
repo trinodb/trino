@@ -292,6 +292,16 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
+    @Tag("hive4_http_thrift_metastore")
+    @interface Hive4HttpThriftMetastore {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
+    @Tag("hive4_https_thrift_metastore")
+    @interface Hive4HttpsThriftMetastore {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
     @Tag("hive_spark")
     @interface HiveSpark {}
 
