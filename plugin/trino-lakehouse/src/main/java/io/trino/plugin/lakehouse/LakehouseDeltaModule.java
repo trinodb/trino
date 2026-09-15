@@ -39,6 +39,12 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreModule;
 import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreModule;
 import io.trino.plugin.deltalake.metastore.thrift.DeltaLakeThriftMetastoreModule;
+import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
+import io.trino.plugin.deltalake.procedure.FlushMetadataCacheProcedure;
+import io.trino.plugin.deltalake.procedure.OptimizeTableProcedure;
+import io.trino.plugin.deltalake.procedure.RegisterTableProcedure;
+import io.trino.plugin.deltalake.procedure.UnregisterTableProcedure;
+import io.trino.plugin.deltalake.procedure.VacuumProcedure;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess.ForCachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
@@ -55,10 +61,14 @@ import io.trino.plugin.deltalake.transactionlog.writer.NoIsolationSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizerManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
+import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.procedure.Procedure;
 
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.trino.plugin.lakehouse.TableType.DELTA;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class LakehouseDeltaModule
@@ -107,6 +117,16 @@ public class LakehouseDeltaModule
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeMergeResult.class);
         jsonCodecBinder(binder).bindJsonCodec(ExtendedStatistics.class);
         jsonCodecBinder(binder).bindJsonCodec(LastCheckpoint.class);
+
+        var procedures = newMapBinder(binder, TableType.class, Procedure.class).permitDuplicates();
+        procedures.addBinding(DELTA).toProvider(DropExtendedStatsProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(DELTA).toProvider(FlushMetadataCacheProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(DELTA).toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(DELTA).toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(DELTA).toProvider(VacuumProcedure.class).in(Scopes.SINGLETON);
+
+        var tableProcedures = newMapBinder(binder, TableType.class, TableProcedureMetadata.class).permitDuplicates();
+        tableProcedures.addBinding(DELTA).toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
 
         install(switch (buildConfigObject(MetastoreTypeConfig.class).getMetastoreType()) {
             case THRIFT -> new DeltaLakeThriftMetastoreModule();
