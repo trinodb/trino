@@ -54,9 +54,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
-import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
+import static io.trino.type.SafeReRegexpType.SAFE_RE_REGEXP;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -67,7 +66,6 @@ public class TestTypeCoercion
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final TypeManager typeManager = functionResolution.getPlannerContext().getTypeManager();
     private final Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
-    private final Type re2jType = typeManager.getType(RE2J_REGEXP_SIGNATURE);
     private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, SQL_STANDARD);
 
     private Type mapType(Type keyType, Type valueType)
@@ -98,8 +96,7 @@ public class TestTypeCoercion
 
         assertThat(TIME_MILLIS, TIME_TZ_MILLIS).hasCommonSuperType(TIME_TZ_MILLIS).canCoerceFirstToSecondOnly();
         assertThat(TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS).hasCommonSuperType(TIMESTAMP_TZ_MILLIS).canCoerceFirstToSecondOnly();
-        assertThat(VARCHAR, JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
-        assertThat(VARCHAR, re2jType).hasCommonSuperType(re2jType).canCoerceFirstToSecondOnly();
+        assertThat(VARCHAR, SAFE_RE_REGEXP).hasCommonSuperType(SAFE_RE_REGEXP).canCoerceFirstToSecondOnly();
         assertThat(VARCHAR, JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
 
         assertThat(REAL, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
@@ -182,9 +179,8 @@ public class TestTypeCoercion
         assertThat(createCharType(42), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceFirstToSecondOnly();
         assertThat(createCharType(44), createVarcharType(42)).hasCommonSuperType(createVarcharType(44)).cannotCoerceToEachOther();
 
-        assertThat(createCharType(42), JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(42), SAFE_RE_REGEXP).hasCommonSuperType(SAFE_RE_REGEXP).canCoerceFirstToSecondOnly();
         assertThat(createCharType(42), JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
-        assertThat(createCharType(42), re2jType).hasCommonSuperType(re2jType).canCoerceFirstToSecondOnly();
 
         assertThat(anonymousRow(createVarcharType(2)), anonymousRow(createVarcharType(5)))
                 .hasCommonSuperType(anonymousRow(createVarcharType(5)))

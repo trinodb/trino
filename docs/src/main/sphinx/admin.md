@@ -80,5 +80,4 @@ admin/properties
 * [](admin/properties-optimizer)
 * [](admin/properties-logging)
 * [](admin/properties-web-interface)
-* [](admin/properties-regexp-function)
 * [](admin/properties-http-client)

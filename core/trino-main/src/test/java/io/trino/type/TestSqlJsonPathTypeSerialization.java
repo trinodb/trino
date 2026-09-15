@@ -90,7 +90,13 @@ public class TestSqlJsonPathTypeSerialization
             .get();
     public static final JsonCodec<IrJsonPath> JSON_PATH_CODEC = new JsonCodecFactory(OBJECT_MAPPER).jsonCodec(IrJsonPath.class);
     public static final Type JSON_PATH_2016 = new SqlJsonPathType(JSON_PATH_CODEC);
-    private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
+    // SafeReRegexp wraps a compiled safere Pattern, whose fields include per-thread caches and a
+    // JVM-wide sequence number, so two independently-compiled instances of the same pattern are
+    // never structurally equal; comparing IrLikeRegexPredicate.pattern (the source string) is enough.
+    private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder()
+            .withStrictTypeChecking(true)
+            .withIgnoredFieldsOfTypes(SafeReRegexp.class)
+            .build();
 
     @Test
     public void testJsonPathMode()
