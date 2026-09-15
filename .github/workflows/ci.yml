@@ -179,7 +179,7 @@ jobs:
           $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
       - name: Test error code uniqueness
         # Check every connector independently of the impacted module test matrix.
-        run: $MAVEN surefire:test -B --strict-checksums -pl :trino-tests -Dtest=TestErrorCodes
+        run: $MAVEN failsafe:integration-test failsafe:verify -B --strict-checksums -pl :trino-server
       - name: Test JDBC shading
         # Run only integration tests to verify JDBC driver shading
         run: |
