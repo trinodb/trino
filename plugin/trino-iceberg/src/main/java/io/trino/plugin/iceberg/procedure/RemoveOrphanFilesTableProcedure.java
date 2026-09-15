@@ -21,6 +21,7 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_ORPHAN_FILES;
 import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 
 public class RemoveOrphanFilesTableProcedure
         implements Provider<TableProcedureMetadata>
@@ -36,6 +37,11 @@ public class RemoveOrphanFilesTableProcedure
                                 "retention_threshold",
                                 "Files older than threshold should be removed",
                                 Duration.valueOf("7d"),
+                                false),
+                        booleanProperty(
+                                "dry_run",
+                                "When true, report the files that would be removed without deleting them",
+                                false,
                                 false)));
     }
 }

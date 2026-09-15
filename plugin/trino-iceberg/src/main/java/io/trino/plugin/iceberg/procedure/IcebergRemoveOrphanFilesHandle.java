@@ -17,7 +17,7 @@ import io.airlift.units.Duration;
 
 import static java.util.Objects.requireNonNull;
 
-public record IcebergRemoveOrphanFilesHandle(Duration retentionThreshold)
+public record IcebergRemoveOrphanFilesHandle(Duration retentionThreshold, boolean dryRun)
         implements IcebergProcedureHandle
 {
     public IcebergRemoveOrphanFilesHandle
