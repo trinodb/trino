@@ -21,6 +21,12 @@ import reactRefreshPlugin from 'eslint-plugin-react-refresh';
 export default [
   js.configs.recommended,
   {
+    files: ['src/test/**/*.js'],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+  {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: tsParser,

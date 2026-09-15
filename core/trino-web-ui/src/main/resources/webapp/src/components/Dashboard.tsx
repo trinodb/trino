@@ -70,11 +70,18 @@ export const Dashboard = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+        let cancelled = false
+        let timeoutId: number
         const runLoop = () => {
-            getClusterStats()
-            setTimeout(runLoop, 1000)
+            getClusterStats(() => cancelled)
+            timeoutId = setTimeout(runLoop, 1000)
         }
         runLoop()
+
+        return () => {
+            cancelled = true
+            clearTimeout(timeoutId)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
@@ -84,9 +91,12 @@ export const Dashboard = () => {
         }
     }, [error, showSnackbar])
 
-    const getClusterStats = () => {
+    const getClusterStats = (isCancelled: () => boolean) => {
         setError(null)
         statsApi().then((apiResponse: ApiResponse<Stats>) => {
+            if (isCancelled()) {
+                return
+            }
             if (apiResponse.status === 200 && apiResponse.data) {
                 const newClusterStats: Stats = apiResponse.data
                 setClusterStats((prevClusterStats) => {
