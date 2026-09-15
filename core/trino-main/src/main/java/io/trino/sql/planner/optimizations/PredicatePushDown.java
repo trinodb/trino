@@ -523,8 +523,8 @@ public class PredicatePushDown
 
             List<Expression> joinFilter = joinFilterBuilder.build();
             DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, joinFilter, session, idAllocator);
-            Map<DynamicFilterId, Symbol> dynamicFilters = dynamicFiltersResult.getDynamicFilters();
-            leftPredicate = combineConjuncts(leftPredicate, combineConjuncts(dynamicFiltersResult.getPredicates()));
+            Map<DynamicFilterId, Symbol> dynamicFilters = dynamicFiltersResult.dynamicFilters();
+            leftPredicate = combineConjuncts(leftPredicate, combineConjuncts(dynamicFiltersResult.predicates()));
 
             PlanNode leftSource;
             PlanNode rightSource;
@@ -672,25 +672,12 @@ public class PredicatePushDown
             }
         }
 
-        private static class DynamicFiltersResult
+        private record DynamicFiltersResult(Map<DynamicFilterId, Symbol> dynamicFilters, List<Expression> predicates)
         {
-            private final Map<DynamicFilterId, Symbol> dynamicFilters;
-            private final List<Expression> predicates;
-
-            public DynamicFiltersResult(Map<DynamicFilterId, Symbol> dynamicFilters, List<Expression> predicates)
+            private DynamicFiltersResult
             {
-                this.dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
-                this.predicates = ImmutableList.copyOf(predicates);
-            }
-
-            public Map<DynamicFilterId, Symbol> getDynamicFilters()
-            {
-                return dynamicFilters;
-            }
-
-            public List<Expression> getPredicates()
-            {
-                return predicates;
+                dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
+                predicates = ImmutableList.copyOf(predicates);
             }
         }
 
