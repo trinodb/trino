@@ -440,10 +440,10 @@ public class PredicatePushDown
                             joinPredicate,
                             node.getLeft().getOutputSymbols(),
                             node.getRight().getOutputSymbols());
-                    leftPredicate = innerJoinPushDownResult.getLeftPredicate();
-                    rightPredicate = innerJoinPushDownResult.getRightPredicate();
-                    postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
-                    newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
+                    leftPredicate = innerJoinPushDownResult.leftPredicate();
+                    rightPredicate = innerJoinPushDownResult.rightPredicate();
+                    postJoinPredicate = innerJoinPushDownResult.postJoinPredicate();
+                    newJoinPredicate = innerJoinPushDownResult.joinPredicate();
                 }
                 case LEFT -> {
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
@@ -709,10 +709,10 @@ public class PredicatePushDown
                             joinPredicate,
                             node.getLeft().getOutputSymbols(),
                             node.getRight().getOutputSymbols());
-                    leftPredicate = innerJoinPushDownResult.getLeftPredicate();
-                    rightPredicate = innerJoinPushDownResult.getRightPredicate();
-                    postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
-                    newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
+                    leftPredicate = innerJoinPushDownResult.leftPredicate();
+                    rightPredicate = innerJoinPushDownResult.rightPredicate();
+                    postJoinPredicate = innerJoinPushDownResult.postJoinPredicate();
+                    newJoinPredicate = innerJoinPushDownResult.joinPredicate();
                 }
                 case LEFT -> {
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
@@ -1036,41 +1036,7 @@ public class PredicatePushDown
                     TRUE);
         }
 
-        private static class InnerJoinPushDownResult
-        {
-            private final Expression leftPredicate;
-            private final Expression rightPredicate;
-            private final Expression joinPredicate;
-            private final Expression postJoinPredicate;
-
-            private InnerJoinPushDownResult(Expression leftPredicate, Expression rightPredicate, Expression joinPredicate, Expression postJoinPredicate)
-            {
-                this.leftPredicate = leftPredicate;
-                this.rightPredicate = rightPredicate;
-                this.joinPredicate = joinPredicate;
-                this.postJoinPredicate = postJoinPredicate;
-            }
-
-            private Expression getLeftPredicate()
-            {
-                return leftPredicate;
-            }
-
-            private Expression getRightPredicate()
-            {
-                return rightPredicate;
-            }
-
-            private Expression getJoinPredicate()
-            {
-                return joinPredicate;
-            }
-
-            private Expression getPostJoinPredicate()
-            {
-                return postJoinPredicate;
-            }
-        }
+        private record InnerJoinPushDownResult(Expression leftPredicate, Expression rightPredicate, Expression joinPredicate, Expression postJoinPredicate) {}
 
         private Expression extractJoinPredicate(JoinNode joinNode)
         {
