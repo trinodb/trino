@@ -37,7 +37,7 @@ import static java.util.regex.Matcher.quoteReplacement;
 public final class Floci
         extends GenericContainer<Floci>
 {
-    public static final String FLOCI_IMAGE = "floci/floci:1.5.26";
+    public static final String FLOCI_IMAGE = "floci/floci:1.5.32";
     public static final String FLOCI_ACCESS_KEY = "floci-access-key";
     public static final String FLOCI_SECRET_KEY = "floci-secret-key";
     public static final String FLOCI_REGION = "us-east-1";
