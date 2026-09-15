@@ -349,7 +349,7 @@ public abstract class BaseCostBasedPlanTest
         public Void visitFilter(FilterNode node, Integer indent)
         {
             DynamicFilters.ExtractResult filters = extractDynamicFilters(node.getPredicate());
-            String inputs = filters.getDynamicConjuncts().stream()
+            String inputs = filters.dynamicConjuncts().stream()
                     .map(descriptor -> ((Reference) descriptor.getInput()).name() + "::" + descriptor.getOperator())
                     .collect(joining(", "));
 

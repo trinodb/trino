@@ -337,10 +337,10 @@ public class RemoveUnsupportedDynamicFilters
         {
             Expression rewrittenExpression = removeNestedDynamicFilters(expression);
             DynamicFilters.ExtractResult extractResult = extractDynamicFilters(rewrittenExpression);
-            if (extractResult.getDynamicConjuncts().isEmpty()) {
+            if (extractResult.dynamicConjuncts().isEmpty()) {
                 return rewrittenExpression;
             }
-            return combineConjuncts(extractResult.getStaticConjuncts());
+            return combineConjuncts(extractResult.staticConjuncts());
         }
 
         private Expression removeNestedDynamicFilters(Expression expression)
