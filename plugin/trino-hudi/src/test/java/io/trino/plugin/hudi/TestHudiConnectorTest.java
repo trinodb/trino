@@ -20,6 +20,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiConnectorTest
@@ -58,6 +59,12 @@ public class TestHudiConnectorTest
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

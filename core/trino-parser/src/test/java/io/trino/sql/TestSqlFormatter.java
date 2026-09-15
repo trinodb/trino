@@ -61,6 +61,7 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
+import io.trino.sql.tree.Use;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -750,7 +751,7 @@ public class TestSqlFormatter
                 .isEqualTo(
                         """
                         MERGE INTO t
-                           USING changes s
+                           USING changes "s"
                            ON true
                         WHEN MATCHED
                            THEN DELETE\
@@ -811,7 +812,7 @@ public class TestSqlFormatter
                 .isEqualTo(
                         """
                         MERGE INTO t@main
-                           USING changes c
+                           USING changes "c"
                            ON true
                         WHEN MATCHED
                            THEN DELETE\
@@ -940,5 +941,21 @@ public class TestSqlFormatter
                         new NodeLocation(1, 3),
                         simpleQuery(selectList(new LongLiteral(new NodeLocation(1, 10), "1")))))))
                 .isEqualTo("-(SELECT 1\n\n)");
+    }
+
+    @Test
+    public void testUse()
+    {
+        Identifier catalog = new Identifier("catalog", false);
+        Identifier schema = new Identifier("public", false);
+
+        assertThat(formatSql(
+                new Use(new NodeLocation(1, 1), Optional.of(catalog), schema)))
+                .isEqualTo("USE catalog.public");
+
+        schema = new Identifier("PUBLIC", true);
+        assertThat(formatSql(
+                new Use(new NodeLocation(1, 1), Optional.of(catalog), schema)))
+                .isEqualTo("USE catalog.\"PUBLIC\"");
     }
 }

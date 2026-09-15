@@ -32,7 +32,7 @@ class TestJmxConnectorJunit
     @Test
     void selectFromJavaRuntimeJmxMBean(JdbcBasicEnvironment env)
     {
-        assertThat(env.executeTrino("SELECT node, vmname, vmversion FROM jmx.current.\"java.lang:type=runtime\""))
+        assertThat(env.executeTrino("SELECT node, VmName, VmVersion FROM jmx.current.\"java.lang:type=Runtime\""))
                 .hasColumns(List.of(VARCHAR, VARCHAR, VARCHAR))
                 .hasAnyRows();
     }
@@ -40,7 +40,7 @@ class TestJmxConnectorJunit
     @Test
     void selectFromJavaOperatingSystemJmxMBean(JdbcBasicEnvironment env)
     {
-        assertThat(env.executeTrino("SELECT openfiledescriptorcount, maxfiledescriptorcount FROM jmx.current.\"java.lang:type=operatingsystem\""))
+        assertThat(env.executeTrino("SELECT OpenFileDescriptorCount, MaxFileDescriptorCount FROM jmx.current.\"java.lang:type=OperatingSystem\""))
                 .hasColumns(List.of(BIGINT, BIGINT))
                 .hasAnyRows();
     }

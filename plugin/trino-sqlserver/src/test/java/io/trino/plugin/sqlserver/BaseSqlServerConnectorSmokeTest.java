@@ -49,4 +49,10 @@ public abstract class BaseSqlServerConnectorSmokeTest
                         "   data_compression = 'NONE'\n" +
                         ")");
     }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
 }

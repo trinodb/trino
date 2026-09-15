@@ -17,10 +17,15 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Duplicates {@link TestPostgreSqlConnectorTest} but also verifies {@link BaseJdbcConnectorSmokeTest}
@@ -66,11 +71,32 @@ public class TestPostgreSqlConnectorSmokeTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
     protected TestTable createTestTableForWrites(String tablePrefix)
     {
         return new TestTable(
                 postgreSqlServer::execute,
                 tablePrefix,
                 "(a bigint NOT NULL PRIMARY KEY, b double precision)");
+    }
+
+    @Test
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat((String) computeScalar("SHOW CREATE TABLE region"))
+                .matches(format(
+                        "CREATE TABLE %s.%s.region \\(\n" +
+                                "   regionkey (bigint|decimal\\(19, 0\\)),\n" +
+                                "   name varchar(\\(\\d+\\))?,\n" +
+                                "   comment varchar(\\(\\d+\\))?\n" +
+                                "\\)",
+                        Pattern.quote(getSession().getCatalog().orElseThrow()),
+                        Pattern.quote(getSession().getSchema().orElseThrow())));
     }
 }

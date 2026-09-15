@@ -181,6 +181,12 @@ public class TestKafkaConnectorTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testInternalFieldPrefix()
     {
@@ -382,11 +388,11 @@ public class TestKafkaConnectorTest
         // Override because the base test uses CREATE TABLE AS SELECT statement that is unsupported in Kafka connector
         assertThat(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)).isFalse();
 
-        String query = "SELECT phone, custkey, acctbal FROM customer";
+        String query = "SELECT \"phone\", \"custkey\", \"acctbal\" FROM \"customer\"";
 
         assertQuery("SELECT count(*) FROM " + TABLE_INSERT_CUSTOMER + "", "SELECT 0");
 
-        assertUpdate("INSERT INTO " + TABLE_INSERT_CUSTOMER + " " + query, "SELECT count(*) FROM customer");
+        assertUpdate("INSERT INTO " + TABLE_INSERT_CUSTOMER + " " + query, "SELECT count(*) FROM \"customer\"");
         assertQuery("SELECT * FROM " + TABLE_INSERT_CUSTOMER + "", query);
 
         assertUpdate("INSERT INTO " + TABLE_INSERT_CUSTOMER + " (custkey) VALUES (-1)", 1);
@@ -411,7 +417,7 @@ public class TestKafkaConnectorTest
                         "SELECT custkey, phone, acctbal FROM customer " +
                         "UNION ALL " +
                         "SELECT custkey, phone, acctbal FROM customer",
-                "SELECT 2 * count(*) FROM customer");
+                "SELECT 2 * count(*) FROM \"customer\"");
     }
 
     @Test

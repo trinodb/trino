@@ -3,13 +3,13 @@ WITH
    SELECT
      "d_week_seq"
    , "ss_store_sk"
-   , "sum"((CASE WHEN ("d_day_name" = 'Sunday') THEN "ss_sales_price" ELSE null END)) "sun_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Monday') THEN "ss_sales_price" ELSE null END)) "mon_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Tuesday') THEN "ss_sales_price" ELSE null END)) "tue_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Wednesday') THEN "ss_sales_price" ELSE null END)) "wed_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Thursday') THEN "ss_sales_price" ELSE null END)) "thu_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Friday') THEN "ss_sales_price" ELSE null END)) "fri_sales"
-   , "sum"((CASE WHEN ("d_day_name" = 'Saturday') THEN "ss_sales_price" ELSE null END)) "sat_sales"
+   , sum((CASE WHEN ("d_day_name" = 'Sunday') THEN "ss_sales_price" ELSE null END)) "sun_sales"
+   , sum((CASE WHEN ("d_day_name" = 'Monday') THEN "ss_sales_price" ELSE null END)) "mon_sales"
+   , sum((CASE WHEN ("d_day_name" = 'Tuesday') THEN "ss_sales_price" ELSE null END)) "tue_sales"
+   , sum((CASE WHEN ("d_day_name" = 'Wednesday') THEN "ss_sales_price" ELSE null END)) "wed_sales"
+   , sum((CASE WHEN ("d_day_name" = 'Thursday') THEN "ss_sales_price" ELSE null END)) "thu_sales"
+   , sum((CASE WHEN ("d_day_name" = 'Friday') THEN "ss_sales_price" ELSE null END)) "fri_sales"
+   , sum((CASE WHEN ("d_day_name" = 'Saturday') THEN "ss_sales_price" ELSE null END)) "sat_sales"
    FROM
      ${database}.${schema}.store_sales
    , ${database}.${schema}.date_dim
@@ -31,7 +31,7 @@ FROM
   (
    SELECT
      "s_store_name" "s_store_name1"
-   , "wss"."d_week_seq" "d_week_seq1"
+   , wss."d_week_seq" "d_week_seq1"
    , "s_store_id" "s_store_id1"
    , "sun_sales" "sun_sales1"
    , "mon_sales" "mon_sales1"
@@ -44,14 +44,14 @@ FROM
      wss
    , ${database}.${schema}.store
    , ${database}.${schema}.date_dim d
-   WHERE ("d"."d_week_seq" = "wss"."d_week_seq")
+   WHERE (d."d_week_seq" = wss."d_week_seq")
       AND ("ss_store_sk" = "s_store_sk")
       AND ("d_month_seq" BETWEEN 1212 AND (1212 + 11))
 )  y
 , (
    SELECT
      "s_store_name" "s_store_name2"
-   , "wss"."d_week_seq" "d_week_seq2"
+   , wss."d_week_seq" "d_week_seq2"
    , "s_store_id" "s_store_id2"
    , "sun_sales" "sun_sales2"
    , "mon_sales" "mon_sales2"
@@ -64,7 +64,7 @@ FROM
      wss
    , ${database}.${schema}.store
    , ${database}.${schema}.date_dim d
-   WHERE ("d"."d_week_seq" = "wss"."d_week_seq")
+   WHERE (d."d_week_seq" = wss."d_week_seq")
       AND ("ss_store_sk" = "s_store_sk")
       AND ("d_month_seq" BETWEEN (1212 + 12) AND (1212 + 23))
 )  x

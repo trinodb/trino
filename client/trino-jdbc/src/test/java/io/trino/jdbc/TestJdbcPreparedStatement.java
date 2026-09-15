@@ -67,6 +67,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.ParameterMetaData.parameterModeUnknown;
 import static java.sql.ParameterMetaData.parameterNullableUnknown;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -109,6 +110,11 @@ public class TestJdbcPreparedStatement
     {
         server.close();
         server = null;
+    }
+
+    private static String defaultCanonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 
     @Test
@@ -1682,16 +1688,16 @@ public class TestJdbcPreparedStatement
 
                 try (ResultSet rs = statement.executeQuery()) {
                     verify(rs.next(), "no row returned");
-                    assertThat(rs.getString("type_of_bind")).as("type_of_bind")
+                    assertThat(rs.getString(defaultCanonicalize("type_of_bind"))).as("type_of_bind")
                             .isEqualTo(type);
-                    assertThat(rs.getString("type_of_literal")).as("type_of_literal (sanity check)")
+                    assertThat(rs.getString(defaultCanonicalize("type_of_literal"))).as("type_of_literal (sanity check)")
                             .isEqualTo(type);
-                    assertThat(rs.getString("bound_as_varchar")).as("bound should cast to VARCHAR the same way as literal " + expectedValueLiteral)
-                            .isEqualTo(rs.getString("literal_as_varchar"));
+                    assertThat(rs.getString(defaultCanonicalize("bound_as_varchar"))).as("bound should cast to VARCHAR the same way as literal " + expectedValueLiteral)
+                            .isEqualTo(rs.getString(defaultCanonicalize("literal_as_varchar")));
                     // TODO (https://github.com/trinodb/trino/issues/6242) ResultSet.getObject sometimes fails
                     //  assertThat(rs.getObject("bound")).as("bound value should round trip the same way as literal " + expectedValueLiteral)
                     //        .isEqualTo(rs.getObject("literal"));
-                    assertThat(rs.getObject("are_equal")).as("Expected bound value to be equal to " + expectedValueLiteral)
+                    assertThat(rs.getObject(defaultCanonicalize("are_equal"))).as("Expected bound value to be equal to " + expectedValueLiteral)
                             .isEqualTo(true);
                     verify(!rs.next(), "unexpected second row");
                 }

@@ -20,6 +20,7 @@ import io.trino.testing.sql.SqlExecutor;
 import java.nio.file.Path;
 
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
@@ -44,6 +45,18 @@ public class TestMariaDbCaseInsensitiveMapping
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
     protected Path getMappingFile()
     {
         return requireNonNull(mappingFile, "mappingFile is null");
@@ -58,8 +71,6 @@ public class TestMariaDbCaseInsensitiveMapping
     @Override
     protected String quoted(String name)
     {
-        String identifierQuote = "`";
-        name = name.replace(identifierQuote, identifierQuote + identifierQuote);
-        return identifierQuote + name + identifierQuote;
+        return quoted(name, "`");
     }
 }

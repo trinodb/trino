@@ -4,8 +4,8 @@ SELECT
 , "i_category"
 , "i_class"
 , "i_current_price"
-, "sum"("cs_ext_sales_price") "${database}.${schema}.itemrevenue"
-, (("sum"("cs_ext_sales_price") * 100) / "sum"("sum"("cs_ext_sales_price")) OVER (PARTITION BY "i_class")) "revenueratio"
+, sum("cs_ext_sales_price") "${database}.${schema}.itemrevenue"
+, ((sum("cs_ext_sales_price") * 100) / sum(sum("cs_ext_sales_price")) OVER (PARTITION BY "i_class")) "revenueratio"
 FROM
   ${database}.${schema}.catalog_sales
 , ${database}.${schema}.item

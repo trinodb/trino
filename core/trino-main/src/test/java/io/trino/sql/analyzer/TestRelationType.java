@@ -87,7 +87,7 @@ public class TestRelationType
     @Test
     public void testResolveHiddenField()
     {
-        Field hidden = Field.newQualified(QualifiedName.of("t"), Optional.of("c1"), BIGINT, true, Optional.empty(), Optional.empty(), Optional.empty(), false);
+        Field hidden = Field.newQualified(QualifiedName.of("t"), Optional.of("c1"), BIGINT, true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
         RelationType relationType = new RelationType(hidden);
 
         assertThat(relationType.resolveFields(QualifiedName.of("c1"))).containsExactly(hidden);
@@ -104,6 +104,6 @@ public class TestRelationType
 
     private static Field qualifiedField(String relation, String name)
     {
-        return Field.newQualified(QualifiedName.of(relation), Optional.of(name), BIGINT, false, Optional.empty(), Optional.empty(), Optional.empty(), false);
+        return Field.newQualified(QualifiedName.of(relation), Optional.of(name), BIGINT, false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
     }
 }

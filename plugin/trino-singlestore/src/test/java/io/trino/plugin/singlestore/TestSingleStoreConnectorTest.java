@@ -34,6 +34,7 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,6 +92,24 @@ public class TestSingleStoreConnectorTest
                  SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected String quoted(String identifier)
+    {
+        return quoted(identifier, "`");
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override
@@ -180,7 +199,7 @@ public class TestSingleStoreConnectorTest
     public void testReadFromView()
     {
         onRemoteDatabase().execute("CREATE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
+        assertQuery("SELECT orderkey FROM test_view", "SELECT \"orderkey\" FROM \"orders\"");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 

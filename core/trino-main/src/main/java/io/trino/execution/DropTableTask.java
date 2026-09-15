@@ -60,7 +60,7 @@ public class DropTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         if (metadata.isMaterializedView(session, originalTableName)) {
             throw semanticException(
                     GENERIC_USER_ERROR,

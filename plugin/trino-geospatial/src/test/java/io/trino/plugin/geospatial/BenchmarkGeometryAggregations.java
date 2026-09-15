@@ -82,7 +82,7 @@ public class BenchmarkGeometryAggregations
             }
 
             queryRunner.execute(
-                    format("CREATE TABLE memory.default.us_states AS SELECT ST_GeometryFromText(t.wkt) AS geom FROM (VALUES %s) as t (name, wkt)",
+                    format("CREATE TABLE memory.default.\"us_states\" AS SELECT ST_GeometryFromText(t.\"wkt\") AS \"geom\" FROM (VALUES %s) as t (\"name\", \"wkt\")",
                             polygonValues));
         }
 
@@ -98,21 +98,21 @@ public class BenchmarkGeometryAggregations
     public MaterializedResult benchmarkArrayUnion(Context context)
     {
         return context.getQueryRunner()
-                .execute("SELECT geometry_union(array_agg(p.geom)) FROM us_states p");
+                .execute("SELECT geometry_union(array_agg(p.\"geom\")) FROM \"us_states\" p");
     }
 
     @Benchmark
     public MaterializedResult benchmarkUnion(Context context)
     {
         return context.getQueryRunner()
-                .execute("SELECT geometry_union_agg(p.geom) FROM us_states p");
+                .execute("SELECT geometry_union_agg(p.\"geom\") FROM \"us_states\" p");
     }
 
     @Benchmark
     public MaterializedResult benchmarkConvexHull(Context context)
     {
         return context.getQueryRunner()
-                .execute("SELECT convex_hull_agg(p.geom) FROM us_states p");
+                .execute("SELECT convex_hull_agg(p.\"geom\") FROM \"us_states\" p");
     }
 
     @Test

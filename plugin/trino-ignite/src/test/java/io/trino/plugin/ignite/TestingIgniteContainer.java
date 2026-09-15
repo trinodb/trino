@@ -43,7 +43,7 @@ public class TestingIgniteContainer
     @Override
     public String getJdbcUrl()
     {
-        return format("jdbc:ignite:thin://%s:%s/public", getHost(), getMappedPort(10800));
+        return format("jdbc:ignite:thin://%s:%s", getHost(), getMappedPort(10800));
     }
 
     @Override

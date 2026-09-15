@@ -58,7 +58,7 @@ public class DropViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), metadata);
 
         if (metadata.isMaterializedView(session, name)) {
             throw semanticException(

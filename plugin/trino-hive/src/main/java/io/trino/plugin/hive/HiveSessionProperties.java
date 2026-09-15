@@ -57,7 +57,6 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveSessionProperties
@@ -142,7 +141,7 @@ public final class HiveSessionProperties
 
         public static InsertExistingPartitionsBehavior valueOf(String value, boolean immutablePartitions)
         {
-            InsertExistingPartitionsBehavior enumValue = valueOf(value.toUpperCase(ENGLISH));
+            InsertExistingPartitionsBehavior enumValue = valueOf(value);
             checkArgument(isValid(enumValue, immutablePartitions), "Trino is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND);
             return enumValue;
         }
@@ -515,7 +514,6 @@ public final class HiveSessionProperties
                                         throw new TrinoException(INVALID_SESSION_PROPERTY, format("Invalid null or empty value in %s property", QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS));
                                     }
                                 })
-                                .map(schema -> schema.toLowerCase(ENGLISH))
                                 .collect(toImmutableSet()),
                         value -> value),
                 booleanProperty(

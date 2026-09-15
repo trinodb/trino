@@ -76,7 +76,7 @@ public class TestIcebergSortedWriting
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
                 assertThat(isFileSorted(Location.of((String) filePath), "comment", format)).isTrue();
             }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM \"lineitem\"");
         }
     }
 

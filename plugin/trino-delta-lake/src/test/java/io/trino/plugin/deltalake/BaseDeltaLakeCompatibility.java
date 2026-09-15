@@ -72,6 +72,12 @@ public abstract class BaseDeltaLakeCompatibility
         }
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testSelectAll()
     {

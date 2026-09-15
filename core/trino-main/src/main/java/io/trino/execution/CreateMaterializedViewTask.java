@@ -23,6 +23,7 @@ import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
@@ -112,7 +113,8 @@ public class CreateMaterializedViewTask
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        Metadata metadata = plannerContext.getMetadata();
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);

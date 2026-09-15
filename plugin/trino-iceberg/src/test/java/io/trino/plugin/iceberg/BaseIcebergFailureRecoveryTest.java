@@ -42,6 +42,12 @@ public abstract class BaseIcebergFailureRecoveryTest
         return true;
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     protected void testCreatePartitionedTable()
     {

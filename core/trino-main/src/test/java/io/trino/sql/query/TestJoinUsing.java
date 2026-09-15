@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -34,6 +35,11 @@ public class TestJoinUsing
         assertions.close();
     }
 
+    private String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
     @Test
     public void testColumnReferences()
     {
@@ -47,7 +53,7 @@ public class TestJoinUsing
                 "SELECT t.k FROM " +
                         "(VALUES (1, 'a')) AS t(k, v1) JOIN" +
                         "(VALUES (1, 'b')) AS u(k, v2) USING (k)"))
-                .failure().hasMessageMatching(".*Column 't.k' cannot be resolved.*");
+                .failure().hasMessageMatching(".*Column '%s' cannot be resolved".formatted(canonicalize("t.k")));
     }
 
     @Test

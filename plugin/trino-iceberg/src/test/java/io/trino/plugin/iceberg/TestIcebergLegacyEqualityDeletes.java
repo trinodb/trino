@@ -110,7 +110,7 @@ public class TestIcebergLegacyEqualityDeletes
                         ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
             }
 
-            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\" WHERE (\"regionkey\" != 1L AND \"regionkey\" != 2L)");
         }
     }
 
@@ -131,7 +131,7 @@ public class TestIcebergLegacyEqualityDeletes
                         ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
             }
 
-            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\" WHERE (\"regionkey\" != 1L AND \"regionkey\" != 2L)");
 
             // Reinsert the data for regionkey = 1. This should insert the data with a larger datasequence number and the delete file should not apply to it anymore.
             // Also delete something again so that the split has deletes and the delete logic is activated.
@@ -142,7 +142,7 @@ public class TestIcebergLegacyEqualityDeletes
                     Optional.empty(),
                     ImmutableMap.of("regionkey", Integer.toUnsignedLong(3)));
 
-            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE (regionkey != 2L AND regionkey != 3L)");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\" WHERE (\"regionkey\" != 2L AND \"regionkey\" != 3L)");
         }
     }
 
@@ -178,7 +178,7 @@ public class TestIcebergLegacyEqualityDeletes
                     equivalentDeleteRowSchema,
                     equalityFieldIds);
 
-            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR (regionkey = 2 AND name = 'INDIA'))");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\" WHERE NOT ((\"regionkey\" = 1 AND \"name\" = 'BRAZIL') OR (\"regionkey\" = 2 AND \"name\" = 'INDIA'))");
         }
     }
 
@@ -209,7 +209,7 @@ public class TestIcebergLegacyEqualityDeletes
                     ImmutableMap.of("regionkey", 2L),
                     Optional.of(ImmutableList.of("regionkey")));
 
-            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR regionkey = 2 OR name = 'ALGERIA')");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\" WHERE NOT ((\"regionkey\" = 1 AND \"name\" = 'BRAZIL') OR \"regionkey\" = 2 OR \"name\" = 'ALGERIA')");
         }
     }
 
@@ -237,7 +237,7 @@ public class TestIcebergLegacyEqualityDeletes
                     ImmutableMap.of("regionkey", 2L),
                     Optional.of(ImmutableList.of("regionkey")));
 
-            assertQuery("SELECT * FROM " + tableName, "SELECT 'part_1', * FROM nation WHERE regionkey <> 1 UNION ALL select 'part_2', * FROM NATION where regionkey <> 2");
+            assertQuery("SELECT * FROM " + tableName, "SELECT 'part_1', * FROM \"nation\" WHERE \"regionkey\" <> 1 UNION ALL SELECT 'part_2', * FROM \"nation\" where \"regionkey\" <> 2");
         }
     }
 
@@ -289,7 +289,7 @@ public class TestIcebergLegacyEqualityDeletes
             Table icebergTable = loadTable(tableName);
             writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
             assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\" WHERE \"regionkey\" != 1 OR \"nationkey\" != 1");
             assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         }
     }

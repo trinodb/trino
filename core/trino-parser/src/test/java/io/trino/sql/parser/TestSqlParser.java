@@ -251,6 +251,7 @@ import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
+import io.trino.sql.tree.Use;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
@@ -529,7 +530,7 @@ public class TestSqlParser
         assertThat(QualifiedName.of("a", "b", "c", "d").toString())
                 .isEqualTo("a.b.c.d");
         assertThat(QualifiedName.of("A", "b", "C", "d").toString())
-                .isEqualTo("a.b.c.d");
+                .isEqualTo("A.b.C.d");
         assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d"))).isTrue();
         assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d"))).isTrue();
         assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d"))).isFalse();
@@ -9716,6 +9717,19 @@ public class TestSqlParser
     {
         assertThat(statement("RESET SESSION AUTHORIZATION"))
                 .isEqualTo(new ResetSessionAuthorization(location(1, 1)));
+    }
+
+    @Test
+    public void testUse()
+    {
+        Identifier catalog = new Identifier(location(1, 5), "catalog", false);
+        Identifier schema = new Identifier(location(1, 13), "public", false);
+        assertThat(statement("USE catalog.public"))
+                .isEqualTo(new Use(location(1, 1), Optional.of(catalog), schema));
+
+        schema = new Identifier(location(1, 13), "PUBLIC", true);
+        assertThat(statement("USE catalog.\"PUBLIC\""))
+                .isEqualTo(new Use(location(1, 1), Optional.of(catalog), schema));
     }
 
     private static QualifiedName makeQualifiedName(String tableName, int firstColumn)

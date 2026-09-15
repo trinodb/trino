@@ -31,7 +31,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 
 public final class PartitionFields
@@ -40,7 +39,6 @@ public final class PartitionFields
     private static final String QUOTED_IDENTIFIER = "\"(?:\"\"|[^\"])*\"";
     public static final String IDENTIFIER = "(" + UNQUOTED_IDENTIFIER + "|" + QUOTED_IDENTIFIER + ")";
     private static final Pattern UNQUOTED_IDENTIFIER_PATTERN = Pattern.compile(UNQUOTED_IDENTIFIER);
-    private static final Pattern QUOTED_IDENTIFIER_PATTERN = Pattern.compile(QUOTED_IDENTIFIER);
 
     private static final String FUNCTION_ARGUMENT_NAME = "\\(" + IDENTIFIER + "\\)\\s*";
     private static final String FUNCTION_ARGUMENT_NAME_AND_INT = "\\(" + IDENTIFIER + ",\\s*(\\d+)\\)";
@@ -120,7 +118,7 @@ public final class PartitionFields
     {
         // Check if a partition field name is already used by another transform
         return existingPartitionFields.stream().anyMatch(
-                partitionField -> partitionField.name().equalsIgnoreCase(partitionFieldName)
+                partitionField -> partitionField.name().equals(partitionFieldName)
                         && !partitionField.transform().equals(transform));
     }
 
@@ -169,13 +167,13 @@ public final class PartitionFields
 
     public static String fromIdentifierToColumn(String identifier)
     {
-        if (QUOTED_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
-            return identifier.substring(1, identifier.length() - 1).replace("\"\"", "\"");
+        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
+            return identifier;
         }
         // Currently, all Iceberg columns are stored in lowercase in the Iceberg metadata files.
         // Unquoted identifiers are canonicalized to lowercase here which is not according ANSI SQL spec.
         // See https://github.com/trinodb/trino/issues/17
-        return identifier.toLowerCase(ENGLISH);
+        return identifier.substring(1, identifier.length() - 1).replace("\"\"", "\"");
     }
 
     private static boolean tryMatch(CharSequence value, Pattern pattern, Consumer<MatchResult> match)
@@ -229,7 +227,7 @@ public final class PartitionFields
 
     public static String quotedName(String name)
     {
-        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches() && name.toLowerCase(ENGLISH).equals(name)) {
+        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches()) {
             return name;
         }
         return '"' + name.replace("\"", "\"\"") + '"';

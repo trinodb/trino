@@ -342,13 +342,13 @@ class TestDeltaLakeColumnMappingMode
 
             assertThat(env.executeTrino("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("mixed_case", null, null, 0.0, null, "0", "9"),
+                            row("mIxEd_CaSe", null, null, 0.0, null, "0", "9"),
                             row(null, null, null, null, 2.0, null, null)));
 
             // Verify column comments
-            env.executeTrinoUpdate("COMMENT ON COLUMN delta.default." + tableName + ".mixed_case IS 'test column comment'");
-            assertThat(getColumnCommentOnTrino(env, "default", tableName, "mixed_case")).isEqualTo("test column comment");
-            assertThat(getColumnCommentOnSpark(env, "default", tableName, "mixed_case")).isEqualTo("test column comment");
+            env.executeTrinoUpdate("COMMENT ON COLUMN delta.default." + tableName + ".mIxEd_CaSe IS 'test column comment'");
+            assertThat(getColumnCommentOnTrino(env, "default", tableName, "mIxEd_CaSe")).isEqualTo("test column comment");
+            assertThat(getColumnCommentOnSpark(env, "default", tableName, "mIxEd_CaSe")).isEqualTo("test column comment");
         }
         finally {
             env.executeSparkUpdate("DROP TABLE IF EXISTS default." + tableName);
@@ -1060,32 +1060,32 @@ class TestDeltaLakeColumnMappingMode
             env.executeTrinoUpdate("INSERT INTO delta.default." + tableName + " VALUES (1, 10, 'part#1')");
             assertThat(env.executeTrino("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("upper_id", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_data", null, 1.0, 0.0, null, "10", "10"),
-                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row("UPPER_ID", null, 1.0, 0.0, null, "1", "1"),
+                            row("UPPER_DATA", null, 1.0, 0.0, null, "10", "10"),
+                            row("UPPER_PART", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));
 
-            env.executeTrinoUpdate("ALTER TABLE delta.default." + tableName + " DROP COLUMN upper_data");
+            env.executeTrinoUpdate("ALTER TABLE delta.default." + tableName + " DROP COLUMN UPPER_DATA");
             assertThat(getColumnNamesOnSpark(env, "default", tableName))
                     .containsExactly("UPPER_ID", "UPPER_PART");
             assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName))
                     .containsOnly(row(1, "part#1"));
             assertThat(env.executeTrino("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("upper_id", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row("UPPER_ID", null, 1.0, 0.0, null, "1", "1"),
+                            row("UPPER_PART", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));
 
-            assertThatThrownBy(() -> env.executeTrinoUpdate("ALTER TABLE delta.default." + tableName + " DROP COLUMN upper_part"))
+            assertThatThrownBy(() -> env.executeTrinoUpdate("ALTER TABLE delta.default." + tableName + " DROP COLUMN UPPER_PART"))
                     .hasMessageContaining("Cannot drop partition column");
 
             // Verify adding a column with the same name doesn't restore the old statistics
             env.executeSparkUpdate("ALTER TABLE default." + tableName + " ADD COLUMN UPPER_DATA INT");
             assertThat(env.executeTrino("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("upper_id", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_data", null, null, null, null, null, null),
-                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row("UPPER_ID", null, 1.0, 0.0, null, "1", "1"),
+                            row("UPPER_DATA", null, null, null, null, null, null),
+                            row("UPPER_PART", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));
         }
         finally {
@@ -1184,21 +1184,21 @@ class TestDeltaLakeColumnMappingMode
             env.executeTrinoUpdate("INSERT INTO delta.default." + tableName + " VALUES (1, 2)");
             assertThat(env.executeTrino("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(
-                            row("upper_col", null, 1.0, 0.0, null, "1", "1"),
-                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row("UPPER_COL", null, 1.0, 0.0, null, "1", "1"),
+                            row("UPPER_PART", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null));
 
             assertThat(getColumnNamesOnSpark(env, "default", tableName))
                     .containsExactly("UPPER_COL", "UPPER_PART");
 
-            env.executeTrinoUpdate("ALTER TABLE delta.default." + tableName + " RENAME COLUMN upper_col TO new_col");
+            env.executeTrinoUpdate("ALTER TABLE delta.default." + tableName + " RENAME COLUMN UPPER_COL TO new_col");
             assertThat(getColumnNamesOnSpark(env, "default", tableName))
                     .containsExactly("new_col", "UPPER_PART");
             assertThat(getColumnCommentOnSpark(env, "default", tableName, "new_col")).isEqualTo("test comment");
             assertThatThrownBy(() -> env.executeTrinoUpdate("INSERT INTO delta.default." + tableName + " (new_col) VALUES NULL"))
                     .hasMessageContaining("NULL value not allowed for NOT NULL column: new_col");
 
-            env.executeTrinoUpdate("ALTER TABLE delta.default." + tableName + " RENAME COLUMN upper_part TO new_part");
+            env.executeTrinoUpdate("ALTER TABLE delta.default." + tableName + " RENAME COLUMN UPPER_PART TO new_part");
             assertThat(getColumnNamesOnSpark(env, "default", tableName))
                     .containsExactly("new_col", "new_part");
 

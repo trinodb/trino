@@ -5,12 +5,12 @@ SELECT
         ${database}.${schema}.store_sales
       WHERE ("ss_quantity" BETWEEN 1 AND 20)
    ) > 74129) THEN (
-   SELECT "avg"("ss_ext_discount_amt")
+   SELECT avg("ss_ext_discount_amt")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 1 AND 20)
 ) ELSE (
-   SELECT "avg"("ss_net_paid")
+   SELECT avg("ss_net_paid")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 1 AND 20)
@@ -21,12 +21,12 @@ SELECT
         ${database}.${schema}.store_sales
       WHERE ("ss_quantity" BETWEEN 21 AND 40)
    ) > 122840) THEN (
-   SELECT "avg"("ss_ext_discount_amt")
+   SELECT avg("ss_ext_discount_amt")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 21 AND 40)
 ) ELSE (
-   SELECT "avg"("ss_net_paid")
+   SELECT avg("ss_net_paid")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 21 AND 40)
@@ -37,12 +37,12 @@ SELECT
         ${database}.${schema}.store_sales
       WHERE ("ss_quantity" BETWEEN 41 AND 60)
    ) > 56580) THEN (
-   SELECT "avg"("ss_ext_discount_amt")
+   SELECT avg("ss_ext_discount_amt")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 41 AND 60)
 ) ELSE (
-   SELECT "avg"("ss_net_paid")
+   SELECT avg("ss_net_paid")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 41 AND 60)
@@ -53,12 +53,12 @@ SELECT
         ${database}.${schema}.store_sales
       WHERE ("ss_quantity" BETWEEN 61 AND 80)
    ) > 10097) THEN (
-   SELECT "avg"("ss_ext_discount_amt")
+   SELECT avg("ss_ext_discount_amt")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 61 AND 80)
 ) ELSE (
-   SELECT "avg"("ss_net_paid")
+   SELECT avg("ss_net_paid")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 61 AND 80)
@@ -69,12 +69,12 @@ SELECT
         ${database}.${schema}.store_sales
       WHERE ("ss_quantity" BETWEEN 81 AND 100)
    ) > 165306) THEN (
-   SELECT "avg"("ss_ext_discount_amt")
+   SELECT avg("ss_ext_discount_amt")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 81 AND 100)
 ) ELSE (
-   SELECT "avg"("ss_net_paid")
+   SELECT avg("ss_net_paid")
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 81 AND 100)

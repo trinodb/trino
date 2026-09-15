@@ -30,12 +30,12 @@ public class SuperTypeJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "super_types");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("type_cat", VARCHAR)
-            .column("type_schem", VARCHAR)
-            .column("type_name", VARCHAR)
-            .column("supertype_cat", VARCHAR)
-            .column("supertype_schem", VARCHAR)
-            .column("supertype_name", VARCHAR)
+            .column("TYPE_CAT", VARCHAR)
+            .column("TYPE_SCHEM", VARCHAR)
+            .column("TYPE_NAME", VARCHAR)
+            .column("SUPERTYPE_CAT", VARCHAR)
+            .column("SUPERTYPE_SCHEM", VARCHAR)
+            .column("SUPERTYPE_NAME", VARCHAR)
             .build();
 
     @Override

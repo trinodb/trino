@@ -39,7 +39,7 @@ public class CatalogJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "catalogs");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", VARCHAR)
+            .column("TABLE_CAT", VARCHAR)
             .build();
 
     private final Metadata metadata;

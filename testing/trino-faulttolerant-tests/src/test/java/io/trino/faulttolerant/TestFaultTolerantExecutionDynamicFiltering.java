@@ -71,7 +71,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem WHERE lineitem.partkey IN (SELECT part.partkey FROM tpch.tiny.part)",
+                "SELECT * FROM \"lineitem\" WHERE \"lineitem\".\"partkey\" IN (SELECT part.partkey FROM tpch.tiny.part)",
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -88,7 +88,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType),
-                "SELECT * FROM lineitem l JOIN tpch.tiny.part p ON l.partkey = p.partkey",
+                "SELECT * FROM \"lineitem\" l JOIN tpch.tiny.part p ON l.\"partkey\" = p.partkey",
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -107,7 +107,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
     {
         assertQueryDynamicFilters(
                 noJoinReordering(),
-                "SELECT * FROM lineitem l RIGHT JOIN tpch.tiny.part p ON l.partkey = p.partkey",
+                "SELECT * FROM \"lineitem\" l RIGHT JOIN tpch.tiny.part p ON l.\"partkey\" = p.partkey",
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(

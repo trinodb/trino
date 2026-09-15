@@ -335,7 +335,7 @@ public class TestJdbcCompatibility
 
     private void testSelectParametricTimestampWithTimeZoneInRow(String elementExpression, int precision, Object expectedValue)
     {
-        String query = format("SELECT CAST(ROW(%s) AS row(timestamp timestamp(%d) with time zone))", elementExpression, precision);
+        String query = format("SELECT CAST(ROW(%s) AS row(\"timestamp\" timestamp(%d) with time zone))", elementExpression, precision);
         checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromRow);
         checkDescribeTimestampType(query, "row(\"timestamp\" %s)", precision, true);
     }

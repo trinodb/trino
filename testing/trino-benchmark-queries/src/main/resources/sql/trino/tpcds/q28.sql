@@ -2,9 +2,9 @@ SELECT *
 FROM
   (
    SELECT
-     "avg"("ss_list_price") "b1_lp"
-   , "count"("ss_list_price") "b1_cnt"
-   , "count"(DISTINCT "ss_list_price") "b1_cntd"
+     avg("ss_list_price") "b1_lp"
+   , count("ss_list_price") "b1_cnt"
+   , count(DISTINCT "ss_list_price") "b1_cntd"
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 0 AND 5)
@@ -14,9 +14,9 @@ FROM
 )  b1
 , (
    SELECT
-     "avg"("ss_list_price") "b2_lp"
-   , "count"("ss_list_price") "b2_cnt"
-   , "count"(DISTINCT "ss_list_price") "b2_cntd"
+     avg("ss_list_price") "b2_lp"
+   , count("ss_list_price") "b2_cnt"
+   , count(DISTINCT "ss_list_price") "b2_cntd"
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 6 AND 10)
@@ -26,9 +26,9 @@ FROM
 )  b2
 , (
    SELECT
-     "avg"("ss_list_price") "b3_lp"
-   , "count"("ss_list_price") "b3_cnt"
-   , "count"(DISTINCT "ss_list_price") "b3_cntd"
+     avg("ss_list_price") "b3_lp"
+   , count("ss_list_price") "b3_cnt"
+   , count(DISTINCT "ss_list_price") "b3_cntd"
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 11 AND 15)
@@ -38,9 +38,9 @@ FROM
 )  b3
 , (
    SELECT
-     "avg"("ss_list_price") "b4_lp"
-   , "count"("ss_list_price") "b4_cnt"
-   , "count"(DISTINCT "ss_list_price") "b4_cntd"
+     avg("ss_list_price") "b4_lp"
+   , count("ss_list_price") "b4_cnt"
+   , count(DISTINCT "ss_list_price") "b4_cntd"
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 16 AND 20)
@@ -50,9 +50,9 @@ FROM
 )  b4
 , (
    SELECT
-     "avg"("ss_list_price") "b5_lp"
-   , "count"("ss_list_price") "b5_cnt"
-   , "count"(DISTINCT "ss_list_price") "b5_cntd"
+     avg("ss_list_price") "b5_lp"
+   , count("ss_list_price") "b5_cnt"
+   , count(DISTINCT "ss_list_price") "b5_cntd"
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 21 AND 25)
@@ -62,9 +62,9 @@ FROM
 )  b5
 , (
    SELECT
-     "avg"("ss_list_price") "b6_lp"
-   , "count"("ss_list_price") "b6_cnt"
-   , "count"(DISTINCT "ss_list_price") "b6_cntd"
+     avg("ss_list_price") "b6_lp"
+   , count("ss_list_price") "b6_cnt"
+   , count(DISTINCT "ss_list_price") "b6_cntd"
    FROM
      ${database}.${schema}.store_sales
    WHERE ("ss_quantity" BETWEEN 26 AND 30)

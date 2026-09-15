@@ -3,9 +3,9 @@ SELECT
 , "i_item_desc"
 , "s_store_id"
 , "s_store_name"
-, "sum"("ss_net_profit") "store_sales_profit"
-, "sum"("sr_net_loss") "store_returns_loss"
-, "sum"("cs_net_profit") "catalog_sales_profit"
+, sum("ss_net_profit") "store_sales_profit"
+, sum("sr_net_loss") "store_returns_loss"
+, sum("cs_net_profit") "catalog_sales_profit"
 FROM
   ${database}.${schema}.store_sales
 , ${database}.${schema}.store_returns

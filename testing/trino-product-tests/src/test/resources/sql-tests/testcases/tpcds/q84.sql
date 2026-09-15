@@ -1,6 +1,6 @@
 SELECT
   "c_customer_id" "customer_id"
-, "concat"("concat"("c_last_name", ', '), "c_first_name") "customername"
+, concat(concat("c_last_name", ', '), "c_first_name") "customername"
 FROM
   customer
 , customer_address
