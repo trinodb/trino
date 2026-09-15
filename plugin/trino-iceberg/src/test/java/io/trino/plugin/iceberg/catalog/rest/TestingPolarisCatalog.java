@@ -22,7 +22,7 @@ import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.Floci;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -38,11 +38,10 @@ import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static io.trino.testing.containers.Minio.DEFAULT_HOST_NAME;
-import static io.trino.testing.containers.Minio.MINIO_API_PORT;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_PORT;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -59,7 +58,7 @@ public final class TestingPolarisCatalog
     public static final String POLARIS_REALM_NAME = "default-realm";
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final Minio minio;
+    private final Floci floci;
     private final GenericContainer<?> polarisCatalog;
     private final String token;
     private final String warehouseLocation;
@@ -70,9 +69,9 @@ public final class TestingPolarisCatalog
         requireNonNull(bucketName, "bucketName is null");
 
         Network network = closer.register(Network.newNetwork());
-        minio = closer.register(Minio.builder().withNetwork(network).build());
-        minio.start();
-        minio.createBucket(bucketName);
+        floci = closer.register(new Floci().withNetwork(network).withNetworkAliases("floci"));
+        floci.start();
+        floci.createBucket(bucketName);
 
         this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
         polarisCatalog = closer.register(new GenericContainer<>("apache/polaris:1.5.0"));
@@ -87,9 +86,9 @@ public final class TestingPolarisCatalog
         polarisCatalog.withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"S3\"]");
         polarisCatalog.withEnv("polaris.features.\"ALLOW_INSECURE_STORAGE_TYPES\"", "true");
         polarisCatalog.withEnv("polaris.features.\"DROP_WITH_PURGE_ENABLED\"", "true");
-        polarisCatalog.withEnv("AWS_ACCESS_KEY_ID", MINIO_ROOT_USER);
-        polarisCatalog.withEnv("AWS_SECRET_ACCESS_KEY", MINIO_ROOT_PASSWORD);
-        polarisCatalog.withEnv("AWS_REGION", MINIO_REGION);
+        polarisCatalog.withEnv("AWS_ACCESS_KEY_ID", FLOCI_ACCESS_KEY);
+        polarisCatalog.withEnv("AWS_SECRET_ACCESS_KEY", FLOCI_SECRET_KEY);
+        polarisCatalog.withEnv("AWS_REGION", FLOCI_REGION);
 
         polarisCatalog.start();
 
@@ -118,7 +117,7 @@ public final class TestingPolarisCatalog
 
     private void createCatalog()
     {
-        String minioInternalAddress = "http://%s:%s".formatted(DEFAULT_HOST_NAME, MINIO_API_PORT);
+        String flociInternalAddress = "http://floci:%s".formatted(FLOCI_PORT);
         String body =
                 """
                 {
@@ -128,6 +127,7 @@ public final class TestingPolarisCatalog
                         "readOnly": false,
                         "storageConfigInfo": {
                             "storageType": "S3",
+                            "roleArn": "arn:aws:iam::000000000000:role/test",
                             "endpoint": "%s",
                             "pathStyleAccess": true,
                             "region": "%s"
@@ -136,7 +136,7 @@ public final class TestingPolarisCatalog
                             "default-base-location": "%s"
                         }
                     }
-                }""".formatted(minioInternalAddress, MINIO_REGION, warehouseLocation);
+                }""".formatted(flociInternalAddress, FLOCI_REGION, warehouseLocation);
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs"))
                 .setHeader(AUTHORIZATION, "Bearer " + token)
@@ -178,9 +178,9 @@ public final class TestingPolarisCatalog
         return "http://%s:%s".formatted(polarisCatalog.getHost(), polarisCatalog.getMappedPort(POLARIS_PORT));
     }
 
-    public Minio minio()
+    public Floci floci()
     {
-        return minio;
+        return floci;
     }
 
     @Override

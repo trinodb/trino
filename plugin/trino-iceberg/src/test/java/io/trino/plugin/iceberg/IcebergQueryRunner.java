@@ -430,8 +430,8 @@ public final class IcebergQueryRunner
                     .addIcebergProperty("iceberg.rest-catalog.http-headers", TestingPolarisCatalog.POLARIS_REALM_HEADER + ": " + TestingPolarisCatalog.POLARIS_REALM_NAME)
                     .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
                     .addIcebergProperty("fs.s3.enabled", "true")
-                    .addIcebergProperty("s3.region", MINIO_REGION)
-                    .addIcebergProperty("s3.endpoint", polarisCatalog.minio().getMinioAddress())
+                    .addIcebergProperty("s3.region", FLOCI_REGION)
+                    .addIcebergProperty("s3.endpoint", polarisCatalog.floci().endpoint().toString())
                     .addIcebergProperty("s3.path-style-access", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
