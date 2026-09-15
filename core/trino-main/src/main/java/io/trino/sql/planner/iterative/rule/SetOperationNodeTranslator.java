@@ -42,7 +42,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -220,38 +219,18 @@ public class SetOperationNodeTranslator
                 0);
     }
 
-    public static class TranslationResult
+    public record TranslationResult(PlanNode planNode, List<Symbol> countSymbols, Optional<Symbol> rowNumberSymbol)
     {
-        private final PlanNode planNode;
-        private final List<Symbol> countSymbols;
-        private final Optional<Symbol> rowNumberSymbol;
+        public TranslationResult
+        {
+            requireNonNull(planNode, "planNode is null");
+            countSymbols = ImmutableList.copyOf(requireNonNull(countSymbols, "countSymbols is null"));
+            requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
+        }
 
         public TranslationResult(PlanNode planNode, List<Symbol> countSymbols)
         {
             this(planNode, countSymbols, Optional.empty());
-        }
-
-        public TranslationResult(PlanNode planNode, List<Symbol> countSymbols, Optional<Symbol> rowNumberSymbol)
-        {
-            this.planNode = requireNonNull(planNode, "planNode is null");
-            this.countSymbols = ImmutableList.copyOf(requireNonNull(countSymbols, "countSymbols is null"));
-            this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        }
-
-        public PlanNode getPlanNode()
-        {
-            return this.planNode;
-        }
-
-        public List<Symbol> getCountSymbols()
-        {
-            return countSymbols;
-        }
-
-        public Symbol getRowNumberSymbol()
-        {
-            checkState(rowNumberSymbol.isPresent(), "rowNumberSymbol is empty");
-            return rowNumberSymbol.get();
         }
     }
 }

@@ -92,19 +92,19 @@ public class ImplementIntersectAll
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForAll(node);
 
         // compute expected multiplicity for every row
-        checkState(result.getCountSymbols().size() > 0, "IntersectNode translation result has no count symbols");
+        checkState(result.countSymbols().size() > 0, "IntersectNode translation result has no count symbols");
         ResolvedFunction least = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "least", ImmutableList.of(BIGINT, BIGINT));
 
-        Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
-        for (int i = 1; i < result.getCountSymbols().size(); i++) {
-            minCount = new Call(least, ImmutableList.of(minCount, result.getCountSymbols().get(i).toSymbolReference()));
+        Expression minCount = result.countSymbols().get(0).toSymbolReference();
+        for (int i = 1; i < result.countSymbols().size(); i++) {
+            minCount = new Call(least, ImmutableList.of(minCount, result.countSymbols().get(i).toSymbolReference()));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = comparison(metadata, getCharVarcharCoercion(context.getSession()), LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), minCount);
+        Expression removeExtraRows = comparison(metadata, getCharVarcharCoercion(context.getSession()), LESS_THAN_OR_EQUAL, result.rowNumberSymbol().orElseThrow().toSymbolReference(), minCount);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
-                result.getPlanNode(),
+                result.planNode(),
                 removeExtraRows);
 
         // prune helper symbols
