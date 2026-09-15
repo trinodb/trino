@@ -87,7 +87,7 @@ public class SparkHudiContainer
             spark.hive.metastore.warehouse.dir=%5$s
             spark.hive.metastore.schema.verification=false
 
-            # S3A configuration for MinIO
+            # S3A configuration
             spark.hadoop.fs.s3a.access.key=%1$s
             spark.hadoop.fs.s3a.secret.key=%2$s
             spark.hadoop.fs.s3a.endpoint=%3$s
