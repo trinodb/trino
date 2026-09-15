@@ -126,7 +126,7 @@ public class TestPatternRecognitionNodeSerialization
                 Optional.of(new Symbol(VARCHAR, "classifier")),
                 Optional.of(new Symbol(BIGINT, "match_number"))));
 
-        ResolvedFunction maxFunction = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max", fromTypes(BIGINT));
+        ResolvedFunction maxFunction = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max", ImmutableList.of(BIGINT));
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),

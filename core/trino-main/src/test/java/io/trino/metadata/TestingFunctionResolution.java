@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
@@ -164,18 +165,26 @@ public class TestingFunctionResolution
 
     public ResolvedFunction resolveFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
-        return metadata.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, parameterTypes);
+        return metadata.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, toTypes(parameterTypes));
     }
 
     public TestingAggregationFunction getAggregateFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return inTransaction(session -> {
-            ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), name, parameterTypes);
+            ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), name, toTypes(parameterTypes));
             return new TestingAggregationFunction(
                     resolvedFunction.signature(),
                     resolvedFunction.functionNullability(),
                     plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction));
         });
+    }
+
+    private List<Type> toTypes(List<TypeDescriptorProvider> parameterTypes)
+    {
+        return parameterTypes.stream()
+                .map(TypeDescriptorProvider::getTypeDescriptor)
+                .map(plannerContext.getTypeManager()::getType)
+                .collect(toImmutableList());
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

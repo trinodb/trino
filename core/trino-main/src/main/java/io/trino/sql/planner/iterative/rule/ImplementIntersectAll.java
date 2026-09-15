@@ -29,7 +29,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.Intersect.distinct;
@@ -94,7 +93,7 @@ public class ImplementIntersectAll
 
         // compute expected multiplicity for every row
         checkState(result.getCountSymbols().size() > 0, "IntersectNode translation result has no count symbols");
-        ResolvedFunction least = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "least", fromTypes(BIGINT, BIGINT));
+        ResolvedFunction least = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "least", ImmutableList.of(BIGINT, BIGINT));
 
         Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {

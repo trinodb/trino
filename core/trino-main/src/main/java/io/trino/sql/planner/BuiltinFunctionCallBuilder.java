@@ -16,8 +16,6 @@ package io.trino.sql.planner;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -25,7 +23,6 @@ import io.trino.type.CharVarcharCoercion;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,7 +31,7 @@ public class BuiltinFunctionCallBuilder
     private final Metadata metadata;
     private final CharVarcharCoercion charVarcharCoercion;
     private String name;
-    private List<TypeDescriptor> argumentTypes = new ArrayList<>();
+    private List<Type> argumentTypes = new ArrayList<>();
     private List<Expression> argumentValues = new ArrayList<>();
 
     public static BuiltinFunctionCallBuilder resolve(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
@@ -57,38 +54,30 @@ public class BuiltinFunctionCallBuilder
     public BuiltinFunctionCallBuilder addArgument(Constant value)
     {
         requireNonNull(value, "value is null");
-        return addArgument(value.type().getTypeDescriptor(), value);
+        return addArgument(value.type(), value);
     }
 
     public BuiltinFunctionCallBuilder addArgument(Type type, Expression value)
     {
         requireNonNull(type, "type is null");
-        return addArgument(type.getTypeDescriptor(), value);
-    }
-
-    public BuiltinFunctionCallBuilder addArgument(TypeDescriptor typeDescriptor, Expression value)
-    {
-        requireNonNull(typeDescriptor, "typeDescriptor is null");
         requireNonNull(value, "value is null");
-        argumentTypes.add(typeDescriptor);
+        argumentTypes.add(type);
         argumentValues.add(value);
         return this;
     }
 
-    public BuiltinFunctionCallBuilder setArguments(List<Type> types, List<Expression> values)
+    public BuiltinFunctionCallBuilder setArguments(List<? extends Type> types, List<Expression> values)
     {
         requireNonNull(types, "types is null");
         requireNonNull(values, "values is null");
-        argumentTypes = types.stream()
-                .map(Type::getTypeDescriptor)
-                .collect(Collectors.toList());
+        argumentTypes = new ArrayList<>(types);
         argumentValues = new ArrayList<>(values);
         return this;
     }
 
     public Call build()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(charVarcharCoercion, name, TypeDescriptorProvider.fromTypeDescriptors(argumentTypes));
+        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(charVarcharCoercion, name, argumentTypes);
         return new Call(resolvedFunction, argumentValues);
     }
 }

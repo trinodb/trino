@@ -54,7 +54,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
 import static io.trino.type.DateTimes.parseTimestamp;
@@ -151,7 +150,7 @@ public final class LiteralInterpreter
                         boolean isJson = JSON.equals(type);
                         ResolvedFunction resolvedFunction;
                         if (isJson) {
-                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "json_parse", fromTypes(VARCHAR));
+                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "json_parse", ImmutableList.of(VARCHAR));
                         }
                         else {
                             resolvedFunction = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), VARCHAR, type);

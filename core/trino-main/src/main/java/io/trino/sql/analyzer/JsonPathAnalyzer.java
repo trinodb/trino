@@ -86,7 +86,6 @@ import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isStringType;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.jsonpath.tree.ArithmeticUnary.Sign.PLUS;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static java.util.Objects.requireNonNull;
@@ -178,7 +177,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "abs", fromTypes(sourceType)).signature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "abs", ImmutableList.of(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path abs() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -256,7 +255,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "ceiling", fromTypes(sourceType)).signature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "ceiling", ImmutableList.of(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path ceiling() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -348,7 +347,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "floor", fromTypes(sourceType)).signature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "floor", ImmutableList.of(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path floor() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());

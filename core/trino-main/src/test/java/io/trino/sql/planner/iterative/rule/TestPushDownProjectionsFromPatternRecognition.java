@@ -58,8 +58,8 @@ public class TestPushDownProjectionsFromPatternRecognition
     private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
-    private static final ResolvedFunction MAX_BY = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", fromTypes(BIGINT, BIGINT));
-    private static final ResolvedFunction MAX_BY_BIGINT_VARCHAR = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", fromTypes(BIGINT, VARCHAR));
+    private static final ResolvedFunction MAX_BY = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MAX_BY_BIGINT_VARCHAR = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, VARCHAR));
 
     @Test
     public void testNoAggregations()
@@ -109,7 +109,7 @@ public class TestPushDownProjectionsFromPatternRecognition
     @Test
     public void testPreProjectArguments()
     {
-        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", fromTypes(BIGINT, BIGINT));
+        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, BIGINT));
         tester().assertThat(new PushDownProjectionsFromPatternRecognition())
                 .on(p -> p.patternRecognition(builder -> builder
                         .pattern(new IrLabel("X"))

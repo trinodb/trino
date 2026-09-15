@@ -48,7 +48,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -134,14 +133,14 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "min", fromTypes(outputColumnType)),
+                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "min", ImmutableList.of(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "max", fromTypes(outputColumnType)),
+                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "max", ImmutableList.of(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
@@ -155,7 +154,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", fromTypes(outputColumnType)),
+                                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),

@@ -68,7 +68,7 @@ public class TestSpecializeTransformWithJsonParse
                                                 new Constant(JsonPathType.JSON_PATH, jsonPath))))))))
                 .isEqualTo(Optional.of(
                         new Call(
-                                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, fromTypes(VARCHAR, JsonPathType.JSON_PATH)),
+                                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, ImmutableList.of(VARCHAR, JsonPathType.JSON_PATH)),
                                 ImmutableList.of(
                                         new Reference(VARCHAR, "json_string"),
                                         new Constant(JsonPathType.JSON_PATH, jsonPath)))));

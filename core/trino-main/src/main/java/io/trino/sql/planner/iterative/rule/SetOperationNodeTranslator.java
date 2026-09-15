@@ -47,7 +47,6 @@ import static com.google.common.collect.Iterables.concat;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -88,7 +87,7 @@ public class SetOperationNodeTranslator
         this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
-        this.countFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", fromTypes(BOOLEAN));
+        this.countFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of(BOOLEAN));
         this.rowNumberFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "row_number", ImmutableList.of());
     }
 

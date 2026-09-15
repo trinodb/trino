@@ -150,7 +150,7 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(String functionName, Symbol input, Type inputType)
     {
-        return createAggregation(metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), functionName, fromTypes(inputType)), input, inputType);
+        return createAggregation(metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), functionName, ImmutableList.of(inputType)), input, inputType);
     }
 
     private static ColumnStatisticsAggregation createAggregation(ResolvedFunction resolvedFunction, Symbol input, Type inputType)
