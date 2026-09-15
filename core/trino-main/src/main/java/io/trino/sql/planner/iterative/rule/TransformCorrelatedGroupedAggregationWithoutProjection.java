@@ -155,7 +155,7 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
             }
         }
 
-        source = decorrelatedSource.get().getNode();
+        source = decorrelatedSource.get().node();
 
         // assign unique id on correlated join's input. It will be used to distinguish between original input rows after join
         PlanNode inputWithUniqueId = new AssignUniqueId(
@@ -172,7 +172,7 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
                 inputWithUniqueId.getOutputSymbols(),
                 source.getOutputSymbols(),
                 false,
-                decorrelatedSource.get().getCorrelatedPredicates(),
+                decorrelatedSource.get().correlatedPredicate(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
