@@ -445,16 +445,16 @@ public final class DomainTranslator
             }
             NormalizedSimpleComparison normalized = optionalNormalized.get();
 
-            Expression expression = normalized.getExpression();
+            Expression expression = normalized.expression();
             if (expression instanceof Reference reference) {
                 Symbol symbol = Symbol.from(reference);
-                NullableValue value = normalized.getValue();
+                NullableValue value = normalized.value();
                 Type type = value.getType(); // common type for symbol and value
-                return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement)
+                return createComparisonExtractionResult(normalized.comparisonOperator(), symbol, type, value.getValue(), complement)
                         .orElseGet(() -> visitExpression(originalExpression, complement));
             }
-            if (normalized.getComparisonOperator() == IDENTICAL && normalized.getValue().getType().equals(BOOLEAN) && normalized.getValue().getValue() != null) {
-                return processBooleanIdentical(expression, (boolean) normalized.getValue().getValue(), complement)
+            if (normalized.comparisonOperator() == IDENTICAL && normalized.value().getType().equals(BOOLEAN) && normalized.value().getValue() != null) {
+                return processBooleanIdentical(expression, (boolean) normalized.value().getValue(), complement)
                         .orElseGet(() -> visitExpression(originalExpression, complement));
             }
             if (expression instanceof Cast castExpression && isOptionallyCastReference(castExpression.expression())) {
@@ -495,7 +495,7 @@ public final class DomainTranslator
 
                 // we use saturated floor cast value -> castSourceType to rewrite original expression to new one with one cast peeled off the symbol side
                 Optional<Expression> coercedExpression = coerceComparisonWithRounding(
-                        castSourceType, castExpression.expression(), normalized.getValue(), normalized.getComparisonOperator());
+                        castSourceType, castExpression.expression(), normalized.value(), normalized.comparisonOperator());
 
                 if (coercedExpression.isPresent()) {
                     return process(coercedExpression.get(), complement);
@@ -604,9 +604,9 @@ public final class DomainTranslator
                 boolean complement,
                 Expression originalExpression)
         {
-            Expression sourceExpression = ((Cast) comparison.getExpression()).expression();
-            ComparisonOperator operator = comparison.getComparisonOperator();
-            NullableValue value = comparison.getValue();
+            Expression sourceExpression = ((Cast) comparison.expression()).expression();
+            ComparisonOperator operator = comparison.comparisonOperator();
+            NullableValue value = comparison.value();
 
             if (complement || value.isNull()) {
                 return Optional.empty();
@@ -1185,32 +1185,13 @@ public final class DomainTranslator
         }
     }
 
-    private static class NormalizedSimpleComparison
+    private record NormalizedSimpleComparison(Expression expression, ComparisonOperator comparisonOperator, NullableValue value)
     {
-        private final Expression expression;
-        private final ComparisonOperator comparisonOperator;
-        private final NullableValue value;
-
-        public NormalizedSimpleComparison(Expression expression, ComparisonOperator comparisonOperator, NullableValue value)
+        private NormalizedSimpleComparison
         {
-            this.expression = requireNonNull(expression, "expression is null");
-            this.comparisonOperator = requireNonNull(comparisonOperator, "comparisonOperator is null");
-            this.value = requireNonNull(value, "value is null");
-        }
-
-        public Expression getExpression()
-        {
-            return expression;
-        }
-
-        public ComparisonOperator getComparisonOperator()
-        {
-            return comparisonOperator;
-        }
-
-        public NullableValue getValue()
-        {
-            return value;
+            requireNonNull(expression, "expression is null");
+            requireNonNull(comparisonOperator, "comparisonOperator is null");
+            requireNonNull(value, "value is null");
         }
     }
 
