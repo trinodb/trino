@@ -611,7 +611,7 @@ public class EffectivePredicateExtractor
                 }
             });
 
-            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
+            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).scopeEqualities());
 
             return combineConjuncts(effectiveConjuncts.build());
         }

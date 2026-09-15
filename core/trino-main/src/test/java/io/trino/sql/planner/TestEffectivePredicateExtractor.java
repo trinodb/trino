@@ -1161,7 +1161,7 @@ public class TestEffectivePredicateExtractor
                 .map(expression -> inference.rewrite(expression, scope))
                 .peek(rewritten -> checkState(rewritten != null, "Rewrite with full symbol scope should always be possible"))
                 .collect(Collectors.toSet());
-        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
+        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(scope).scopeEqualities());
 
         return rewrittenSet;
     }

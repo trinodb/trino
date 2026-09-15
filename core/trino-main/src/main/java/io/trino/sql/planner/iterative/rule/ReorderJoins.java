@@ -393,9 +393,9 @@ public class ReorderJoins
 
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
-            List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).getScopeEqualities();
+            List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).scopeEqualities();
             EqualityInference joinInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), joinEqualities);
-            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).getScopeStraddlingEqualities());
+            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).scopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
         }
@@ -405,7 +405,7 @@ public class ReorderJoins
             if (nodes.size() == 1) {
                 PlanNode planNode = getOnlyElement(nodes);
                 Set<Symbol> scope = ImmutableSet.copyOf(requiredOutputs);
-                Expression filter = combineConjuncts(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
+                Expression filter = combineConjuncts(allFilterInference.generateEqualitiesPartitionedBy(scope).scopeEqualities());
                 if (!TRUE.equals(filter)) {
                     planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
                 }
