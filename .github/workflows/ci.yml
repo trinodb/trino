@@ -177,6 +177,9 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
+      - name: Test error code uniqueness
+        # Check every connector independently of the impacted module test matrix.
+        run: $MAVEN surefire:test -B --strict-checksums -pl :trino-tests -Dtest=TestErrorCodes
       - name: Test JDBC shading
         # Run only integration tests to verify JDBC driver shading
         run: |
