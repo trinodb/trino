@@ -14,6 +14,7 @@
 package io.trino.plugin.lakehouse;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import io.airlift.slice.Slice;
 import io.trino.metastore.Table;
@@ -41,6 +42,7 @@ import io.trino.plugin.iceberg.IcebergWritableTableHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.RefreshType;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -119,12 +121,14 @@ import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.isSystemView;
 import static io.trino.plugin.lakehouse.LakehouseTableProperties.getTableType;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class LakehouseMetadata
         implements ConnectorMetadata
 {
     private final LakehouseTableProperties tableProperties;
+    private final Map<TableType, Set<String>> tableProcedureNames;
     private final TransactionalMetadata hiveMetadata;
     private final IcebergMetadata icebergMetadata;
     private final DeltaLakeMetadata deltaMetadata;
@@ -132,12 +136,14 @@ public class LakehouseMetadata
 
     public LakehouseMetadata(
             LakehouseTableProperties tableProperties,
+            Map<TableType, Set<String>> tableProcedureNames,
             TransactionalMetadata hiveMetadata,
             IcebergMetadata icebergMetadata,
             DeltaLakeMetadata deltaMetadata,
             HudiMetadata hudiMetadata)
     {
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.tableProcedureNames = ImmutableMap.copyOf(requireNonNull(tableProcedureNames, "tableProcedureNames is null"));
         this.hiveMetadata = requireNonNull(hiveMetadata, "hiveMetadata is null");
         this.icebergMetadata = requireNonNull(icebergMetadata, "icebergMetadata is null");
         this.deltaMetadata = requireNonNull(deltaMetadata, "deltaMetadata is null");
@@ -184,6 +190,10 @@ public class LakehouseMetadata
     @Override
     public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
     {
+        TableType tableType = tableTypeForHandle(tableHandle);
+        if (!tableProcedureNames.getOrDefault(tableType, ImmutableSet.of()).contains(procedureName)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table procedure not supported for %s tables: %s".formatted(tableType, procedureName));
+        }
         return forHandle(tableHandle).getTableHandleForExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
     }
 
