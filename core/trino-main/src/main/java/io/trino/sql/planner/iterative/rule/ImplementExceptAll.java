@@ -31,7 +31,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.Except.distinct;
@@ -96,7 +95,7 @@ public class ImplementExceptAll
 
         // compute expected multiplicity for every row
         checkState(result.getCountSymbols().size() > 0, "ExceptNode translation result has no count symbols");
-        ResolvedFunction greatest = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "greatest", fromTypes(BIGINT, BIGINT));
+        ResolvedFunction greatest = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "greatest", ImmutableList.of(BIGINT, BIGINT));
 
         Expression count = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {

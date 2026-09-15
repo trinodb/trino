@@ -54,7 +54,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
@@ -640,7 +639,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("msg6", ROW_TYPE),
                                                 // min function on MSG_TYPE
                                                 new WindowNode.Function(
-                                                        createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "min", fromTypes(ROW_TYPE)),
+                                                        createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "min", ImmutableList.of(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         Optional.empty(),
                                                         new WindowNode.Frame(

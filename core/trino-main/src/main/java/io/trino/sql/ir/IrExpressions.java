@@ -56,7 +56,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Cast.Kind.CONVERT;
 import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -558,7 +557,7 @@ public final class IrExpressions
     public static Expression not(Metadata metadata, CharVarcharCoercion charVarcharCoercion, Expression expression)
     {
         return call(
-                metadata.resolveBuiltinFunction(charVarcharCoercion, NOT_FUNCTION_NAME, fromTypes(BOOLEAN)),
+                metadata.resolveBuiltinFunction(charVarcharCoercion, NOT_FUNCTION_NAME, ImmutableList.of(BOOLEAN)),
                 expression);
     }
 }

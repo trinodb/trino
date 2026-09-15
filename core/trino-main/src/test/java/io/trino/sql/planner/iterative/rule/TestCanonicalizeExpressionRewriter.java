@@ -43,7 +43,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
@@ -179,7 +178,7 @@ public class TestCanonicalizeExpressionRewriter
     private static void assertCanonicalizedDate(Type type, String symbolName)
     {
         Call date = new Call(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "date", fromTypes(type)),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "date", ImmutableList.of(type)),
                 ImmutableList.of(new Reference(type, symbolName)));
         assertRewritten(date, new Cast(new Reference(VARCHAR, symbolName), DATE));
     }

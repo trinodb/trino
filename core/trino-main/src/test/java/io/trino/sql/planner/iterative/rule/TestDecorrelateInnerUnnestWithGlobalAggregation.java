@@ -326,7 +326,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                 .on(p -> {
                     Symbol corr = p.symbol("corr", VARCHAR);
                     Call regexpExtractAll = new Call(
-                            tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "regexp_extract_all", fromTypes(VARCHAR, VARCHAR)),
+                            tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "regexp_extract_all", ImmutableList.of(VARCHAR, VARCHAR)),
                             ImmutableList.of(corr.toSymbolReference(), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP)));
 
                     return p.correlatedJoin(

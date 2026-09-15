@@ -400,7 +400,7 @@ public final class ConnectorExpressionTranslator
                 resolved = plannerContext.getMetadata().resolveBuiltinFunction(
                         getCharVarcharCoercion(session),
                         call.getFunctionName().getName(),
-                        fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
+                        call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList()));
             }
 
             return translateCall(call.getFunctionName().getName(), resolved, call.getArguments(), lambdaArguments);

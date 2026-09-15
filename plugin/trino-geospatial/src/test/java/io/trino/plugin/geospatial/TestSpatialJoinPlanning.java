@@ -578,6 +578,6 @@ public class TestSpatialJoinPlanning
 
     private Call functionCall(String name, List<Type> types, List<Expression> arguments)
     {
-        return new Call(getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, fromTypes(types)), arguments);
+        return new Call(getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, types), arguments);
     }
 }

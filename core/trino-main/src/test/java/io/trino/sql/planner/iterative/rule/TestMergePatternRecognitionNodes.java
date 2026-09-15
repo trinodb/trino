@@ -48,7 +48,6 @@ import static io.trino.metadata.TestingMetadataManager.createTestingMetadataMana
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
@@ -112,7 +111,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // aggregations in variable definitions do not match
-        ResolvedFunction count = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "count", fromTypes(BIGINT));
+        ResolvedFunction count = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "count", ImmutableList.of(BIGINT));
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))
@@ -131,7 +130,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testParentDependsOnSourceCreatedOutputs()
     {
-        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "lag", fromTypes(BIGINT));
+        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "lag", ImmutableList.of(BIGINT));
 
         // parent node's measure depends on child node's measure output
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
@@ -298,7 +297,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testMergeWithoutProject()
     {
-        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "lag", fromTypes(BIGINT));
+        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "lag", ImmutableList.of(BIGINT));
 
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
@@ -724,7 +723,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testMergeWithAggregation()
     {
-        ResolvedFunction count = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "count", fromTypes(BIGINT));
+        ResolvedFunction count = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "count", ImmutableList.of(BIGINT));
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))
