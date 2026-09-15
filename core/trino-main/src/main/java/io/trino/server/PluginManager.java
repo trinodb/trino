@@ -87,6 +87,7 @@ public class PluginManager
             .add("com.fasterxml.jackson.module.blackbird.deser.BBDeserializerModifier$ObjIntBiFunction")
             .add("com.fasterxml.jackson.module.blackbird.deser.BBDeserializerModifier$ObjLongBiFunction")
             .add("com.fasterxml.jackson.module.blackbird.deser.BBDeserializerModifier$ObjBooleanBiFunction")
+            .add("io.airlift.spi.secrets.")
             .add("io.airlift.slice.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")

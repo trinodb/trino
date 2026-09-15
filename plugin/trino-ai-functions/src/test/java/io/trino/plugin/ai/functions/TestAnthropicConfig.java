@@ -29,8 +29,7 @@ class TestAnthropicConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(AnthropicConfig.class)
-                .setEndpoint(URI.create("https://api.anthropic.com"))
-                .setApiKey(null));
+                .setEndpoint(URI.create("https://api.anthropic.com")));
     }
 
     @Test
@@ -38,12 +37,10 @@ class TestAnthropicConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("ai.anthropic.endpoint", "https://api.example.com")
-                .put("ai.anthropic.api-key", "test-key")
                 .buildOrThrow();
 
         AnthropicConfig expected = new AnthropicConfig()
-                .setEndpoint(URI.create("https://api.example.com"))
-                .setApiKey("test-key");
+                .setEndpoint(URI.create("https://api.example.com"));
 
         assertFullMapping(properties, expected);
     }

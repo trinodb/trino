@@ -16,6 +16,7 @@ package io.trino.plugin.ai.functions;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -24,6 +25,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.net.URI;
 import java.util.List;
@@ -60,20 +62,20 @@ public class AnthropicClient
     private final HttpClient httpClient;
     private final Tracer tracer;
     private final URI endpoint;
-    private final String apiKey;
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public AnthropicClient(@ForAiClient HttpClient httpClient, Tracer tracer, AnthropicConfig anthropicConfig, AiConfig aiConfig)
+    public AnthropicClient(@ForAiClient HttpClient httpClient, Tracer tracer, AnthropicConfig anthropicConfig, AiConfig aiConfig, SecretsResolver secretsResolver)
     {
         super(aiConfig);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.endpoint = anthropicConfig.getEndpoint();
-        this.apiKey = anthropicConfig.getApiKey();
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     @Override
-    protected String generateCompletion(String model, String prompt)
+    protected String generateCompletion(ConnectorIdentity connectorIdentity, String model, String prompt)
     {
         URI uri = uriBuilderFrom(endpoint)
                 .appendPath("/v1/messages")
@@ -81,6 +83,7 @@ public class AnthropicClient
 
         MessageRequest.Message messages = new MessageRequest.Message("user", prompt);
         MessageRequest body = new MessageRequest(model, 4096, List.of(messages));
+        String apiKey = secretsResolver.resolveSecret("TODO", "TODO");
 
         Request request = preparePost()
                 .setUri(uri)

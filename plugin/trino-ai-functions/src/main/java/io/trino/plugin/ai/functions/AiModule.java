@@ -18,15 +18,25 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionProvider;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class AiModule
         extends AbstractConfigurationAwareModule
 {
+    private final ConnectorContext context;
+
+    public AiModule(ConnectorContext context)
+    {
+        this.context = requireNonNull(context, "context is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -40,7 +50,7 @@ public class AiModule
 
         install(switch (buildConfigObject(AiConfig.class).getProvider()) {
             case ANTHROPIC -> new AnthropicModule();
-            case OPENAI -> new OpenAiModule();
+            case OPENAI -> new OpenAiModule(context);
         });
     }
 
