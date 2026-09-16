@@ -205,8 +205,8 @@ public class IcebergPageSinkProvider
 
         int formatVersion = merge.getTableHandle().getFormatVersion();
         // Row-lineage columns have fixed field IDs; only append what the base schema is missing,
-        // matching IcebergMergeSink.getRewriteSchema so both agree on the same output schema.
-        Schema outputSchema = IcebergMergeSink.getRewriteSchema(schema, formatVersion);
+        // matching IcebergMergeSink.buildRewriteSchema so both agree on the same output schema.
+        Schema outputSchema = IcebergMergeSink.buildRewriteSchema(schema, formatVersion);
         IcebergTableCredentials icebergTableCredentials = tableCredentials.map(IcebergTableCredentials.class::cast).get();
         Map<String, String> fileIoProperties = icebergTableCredentials.fileIoProperties();
         ConnectorPageSink pageSink = createPageSink(session, tableHandle, outputSchema, icebergTableCredentials);
