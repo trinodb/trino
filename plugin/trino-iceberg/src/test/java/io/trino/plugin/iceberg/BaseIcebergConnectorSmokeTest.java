@@ -113,6 +113,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "   comment varchar\n" +
                         "\\)\n" +
                         "WITH \\(\n" +
+                        "   compression_codec = 'ZSTD',\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
                         "   location = '.*/" + schemaName + "/region.*'\n" +

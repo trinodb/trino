@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.trino.metastore.TableInfo;
 import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -160,6 +161,7 @@ public abstract class BaseTrinoCatalogTest
                     Optional.empty(),
                     false,
                     _ -> false,
+                    HiveCompressionCodec.ZSTD,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
@@ -203,6 +205,7 @@ public abstract class BaseTrinoCatalogTest
                     Optional.empty(),
                     false,
                     _ -> false,
+                    HiveCompressionCodec.ZSTD,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),

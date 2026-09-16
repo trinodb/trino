@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.DefaultIcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -171,6 +172,7 @@ public class TestTrinoRestCatalog
                     Optional.empty(),
                     false,
                     _ -> false,
+                    HiveCompressionCodec.ZSTD,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),

@@ -21,6 +21,8 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionCodecs;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.spi.catalog.CatalogName;
@@ -48,6 +50,7 @@ public class IcebergMetadataFactory
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
     private final Predicate<String> allowedExtraProperties;
+    private final HiveCompressionCodec defaultCompressionCodec;
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergPlanningExecutor;
@@ -86,6 +89,7 @@ public class IcebergMetadataFactory
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.addFilesProcedureEnabled = config.isAddFilesProcedureEnabled();
+        this.defaultCompressionCodec = HiveCompressionCodecs.toCompressionCodec(config.getCompressionCodec());
         if (config.getAllowedExtraProperties().equals(ImmutableList.of("*"))) {
             this.allowedExtraProperties = _ -> true;
         }
@@ -120,6 +124,7 @@ public class IcebergMetadataFactory
                 metastoreFactory,
                 addFilesProcedureEnabled,
                 allowedExtraProperties,
+                defaultCompressionCodec,
                 icebergScanExecutor,
                 metadataFetchingExecutor,
                 icebergPlanningExecutor,
