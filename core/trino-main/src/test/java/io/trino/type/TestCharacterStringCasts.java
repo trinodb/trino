@@ -183,6 +183,12 @@ public class TestCharacterStringCasts
                 .hasType(createCharType(2))
                 .neverFails()
                 .isEqualTo("ba");
+
+        assertThat(assertions.expression("cast(a as char(2))")
+                .binding("a", "CAST('a b' AS char(3))"))
+                .hasType(createCharType(2))
+                .neverFails()
+                .isEqualTo("a ");
     }
 
     @Test
