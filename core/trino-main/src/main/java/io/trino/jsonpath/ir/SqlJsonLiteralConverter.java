@@ -33,9 +33,14 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
+import io.trino.spi.type.TrinoNumber.BigDecimalValue;
+import io.trino.spi.type.TrinoNumber.Infinity;
+import io.trino.spi.type.TrinoNumber.NotANumber;
 import io.trino.spi.type.VarcharType;
 
 import java.math.BigDecimal;
@@ -52,6 +57,7 @@ import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -93,16 +99,19 @@ public final class SqlJsonLiteralConverter
                     if (jsonNode.canConvertToLong()) {
                         yield Optional.of(new TypedValue(BIGINT, jsonNode.longValue()));
                     }
-                    throw new JsonLiteralConversionException(jsonNode, "value too big");
+                    // an exact literal wider than BIGINT is representable as NUMBER
+                    yield Optional.of(toNumber(jsonNode, new BigDecimal(jsonNode.bigIntegerValue())));
                 }
                 case DecimalNode _ -> {
                     BigDecimal jsonDecimal = jsonNode.decimalValue();
                     int precision = jsonDecimal.precision();
-                    if (precision > MAX_PRECISION) {
-                        throw new JsonLiteralConversionException(jsonNode, "precision too big");
-                    }
                     int scale = jsonDecimal.scale();
-                    DecimalType decimalType = createDecimalType(precision, scale);
+                    // an exact literal that does not fit DECIMAL(38, s) is representable as NUMBER
+                    if (precision > MAX_PRECISION || scale < 0 || scale > MAX_PRECISION) {
+                        yield Optional.of(toNumber(jsonNode, jsonDecimal));
+                    }
+                    // a literal such as 0.001 has fewer significant digits than its scale
+                    DecimalType decimalType = createDecimalType(Math.max(precision, scale), scale);
                     Object value = decimalType.isShort() ? encodeShortScaledValue(jsonDecimal, scale) : encodeScaledValue(jsonDecimal, scale);
                     yield Optional.of(TypedValue.fromValueAsObject(decimalType, value));
                 }
@@ -132,9 +141,51 @@ public final class SqlJsonLiteralConverter
                         : ((Int128) typedValue.getObjectValue()).toBigInteger();
                 yield DecimalNode.valueOf(new BigDecimal(unscaledValue, decimalType.getScale()));
             }
+            case NumberType _ -> switch (((TrinoNumber) typedValue.getObjectValue()).toBigDecimal()) {
+                case BigDecimalValue(BigDecimal value) -> numberNode(value);
+                // JSON has no representation for NaN or infinity, so they are rendered as strings
+                case NotANumber _ -> TextNode.valueOf("NaN");
+                case Infinity(boolean negative) -> TextNode.valueOf(negative ? "-Infinity" : "+Infinity");
+            };
             case DoubleType _ -> DoubleNode.valueOf(typedValue.getDoubleValue());
             case RealType _ -> FloatNode.valueOf(intBitsToFloat(toIntExact(typedValue.getLongValue())));
             default -> null;
         });
+    }
+
+    /**
+     * Converts an exact literal that does not fit {@code DECIMAL(38, s)} into a {@code NUMBER}.
+     * A literal whose scale exceeds the range {@code NUMBER} can hold is rejected, so that it is
+     * reported as an invalid JSON literal rather than as an internal error.
+     */
+    private static TypedValue toNumber(JsonNode jsonNode, BigDecimal value)
+    {
+        TrinoNumber number;
+        try {
+            number = TrinoNumber.from(value);
+        }
+        catch (IllegalArgumentException e) {
+            throw new JsonLiteralConversionException(jsonNode, "value too big");
+        }
+        return TypedValue.fromValueAsObject(NUMBER, number);
+    }
+
+    /**
+     * Renders a {@code NUMBER} magnitude as a JSON number.
+     * <p>
+     * {@code TrinoNumber} strips trailing zeros, so a value such as {@code 10} is held as a
+     * {@code BigDecimal} with a negative scale, which {@code BigDecimal.toString} would render in
+     * scientific notation. Integer-magnitude values are written as digits instead, while values
+     * with a large exponent keep the compact scientific form.
+     */
+    private static JsonNode numberNode(BigDecimal value)
+    {
+        if (value.scale() == 0) {
+            return BigIntegerNode.valueOf(value.unscaledValue());
+        }
+        if (value.scale() < 0 && value.unscaledValue().bitLength() - value.scale() <= Long.SIZE) {
+            return BigIntegerNode.valueOf(value.toBigInteger());
+        }
+        return DecimalNode.valueOf(value);
     }
 }

@@ -13,9 +13,16 @@
  */
 package io.trino.operator.scalar.json;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonParser.NumberType;
+import com.fasterxml.jackson.core.JsonParser.NumberTypeFP;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.util.JsonParserDelegate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.MissingNode;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
@@ -56,7 +63,10 @@ public final class JsonInputFunctions
     public static final String VARBINARY_UTF16_TO_JSON = "$varbinary_utf16_to_json";
     public static final String VARBINARY_UTF32_TO_JSON = "$varbinary_utf32_to_json";
 
-    private static final JsonMapper MAPPER = new JsonMapper();
+    // trailing zeros are part of the scale the literal declared, so they are preserved
+    private static final JsonMapper MAPPER = JsonMapper.builder()
+            .nodeFactory(JsonNodeFactory.withExactBigDecimals(true))
+            .build();
 
     private JsonInputFunctions() {}
 
@@ -102,7 +112,7 @@ public final class JsonInputFunctions
     private static JsonNode toJson(Reader reader, boolean failOnError)
     {
         try {
-            return MAPPER.readTree(reader);
+            return readTree(reader);
         }
         catch (JsonProcessingException e) {
             if (failOnError) {
@@ -112,6 +122,70 @@ public final class JsonInputFunctions
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+        }
+    }
+
+    /**
+     * Reads JSON text into a tree.
+     * <p>
+     * SQL:2023 9.42 GR 4 defines a JSON number as the value of the {@code <signed numeric literal>}
+     * whose characters are identical to it, so the form of the literal selects the type: a literal
+     * written with an exponent is approximate, and a literal written without one is exact. Jackson
+     * reads floating point tokens through {@code double} by default, which loses the digits of an
+     * exact literal, so such tokens are reported as {@link NumberType#BIG_DECIMAL} instead.
+     */
+    public static JsonNode readTree(Reader reader)
+            throws IOException
+    {
+        try (JsonParser parser = new ExactDecimalParser(MAPPER.createParser(reader))) {
+            JsonNode node = MAPPER.readTree(parser);
+            // reading from a parser yields null for empty input, where reading from a reader yields a missing node
+            return node == null ? MissingNode.getInstance() : node;
+        }
+    }
+
+    public static JsonNode readTree(String json)
+            throws IOException
+    {
+        return readTree(Reader.of(json));
+    }
+
+    private static class ExactDecimalParser
+            extends JsonParserDelegate
+    {
+        public ExactDecimalParser(JsonParser delegate)
+        {
+            super(delegate);
+        }
+
+        @Override
+        public NumberType getNumberType()
+                throws IOException
+        {
+            if (isExact()) {
+                return NumberType.BIG_DECIMAL;
+            }
+            return super.getNumberType();
+        }
+
+        @Override
+        public NumberTypeFP getNumberTypeFP()
+                throws IOException
+        {
+            if (isExact()) {
+                return NumberTypeFP.BIG_DECIMAL;
+            }
+            return super.getNumberTypeFP();
+        }
+
+        private boolean isExact()
+                throws IOException
+        {
+            if (currentToken() != JsonToken.VALUE_NUMBER_FLOAT) {
+                return false;
+            }
+            String text = getText();
+            return text.indexOf('e') < 0 && text.indexOf('E') < 0;
         }
     }
 }

@@ -269,10 +269,10 @@ public class TestJsonQueryFunction
     @Test
     public void testNumberParameter()
     {
-        // TODO (https://github.com/trinodb/trino/issues/31150): a number parameter is cast to varchar, so it is a JSON string in the path, not a JSON number
+        // a number parameter is a JSON number in the path
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING CAST(1 AS number) AS \"parameter\")"))
-                .matches("VALUES cast('\"1\"' AS varchar)");
+                .matches("VALUES cast('1' AS varchar)");
     }
 
     @Test
