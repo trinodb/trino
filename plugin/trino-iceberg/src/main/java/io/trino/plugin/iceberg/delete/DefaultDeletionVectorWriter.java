@@ -42,6 +42,7 @@ import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
@@ -193,13 +194,16 @@ public class DefaultDeletionVectorWriter
 
     private static ExistingDeletes getExistingDeletesByMetadataOnly(Table table, long snapshotId, Set<String> dataFilePaths)
     {
+        return getExistingDeletesByMetadataOnly(table.io(), table.specs(), table.snapshot(snapshotId), dataFilePaths);
+    }
+
+    private static ExistingDeletes getExistingDeletesByMetadataOnly(FileIO io, Map<Integer, PartitionSpec> specsById, Snapshot snapshot, Set<String> dataFilePaths)
+    {
         Map<String, DeleteFile> deletionVectors = new HashMap<>();
         Multimap<String, DeleteFile> fileScopedDeletes = ArrayListMultimap.create();
         List<DeleteFile> partitionScopedDeletes = new ArrayList<>();
 
-        FileIO io = table.io();
-        Map<Integer, PartitionSpec> specsById = table.specs();
-        for (ManifestFile manifest : table.snapshot(snapshotId).deleteManifests(io)) {
+        for (ManifestFile manifest : snapshot.deleteManifests(io)) {
             try (ManifestReader<DeleteFile> reader = ManifestFiles.readDeleteManifest(manifest, io, specsById)) {
                 for (DeleteFile deleteFile : reader) {
                     if (deleteFile.content() != FileContent.POSITION_DELETES) {

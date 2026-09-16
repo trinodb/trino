@@ -28,8 +28,13 @@ import static java.util.Objects.requireNonNull;
 
 public interface DeletionVectorWriter
 {
-    DeletionVectorWriter UNSUPPORTED_DELETION_VECTOR_WRITER = (_, _, _, _, _) -> {
-        throw new UnsupportedOperationException("Deletion Vectors are not supported");
+    DeletionVectorWriter UNSUPPORTED_DELETION_VECTOR_WRITER = new DeletionVectorWriter()
+    {
+        @Override
+        public void writeDeletionVectors(ConnectorSession session, Table icebergTable, IcebergTableHandle table, List<DeletionVectorInfo> deletionVectorInfos, RowDelta rowDelta)
+        {
+            throw new UnsupportedOperationException("Deletion Vectors are not supported");
+        }
     };
 
     void writeDeletionVectors(

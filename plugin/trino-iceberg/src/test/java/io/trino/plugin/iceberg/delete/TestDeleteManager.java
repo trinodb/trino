@@ -68,6 +68,7 @@ final class TestDeleteManager
                 1,
                 OptionalLong.of(4),
                 Optional.of(40),
+                Optional.empty(),
                 Optional.empty());
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
@@ -103,6 +104,7 @@ final class TestDeleteManager
                 OptionalLong.empty(),
                 1,
                 OptionalLong.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
