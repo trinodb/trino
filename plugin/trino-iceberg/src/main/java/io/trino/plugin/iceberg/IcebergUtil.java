@@ -230,7 +230,6 @@ import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.lit;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
-import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 public final class IcebergUtil
@@ -1278,10 +1277,9 @@ public final class IcebergUtil
         update.commit();
     }
 
-    public static String getLatestMetadataLocation(TrinoFileSystem fileSystem, String location)
+    public static String getLatestMetadataLocation(TrinoFileSystem fileSystem, String metadataDirectoryLocation)
     {
         List<Location> latestMetadataLocations = new ArrayList<>();
-        String metadataDirectoryLocation = format("%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME);
         try {
             int latestMetadataVersion = -1;
             FileIterator fileIterator = fileSystem.listFiles(Location.of(metadataDirectoryLocation));
@@ -1312,7 +1310,7 @@ public final class IcebergUtil
             }
         }
         catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking table location: " + location, e);
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking metadata location: " + metadataDirectoryLocation, e);
         }
         return getOnlyElement(latestMetadataLocations).toString();
     }
