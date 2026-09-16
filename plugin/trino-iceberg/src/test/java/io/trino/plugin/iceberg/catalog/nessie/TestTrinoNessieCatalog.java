@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.SketchAlgorithm;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -230,7 +231,8 @@ public class TestTrinoNessieCatalog
                     newDirectExecutorService(),
                     0,
                     ZERO,
-                    ConnectorExpressionEvaluator.NO_OP);
+                    ConnectorExpressionEvaluator.NO_OP,
+                    SketchAlgorithm.THETA);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
