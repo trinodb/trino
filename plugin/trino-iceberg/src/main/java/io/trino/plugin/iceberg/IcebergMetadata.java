@@ -29,6 +29,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.stats.cardinality.HyperLogLog;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
@@ -157,7 +158,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
-import org.apache.datasketches.theta.CompactThetaSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
@@ -394,6 +394,7 @@ import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TableStatisticsReader.readNdvs;
+import static io.trino.plugin.iceberg.TableStatisticsReader.resolveNdvSketchAlgorithm;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.INCREMENTAL_UPDATE;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPLACE;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -431,9 +432,11 @@ import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES_SUMMARY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
@@ -444,6 +447,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
 import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
@@ -560,6 +564,7 @@ public class IcebergMetadata
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
     private final ConnectorExpressionEvaluator evaluator;
+    private final SketchAlgorithm ndvSketchAlgorithm;
 
     // Staged creation of a new table. The catalog may stage it remotely, so it is kept from beginCreateTable until
     // finishCreateTable commits it.
@@ -589,7 +594,8 @@ public class IcebergMetadata
             ExecutorService icebergFileDeleteExecutor,
             int materializedViewRefreshMaxSnapshotsToExpire,
             Duration materializedViewRefreshSnapshotRetentionPeriod,
-            ConnectorExpressionEvaluator evaluator)
+            ConnectorExpressionEvaluator evaluator,
+            SketchAlgorithm ndvSketchAlgorithm)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -612,6 +618,15 @@ public class IcebergMetadata
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
+        this.ndvSketchAlgorithm = requireNonNull(ndvSketchAlgorithm, "ndvSketchAlgorithm is null");
+    }
+
+    private static ColumnStatisticMetadata ndvColumnStatisticMetadata(String columnName, SketchAlgorithm algorithm)
+    {
+        return switch (algorithm) {
+            case THETA -> new ColumnStatisticMetadata(columnName, NUMBER_OF_DISTINCT_VALUES_NAME, NUMBER_OF_DISTINCT_VALUES_FUNCTION);
+            case HLL -> new ColumnStatisticMetadata(columnName, NUMBER_OF_DISTINCT_VALUES_SUMMARY);
+        };
     }
 
     @Override
@@ -3263,18 +3278,18 @@ public class IcebergMetadata
         }
 
         if (tableReplace) {
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), ndvSketchAlgorithm, _ -> {});
         }
 
         ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         if (tableHandle == null) {
             // Assume new table (CTAS), collect NDV stats on all columns
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), ndvSketchAlgorithm, _ -> {});
         }
         IcebergTableHandle table = checkValidTableHandle(tableHandle);
         if (table.getSnapshotId().isEmpty()) {
             // Table has no data (empty, or wiped out). Collect NDV stats on all columns
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), ndvSketchAlgorithm, _ -> {});
         }
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
@@ -3283,7 +3298,7 @@ public class IcebergMetadata
         String totalRecords = snapshot.summary().get(TOTAL_RECORDS_PROP);
         if (totalRecords != null && Long.parseLong(totalRecords) == 0) {
             // Table has no data (empty, or wiped out). Collect NDV stats on all columns
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), ndvSketchAlgorithm, _ -> {});
         }
 
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
@@ -3297,7 +3312,9 @@ public class IcebergMetadata
                 .filter(column -> ndvs.containsKey(column.getId()))
                 .map(IcebergColumnHandle::getName)
                 .collect(toImmutableSet());
-        return getStatisticsCollectionMetadata(tableMetadata, Optional.of(columnsWithExtendedStatistics), _ -> {});
+        // Keep the algorithm of existing statistics, since sketches of different algorithms cannot be merged
+        SketchAlgorithm algorithm = resolveNdvSketchAlgorithm(icebergTable, snapshotId, ndvSketchAlgorithm);
+        return getStatisticsCollectionMetadata(tableMetadata, Optional.of(columnsWithExtendedStatistics), algorithm, _ -> {});
     }
 
     @Override
@@ -3313,6 +3330,8 @@ public class IcebergMetadata
         }
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
+        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
+        SketchAlgorithm algorithm = resolveNdvSketchAlgorithm(icebergTable, handle.getSnapshotId().orElseThrow(), ndvSketchAlgorithm);
         Optional<Set<String>> analyzeColumnNames = getColumnNames(analyzeProperties)
                 .map(columnNames -> {
                     // validate that proper column names are passed via `columns` analyze property
@@ -3327,6 +3346,7 @@ public class IcebergMetadata
                 getStatisticsCollectionMetadata(
                         tableMetadata,
                         analyzeColumnNames,
+                        algorithm,
                         availableColumnNames -> {
                             throw new TrinoException(
                                     INVALID_ANALYZE_PROPERTY,
@@ -3337,6 +3357,7 @@ public class IcebergMetadata
     private TableStatisticsMetadata getStatisticsCollectionMetadata(
             ConnectorTableMetadata tableMetadata,
             Optional<Set<String>> selectedColumnNames,
+            SketchAlgorithm algorithm,
             Consumer<Set<String>> unsatisfiableSelectedColumnsHandler)
     {
         Set<String> allScalarColumnNames = tableMetadata.getColumns().stream()
@@ -3362,7 +3383,7 @@ public class IcebergMetadata
                 .filter(selectedColumnNames
                         .map(columnNames -> (Predicate<ColumnMetadata>) columnMetadata -> columnNames.contains(columnMetadata.getName()))
                         .orElse(_ -> true))
-                .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES_NAME, NUMBER_OF_DISTINCT_VALUES_FUNCTION))
+                .map(column -> ndvColumnStatisticMetadata(column.getName(), algorithm))
                 .collect(toImmutableSet());
 
         return new TableStatisticsMetadata(columnStatistics, ImmutableSet.of(), ImmutableList.of());
@@ -4649,19 +4670,29 @@ public class IcebergMetadata
         Map<String, Integer> columnNameToId = table.schema().columns().stream()
                 .collect(toImmutableMap(nestedField -> nestedField.name().toLowerCase(ENGLISH), Types.NestedField::fieldId));
 
-        ImmutableMap.Builder<Integer, CompactThetaSketch> ndvSketches = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, NdvSketch> ndvSketches = ImmutableMap.builder();
         for (ComputedStatistics computedStatistic : computedStatistics) {
             verify(computedStatistic.getGroupingColumns().isEmpty() && computedStatistic.getGroupingValues().isEmpty(), "Unexpected grouping");
             verify(computedStatistic.getTableStatistics().isEmpty(), "Unexpected table statistics");
             for (Entry<ColumnStatisticMetadata, Block> entry : computedStatistic.getColumnStatistics().entrySet()) {
                 ColumnStatisticMetadata statisticMetadata = entry.getKey();
+                Block block = entry.getValue();
                 if (statisticMetadata.getConnectorAggregationId().equals(NUMBER_OF_DISTINCT_VALUES_NAME)) {
                     Integer columnId = verifyNotNull(
                             columnNameToId.get(statisticMetadata.getColumnName()),
                             "Column not found in table: [%s]",
                             statisticMetadata.getColumnName());
-                    CompactThetaSketch sketch = DataSketchStateSerializer.deserialize(entry.getValue(), 0);
-                    ndvSketches.put(columnId, sketch);
+                    ndvSketches.put(columnId, new NdvSketch.Theta(DataSketchStateSerializer.deserialize(block, 0)));
+                }
+                else if (statisticMetadata.getStatisticTypeIfPresent().equals(Optional.of(NUMBER_OF_DISTINCT_VALUES_SUMMARY))) {
+                    Integer columnId = verifyNotNull(
+                            columnNameToId.get(statisticMetadata.getColumnName()),
+                            "Column not found in table: [%s]",
+                            statisticMetadata.getColumnName());
+                    if (!block.isNull(0)) {
+                        Slice serialized = (Slice) blockToNativeValue(HYPER_LOG_LOG, block);
+                        ndvSketches.put(columnId, new NdvSketch.Hll(HyperLogLog.newInstance(serialized)));
+                    }
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported statistic: " + statisticMetadata);
