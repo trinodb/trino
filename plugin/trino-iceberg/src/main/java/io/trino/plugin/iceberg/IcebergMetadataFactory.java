@@ -56,6 +56,7 @@ public class IcebergMetadataFactory
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
     private final ConnectorExpressionEvaluator evaluator;
+    private final SketchAlgorithm ndvSketchAlgorithm;
 
     @Inject
     public IcebergMetadataFactory(
@@ -104,6 +105,7 @@ public class IcebergMetadataFactory
         this.materializedViewRefreshMaxSnapshotsToExpire = config.getMaterializedViewRefreshMaxSnapshotsToExpire();
         this.materializedViewRefreshSnapshotRetentionPeriod = config.getMaterializedViewRefreshSnapshotRetentionPeriod();
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
+        this.ndvSketchAlgorithm = config.getNdvSketchAlgorithm();
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -126,6 +128,7 @@ public class IcebergMetadataFactory
                 icebergFileDeleteExecutor,
                 materializedViewRefreshMaxSnapshotsToExpire,
                 materializedViewRefreshSnapshotRetentionPeriod,
-                evaluator);
+                evaluator,
+                ndvSketchAlgorithm);
     }
 }

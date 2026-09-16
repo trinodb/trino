@@ -23,6 +23,7 @@ import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.SketchAlgorithm;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -169,7 +170,7 @@ public class TestTrinoGlueCatalog
                         throw new UnsupportedOperationException();
                     },
                     TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    new TableStatisticsWriter(new NodeVersion("test-version"), new IcebergConfig()),
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
@@ -180,7 +181,8 @@ public class TestTrinoGlueCatalog
                     newDirectExecutorService(),
                     0,
                     ZERO,
-                    ConnectorExpressionEvaluator.NO_OP);
+                    ConnectorExpressionEvaluator.NO_OP,
+                    SketchAlgorithm.THETA);
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")

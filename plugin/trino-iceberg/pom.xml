@@ -97,6 +97,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>stats</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
@@ -453,12 +458,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>node</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>stats</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -837,6 +836,18 @@
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
             <version>${dep.keycloak.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
 
