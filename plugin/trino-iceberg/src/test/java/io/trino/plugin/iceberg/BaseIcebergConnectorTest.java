@@ -150,6 +150,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.isCompressionCodecS
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_USER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.getCompressionPropertyName;
@@ -5695,7 +5696,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
         String tableLocation = getTableLocation(tableName);
-        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, "%s/%s".formatted(tableLocation, METADATA_FOLDER_NAME));
 
         TableMetadata tableMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), metadataLocation);
         Map<String, String> newProperties = ImmutableMap.<String, String>builder()
@@ -8992,7 +8993,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
         String tableLocation = getTableLocation(tableName);
-        Location metadataLocation = Location.of(getLatestMetadataLocation(fileSystem, tableLocation));
+        Location metadataLocation = Location.of(getLatestMetadataLocation(fileSystem, "%s/%s".formatted(tableLocation, METADATA_FOLDER_NAME)));
 
         // Delete current metadata file
         fileSystem.deleteFile(metadataLocation);
@@ -9016,7 +9017,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
         String tableLocation = getTableLocation(tableName);
-        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, "%s/%s".formatted(tableLocation, METADATA_FOLDER_NAME));
         TableMetadata tableMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), metadataLocation);
         Location currentSnapshotFile = Location.of(tableMetadata.currentSnapshot().manifestListLocation());
 
@@ -9042,7 +9043,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
         String tableLocation = getTableLocation(tableName);
-        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, "%s/%s".formatted(tableLocation, METADATA_FOLDER_NAME));
         FileIO fileIo = FILE_IO_FACTORY.create(fileSystem);
         TableMetadata tableMetadata = TableMetadataParser.read(fileIo, metadataLocation);
         Location manifestListFile = Location.of(tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path());
@@ -9183,7 +9184,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
 
         String tableLocation = getTableLocation(tableName);
-        String metadataFileLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        String metadataFileLocation = getLatestMetadataLocation(fileSystem, "%s/%s".formatted(tableLocation, METADATA_FOLDER_NAME));
 
         JsonMapper mapper = new JsonMapper(JsonUtil.factory());
         JsonNode jsonNode = mapper.readValue(fileSystem.newInputFile(Location.of(metadataFileLocation)).newStream(), JsonNode.class);

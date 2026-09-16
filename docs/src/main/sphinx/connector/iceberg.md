@@ -652,6 +652,20 @@ CALL example.system.register_table(
   metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json');
 ```
 
+You can also provide a metadata location different from the default
+`<table_location>/metadata` directory by specifying the `metadata_location`
+argument. This may be necessary when the metadata file does not reside in the
+default metadata folder relative to the table location:
+
+```sql
+CALL example.system.register_table(
+  schema_name => 'testdb', 
+  table_name => 'orders', 
+  table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/orders', 
+  metadata_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/orders/custom_metadata', 
+  metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json');
+```
+
 To prevent unauthorized users from accessing data, this procedure is disabled by
 default. The procedure is enabled only when
 `iceberg.register-table-procedure.enabled` is set to `true`.
