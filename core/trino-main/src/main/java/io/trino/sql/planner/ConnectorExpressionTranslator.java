@@ -683,7 +683,7 @@ public final class ConnectorExpressionTranslator
             if (binding != null) {
                 return Optional.of(binding);
             }
-            return Optional.of(new Variable(node.name(), ((Expression) node).type()));
+            return Optional.of(new Variable(node.name(), node.type()));
         }
 
         @Override
@@ -764,7 +764,7 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitCast(Cast node, Context context)
         {
-            if (isSpecialType(((Expression) node).type())) {
+            if (isSpecialType(node.type())) {
                 // We don't want to expose some internal types to connectors.
                 // These should be constant-folded (if appropriate) separately and
                 // handled by the regular visitConstant path
@@ -850,7 +850,7 @@ public final class ConnectorExpressionTranslator
             else {
                 name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.catalogName(), functionName.schemaName())), functionName.functionName());
             }
-            return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), name, arguments.build()));
+            return Optional.of(new io.trino.spi.expression.Call(node.type(), name, arguments.build()));
         }
 
         @Override
@@ -980,7 +980,7 @@ public final class ConnectorExpressionTranslator
             if (nullIf == null) {
                 return Optional.empty();
             }
-            return translateNullIfPattern(nullIf, ((Expression) node).type(), context);
+            return translateNullIfPattern(nullIf, node.type(), context);
         }
 
         private Optional<ConnectorExpression> translateNullIfPattern(IrExpressions.NullIf pattern, Type type, Context context)
@@ -1020,7 +1020,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new FieldDereference(((Expression) node).type(), translatedBase.get(), node.field()));
+            return Optional.of(new FieldDereference(node.type(), translatedBase.get(), node.field()));
         }
 
         @Override
@@ -1049,7 +1049,7 @@ public final class ConnectorExpressionTranslator
             }
 
             ConnectorExpression arrayExpression = new io.trino.spi.expression.Call(new ArrayType(node.value().type()), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
-            return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
+            return Optional.of(new io.trino.spi.expression.Call(node.type(), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
         }
 
         @Override
