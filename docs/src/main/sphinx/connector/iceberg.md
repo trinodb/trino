@@ -718,7 +718,8 @@ Use the procedure `add_files_from_table` to add existing files from a Hive table
 in the current catalog, or `add_files` to add existing files from a specified
 location, to an existing Iceberg table. The `add_files_from_table` procedure is
 always available; `add_files` procedure additionally requires
-`iceberg.add-files-procedure.enabled` to be set to `true`.
+`iceberg.add-files-procedure.enabled` to be set to `true`. Neither procedure is
+supported for tables using Iceberg format version `3`.
  
 The data files must be the Parquet, ORC, or Avro file format.
 
@@ -1164,9 +1165,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `format_version`
   - Optionally specifies the format version of the Iceberg specification to use
     for new tables; `1`, `2`, or `3`. Defaults to `2`. Version `2` is required
-    for row level deletes. Version `3` support is experimental; row-level
-    updates, deletes, and OPTIMIZE are not supported. Tables with v3 features
-    such as column default values and encryption are not supported.
+    for row level deletes. Version `3` support is experimental. Row-level
+    updates and deletes on version `3` tables use deletion vectors. The
+    `add_files` and `add_files_from_table` procedures are not supported on
+    version `3` tables, and writing to encrypted tables is not supported.
     Version `3` is required for tables containing `VARIANT` columns.
 * - `max_commit_retry`
   - Number of times to retry a commit before failing. Defaults to the value of 
