@@ -528,10 +528,10 @@ public class PlanNodeDecorrelator
             if (!(expression instanceof Cast cast)) {
                 return false;
             }
-            if (!(cast.expression() instanceof Reference)) {
+            if (!(cast.expression() instanceof Reference sourceReference)) {
                 return false;
             }
-            Symbol sourceSymbol = Symbol.from(cast.expression());
+            Symbol sourceSymbol = Symbol.from(sourceReference);
 
             Type sourceType = sourceSymbol.type();
             Type targetType = cast.type();
@@ -541,8 +541,8 @@ public class PlanNodeDecorrelator
 
         private Symbol getSymbol(Expression expression)
         {
-            if (expression instanceof Reference) {
-                return Symbol.from(expression);
+            if (expression instanceof Reference reference) {
+                return Symbol.from(reference);
             }
             return Symbol.from(((Cast) expression).expression());
         }

@@ -418,8 +418,8 @@ public final class StreamPropertyDerivations
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
             for (Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof Reference) {
-                    inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
+                if (assignment.getValue() instanceof Reference reference) {
+                    inputToOutput.put(Symbol.from(reference), assignment.getKey());
                 }
             }
             return inputToOutput;

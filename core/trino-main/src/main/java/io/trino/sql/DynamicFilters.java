@@ -132,8 +132,8 @@ public final class DynamicFilters
     private static Symbol extractSourceSymbol(DynamicFilters.Descriptor descriptor)
     {
         Expression dynamicFilterExpression = descriptor.getInput();
-        if (dynamicFilterExpression instanceof Reference) {
-            return Symbol.from(dynamicFilterExpression);
+        if (dynamicFilterExpression instanceof Reference reference) {
+            return Symbol.from(reference);
         }
         checkState(dynamicFilterExpression instanceof Cast);
         checkState(((Cast) dynamicFilterExpression).expression() instanceof Reference);

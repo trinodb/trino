@@ -446,8 +446,8 @@ public final class DomainTranslator
             NormalizedSimpleComparison normalized = optionalNormalized.get();
 
             Expression symbolExpression = normalized.getSymbolExpression();
-            if (symbolExpression instanceof Reference) {
-                Symbol symbol = Symbol.from(symbolExpression);
+            if (symbolExpression instanceof Reference reference) {
+                Symbol symbol = Symbol.from(reference);
                 NullableValue value = normalized.getValue();
                 Type type = value.getType(); // common type for symbol and value
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement)
@@ -602,11 +602,11 @@ public final class DomainTranslator
             if (complement || value.isNull()) {
                 return Optional.empty();
             }
-            if (!(sourceExpression instanceof Reference)) {
+            if (!(sourceExpression instanceof Reference sourceReference)) {
                 // Calculation is not useful
                 return Optional.empty();
             }
-            Symbol sourceSymbol = Symbol.from(sourceExpression);
+            Symbol sourceSymbol = Symbol.from(sourceReference);
 
             if (!sourceType.isUnbounded() && sourceType.getBoundedLength() < 10) {
                 // too short
@@ -939,11 +939,11 @@ public final class DomainTranslator
 
         private Optional<ExtractionResult> processSimpleInPredicate(In node, Boolean complement)
         {
-            if (!(node.value() instanceof Reference)) {
+            if (!(node.value() instanceof Reference reference)) {
                 return Optional.empty();
             }
-            Symbol symbol = Symbol.from(node.value());
-            Type type = node.value().type();
+            Symbol symbol = Symbol.from(reference);
+            Type type = reference.type();
             List<Object> inValues = new ArrayList<>(node.valueList().size());
             List<Expression> excludedExpressions = new ArrayList<>();
 
@@ -1010,7 +1010,7 @@ public final class DomainTranslator
             Expression value = node.arguments().get(0);
             Expression patternArgument = node.arguments().get(1);
 
-            if (!(value instanceof Reference)) {
+            if (!(value instanceof Reference valueReference)) {
                 // LIKE not on a symbol
                 return Optional.empty();
             }
@@ -1021,7 +1021,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            Symbol symbol = Symbol.from(value);
+            Symbol symbol = Symbol.from(valueReference);
 
             if (node.arguments().size() > 2 || !(patternArgument instanceof Constant patternConstant)) {
                 // dynamic pattern or escape
@@ -1094,7 +1094,7 @@ public final class DomainTranslator
             }
 
             Expression target = args.get(0);
-            if (!(target instanceof Reference)) {
+            if (!(target instanceof Reference targetReference)) {
                 // Target is not a symbol
                 return Optional.empty();
             }
@@ -1114,7 +1114,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            Symbol symbol = Symbol.from(target);
+            Symbol symbol = Symbol.from(targetReference);
             Slice constantPrefix = (Slice) literal.value();
 
             return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
@@ -1147,11 +1147,11 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitIsNull(IsNull node, Boolean complement)
         {
-            if (!(node.value() instanceof Reference)) {
+            if (!(node.value() instanceof Reference reference)) {
                 return super.visitIsNull(node, complement);
             }
 
-            Symbol symbol = Symbol.from(node.value());
+            Symbol symbol = Symbol.from(reference);
             Type columnType = symbol.type();
             Domain domain = complementIfNecessary(Domain.onlyNull(columnType), complement);
             return new ExtractionResult(
