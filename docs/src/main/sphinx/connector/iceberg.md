@@ -271,6 +271,13 @@ implementation is used:
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
   - `true`
+* - `iceberg.domain-compaction-threshold`
+  - Minimum size of query predicates above which Trino compacts the predicates.
+    Pushing a large list of predicates down to the data source can compromise
+    performance. For optimization in that situation, Trino can compact the large
+    predicates. If necessary, adjust the threshold to ensure a balance between
+    performance and predicate pushdown.
+  - `1000`
 * - `iceberg.encryption.kms-type`
   - Key Management Service type for
     [Iceberg table encryption](https://iceberg.apache.org/docs/latest/encryption/).
