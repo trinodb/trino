@@ -55,8 +55,6 @@ import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 public class IcebergSplitManager
         implements ConnectorSplitManager
 {
-    public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
-
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
     private final IcebergFileSystemFactory fileSystemFactory;

@@ -293,7 +293,8 @@ class TestIcebergPageSourceProvider
                 ParquetFooterCache.noop(),
                 Optional.of(blocksHashFactory),
                 ENCRYPTION_MANAGER_FACTORY,
-                memoryContext);
+                memoryContext,
+                new IcebergConfig().getDomainCompactionThreshold());
     }
 
     private static class TestingParquetFooterCache
