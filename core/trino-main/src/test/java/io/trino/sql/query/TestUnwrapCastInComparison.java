@@ -27,6 +27,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -286,6 +287,36 @@ public class TestUnwrapCastInComparison
         }
         for (String to : asList("'" + "a".repeat(200) + "'", "'" + "b".repeat(200) + "'")) {
             validateBetween("VARCHAR(200)", "'" + "a".repeat(200) + "'", "VARCHAR(300)", to, to);
+        }
+    }
+
+    @Test
+    public void testVarcharToChar()
+    {
+        Session legacyCoercion = Session.builder(assertions.getDefaultSession())
+                .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
+                .build();
+
+        List<String> values = asList(null, "''", "'ab'", "'ab '", "'ab' || chr(0)", "'abc'");
+        // VARCHAR(2) is shorter than the char, VARCHAR(3) matches it, VARCHAR(5) makes the cast truncate
+        for (String fromType : asList("VARCHAR(2)", "VARCHAR(3)", "VARCHAR(5)")) {
+            // the column value must survive the cast to fromType, since the expected value is derived by casting it
+            // to the target type directly
+            List<String> sourceValues = fromType.equals("VARCHAR(2)")
+                    ? asList(null, "''", "'a'", "'ab'", "'a '", "'a' || chr(0)")
+                    : values;
+            for (String from : sourceValues) {
+                for (String operator : COMPARISON_OPERATORS) {
+                    for (String to : values) {
+                        validate(operator, fromType, from, "CHAR(3)", to);
+                        validate(legacyCoercion, operator, fromType, from, "CHAR(3)", to);
+                    }
+                }
+                for (String to : values) {
+                    validateBetween(fromType, from, "CHAR(3)", to, to);
+                    validateBetween(legacyCoercion, fromType, from, "CHAR(3)", to, to);
+                }
+            }
         }
     }
 

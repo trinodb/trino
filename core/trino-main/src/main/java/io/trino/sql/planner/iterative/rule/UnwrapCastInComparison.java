@@ -57,7 +57,6 @@ import java.time.zone.ZoneOffsetTransition;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -363,6 +362,10 @@ public class UnwrapCastInComparison
                 return unwrapCharToVarcharCast(charType, varcharType, operator, cast.expression(), (Slice) rightValue);
             }
 
+            if (sourceType instanceof VarcharType varcharType && targetType instanceof CharType charType) {
+                return unwrapVarcharToCharCast(varcharType, charType, operator, cast.expression(), (Slice) rightValue);
+            }
+
             if (!isInjectiveOrderPreservingCastAtValue(sourceType, targetType, rightValue)) {
                 return Optional.empty();
             }
@@ -563,6 +566,44 @@ public class UnwrapCastInComparison
             });
         }
 
+        private Optional<Expression> unwrapVarcharToCharCast(VarcharType varcharType, CharType charType, ComparisonOperator operator, Expression varcharExpression, Slice value)
+        {
+            // CHAR comparison is PAD SPACE while VARCHAR comparison is NO PAD, so the cast does not preserve order:
+            // VARCHAR 'ab' sorts before 'ab\0', while CHAR 'ab' sorts after CHAR 'ab\0'. Only the equality family is
+            // safe to unwrap; leave ordering comparisons as a residual filter.
+            if (operator != EQUAL && operator != NOT_EQUAL && operator != IDENTICAL) {
+                return Optional.empty();
+            }
+
+            // VARCHAR(x) -> CHAR(n) with x longer than the char length is not injective on the source: distinct
+            // varchar values that share their first n characters collapse to the same char, so a single varchar
+            // equality cannot represent the comparison.
+            if (varcharType.isUnbounded() || varcharType.getBoundedLength() > charType.getLength()) {
+                return Optional.empty();
+            }
+
+            // Char values are stored with trailing spaces trimmed, and the cast trims them too, so every varchar of
+            // the form value + padding casts to value. The literal is the sole source value only when it leaves no
+            // room for padding, that is when it is as long as the source varchar.
+            int valueLength = countCodePoints(value);
+            if (valueLength == varcharType.getBoundedLength()) {
+                return Optional.of(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), operator, varcharExpression, new Constant(varcharType, value)));
+            }
+
+            // A literal longer than the source varchar has no source value at all, since the cast never lengthens.
+            if (valueLength > varcharType.getBoundedLength()) {
+                return Optional.of(switch (operator) {
+                    case EQUAL -> falseIfNotNull(varcharExpression);
+                    case NOT_EQUAL -> trueIfNotNull(varcharExpression);
+                    case IDENTICAL -> FALSE;
+                    default -> throw new IllegalStateException("Unexpected operator: " + operator);
+                });
+            }
+
+            // The literal is shorter than the source varchar, so it has several source values differing in padding.
+            return Optional.empty();
+        }
+
         private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, ComparisonOperator operator, Expression timestampExpression, long date)
         {
             ResolvedFunction targetToSource;
@@ -683,25 +724,8 @@ public class UnwrapCastInComparison
                 return false;
             }
 
-            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session)).canCoerce(source, target);
-            if (source instanceof VarcharType sourceVarchar && target instanceof CharType targetChar) {
-                if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
-                    // Truncation, not injective.
-                    return false;
-                }
-                // char should probably be coercible to varchar, not vice-versa. The code here needs to be updated when things change.
-                verify(coercible, "%s was expected to be coercible to %s", source, target);
-                if (sourceVarchar.getBoundedLength() == 0) {
-                    // the source domain is single-element set
-                    return true;
-                }
-                int actualLengthWithoutSpaces = countCodePoints((Slice) value);
-                verify(actualLengthWithoutSpaces <= targetChar.getLength(), "Incorrect char value [%s] for %s", ((Slice) value).toStringUtf8(), targetChar);
-                return sourceVarchar.getBoundedLength() == actualLengthWithoutSpaces;
-            }
-
             // Well-behaved implicit casts are injective
-            return coercible;
+            return new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session)).canCoerce(source, target);
         }
 
         private Object coerce(Object value, ResolvedFunction coercion)

@@ -160,6 +160,37 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testVarcharToCharCast()
+    {
+        // CAST(varchar AS char) = char literal: the varchar column is compared after truncating and trimming, so the
+        // comparison unwraps to a varchar equality when the literal is the only varchar value that casts to it.
+
+        // literal as long as the source varchar: no room for padding, so it is the only such value
+        testUnwrap("varchar(3)", "CAST(a AS char(3)) = CHAR 'abc'", comparison(EQUAL, new Reference(createVarcharType(3), "a"), new Constant(createVarcharType(3), Slices.utf8Slice("abc"))));
+
+        // wider char (does not truncate): still unwraps
+        testUnwrap("varchar(3)", "CAST(a AS char(10)) = CHAR 'abc'", comparison(EQUAL, new Reference(createVarcharType(3), "a"), new Constant(createVarcharType(3), Slices.utf8Slice("abc"))));
+
+        // shorter literal: 'ab' and 'ab ' both cast to CHAR 'ab', so it must NOT be unwrapped
+        testUnwrap("varchar(3)", "CAST(a AS char(3)) = CHAR 'ab'", comparison(EQUAL, new Cast(new Reference(createVarcharType(3), "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("ab"))));
+
+        // char values are stored trimmed, so a literal with trailing spaces is the shorter literal above
+        testUnwrap("varchar(3)", "CAST(a AS char(3)) = CHAR 'ab '", comparison(EQUAL, new Cast(new Reference(createVarcharType(3), "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("ab"))));
+
+        // literal longer than the source varchar: the cast never lengthens, so the equality is unsatisfiable
+        testUnwrap("varchar(2)", "CAST(a AS char(3)) = CHAR 'abc'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(createVarcharType(2), "a")), new Constant(BOOLEAN, null))));
+
+        // truncating cast (char shorter than varchar) is not injective on the source, so it must NOT be unwrapped
+        testUnwrap("varchar(5)", "CAST(a AS char(3)) = CHAR 'abc'", comparison(EQUAL, new Cast(new Reference(createVarcharType(5), "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+
+        // unbounded source is equally not injective
+        testUnwrap("varchar", "CAST(a AS char(3)) = CHAR 'abc'", comparison(EQUAL, new Cast(new Reference(VARCHAR, "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+
+        // ordering comparisons are not order-preserving across PAD SPACE / NO PAD, so they must NOT be unwrapped
+        testUnwrap("varchar(3)", "CAST(a AS char(3)) < CHAR 'abc'", comparison(LESS_THAN, new Cast(new Reference(createVarcharType(3), "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+    }
+
+    @Test
     public void testNotEquals()
     {
         // representable
