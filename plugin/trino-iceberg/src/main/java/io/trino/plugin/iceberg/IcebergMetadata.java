@@ -3497,16 +3497,21 @@ public class IcebergMetadata
             rowDelta.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
         }
 
+        // dropped (fully-deleted) files must be excluded below: Iceberg rejects removing a data file
+        // that validateDataFilesExist() also checks for in the same commit
+        Set<String> fullyDeletedDataFiles = deletionVectorInfos.isEmpty()
+                ? ImmutableSet.of()
+                : deletionVectorWriter.writeDeletionVectors(session, icebergTable, table, deletionVectorInfos, rowDelta);
+
         if (hasDeleteTasks) {
-            rowDelta.validateDataFilesExist(referencedDataFiles.build());
+            rowDelta.validateDataFilesExist(referencedDataFiles.build().stream()
+                    .filter(path -> !fullyDeletedDataFiles.contains(path))
+                    .collect(toImmutableList()));
         }
         if (hasDataTasks) {
             // Iceberg requires this for UPDATE and MERGE only. Deleting a row that a concurrent commit also deleted is idempotent.
             // A commit writing data files is an UPDATE or a MERGE, a commit writing only position deletes is a DELETE.
             rowDelta.validateNoConflictingDeleteFiles();
-        }
-        if (!deletionVectorInfos.isEmpty()) {
-            deletionVectorWriter.writeDeletionVectors(session, icebergTable, table, deletionVectorInfos, rowDelta);
         }
         commitUpdateAndTransaction(rowDelta, session, transaction, "write");
 
