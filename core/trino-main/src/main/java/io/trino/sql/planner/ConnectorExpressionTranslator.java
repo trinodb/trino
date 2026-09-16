@@ -797,6 +797,12 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
+            // Keep non-determinism on engine side to retain awareness of it.
+            // Sometimes table scans are duplicated (e.g. MultipleDistinctAggregationsToSubqueries).
+            if (!node.function().deterministic()) {
+                return Optional.empty();
+            }
+
             if (matchComparison(node) instanceof Comparison comparison) {
                 return translateComparison(node.type(), comparison, context);
             }
