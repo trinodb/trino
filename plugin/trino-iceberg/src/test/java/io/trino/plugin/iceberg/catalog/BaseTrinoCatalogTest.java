@@ -28,6 +28,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.IcebergSessionProperties;
+import io.trino.plugin.iceberg.SketchAlgorithm;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.NodeVersion;
@@ -155,7 +156,7 @@ public abstract class BaseTrinoCatalogTest
                         throw new UnsupportedOperationException();
                     },
                     TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    new TableStatisticsWriter(new NodeVersion("test-version"), new IcebergConfig()),
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
@@ -166,7 +167,8 @@ public abstract class BaseTrinoCatalogTest
                     newDirectExecutorService(),
                     0,
                     ZERO,
-                    ConnectorExpressionEvaluator.NO_OP);
+                    ConnectorExpressionEvaluator.NO_OP,
+                    SketchAlgorithm.THETA);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -198,7 +200,7 @@ public abstract class BaseTrinoCatalogTest
                         throw new UnsupportedOperationException();
                     },
                     TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    new TableStatisticsWriter(new NodeVersion("test-version"), new IcebergConfig()),
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
@@ -209,7 +211,8 @@ public abstract class BaseTrinoCatalogTest
                     newDirectExecutorService(),
                     0,
                     ZERO,
-                    ConnectorExpressionEvaluator.NO_OP);
+                    ConnectorExpressionEvaluator.NO_OP,
+                    SketchAlgorithm.THETA);
 
             assertThat(icebergMetadata.getSchemaProperties(SESSION, namespace))
                     .doesNotContainKey("invalid_property");

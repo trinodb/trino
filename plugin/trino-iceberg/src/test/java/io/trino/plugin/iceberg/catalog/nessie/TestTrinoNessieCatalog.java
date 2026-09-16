@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.SketchAlgorithm;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -219,7 +221,7 @@ public class TestTrinoNessieCatalog
                         throw new UnsupportedOperationException();
                     },
                     TABLE_STATISTICS_READER,
-                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    new TableStatisticsWriter(new NodeVersion("test-version"), new IcebergConfig()),
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
@@ -230,7 +232,8 @@ public class TestTrinoNessieCatalog
                     newDirectExecutorService(),
                     0,
                     ZERO,
-                    ConnectorExpressionEvaluator.NO_OP);
+                    ConnectorExpressionEvaluator.NO_OP,
+                    SketchAlgorithm.THETA);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

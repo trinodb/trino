@@ -91,7 +91,7 @@ public final class TableStatisticsReader
 {
     private static final Logger log = Logger.get(TableStatisticsReader.class);
 
-    public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
+    public static final String NDV_PROPERTY = "ndv";
 
     @VisibleForTesting
     static final int INLINE_MANIFEST_DECODE_THRESHOLD = 4;
@@ -293,19 +293,19 @@ public final class TableStatisticsReader
         ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
 
         getLatestStatisticsFile(icebergTable, snapshotId).ifPresent(statisticsFile -> {
-            Map<Integer, BlobMetadata> thetaBlobsByFieldId = statisticsFile.blobMetadata().stream()
-                    .filter(blobMetadata -> blobMetadata.type().equals(StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1))
+            Map<Integer, BlobMetadata> ndvBlobsByFieldId = statisticsFile.blobMetadata().stream()
+                    .filter(blobMetadata -> isNdvSketchBlobType(blobMetadata.type()))
                     .filter(blobMetadata -> blobMetadata.fields().size() == 1)
                     .filter(blobMetadata -> columnIds.contains(getOnlyElement(blobMetadata.fields())))
-                    // Fail loud upon duplicates (there must be none)
+                    // Fail loud upon duplicates (there must be none, including across sketch algorithms)
                     .collect(toImmutableMap(blobMetadata -> getOnlyElement(blobMetadata.fields()), identity()));
 
-            for (Entry<Integer, BlobMetadata> entry : thetaBlobsByFieldId.entrySet()) {
+            for (Entry<Integer, BlobMetadata> entry : ndvBlobsByFieldId.entrySet()) {
                 int fieldId = entry.getKey();
                 BlobMetadata blobMetadata = entry.getValue();
-                String ndv = blobMetadata.properties().get(APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY);
+                String ndv = blobMetadata.properties().get(NDV_PROPERTY);
                 if (ndv == null) {
-                    log.debug("Blob %s is missing %s property", blobMetadata.type(), APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY);
+                    log.debug("Blob %s is missing %s property", blobMetadata.type(), NDV_PROPERTY);
                 }
                 else {
                     ndvByColumnId.put(fieldId, parseLong(ndv));
@@ -314,6 +314,11 @@ public final class TableStatisticsReader
         });
 
         return ndvByColumnId.buildOrThrow();
+    }
+
+    private static boolean isNdvSketchBlobType(String blobType)
+    {
+        return blobType.equals(StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1) || blobType.equals(NdvSketch.TRINO_DATASKETCHES_HLL_V1);
     }
 
     /**

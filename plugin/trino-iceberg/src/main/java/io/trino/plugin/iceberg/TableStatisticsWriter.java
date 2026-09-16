@@ -19,9 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
 import com.google.inject.Inject;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.datasketches.theta.CompactThetaSketch;
-import org.apache.datasketches.theta.ThetaSetOperation;
 import org.apache.iceberg.GenericBlobMetadata;
 import org.apache.iceberg.GenericStatisticsFile;
 import org.apache.iceberg.HasTableOperations;
@@ -39,14 +38,12 @@ import org.apache.iceberg.puffin.Puffin;
 import org.apache.iceberg.puffin.PuffinCompressionCodec;
 import org.apache.iceberg.puffin.PuffinReader;
 import org.apache.iceberg.puffin.PuffinWriter;
-import org.apache.iceberg.puffin.StandardBlobTypes;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +56,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.plugin.iceberg.TableStatisticsReader.APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_STATISTICS_ALGORITHM_MISMATCH;
+import static io.trino.plugin.iceberg.TableStatisticsReader.NDV_PROPERTY;
 import static io.trino.plugin.iceberg.TableStatisticsReader.getLatestStatisticsFile;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.INCREMENTAL_UPDATE;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPLACE;
@@ -83,11 +81,21 @@ public class TableStatisticsWriter
     }
 
     private final String trinoVersion;
+    private final SketchAlgorithm ndvSketchAlgorithm;
 
     @Inject
-    public TableStatisticsWriter(NodeVersion nodeVersion)
+    public TableStatisticsWriter(NodeVersion nodeVersion, IcebergConfig config)
     {
         this.trinoVersion = nodeVersion.toString();
+        this.ndvSketchAlgorithm = config.getNdvSketchAlgorithm();
+    }
+
+    private String expectedBlobType()
+    {
+        return switch (ndvSketchAlgorithm) {
+            case THETA -> APACHE_DATASKETCHES_THETA_V1;
+            case HLL -> NdvSketch.TRINO_DATASKETCHES_HLL_V1;
+        };
     }
 
     public StatisticsFile writeStatisticsFile(
@@ -99,15 +107,44 @@ public class TableStatisticsWriter
     {
         TableOperations operations = ((HasTableOperations) table).operations();
         FileIO fileIO = operations.io();
+        Optional<StatisticsFile> latestStatisticsFile = getLatestStatisticsFile(table, snapshotId);
+        checkAlgorithmCompatibility(table, latestStatisticsFile);
         collectedStatistics = mergeStatisticsIfNecessary(
                 table,
                 snapshotId,
                 fileIO,
                 updateMode,
-                collectedStatistics);
-        Map<Integer, CompactThetaSketch> ndvSketches = collectedStatistics.ndvSketches();
+                collectedStatistics,
+                latestStatisticsFile);
+        Map<Integer, NdvSketch> ndvSketches = collectedStatistics.ndvSketches();
 
-        return writeStatisticsFile(session, table, fileIO, snapshotId, ndvSketches);
+        return writeStatisticsFile(session, table, fileIO, snapshotId, ndvSketches, latestStatisticsFile);
+    }
+
+    private void checkAlgorithmCompatibility(Table table, Optional<StatisticsFile> latestStatisticsFile)
+    {
+        if (latestStatisticsFile.isEmpty()) {
+            return;
+        }
+        String expectedBlobType = expectedBlobType();
+        boolean hasIncompatibleNdvBlob = latestStatisticsFile.get().blobMetadata().stream()
+                .anyMatch(blobMetadata -> isOtherAlgorithmNdvBlobType(blobMetadata.type(), expectedBlobType));
+        if (hasIncompatibleNdvBlob) {
+            throw new TrinoException(ICEBERG_STATISTICS_ALGORITHM_MISMATCH, format(
+                    "Cannot write %s NDV sketches for table '%s': existing statistics were computed with a different sketch algorithm. " +
+                            "Changing 'iceberg.extended-statistics.ndv-sketch-algorithm' for a table that already has extended statistics is not supported. " +
+                            "Drop the existing extended statistics for this table before switching algorithms.",
+                    ndvSketchAlgorithm,
+                    table.name()));
+        }
+    }
+
+    private static boolean isOtherAlgorithmNdvBlobType(String blobType, String expectedBlobType)
+    {
+        if (blobType.equals(expectedBlobType)) {
+            return false;
+        }
+        return blobType.equals(APACHE_DATASKETCHES_THETA_V1) || blobType.equals(NdvSketch.TRINO_DATASKETCHES_HLL_V1);
     }
 
     public Optional<StatisticsFile> rewriteStatisticsFile(ConnectorSession session, Table table, long snapshotId)
@@ -122,13 +159,7 @@ public class TableStatisticsWriter
         return Optional.of(writeStatisticsFile(session, table, fileIO, snapshotId, Map.of(), latestStatisticsFile));
     }
 
-    private StatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactThetaSketch> ndvSketches)
-    {
-        Optional<StatisticsFile> latestStatisticsFile = getLatestStatisticsFile(table, snapshotId);
-        return writeStatisticsFile(session, table, fileIO, snapshotId, ndvSketches, latestStatisticsFile);
-    }
-
-    private StatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactThetaSketch> ndvSketches, Optional<StatisticsFile> latestStatisticsFile)
+    private StatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, NdvSketch> ndvSketches, Optional<StatisticsFile> latestStatisticsFile)
     {
         Snapshot snapshot = table.snapshot(snapshotId);
         long snapshotSequenceNumber = snapshot.sequenceNumber();
@@ -165,17 +196,15 @@ public class TableStatisticsWriter
                         .sorted(comparingByKey())
                         .forEachOrdered(entry -> {
                             Integer fieldId = entry.getKey();
-                            CompactThetaSketch sketch = entry.getValue();
-                            @SuppressWarnings("NumericCastThatLosesPrecision")
-                            long ndvEstimate = (long) sketch.getEstimate();
+                            NdvSketch sketch = entry.getValue();
                             writer.add(new Blob(
-                                    APACHE_DATASKETCHES_THETA_V1,
+                                    sketch.blobType(),
                                     ImmutableList.of(fieldId),
                                     snapshotId,
                                     snapshotSequenceNumber,
-                                    ByteBuffer.wrap(sketch.toByteArray()),
+                                    ByteBuffer.wrap(sketch.serialize()),
                                     ZSTD,
-                                    ImmutableMap.of(APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY, Long.toString(ndvEstimate))));
+                                    ImmutableMap.of(NDV_PROPERTY, Long.toString(sketch.estimate()))));
                         });
 
                 writer.finish();
@@ -203,7 +232,8 @@ public class TableStatisticsWriter
             long snapshotId,
             FileIO fileIO,
             StatsUpdateMode updateMode,
-            CollectedStatistics collectedStatistics)
+            CollectedStatistics collectedStatistics,
+            Optional<StatisticsFile> latestStatisticsFile)
     {
         if (updateMode == INCREMENTAL_UPDATE) {
             Snapshot snapshot = table.snapshot(snapshotId);
@@ -217,14 +247,14 @@ public class TableStatisticsWriter
         return switch (updateMode) {
             case REPLACE -> collectedStatistics;
             case INCREMENTAL_UPDATE -> {
-                Optional<StatisticsFile> latestStatisticsFile = getLatestStatisticsFile(table, snapshotId);
-                ImmutableMap.Builder<Integer, CompactThetaSketch> ndvSketches = ImmutableMap.builder();
+                ImmutableMap.Builder<Integer, NdvSketch> ndvSketches = ImmutableMap.builder();
                 if (latestStatisticsFile.isPresent()) {
-                    Map<Integer, CompactThetaSketch> collectedNdvSketches = collectedStatistics.ndvSketches();
+                    Map<Integer, NdvSketch> collectedNdvSketches = collectedStatistics.ndvSketches();
                     Set<Integer> columnsWithRecentlyComputedStats = collectedNdvSketches.keySet();
                     StatisticsFile statisticsFile = latestStatisticsFile.get();
+                    String expectedBlobType = expectedBlobType();
                     boolean hasUsefulData = statisticsFile.blobMetadata().stream()
-                            .filter(blobMetadata -> blobMetadata.type().equals(StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1))
+                            .filter(blobMetadata -> blobMetadata.type().equals(expectedBlobType))
                             .filter(blobMetadata -> blobMetadata.fields().size() == 1)
                             .anyMatch(blobMetadata -> columnsWithRecentlyComputedStats.contains(getOnlyElement(blobMetadata.fields())));
 
@@ -234,15 +264,15 @@ public class TableStatisticsWriter
                                 .withFooterSize(statisticsFile.fileFooterSizeInBytes())
                                 .build()) {
                             List<BlobMetadata> toRead = reader.fileMetadata().blobs().stream()
-                                    .filter(blobMetadata -> blobMetadata.type().equals(APACHE_DATASKETCHES_THETA_V1))
+                                    .filter(blobMetadata -> blobMetadata.type().equals(expectedBlobType))
                                     .filter(blobMetadata -> blobMetadata.inputFields().size() == 1)
                                     .filter(blobMetadata -> columnsWithRecentlyComputedStats.contains(getOnlyElement(blobMetadata.inputFields())))
                                     .collect(toImmutableList());
                             for (Pair<BlobMetadata, ByteBuffer> read : reader.readAll(toRead)) {
                                 Integer fieldId = getOnlyElement(read.first().inputFields());
-                                CompactThetaSketch previousSketch = CompactThetaSketch.wrap(MemorySegment.ofBuffer(read.second()));
-                                CompactThetaSketch newSketch = requireNonNull(collectedNdvSketches.get(fieldId), "ndvSketches.get(fieldId) is null");
-                                ndvSketches.put(fieldId, ThetaSetOperation.builder().buildUnion().union(previousSketch, newSketch));
+                                NdvSketch previousSketch = NdvSketch.deserialize(read.first().type(), read.second());
+                                NdvSketch newSketch = requireNonNull(collectedNdvSketches.get(fieldId), "ndvSketches.get(fieldId) is null");
+                                ndvSketches.put(fieldId, previousSketch.mergeWith(newSketch));
                             }
                         }
                         catch (IOException exception) {
@@ -327,7 +357,7 @@ public class TableStatisticsWriter
             Set<Integer> validFieldIds,
             Set<Integer> columnsWithNewNdvSketches)
     {
-        if (!blobType.equals(APACHE_DATASKETCHES_THETA_V1)) {
+        if (!blobType.equals(expectedBlobType())) {
             return true;
         }
         if (fields.size() != 1) {

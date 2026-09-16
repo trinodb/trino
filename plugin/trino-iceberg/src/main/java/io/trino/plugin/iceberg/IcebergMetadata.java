@@ -29,6 +29,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.stats.cardinality.HyperLogLog;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
@@ -153,7 +154,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
-import org.apache.datasketches.theta.CompactThetaSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
@@ -370,6 +370,8 @@ import static io.trino.plugin.iceberg.IcebergUtil.validateOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.validateParquetBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.verifyExtraProperties;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
+import static io.trino.plugin.iceberg.SketchAlgorithm.HLL;
+import static io.trino.plugin.iceberg.SketchAlgorithm.THETA;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TableStatisticsReader.readNdvs;
@@ -409,9 +411,11 @@ import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES_SUMMARY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
@@ -421,6 +425,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Boolean.parseBoolean;
@@ -524,6 +529,7 @@ public class IcebergMetadata
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
     private final ConnectorExpressionEvaluator evaluator;
+    private final SketchAlgorithm ndvSketchAlgorithm;
 
     private Transaction transaction;
     private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
@@ -546,7 +552,8 @@ public class IcebergMetadata
             ExecutorService icebergFileDeleteExecutor,
             int materializedViewRefreshMaxSnapshotsToExpire,
             Duration materializedViewRefreshSnapshotRetentionPeriod,
-            ConnectorExpressionEvaluator evaluator)
+            ConnectorExpressionEvaluator evaluator,
+            SketchAlgorithm ndvSketchAlgorithm)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -567,6 +574,15 @@ public class IcebergMetadata
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
+        this.ndvSketchAlgorithm = requireNonNull(ndvSketchAlgorithm, "ndvSketchAlgorithm is null");
+    }
+
+    private ColumnStatisticMetadata ndvColumnStatisticMetadata(String columnName)
+    {
+        return switch (ndvSketchAlgorithm) {
+            case THETA -> new ColumnStatisticMetadata(columnName, NUMBER_OF_DISTINCT_VALUES_NAME, NUMBER_OF_DISTINCT_VALUES_FUNCTION);
+            case HLL -> new ColumnStatisticMetadata(columnName, NUMBER_OF_DISTINCT_VALUES_SUMMARY);
+        };
     }
 
     @Override
@@ -3175,7 +3191,7 @@ public class IcebergMetadata
                 .filter(selectedColumnNames
                         .map(columnNames -> (Predicate<ColumnMetadata>) columnMetadata -> columnNames.contains(columnMetadata.getName()))
                         .orElse(_ -> true))
-                .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES_NAME, NUMBER_OF_DISTINCT_VALUES_FUNCTION))
+                .map(column -> ndvColumnStatisticMetadata(column.getName()))
                 .collect(toImmutableSet());
 
         return new TableStatisticsMetadata(columnStatistics, ImmutableSet.of(), ImmutableList.of());
@@ -4415,24 +4431,36 @@ public class IcebergMetadata
         fromSnapshotForRefresh = OptionalLong.empty();
     }
 
-    private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)
+    private CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)
     {
         Map<String, Integer> columnNameToId = table.schema().columns().stream()
                 .collect(toImmutableMap(nestedField -> nestedField.name().toLowerCase(ENGLISH), Types.NestedField::fieldId));
 
-        ImmutableMap.Builder<Integer, CompactThetaSketch> ndvSketches = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, NdvSketch> ndvSketches = ImmutableMap.builder();
         for (ComputedStatistics computedStatistic : computedStatistics) {
             verify(computedStatistic.getGroupingColumns().isEmpty() && computedStatistic.getGroupingValues().isEmpty(), "Unexpected grouping");
             verify(computedStatistic.getTableStatistics().isEmpty(), "Unexpected table statistics");
             for (Entry<ColumnStatisticMetadata, Block> entry : computedStatistic.getColumnStatistics().entrySet()) {
                 ColumnStatisticMetadata statisticMetadata = entry.getKey();
+                Block block = entry.getValue();
                 if (statisticMetadata.getConnectorAggregationId().equals(NUMBER_OF_DISTINCT_VALUES_NAME)) {
+                    verify(ndvSketchAlgorithm == THETA, "Unexpected %s statistic for %s algorithm", NUMBER_OF_DISTINCT_VALUES_NAME, ndvSketchAlgorithm);
                     Integer columnId = verifyNotNull(
                             columnNameToId.get(statisticMetadata.getColumnName()),
                             "Column not found in table: [%s]",
                             statisticMetadata.getColumnName());
-                    CompactThetaSketch sketch = DataSketchStateSerializer.deserialize(entry.getValue(), 0);
-                    ndvSketches.put(columnId, sketch);
+                    ndvSketches.put(columnId, new NdvSketch.Theta(DataSketchStateSerializer.deserialize(block, 0)));
+                }
+                else if (statisticMetadata.getStatisticTypeIfPresent().equals(Optional.of(NUMBER_OF_DISTINCT_VALUES_SUMMARY))) {
+                    verify(ndvSketchAlgorithm == HLL, "Unexpected %s statistic for %s algorithm", NUMBER_OF_DISTINCT_VALUES_SUMMARY, ndvSketchAlgorithm);
+                    Integer columnId = verifyNotNull(
+                            columnNameToId.get(statisticMetadata.getColumnName()),
+                            "Column not found in table: [%s]",
+                            statisticMetadata.getColumnName());
+                    if (!block.isNull(0)) {
+                        Slice serialized = (Slice) blockToNativeValue(HYPER_LOG_LOG, block);
+                        ndvSketches.put(columnId, new NdvSketch.Hll(HyperLogLog.newInstance(serialized)));
+                    }
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported statistic: " + statisticMetadata);
