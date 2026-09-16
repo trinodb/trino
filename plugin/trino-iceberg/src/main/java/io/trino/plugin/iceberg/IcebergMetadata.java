@@ -313,6 +313,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
@@ -528,8 +529,8 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final CopyOnWriteStats copyOnWriteStats;
     private final Set<IcebergTableHandle> copyOnWriteScanHandles = ConcurrentHashMap.newKeySet();
-    private List<String> pendingCowRollbackFilePaths = ImmutableList.of();
-    private boolean canCleanupPendingCowRollbackFiles;
+    private List<String> pendingCopyOnWriteRollbackFilePaths = ImmutableList.of();
+    private boolean canCleanupPendingCopyOnWriteRollbackFiles;
 
     private final TrinoCatalog catalog;
     private final IcebergFileSystemFactory fileSystemFactory;
@@ -3340,7 +3341,7 @@ public class IcebergMetadata
         // because they only influence the format of newly written files.
         RowLevelOperationMode operationMode = resolveRowLevelOperationMode(table.getStorageProperties());
 
-        CopyOnWriteMergeState cowState = operationMode == RowLevelOperationMode.COPY_ON_WRITE
+        CopyOnWriteMergeState copyOnWriteState = operationMode == RowLevelOperationMode.COPY_ON_WRITE
                 ? prepareCopyOnWriteMergeState(table, icebergTable)
                 : CopyOnWriteMergeState.EMPTY;
 
@@ -3349,8 +3350,8 @@ public class IcebergMetadata
                 table,
                 insertHandle,
                 operationMode,
-                cowState.baseTableProperties(),
-                cowState.preExistingDeletesByDataFile());
+                copyOnWriteState.baseTableProperties(),
+                copyOnWriteState.preExistingDeletesByDataFile());
     }
 
     @Override
@@ -3578,7 +3579,7 @@ public class IcebergMetadata
         }
         catch (RuntimeException e) {
             if (hasCommitStateUnknownException(e)) {
-                canCleanupPendingCowRollbackFiles = false;
+                canCleanupPendingCopyOnWriteRollbackFiles = false;
                 copyOnWriteStats.recordCommitStateUnknown();
             }
             throw e;
@@ -3624,7 +3625,8 @@ public class IcebergMetadata
             String oldFilePath = task.rewriteInfo().orElseThrow().oldFilePath();
             if (!seenOldFilePaths.add(oldFilePath)) {
                 copyOnWriteStats.recordUniqueRewriteTaskInvariantViolation();
-                throw new IllegalStateException(
+                throw new TrinoException(
+                        ICEBERG_WRITE_VALIDATION_FAILED,
                         "Multiple rewrite tasks reference the same old data file path " + oldFilePath
                                 + "; expected one rewrite per file in copy-on-write merge");
             }
@@ -3735,30 +3737,30 @@ public class IcebergMetadata
 
     private void prepareCopyOnWriteRollbackCleanup(List<CommitTaskData> commitTasks)
     {
-        pendingCowRollbackFilePaths = commitTasks.stream()
+        pendingCopyOnWriteRollbackFilePaths = commitTasks.stream()
                 .filter(task -> task.content() == FileContent.DATA)
                 .map(CommitTaskData::path)
                 .filter(path -> !path.isEmpty())
                 .distinct()
                 .collect(toImmutableList());
-        canCleanupPendingCowRollbackFiles = true;
+        canCleanupPendingCopyOnWriteRollbackFiles = true;
     }
 
     private void cleanupPendingCopyOnWriteFiles(Table icebergTable)
     {
-        if (pendingCowRollbackFilePaths.isEmpty()) {
+        if (pendingCopyOnWriteRollbackFilePaths.isEmpty()) {
             return;
         }
-        if (!canCleanupPendingCowRollbackFiles) {
+        if (!canCleanupPendingCopyOnWriteRollbackFiles) {
             log.warn("Skipping CoW rollback cleanup because commit state is unknown; orphan files may remain until remove_orphan_files runs");
             return;
         }
 
-        deleteOrphanFilesInParallel(icebergTable.io(), pendingCowRollbackFilePaths, icebergFileDeleteExecutor);
+        deleteOrphanFilesInParallel(icebergTable.io(), pendingCopyOnWriteRollbackFilePaths, icebergFileDeleteExecutor);
         // Best-effort accounting: deleteOrphanFilesInParallel swallows individual failures, so this
         // is an upper bound on what was actually unlinked from storage. Operators should compare
         // this against orphan-file metrics on storage to detect persistent failures.
-        copyOnWriteStats.recordOrphanFilesCleanedUp(pendingCowRollbackFilePaths.size());
+        copyOnWriteStats.recordOrphanFilesCleanedUp(pendingCopyOnWriteRollbackFilePaths.size());
     }
 
     /**
@@ -3862,8 +3864,8 @@ public class IcebergMetadata
 
     private void clearCopyOnWriteRollbackCleanupState()
     {
-        pendingCowRollbackFilePaths = ImmutableList.of();
-        canCleanupPendingCowRollbackFiles = false;
+        pendingCopyOnWriteRollbackFilePaths = ImmutableList.of();
+        canCleanupPendingCopyOnWriteRollbackFiles = false;
     }
 
     /**

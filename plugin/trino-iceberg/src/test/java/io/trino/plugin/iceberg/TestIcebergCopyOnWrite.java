@@ -399,6 +399,11 @@ final class TestIcebergCopyOnWrite
             // Verify no delete files
             assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
 
+            // The fully emptied data file must be dropped rather than committed as a zero-row file
+            // (CopyOnWriteFileRewriter.finalizeRewrite eagerly removes empty output). A leftover
+            // empty data file would still satisfy the row-count assertion below, so assert on $files.
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + DATA.id(), "VALUES 0");
+
             // Verify table is empty
             assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
         }
@@ -420,6 +425,39 @@ final class TestIcebergCopyOnWrite
             assertThat(deleteFileCount).isGreaterThanOrEqualTo(1);
 
             // Verify data correctness still works
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+        }
+    }
+
+    @Test
+    public void testOnlyWriteMergeModeGovernsDeleteEndToEnd()
+    {
+        // TestIcebergCopyOnWriteResolvers unit-tests the mode resolver against hand-built maps;
+        // this exercises the same single-property contract end to end, through the real
+        // extra_properties -> storage-properties -> resolveRowLevelOperationMode pipeline.
+
+        // write.delete.mode alone (write.merge.mode unset) must NOT enable copy-on-write: the
+        // DELETE stays merge-on-read and produces delete files.
+        try (TestTable table = newCowTable(
+                "test_cow_delete_mode_ignored_",
+                "WITH (extra_properties = MAP(ARRAY['write.delete.mode'], ARRAY['copy-on-write'])) " +
+                        "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1", 5);
+            long deleteFileCount = (long) computeScalar("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + POSITION_DELETES.id());
+            assertThat(deleteFileCount).isGreaterThanOrEqualTo(1);
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+        }
+
+        // Conversely, write.merge.mode=copy-on-write governs the DELETE even when a disagreeing
+        // write.delete.mode=merge-on-read is also set: the DELETE is copy-on-write (no delete files).
+        try (TestTable table = newCowTable(
+                "test_cow_merge_mode_wins_",
+                "WITH (extra_properties = MAP(ARRAY['write.merge.mode', 'write.delete.mode'], ARRAY['copy-on-write', 'merge-on-read'])) " +
+                        "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1", 5);
+            assertNoDeleteFiles(tableName);
             assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         }
     }

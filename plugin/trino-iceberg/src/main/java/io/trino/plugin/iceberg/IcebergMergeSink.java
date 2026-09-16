@@ -67,6 +67,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
@@ -151,7 +152,7 @@ public class IcebergMergeSink
         this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.schema = requireNonNull(schema, "schema is null");
-        this.rewriteSchema = getRewriteSchema(this.schema, formatVersion);
+        this.rewriteSchema = buildRewriteSchema(this.schema, formatVersion);
         this.partitionsSpecs = ImmutableMap.copyOf(requireNonNull(partitionsSpecs, "partitionsSpecs is null"));
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
         this.columnCount = columnCount;
@@ -254,7 +255,7 @@ public class IcebergMergeSink
         long startNanos = System.nanoTime();
         List<RewriteInput> inputs = buildRewriteInputs();
         List<CopyOnWriteFileRewriter.RewriteResult> results = executeParallelRewrites(inputs, baseTableProperties);
-        collectRewriteFragments(inputs, results, getWriteFileFormat(baseTableProperties), fragments, startNanos);
+        collectRewriteFragments(inputs, results, resolveWriteFileFormat(baseTableProperties), fragments, startNanos);
 
         return completedFuture(fragments);
     }
@@ -320,7 +321,7 @@ public class IcebergMergeSink
         MetricsConfig metricsConfig = MetricsConfig.fromProperties(tableProperties);
         Optional<NameMapping> nameMapping = Optional.ofNullable(tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING))
                 .map(NameMappingParser::fromJson);
-        IcebergFileFormat writeFileFormat = getWriteFileFormat(tableProperties);
+        IcebergFileFormat writeFileFormat = resolveWriteFileFormat(tableProperties);
 
         List<CompletableFuture<CopyOnWriteFileRewriter.RewriteResult>> futures = new ArrayList<>(inputs.size());
         for (RewriteInput input : inputs) {
@@ -409,7 +410,8 @@ public class IcebergMergeSink
                 failure.addSuppressed(suppressed);
             }
         }
-        throw failure instanceof RuntimeException re ? re : new RuntimeException(failure);
+        throwIfUnchecked(failure);
+        throw new RuntimeException(failure);
     }
 
     private void collectRewriteFragments(
@@ -497,7 +499,8 @@ public class IcebergMergeSink
                     t.addSuppressed(ex);
                 }
             }
-            throw t instanceof RuntimeException re ? re : new RuntimeException(t);
+            throwIfUnchecked(t);
+            throw new RuntimeException(t);
         }
 
         if (log.isDebugEnabled()) {
@@ -581,7 +584,7 @@ public class IcebergMergeSink
         if (inFlightRewritePaths.isEmpty()) {
             return;
         }
-        List<String> snapshot = List.copyOf(inFlightRewritePaths);
+        List<String> snapshot = ImmutableList.copyOf(inFlightRewritePaths);
         inFlightRewritePaths.clear();
         IcebergMetadata.deleteOrphanFilesInParallel(fileIo, snapshot, executor);
     }
@@ -625,12 +628,12 @@ public class IcebergMergeSink
         return Optional.of(PartitionData.fromJson(partitionDataAsJson, columnTypes));
     }
 
-    private static IcebergFileFormat getWriteFileFormat(Map<String, String> tableProperties)
+    private static IcebergFileFormat resolveWriteFileFormat(Map<String, String> tableProperties)
     {
         return IcebergFileFormat.fromIceberg(FileFormat.fromString(tableProperties.getOrDefault(TableProperties.DEFAULT_FILE_FORMAT, TableProperties.DEFAULT_FILE_FORMAT_DEFAULT)));
     }
 
-    static Schema getRewriteSchema(Schema schema, int formatVersion)
+    static Schema buildRewriteSchema(Schema schema, int formatVersion)
     {
         if (formatVersion < 3) {
             return schema;

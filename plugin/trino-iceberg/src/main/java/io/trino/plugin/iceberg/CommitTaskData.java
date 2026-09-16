@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.SortOrder;
 
@@ -121,8 +122,8 @@ public record CommitTaskData(
             long recordCount,
             int partitionSpecId,
             Optional<String> partitionDataJson,
-            Long contentOffset,
-            Long contentSizeInBytes,
+            @Nullable Long contentOffset,
+            @Nullable Long contentSizeInBytes,
             String referencedDataFile)
     {
         public DanglingDeleteFile
