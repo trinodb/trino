@@ -256,8 +256,8 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitIsNull(IsNull node, Void context)
         {
-            if (node.value() instanceof Reference) {
-                Symbol symbol = Symbol.from(node.value());
+            if (node.value() instanceof Reference reference) {
+                Symbol symbol = Symbol.from(reference);
                 SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                 result.setOutputRowCount(input.getOutputRowCount() * symbolStats.getNullsFraction());
@@ -321,8 +321,8 @@ public class FilterStatsCalculator
             PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
             result.setOutputRowCount(min(inEstimate.getOutputRowCount(), notNullValuesBeforeIn));
 
-            if (node.value() instanceof Reference) {
-                Symbol valueSymbol = Symbol.from(node.value());
+            if (node.value() instanceof Reference reference) {
+                Symbol valueSymbol = Symbol.from(reference);
                 SymbolStatsEstimate newSymbolStats = inEstimate.getSymbolStatistics(valueSymbol)
                         .mapDistinctValuesCount(newDistinctValuesCount -> min(newDistinctValuesCount, valueStats.getDistinctValuesCount()));
                 result.addSymbolStatistics(valueSymbol, newSymbolStats);
@@ -385,8 +385,8 @@ public class FilterStatsCalculator
             else if (node.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
                 Expression argument = node.arguments().getFirst();
                 if (argument instanceof IsNull inner) {
-                    if (inner.value() instanceof Reference) {
-                        Symbol symbol = Symbol.from(inner.value());
+                    if (inner.value() instanceof Reference reference) {
+                        Symbol symbol = Symbol.from(reference);
                         SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
                         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                         result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
@@ -403,8 +403,8 @@ public class FilterStatsCalculator
 
         private SymbolStatsEstimate getExpressionStats(Expression expression)
         {
-            if (expression instanceof Reference) {
-                Symbol symbol = Symbol.from(expression);
+            if (expression instanceof Reference reference) {
+                Symbol symbol = Symbol.from(reference);
                 return requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol));
             }
             return scalarStatsCalculator.calculate(expression, input, session);

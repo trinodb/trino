@@ -1565,8 +1565,8 @@ public class AddExchanges
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
         for (Entry<Symbol, Expression> assignment : assignments.assignments().entrySet()) {
-            if (assignment.getValue() instanceof Reference) {
-                outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
+            if (assignment.getValue() instanceof Reference reference) {
+                outputToInput.put(assignment.getKey(), Symbol.from(reference));
             }
         }
         return outputToInput;
