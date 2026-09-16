@@ -68,6 +68,8 @@ public class IcebergRestCatalogConfig
     private boolean serverAssignedTableLocationEnabled;
     private boolean metricsReportingEnabled = true;
     private boolean caseInsensitiveNameMatching;
+    private Optional<Boolean> caseInsensitiveNameMatchingForTables = Optional.empty();
+    private Optional<Boolean> caseInsensitiveNameMatchingForNamespaces = Optional.empty();
     private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     // Lightweight identifier mappings; short TTL keeps retained cardinality modest.
@@ -271,10 +273,36 @@ public class IcebergRestCatalogConfig
     }
 
     @Config("iceberg.rest-catalog.case-insensitive-name-matching")
-    @ConfigDescription("Match object names case-insensitively")
+    @ConfigDescription("Match Iceberg REST namespace, table, and view names case insensitively. Serves as the default for the .tables and .namespaces variants")
     public IcebergRestCatalogConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    public Optional<Boolean> getCaseInsensitiveNameMatchingForTables()
+    {
+        return caseInsensitiveNameMatchingForTables;
+    }
+
+    @Config("iceberg.rest-catalog.case-insensitive-name-matching.tables")
+    @ConfigDescription("Match Iceberg REST table and view names case insensitively. Defaults to iceberg.rest-catalog.case-insensitive-name-matching")
+    public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingForTables(Boolean caseInsensitiveNameMatchingForTables)
+    {
+        this.caseInsensitiveNameMatchingForTables = Optional.ofNullable(caseInsensitiveNameMatchingForTables);
+        return this;
+    }
+
+    public Optional<Boolean> getCaseInsensitiveNameMatchingForNamespaces()
+    {
+        return caseInsensitiveNameMatchingForNamespaces;
+    }
+
+    @Config("iceberg.rest-catalog.case-insensitive-name-matching.namespaces")
+    @ConfigDescription("Match Iceberg REST namespace names case insensitively. Defaults to iceberg.rest-catalog.case-insensitive-name-matching")
+    public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingForNamespaces(Boolean caseInsensitiveNameMatchingForNamespaces)
+    {
+        this.caseInsensitiveNameMatchingForNamespaces = Optional.ofNullable(caseInsensitiveNameMatchingForNamespaces);
         return this;
     }
 

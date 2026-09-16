@@ -62,7 +62,6 @@ public class TrinoIcebergRestCatalogFactory
     private final IcebergRestCatalogPropertiesProvider catalogPropertiesProvider;
     private final boolean uniqueTableLocation;
     private final TypeManager typeManager;
-    private final boolean caseInsensitiveNameMatching;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
     private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache;
@@ -98,7 +97,6 @@ public class TrinoIcebergRestCatalogFactory
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.caseInsensitiveNameMatching = restConfig.isCaseInsensitiveNameMatching();
         this.remoteNamespaceMappingCache = EvictableCacheBuilder.newBuilder()
                 .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
@@ -109,7 +107,9 @@ public class TrinoIcebergRestCatalogFactory
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
-        if (caseInsensitiveNameMatching && restConfig.isCaseInsensitiveNameMatchingNamespaceCacheEnabled()) {
+        // Case-insensitive matching is a per-query decision, so the caches cannot be gated on a
+        // construction-time flag. They are only consulted on the case-insensitive resolution path.
+        if (restConfig.isCaseInsensitiveNameMatchingNamespaceCacheEnabled()) {
             this.namespaceTableListingCache = Optional.of(EvictableCacheBuilder.newBuilder()
                     .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                     .maximumWeight(restConfig.getCaseInsensitiveNameMatchingNamespaceCacheMaxSize())
@@ -167,7 +167,6 @@ public class TrinoIcebergRestCatalogFactory
                 trinoVersion,
                 typeManager,
                 uniqueTableLocation,
-                caseInsensitiveNameMatching,
                 remoteNamespaceMappingCache,
                 remoteTableMappingCache,
                 namespaceTableListingCache,

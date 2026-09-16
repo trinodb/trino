@@ -45,8 +45,11 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SupportsNamespaces;
@@ -81,6 +84,7 @@ import static io.airlift.units.Duration.ZERO;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.metastore.TableInfo.ExtendedRelationType.OTHER_VIEW;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
+import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
@@ -131,20 +135,18 @@ public class TestTrinoRestCatalog
 
         restSessionCatalog.initialize(catalogName, properties);
 
-        return createTrinoRestCatalog(useUniqueTableLocations, restSessionCatalog, false, false);
+        return createTrinoRestCatalog(useUniqueTableLocations, restSessionCatalog, false);
     }
 
     private static TrinoRestCatalog createTrinoRestCatalog(
             boolean useUniqueTableLocations,
             RESTSessionCatalog restSessionCatalog,
-            boolean nestedNamespaceEnabled,
-            boolean caseInsensitiveNameMatching)
+            boolean nestedNamespaceEnabled)
     {
         return createTrinoRestCatalog(
                 useUniqueTableLocations,
                 restSessionCatalog,
                 nestedNamespaceEnabled,
-                caseInsensitiveNameMatching,
                 NONE,
                 Optional.empty(),
                 Optional.empty());
@@ -154,7 +156,6 @@ public class TestTrinoRestCatalog
             boolean useUniqueTableLocations,
             RESTSessionCatalog restSessionCatalog,
             boolean nestedNamespaceEnabled,
-            boolean caseInsensitiveNameMatching,
             SessionType sessionType,
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache,
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache)
@@ -171,7 +172,6 @@ public class TestTrinoRestCatalog
                 "test",
                 TESTING_TYPE_MANAGER,
                 useUniqueTableLocations,
-                caseInsensitiveNameMatching,
                 EvictableCacheBuilder.newBuilder().expireAfterWrite(1000, MILLISECONDS).shareNothingWhenDisabled().build(),
                 EvictableCacheBuilder.newBuilder().expireAfterWrite(1000, MILLISECONDS).shareNothingWhenDisabled().build(),
                 namespaceTableListingCache,
@@ -269,6 +269,72 @@ public class TestTrinoRestCatalog
     }
 
     @Test
+    public void testCaseInsensitiveNamespaceMatchingViaSessionProperty()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+
+        String namespace = "testCaseInsensitiveNsMatching" + randomNameSuffix();
+        String lowercaseNamespace = namespace.toLowerCase(ENGLISH);
+
+        // Namespace matching enabled, table matching disabled: the two axes are independent
+        ConnectorSession namespaceMatchingSession = caseInsensitiveSession(true, false);
+
+        catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        try {
+            // With case-insensitive namespace matching the lowercase name resolves to the mixed-case remote namespace
+            assertThat(catalog.namespaceExists(namespaceMatchingSession, lowercaseNamespace))
+                    .as("namespaceExists with case-insensitive namespace matching")
+                    .isTrue();
+            // The default session leaves matching disabled, so only an exact-case match succeeds
+            assertThat(catalog.namespaceExists(SESSION, lowercaseNamespace))
+                    .as("namespaceExists with case-sensitive matching")
+                    .isFalse();
+        }
+        finally {
+            catalog.dropNamespace(SESSION, namespace);
+        }
+    }
+
+    @Test
+    public void testCaseSensitiveTableMatchingInCaseInsensitiveNamespace()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+
+        // The backend namespace keeps its mixed case; Trino only ever sees the lowercase form
+        String namespace = "testCaseSensitiveTableNs" + randomNameSuffix();
+        String lowercaseNamespace = namespace.toLowerCase(ENGLISH);
+        SchemaTableName table = new SchemaTableName(lowercaseNamespace, "some_table");
+
+        // Namespace matching enabled, table matching disabled
+        ConnectorSession session = caseInsensitiveSession(true, false);
+
+        catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        try {
+            // The namespace is resolved case-insensitively, so the table is created in the mixed-case remote namespace
+            catalog.newCreateTableTransaction(
+                            session,
+                            table,
+                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            PartitionSpec.unpartitioned(),
+                            SortOrder.unsorted(),
+                            Optional.of(arbitraryTableLocation(catalog, session, table)),
+                            ImmutableMap.of())
+                    .commitTransaction();
+
+            // Even with case-insensitive table matching disabled, the namespace is still resolved
+            // case-insensitively, so the table in the mixed-case remote namespace is found
+            assertThat(catalog.loadTable(session, table).name())
+                    .isEqualTo(quotedTableName(table));
+        }
+        finally {
+            catalog.dropTable(session, table);
+            catalog.dropNamespace(SESSION, namespace);
+        }
+    }
+
+    @Test
     public void testPrefix()
             throws Exception
     {
@@ -292,7 +358,7 @@ public class TestTrinoRestCatalog
     @Test
     public void testNestedListNamespacesIgnoresNamespaceDeletedDuringRecursiveListing()
     {
-        TrinoCatalog catalog = createTrinoRestCatalog(false, new NamespaceDeletedDuringRecursiveListingCatalog(), true, false);
+        TrinoCatalog catalog = createTrinoRestCatalog(false, new NamespaceDeletedDuringRecursiveListingCatalog(), true);
 
         assertThat(catalog.listNamespaces(SESSION))
                 .containsExactly("ExIsTiNg", "ExIsTiNg.child");
@@ -301,9 +367,9 @@ public class TestTrinoRestCatalog
     @Test
     public void testCaseInsensitiveNamespaceLookupIgnoresNamespaceDeletedDuringRecursiveListing()
     {
-        TrinoCatalog catalog = createTrinoRestCatalog(false, new NamespaceDeletedDuringRecursiveListingCatalog(), false, true);
+        TrinoCatalog catalog = createTrinoRestCatalog(false, new NamespaceDeletedDuringRecursiveListingCatalog(), false);
 
-        assertThat(catalog.namespaceExists(SESSION, "existing")).isTrue();
+        assertThat(catalog.namespaceExists(caseInsensitiveSession(true, false), "existing")).isTrue();
     }
 
     @Test
@@ -320,7 +386,7 @@ public class TestTrinoRestCatalog
             }
         };
 
-        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, true, false);
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, true);
 
         catalog.listNamespaces(SESSION);
 
@@ -341,7 +407,7 @@ public class TestTrinoRestCatalog
                 throw new RESTException("catalog failure");
             }
         };
-        TrinoCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, true, false);
+        TrinoCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, true);
 
         assertThatThrownBy(() -> catalog.listNamespaces(SESSION))
                 .isInstanceOf(TrinoException.class)
@@ -403,11 +469,13 @@ public class TestTrinoRestCatalog
 
         Cache<NamespaceListingKey, List<TableIdentifier>> listingCache = createNamespaceListingCache();
 
-        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, true, NONE, Optional.of(listingCache), Optional.empty());
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, NONE, Optional.of(listingCache), Optional.empty());
+
+        ConnectorSession session = caseInsensitiveSession(true, true);
 
         String schema = "ns_cache_test_" + randomNameSuffix();
         List<String> tableNames = List.of("table_a", "table_b", "table_c");
-        catalog.createNamespace(SESSION, schema, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        catalog.createNamespace(session, schema, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, session.getUser()));
         try {
             // Create tables directly against the backend so setup doesn't warm Trino-side caches.
             Schema tableSchema = new Schema(Types.NestedField.required(1, "c", Types.IntegerType.get()));
@@ -417,7 +485,7 @@ public class TestTrinoRestCatalog
             listTablesCount.set(0);
 
             for (String name : tableNames) {
-                catalog.loadTable(SESSION, new SchemaTableName(schema, name));
+                catalog.loadTable(session, new SchemaTableName(schema, name));
             }
 
             assertThat(listTablesCount.get())
@@ -427,12 +495,12 @@ public class TestTrinoRestCatalog
         finally {
             for (String name : tableNames) {
                 try {
-                    catalog.dropTable(SESSION, new SchemaTableName(schema, name));
+                    catalog.dropTable(session, new SchemaTableName(schema, name));
                 }
                 catch (RuntimeException ignored) {
                 }
             }
-            catalog.dropNamespace(SESSION, schema);
+            catalog.dropNamespace(session, schema);
         }
     }
 
@@ -456,16 +524,18 @@ public class TestTrinoRestCatalog
 
         Cache<NamespaceListingKey, List<TableIdentifier>> listingCache = createNamespaceListingCache();
 
-        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, true, NONE, Optional.of(listingCache), Optional.empty());
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, NONE, Optional.of(listingCache), Optional.empty());
+
+        ConnectorSession session = caseInsensitiveSession(true, true);
 
         String schema = "ns_cache_refresh_test_" + randomNameSuffix();
-        catalog.createNamespace(SESSION, schema, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        catalog.createNamespace(session, schema, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, session.getUser()));
         try {
             Schema tableSchema = new Schema(Types.NestedField.required(1, "c", Types.IntegerType.get()));
 
             backend.buildTable(TableIdentifier.of(schema, "table_a"), tableSchema).create();
             listTablesCount.set(0);
-            catalog.loadTable(SESSION, new SchemaTableName(schema, "table_a"));
+            catalog.loadTable(session, new SchemaTableName(schema, "table_a"));
             assertThat(listTablesCount.get())
                     .as("listTables calls on initial resolve (cold cache)")
                     .isEqualTo(1);
@@ -473,7 +543,7 @@ public class TestTrinoRestCatalog
             // Created while the cache still holds the stale [table_a] listing.
             backend.buildTable(TableIdentifier.of(schema, "table_b"), tableSchema).create();
 
-            catalog.loadTable(SESSION, new SchemaTableName(schema, "table_b"));
+            catalog.loadTable(session, new SchemaTableName(schema, "table_b"));
             assertThat(listTablesCount.get())
                     .as("listTables calls after miss-triggered refresh picks up the out-of-band table")
                     .isEqualTo(2);
@@ -481,12 +551,12 @@ public class TestTrinoRestCatalog
         finally {
             for (String name : List.of("table_a", "table_b")) {
                 try {
-                    catalog.dropTable(SESSION, new SchemaTableName(schema, name));
+                    catalog.dropTable(session, new SchemaTableName(schema, name));
                 }
                 catch (RuntimeException ignored) {
                 }
             }
-            catalog.dropNamespace(SESSION, schema);
+            catalog.dropNamespace(session, schema);
         }
     }
 
@@ -509,27 +579,29 @@ public class TestTrinoRestCatalog
 
         Cache<NamespaceListingKey, List<TableIdentifier>> listingCache = createNamespaceListingCache();
 
-        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, true, NONE, Optional.of(listingCache), Optional.empty());
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, NONE, Optional.of(listingCache), Optional.empty());
+
+        ConnectorSession session = caseInsensitiveSession(true, true);
 
         String remoteSchema = "MixedCaseNs" + randomNameSuffix();
         String trinoSchema = remoteSchema.toLowerCase(ENGLISH);
-        catalog.createNamespace(SESSION, remoteSchema, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        catalog.createNamespace(session, remoteSchema, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, session.getUser()));
         try {
             Schema tableSchema = new Schema(Types.NestedField.required(1, "c", Types.IntegerType.get()));
             backend.buildTable(TableIdentifier.of(remoteSchema, "tbl"), tableSchema).create();
 
-            catalog.loadTable(SESSION, new SchemaTableName(trinoSchema, "tbl"));
+            catalog.loadTable(session, new SchemaTableName(trinoSchema, "tbl"));
             assertThat(listingCache.size())
                     .as("listing cache size after resolving a table in a mixed-case remote namespace")
                     .isEqualTo(1);
 
-            catalog.dropTable(SESSION, new SchemaTableName(trinoSchema, "tbl"));
+            catalog.dropTable(session, new SchemaTableName(trinoSchema, "tbl"));
             assertThat(listingCache.size())
                     .as("listing cache size after dropTable in a mixed-case remote namespace")
                     .isEqualTo(0);
         }
         finally {
-            catalog.dropNamespace(SESSION, trinoSchema);
+            catalog.dropNamespace(session, trinoSchema);
         }
     }
 
@@ -553,15 +625,17 @@ public class TestTrinoRestCatalog
 
         Cache<NamespaceListingKey, List<TableIdentifier>> viewListingCache = createNamespaceListingCache();
 
-        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, true, NONE, Optional.empty(), Optional.of(viewListingCache));
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, NONE, Optional.empty(), Optional.of(viewListingCache));
+
+        ConnectorSession session = caseInsensitiveSession(true, true);
 
         String schema = "ns_view_cache_test_" + randomNameSuffix();
         List<String> viewNames = List.of("view_a", "view_b", "view_c");
-        catalog.createNamespace(SESSION, schema, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        catalog.createNamespace(session, schema, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, session.getUser()));
         try {
             for (String name : viewNames) {
                 catalog.createView(
-                        SESSION,
+                        session,
                         new SchemaTableName(schema, name),
                         viewDefinition("SELECT 1 AS c", new ViewColumn("c", BIGINT.getTypeId(), Optional.empty())),
                         ImmutableMap.of(),
@@ -572,7 +646,7 @@ public class TestTrinoRestCatalog
             listViewsCount.set(0);
 
             for (String name : viewNames) {
-                assertThat(catalog.getView(SESSION, new SchemaTableName(schema, name))).isPresent();
+                assertThat(catalog.getView(session, new SchemaTableName(schema, name))).isPresent();
             }
 
             assertThat(listViewsCount.get())
@@ -582,12 +656,12 @@ public class TestTrinoRestCatalog
         finally {
             for (String name : viewNames) {
                 try {
-                    catalog.dropView(SESSION, new SchemaTableName(schema, name));
+                    catalog.dropView(session, new SchemaTableName(schema, name));
                 }
                 catch (RuntimeException ignored) {
                 }
             }
-            catalog.dropNamespace(SESSION, schema);
+            catalog.dropNamespace(session, schema);
         }
     }
 
@@ -612,7 +686,7 @@ public class TestTrinoRestCatalog
 
         Cache<NamespaceListingKey, List<TableIdentifier>> viewListingCache = createNamespaceListingCache();
 
-        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, true, USER, Optional.empty(), Optional.of(viewListingCache));
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, USER, Optional.empty(), Optional.of(viewListingCache));
 
         ConnectorSession alice = sessionForUser("alice", ImmutableMap.of());
         ConnectorSession bob = sessionForUser("bob", ImmutableMap.of());
@@ -675,27 +749,110 @@ public class TestTrinoRestCatalog
         }
     }
 
-    private static ConnectorSession sessionForUser(String user, Map<String, String> extraCredentials)
-    {
-        return TestingConnectorSession.builder()
-                .setIdentity(ConnectorIdentity.forUser(user)
-                        .withExtraCredentials(extraCredentials)
-                        .build())
-                .setPropertyMetadata(new IcebergSessionProperties(
-                        new IcebergConfig(),
-                        new IcebergEncryptionConfig(),
-                        new OrcReaderConfig(),
-                        new OrcWriterConfig(),
-                        new ParquetReaderConfig(),
-                        new ParquetWriterConfig())
-                        .getSessionProperties())
-                .build();
-    }
 
     @Override
     protected TableInfo.ExtendedRelationType getViewType()
     {
         return OTHER_VIEW;
+    }
+
+    @Test
+    public void testCaseInsensitiveNamespaceMatchingViaSessionProperty()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+
+        String namespace = "testCaseInsensitiveNsMatching" + randomNameSuffix();
+        String lowercaseNamespace = namespace.toLowerCase(ENGLISH);
+
+        // Namespace matching enabled, table matching disabled: the two axes are independent
+        ConnectorSession namespaceMatchingSession = caseInsensitiveSession(true, false);
+
+        catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        try {
+            // With case-insensitive namespace matching the lowercase name resolves to the mixed-case remote namespace
+            assertThat(catalog.namespaceExists(namespaceMatchingSession, lowercaseNamespace))
+                    .as("namespaceExists with case-insensitive namespace matching")
+                    .isTrue();
+            // The default session leaves matching disabled, so only an exact-case match succeeds
+            assertThat(catalog.namespaceExists(SESSION, lowercaseNamespace))
+                    .as("namespaceExists with case-sensitive matching")
+                    .isFalse();
+        }
+        finally {
+            catalog.dropNamespace(SESSION, namespace);
+        }
+    }
+
+    @Test
+    public void testCaseSensitiveTableMatchingInCaseInsensitiveNamespace()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+
+        // The backend namespace keeps its mixed case; Trino only ever sees the lowercase form
+        String namespace = "testCaseSensitiveTableNs" + randomNameSuffix();
+        String lowercaseNamespace = namespace.toLowerCase(ENGLISH);
+        SchemaTableName table = new SchemaTableName(lowercaseNamespace, "some_table");
+
+        // Namespace matching enabled, table matching disabled
+        ConnectorSession session = caseInsensitiveSession(true, false);
+
+        catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        try {
+            // The namespace is resolved case-insensitively, so the table is created in the mixed-case remote namespace
+            catalog.newCreateTableTransaction(
+                            session,
+                            table,
+                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            PartitionSpec.unpartitioned(),
+                            SortOrder.unsorted(),
+                            Optional.of(arbitraryTableLocation(catalog, session, table)),
+                            ImmutableMap.of())
+                    .commitTransaction();
+
+            // Even with case-insensitive table matching disabled, the namespace is still resolved
+            // case-insensitively, so the table in the mixed-case remote namespace is found
+            assertThat(catalog.loadTable(session, table).name())
+                    .isEqualTo(quotedTableName(table));
+        }
+        finally {
+            catalog.dropTable(session, table);
+            catalog.dropNamespace(SESSION, namespace);
+        }
+    }
+
+    private static ConnectorSession caseInsensitiveSession(boolean namespaces, boolean tables)
+    {
+        return sessionForUser("user", ImmutableMap.of(), namespaces, tables);
+    }
+
+    private static ConnectorSession sessionForUser(String user, Map<String, String> extraCredentials)
+    {
+        return sessionForUser(user, extraCredentials, true, true);
+    }
+
+    private static ConnectorSession sessionForUser(String user, Map<String, String> extraCredentials, boolean namespaces, boolean tables)
+    {
+        return TestingConnectorSession.builder()
+                .setIdentity(ConnectorIdentity.forUser(user)
+                        .withExtraCredentials(extraCredentials)
+                        .build())
+                .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()
+                        .addAll(new IcebergSessionProperties(
+                                new IcebergConfig(),
+                                new IcebergEncryptionConfig(),
+                                new OrcReaderConfig(),
+                                new OrcWriterConfig(),
+                                new ParquetReaderConfig(),
+                                new ParquetWriterConfig())
+                                .getSessionProperties())
+                        .addAll(new IcebergRestSessionProperties(new IcebergRestCatalogConfig()).getSessionProperties())
+                        .build())
+                .setPropertyValues(ImmutableMap.of(
+                        "case_insensitive_name_matching_namespaces", namespaces,
+                        "case_insensitive_name_matching_tables", tables))
+                .build();
     }
 
     @Test

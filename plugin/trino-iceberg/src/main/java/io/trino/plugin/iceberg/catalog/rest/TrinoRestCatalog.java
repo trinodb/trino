@@ -108,6 +108,8 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.SUPPORTED_SCHEMA_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestSessionProperties.isCaseInsensitiveNameMatchingForNamespaces;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestSessionProperties.isCaseInsensitiveNameMatchingForTables;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -135,7 +137,6 @@ public class TrinoRestCatalog
     private final boolean nestedNamespaceEnabled;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
-    private final boolean caseInsensitiveNameMatching;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
     private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache;
@@ -158,7 +159,6 @@ public class TrinoRestCatalog
             String trinoVersion,
             TypeManager typeManager,
             boolean useUniqueTableLocation,
-            boolean caseInsensitiveNameMatching,
             Cache<Namespace, Namespace> remoteNamespaceMappingCache,
             Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache,
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache,
@@ -176,7 +176,6 @@ public class TrinoRestCatalog
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
-        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         this.remoteNamespaceMappingCache = requireNonNull(remoteNamespaceMappingCache, "remoteNamespaceMappingCache is null");
         this.remoteTableMappingCache = requireNonNull(remoteTableMappingCache, "remoteTableMappingCache is null");
         this.namespaceTableListingCache = requireNonNull(namespaceTableListingCache, "namespaceTableListingCache is null");
@@ -256,9 +255,7 @@ public class TrinoRestCatalog
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop namespace '%s'".formatted(namespace), e);
         }
         finally {
-            if (caseInsensitiveNameMatching) {
-                remoteNamespaceMappingCache.invalidate(toNamespace(namespace));
-            }
+            remoteNamespaceMappingCache.invalidate(toNamespace(namespace));
             invalidateNamespaceListingCaches(namespace);
         }
     }
@@ -997,9 +994,7 @@ public class TrinoRestCatalog
 
     private void invalidateTableMappingCache(SchemaTableName schemaTableName)
     {
-        if (caseInsensitiveNameMatching) {
-            remoteTableMappingCache.invalidate(toIdentifier(schemaTableName));
-        }
+        remoteTableMappingCache.invalidate(toIdentifier(schemaTableName));
     }
 
     private void invalidateNamespaceTableListingCache(SchemaTableName schemaTableName)
@@ -1069,7 +1064,7 @@ public class TrinoRestCatalog
 
     private Optional<TableIdentifier> toRemoteTableIfExists(ConnectorSession session, TableIdentifier tableIdentifier, boolean getCached)
     {
-        return toRemoteObject(tableIdentifier, () -> findRemoteTable(session, tableIdentifier), getCached);
+        return toRemoteObject(session, tableIdentifier, () -> findRemoteTable(session, tableIdentifier), getCached);
     }
 
     private TableIdentifier findRemoteTable(ConnectorSession session, TableIdentifier tableIdentifier)
@@ -1099,7 +1094,7 @@ public class TrinoRestCatalog
         if (!viewEndpointsEnabled) {
             return Optional.empty();
         }
-        return toRemoteObject(tableIdentifier, () -> findRemoteView(session, tableIdentifier), getCached);
+        return toRemoteObject(session, tableIdentifier, () -> findRemoteView(session, tableIdentifier), getCached);
     }
 
     private TableIdentifier findRemoteView(ConnectorSession session, TableIdentifier tableIdentifier)
@@ -1214,9 +1209,9 @@ public class TrinoRestCatalog
         return Optional.ofNullable(matching);
     }
 
-    private Optional<TableIdentifier> toRemoteObject(TableIdentifier tableIdentifier, Supplier<TableIdentifier> remoteObjectProvider, boolean getCached)
+    private Optional<TableIdentifier> toRemoteObject(ConnectorSession session, TableIdentifier tableIdentifier, Supplier<TableIdentifier> remoteObjectProvider, boolean getCached)
     {
-        if (caseInsensitiveNameMatching) {
+        if (isCaseInsensitiveNameMatchingForTables(session)) {
             try {
                 if (getCached) {
                     return Optional.of(getAndCache(tableIdentifier, remoteObjectProvider));
@@ -1227,7 +1222,8 @@ public class TrinoRestCatalog
                 return Optional.empty();
             }
         }
-        return Optional.of(tableIdentifier);
+        // Table and view names are matched case-sensitively, but the namespace is still resolved according to the namespace setting
+        return Optional.of(toRemoteIdentifier(session, tableIdentifier));
     }
 
     private TableIdentifier getAndCache(TableIdentifier tableIdentifier, Supplier<TableIdentifier> remoteObjectProvider)
@@ -1248,7 +1244,7 @@ public class TrinoRestCatalog
 
     private Namespace toRemoteNamespace(ConnectorSession session, Namespace trinoNamespace)
     {
-        if (caseInsensitiveNameMatching) {
+        if (isCaseInsensitiveNameMatchingForNamespaces(session)) {
             return uncheckedCacheGet(remoteNamespaceMappingCache, trinoNamespace, () -> findRemoteNamespace(session, trinoNamespace));
         }
         return trinoNamespace;

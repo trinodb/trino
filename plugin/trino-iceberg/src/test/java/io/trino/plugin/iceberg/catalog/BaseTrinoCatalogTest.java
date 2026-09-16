@@ -29,6 +29,8 @@ import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.IcebergSessionProperties;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestSessionProperties;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
@@ -41,6 +43,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.NullOrder;
@@ -86,14 +89,17 @@ public abstract class BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(BaseTrinoCatalogTest.class);
     protected static final ConnectorSession SESSION = TestingConnectorSession.builder()
-            .setPropertyMetadata(new IcebergSessionProperties(
-                    new IcebergConfig(),
-                    new IcebergEncryptionConfig(),
-                    new OrcReaderConfig(),
-                    new OrcWriterConfig(),
-                    new ParquetReaderConfig(),
-                    new ParquetWriterConfig())
-                    .getSessionProperties())
+            .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()
+                    .addAll(new IcebergSessionProperties(
+                            new IcebergConfig(),
+                            new IcebergEncryptionConfig(),
+                            new OrcReaderConfig(),
+                            new OrcWriterConfig(),
+                            new ParquetReaderConfig(),
+                            new ParquetWriterConfig())
+                            .getSessionProperties())
+                    .addAll(new IcebergRestSessionProperties(new IcebergRestCatalogConfig()).getSessionProperties())
+                    .build())
             .build();
 
     protected abstract void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties);

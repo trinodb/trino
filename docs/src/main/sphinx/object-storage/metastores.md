@@ -547,7 +547,16 @@ following properties:
   - Google Cloud project name. This property must be set when `iceberg.rest-catalog.security` 
     config property is set to `GOOGLE`. Example: `development-123456`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`
-  - Match namespace, table, and view names case insensitively. Defaults to `false`.
+  - Match namespace, table, and view names case insensitively. Serves as the
+    default for the `.tables` and `.namespaces` variants below. Defaults to `false`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching.tables`
+  - Match table and view names case insensitively. Can also be set per query with
+    the `case_insensitive_name_matching_tables` session property. Defaults to the
+    value of `iceberg.rest-catalog.case-insensitive-name-matching`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching.namespaces`
+  - Match namespace names case insensitively. Can also be set per query with the
+    `case_insensitive_name_matching_namespaces` session property. Defaults to the
+    value of `iceberg.rest-catalog.case-insensitive-name-matching`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
   - [Duration](prop-type-duration) for which case-insensitive namespace, table, 
     and view names are cached. Defaults to `1m`.
