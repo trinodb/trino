@@ -569,6 +569,16 @@ public class TestStringFunctions
         assertThat(assertions.function("reverse", "'\uD801\uDC2Dend'"))
                 .hasType(createVarcharType(4))
                 .isEqualTo("dne\uD801\uDC2D");
+
+        // input with leading whitespace
+        assertThat(assertions.function("reverse", "' a'"))
+                .hasType(createVarcharType(2))
+                .isEqualTo("a ");
+
+        // input with trailing whitespace
+        assertThat(assertions.function("reverse", "'a '"))
+                .hasType(createVarcharType(2))
+                .isEqualTo(" a");
     }
 
     @Test
@@ -614,6 +624,16 @@ public class TestStringFunctions
         assertThat(assertions.function("reverse", "CAST('\uD801\uDC2Dend' AS CHAR(6))"))
                 .hasType(createCharType(6))
                 .isEqualTo("  dne\uD801\uDC2D");
+
+        // input with leading whitespace
+        assertThat(assertions.function("reverse", "CAST(' a' AS CHAR(2))"))
+                .hasType(createCharType(2))
+                .isEqualTo("a ");
+
+        // input with trailing whitespace
+        assertThat(assertions.function("reverse", "CAST('a' AS CHAR(2))"))
+                .hasType(createCharType(2))
+                .isEqualTo(" a");
     }
 
     @Test
