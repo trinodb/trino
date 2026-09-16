@@ -52,7 +52,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.ALLOW_UNSAFE_PUSHDOWN;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -212,7 +212,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getTypeResolutionPolicy(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -238,7 +238,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getTypeResolutionPolicy(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -264,7 +264,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getTypeResolutionPolicy(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -313,7 +313,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 1L), new Constant(INTEGER, 5L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getTypeResolutionPolicy(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 1L), new Constant(INTEGER, 5L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 

@@ -26,7 +26,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.Reference;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import io.trino.util.DisjointSet;
 
 import java.util.ArrayList;
@@ -59,7 +59,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class EqualityInference
 {
-    private final CharVarcharCoercion charVarcharCoercion;
+    private final TypeResolutionPolicy typeResolutionPolicy;
     private final Metadata metadata;
     // Comparator used to determine Expression preference when determining canonicals
     private final Comparator<Expression> canonicalComparator;
@@ -70,22 +70,22 @@ public class EqualityInference
     private final Map<Expression, List<Symbol>> symbolsCache = new HashMap<>();
     private final Map<Expression, Set<Symbol>> uniqueSymbolsCache = new HashMap<>();
 
-    public EqualityInference(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression... expressions)
+    public EqualityInference(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Expression... expressions)
     {
-        this(plannerContext, charVarcharCoercion, Arrays.asList(expressions));
+        this(plannerContext, typeResolutionPolicy, Arrays.asList(expressions));
     }
 
-    public EqualityInference(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Collection<Expression> expressions)
+    public EqualityInference(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Collection<Expression> expressions)
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
+        this.typeResolutionPolicy = requireNonNull(typeResolutionPolicy, "typeResolutionPolicy is null");
         this.metadata = plannerContext.getMetadata();
 
         DisjointSet<Expression> equalities = new DisjointSet<>();
         expressions.stream()
                 .flatMap(expression -> extractConjuncts(expression).stream())
-                .filter(expression -> isInferenceCandidate(plannerContext, charVarcharCoercion, expression))
+                .filter(expression -> isInferenceCandidate(plannerContext, typeResolutionPolicy, expression))
                 .forEach(expression -> {
                     Comparison comparison = requireNonNull(matchComparison(expression), "expression is not a comparison");
                     Expression expression1 = comparison.left();
@@ -217,14 +217,14 @@ public class EqualityInference
             if (scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
-                        .map(expression -> comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, matchingCanonical, expression))
+                        .map(expression -> comparison(metadata, typeResolutionPolicy, ComparisonOperator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions.stream());
             if (scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
-                        .map(expression -> comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, complementCanonical, expression))
+                        .map(expression -> comparison(metadata, typeResolutionPolicy, ComparisonOperator.EQUAL, complementCanonical, expression))
                         .forEach(scopeComplementEqualities::add);
             }
 
@@ -238,7 +238,7 @@ public class EqualityInference
                     .filter(expression -> SymbolsExtractor.extractAll(expression).isEmpty() || rewrite(expression, scope::contains, false) == null)
                     .min(canonicalComparator);
             if (matchingConnecting.isPresent() && complementConnecting.isPresent() && !matchingConnecting.equals(complementConnecting)) {
-                scopeStraddlingEqualities.add(comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
+                scopeStraddlingEqualities.add(comparison(metadata, typeResolutionPolicy, ComparisonOperator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
             }
 
             // Compile the scope straddling equality expressions.
@@ -257,7 +257,7 @@ public class EqualityInference
             if (connectingCanonical != null) {
                 straddlingExpressions.stream()
                         .filter(expression -> !expression.equals(connectingCanonical))
-                        .map(expression -> comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, connectingCanonical, expression))
+                        .map(expression -> comparison(metadata, typeResolutionPolicy, ComparisonOperator.EQUAL, connectingCanonical, expression))
                         .forEach(scopeStraddlingEqualities::add);
             }
         }
@@ -268,12 +268,12 @@ public class EqualityInference
     /**
      * Determines whether an Expression may be successfully applied to the equality inference
      */
-    public static boolean isInferenceCandidate(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
+    public static boolean isInferenceCandidate(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Expression expression)
     {
         return matchComparison(expression) instanceof Comparison comparison
                 && comparison.operator() == ComparisonOperator.EQUAL
                 && isDeterministic(expression)
-                && !mayReturnNullOnNonNullInput(plannerContext, charVarcharCoercion, expression)
+                && !mayReturnNullOnNonNullInput(plannerContext, typeResolutionPolicy, expression)
                 // We should only consider equalities that have distinct left and right components
                 && !comparison.left().equals(comparison.right());
     }
@@ -281,10 +281,10 @@ public class EqualityInference
     /**
      * Provides a convenience Stream of Expression conjuncts which have not been added to the inference
      */
-    public static Stream<Expression> nonInferrableConjuncts(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
+    public static Stream<Expression> nonInferrableConjuncts(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Expression expression)
     {
         return extractConjuncts(expression).stream()
-                .filter(e -> !isInferenceCandidate(plannerContext, charVarcharCoercion, e));
+                .filter(e -> !isInferenceCandidate(plannerContext, typeResolutionPolicy, e));
     }
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)

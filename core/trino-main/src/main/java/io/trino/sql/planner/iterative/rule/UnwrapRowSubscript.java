@@ -31,7 +31,7 @@ import io.trino.type.UnknownType;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST_FUNCTION_NAME;
 import static io.trino.sql.ir.IrExpressions.cast;
@@ -105,9 +105,9 @@ public class UnwrapRowSubscript
                     Coercion coercion = coercions.pop();
                     result = coercion.safe() ?
                             new Call(
-                                    metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(TRY_CAST_FUNCTION_NAME), result.type(), coercion.type()),
+                                    metadata.getCoercion(getTypeResolutionPolicy(session), builtinFunctionName(TRY_CAST_FUNCTION_NAME), result.type(), coercion.type()),
                                     ImmutableList.of(result)) :
-                            cast(typeManager, getCharVarcharCoercion(session), result, coercion.type());
+                            cast(typeManager, getTypeResolutionPolicy(session), result, coercion.type());
                 }
 
                 return result;

@@ -21,6 +21,18 @@ It considers switching the left and right inputs to the join.  In `AUTOMATIC`
 mode, Trino defaults to hash distributed joins if no cost could be computed, such as if
 the tables do not have statistics.
 
+## `legacy-type-resolver`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `false`
+- **Session property:** `legacy_type_resolver`
+
+Use the legacy function type resolver instead of the constraint solver when
+resolving functions, methods, operators, and casts. Set this property to `true`
+to restore legacy resolution for all sessions by default. Individual sessions
+can override the configured default with `SET SESSION legacy_type_resolver = true`
+or `false`.
+
 ## `redistribute-writes`
 
 - **Type:** {ref}`prop-type-boolean`

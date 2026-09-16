@@ -18,7 +18,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.sql.routine.ir.IrRoutine;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Map;
 import java.util.Optional;
@@ -54,24 +54,24 @@ public interface LanguageFunctionProvider
 
     void unregisterTask(TaskId taskId);
 
-    record LanguageFunctionData(Optional<IrRoutine> irRoutine, Optional<LanguageFunctionDefinition> definition, CharVarcharCoercion charVarcharCoercion)
+    record LanguageFunctionData(Optional<IrRoutine> irRoutine, Optional<LanguageFunctionDefinition> definition, TypeResolutionPolicy typeResolutionPolicy)
     {
         public LanguageFunctionData
         {
             requireNonNull(irRoutine, "irRoutine is null");
             requireNonNull(definition, "definition is null");
             checkArgument(irRoutine.isPresent() != definition.isPresent(), "exactly one of irRoutine and metadata must be present");
-            requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
+            requireNonNull(typeResolutionPolicy, "typeResolutionPolicy is null");
         }
 
-        public static LanguageFunctionData ofIrRoutine(IrRoutine irRoutine, CharVarcharCoercion charVarcharCoercion)
+        public static LanguageFunctionData ofIrRoutine(IrRoutine irRoutine, TypeResolutionPolicy typeResolutionPolicy)
         {
-            return new LanguageFunctionData(Optional.of(irRoutine), Optional.empty(), charVarcharCoercion);
+            return new LanguageFunctionData(Optional.of(irRoutine), Optional.empty(), typeResolutionPolicy);
         }
 
-        public static LanguageFunctionData ofDefinition(LanguageFunctionDefinition metadata, CharVarcharCoercion charVarcharCoercion)
+        public static LanguageFunctionData ofDefinition(LanguageFunctionDefinition metadata, TypeResolutionPolicy typeResolutionPolicy)
         {
-            return new LanguageFunctionData(Optional.empty(), Optional.of(metadata), charVarcharCoercion);
+            return new LanguageFunctionData(Optional.empty(), Optional.of(metadata), typeResolutionPolicy);
         }
     }
 }

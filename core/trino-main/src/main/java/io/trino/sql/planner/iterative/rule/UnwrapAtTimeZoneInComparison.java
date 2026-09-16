@@ -25,7 +25,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions.Comparison;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -104,7 +104,7 @@ public class UnwrapAtTimeZoneInComparison
             if (left == comparison.left() && right == comparison.right()) {
                 return expression;
             }
-            return comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), comparison.operator(), left, right);
+            return comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), comparison.operator(), left, right);
         }
 
         private static Expression unwrap(Expression expression)

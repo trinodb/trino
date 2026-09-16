@@ -63,7 +63,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.createTpchDataSet;
@@ -156,7 +156,7 @@ public class BenchmarkColumnarFilterParquetData
             @Override
             Expression getExpression()
             {
-                return between(FUNCTION_RESOLUTION.getMetadata(), getCharVarcharCoercion(TEST_SESSION), emptySymbolAllocator(), SHIP_DATE, new Constant(DATE, MIN_SHIP_DATE), new Constant(DATE, MAX_SHIP_DATE));
+                return between(FUNCTION_RESOLUTION.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), emptySymbolAllocator(), SHIP_DATE, new Constant(DATE, MIN_SHIP_DATE), new Constant(DATE, MAX_SHIP_DATE));
             }
         },
         IN {
@@ -193,7 +193,7 @@ public class BenchmarkColumnarFilterParquetData
         Expression filterExpression = filterProvider.getExpression();
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         compiledProcessor = expressionCompiler.compilePageProcessor(
-                        getCharVarcharCoercion(TEST_SESSION),
+                        getTypeResolutionPolicy(TEST_SESSION),
                         columnarEvaluationEnabled,
                         true,
                         Optional.of(filterExpression),

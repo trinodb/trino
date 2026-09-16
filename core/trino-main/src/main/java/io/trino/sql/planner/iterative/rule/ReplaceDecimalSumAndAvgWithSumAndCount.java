@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -103,7 +103,7 @@ public class ReplaceDecimalSumAndAvgWithSumAndCount
             Symbol countSymbol = matchingAggregation(aggregations, COUNT_NAME, argument, avg.getMask())
                     .orElseGet(() -> {
                         ResolvedFunction countFunction = plannerContext.getMetadata()
-                                .resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "count", ImmutableList.of(argument.type()));
+                                .resolveBuiltinFunction(getTypeResolutionPolicy(context.getSession()), "count", ImmutableList.of(argument.type()));
                         Symbol newCount = context.getSymbolAllocator().newSymbol("count", BIGINT);
                         newAggregations.put(newCount, new Aggregation(
                                 countFunction,
@@ -119,7 +119,7 @@ public class ReplaceDecimalSumAndAvgWithSumAndCount
 
             Type sumType = aggregations.get(sumSymbol.get()).getResolvedFunction().signature().getReturnType();
             ResolvedFunction reconstruct = plannerContext.getMetadata()
-                    .resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), DivideRoundToScale.NAME, ImmutableList.of(sumType, BIGINT));
+                    .resolveBuiltinFunction(getTypeResolutionPolicy(context.getSession()), DivideRoundToScale.NAME, ImmutableList.of(sumType, BIGINT));
             Expression average = new Call(reconstruct, ImmutableList.of(
                     sumSymbol.get().toSymbolReference(),
                     countSymbol.toSymbolReference()));

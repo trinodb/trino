@@ -60,7 +60,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
 import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
-import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.TypeResolutionPolicy.SQL_STANDARD;
 import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestWindowFrameRange

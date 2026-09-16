@@ -49,8 +49,8 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getFilterConjunctionIndependenceFactor;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToLiteralComparison;
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
@@ -296,7 +296,7 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
             List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
-                    .map(inValue -> process(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, node.value(), inValue)))
+                    .map(inValue -> process(comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 
             if (equalityEstimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown)) {
@@ -346,7 +346,7 @@ public class FilterStatsCalculator
             }
 
             if (left instanceof Reference && left.equals(right)) {
-                return process(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(left)));
+                return process(not(plannerContext.getMetadata(), getTypeResolutionPolicy(session), new IsNull(left)));
             }
 
             SymbolStatsEstimate leftStats = getExpressionStats(left);

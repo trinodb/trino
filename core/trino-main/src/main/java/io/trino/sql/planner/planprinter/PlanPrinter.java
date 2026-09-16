@@ -161,7 +161,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
@@ -719,7 +719,7 @@ public class PlanPrinter
         public Void visitJoin(JoinNode node, Context context)
         {
             List<Expression> criteriaExpressions = node.getCriteria().stream()
-                    .map(clause -> clause.toExpression(valuePrinter.getMetadata(), getCharVarcharCoercion(valuePrinter.getSession())))
+                    .map(clause -> clause.toExpression(valuePrinter.getMetadata(), getTypeResolutionPolicy(valuePrinter.getSession())))
                     .collect(toImmutableList());
 
             NodeRepresentation nodeOutput;

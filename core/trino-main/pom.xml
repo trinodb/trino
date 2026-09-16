@@ -281,6 +281,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-type-solver</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-web-ui</artifactId>
         </dependency>
 

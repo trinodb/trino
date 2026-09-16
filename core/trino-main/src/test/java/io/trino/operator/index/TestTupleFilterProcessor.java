@@ -38,7 +38,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.TypeResolutionPolicy.SQL_STANDARD;
 
 public class TestTupleFilterProcessor
 {

@@ -52,7 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -184,7 +184,7 @@ public class TransformCorrelatedInPredicateToJoin
         Expression joinExpression = and(
                 or(
                         new IsNull(probeSideSymbol.toSymbolReference()),
-                        comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
+                        comparison(metadata, getTypeResolutionPolicy(session), ComparisonOperator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
                         new IsNull(buildSideSymbol.toSymbolReference())),
                 correlationCondition);
 
@@ -198,7 +198,7 @@ public class TransformCorrelatedInPredicateToJoin
         Symbol nullMatchConditionSymbol = symbolAllocator.newSymbol("nullMatchConditionSymbol", BOOLEAN);
         Expression nullMatchCondition = and(
                 isNotNull(session, buildSideKnownNonNull),
-                not(metadata, getCharVarcharCoercion(session), matchCondition));
+                not(metadata, getTypeResolutionPolicy(session), matchCondition));
 
         ProjectNode preProjection = new ProjectNode(
                 idAllocator.getNextId(),
@@ -257,7 +257,7 @@ public class TransformCorrelatedInPredicateToJoin
     private AggregationNode.Aggregation countWithFilter(Session session, Symbol filter)
     {
         return new AggregationNode.Aggregation(
-                metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of()),
+                metadata.resolveBuiltinFunction(getTypeResolutionPolicy(session), "count", ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.of(filter),
@@ -269,7 +269,7 @@ public class TransformCorrelatedInPredicateToJoin
     {
         return comparison(
                 metadata,
-                getCharVarcharCoercion(session),
+                getTypeResolutionPolicy(session),
                 ComparisonOperator.GREATER_THAN,
                 symbol.toSymbolReference(),
                 bigint(value));
@@ -277,7 +277,7 @@ public class TransformCorrelatedInPredicateToJoin
 
     private Expression isNotNull(Session session, Symbol symbol)
     {
-        return not(metadata, getCharVarcharCoercion(session), new IsNull(symbol.toSymbolReference()));
+        return not(metadata, getTypeResolutionPolicy(session), new IsNull(symbol.toSymbolReference()));
     }
 
     private static Expression bigint(long value)

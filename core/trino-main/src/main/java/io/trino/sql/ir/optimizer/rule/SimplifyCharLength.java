@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.IrExpressions.constantNull;
@@ -70,7 +70,7 @@ public class SimplifyCharLength
         }
 
         Constant length = new Constant(BIGINT, (long) charType.getLength());
-        if (mayBeNull(context, getCharVarcharCoercion(session), argument)) {
+        if (mayBeNull(context, getTypeResolutionPolicy(session), argument)) {
             return Optional.of(ifExpression(new IsNull(argument), constantNull(BIGINT), length));
         }
         return Optional.of(length);

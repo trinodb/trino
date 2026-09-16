@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
@@ -78,7 +78,7 @@ public class RemoveRedundantCoalesceArguments
                 }
             }
 
-            if (!mayBeNull(plannerContext, getCharVarcharCoercion(session), argument)) {
+            if (!mayBeNull(plannerContext, getTypeResolutionPolicy(session), argument)) {
                 break;
             }
         }

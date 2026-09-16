@@ -54,7 +54,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.block.Bitmap.set;
@@ -187,7 +187,7 @@ public class BenchmarkColumnarFilter
         };
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         compiledProcessor = expressionCompiler.compilePageProcessor(
-                        getCharVarcharCoercion(TEST_SESSION),
+                        getTypeResolutionPolicy(TEST_SESSION),
                         columnarEvaluationEnabled,
                         true,
                         Optional.of(filterProvider.getExpression(type)),

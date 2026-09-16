@@ -37,7 +37,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import org.objectweb.asm.Type;
 
 import java.lang.reflect.Method;
@@ -82,7 +82,7 @@ public final class LambdaBytecodeGenerator
             FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
-            CharVarcharCoercion charVarcharCoercion)
+            TypeResolutionPolicy typeResolutionPolicy)
     {
         Set<Lambda> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
         ImmutableMap.Builder<Lambda, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
@@ -99,7 +99,7 @@ public final class LambdaBytecodeGenerator
                     functionManager,
                     metadata,
                     typeManager,
-                    charVarcharCoercion);
+                    typeResolutionPolicy);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -120,7 +120,7 @@ public final class LambdaBytecodeGenerator
             FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
-            CharVarcharCoercion charVarcharCoercion)
+            TypeResolutionPolicy typeResolutionPolicy)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
@@ -146,7 +146,7 @@ public final class LambdaBytecodeGenerator
                 functionManager,
                 metadata,
                 typeManager,
-                charVarcharCoercion,
+                typeResolutionPolicy,
                 compiledLambdaMap,
                 parameters.build());
 
@@ -246,7 +246,7 @@ public final class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends Supplier<Object>> compileLambdaProvider(Lambda lambdaExpression, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, CharVarcharCoercion charVarcharCoercion, Class<?> lambdaInterface)
+    public static Class<? extends Supplier<Object>> compileLambdaProvider(Lambda lambdaExpression, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, TypeResolutionPolicy typeResolutionPolicy, Class<?> lambdaInterface)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
@@ -267,7 +267,7 @@ public final class LambdaBytecodeGenerator
                 functionManager,
                 metadata,
                 typeManager,
-                charVarcharCoercion);
+                typeResolutionPolicy);
 
         MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
                 a(PUBLIC),
@@ -291,7 +291,7 @@ public final class LambdaBytecodeGenerator
                 functionManager,
                 metadata,
                 typeManager,
-                charVarcharCoercion,
+                typeResolutionPolicy,
                 compiledLambdaMap,
                 ImmutableList.of());
 

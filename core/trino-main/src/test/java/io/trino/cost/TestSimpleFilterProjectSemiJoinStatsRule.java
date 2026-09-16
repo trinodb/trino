@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
@@ -204,7 +204,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                     Symbol c = pb.symbol("c", DOUBLE);
                     Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
                     return pb.filter(
-                            not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new Reference(BOOLEAN, "sjo")),
+                            not(PLANNER_CONTEXT.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new Reference(BOOLEAN, "sjo")),
                             pb.semiJoin(
                                     pb.values(LEFT_SOURCE_ID, a, b),
                                     pb.values(RIGHT_SOURCE_ID, c),

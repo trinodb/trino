@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -263,7 +263,7 @@ public class TestReorderWindows
                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         filter(
-                                                not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, RECEIPTDATE_ALIAS))),
+                                                not(getPlanTester().getPlannerContext().getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new IsNull(new Reference(VARCHAR, RECEIPTDATE_ALIAS))),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowApp)

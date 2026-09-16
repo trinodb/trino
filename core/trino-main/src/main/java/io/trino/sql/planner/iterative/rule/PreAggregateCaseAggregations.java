@@ -54,7 +54,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.SystemSessionProperties.isPreAggregateCaseAggregationsEnabled;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
@@ -301,11 +301,11 @@ public class PreAggregateCaseAggregations
                             Type preProjectionType = getType(preProjection);
                             Type aggregationInputType = getOnlyElement(key.getFunction().signature().getArgumentTypes());
                             if (!preProjectionType.equals(aggregationInputType)) {
-                                preProjection = cast(plannerContext.getTypeManager(), getCharVarcharCoercion(context.getSession()), preProjection, aggregationInputType);
+                                preProjection = cast(plannerContext.getTypeManager(), getTypeResolutionPolicy(context.getSession()), preProjection, aggregationInputType);
                             }
 
                             // Wrap the preProjection with IF to retain the conditional nature on the CASE aggregation(s) during pre-aggregation
-                            if (mayFail(plannerContext, getCharVarcharCoercion(context.getSession()), preProjection)) {
+                            if (mayFail(plannerContext, getTypeResolutionPolicy(context.getSession()), preProjection)) {
                                 Expression unionConditions = or(caseAggregations.stream()
                                         .map(CaseAggregation::getOperand)
                                         .collect(toImmutableSet()));
@@ -381,7 +381,7 @@ public class PreAggregateCaseAggregations
         Type aggregationType = resolvedFunction.signature().getReturnType();
         ResolvedFunction cumulativeFunction;
         try {
-            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), name.functionName(), ImmutableList.of(aggregationType));
+            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(context.getSession()), name.functionName(), ImmutableList.of(aggregationType));
         }
         catch (TrinoException e) {
             // there is no cumulative aggregation
@@ -423,7 +423,7 @@ public class PreAggregateCaseAggregations
                     name,
                     caseExpression.whenClauses().get(0).getOperand(),
                     caseExpression.whenClauses().get(0).getResult(),
-                    cast(plannerContext.getTypeManager(), getCharVarcharCoercion(context.getSession()), caseExpression.defaultValue(), aggregationType)));
+                    cast(plannerContext.getTypeManager(), getTypeResolutionPolicy(context.getSession()), caseExpression.defaultValue(), aggregationType)));
         }
 
         return Optional.empty();

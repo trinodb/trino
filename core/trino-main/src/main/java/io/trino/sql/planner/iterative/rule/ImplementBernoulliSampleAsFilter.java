@@ -23,7 +23,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.SampleNode;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.Sample.sampleType;
@@ -69,9 +69,9 @@ public class ImplementBernoulliSampleAsFilter
                 sample.getSource(),
                 comparison(
                         metadata,
-                        getCharVarcharCoercion(context.getSession()),
+                        getTypeResolutionPolicy(context.getSession()),
                         ComparisonOperator.LESS_THAN,
-                        BuiltinFunctionCallBuilder.resolve(metadata, getCharVarcharCoercion(context.getSession()))
+                        BuiltinFunctionCallBuilder.resolve(metadata, getTypeResolutionPolicy(context.getSession()))
                                 .setName("rand")
                                 .build(),
                         new Constant(DOUBLE, sample.getSampleRatio()))));

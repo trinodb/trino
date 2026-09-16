@@ -40,7 +40,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Collection;
 import java.util.List;
@@ -52,7 +52,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.FunctionBinder.functionNotFound;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
@@ -237,7 +237,7 @@ public class FunctionResolver
                 metadata,
                 typeManager,
                 functionBinder,
-                getCharVarcharCoercion(session),
+                getTypeResolutionPolicy(session),
                 functionBinding.catalogHandle(),
                 functionBinding.functionBinding(),
                 functionBinding.boundFunctionMetadata(),
@@ -255,7 +255,7 @@ public class FunctionResolver
             Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader,
             AccessControl accessControl)
     {
-        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
+        TypeResolutionPolicy typeResolutionPolicy = getTypeResolutionPolicy(session);
         ImmutableList.Builder<CatalogFunctionMetadata> allCandidates = ImmutableList.builder();
         List<CatalogSchemaFunctionName> fullPath = toPath(session, name, accessControl);
         List<CatalogSchemaFunctionName> authorizedPath = fullPath.stream()
@@ -263,7 +263,7 @@ public class FunctionResolver
                 .collect(toImmutableList());
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : authorizedPath) {
             Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
-            Optional<CatalogFunctionBinding> match = functionBinder.tryBindFunction(charVarcharCoercion, parameterTypes, candidates);
+            Optional<CatalogFunctionBinding> match = functionBinder.tryBindFunction(typeResolutionPolicy, parameterTypes, candidates);
             if (match.isPresent()) {
                 return match.get();
             }
@@ -283,7 +283,7 @@ public class FunctionResolver
             Metadata metadata,
             TypeManager typeManager,
             FunctionBinder functionBinder,
-            CharVarcharCoercion charVarcharCoercion,
+            TypeResolutionPolicy typeResolutionPolicy,
             CatalogHandle catalogHandle,
             FunctionBinding functionBinding,
             FunctionMetadata functionMetadata,
@@ -300,7 +300,7 @@ public class FunctionResolver
             try {
                 CatalogSchemaFunctionName name = functionDependency.getName();
                 CatalogFunctionBinding catalogFunctionBinding = functionBinder.bindFunction(
-                        charVarcharCoercion,
+                        typeResolutionPolicy,
                         fromTypeDescriptors(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding.variables())),
                         candidateLoader.apply(name),
                         name.toString());
@@ -317,7 +317,7 @@ public class FunctionResolver
                 List<Type> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding.variables()).stream()
                         .map(typeManager::getType)
                         .collect(toImmutableList());
-                functions.add(metadata.resolveOperator(charVarcharCoercion, operatorDependency.getOperatorType(), argumentTypes));
+                functions.add(metadata.resolveOperator(typeResolutionPolicy, operatorDependency.getOperatorType(), argumentTypes));
             }
             catch (TrinoException e) {
                 if (!operatorDependency.isOptional()) {
@@ -329,7 +329,7 @@ public class FunctionResolver
             try {
                 Type fromType = typeManager.getType(applyBoundVariables(castDependency.getFromType(), functionBinding.variables()));
                 Type toType = typeManager.getType(applyBoundVariables(castDependency.getToType(), functionBinding.variables()));
-                functions.add(metadata.getCoercion(charVarcharCoercion, fromType, toType));
+                functions.add(metadata.getCoercion(typeResolutionPolicy, fromType, toType));
             }
             catch (TrinoException e) {
                 if (!castDependency.isOptional()) {

@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -102,12 +102,12 @@ public class SimplifyRedundantCase
         }
 
         List<Expression> falseTerms = clauses.subList(start, end).stream()
-                .map(clause -> IrExpressions.not(metadata, getCharVarcharCoercion(session), IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
+                .map(clause -> IrExpressions.not(metadata, getTypeResolutionPolicy(session), IrExpressions.comparison(metadata, getTypeResolutionPolicy(session), ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
                 .toList();
 
         if (end < clauses.size()) {
             List<Expression> terms = new ArrayList<>();
-            terms.add(IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
+            terms.add(IrExpressions.comparison(metadata, getTypeResolutionPolicy(session), ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
             transformRecursive(session, end + 1, clauses, defaultExpression).ifPresent(terms::add);
 
             return Optional.of(IrUtils.and(

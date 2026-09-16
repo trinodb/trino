@@ -26,7 +26,7 @@ import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.List;
 import java.util.Map;
@@ -335,9 +335,9 @@ public class JoinNode
             return right;
         }
 
-        public Expression toExpression(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
+        public Expression toExpression(Metadata metadata, TypeResolutionPolicy typeResolutionPolicy)
         {
-            return comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            return comparison(metadata, typeResolutionPolicy, ComparisonOperator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
         }
 
         public EquiJoinClause flip()
