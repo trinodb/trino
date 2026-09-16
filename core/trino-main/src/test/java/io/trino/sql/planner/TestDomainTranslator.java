@@ -649,6 +649,8 @@ public class TestDomainTranslator
                 isDistinctFrom(C_COLOR, colorLiteral(COLOR_VALUE_1)),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), true)));
 
+        assertPredicateIsAlwaysFalse(equal(cast(C_INTEGER, DOUBLE), doubleLiteral(1.5)));
+
         // Test complement
         assertPredicateTranslates(
                 not(greaterThan(C_BIGINT, bigintLiteral(2L))),
@@ -1133,6 +1135,17 @@ public class TestDomainTranslator
                 and(
                         greaterThanOrEqual(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE)),
                         lessThanOrEqual(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR_1, DATE))));
+    }
+
+    @Test
+    public void testComparisonOverCastOfNonDeterministicExpression()
+    {
+        Expression randomInteger = new Call(
+                functionResolution.resolveFunction("random", fromTypes(INTEGER)),
+                ImmutableList.of(new Constant(INTEGER, 5L)));
+
+        assertUnsupportedPredicate(equal(cast(randomInteger, DOUBLE), doubleLiteral(1.5)));
+        assertUnsupportedPredicate(notEqual(cast(randomInteger, DOUBLE), doubleLiteral(1.5)));
     }
 
     @Test

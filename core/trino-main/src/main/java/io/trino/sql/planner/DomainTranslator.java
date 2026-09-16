@@ -445,8 +445,8 @@ public final class DomainTranslator
             }
             NormalizedSimpleComparison normalized = optionalNormalized.get();
 
-            Expression symbolExpression = normalized.getSymbolExpression();
-            if (symbolExpression instanceof Reference reference) {
+            Expression expression = normalized.getExpression();
+            if (expression instanceof Reference reference) {
                 Symbol symbol = Symbol.from(reference);
                 NullableValue value = normalized.getValue();
                 Type type = value.getType(); // common type for symbol and value
@@ -454,10 +454,10 @@ public final class DomainTranslator
                         .orElseGet(() -> visitExpression(originalExpression, complement));
             }
             if (normalized.getComparisonOperator() == IDENTICAL && normalized.getValue().getType().equals(BOOLEAN) && normalized.getValue().getValue() != null) {
-                return processBooleanIdentical(symbolExpression, (boolean) normalized.getValue().getValue(), complement)
+                return processBooleanIdentical(expression, (boolean) normalized.getValue().getValue(), complement)
                         .orElseGet(() -> visitExpression(originalExpression, complement));
             }
-            if (symbolExpression instanceof Cast castExpression) {
+            if (expression instanceof Cast castExpression && isOptionallyCastReference(castExpression.expression())) {
                 // type of expression which is then cast to type of value
                 Type castSourceType = castExpression.expression().type();
                 Type castTargetType = castExpression.type();
@@ -572,6 +572,15 @@ public final class DomainTranslator
             }
         }
 
+        private static boolean isOptionallyCastReference(Expression expression)
+        {
+            return switch (expression) {
+                case Reference _ -> true;
+                case Cast(Expression source, Type _, Cast.Kind _) -> isOptionallyCastReference(source);
+                default -> false;
+            };
+        }
+
         private boolean isOrderPreserving(Cast cast)
         {
             if (cast.expression().type() instanceof CharType && cast.type() instanceof VarcharType) {
@@ -595,7 +604,7 @@ public final class DomainTranslator
                 boolean complement,
                 Expression originalExpression)
         {
-            Expression sourceExpression = ((Cast) comparison.getSymbolExpression()).expression();
+            Expression sourceExpression = ((Cast) comparison.getExpression()).expression();
             ComparisonOperator operator = comparison.getComparisonOperator();
             NullableValue value = comparison.getValue();
 
@@ -1178,20 +1187,20 @@ public final class DomainTranslator
 
     private static class NormalizedSimpleComparison
     {
-        private final Expression symbolExpression;
+        private final Expression expression;
         private final ComparisonOperator comparisonOperator;
         private final NullableValue value;
 
-        public NormalizedSimpleComparison(Expression symbolExpression, ComparisonOperator comparisonOperator, NullableValue value)
+        public NormalizedSimpleComparison(Expression expression, ComparisonOperator comparisonOperator, NullableValue value)
         {
-            this.symbolExpression = requireNonNull(symbolExpression, "symbolExpression is null");
+            this.expression = requireNonNull(expression, "expression is null");
             this.comparisonOperator = requireNonNull(comparisonOperator, "comparisonOperator is null");
             this.value = requireNonNull(value, "value is null");
         }
 
-        public Expression getSymbolExpression()
+        public Expression getExpression()
         {
-            return symbolExpression;
+            return expression;
         }
 
         public ComparisonOperator getComparisonOperator()
