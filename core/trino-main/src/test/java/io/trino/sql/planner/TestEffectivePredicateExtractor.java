@@ -37,6 +37,7 @@ import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -117,6 +118,10 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
+import static io.trino.util.StructuralTestUtil.sqlRowOf;
+import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -582,6 +587,28 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)), "r")),
                         ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new Constant(UNKNOWN, null)))))))))
+                .isEqualTo(TRUE);
+
+        // map with null value
+        MapType bigintMapType = mapType(BIGINT, BIGINT);
+        assertThat(effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                new ValuesNode(
+                        newId(),
+                        ImmutableList.of(new Symbol(bigintMapType, "m")),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(bigintMapType, sqlMapOf(BIGINT, BIGINT, singletonMap(1L, null)))))))))
+                .isEqualTo(TRUE);
+
+        // map with null value nested in a row
+        RowType rowOfMapType = RowType.anonymous(ImmutableList.of(bigintMapType));
+        assertThat(effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                new ValuesNode(
+                        newId(),
+                        ImmutableList.of(new Symbol(rowOfMapType, "r")),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(rowOfMapType, sqlRowOf(rowOfMapType, singletonMap(1L, null)))))))))
                 .isEqualTo(TRUE);
 
         // many rows
