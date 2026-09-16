@@ -37,8 +37,8 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.HashSet;
 import java.util.List;
@@ -49,7 +49,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -91,13 +91,13 @@ public class RemoveUnsupportedDynamicFilters
     private class Rewriter
             extends PlanVisitor<PlanWithConsumedDynamicFilters, Set<DynamicFilterId>>
     {
-        private final CharVarcharCoercion charVarcharCoercion;
+        private final TypeResolutionPolicy typeResolutionPolicy;
         private final TypeCoercion typeCoercion;
 
         public Rewriter(Session session)
         {
-            this.charVarcharCoercion = getCharVarcharCoercion(session);
-            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
+            this.typeResolutionPolicy = getTypeResolutionPolicy(session);
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, typeResolutionPolicy);
         }
 
         @Override
@@ -325,7 +325,7 @@ public class RemoveUnsupportedDynamicFilters
         private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
         {
             try {
-                plannerContext.getMetadata().getCoercion(charVarcharCoercion, SATURATED_FLOOR_CAST, fromType, toType);
+                plannerContext.getMetadata().getCoercion(typeResolutionPolicy, SATURATED_FLOOR_CAST, fromType, toType);
             }
             catch (OperatorNotFoundException e) {
                 return false;

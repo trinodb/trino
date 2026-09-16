@@ -26,12 +26,12 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
@@ -87,14 +87,14 @@ public class DistributeComparisonOverMatch
 
     private Expression distribute(Session session, ComparisonOperator operator, Match match, Expression target)
     {
-        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
+        TypeResolutionPolicy typeResolutionPolicy = getTypeResolutionPolicy(session);
         return new Match(
                 match.operand(),
                 match.clauses().stream()
                         .map(clause -> new MatchClause(
                                 clause.predicate(),
-                                comparison(metadata, charVarcharCoercion, operator, clause.result(), target)))
+                                comparison(metadata, typeResolutionPolicy, operator, clause.result(), target)))
                         .toList(),
-                comparison(metadata, charVarcharCoercion, operator, match.defaultValue(), target));
+                comparison(metadata, typeResolutionPolicy, operator, match.defaultValue(), target));
     }
 }

@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -140,17 +140,17 @@ public class TestingFunctionResolution
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        return inTransaction(session -> metadata.resolveOperator(getCharVarcharCoercion(session), operatorType, argumentTypes));
+        return inTransaction(session -> metadata.resolveOperator(getTypeResolutionPolicy(session), operatorType, argumentTypes));
     }
 
     public ResolvedFunction getCoercion(Type fromType, Type toType)
     {
-        return inTransaction(session -> metadata.getCoercion(getCharVarcharCoercion(session), fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(getTypeResolutionPolicy(session), fromType, toType));
     }
 
     public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
-        return inTransaction(session -> metadata.getCoercion(getCharVarcharCoercion(session), name, fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(getTypeResolutionPolicy(session), name, fromType, toType));
     }
 
     public TestingFunctionCallBuilder functionCallBuilder(String name)
@@ -165,13 +165,13 @@ public class TestingFunctionResolution
 
     public ResolvedFunction resolveFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
-        return metadata.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, toTypes(parameterTypes));
+        return metadata.resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), name, toTypes(parameterTypes));
     }
 
     public TestingAggregationFunction getAggregateFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return inTransaction(session -> {
-            ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), name, toTypes(parameterTypes));
+            ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(getTypeResolutionPolicy(session), name, toTypes(parameterTypes));
             return new TestingAggregationFunction(
                     resolvedFunction.signature(),
                     resolvedFunction.functionNullability(),

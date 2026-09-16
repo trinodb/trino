@@ -35,8 +35,8 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import jakarta.annotation.Nullable;
 
 import java.math.BigDecimal;
@@ -73,9 +73,9 @@ public final class IrExpressions
     /// [Cast.Kind#REINTERPRET] when the coercion is a no-op on the physical representation,
     /// [Cast.Kind#CONVERT] otherwise. Birth sites should build coercion casts through this method so
     /// the classification stays consistent with the plan type validator.
-    public static Cast cast(TypeManager typeManager, CharVarcharCoercion charVarcharCoercion, Expression expression, Type type)
+    public static Cast cast(TypeManager typeManager, TypeResolutionPolicy typeResolutionPolicy, Expression expression, Type type)
     {
-        boolean typeOnly = new TypeCoercion(typeManager::getType, charVarcharCoercion).isTypeOnlyCoercion(expression.type(), type);
+        boolean typeOnly = new TypeCoercion(typeManager::getType, typeResolutionPolicy).isTypeOnlyCoercion(expression.type(), type);
         return new Cast(expression, type, typeOnly ? REINTERPRET : CONVERT);
     }
 
@@ -89,22 +89,22 @@ public final class IrExpressions
         return new Call(function, Arrays.asList(arguments));
     }
 
-    public static Expression comparison(Metadata metadata, CharVarcharCoercion charVarcharCoercion, ComparisonOperator operator, Expression left, Expression right)
+    public static Expression comparison(Metadata metadata, TypeResolutionPolicy typeResolutionPolicy, ComparisonOperator operator, Expression left, Expression right)
     {
         return switch (operator) {
-            case EQUAL -> operatorCall(metadata, charVarcharCoercion, OperatorType.EQUAL, left, right);
-            case NOT_EQUAL -> not(metadata, charVarcharCoercion, operatorCall(metadata, charVarcharCoercion, OperatorType.EQUAL, left, right));
-            case LESS_THAN -> operatorCall(metadata, charVarcharCoercion, OperatorType.LESS_THAN, left, right);
-            case LESS_THAN_OR_EQUAL -> operatorCall(metadata, charVarcharCoercion, OperatorType.LESS_THAN_OR_EQUAL, left, right);
-            case GREATER_THAN -> operatorCall(metadata, charVarcharCoercion, OperatorType.LESS_THAN, right, left);
-            case GREATER_THAN_OR_EQUAL -> operatorCall(metadata, charVarcharCoercion, OperatorType.LESS_THAN_OR_EQUAL, right, left);
-            case IDENTICAL -> operatorCall(metadata, charVarcharCoercion, OperatorType.IDENTICAL, left, right);
+            case EQUAL -> operatorCall(metadata, typeResolutionPolicy, OperatorType.EQUAL, left, right);
+            case NOT_EQUAL -> not(metadata, typeResolutionPolicy, operatorCall(metadata, typeResolutionPolicy, OperatorType.EQUAL, left, right));
+            case LESS_THAN -> operatorCall(metadata, typeResolutionPolicy, OperatorType.LESS_THAN, left, right);
+            case LESS_THAN_OR_EQUAL -> operatorCall(metadata, typeResolutionPolicy, OperatorType.LESS_THAN_OR_EQUAL, left, right);
+            case GREATER_THAN -> operatorCall(metadata, typeResolutionPolicy, OperatorType.LESS_THAN, right, left);
+            case GREATER_THAN_OR_EQUAL -> operatorCall(metadata, typeResolutionPolicy, OperatorType.LESS_THAN_OR_EQUAL, right, left);
+            case IDENTICAL -> operatorCall(metadata, typeResolutionPolicy, OperatorType.IDENTICAL, left, right);
         };
     }
 
-    private static Call operatorCall(Metadata metadata, CharVarcharCoercion charVarcharCoercion, OperatorType operator, Expression left, Expression right)
+    private static Call operatorCall(Metadata metadata, TypeResolutionPolicy typeResolutionPolicy, OperatorType operator, Expression left, Expression right)
     {
-        return call(metadata.resolveOperator(charVarcharCoercion, operator, ImmutableList.of(left.type(), right.type())), left, right);
+        return call(metadata.resolveOperator(typeResolutionPolicy, operator, ImmutableList.of(left.type(), right.type())), left, right);
     }
 
     /// Decodes the canonical IR form of a comparison back into its operator and operands, or
@@ -233,11 +233,11 @@ public final class IrExpressions
 
     /// Lower a BETWEEN to `value >= min AND value <= max`, wrapping `value` in a [Let] when it is
     /// non-trivial so the operand is evaluated exactly once.
-    public static Expression between(Metadata metadata, CharVarcharCoercion charVarcharCoercion, SymbolAllocator allocator, Expression value, Expression min, Expression max)
+    public static Expression between(Metadata metadata, TypeResolutionPolicy typeResolutionPolicy, SymbolAllocator allocator, Expression value, Expression min, Expression max)
     {
         return bindIfNecessary(allocator, "between", value, operand -> new Logical(AND, ImmutableList.of(
-                comparison(metadata, charVarcharCoercion, GREATER_THAN_OR_EQUAL, operand, min),
-                comparison(metadata, charVarcharCoercion, LESS_THAN_OR_EQUAL, operand, max))));
+                comparison(metadata, typeResolutionPolicy, GREATER_THAN_OR_EQUAL, operand, min),
+                comparison(metadata, typeResolutionPolicy, LESS_THAN_OR_EQUAL, operand, max))));
     }
 
     /// Recognize a BETWEEN-shape as produced by [#between]. `between` builds `min <= value AND
@@ -287,22 +287,22 @@ public final class IrExpressions
     /// Lower a NULLIF to `if(first = second) then null else first`, wrapping `first` in a [Let]
     /// when it is non-trivial so the operand is evaluated exactly once. Defaults the comparison
     /// type to `first.type()` — see the overload below for the mixed-type case.
-    public static Expression nullIf(Metadata metadata, TypeManager typeManager, CharVarcharCoercion charVarcharCoercion, SymbolAllocator allocator, Expression first, Expression second)
+    public static Expression nullIf(Metadata metadata, TypeManager typeManager, TypeResolutionPolicy typeResolutionPolicy, SymbolAllocator allocator, Expression first, Expression second)
     {
-        return nullIf(metadata, typeManager, charVarcharCoercion, allocator, first, second, first.type());
+        return nullIf(metadata, typeManager, typeResolutionPolicy, allocator, first, second, first.type());
     }
 
-    /// Same as [#nullIf(Metadata,TypeManager,CharVarcharCoercion,SymbolAllocator,Expression,Expression)] but performs the equality at
+    /// Same as [#nullIf(Metadata,TypeManager,TypeResolutionPolicy,SymbolAllocator,Expression,Expression)] but performs the equality at
     /// `comparisonType`, casting `first` and `second` as needed. The returned value keeps
     /// `first`'s type, matching SQL `NULLIF` semantics; the cast is applied only for the
     /// comparison.
-    public static Expression nullIf(Metadata metadata, TypeManager typeManager, CharVarcharCoercion charVarcharCoercion, SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
+    public static Expression nullIf(Metadata metadata, TypeManager typeManager, TypeResolutionPolicy typeResolutionPolicy, SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
     {
-        Expression secondForComparison = second.type().equals(comparisonType) ? second : cast(typeManager, charVarcharCoercion, second, comparisonType);
+        Expression secondForComparison = second.type().equals(comparisonType) ? second : cast(typeManager, typeResolutionPolicy, second, comparisonType);
         return bindIfNecessary(allocator, "nullif", first, operand -> {
-            Expression operandForComparison = first.type().equals(comparisonType) ? operand : cast(typeManager, charVarcharCoercion, operand, comparisonType);
+            Expression operandForComparison = first.type().equals(comparisonType) ? operand : cast(typeManager, typeResolutionPolicy, operand, comparisonType);
             return ifExpression(
-                    comparison(metadata, charVarcharCoercion, EQUAL, operandForComparison, secondForComparison),
+                    comparison(metadata, typeResolutionPolicy, EQUAL, operandForComparison, secondForComparison),
                     constantNull(first.type()),
                     operand);
         });
@@ -370,12 +370,12 @@ public final class IrExpressions
     /// the operand-bound lambda parameter. The caller supplies `parameter` — it must be
     /// allocated through [io.trino.sql.planner.SymbolAllocator] so it cannot collide with a
     /// symbol referenced in `value` or one allocated later.
-    public static MatchClause equalityClause(Metadata metadata, CharVarcharCoercion charVarcharCoercion, Symbol parameter, Expression value, Expression result)
+    public static MatchClause equalityClause(Metadata metadata, TypeResolutionPolicy typeResolutionPolicy, Symbol parameter, Expression value, Expression result)
     {
         return new MatchClause(
                 new Lambda(
                         ImmutableList.of(parameter),
-                        comparison(metadata, charVarcharCoercion, EQUAL, new Reference(parameter.type(), parameter.name()), value)),
+                        comparison(metadata, typeResolutionPolicy, EQUAL, new Reference(parameter.type(), parameter.name()), value)),
                 result);
     }
 
@@ -399,20 +399,20 @@ public final class IrExpressions
         return expression instanceof Constant constant && constant.value() == null;
     }
 
-    public static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
+    public static boolean mayBeNull(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Expression expression)
     {
-        return mayBeNull(plannerContext, charVarcharCoercion, expression, true);
+        return mayBeNull(plannerContext, typeResolutionPolicy, expression, true);
     }
 
     /**
      * Returns true if the expression may return null when all symbol inputs are non-null.
      */
-    public static boolean mayReturnNullOnNonNullInput(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
+    public static boolean mayReturnNullOnNonNullInput(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Expression expression)
     {
-        return mayBeNull(plannerContext, charVarcharCoercion, expression, false);
+        return mayBeNull(plannerContext, typeResolutionPolicy, expression, false);
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression, boolean referencesMayBeNull)
+    private static boolean mayBeNull(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Expression expression, boolean referencesMayBeNull)
     {
         return switch (expression) {
             // These expressions never return null
@@ -420,21 +420,21 @@ public final class IrExpressions
 
             // These expressions may return null based on their operands
             case Call e -> switch (matchComparison(e)) {
-                case null -> mayBeNull(plannerContext, charVarcharCoercion, e.function(), e.arguments(), referencesMayBeNull);
+                case null -> mayBeNull(plannerContext, typeResolutionPolicy, e.function(), e.arguments(), referencesMayBeNull);
                 // IDENTICAL is null-safe; other comparisons return null only when one of their operands is null.
                 case Comparison.Identical _ -> false;
-                case Comparison comparison -> mayBeNull(plannerContext, charVarcharCoercion, comparison.left(), referencesMayBeNull) ||
-                        mayBeNull(plannerContext, charVarcharCoercion, comparison.right(), referencesMayBeNull);
+                case Comparison comparison -> mayBeNull(plannerContext, typeResolutionPolicy, comparison.left(), referencesMayBeNull) ||
+                        mayBeNull(plannerContext, typeResolutionPolicy, comparison.right(), referencesMayBeNull);
             };
-            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.getResult(), referencesMayBeNull)) ||
-                    mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
-            case Cast e -> mayBeNull(plannerContext, charVarcharCoercion, e, referencesMayBeNull);
-            case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, charVarcharCoercion, operand, referencesMayBeNull));
-            case In e -> mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, charVarcharCoercion, value, referencesMayBeNull));
-            case Let e -> mayBeNull(plannerContext, charVarcharCoercion, e.body(), referencesMayBeNull || mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull));
-            case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, charVarcharCoercion, term, referencesMayBeNull));
-            case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
-                    mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
+            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, typeResolutionPolicy, clause.getResult(), referencesMayBeNull)) ||
+                    mayBeNull(plannerContext, typeResolutionPolicy, e.defaultValue(), referencesMayBeNull);
+            case Cast e -> mayBeNull(plannerContext, typeResolutionPolicy, e, referencesMayBeNull);
+            case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, typeResolutionPolicy, operand, referencesMayBeNull));
+            case In e -> mayBeNull(plannerContext, typeResolutionPolicy, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, typeResolutionPolicy, value, referencesMayBeNull));
+            case Let e -> mayBeNull(plannerContext, typeResolutionPolicy, e.body(), referencesMayBeNull || mayBeNull(plannerContext, typeResolutionPolicy, e.value(), referencesMayBeNull));
+            case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, typeResolutionPolicy, term, referencesMayBeNull));
+            case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, typeResolutionPolicy, clause.result(), referencesMayBeNull)) ||
+                    mayBeNull(plannerContext, typeResolutionPolicy, e.defaultValue(), referencesMayBeNull);
 
             // These expressions may return null based on their own semantics
             case Constant e -> e.value() == null;
@@ -443,24 +443,24 @@ public final class IrExpressions
         };
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Cast cast, boolean referencesMayBeNull)
+    private static boolean mayBeNull(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Cast cast, boolean referencesMayBeNull)
     {
         if (cast.expression().type().equals(cast.type())) {
-            return mayBeNull(plannerContext, charVarcharCoercion, cast.expression(), referencesMayBeNull);
+            return mayBeNull(plannerContext, typeResolutionPolicy, cast.expression(), referencesMayBeNull);
         }
 
-        ResolvedFunction coercion = plannerContext.getMetadata().getCoercion(charVarcharCoercion, cast.expression().type(), cast.type());
-        return mayBeNull(plannerContext, charVarcharCoercion, coercion, ImmutableList.of(cast.expression()), referencesMayBeNull);
+        ResolvedFunction coercion = plannerContext.getMetadata().getCoercion(typeResolutionPolicy, cast.expression().type(), cast.type());
+        return mayBeNull(plannerContext, typeResolutionPolicy, coercion, ImmutableList.of(cast.expression()), referencesMayBeNull);
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, ResolvedFunction function, List<Expression> arguments, boolean referencesMayBeNull)
+    private static boolean mayBeNull(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, ResolvedFunction function, List<Expression> arguments, boolean referencesMayBeNull)
     {
         if (function.functionNullability().isReturnNullable()) {
             return true;
         }
 
         for (int i = 0; i < arguments.size(); i++) {
-            if (!function.functionNullability().isArgumentNullable(i) && mayBeNull(plannerContext, charVarcharCoercion, arguments.get(i), referencesMayBeNull)) {
+            if (!function.functionNullability().isArgumentNullable(i) && mayBeNull(plannerContext, typeResolutionPolicy, arguments.get(i), referencesMayBeNull)) {
                 return true;
             }
         }
@@ -468,45 +468,45 @@ public final class IrExpressions
         return false;
     }
 
-    public static boolean mayFail(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
+    public static boolean mayFail(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Expression expression)
     {
         return switch (expression) {
             // These expressions never fail
             case Bind _, Constant _, Lambda _, Reference _ -> false;
-            case FieldReference e -> mayFail(plannerContext, charVarcharCoercion, e.base());
+            case FieldReference e -> mayFail(plannerContext, typeResolutionPolicy, e.base());
 
             // These expressions need to verify their operands
-            case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, charVarcharCoercion, element));
+            case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, typeResolutionPolicy, element));
             case Call e -> switch (matchComparison(e)) {
-                case null -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
-                case Comparison comparison -> mayFail(plannerContext, charVarcharCoercion, comparison.left()) || mayFail(plannerContext, charVarcharCoercion, comparison.right());
+                case null -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, typeResolutionPolicy, argument));
+                case Comparison comparison -> mayFail(plannerContext, typeResolutionPolicy, comparison.left()) || mayFail(plannerContext, typeResolutionPolicy, comparison.right());
             };
-            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, charVarcharCoercion, clause.getOperand()) || mayFail(plannerContext, charVarcharCoercion, clause.getResult())) ||
-                    mayFail(plannerContext, charVarcharCoercion, e.defaultValue());
-            case Cast e -> mayFail(plannerContext, charVarcharCoercion, e);
-            case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
-            case In e -> mayFail(plannerContext, charVarcharCoercion, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
-            case IsNull e -> mayFail(plannerContext, charVarcharCoercion, e.value());
-            case Let e -> mayFail(plannerContext, charVarcharCoercion, e.value()) || mayFail(plannerContext, charVarcharCoercion, e.body());
-            case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
-            case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
-            case Match e -> mayFail(plannerContext, charVarcharCoercion, e.operand()) || e.clauses().stream().anyMatch(clause -> mayFail(plannerContext, charVarcharCoercion, clause.lambda().body()) || mayFail(plannerContext, charVarcharCoercion, clause.result())) ||
-                    mayFail(plannerContext, charVarcharCoercion, e.defaultValue());
+            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, typeResolutionPolicy, clause.getOperand()) || mayFail(plannerContext, typeResolutionPolicy, clause.getResult())) ||
+                    mayFail(plannerContext, typeResolutionPolicy, e.defaultValue());
+            case Cast e -> mayFail(plannerContext, typeResolutionPolicy, e);
+            case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, typeResolutionPolicy, argument));
+            case In e -> mayFail(plannerContext, typeResolutionPolicy, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, typeResolutionPolicy, argument));
+            case IsNull e -> mayFail(plannerContext, typeResolutionPolicy, e.value());
+            case Let e -> mayFail(plannerContext, typeResolutionPolicy, e.value()) || mayFail(plannerContext, typeResolutionPolicy, e.body());
+            case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, typeResolutionPolicy, argument));
+            case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, typeResolutionPolicy, argument));
+            case Match e -> mayFail(plannerContext, typeResolutionPolicy, e.operand()) || e.clauses().stream().anyMatch(clause -> mayFail(plannerContext, typeResolutionPolicy, clause.lambda().body()) || mayFail(plannerContext, typeResolutionPolicy, clause.result())) ||
+                    mayFail(plannerContext, typeResolutionPolicy, e.defaultValue());
         };
     }
 
     // TODO: record "safety" (can the cast fail at runtime) in Cast node
-    private static boolean mayFail(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Cast cast)
+    private static boolean mayFail(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy, Cast cast)
     {
-        if (mayFail(plannerContext, charVarcharCoercion, cast.expression())) {
+        if (mayFail(plannerContext, typeResolutionPolicy, cast.expression())) {
             return true;
         }
-        ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(charVarcharCoercion, cast.expression().type(), cast.type());
+        ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(typeResolutionPolicy, cast.expression().type(), cast.type());
         if (castFunction.neverFails()) {
             return false;
         }
 
-        TypeCoercion coercions = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
+        TypeCoercion coercions = new TypeCoercion(plannerContext.getTypeManager()::getType, typeResolutionPolicy);
         if (coercions.canCoerce(cast.expression().type(), cast.type())) {
             return false;
         }
@@ -555,10 +555,10 @@ public final class IrExpressions
         };
     }
 
-    public static Expression not(Metadata metadata, CharVarcharCoercion charVarcharCoercion, Expression expression)
+    public static Expression not(Metadata metadata, TypeResolutionPolicy typeResolutionPolicy, Expression expression)
     {
         return call(
-                metadata.resolveBuiltinFunction(charVarcharCoercion, NOT_FUNCTION_NAME, ImmutableList.of(BOOLEAN)),
+                metadata.resolveBuiltinFunction(typeResolutionPolicy, NOT_FUNCTION_NAME, ImmutableList.of(BOOLEAN)),
                 expression);
     }
 }

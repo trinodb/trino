@@ -78,7 +78,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.PropertyUtil.evaluateProperties;
 import static io.trino.metadata.PropertyUtil.toSqlProperties;
 import static io.trino.spi.ErrorType.USER_ERROR;
@@ -375,7 +375,7 @@ public class LanguageFunctionManager
             }
 
             IrRoutine routine = data.irRoutine().orElseThrow();
-            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(data.charVarcharCoercion(), routine);
+            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(data.typeResolutionPolicy(), routine);
             return Optional.of(function.getScalarFunctionImplementation(invocationConvention));
         }
 
@@ -506,7 +506,7 @@ public class LanguageFunctionManager
                 checkState(identityLoader.isEmpty(), "create should not enforce security");
                 analyzeAndPlan(accessControl);
                 if (!engineFunction) {
-                    new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(getCharVarcharCoercion(session), routine);
+                    new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(getTypeResolutionPolicy(session), routine);
                 }
             }
 
@@ -517,7 +517,7 @@ public class LanguageFunctionManager
                 }
 
                 if (engineFunction) {
-                    data = LanguageFunctionData.ofDefinition(analyzeEngineFunction(functionContext(accessControl)), getCharVarcharCoercion(session));
+                    data = LanguageFunctionData.ofDefinition(analyzeEngineFunction(functionContext(accessControl)), getTypeResolutionPolicy(session));
                     resolvedFunctionId = functionMetadata.getFunctionId();
                     return;
                 }
@@ -534,7 +534,7 @@ public class LanguageFunctionManager
 
                 SqlRoutineAnalysis analysis = analyzeSqlFunction(functionContext(accessControl));
                 routine = planner.planSqlFunction(session, analysis);
-                data = LanguageFunctionData.ofIrRoutine(routine, getCharVarcharCoercion(session));
+                data = LanguageFunctionData.ofIrRoutine(routine, getTypeResolutionPolicy(session));
 
                 Hasher hasher = Hashing.sha256().newHasher();
                 SqlRoutineHash.hash(routine, hasher, blockEncodingSerde);

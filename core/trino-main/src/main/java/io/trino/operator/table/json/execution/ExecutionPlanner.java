@@ -35,7 +35,7 @@ import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -134,9 +134,9 @@ public final class ExecutionPlanner
                         : IntStream.range(0, valueColumn.defaultInputLayout().size())
                           .boxed()
                           .collect(toImmutableMap(valueColumn.defaultInputLayout()::get, i -> i));
-                CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(((FullConnectorSession) session).getSession());
-                PageProjection emptyDefaultProjection = valueColumn.emptyDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.emptyDefault(), defaultInputLayout, charVarcharCoercion, Optional.empty()).get();
-                PageProjection errorDefaultProjection = valueColumn.errorDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.errorDefault(), defaultInputLayout, charVarcharCoercion, Optional.empty()).get();
+                TypeResolutionPolicy typeResolutionPolicy = getTypeResolutionPolicy(((FullConnectorSession) session).getSession());
+                PageProjection emptyDefaultProjection = valueColumn.emptyDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.emptyDefault(), defaultInputLayout, typeResolutionPolicy, Optional.empty()).get();
+                PageProjection errorDefaultProjection = valueColumn.errorDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.errorDefault(), defaultInputLayout, typeResolutionPolicy, Optional.empty()).get();
                 yield new ValueColumn(
                         valueColumn.outputIndex(),
                         implementation.getMethodHandle()

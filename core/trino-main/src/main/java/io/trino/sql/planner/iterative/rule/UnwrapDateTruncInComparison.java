@@ -49,7 +49,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -228,7 +228,7 @@ public class UnwrapDateTruncInComparison
                         yield falseIfNotNull(argument);
                     }
                     yield between(plannerContext.getMetadata(),
-                            getCharVarcharCoercion(session),
+                            getTypeResolutionPolicy(session),
                             symbolAllocator,
                             argument,
                             new Constant(rightType, rangeLow),
@@ -238,9 +238,9 @@ public class UnwrapDateTruncInComparison
                     if (!rightValueAtRangeLow) {
                         yield trueIfNotNull(argument);
                     }
-                    yield not(plannerContext.getMetadata(), getCharVarcharCoercion(session), between(
+                    yield not(plannerContext.getMetadata(), getTypeResolutionPolicy(session), between(
                             plannerContext.getMetadata(),
-                            getCharVarcharCoercion(session),
+                            getTypeResolutionPolicy(session),
                             symbolAllocator,
                             argument,
                             new Constant(rightType, rangeLow),
@@ -251,9 +251,9 @@ public class UnwrapDateTruncInComparison
                         yield FALSE;
                     }
                     yield bindIfNecessary(symbolAllocator, "operand", argument, operand -> and(
-                            not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(operand)),
+                            not(plannerContext.getMetadata(), getTypeResolutionPolicy(session), new IsNull(operand)),
                             between(plannerContext.getMetadata(),
-                                    getCharVarcharCoercion(session),
+                                    getTypeResolutionPolicy(session),
                                     symbolAllocator,
                                     operand,
                                     new Constant(rightType, rangeLow),
@@ -261,28 +261,28 @@ public class UnwrapDateTruncInComparison
                 }
                 case LESS_THAN -> {
                     if (rightValueAtRangeLow) {
-                        yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, argument, new Constant(rightType, rangeLow));
+                        yield comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), LESS_THAN, argument, new Constant(rightType, rangeLow));
                     }
-                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case LESS_THAN_OR_EQUAL -> {
-                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN -> {
-                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
                     if (rightValueAtRangeLow) {
-                        yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
+                        yield comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
                     }
-                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
             });
         }
 
         public Expression trueIfNotNull(Expression argument)
         {
-            return or(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(argument)), new Constant(BOOLEAN, null));
+            return or(not(plannerContext.getMetadata(), getTypeResolutionPolicy(session), new IsNull(argument)), new Constant(BOOLEAN, null));
         }
 
         private Object calculateRangeEndInclusive(Object rangeStart, Type type, SupportedUnit rangeUnit)

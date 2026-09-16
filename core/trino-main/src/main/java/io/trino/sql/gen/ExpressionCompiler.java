@@ -26,7 +26,7 @@ import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.List;
 import java.util.Map;
@@ -36,7 +36,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
 import static java.util.Objects.requireNonNull;
 
@@ -53,7 +53,7 @@ public class ExpressionCompiler
     }
 
     public Function<DynamicFilter, PageProcessor> compilePageProcessor(
-            CharVarcharCoercion charVarcharCoercion,
+            TypeResolutionPolicy typeResolutionPolicy,
             boolean columnarFilterEvaluationEnabled,
             boolean filterReorderingEnabled,
             Optional<Expression> filter,
@@ -64,13 +64,13 @@ public class ExpressionCompiler
             OptionalInt initialBatchSize)
     {
         Optional<Supplier<PageFilter>> filterFunctionSupplier = Optional.empty();
-        Optional<Supplier<FilterEvaluator>> columnarFilterEvaluatorSupplier = createColumnarFilterEvaluator(charVarcharCoercion, columnarFilterEvaluationEnabled, filter, layout, columnarFilterCompiler, filterReorderingEnabled);
+        Optional<Supplier<FilterEvaluator>> columnarFilterEvaluatorSupplier = createColumnarFilterEvaluator(typeResolutionPolicy, columnarFilterEvaluationEnabled, filter, layout, columnarFilterCompiler, filterReorderingEnabled);
         if (columnarFilterEvaluatorSupplier.isEmpty()) {
-            filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, layout, charVarcharCoercion, classNameSuffix));
+            filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, layout, typeResolutionPolicy, classNameSuffix));
         }
 
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
-                .map(projection -> pageFunctionCompiler.compileProjection(projection, layout, charVarcharCoercion, classNameSuffix))
+                .map(projection -> pageFunctionCompiler.compileProjection(projection, layout, typeResolutionPolicy, classNameSuffix))
                 .collect(toImmutableList());
 
         Optional<Supplier<PageFilter>> finalFilterFunctionSupplier = filterFunctionSupplier;
@@ -94,7 +94,7 @@ public class ExpressionCompiler
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Session session, Optional<Expression> filter, List<? extends Expression> projections, Map<Symbol, Integer> layout)
     {
-        return () -> compilePageProcessor(getCharVarcharCoercion(session), true, true, filter, Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty())
+        return () -> compilePageProcessor(getTypeResolutionPolicy(session), true, true, filter, Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty())
                 .apply(DynamicFilter.EMPTY);
     }
 }

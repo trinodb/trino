@@ -79,8 +79,8 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getSpatialPartitioningTableName;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.SystemSessionProperties.isSpatialJoinEnabled;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -314,7 +314,7 @@ public class ExtractSpatialJoins
 
         Optional<Symbol> newRadiusSymbol = newRadiusSymbol(context, radius);
         Expression newRadius = toExpression(newRadiusSymbol, radius);
-        Expression newComparison = comparison(plannerContext.getMetadata(), getCharVarcharCoercion(context.getSession()), comparison.operator(), distance, newRadius);
+        Expression newComparison = comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(context.getSession()), comparison.operator(), distance, newRadius);
 
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
         PlanNode newRightNode = newRadiusSymbol.map(symbol -> addProjection(context, rightNode, symbol, radius)).orElse(rightNode);
@@ -584,7 +584,7 @@ public class ExtractSpatialJoins
 
         Type kdbTreeType = plannerContext.getTypeManager().getType(new TypeDescriptor(KDB_TREE_TYPENAME));
         Type geometryType = plannerContext.getTypeManager().getType(GEOMETRY_TYPE_SIGNATURE);
-        BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(context.getSession()))
+        BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getTypeResolutionPolicy(context.getSession()))
                 .setName("spatial_partitions")
                 .addArgument(kdbTreeType, new Cast(new Constant(VARCHAR, KdbTreeUtils.toJson(kdbTree)), kdbTreeType))
                 .addArgument(geometryType, geometry);

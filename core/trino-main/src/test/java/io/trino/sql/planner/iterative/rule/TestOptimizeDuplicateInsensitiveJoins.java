@@ -29,7 +29,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
@@ -142,7 +142,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicJoins()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins())
@@ -178,7 +178,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicFilter()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins())
@@ -200,7 +200,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicProjection()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins())

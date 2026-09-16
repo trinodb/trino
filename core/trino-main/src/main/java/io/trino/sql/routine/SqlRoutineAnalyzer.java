@@ -74,7 +74,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
@@ -407,7 +407,7 @@ public class SqlRoutineAnalyzer
             this.session = requireNonNull(session, "session is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
-            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session));
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, getTypeResolutionPolicy(session));
         }
 
         public Analysis getAnalysis()

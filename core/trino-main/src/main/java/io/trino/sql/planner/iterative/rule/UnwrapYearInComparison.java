@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -216,41 +216,41 @@ public class UnwrapYearInComparison
             return Optional.of(switch (operator) {
                 case EQUAL -> between(
                         metadata,
-                        getCharVarcharCoercion(session),
+                        getTypeResolutionPolicy(session),
                         symbolAllocator,
                         argument,
                         new Constant(argumentType, calculateRangeStartInclusive(year, argumentType)),
                         new Constant(argumentType, calculateRangeEndInclusive(year, argumentType)));
-                case NOT_EQUAL -> not(metadata, getCharVarcharCoercion(session), between(
+                case NOT_EQUAL -> not(metadata, getTypeResolutionPolicy(session), between(
                         metadata,
-                        getCharVarcharCoercion(session),
+                        getTypeResolutionPolicy(session),
                         symbolAllocator,
                         argument,
                         new Constant(argumentType, calculateRangeStartInclusive(year, argumentType)),
                         new Constant(argumentType, calculateRangeEndInclusive(year, argumentType))));
                 case IDENTICAL -> bindIfNecessary(symbolAllocator, "operand", argument, operand -> and(
-                        not(metadata, getCharVarcharCoercion(session), new IsNull(operand)),
+                        not(metadata, getTypeResolutionPolicy(session), new IsNull(operand)),
                         between(metadata,
-                                getCharVarcharCoercion(session),
+                                getTypeResolutionPolicy(session),
                                 symbolAllocator,
                                 operand,
                                 new Constant(argumentType, calculateRangeStartInclusive(year, argumentType)),
                                 new Constant(argumentType, calculateRangeEndInclusive(year, argumentType)))));
                 case LESS_THAN -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
-                    yield comparison(metadata, getCharVarcharCoercion(session), LESS_THAN, argument, new Constant(argumentType, value));
+                    yield comparison(metadata, getTypeResolutionPolicy(session), LESS_THAN, argument, new Constant(argumentType, value));
                 }
                 case LESS_THAN_OR_EQUAL -> {
                     Object value = calculateRangeEndInclusive(year, argumentType);
-                    yield comparison(metadata, getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
+                    yield comparison(metadata, getTypeResolutionPolicy(session), LESS_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
                 }
                 case GREATER_THAN -> {
                     Object value = calculateRangeEndInclusive(year, argumentType);
-                    yield comparison(metadata, getCharVarcharCoercion(session), GREATER_THAN, argument, new Constant(argumentType, value));
+                    yield comparison(metadata, getTypeResolutionPolicy(session), GREATER_THAN, argument, new Constant(argumentType, value));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
-                    yield comparison(metadata, getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
+                    yield comparison(metadata, getTypeResolutionPolicy(session), GREATER_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
                 }
             });
         }

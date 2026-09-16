@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -58,8 +58,8 @@ public class TestPushDownProjectionsFromPatternRecognition
     private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
-    private static final ResolvedFunction MAX_BY = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, BIGINT));
-    private static final ResolvedFunction MAX_BY_BIGINT_VARCHAR = createTestingMetadataManager().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, VARCHAR));
+    private static final ResolvedFunction MAX_BY = createTestingMetadataManager().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MAX_BY_BIGINT_VARCHAR = createTestingMetadataManager().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, VARCHAR));
 
     @Test
     public void testNoAggregations()
@@ -109,7 +109,7 @@ public class TestPushDownProjectionsFromPatternRecognition
     @Test
     public void testPreProjectArguments()
     {
-        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, BIGINT));
+        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), "max_by", ImmutableList.of(BIGINT, BIGINT));
         tester().assertThat(new PushDownProjectionsFromPatternRecognition())
                 .on(p -> p.patternRecognition(builder -> builder
                         .pattern(new IrLabel("X"))

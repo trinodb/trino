@@ -43,7 +43,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.operator.aggregation.ApproximateSetGenericAggregation.APPROX_SET_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -86,7 +86,7 @@ public class StatisticsAggregationPlanner
                 throw new TrinoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of()),
+                    metadata.resolveBuiltinFunction(getTypeResolutionPolicy(session), "count", ImmutableList.of()),
                     ImmutableList.of(),
                     false,
                     Optional.empty(),
@@ -150,7 +150,7 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(String functionName, Symbol input, Type inputType)
     {
-        return createAggregation(metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), functionName, ImmutableList.of(inputType)), input, inputType);
+        return createAggregation(metadata.resolveBuiltinFunction(getTypeResolutionPolicy(session), functionName, ImmutableList.of(inputType)), input, inputType);
     }
 
     private static ColumnStatisticsAggregation createAggregation(ResolvedFunction resolvedFunction, Symbol input, Type inputType)

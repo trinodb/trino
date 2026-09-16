@@ -68,7 +68,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static io.trino.server.DynamicFilterService.getSourceStageInnerLazyDynamicFilters;
@@ -1032,7 +1032,7 @@ public class TestDynamicFilterService
         FilterNode filterNode = new FilterNode(
                 new PlanNodeId("filter_node_id"),
                 tableScan,
-                createDynamicFilterExpression(createTestingMetadataManager(), getCharVarcharCoercion(TEST_SESSION), consumedDynamicFilterId, VARCHAR, symbol.toSymbolReference()));
+                createDynamicFilterExpression(createTestingMetadataManager(), getTypeResolutionPolicy(TEST_SESSION), consumedDynamicFilterId, VARCHAR, symbol.toSymbolReference()));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), exchangeType, RetryPolicy.NONE);
         return new PlanFragment(

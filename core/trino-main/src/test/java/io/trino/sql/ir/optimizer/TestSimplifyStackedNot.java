@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -36,7 +36,7 @@ public class TestSimplifyStackedNot
     void test()
     {
         assertThat(optimize(
-                not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new Reference(BOOLEAN, "a")))))
+                not(PLANNER_CONTEXT.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), not(PLANNER_CONTEXT.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new Reference(BOOLEAN, "a")))))
                 .isEqualTo(Optional.of(new Reference(BOOLEAN, "a")));
     }
 

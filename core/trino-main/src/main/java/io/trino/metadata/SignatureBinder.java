@@ -17,10 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.NumericVariableConstraint;
 import io.trino.spi.function.Signature;
@@ -38,9 +35,8 @@ import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
-import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
-import io.trino.type.UnknownType;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,13 +51,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
-import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
-import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.metadata.SignatureBinder.RelationshipType.EXACT;
 import static io.trino.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_FROM;
 import static io.trino.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_TO;
 import static io.trino.metadata.SignatureBinder.RelationshipType.IMPLICIT_COERCION;
-import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeTemplates.toTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.type.TypeCoercion.isCovariantTypeBase;
@@ -97,20 +90,20 @@ public class SignatureBinder
 
     private final Metadata metadata;
     private final TypeManager typeManager;
-    private final CharVarcharCoercion charVarcharCoercion;
+    private final TypeResolutionPolicy typeResolutionPolicy;
     private final TypeCoercion typeCoercion;
     private final Signature declaredSignature;
     private final boolean allowCoercion;
     private final Map<String, TypeVariableConstraint> typeVariableConstraints;
 
     // this could use the function resolver instead of Metadata, but Metadata caches coercion resolution
-    SignatureBinder(Metadata metadata, TypeManager typeManager, Signature declaredSignature, boolean allowCoercion, CharVarcharCoercion charVarcharCoercion)
+    SignatureBinder(Metadata metadata, TypeManager typeManager, Signature declaredSignature, boolean allowCoercion, TypeResolutionPolicy typeResolutionPolicy)
     {
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
-        this.typeCoercion = new TypeCoercion(typeManager::getType, charVarcharCoercion);
+        this.typeResolutionPolicy = requireNonNull(typeResolutionPolicy, "typeResolutionPolicy is null");
+        this.typeCoercion = new TypeCoercion(typeManager::getType, typeResolutionPolicy);
         this.declaredSignature = requireNonNull(declaredSignature, "declaredSignature is null");
         this.allowCoercion = allowCoercion;
 
@@ -630,96 +623,7 @@ public class SignatureBinder
 
     private boolean canCast(Type fromType, Type toType)
     {
-        // NULL can be cast to any type; avoid re-entering coercion cache.
-        if (fromType instanceof UnknownType || toType instanceof UnknownType) {
-            return true;
-        }
-        if (fromType instanceof RowType fromRowType) {
-            if (toType instanceof RowType toRowType) {
-                List<Type> fromTypeParameters = fromRowType.getFieldTypes();
-                List<Type> toTypeParameters = toRowType.getFieldTypes();
-                if (fromTypeParameters.size() != toTypeParameters.size()) {
-                    return false;
-                }
-                for (int fieldIndex = 0; fieldIndex < fromTypeParameters.size(); fieldIndex++) {
-                    if (!canCast(fromTypeParameters.get(fieldIndex), toTypeParameters.get(fieldIndex))) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-            if (isRecursiveCastFromRow(toType)) {
-                return fromType.getTypeParameters().stream()
-                        .allMatch(fromTypeParameter -> canCast(fromTypeParameter, toType));
-            }
-            return false;
-        }
-        if (toType instanceof RowType toRowType) {
-            if (isRecursiveCastToRow(fromType)) {
-                return toRowType.getFieldTypes().stream()
-                        .allMatch(toTypeParameter -> canCast(fromType, toTypeParameter));
-            }
-        }
-        try {
-            metadata.getCoercion(charVarcharCoercion, fromType, toType);
-            return true;
-        }
-        catch (TrinoException e) {
-            return false;
-        }
-    }
-
-    /// Check if there is a recursive variadic CAST from ROW.
-    /// This needs special handling because the cast is applied to each field of ROW individually.
-    private boolean isRecursiveCastFromRow(Type toType)
-    {
-        return metadata.getFunctions(null, new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(CAST))).stream()
-                .map(cast -> cast.functionMetadata().getSignature())
-                .anyMatch(signature -> isRecursiveCastFromRow(toType, signature));
-    }
-
-    private static boolean isRecursiveCastFromRow(Type toType, Signature signature)
-    {
-        // the return type must match toType
-        if (!signature.getReturnType().equals(TypeTemplates.fromTypeDescriptor(toType.getTypeDescriptor()))) {
-            return false;
-        }
-
-        // there must be exactly one variable, a type variable
-        if (signature.getVariables().size() != 1 || !(signature.getVariables().getFirst() instanceof VariableDeclaration.TypeVariable(TypeVariableConstraint typeVariableConstraint))) {
-            return false;
-        }
-
-        // The argument type must be a type variable with variadic bound of "row"
-        return signature.getArgumentTypes().size() == 1 &&
-                signature.getArgumentTypes().getFirst().baseName().equals(typeVariableConstraint.getName()) &&
-                typeVariableConstraint.isRowType();
-    }
-
-    /// Check if there is a recursive variadic CAST to ROW.
-    /// This needs special handling because the cast is applied to each field of ROW individually.
-    private boolean isRecursiveCastToRow(Type fromType)
-    {
-        return metadata.getFunctions(null, new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(CAST))).stream()
-                .map(cast -> cast.functionMetadata().getSignature())
-                .anyMatch(signature -> isRecursiveCastToRow(fromType, signature));
-    }
-
-    private static boolean isRecursiveCastToRow(Type fromType, Signature signature)
-    {
-        // the argument type must match fromType
-        if (signature.getArgumentTypes().size() != 1 || !signature.getArgumentTypes().getFirst().equals(TypeTemplates.fromTypeDescriptor(fromType.getTypeDescriptor()))) {
-            return false;
-        }
-
-        // there must be exactly one variable, a type variable
-        if (signature.getVariables().size() != 1 || !(signature.getVariables().getFirst() instanceof VariableDeclaration.TypeVariable(TypeVariableConstraint typeVariableConstraint))) {
-            return false;
-        }
-
-        // The return type must be a type variable with variadic bound of "row"
-        return signature.getReturnType().baseName().equals(typeVariableConstraint.getName()) &&
-                typeVariableConstraint.isRowType();
+        return new TypeCastability(metadata, typeResolutionPolicy).canCast(fromType, toType);
     }
 
     private static List<TypeDescriptor> getLambdaArgumentTypeDescriptors(TypeDescriptor lambdaTypeDescriptor)

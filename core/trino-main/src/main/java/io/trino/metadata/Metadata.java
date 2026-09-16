@@ -85,7 +85,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PartitioningHandle;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Collection;
 import java.util.List;
@@ -787,19 +787,19 @@ public interface Metadata
 
     Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName);
 
-    ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes);
+    ResolvedFunction resolveBuiltinFunction(TypeResolutionPolicy typeResolutionPolicy, String name, List<? extends Type> parameterTypes);
 
-    ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
+    ResolvedFunction resolveOperator(TypeResolutionPolicy typeResolutionPolicy, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    default ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
+    default ResolvedFunction getCoercion(TypeResolutionPolicy typeResolutionPolicy, Type fromType, Type toType)
     {
-        return getCoercion(charVarcharCoercion, CAST, fromType, toType);
+        return getCoercion(typeResolutionPolicy, CAST, fromType, toType);
     }
 
-    ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType);
+    ResolvedFunction getCoercion(TypeResolutionPolicy typeResolutionPolicy, OperatorType operatorType, Type fromType, Type toType);
 
-    ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType);
+    ResolvedFunction getCoercion(TypeResolutionPolicy typeResolutionPolicy, CatalogSchemaFunctionName name, Type fromType, Type toType);
 
     ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 

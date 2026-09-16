@@ -51,8 +51,6 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.type.CharVarcharCoercion.LEGACY;
-import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
@@ -62,12 +60,12 @@ import static java.util.Objects.requireNonNull;
 public final class TypeCoercion
 {
     private final Function<TypeDescriptor, Type> lookupType;
-    private final CharVarcharCoercion charVarcharCoercion;
+    private final TypeResolutionPolicy typeResolutionPolicy;
 
-    public TypeCoercion(Function<TypeDescriptor, Type> lookupType, CharVarcharCoercion charVarcharCoercion)
+    public TypeCoercion(Function<TypeDescriptor, Type> lookupType, TypeResolutionPolicy typeResolutionPolicy)
     {
         this.lookupType = requireNonNull(lookupType, "lookupType is null");
-        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
+        this.typeResolutionPolicy = requireNonNull(typeResolutionPolicy, "typeResolutionPolicy is null");
     }
 
     public boolean isTypeOnlyCoercion(Type source, Type result)
@@ -431,7 +429,7 @@ public final class TypeCoercion
             };
             case StandardTypes.VARCHAR -> switch (resultTypeBase) {
                 case StandardTypes.CHAR -> {
-                    if (charVarcharCoercion == SQL_STANDARD) {
+                    if (!typeResolutionPolicy.legacyCharCoercion()) {
                         yield Optional.empty();
                     }
                     VarcharType varcharType = (VarcharType) sourceType;
@@ -448,7 +446,7 @@ public final class TypeCoercion
             };
             case StandardTypes.CHAR -> switch (resultTypeBase) {
                 case StandardTypes.VARCHAR -> {
-                    if (charVarcharCoercion == LEGACY) {
+                    if (typeResolutionPolicy.legacyCharCoercion()) {
                         yield Optional.empty();
                     }
                     yield Optional.of(createVarcharType(((CharType) sourceType).getLength()));

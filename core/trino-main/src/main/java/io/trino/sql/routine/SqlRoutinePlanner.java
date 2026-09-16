@@ -78,7 +78,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.constantNull;
@@ -202,11 +202,11 @@ public final class SqlRoutinePlanner
 
                     io.trino.sql.ir.Expression testValue = new Reference(valueVariable.type(), variableReferenceName(valueVariable));
                     if (!testValue.type().equals(conditionValue.type())) {
-                        ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), testValue.type(), conditionValue.type());
+                        ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(getTypeResolutionPolicy(session), testValue.type(), conditionValue.type());
                         testValue = call(castFunction, testValue);
                     }
 
-                    ResolvedFunction equals = plannerContext.getMetadata().resolveOperator(getCharVarcharCoercion(session), OperatorType.EQUAL, ImmutableList.of(testValue.type(), conditionValue.type()));
+                    ResolvedFunction equals = plannerContext.getMetadata().resolveOperator(getTypeResolutionPolicy(session), OperatorType.EQUAL, ImmutableList.of(testValue.type(), conditionValue.type()));
                     io.trino.sql.ir.Expression condition = call(equals, testValue, conditionValue);
 
                     IrStatement ifTrue = block(statements(whenClause.getStatements(), context));
@@ -358,7 +358,7 @@ public final class SqlRoutinePlanner
             if (coercion == null) {
                 return rewritten;
             }
-            return cast(typeManager, getCharVarcharCoercion(session), rewritten, coercion);
+            return cast(typeManager, getTypeResolutionPolicy(session), rewritten, coercion);
         }
 
         private List<IrStatement> statements(List<ControlStatement> statements, Context context)

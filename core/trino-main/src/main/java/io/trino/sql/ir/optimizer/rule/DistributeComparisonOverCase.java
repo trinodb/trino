@@ -26,12 +26,12 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
@@ -95,13 +95,13 @@ public class DistributeComparisonOverCase
 
     private Expression distribute(Session session, ComparisonOperator operator, Case caseTerm, Expression target)
     {
-        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
+        TypeResolutionPolicy typeResolutionPolicy = getTypeResolutionPolicy(session);
         return new Case(
                 caseTerm.whenClauses().stream()
                         .map(clause -> new WhenClause(
                                 clause.getOperand(),
-                                comparison(metadata, charVarcharCoercion, operator, clause.getResult(), target)))
+                                comparison(metadata, typeResolutionPolicy, operator, clause.getResult(), target)))
                         .toList(),
-                comparison(metadata, charVarcharCoercion, operator, caseTerm.defaultValue(), target));
+                comparison(metadata, typeResolutionPolicy, operator, caseTerm.defaultValue(), target));
     }
 }

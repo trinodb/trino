@@ -29,7 +29,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -95,7 +95,7 @@ public class ImplementExceptAll
 
         // compute expected multiplicity for every row
         checkState(result.countSymbols().size() > 0, "ExceptNode translation result has no count symbols");
-        ResolvedFunction greatest = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "greatest", ImmutableList.of(BIGINT, BIGINT));
+        ResolvedFunction greatest = metadata.resolveBuiltinFunction(getTypeResolutionPolicy(context.getSession()), "greatest", ImmutableList.of(BIGINT, BIGINT));
 
         Expression count = result.countSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.countSymbols().size(); i++) {
@@ -103,13 +103,13 @@ public class ImplementExceptAll
                     greatest,
                     ImmutableList.of(
                             new Call(
-                                    metadata.resolveOperator(getCharVarcharCoercion(context.getSession()), OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT)),
+                                    metadata.resolveOperator(getTypeResolutionPolicy(context.getSession()), OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT)),
                                     ImmutableList.of(count, result.countSymbols().get(i).toSymbolReference())),
                             new Constant(BIGINT, 0L)));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = comparison(metadata, getCharVarcharCoercion(context.getSession()), LESS_THAN_OR_EQUAL, result.rowNumberSymbol().orElseThrow().toSymbolReference(), count);
+        Expression removeExtraRows = comparison(metadata, getTypeResolutionPolicy(context.getSession()), LESS_THAN_OR_EQUAL, result.rowNumberSymbol().orElseThrow().toSymbolReference(), count);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 result.planNode(),

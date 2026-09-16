@@ -34,7 +34,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
-import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.TypeResolutionPolicy.SQL_STANDARD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyRedundantTryCast

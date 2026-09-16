@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
@@ -120,8 +120,8 @@ public class SimplifyContinuousInValues
     private Expression rangeFilter(Session session, Expression value, Type valueType, long min, long max)
     {
         return new Logical(AND, ImmutableList.of(
-                comparison(metadata, getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, value, new Constant(valueType, min)),
-                comparison(metadata, getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, value, new Constant(valueType, max))));
+                comparison(metadata, getTypeResolutionPolicy(session), GREATER_THAN_OR_EQUAL, value, new Constant(valueType, min)),
+                comparison(metadata, getTypeResolutionPolicy(session), LESS_THAN_OR_EQUAL, value, new Constant(valueType, max))));
     }
 
     private static boolean isDirectLongComparisonValidForContinuousValues(Type type)

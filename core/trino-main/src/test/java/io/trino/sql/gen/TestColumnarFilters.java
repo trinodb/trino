@@ -60,8 +60,8 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
-import io.trino.type.CharVarcharCoercion;
 import io.trino.type.LikePattern;
+import io.trino.type.TypeResolutionPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -74,7 +74,7 @@ import java.util.Random;
 import java.util.stream.Stream;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -109,7 +109,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnarFilters
 {
-    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+    private static final TypeResolutionPolicy CHAR_VARCHAR_COERCION = getTypeResolutionPolicy(TEST_SESSION);
     private static final Random RANDOM = new Random(5376453765L);
     private static final long CONSTANT = 64992484L;
     private static final int ROW_NUM_CHANNEL = 0;

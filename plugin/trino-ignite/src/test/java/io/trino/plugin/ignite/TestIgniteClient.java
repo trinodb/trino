@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -184,7 +184,7 @@ public class TestIgniteClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
+                                not(PLANNER_CONTEXT.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NOT NULL");
@@ -199,8 +199,8 @@ public class TestIgniteClient
                         SESSION,
                         translateToConnectorExpression(
                                 not(PLANNER_CONTEXT.getMetadata(),
-                                        getCharVarcharCoercion(TEST_SESSION),
-                                        not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
+                                        getTypeResolutionPolicy(TEST_SESSION),
+                                        not(PLANNER_CONTEXT.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");

@@ -36,7 +36,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -138,7 +138,7 @@ public class TestSimplifyFilterPredicate
 
         // both results are equal non-deterministic expressions
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
@@ -513,11 +513,11 @@ public class TestSimplifyFilterPredicate
 
     private static Expression not(Expression expression)
     {
-        return IrExpressions.not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), expression);
+        return IrExpressions.not(FUNCTIONS.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), expression);
     }
 
     private static MatchClause equalityClause(Expression value, Expression result)
     {
-        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new Symbol(value.type(), "operand"), value, result);
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new Symbol(value.type(), "operand"), value, result);
     }
 }

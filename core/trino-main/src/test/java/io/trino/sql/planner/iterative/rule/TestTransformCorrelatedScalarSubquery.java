@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -224,12 +224,12 @@ public class TestTransformCorrelatedScalarSubquery
                 new Reference(BOOLEAN, "is_distinct"),
                 ImmutableList.of(equalityClause(TRUE, TRUE)),
                 new Cast(
-                        failFunction(tester().getMetadata(), getCharVarcharCoercion(TEST_SESSION), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
+                        failFunction(tester().getMetadata(), getTypeResolutionPolicy(TEST_SESSION), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                         BOOLEAN));
     }
 
     private static MatchClause equalityClause(Expression value, Expression result)
     {
-        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new Symbol(value.type(), "operand"), value, result);
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new Symbol(value.type(), "operand"), value, result);
     }
 }

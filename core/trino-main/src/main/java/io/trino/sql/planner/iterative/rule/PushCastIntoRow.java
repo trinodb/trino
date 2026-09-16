@@ -26,7 +26,7 @@ import io.trino.sql.ir.Row;
 
 import java.util.List;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.IrExpressions.cast;
 
 /**
@@ -80,7 +80,7 @@ public class PushCastIntoRow
                     Expression fieldValue = expressions.get(i);
                     Type fieldType = castToType.getFields().get(i).getType();
                     if (!fieldValue.type().equals(fieldType)) {
-                        fieldValue = cast(typeManager, getCharVarcharCoercion(session), fieldValue, fieldType);
+                        fieldValue = cast(typeManager, getTypeResolutionPolicy(session), fieldValue, fieldType);
                     }
                     items.add(fieldValue);
                 }

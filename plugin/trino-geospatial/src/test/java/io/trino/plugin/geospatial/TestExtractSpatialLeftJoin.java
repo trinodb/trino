@@ -29,7 +29,7 @@ import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -95,7 +95,7 @@ public class TestExtractSpatialLeftJoin
                             LEFT,
                             p.values(wkt, name1),
                             p.values(point, name2),
-                            not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), containsCall(geometryFromTextCall(wkt), point.toSymbolReference())));
+                            not(FUNCTIONS.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), containsCall(geometryFromTextCall(wkt), point.toSymbolReference())));
                 })
                 .doesNotFire();
 

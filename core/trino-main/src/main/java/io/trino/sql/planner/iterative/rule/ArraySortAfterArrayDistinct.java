@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 
 public class ArraySortAfterArrayDistinct
@@ -92,14 +92,14 @@ public class ArraySortAfterArrayDistinct
                     List<Expression> arraySortArguments = call.arguments();
                     List<Type> arraySortArgumentsTypes = resolvedFunction.signature().getArgumentTypes();
 
-                    Call arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata, getCharVarcharCoercion(session))
+                    Call arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata, getTypeResolutionPolicy(session))
                             .setName(ArrayDistinctFunction.NAME)
                             .setArguments(
                                     ImmutableList.of(arraySortArgumentsTypes.get(0)),
                                     ImmutableList.of(arraySortArguments.get(0)))
                             .build();
 
-                    BuiltinFunctionCallBuilder arraySortCallBuilder = BuiltinFunctionCallBuilder.resolve(metadata, getCharVarcharCoercion(session))
+                    BuiltinFunctionCallBuilder arraySortCallBuilder = BuiltinFunctionCallBuilder.resolve(metadata, getTypeResolutionPolicy(session))
                             .setName(ArraySortFunction.NAME)
                             .addArgument(arraySortArgumentsTypes.get(0), arrayDistinctCall);
 

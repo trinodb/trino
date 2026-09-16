@@ -21,11 +21,11 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isReorderingSafe;
@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFilterReorderingSafety
 {
-    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+    private static final TypeResolutionPolicy CHAR_VARCHAR_COERCION = getTypeResolutionPolicy(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final PlannerContext PLANNER_CONTEXT = FUNCTION_RESOLUTION.getPlannerContext();
     private static final Reference REF_A = new Reference(BIGINT, "a");

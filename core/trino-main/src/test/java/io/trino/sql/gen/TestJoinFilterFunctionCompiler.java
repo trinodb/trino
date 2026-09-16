@@ -32,7 +32,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.TypeResolutionPolicy.SQL_STANDARD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinFilterFunctionCompiler

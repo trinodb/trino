@@ -133,6 +133,20 @@ public class FeaturesConfig
     private boolean legacyArithmeticDecimalOperators;
 
     private boolean legacyVarcharToCharCoercion;
+    private boolean legacyTypeResolver;
+
+    public boolean isLegacyTypeResolver()
+    {
+        return legacyTypeResolver;
+    }
+
+    @Config("legacy-type-resolver")
+    @ConfigDescription("Use legacy function type inference instead of the constraint solver")
+    public FeaturesConfig setLegacyTypeResolver(boolean legacyTypeResolver)
+    {
+        this.legacyTypeResolver = legacyTypeResolver;
+        return this;
+    }
 
     public boolean isRedistributeWrites()
     {
