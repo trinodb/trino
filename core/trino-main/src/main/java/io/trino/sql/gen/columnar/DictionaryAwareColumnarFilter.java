@@ -130,21 +130,25 @@ public final class DictionaryAwareColumnarFilter
 
     private static int processDictionary(int[] outputPositions, int offset, int size, DictionaryBlock dictionaryBlock, boolean[] dictionaryMask)
     {
+        int[] rawIds = dictionaryBlock.getRawIds();
+        int rawIdsOffset = dictionaryBlock.getRawIdsOffset();
         int selectedPositionsCount = 0;
         for (int position = offset; position < offset + size; position++) {
             outputPositions[selectedPositionsCount] = position;
-            selectedPositionsCount += dictionaryMask[dictionaryBlock.getId(position)] ? 1 : 0;
+            selectedPositionsCount += dictionaryMask[rawIds[rawIdsOffset + position]] ? 1 : 0;
         }
         return selectedPositionsCount;
     }
 
     private static int processDictionary(int[] outputPositions, int[] activePositions, int offset, int size, DictionaryBlock dictionaryBlock, boolean[] dictionaryMask)
     {
+        int[] rawIds = dictionaryBlock.getRawIds();
+        int rawIdsOffset = dictionaryBlock.getRawIdsOffset();
         int selectedPositionsCount = 0;
         for (int index = offset; index < offset + size; index++) {
             int position = activePositions[index];
             outputPositions[selectedPositionsCount] = position;
-            selectedPositionsCount += dictionaryMask[dictionaryBlock.getId(position)] ? 1 : 0;
+            selectedPositionsCount += dictionaryMask[rawIds[rawIdsOffset + position]] ? 1 : 0;
         }
         return selectedPositionsCount;
     }
