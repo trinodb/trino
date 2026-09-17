@@ -301,7 +301,6 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
@@ -495,10 +494,9 @@ public class IcebergMetadata
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
 
     public static final int GET_METADATA_BATCH_SIZE = 1000;
-    // Any procedure added here that commits a NEW snapshot must call
-    // IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies on its SnapshotUpdate before
-    // committing, otherwise the materialized view's dependency summary is dropped and the next refresh is
-    // demoted from incremental to full.
+    // Any procedure added here that commits a NEW snapshot must call catalog.carryForwardMaterializedViewDependencies
+    // on its SnapshotUpdate before committing, otherwise the materialized view's dependency summary is dropped and
+    // the next refresh is demoted from incremental to full.
     private static final Set<IcebergTableProcedureId> MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES = Sets.immutableEnumSet(
             OPTIMIZE,
             OPTIMIZE_MANIFESTS,
@@ -2271,7 +2269,7 @@ public class IcebergMetadata
         rewriteFiles.dataSequenceNumber(snapshot.sequenceNumber());
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         rewriteFiles.scanManifestsWith(icebergScanExecutor);
-        carryForwardMaterializedViewDependencies(rewriteFiles);
+        catalog.carryForwardMaterializedViewDependencies(rewriteFiles);
         commitUpdate(rewriteFiles, session, "optimize");
 
         long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
@@ -2357,7 +2355,7 @@ public class IcebergMetadata
     {
         checkArgument(executeHandle.procedureHandle() instanceof IcebergOptimizeManifestsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
         BaseTable icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
-        return optimizeManifests(icebergTable, icebergScanExecutor);
+        return optimizeManifests(catalog, icebergTable, icebergScanExecutor);
     }
 
     private Map<String, Long> executeDropExtendedStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)

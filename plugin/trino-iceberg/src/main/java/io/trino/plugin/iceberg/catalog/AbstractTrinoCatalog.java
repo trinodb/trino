@@ -23,6 +23,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
+import io.trino.plugin.iceberg.IcebergMaterializedViewSummary;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
@@ -56,6 +57,7 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -99,10 +101,6 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMa
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLES;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLE_FUNCTIONS;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.TRINO_QUERY_START_TIME;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
@@ -157,6 +155,19 @@ public abstract class AbstractTrinoCatalog
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
 
     public static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
+
+    // Snapshot summary properties tracking the tables/functions a materialized view depends on, and its snapshot ids.
+    public static final String DEPENDS_ON_TABLES = "dependsOnTables";
+    public static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
+    public static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
+    // Value should be ISO-8601 formatted time instant
+    public static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
+
+    private static final List<String> DEPENDENCY_SUMMARY_PROPERTIES = ImmutableList.of(
+            DEPENDS_ON_TABLES,
+            DEPENDS_ON_TABLE_FUNCTIONS,
+            DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS,
+            TRINO_QUERY_START_TIME);
 
     private final CatalogName catalogName;
     private final boolean useUniqueTableLocation;
@@ -510,6 +521,12 @@ public abstract class AbstractTrinoCatalog
         appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, String.valueOf(hasSourceTableFunctions));
         appendFiles.set(DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, String.valueOf(hasNonDeterministicFunctions));
         appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
+    }
+
+    @Override
+    public void carryForwardMaterializedViewDependencies(SnapshotUpdate<?> snapshotUpdate)
+    {
+        IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies(snapshotUpdate, DEPENDENCY_SUMMARY_PROPERTIES);
     }
 
     @Override
