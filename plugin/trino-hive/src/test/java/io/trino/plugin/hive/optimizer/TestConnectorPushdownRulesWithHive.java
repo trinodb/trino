@@ -43,7 +43,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
-import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.PushPredicateIntoTableScanWithoutProject;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -215,7 +215,7 @@ public class TestConnectorPushdownRulesWithHive
         String tableName = "predicate_test";
         tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
-        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false);
+        PushPredicateIntoTableScanWithoutProject pushPredicateIntoTableScan = new PushPredicateIntoTableScanWithoutProject(tester().getPlannerContext(), false);
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
