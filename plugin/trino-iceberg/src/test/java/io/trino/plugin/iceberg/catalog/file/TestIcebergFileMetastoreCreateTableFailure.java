@@ -44,6 +44,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -82,6 +83,7 @@ public class TestIcebergFileMetastoreCreateTableFailure
     private final AtomicInteger laterCommitsBeforeFailure = new AtomicInteger();
     private final AtomicBoolean otherTableTakesNameBeforeFailure = new AtomicBoolean();
     private final AtomicBoolean otherTableWithMissingMetadataTakesNameBeforeFailure = new AtomicBoolean();
+    private final AtomicBoolean metadataDirectoryReadOnlyBeforeFailure = new AtomicBoolean();
     private FileIO fileIo;
 
     @Override
@@ -121,6 +123,14 @@ public class TestIcebergFileMetastoreCreateTableFailure
                 }
                 if (metastoreUnavailableAfterCreate.get()) {
                     metastoreUnavailable.set(true);
+                }
+                if (metadataDirectoryReadOnlyBeforeFailure.get()) {
+                    try {
+                        Files.setPosixFilePermissions(dataDirectory.resolve(table.getTableName(), "metadata"), PosixFilePermissions.fromString("r-xr-xr-x"));
+                    }
+                    catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
                 if (failure != null) {
                     throw failure;
@@ -172,6 +182,7 @@ public class TestIcebergFileMetastoreCreateTableFailure
         laterCommitsBeforeFailure.set(0);
         otherTableTakesNameBeforeFailure.set(false);
         otherTableWithMissingMetadataTakesNameBeforeFailure.set(false);
+        metadataDirectoryReadOnlyBeforeFailure.set(false);
     }
 
     @Test
@@ -299,6 +310,26 @@ public class TestIcebergFileMetastoreCreateTableFailure
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testCreateTableFailureReportedWhenCleanupFails()
+            throws Exception
+    {
+        String tableName = "test_create_cleanup_failure_" + randomNameSuffix();
+        metadataDirectoryReadOnlyBeforeFailure.set(true);
+        createTableFailure.set(new RuntimeException("simulated create failure"));
+        try {
+            String tableLocation = "local:///" + tableName;
+            String createTableSql = "CREATE TABLE " + tableName + " (a integer) WITH (location = '" + tableLocation + "')";
+            assertThatThrownBy(() -> getQueryRunner().execute(createTableSql))
+                    .hasMessageContaining("simulated create failure");
+
+            assertThat(metadataFiles(tableName)).as("Metadata file could not be deleted").hasSize(1);
+        }
+        finally {
+            Files.setPosixFilePermissions(dataDirectory.resolve(tableName, "metadata"), PosixFilePermissions.fromString("rwxr-xr-x"));
         }
     }
 
