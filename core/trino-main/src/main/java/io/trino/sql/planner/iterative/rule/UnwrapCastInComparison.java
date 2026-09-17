@@ -40,6 +40,7 @@ import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions.Between;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
@@ -54,9 +55,12 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.zone.ZoneOffsetTransition;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -149,6 +153,9 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapCastInComparison
         extends ExpressionRewriteRuleSet
 {
+    // Safety measure to avoid producing large expression. The limit is arbitrary.
+    private static final int MAX_EXPANDED_IN_LIST_SIZE = 10;
+
     public UnwrapCastInComparison(PlannerContext plannerContext)
     {
         super(createRewrite(plannerContext));
@@ -211,6 +218,82 @@ public class UnwrapCastInComparison
             Let expression = treeRewriter.defaultRewrite(node, null);
             // A BETWEEN over a non-trivial value binds it in a Let; unwrap a cast in that bound value here.
             return unwrapCastInBetween(expression).orElse(expression);
+        }
+
+        @Override
+        public Expression rewriteIn(In node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            In expression = treeRewriter.defaultRewrite(node, null);
+            return unwrapCastInIn(expression).orElse(expression);
+        }
+
+        /// Unwraps the cast in `CAST(s AS T) IN (t1, ..., tn)`. Returns `s IN (t1', ..., tn')` if possible,
+        /// otherwise, if `s` is simple and deterministic and `n` is small, returns disjuncts over `s`.
+        private Optional<Expression> unwrapCastInIn(In node)
+        {
+            if (!(node.value() instanceof Cast cast)) {
+                return Optional.empty();
+            }
+            List<Expression> items = node.valueList();
+            if (items.isEmpty()) {
+                // v in () handled elsewhere
+                return Optional.empty();
+            }
+            Expression source = cast.expression();
+
+            List<Expression> disjuncts = new ArrayList<>();
+            List<Expression> equalityValues = new ArrayList<>();
+            boolean rebuildsIn = true;
+            for (int i = 0; i < items.size(); i++) {
+                Optional<Expression> unwrapped = tryUnwrapCast(EQUAL, cast, items.get(i));
+                if (unwrapped.isEmpty()) {
+                    return Optional.empty();
+                }
+                if (isNeverSatisfied(unwrapped.get(), source)) {
+                    // Drop: no source value matches, and a null source is null with or without this item.
+                    continue;
+                }
+                disjuncts.add(unwrapped.get());
+                if (rebuildsIn) {
+                    Optional<Expression> value = equalityValue(unwrapped.get(), source);
+                    if (value.isPresent()) {
+                        equalityValues.add(value.get());
+                    }
+                    else {
+                        rebuildsIn = false;
+                        // This item unwrapped to a non-equality, so we won't rebuild an IN list.
+                        // We can produce disjuncts only when source is cheap, deterministic, and
+                        // the resulting disjunct won't be very large (inefficient).
+                        boolean canRepeatSource = isCastOverTrivial(cast);
+                        int expectedFinalDisjuncts = disjuncts.size() + (items.size() - i - 1);
+                        if (!canRepeatSource || expectedFinalDisjuncts > MAX_EXPANDED_IN_LIST_SIZE) {
+                            return Optional.empty();
+                        }
+                    }
+                }
+            }
+            verify(!rebuildsIn || disjuncts.size() == equalityValues.size(), "Every kept item should have an equality value");
+            if (disjuncts.isEmpty()) {
+                return Optional.of(falseIfNotNull(source));
+            }
+            if (rebuildsIn && equalityValues.size() > 1) {
+                // Every item unwrapped to an equality, so keep the IN.
+                return Optional.of(new In(source, equalityValues));
+            }
+            return Optional.of(or(disjuncts));
+        }
+
+        /// The value an unwrapped item compares `source` to, when the item is an equality; empty when it
+        /// unwrapped to something else, such as the range a `CAST(ts AS date)` item unwraps to.
+        private static Optional<Expression> equalityValue(Expression unwrapped, Expression source)
+        {
+            if (unwrapped.equals(new Constant(BOOLEAN, null))) {
+                // A null item compares to null whatever the source is, which is what a null in an IN list means.
+                return Optional.of(new Constant(source.type(), null));
+            }
+            return comparisonBound(unwrapped, source)
+                    .filter(bound -> bound.operator() == EQUAL)
+                    .map(bound -> new Constant(source.type(), bound.value()));
         }
 
         private Optional<Expression> unwrapCastInBetween(Expression expression)
