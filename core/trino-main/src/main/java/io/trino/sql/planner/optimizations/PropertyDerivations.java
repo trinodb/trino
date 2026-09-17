@@ -37,6 +37,9 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Partitioning;
+import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.optimizations.ActualProperties.Global;
@@ -103,6 +106,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
@@ -161,6 +166,11 @@ public final class PropertyDerivations
             SymbolAllocator symbolAllocator)
     {
         return node.accept(new Visitor(plannerContext, session, symbolAllocator), inputProperties);
+    }
+
+    static boolean isRoundRobin(PartitioningHandle handle)
+    {
+        return handle.equals(FIXED_ARBITRARY_DISTRIBUTION) || handle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION);
     }
 
     private static class Visitor
@@ -730,8 +740,7 @@ public final class PropertyDerivations
                         .constants(constants)
                         .build();
                 case REPARTITION -> ActualProperties.builder()
-                        .global(partitionedOn(node.getPartitioningScheme().getPartitioning())
-                                .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
+                        .global(deriveRepartitionGlobalProperties(node.getPartitioningScheme()))
                         .constants(constants)
                         .build();
                 // TODO: this should have the same global properties as the stream taking the replicated data
@@ -740,6 +749,18 @@ public final class PropertyDerivations
                         .constants(constants)
                         .build();
             };
+        }
+
+        private static Global deriveRepartitionGlobalProperties(PartitioningScheme partitioningScheme)
+        {
+            Partitioning partitioning = partitioningScheme.getPartitioning();
+            // Round robin partitioning has no partitioning arguments, which would otherwise be interpreted as
+            // being partitioned on every set of columns and let a downstream operator skip a required exchange
+            if (isRoundRobin(partitioning.getHandle())) {
+                return arbitraryPartition();
+            }
+            return partitionedOn(partitioning)
+                    .withReplicatedNulls(partitioningScheme.isReplicateNullsAndAny());
         }
 
         @Override

@@ -252,6 +252,29 @@ public class TestAddExchangesPlans
     }
 
     @Test
+    public void testRemoteExchangeAboveRedistributedCrossJoinProbe()
+    {
+        // the redistributed probe makes the join output arbitrarily partitioned, so a grouped aggregation above it needs a remote exchange
+        assertDistributedPlan(
+                "SELECT r.regionkey, count(*) FROM (SELECT * FROM nation LIMIT 5) n, region r WHERE n.nationkey < r.regionkey GROUP BY r.regionkey",
+                smallCrossJoinRedistribution(),
+                anyTree(
+                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                anyTree(
+                                        join(INNER, builder -> builder
+                                                .distributionType(REPLICATED)
+                                                .left(
+                                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                                anyTree(
+                                                                        tableScan("nation"))))
+                                                .right(
+                                                        anyTree(
+                                                                exchange(REMOTE,
+                                                                        REPLICATE,
+                                                                        tableScan("region")))))))));
+    }
+
+    @Test
     public void testKeepScalarCrossJoinProbeOnSingleNode()
     {
         // a scalar probe stays on the single node even when the join exceeds the row threshold
