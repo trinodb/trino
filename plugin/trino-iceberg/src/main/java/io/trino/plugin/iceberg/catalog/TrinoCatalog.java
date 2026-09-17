@@ -36,6 +36,7 @@ import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -253,6 +254,8 @@ public interface TrinoCatalog
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
+
+    default void carryForwardMaterializedViewDependencies(SnapshotUpdate<?> snapshotUpdate) {}
 
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
 
