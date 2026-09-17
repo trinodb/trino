@@ -150,9 +150,14 @@ public abstract class AbstractMetastoreTableOperations
                 case UNKNOWN -> throw new CommitStateUnknownException(e);
                 // The create did not happen (or another writer owns the name); the new metadata file is orphaned.
                 // Clean it up and wrap the failure in CleanableFailure so Iceberg also removes the manifest list
-                // and any data files.
+                // and any data files. A failed cleanup must not hide the create failure, so it is only logged.
                 case FAILURE -> {
-                    io().deleteFile(newMetadataLocation);
+                    try {
+                        io().deleteFile(newMetadataLocation);
+                    }
+                    catch (RuntimeException cleanupFailure) {
+                        log.warn(cleanupFailure, "Failed to clean up metadata file %s for table %s", newMetadataLocation, getSchemaTableName());
+                    }
                     throw new CreateTableException(e, getSchemaTableName());
                 }
             }
