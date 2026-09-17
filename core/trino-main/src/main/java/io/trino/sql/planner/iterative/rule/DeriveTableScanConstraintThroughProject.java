@@ -44,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -57,6 +58,7 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.computeEnforced;
 import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.verifyTablePartitioning;
+import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.optimizations.PredicatePushDown.isInliningCandidate;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -84,7 +86,8 @@ import static java.util.Objects.requireNonNull;
 public class DeriveTableScanConstraintThroughProject
 {
     // Inlining duplicates a projected expression once per reference, so the scratch expression can
-    // grow quadratically in the query size; above this many nodes no constraint is derived.
+    // grow quadratically in the query size; conjuncts that would push it past this many nodes are
+    // left out of the derivation.
     private static final long MAX_INLINED_EXPRESSION_SIZE = 10_000;
 
     private final PlannerContext plannerContext;
@@ -207,34 +210,27 @@ public class DeriveTableScanConstraintThroughProject
             return Result.empty();
         }
 
-        // Estimate the inlined size without building it. Assignment sizes are cached per symbol
-        // and every traversal stops at the budget, so the guard's own work stays within the
-        // budget no matter how often an assignment is referenced.
+        // Estimate each conjunct's inlined size without building it, and leave out the conjuncts
+        // that do not fit the remaining budget: every candidate conjunct is a necessary condition on
+        // its own, so a domain derived from the ones that fit is still a valid superset. Assignment
+        // sizes are cached per symbol and every traversal stops at the budget, so the guard's own
+        // work stays within the budget no matter how often an assignment is referenced.
         Map<Symbol, Long> assignmentSizes = new HashMap<>();
         long remainingBudget = MAX_INLINED_EXPRESSION_SIZE;
+        ImmutableList.Builder<Expression> conjunctsWithinBudget = ImmutableList.builder();
         for (Expression conjunct : candidateConjuncts) {
-            long conjunctSize = preOrder(conjunct)
-                    .limit(remainingBudget + 1)
-                    .count();
-            if (conjunctSize > remainingBudget) {
-                return Result.empty();
-            }
-            remainingBudget -= conjunctSize;
-
-            for (Symbol symbol : SymbolsExtractor.extractAll(conjunct)) {
-                long assignmentSize = assignmentSizes.computeIfAbsent(
-                        symbol,
-                        key -> preOrder(project.getAssignments().get(key))
-                                .limit(MAX_INLINED_EXPRESSION_SIZE + 1)
-                                .count());
-                if (assignmentSize > remainingBudget) {
-                    return Result.empty();
-                }
-                remainingBudget -= assignmentSize;
+            OptionalLong inlinedSize = estimateInlinedSize(conjunct, project, assignmentSizes, remainingBudget);
+            if (inlinedSize.isPresent()) {
+                remainingBudget -= inlinedSize.orElseThrow();
+                conjunctsWithinBudget.add(conjunct);
             }
         }
+        List<Expression> conjuncts = conjunctsWithinBudget.build();
+        if (conjuncts.isEmpty()) {
+            return Result.empty();
+        }
 
-        Expression inlined = inlineSymbols(project.getAssignments()::get, combineConjuncts(candidateConjuncts));
+        Expression inlined = inlineSymbols(project.getAssignments()::get, combineConjuncts(conjuncts));
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(plannerContext, session, inlined);
 
@@ -280,9 +276,15 @@ public class DeriveTableScanConstraintThroughProject
                 newEnforcedConstraint,
                 // The scan's statistics (if any) still describe a superset of the narrowed scan and
                 // may be unreproducible by the connector, so they are inherited rather than dropped.
-                // Deriving new statistics from the filter would double-count its selectivity, since
-                // the filter stays in the plan.
-                tableScan.getStatistics(),
+                // Otherwise, if the connector cannot compute statistics for the narrowed handle, the
+                // pre-narrowing estimate is frozen the way pushFilterIntoTableScan does, but from the
+                // scan rather than the filter: the filter stays in the plan, so deriving from it would
+                // double-count its selectivity.
+                tableScan.getStatistics().or(() -> deriveTableStatisticsForPushdown(
+                        context.getStatsProvider(),
+                        session,
+                        result.get().isPrecalculateStatistics(),
+                        tableScan)),
                 tableScan.isUpdateTarget(),
                 tableScan.getUseConnectorNodePartitioning());
 
@@ -292,5 +294,30 @@ public class DeriveTableScanConstraintThroughProject
         }
         PlanNode newProject = project.replaceChildren(ImmutableList.of(newSource));
         return Result.ofPlanNode(filterNode.replaceChildren(ImmutableList.of(newProject)));
+    }
+
+    /**
+     * Size of the conjunct once the projection's assignments are inlined into it, or empty if that
+     * exceeds the budget. Nothing is charged until the whole conjunct is known to fit.
+     */
+    private static OptionalLong estimateInlinedSize(Expression conjunct, ProjectNode project, Map<Symbol, Long> assignmentSizes, long budget)
+    {
+        long size = preOrder(conjunct)
+                .limit(budget + 1)
+                .count();
+        if (size > budget) {
+            return OptionalLong.empty();
+        }
+        for (Symbol symbol : SymbolsExtractor.extractAll(conjunct)) {
+            size += assignmentSizes.computeIfAbsent(
+                    symbol,
+                    key -> preOrder(project.getAssignments().get(key))
+                            .limit(MAX_INLINED_EXPRESSION_SIZE + 1)
+                            .count());
+            if (size > budget) {
+                return OptionalLong.empty();
+            }
+        }
+        return OptionalLong.of(size);
     }
 }
