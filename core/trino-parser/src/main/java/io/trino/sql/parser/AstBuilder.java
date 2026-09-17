@@ -3955,8 +3955,11 @@ class AstBuilder
     public Node visitQueryPeriod(SqlBaseParser.QueryPeriodContext context)
     {
         QueryPeriod.RangeType type = getRangeType((Token) context.rangeType().getChild(0).getPayload());
-        Expression marker = (Expression) visit(context.valueExpression());
-        return new QueryPeriod(getLocation(context), type, marker);
+        return new QueryPeriod(
+                getLocation(context),
+                type,
+                visitIfPresent(context.start, Expression.class),
+                Optional.of((Expression) visit(context.end)));
     }
 
     @Override
