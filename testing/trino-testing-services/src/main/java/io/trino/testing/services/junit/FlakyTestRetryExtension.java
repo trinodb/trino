@@ -72,7 +72,7 @@ public class FlakyTestRetryExtension
                 }
                 else {
                     // Re-invoke the test method directly for retry attempts
-                    method.invoke(extensionContext.getRequiredTestInstance());
+                    method.invoke(extensionContext.getRequiredTestInstance(), invocationContext.getArguments().toArray());
                 }
                 // Test passed
                 if (attempt > 1) {
