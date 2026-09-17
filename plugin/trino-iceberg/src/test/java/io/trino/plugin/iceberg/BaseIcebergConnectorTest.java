@@ -6199,6 +6199,50 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testInIntegerPredicatePushdown()
+    {
+        try (TestTable table = newTrinoTable("test_in_predicate", "(an_integer integer, a_bigint bigint, data varchar) WITH (partitioning = ARRAY['an_integer', 'a_bigint'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT i, i, CAST(i AS varchar) FROM UNNEST(sequence(1, 10)) AS t(i)", 10);
+
+            // integer column + IN with consecutive values
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(an_integer AS smallint) IN (SMALLINT '1', SMALLINT '2', SMALLINT '3')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE an_integer                   IN (INTEGER  '1', INTEGER  '2', INTEGER  '3')")).isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(an_integer AS bigint)   IN (BIGINT   '1', BIGINT   '2', BIGINT   '3')")).isFullyPushedDown();
+
+            // bigint column + IN with consecutive values
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_bigint AS smallint)   IN (SMALLINT '1', SMALLINT '2', SMALLINT '3')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_bigint AS integer)    IN (INTEGER  '1', INTEGER  '2', INTEGER  '3')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE a_bigint                     IN (BIGINT   '1', BIGINT   '2', BIGINT   '3')")).isFullyPushedDown();
+
+            // integer column + IN with non-consecutive values
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(an_integer AS smallint) IN (SMALLINT '1', SMALLINT '7', SMALLINT '3')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE an_integer                   IN (INTEGER  '1', INTEGER  '7', INTEGER  '3')")).isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(an_integer AS bigint)   IN (BIGINT   '1', BIGINT   '7', BIGINT   '3')")).isFullyPushedDown();
+
+            // bigint column + IN with non-consecutive values
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_bigint AS smallint)   IN (SMALLINT '1', SMALLINT '7', SMALLINT '3')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_bigint AS integer)    IN (INTEGER  '1', INTEGER  '7', INTEGER  '3')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE a_bigint                     IN (BIGINT   '1', BIGINT   '7', BIGINT   '3')")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testInTimestampDatePredicatePushdown()
+    {
+        try (TestTable table = newTrinoTable("test_in_timestamp_date_predicate", "(a_timestamp timestamp(6), data varchar) WITH (partitioning = ARRAY['day(a_timestamp)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT date_add('day', i, TIMESTAMP '2025-01-01 12:34:56.123456'), CAST(i AS varchar) FROM UNNEST(sequence(1, 10)) AS t(i)", 10);
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_timestamp AS date) =  DATE '2025-01-03'")).isFullyPushedDown();
+
+            // IN with consecutive values
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_timestamp AS date) IN (DATE '2025-01-03', DATE '2025-01-04', DATE '2025-01-05')")).isFullyPushedDown();
+
+            // IN with non-consecutive values
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_timestamp AS date) IN (DATE '2025-01-03', DATE '2025-01-09', DATE '2025-01-05')")).isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
     public void testSelectWithDisjunctTimestampFilter()
     {
         // https://github.com/trinodb/trino/issues/27136
