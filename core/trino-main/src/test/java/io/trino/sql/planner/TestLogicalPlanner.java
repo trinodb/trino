@@ -83,6 +83,8 @@ import io.trino.tests.QueryTemplate;
 import io.trino.type.CharVarcharCoercion;
 import io.trino.type.Reals;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Map;
@@ -774,6 +776,58 @@ public class TestLogicalPlanner
                         "  AND o2.orderkey = (SELECT 1 FROM orders LIMIT 1) " +
                         "  AND o1.orderkey + o2.orderkey > (SELECT 1 FROM orders LIMIT 1)"),
                 TableScanNode.class::isInstance)).isEqualTo(3);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"BERNOULLI", "SYSTEM"})
+    public void testSampledScalarSubqueriesAreNotDeduplicated(String sampleType)
+    {
+        assertThat(countOfMatchingNodes(
+                plan(
+                        """
+                        SELECT
+                            (SELECT count(*) FROM nation TABLESAMPLE %s (50)),
+                            (SELECT count(*) FROM nation TABLESAMPLE %s (50)),
+                            (SELECT count(*) FROM nation TABLESAMPLE %s (50))
+                        """.formatted(sampleType, sampleType, sampleType)),
+                TableScanNode.class::isInstance)).isEqualTo(3);
+        // a full sample of a sampled relation
+        assertThat(countOfMatchingNodes(
+                plan(
+                        """
+                        SELECT
+                            (SELECT count(*) FROM (SELECT * FROM nation TABLESAMPLE %s (50)) TABLESAMPLE %s (100)),
+                            (SELECT count(*) FROM (SELECT * FROM nation TABLESAMPLE %s (50)) TABLESAMPLE %s (100))
+                        """.formatted(sampleType, sampleType, sampleType, sampleType)),
+                TableScanNode.class::isInstance)).isEqualTo(2);
+    }
+
+    @Test
+    public void testSampledSubqueryPredicatesAreNotDeduplicated()
+    {
+        assertThat(countOfMatchingNodes(
+                plan("SELECT EXISTS (SELECT 1 FROM nation TABLESAMPLE BERNOULLI (50)), EXISTS (SELECT 1 FROM nation TABLESAMPLE BERNOULLI (50))"),
+                TableScanNode.class::isInstance)).isEqualTo(2);
+        assertThat(countOfMatchingNodes(
+                plan("SELECT 1 IN (SELECT nationkey FROM nation TABLESAMPLE BERNOULLI (50)), 1 IN (SELECT nationkey FROM nation TABLESAMPLE BERNOULLI (50))"),
+                TableScanNode.class::isInstance)).isEqualTo(2);
+        assertThat(countOfMatchingNodes(
+                plan("SELECT 1 <= ALL (SELECT nationkey FROM nation TABLESAMPLE BERNOULLI (50)), 1 <= ALL (SELECT nationkey FROM nation TABLESAMPLE BERNOULLI (50))"),
+                TableScanNode.class::isInstance)).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"BERNOULLI", "SYSTEM"})
+    public void testFullSampleScalarSubqueryIsAppliedOnlyOnce(String sampleType)
+    {
+        assertThat(countOfMatchingNodes(
+                plan(
+                        """
+                        SELECT
+                            (SELECT count(*) FROM nation TABLESAMPLE %s (100)),
+                            (SELECT count(*) FROM nation TABLESAMPLE %s (100))
+                        """.formatted(sampleType, sampleType)),
+                TableScanNode.class::isInstance)).isEqualTo(1);
     }
 
     @Test
