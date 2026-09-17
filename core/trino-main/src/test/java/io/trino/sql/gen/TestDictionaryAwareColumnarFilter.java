@@ -105,6 +105,10 @@ public class TestDictionaryAwareColumnarFilter
         assertThatThrownBy(() -> testFilter(filter, fail, true, usePositionsList))
                 .isInstanceOf(NegativeValueException.class)
                 .hasMessage("value is negative: -10");
+        // a repeat of the same value block reports the same failure
+        assertThatThrownBy(() -> testFilter(filter, fail, true, usePositionsList))
+                .isInstanceOf(NegativeValueException.class)
+                .hasMessage("value is negative: -10");
     }
 
     @Test
@@ -134,13 +138,75 @@ public class TestDictionaryAwareColumnarFilter
     public void testDictionaryBlockProcessingWithUnusedFailure()
     {
         // match some
-        testFilter(createDictionaryBlockWithUnusedEntries(20, 100), DictionaryBlock.class);
+        testFilter(createDictionaryBlockWithUnusedEntries(20, 100), LongArrayBlock.class);
 
         // match none, blockSize must be > 1 to actually create a DictionaryBlock
-        testFilter(createDictionaryBlockWithUnusedEntries(20, 2), DictionaryBlock.class);
+        testFilter(createDictionaryBlockWithUnusedEntries(20, 2), LongArrayBlock.class);
 
         // match all
-        testFilter(DictionaryBlock.create(100, createLongsBlock(4, 5, -1), new int[100]), DictionaryBlock.class);
+        testFilter(DictionaryBlock.create(100, createLongsBlock(4, 5, -1), new int[100]), LongArrayBlock.class);
+    }
+
+    @ParameterizedTest
+    @MethodSource("io.trino.testing.DataProviders#trueFalse")
+    public void testSparseDictionaryBlocks(boolean usePositionsList)
+    {
+        TestingDictionaryFilter testingFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(testingFilter);
+        // the first dictionary is always processed
+        testFilter(filter, createDictionaryBlock(100, 10), true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(100);
+        // the last dictionary served fewer positions than it has entries, so the next block is filtered on the entries it references
+        testFilter(filter, createDictionaryBlock(100, 10), true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(10);
+        // a dictionary no larger than the block is always processed
+        testFilter(filter, createDictionaryBlock(5, 10), true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(5);
+        // the last dictionary served more positions than it has entries, so the next one is processed
+        testFilter(filter, createDictionaryBlock(100, 10), true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(100);
+    }
+
+    @ParameterizedTest
+    @MethodSource("io.trino.testing.DataProviders#trueFalse")
+    public void testSparseDictionaryBlockRegionWithOffset(boolean usePositionsList)
+    {
+        TestingDictionaryFilter testingFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(testingFilter);
+        // the first dictionary is processed and serves fewer positions than it has entries
+        testFilter(filter, createDictionaryBlock(100, 10), true, usePositionsList);
+
+        // a region of a dictionary block carries a non zero ids offset
+        Block block = createDictionaryBlock(100, 20).getRegion(4, 12);
+        int[] outputPositions = new int[block.getPositionCount()];
+        int[] activePositions = new int[block.getPositionCount()];
+        Arrays.setAll(activePositions, index -> index);
+        // the window straddles the filter boundary, so reading ids from the region start selects a different set
+        int offset = 5;
+        int size = 3;
+        int outputPositionsCount;
+        if (usePositionsList) {
+            outputPositionsCount = filter.filterPositionsList(FULL_CONNECTOR_SESSION, outputPositions, activePositions, offset, size, SourcePage.create(block));
+        }
+        else {
+            outputPositionsCount = filter.filterPositionsRange(FULL_CONNECTOR_SESSION, outputPositions, offset, size, SourcePage.create(block));
+        }
+
+        IntSet expectedSelectedPositions = new IntArraySet();
+        for (int index = offset; index < offset + size; index++) {
+            int position;
+            if (usePositionsList) {
+                position = activePositions[index];
+            }
+            else {
+                position = index;
+            }
+            if (isSelected(true, BIGINT.getLong(block, position))) {
+                expectedSelectedPositions.add(position);
+            }
+        }
+        assertThat(new IntArraySet(Arrays.copyOfRange(outputPositions, 0, outputPositionsCount))).isEqualTo(expectedSelectedPositions);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(size);
     }
 
     private static Block createDictionaryBlock(int dictionarySize, int blockSize)
@@ -240,7 +306,8 @@ public class TestDictionaryAwareColumnarFilter
             implements ColumnarFilter
     {
         private final boolean selectRange;
-        private Class<? extends Block> expectedType;
+        private final Class<? extends Block> expectedType;
+        private int lastInputPositionCount;
 
         public TestingDictionaryFilter(boolean selectRange, Class<? extends Block> expectedType)
         {
@@ -248,9 +315,9 @@ public class TestDictionaryAwareColumnarFilter
             this.expectedType = expectedType;
         }
 
-        public void setExpectedType(Class<? extends Block> expectedType)
+        public int getLastInputPositionCount()
         {
-            this.expectedType = expectedType;
+            return lastInputPositionCount;
         }
 
         @Override
@@ -264,6 +331,7 @@ public class TestDictionaryAwareColumnarFilter
         {
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
+            lastInputPositionCount = block.getPositionCount();
 
             int outputPositionsCount = 0;
             for (int position = offset; position < offset + size; position++) {
@@ -290,6 +358,7 @@ public class TestDictionaryAwareColumnarFilter
         {
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
+            lastInputPositionCount = block.getPositionCount();
 
             int outputPositionsCount = 0;
             for (int index = offset; index < offset + size; index++) {
