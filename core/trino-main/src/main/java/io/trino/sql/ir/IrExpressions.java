@@ -473,7 +473,8 @@ public final class IrExpressions
     {
         return switch (expression) {
             // These expressions never fail
-            case Bind _, Constant _, FieldReference _, Lambda _, Reference _ -> false;
+            case Bind _, Constant _, Lambda _, Reference _ -> false;
+            case FieldReference e -> mayFail(plannerContext, charVarcharCoercion, e.base());
 
             // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, charVarcharCoercion, element));
