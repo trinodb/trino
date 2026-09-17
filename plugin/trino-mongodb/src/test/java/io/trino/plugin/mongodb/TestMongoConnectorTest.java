@@ -543,15 +543,17 @@ public class TestMongoConnectorTest
                 Arrays.asList("decimal '3141592653589793238462643383279502'", null))) {
             // Filter clause with 38 precision decimal value
             String predicateValue = "decimal '31415926535897932384626433832795028841'";
+            // The predicate value exceeds the column type's range, so PushPredicateIntoTableScan#pushFilterIntoTableScan
+            // replaces the table scan with a ValuesNode and there is no pushdown to verify.
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + predicateValue))
-                    // With EQUAL operator when column type precision is less than the predicate value's precision,
-                    // PushPredicateIntoTableScan#pushFilterIntoTableScan returns ValuesNode. So It is not possible to verify isFullyPushedDown.
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col > " + predicateValue))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col >= " + predicateValue))
                     .returnsEmptyResult();
             testPredicatePushdown(table.getName(), "col != " + predicateValue);
             testPredicatePushdown(table.getName(), "col < " + predicateValue);
-            testPredicatePushdown(table.getName(), "col > " + predicateValue);
             testPredicatePushdown(table.getName(), "col <= " + predicateValue);
-            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
 
             // Filter clause with 34 precision decimal value
             predicateValue = "decimal '3141592653589793238462643383279502'";
