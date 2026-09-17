@@ -139,7 +139,7 @@ public class TestUnwrapCastInComparison
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
 
-                for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+                for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, (-1L << 23) + 1, 0, 0.1, 0.9, 1, (1L << 23) - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                     validate(operator, fromType, from, "REAL", to);
                 }
             }
@@ -150,7 +150,7 @@ public class TestUnwrapCastInComparison
             for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, 0, 0.1, 0.9, 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                 validateBetween(fromType, from, "DOUBLE", to, to);
             }
-            for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+            for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, (-1L << 23) + 1, 0, 0.1, 0.9, 1, (1L << 23) - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                 validateBetween(fromType, from, "REAL", to, to);
             }
             for (String toType : asList("BIGINT", "DOUBLE", "REAL")) {
@@ -165,19 +165,19 @@ public class TestUnwrapCastInComparison
         for (Number from : asList(null, Long.MIN_VALUE, 0, 1, Long.MAX_VALUE)) {
             String fromType = "BIGINT";
             for (String operator : COMPARISON_OPERATORS) {
-                for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 53 + 1, 0, 0.1, 0.9, 1, 1L << 53 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, (-1L << 53) + 1, 0, 0.1, 0.9, 1, (1L << 53) - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
 
-                for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, (-1L << 23) + 1, 0, 0.1, 0.9, 1, (1L << 23) - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                     validate(operator, fromType, from, "REAL", to);
                 }
             }
 
-            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 53 + 1, 0, 0.1, 0.9, 1, 1L << 53 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, (-1L << 53) + 1, 0, 0.1, 0.9, 1, (1L << 53) - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                 validateBetween(fromType, from, "DOUBLE", to, to);
             }
-            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, (-1L << 23) + 1, 0, 0.1, 0.9, 1, (1L << 23) - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                 validateBetween(fromType, from, "REAL", to, to);
             }
             for (String toType : asList("DOUBLE", "REAL")) {
