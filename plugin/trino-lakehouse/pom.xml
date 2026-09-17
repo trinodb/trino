@@ -27,6 +27,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
@@ -67,11 +72,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hudi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-iceberg</artifactId>
         </dependency>
 
@@ -93,6 +93,11 @@
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-trino</artifactId>
         </dependency>
 
         <dependency>
@@ -270,6 +275,8 @@
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                         <ignoredResourcePattern>org/conscrypt/conscrypt.properties</ignoredResourcePattern>
+                        <!-- protobuf .proto descriptors shaded into hudi-io duplicate the canonical ones -->
+                        <ignoredResourcePattern>google/protobuf/.*</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                     <ignoredClassPatterns>
                         <ignoredClassPattern>org.conscrypt.*</ignoredClassPattern>
