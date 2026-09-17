@@ -49,6 +49,8 @@ public final class BooleanType
     private static final long TRUE_XX_HASH = XxHash64.hash(1);
     private static final long FALSE_XX_HASH = XxHash64.hash(0);
 
+    private static final Range RANGE = new Range(false, true);
+
     public static final BooleanType BOOLEAN = new BooleanType();
 
     public static Block createBlockForSingleNonNullValue(boolean value)
@@ -138,6 +140,30 @@ public final class BooleanType
     public int getFlatFixedSize()
     {
         return 1;
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(RANGE);
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        if (!(boolean) value) {
+            return Optional.empty();
+        }
+        return Optional.of(false);
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        if ((boolean) value) {
+            return Optional.empty();
+        }
+        return Optional.of(true);
     }
 
     @Override
