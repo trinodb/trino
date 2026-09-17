@@ -28,26 +28,24 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLES;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLE_FUNCTIONS;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.TRINO_QUERY_START_TIME;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergMaterializedViewSummary
 {
+    private static final String PROPERTY_ONE = "dependsOnTables";
+    private static final String PROPERTY_TWO = "trino-query-start-time";
+    private static final List<String> PROPERTIES = List.of(PROPERTY_ONE, PROPERTY_TWO);
+
     @Test
     public void testAllDependencyPropertiesAreCopiedFromParent()
     {
         FakeSnapshotUpdate snapshotUpdate = new FakeSnapshotUpdate();
-        carryForwardMaterializedViewDependencies(snapshotUpdate);
+        carryForwardMaterializedViewDependencies(snapshotUpdate, PROPERTIES);
 
         Map<String, String> parentSummary = ImmutableMap.of(
-                DEPENDS_ON_TABLES, "catalog.schema.table=1",
-                DEPENDS_ON_TABLE_FUNCTIONS, "false",
-                DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, "false",
-                TRINO_QUERY_START_TIME, "2026-01-01T00:00:00Z");
+                PROPERTY_ONE, "catalog.schema.table=1",
+                PROPERTY_TWO, "2026-01-01T00:00:00Z");
 
         assertThat(snapshotUpdate.validateAncestry(List.of(new FakeSnapshot(parentSummary)))).isTrue();
         assertThat(snapshotUpdate.properties()).containsExactlyInAnyOrderEntriesOf(parentSummary);
@@ -57,9 +55,9 @@ public class TestIcebergMaterializedViewSummary
     public void testOnlyPropertiesPresentOnParentAreCopied()
     {
         FakeSnapshotUpdate snapshotUpdate = new FakeSnapshotUpdate();
-        carryForwardMaterializedViewDependencies(snapshotUpdate);
+        carryForwardMaterializedViewDependencies(snapshotUpdate, PROPERTIES);
 
-        Map<String, String> parentSummary = ImmutableMap.of(DEPENDS_ON_TABLES, "catalog.schema.table=1");
+        Map<String, String> parentSummary = ImmutableMap.of(PROPERTY_ONE, "catalog.schema.table=1");
 
         assertThat(snapshotUpdate.validateAncestry(List.of(new FakeSnapshot(parentSummary)))).isTrue();
         assertThat(snapshotUpdate.properties()).containsExactlyInAnyOrderEntriesOf(parentSummary);
@@ -69,7 +67,7 @@ public class TestIcebergMaterializedViewSummary
     public void testParentWithNoDependencyPropertiesIsANoOp()
     {
         FakeSnapshotUpdate snapshotUpdate = new FakeSnapshotUpdate();
-        carryForwardMaterializedViewDependencies(snapshotUpdate);
+        carryForwardMaterializedViewDependencies(snapshotUpdate, PROPERTIES);
 
         assertThat(snapshotUpdate.validateAncestry(List.of(new FakeSnapshot(ImmutableMap.of())))).isTrue();
         assertThat(snapshotUpdate.properties()).isEmpty();
@@ -80,7 +78,7 @@ public class TestIcebergMaterializedViewSummary
     {
         // Empty ancestry means there is no parent snapshot, i.e. this is the table's first snapshot.
         FakeSnapshotUpdate snapshotUpdate = new FakeSnapshotUpdate();
-        carryForwardMaterializedViewDependencies(snapshotUpdate);
+        carryForwardMaterializedViewDependencies(snapshotUpdate, PROPERTIES);
 
         assertThat(snapshotUpdate.validateAncestry(List.of())).isTrue();
         assertThat(snapshotUpdate.properties()).isEmpty();
@@ -94,11 +92,11 @@ public class TestIcebergMaterializedViewSummary
         // property that was copied from an earlier attempt's parent, the commit must be rejected rather than
         // resurrecting the stale value.
         FakeSnapshotUpdate snapshotUpdate = new FakeSnapshotUpdate();
-        carryForwardMaterializedViewDependencies(snapshotUpdate);
+        carryForwardMaterializedViewDependencies(snapshotUpdate, PROPERTIES);
 
-        Snapshot firstAttemptParent = new FakeSnapshot(ImmutableMap.of(DEPENDS_ON_TABLES, "catalog.schema.table=1"));
+        Snapshot firstAttemptParent = new FakeSnapshot(ImmutableMap.of(PROPERTY_ONE, "catalog.schema.table=1"));
         assertThat(snapshotUpdate.validateAncestry(List.of(firstAttemptParent))).isTrue();
-        assertThat(snapshotUpdate.properties()).containsEntry(DEPENDS_ON_TABLES, "catalog.schema.table=1");
+        assertThat(snapshotUpdate.properties()).containsEntry(PROPERTY_ONE, "catalog.schema.table=1");
 
         Snapshot retryParent = new FakeSnapshot(ImmutableMap.of());
         assertThat(snapshotUpdate.validateAncestry(List.of(retryParent))).isFalse();
