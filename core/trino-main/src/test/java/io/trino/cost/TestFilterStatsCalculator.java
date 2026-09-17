@@ -314,6 +314,16 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(2)
                                 .nullsFraction(0));
 
+        // A null term matches no rows
+        assertExpression(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 1.0)), comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)), new Constant(BOOLEAN, null))))
+                .outputRowsCount(37.5)
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(1)
+                                .highValue(3)
+                                .distinctValuesCount(2)
+                                .nullsFraction(0));
+
         assertExpression(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 1.0)), comparison(EQUAL, new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b"))), comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)))))
                 .outputRowsCount(37.5)
                 .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
