@@ -19,7 +19,6 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
-import io.trino.plugin.iceberg.CreateTableException;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
@@ -149,11 +148,8 @@ public abstract class AbstractMetastoreTableOperations
                 case UNKNOWN -> throw new CommitStateUnknownException(e);
                 // The create did not happen (or another writer owns the name); the new metadata file is orphaned.
                 // Clean it up and wrap the failure in CleanableFailure so Iceberg also removes the manifest list
-                // and any data files.
-                case FAILURE -> {
-                    io().deleteFile(newMetadataLocation);
-                    throw new CreateTableException(e, getSchemaTableName());
-                }
+                // and manifests. A failed cleanup must not hide the create failure, so it is only logged.
+                case FAILURE -> throw deleteOrphanedMetadata(newMetadataLocation, e);
             }
         }
     }

@@ -15,12 +15,14 @@ package io.trino.plugin.iceberg.catalog;
 
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.StorageFormat;
+import io.trino.plugin.iceberg.CreateTableException;
 import io.trino.plugin.iceberg.IcebergExceptions;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
@@ -76,6 +78,8 @@ import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 public abstract class AbstractIcebergTableOperations
         implements IcebergTableOperations
 {
+    private static final Logger log = Logger.get(AbstractIcebergTableOperations.class);
+
     public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
             LAZY_SIMPLE_SERDE_CLASS,
             FILE_INPUT_FORMAT_CLASS,
@@ -241,6 +245,17 @@ public abstract class AbstractIcebergTableOperations
     {
         TableMetadata metadata = current();
         return getLocationProvider(getSchemaTableName(), metadata.location(), metadata.properties());
+    }
+
+    protected CreateTableException deleteOrphanedMetadata(String metadataLocation, Exception cause)
+    {
+        try {
+            io().deleteFile(metadataLocation);
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Failed to clean up metadata file %s for table %s", metadataLocation, getSchemaTableName());
+        }
+        return new CreateTableException(cause, getSchemaTableName());
     }
 
     protected SchemaTableName getSchemaTableName()
