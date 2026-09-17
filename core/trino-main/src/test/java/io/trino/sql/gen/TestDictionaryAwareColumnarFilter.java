@@ -169,6 +169,32 @@ public class TestDictionaryAwareColumnarFilter
 
     @ParameterizedTest
     @MethodSource("io.trino.testing.DataProviders#trueFalse")
+    public void testSkippedDictionaryIsProcessedAfterEnoughUsage(boolean usePositionsList)
+    {
+        TestingDictionaryFilter testingFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(testingFilter);
+        // the first dictionary is processed and serves fewer positions than it has entries
+        testFilter(filter, createDictionaryBlock(100, 10), true, usePositionsList);
+
+        // the next dictionary is skipped, so its blocks are filtered on the entries they reference
+        Block block = createDictionaryBlock(100, 40);
+        testFilter(filter, block, true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(40);
+        testFilter(filter, block, true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(40);
+
+        // the skipped dictionary has now served as many positions as it has entries, so it is processed
+        testFilter(filter, block, true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(100);
+
+        // later blocks of the processed dictionary reuse the cached result
+        int invocationCount = testingFilter.getInvocationCount();
+        testFilter(filter, block, true, usePositionsList);
+        assertThat(testingFilter.getInvocationCount()).isEqualTo(invocationCount);
+    }
+
+    @ParameterizedTest
+    @MethodSource("io.trino.testing.DataProviders#trueFalse")
     public void testSparseDictionaryBlockRegionWithOffset(boolean usePositionsList)
     {
         TestingDictionaryFilter testingFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
@@ -308,6 +334,7 @@ public class TestDictionaryAwareColumnarFilter
         private final boolean selectRange;
         private final Class<? extends Block> expectedType;
         private int lastInputPositionCount;
+        private int invocationCount;
 
         public TestingDictionaryFilter(boolean selectRange, Class<? extends Block> expectedType)
         {
@@ -318,6 +345,11 @@ public class TestDictionaryAwareColumnarFilter
         public int getLastInputPositionCount()
         {
             return lastInputPositionCount;
+        }
+
+        public int getInvocationCount()
+        {
+            return invocationCount;
         }
 
         @Override
@@ -332,6 +364,7 @@ public class TestDictionaryAwareColumnarFilter
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
             lastInputPositionCount = block.getPositionCount();
+            invocationCount++;
 
             int outputPositionsCount = 0;
             for (int position = offset; position < offset + size; position++) {
@@ -359,6 +392,7 @@ public class TestDictionaryAwareColumnarFilter
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
             lastInputPositionCount = block.getPositionCount();
+            invocationCount++;
 
             int outputPositionsCount = 0;
             for (int index = offset; index < offset + size; index++) {

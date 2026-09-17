@@ -35,6 +35,8 @@ public final class DictionaryAwareColumnarFilter
     @Nullable
     private boolean[] lastOutputDictionary;
     private long lastDictionaryUsageCount;
+    // true when filtering the last dictionary failed, so it is never processed again
+    private boolean lastDictionaryFilterFailed;
 
     public DictionaryAwareColumnarFilter(ColumnarFilter columnarFilter)
     {
@@ -165,21 +167,28 @@ public final class DictionaryAwareColumnarFilter
         }
         catch (Exception _) {
             // Filtering an unused dictionary entry may fail, so the block is filtered on the entries it references
-            skipDictionary(dictionary, blockPositionsCount);
+            if (lastInputDictionary != dictionary) {
+                skipDictionary(dictionary, blockPositionsCount);
+            }
+            lastDictionaryFilterFailed = true;
             return null;
         }
     }
 
     /**
      * Returns the filter result for every dictionary entry, or null when filtering the dictionary is not
-     * worth it because the last dictionary served fewer positions than it has entries.
+     * worth it because the dictionary has served fewer positions than it has entries.
      */
     @Nullable
     private boolean[] selectedDictionaryMask(ConnectorSession session, Block dictionary, int blockPositionsCount)
     {
         if (lastInputDictionary == dictionary) {
             lastDictionaryUsageCount += blockPositionsCount;
-            return lastOutputDictionary;
+            // A skipped dictionary is processed once it has served at least as many positions as it has entries
+            if (lastOutputDictionary != null || lastDictionaryFilterFailed || lastDictionaryUsageCount < dictionary.getPositionCount()) {
+                return lastOutputDictionary;
+            }
+            return filterDictionary(session, dictionary, lastDictionaryUsageCount);
         }
 
         // Process the dictionary when this is the first block, the dictionary is no larger than the block,
@@ -193,6 +202,14 @@ public final class DictionaryAwareColumnarFilter
             return null;
         }
 
+        return filterDictionary(session, dictionary, blockPositionsCount);
+    }
+
+    /**
+     * Filters every dictionary entry and caches the result.
+     */
+    private boolean[] filterDictionary(ConnectorSession session, Block dictionary, long dictionaryUsageCount)
+    {
         int positionCount = dictionary.getPositionCount();
         int[] selectedPositions = new int[positionCount];
         int selectedPositionsCount = columnarFilter.filterPositionsRange(session, selectedPositions, 0, positionCount, SourcePage.create(dictionary));
@@ -203,7 +220,8 @@ public final class DictionaryAwareColumnarFilter
         }
         lastInputDictionary = dictionary;
         lastOutputDictionary = positionsMask;
-        lastDictionaryUsageCount = blockPositionsCount;
+        lastDictionaryUsageCount = dictionaryUsageCount;
+        lastDictionaryFilterFailed = false;
         return positionsMask;
     }
 
@@ -215,5 +233,6 @@ public final class DictionaryAwareColumnarFilter
         lastInputDictionary = dictionary;
         lastOutputDictionary = null;
         lastDictionaryUsageCount = blockPositionsCount;
+        lastDictionaryFilterFailed = false;
     }
 }
