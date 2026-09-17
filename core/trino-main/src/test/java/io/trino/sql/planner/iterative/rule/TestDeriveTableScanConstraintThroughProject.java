@@ -27,7 +27,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -216,9 +215,9 @@ public class TestDeriveTableScanConstraintThroughProject
     @Test
     public void testDoesNotFireWhenInlinedExpressionExceedsSizeBudget()
     {
-        // each reference to the projected expression counts toward the size estimate
+        // the predicate alone exceeds the budget
         Expression manyValues = new Logical(OR, IntStream.range(0, 4000)
-                .mapToObj(i -> comparison(EQUAL, X, new Constant(WIDE_STATUS_TYPE, utf8Slice("v" + i))))
+                .mapToObj(i -> comparison(EQUAL, X, new Constant(WIDE_STATUS_TYPE, utf8Slice(threeChars(i)))))
                 .collect(toImmutableList()));
         tester().assertThat(rule)
                 .on(p -> p.filter(
@@ -237,26 +236,52 @@ public class TestDeriveTableScanConstraintThroughProject
     @Test
     public void testDoesNotFireWhenRepeatedReferencesExceedSizeBudget()
     {
-        // the predicate itself is small, but every reference to the large projected expression
-        // consumes budget, so the estimated inlined size exceeds the limit
-        Expression largeAssignment = new Coalesce(IntStream.range(0, 750)
-                .mapToObj(_ -> (Expression) new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))
-                .collect(toImmutableList()));
-        Expression fewComparisons = new Logical(OR, IntStream.range(0, 7)
-                .mapToObj(i -> comparison(EQUAL, X, new Constant(WIDE_STATUS_TYPE, utf8Slice("v" + i))))
+        // the predicate alone fits the budget, the 2500 references to the projected expression do not
+        Expression manyComparisons = new Logical(OR, IntStream.range(0, 2500)
+                .mapToObj(i -> comparison(EQUAL, X, new Constant(WIDE_STATUS_TYPE, utf8Slice(threeChars(i)))))
                 .collect(toImmutableList()));
         tester().assertThat(rule)
                 .on(p -> p.filter(
-                        fewComparisons,
+                        manyComparisons,
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("x", WIDE_STATUS_TYPE), largeAssignment)
+                                        .put(p.symbol("x", WIDE_STATUS_TYPE), new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))
                                         .build(),
                                 p.tableScan(
                                         ordersTableHandle,
                                         ImmutableList.of(p.symbol("orderstatus", STATUS_TYPE)),
                                         ImmutableMap.of(p.symbol("orderstatus", STATUS_TYPE), orderStatusColumn)))))
                 .doesNotFire();
+    }
+
+    @Test
+    public void testDerivesFromConjunctsWithinBudget()
+    {
+        // the oversized conjunct is left out and the constraint is derived from the one that fits
+        Expression manyComparisons = new Logical(OR, IntStream.range(0, 2500)
+                .mapToObj(i -> comparison(EQUAL, X, new Constant(WIDE_STATUS_TYPE, utf8Slice(threeChars(i)))))
+                .collect(toImmutableList()));
+        Expression predicate = new Logical(AND, ImmutableList.of(manyComparisons, X_O_OR_F));
+        tester().assertThat(rule)
+                .on(p -> p.filter(
+                        predicate,
+                        p.project(
+                                Assignments.builder()
+                                        .put(p.symbol("x", WIDE_STATUS_TYPE), new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))
+                                        .build(),
+                                p.tableScan(
+                                        ordersTableHandle,
+                                        ImmutableList.of(p.symbol("orderstatus", STATUS_TYPE)),
+                                        ImmutableMap.of(p.symbol("orderstatus", STATUS_TYPE), orderStatusColumn)))))
+                .matches(
+                        filter(
+                                predicate,
+                                project(
+                                        ImmutableMap.of("x", expression(new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))),
+                                        constrainedTableScanWithTableLayout(
+                                                "orders",
+                                                ImmutableMap.of("orderstatus", O_OR_F_DOMAIN),
+                                                ImmutableMap.of("orderstatus", "orderstatus")))));
     }
 
     @Test
@@ -312,6 +337,11 @@ public class TestDeriveTableScanConstraintThroughProject
                                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                                 orderStatusColumn, O_OR_F_DOMAIN))))))
                 .doesNotFire();
+    }
+
+    private static String threeChars(int i)
+    {
+        return new String(new char[] {(char) ('a' + i / 676), (char) ('a' + (i / 26) % 26), (char) ('a' + i % 26)});
     }
 
     private static Expression notNull()
