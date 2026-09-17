@@ -64,6 +64,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.isConstantNull;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -210,18 +211,26 @@ public class FilterStatsCalculator
 
         private PlanNodeStatsEstimate estimateLogicalOr(List<Expression> terms)
         {
-            PlanNodeStatsEstimate previous = process(terms.get(0));
+            // A null term matches no rows, so it adds nothing to the union
+            List<Expression> nonNullTerms = terms.stream()
+                    .filter(term -> !isConstantNull(term))
+                    .collect(toImmutableList());
+            if (nonNullTerms.isEmpty()) {
+                return process(Booleans.FALSE);
+            }
+
+            PlanNodeStatsEstimate previous = process(nonNullTerms.get(0));
             if (previous.isOutputRowCountUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            for (int i = 1; i < terms.size(); i++) {
-                PlanNodeStatsEstimate current = process(terms.get(i));
+            for (int i = 1; i < nonNullTerms.size(); i++) {
+                PlanNodeStatsEstimate current = process(nonNullTerms.get(i));
                 if (current.isOutputRowCountUnknown()) {
                     return PlanNodeStatsEstimate.unknown();
                 }
 
-                PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(previous, session).process(terms.get(i));
+                PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(previous, session).process(nonNullTerms.get(i));
                 if (andEstimate.isOutputRowCountUnknown()) {
                     return PlanNodeStatsEstimate.unknown();
                 }
