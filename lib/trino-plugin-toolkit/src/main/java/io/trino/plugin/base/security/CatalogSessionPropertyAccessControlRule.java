@@ -62,9 +62,7 @@ public class CatalogSessionPropertyAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogPermissionsRule(
-                sessionPropertyAccessControlRule.getUserRegex(),
-                sessionPropertyAccessControlRule.getRoleRegex(),
-                sessionPropertyAccessControlRule.getGroupRegex(),
+                sessionPropertyAccessControlRule.getIdentityMatcher(),
                 catalogRegex));
     }
 }

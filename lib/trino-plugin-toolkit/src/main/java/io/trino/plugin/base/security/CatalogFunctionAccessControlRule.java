@@ -78,9 +78,7 @@ public class CatalogFunctionAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogPermissionsRule(
-                functionAccessControlRule.getUserRegex(),
-                functionAccessControlRule.getRoleRegex(),
-                functionAccessControlRule.getGroupRegex(),
+                functionAccessControlRule.getIdentityMatcher(),
                 catalogRegex));
     }
 
@@ -90,9 +88,7 @@ public class CatalogFunctionAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
-                functionAccessControlRule.getUserRegex(),
-                functionAccessControlRule.getRoleRegex(),
-                functionAccessControlRule.getGroupRegex(),
+                functionAccessControlRule.getIdentityMatcher(),
                 catalogRegex,
                 functionAccessControlRule.getSchemaRegex()));
     }

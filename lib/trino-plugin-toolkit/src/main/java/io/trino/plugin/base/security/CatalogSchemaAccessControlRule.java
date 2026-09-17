@@ -63,9 +63,7 @@ public class CatalogSchemaAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogPermissionsRule(
-                schemaAccessControlRule.getUserRegex(),
-                schemaAccessControlRule.getRoleRegex(),
-                schemaAccessControlRule.getGroupRegex(),
+                schemaAccessControlRule.getIdentityMatcher(),
                 catalogRegex));
     }
 
@@ -75,9 +73,7 @@ public class CatalogSchemaAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
-                schemaAccessControlRule.getUserRegex(),
-                schemaAccessControlRule.getRoleRegex(),
-                schemaAccessControlRule.getGroupRegex(),
+                schemaAccessControlRule.getIdentityMatcher(),
                 catalogRegex,
                 schemaAccessControlRule.getSchemaRegex()));
     }
