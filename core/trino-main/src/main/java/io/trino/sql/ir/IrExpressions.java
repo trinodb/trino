@@ -27,6 +27,7 @@ import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
@@ -105,6 +106,20 @@ public final class IrExpressions
     private static Call operatorCall(Metadata metadata, CharVarcharCoercion charVarcharCoercion, OperatorType operator, Expression left, Expression right)
     {
         return call(metadata.resolveOperator(charVarcharCoercion, operator, ImmutableList.of(left.type(), right.type())), left, right);
+    }
+
+    /// Whether the call is `at_timezone` over a `timestamp with time zone` value. `at_timezone` changes
+    /// only the zone the value is rendered in, never its instant, so instant-based comparisons over it
+    /// constrain the underlying value exactly as a direct comparison would. Restricted to
+    /// `timestamp with time zone`: the `time with time zone` variant interacts with comparison
+    /// semantics differently. Both the varchar-zone and interval-offset overloads qualify; the
+    /// argument type check excludes any form that changes precision.
+    public static boolean isAtTimeZone(Call call)
+    {
+        return call.function().name().equals(builtinFunctionName("at_timezone")) &&
+                call.arguments().size() == 2 &&
+                call.type() instanceof TimestampWithTimeZoneType &&
+                call.arguments().getFirst().type().equals(call.type());
     }
 
     /// Decodes the canonical IR form of a comparison back into its operator and operands, or
