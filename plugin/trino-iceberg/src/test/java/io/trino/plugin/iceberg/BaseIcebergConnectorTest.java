@@ -6238,7 +6238,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_timestamp AS date) IN (DATE '2025-01-03', DATE '2025-01-04', DATE '2025-01-05')")).isFullyPushedDown();
 
             // IN with non-consecutive values
-            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_timestamp AS date) IN (DATE '2025-01-03', DATE '2025-01-09', DATE '2025-01-05')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE CAST(a_timestamp AS date) IN (DATE '2025-01-03', DATE '2025-01-09', DATE '2025-01-05')")).isFullyPushedDown();
         }
     }
 

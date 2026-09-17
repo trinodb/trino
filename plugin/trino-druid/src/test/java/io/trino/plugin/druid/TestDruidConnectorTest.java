@@ -561,7 +561,7 @@ public class TestDruidConnectorTest
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar)), " +
                         "(BIGINT '1', BIGINT '574', CAST('AIR' AS varchar))")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
     }
 
     @Test
