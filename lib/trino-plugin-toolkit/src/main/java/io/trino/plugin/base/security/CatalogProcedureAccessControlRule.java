@@ -74,9 +74,7 @@ public class CatalogProcedureAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogPermissionsRule(
-                procedureAccessControlRule.getUserRegex(),
-                procedureAccessControlRule.getRoleRegex(),
-                procedureAccessControlRule.getGroupRegex(),
+                procedureAccessControlRule.getIdentityMatcher(),
                 catalogRegex));
     }
 
@@ -86,9 +84,7 @@ public class CatalogProcedureAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
-                procedureAccessControlRule.getUserRegex(),
-                procedureAccessControlRule.getRoleRegex(),
-                procedureAccessControlRule.getGroupRegex(),
+                procedureAccessControlRule.getIdentityMatcher(),
                 catalogRegex,
                 procedureAccessControlRule.getSchemaRegex()));
     }

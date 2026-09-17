@@ -38,9 +38,7 @@ public class CatalogAccessControlRule
             Optional.empty());
 
     private final AccessMode accessMode;
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
+    private final IdentityMatcher identityMatcher;
     private final Optional<Pattern> catalogRegex;
 
     @JsonCreator
@@ -52,17 +50,13 @@ public class CatalogAccessControlRule
             @JsonProperty("catalog") Optional<Pattern> catalogRegex)
     {
         this.accessMode = requireNonNull(accessMode, "accessMode is null");
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
+        this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
     }
 
     public Optional<AccessMode> match(String user, Set<String> roles, Set<String> groups, String catalog)
     {
-        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
+        if (identityMatcher.matches(user, roles, groups) &&
                 catalogRegex.map(regex -> regex.matcher(catalog).matches()).orElse(true)) {
             return Optional.of(accessMode);
         }

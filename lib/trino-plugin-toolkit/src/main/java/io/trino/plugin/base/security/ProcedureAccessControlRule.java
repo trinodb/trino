@@ -29,9 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class ProcedureAccessControlRule
 {
     private final Set<ProcedurePrivilege> privileges;
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
+    private final IdentityMatcher identityMatcher;
     private final Optional<Pattern> schemaRegex;
     private final Optional<Pattern> procedureRegex;
 
@@ -45,18 +43,14 @@ public class ProcedureAccessControlRule
             @JsonProperty("procedure") Optional<Pattern> procedureRegex)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
+        this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
         this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
         this.procedureRegex = requireNonNull(procedureRegex, "procedureRegex is null");
     }
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, SchemaRoutineName procedureName)
     {
-        return userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
+        return identityMatcher.matches(user, roles, groups) &&
                 schemaRegex.map(regex -> regex.matcher(procedureName.getSchemaName()).matches()).orElse(true) &&
                 procedureRegex.map(regex -> regex.matcher(procedureName.getRoutineName()).matches()).orElse(true);
     }
@@ -76,7 +70,7 @@ public class ProcedureAccessControlRule
         if (privileges.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new AnySchemaPermissionsRule(userRegex, roleRegex, groupRegex, schemaRegex));
+        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaRegex));
     }
 
     Set<ProcedurePrivilege> getPrivileges()
@@ -84,19 +78,9 @@ public class ProcedureAccessControlRule
         return privileges;
     }
 
-    Optional<Pattern> getUserRegex()
+    IdentityMatcher getIdentityMatcher()
     {
-        return userRegex;
-    }
-
-    Optional<Pattern> getRoleRegex()
-    {
-        return roleRegex;
-    }
-
-    Optional<Pattern> getGroupRegex()
-    {
-        return groupRegex;
+        return identityMatcher;
     }
 
     Optional<Pattern> getSchemaRegex()

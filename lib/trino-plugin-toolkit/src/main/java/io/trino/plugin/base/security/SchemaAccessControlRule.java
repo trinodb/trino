@@ -32,9 +32,7 @@ public class SchemaAccessControlRule
             Optional.empty());
 
     private final boolean owner;
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
+    private final IdentityMatcher identityMatcher;
     private final Optional<Pattern> schemaRegex;
 
     @JsonCreator
@@ -46,17 +44,13 @@ public class SchemaAccessControlRule
             @JsonProperty("schema") Optional<Pattern> schemaRegex)
     {
         this.owner = owner;
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
+        this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
         this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
     }
 
     public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, String schema)
     {
-        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
+        if (identityMatcher.matches(user, roles, groups) &&
                 schemaRegex.map(regex -> regex.matcher(schema).matches()).orElse(true)) {
             return Optional.of(owner);
         }
@@ -68,7 +62,7 @@ public class SchemaAccessControlRule
         if (!owner) {
             return Optional.empty();
         }
-        return Optional.of(new AnySchemaPermissionsRule(userRegex, roleRegex, groupRegex, schemaRegex));
+        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaRegex));
     }
 
     boolean isOwner()
@@ -76,19 +70,9 @@ public class SchemaAccessControlRule
         return owner;
     }
 
-    Optional<Pattern> getUserRegex()
+    IdentityMatcher getIdentityMatcher()
     {
-        return userRegex;
-    }
-
-    Optional<Pattern> getGroupRegex()
-    {
-        return groupRegex;
-    }
-
-    public Optional<Pattern> getRoleRegex()
-    {
-        return roleRegex;
+        return identityMatcher;
     }
 
     Optional<Pattern> getSchemaRegex()

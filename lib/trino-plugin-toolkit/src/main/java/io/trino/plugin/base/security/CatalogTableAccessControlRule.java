@@ -100,9 +100,7 @@ public class CatalogTableAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogPermissionsRule(
-                tableAccessControlRule.getUserRegex(),
-                tableAccessControlRule.getRoleRegex(),
-                tableAccessControlRule.getGroupRegex(),
+                tableAccessControlRule.getIdentityMatcher(),
                 catalogRegex));
     }
 
@@ -112,9 +110,7 @@ public class CatalogTableAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
-                tableAccessControlRule.getUserRegex(),
-                tableAccessControlRule.getRoleRegex(),
-                tableAccessControlRule.getGroupRegex(),
+                tableAccessControlRule.getIdentityMatcher(),
                 catalogRegex,
                 tableAccessControlRule.getSchemaRegex()));
     }
