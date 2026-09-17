@@ -56,6 +56,7 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.PushPredicateIntoTableScanWithoutProject;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingTransactionHandle;
@@ -116,7 +117,7 @@ public class TestPushPredicateIntoTableScan
     private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
     private static final ColumnHandle MOCK_COLUMN_HANDLE = new MockConnectorColumnHandle("col", VARCHAR);
 
-    private PushPredicateIntoTableScan pushPredicateIntoTableScan;
+    private PushPredicateIntoTableScanWithoutProject pushPredicateIntoTableScan;
     private CatalogHandle mockCatalogHandle;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
@@ -125,7 +126,7 @@ public class TestPushPredicateIntoTableScan
     @BeforeAll
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false);
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScanWithoutProject(tester().getPlannerContext(), false);
 
         CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
         tester().getPlanTester().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
