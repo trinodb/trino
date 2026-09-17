@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneNotSupportedException;
-import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
@@ -26,9 +25,9 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions.Comparison;
 
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.isInstantPreservingAtTimeZone;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static java.util.Objects.requireNonNull;
 
@@ -109,18 +108,15 @@ public class UnwrapAtTimeZoneInComparison
 
         private static Expression unwrap(Expression expression)
         {
-            while (expression instanceof Call call && isInstantPreservingAtTimeZone(call)) {
+            while (expression instanceof Call call && isDroppableAtTimeZone(call)) {
                 expression = call.arguments().get(0);
             }
             return expression;
         }
 
-        private static boolean isInstantPreservingAtTimeZone(Call call)
+        private static boolean isDroppableAtTimeZone(Call call)
         {
-            if (!call.function().name().equals(builtinFunctionName("at_timezone")) ||
-                    call.arguments().size() != 2 ||
-                    !(call.type() instanceof TimestampWithTimeZoneType) ||
-                    !call.arguments().get(0).type().equals(call.type())) {
+            if (!isInstantPreservingAtTimeZone(call)) {
                 return false;
             }
             // only a constant zone that is provably valid can be dropped: a null zone makes the
