@@ -69,6 +69,7 @@ public class TestFeaturesConfig
                 .setAdaptiveFilterReorderingEnabled(true)
                 .setLegacyArithmeticDecimalOperators(false)
                 .setLegacyVarcharToCharCoercion(false)
+                .setLegacyTypeResolver(false)
                 .setExternalExchangeEncryptionEnabled(true));
     }
 
@@ -106,6 +107,7 @@ public class TestFeaturesConfig
                 .put("experimental.adaptive-filter-reordering.enabled", "false")
                 .put("deprecated.legacy-arithmetic-decimal-operators", "true")
                 .put("deprecated.legacy-varchar-to-char-coercion", "true")
+                .put("legacy-type-resolver", "true")
                 .put("external-exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
@@ -140,6 +142,7 @@ public class TestFeaturesConfig
                 .setAdaptiveFilterReorderingEnabled(false)
                 .setLegacyArithmeticDecimalOperators(true)
                 .setLegacyVarcharToCharCoercion(true)
+                .setLegacyTypeResolver(true)
                 .setExternalExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }

@@ -23,13 +23,12 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
-import io.trino.type.CharVarcharCoercion;
 
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Varchars.truncateToLength;
 
 /// `CHAR` to `VARCHAR` cast whose behavior follows the session's char/varchar coercion
-/// direction ([SystemSessionProperties#getCharVarcharCoercion(Session)].
+/// direction ([SystemSessionProperties#getTypeResolutionPolicy(Session)].
 public final class CharToVarcharCast
 {
     private CharToVarcharCast() {}
@@ -39,7 +38,7 @@ public final class CharToVarcharCast
     @LiteralParameters({"x", "y"})
     public static Slice charToVarcharCast(ConnectorSession session, @LiteralParameter("x") long x, @LiteralParameter("y") long y, @SqlType("char(x)") Slice slice)
     {
-        if (((FullConnectorSession) session).getCharVarcharCoercion() == CharVarcharCoercion.LEGACY) {
+        if (((FullConnectorSession) session).getTypeResolutionPolicy().legacyCharCoercion()) {
             // Legacy: re-pad to the declared CHAR length, truncating to the target VARCHAR length when it is shorter.
             if (x <= y) {
                 return padSpaces(slice, (int) x);

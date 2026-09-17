@@ -22,7 +22,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -54,7 +54,7 @@ public class TestQuantifiedComparison
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> ALL (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
         assertPlan(query, anyTree(
                 filter(
-                        not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new Reference(BOOLEAN, "S")),
+                        not(getPlanTester().getPlannerContext().getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new Reference(BOOLEAN, "S")),
                         semiJoin("X",
                                 "Y",
                                 "S",

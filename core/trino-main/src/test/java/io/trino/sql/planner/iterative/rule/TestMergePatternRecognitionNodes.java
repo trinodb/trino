@@ -37,13 +37,13 @@ import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -72,7 +72,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
 public class TestMergePatternRecognitionNodes
         extends BaseRuleTest
 {
-    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+    private static final TypeResolutionPolicy CHAR_VARCHAR_COERCION = getTypeResolutionPolicy(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));

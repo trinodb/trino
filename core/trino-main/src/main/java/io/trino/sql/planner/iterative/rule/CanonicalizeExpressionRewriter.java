@@ -30,7 +30,7 @@ import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Reference;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.DateType.DATE;
@@ -42,32 +42,32 @@ public final class CanonicalizeExpressionRewriter
     private static final CatalogSchemaFunctionName MULTIPLY_BUILTIN_FUNCTION = builtinFunctionName(OperatorType.MULTIPLY);
     private static final CatalogSchemaFunctionName ADD_BUILTIN_FUNCTION = builtinFunctionName(OperatorType.ADD);
 
-    public static Expression canonicalizeExpression(Expression expression, PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion)
+    public static Expression canonicalizeExpression(Expression expression, PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, charVarcharCoercion), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeResolutionPolicy), expression);
     }
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion)
+    public static Expression rewrite(Expression expression, PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy)
     {
         if (expression instanceof Reference) {
             return expression;
         }
 
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, charVarcharCoercion), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeResolutionPolicy), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
-        private final CharVarcharCoercion charVarcharCoercion;
+        private final TypeResolutionPolicy typeResolutionPolicy;
 
-        public Visitor(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion)
+        public Visitor(PlannerContext plannerContext, TypeResolutionPolicy typeResolutionPolicy)
         {
             this.plannerContext = plannerContext;
-            this.charVarcharCoercion = charVarcharCoercion;
+            this.typeResolutionPolicy = typeResolutionPolicy;
         }
 
         @SuppressWarnings("ArgumentSelectionDefectChecker")
@@ -87,7 +87,7 @@ public final class CanonicalizeExpressionRewriter
                     right = tmp;
                 }
 
-                return treeRewriter.defaultRewrite(comparison(plannerContext.getMetadata(), charVarcharCoercion, operator, left, right), context);
+                return treeRewriter.defaultRewrite(comparison(plannerContext.getMetadata(), typeResolutionPolicy, operator, left, right), context);
             }
 
             CatalogSchemaFunctionName functionName = node.function().name();
@@ -100,7 +100,7 @@ public final class CanonicalizeExpressionRewriter
                 if (isConstant(left) && !isConstant(right)) {
                     return new Call(
                             plannerContext.getMetadata().resolveOperator(
-                                    charVarcharCoercion,
+                                    typeResolutionPolicy,
                                     getOperator(functionName),
                                     ImmutableList.of(
                                             node.function().signature().getArgumentType(1),

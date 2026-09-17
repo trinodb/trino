@@ -50,7 +50,7 @@ import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.sanity.DynamicFiltersChecker;
 import io.trino.testing.TestingTransactionHandle;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -58,7 +58,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
@@ -88,7 +88,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestRemoveUnsupportedDynamicFilters
         extends BasePlanTest
 {
-    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+    private static final TypeResolutionPolicy CHAR_VARCHAR_COERCION = getTypeResolutionPolicy(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
 

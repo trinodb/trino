@@ -15,17 +15,17 @@ package io.trino.sql.ir;
 
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 
 /// Test helpers for building IR expressions whose construction needs a function resolver.
 public final class TestingIr
 {
-    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+    private static final TypeResolutionPolicy CHAR_VARCHAR_COERCION = getTypeResolutionPolicy(TEST_SESSION);
 
     private TestingIr() {}
 

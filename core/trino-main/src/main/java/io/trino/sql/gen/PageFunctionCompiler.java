@@ -55,7 +55,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
@@ -109,7 +109,7 @@ public class PageFunctionCompiler
 
     private record CompiledProjection(MethodHandle constructor, boolean deterministic) {}
 
-    private record CacheKey(Expression expression, CharVarcharCoercion charVarcharCoercion) {}
+    private record CacheKey(Expression expression, TypeResolutionPolicy typeResolutionPolicy) {}
 
     private final NonEvictableCache<CacheKey, CompiledProjection> projectionCache;
     private final NonEvictableCache<CacheKey, Class<? extends PageFilter>> filterCache;
@@ -170,7 +170,7 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
-    public Supplier<PageProjection> compileProjection(Expression projection, Map<Symbol, Integer> layout, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjection(Expression projection, Map<Symbol, Integer> layout, TypeResolutionPolicy typeResolutionPolicy, Optional<String> classNameSuffix)
     {
         requireNonNull(projection, "projection is null");
 
@@ -190,10 +190,10 @@ public class PageFunctionCompiler
         CompiledProjection compiled;
         try {
             if (projectionCache == null) {
-                compiled = compileProjectionClass(projection, layout, charVarcharCoercion, classNameSuffix);
+                compiled = compileProjectionClass(projection, layout, typeResolutionPolicy, classNameSuffix);
             }
             else {
-                compiled = projectionCache.get(new CacheKey(projection, charVarcharCoercion), () -> compileProjectionClass(projection, layout, charVarcharCoercion, Optional.empty()));
+                compiled = projectionCache.get(new CacheKey(projection, typeResolutionPolicy), () -> compileProjectionClass(projection, layout, typeResolutionPolicy, Optional.empty()));
             }
         }
         catch (UncheckedExecutionException e) {
@@ -212,14 +212,14 @@ public class PageFunctionCompiler
         return () -> new GeneratedPageProjection(projection, deterministic, result.inputChannels(), constructor);
     }
 
-    private CompiledProjection compileProjectionClass(Expression projection, Map<Symbol, Integer> layout, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
+    private CompiledProjection compileProjectionClass(Expression projection, Map<Symbol, Integer> layout, TypeResolutionPolicy typeResolutionPolicy, Optional<String> classNameSuffix)
     {
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection, layout);
 
         Class<?> pageProjectionWorkClass;
         try {
             CallSiteBinder callSiteBinder = new CallSiteBinder();
-            ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(projection, result.compactLayout(), callSiteBinder, charVarcharCoercion, classNameSuffix);
+            ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(projection, result.compactLayout(), callSiteBinder, typeResolutionPolicy, classNameSuffix);
             pageProjectionWorkClass = defineHiddenClass(pageProjectionWorkDefinition, PageProjectionWork.class, callSiteBinder.getClassData());
         }
         catch (TrinoException e) {
@@ -245,7 +245,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(Expression projection, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(Expression projection, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder, TypeResolutionPolicy typeResolutionPolicy, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -263,8 +263,8 @@ public class PageFunctionCompiler
         generateProcessMethod(classDefinition, blockBuilderField, sessionField, selectedPositionsField);
 
         // evaluate
-        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection, functionManager, metadata, typeManager, charVarcharCoercion);
-        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, compactLayout, charVarcharCoercion, blockBuilderField);
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection, functionManager, metadata, typeManager, typeResolutionPolicy);
+        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, compactLayout, typeResolutionPolicy, blockBuilderField);
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
@@ -346,7 +346,7 @@ public class PageFunctionCompiler
             Map<Lambda, CompiledLambda> compiledLambdaMap,
             Expression projection,
             Map<Symbol, Integer> compactLayout,
-            CharVarcharCoercion charVarcharCoercion,
+            TypeResolutionPolicy typeResolutionPolicy,
             FieldDefinition blockBuilder)
     {
         Parameter session = arg("session", ConnectorSession.class);
@@ -376,7 +376,7 @@ public class PageFunctionCompiler
                 functionManager,
                 metadata,
                 typeManager,
-                charVarcharCoercion,
+                typeResolutionPolicy,
                 compiledLambdaMap,
                 ImmutableList.of(session, position));
 
@@ -387,17 +387,17 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(Expression filter, Map<Symbol, Integer> layout, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
+    public Supplier<PageFilter> compileFilter(Expression filter, Map<Symbol, Integer> layout, TypeResolutionPolicy typeResolutionPolicy, Optional<String> classNameSuffix)
     {
         requireNonNull(filter, "filter is null");
 
         Class<? extends PageFilter> filterClass;
         try {
             if (filterCache == null) {
-                filterClass = compileFilterClass(filter, layout, charVarcharCoercion, classNameSuffix);
+                filterClass = compileFilterClass(filter, layout, typeResolutionPolicy, classNameSuffix);
             }
             else {
-                filterClass = filterCache.get(new CacheKey(filter, charVarcharCoercion), () -> compileFilterClass(filter, layout, charVarcharCoercion, Optional.empty()));
+                filterClass = filterCache.get(new CacheKey(filter, typeResolutionPolicy), () -> compileFilterClass(filter, layout, typeResolutionPolicy, Optional.empty()));
             }
         }
         catch (UncheckedExecutionException e) {
@@ -422,13 +422,13 @@ public class PageFunctionCompiler
         };
     }
 
-    private Class<? extends PageFilter> compileFilterClass(Expression filter, Map<Symbol, Integer> layout, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
+    private Class<? extends PageFilter> compileFilterClass(Expression filter, Map<Symbol, Integer> layout, TypeResolutionPolicy typeResolutionPolicy, Optional<String> classNameSuffix)
     {
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter, layout);
 
         try {
             CallSiteBinder callSiteBinder = new CallSiteBinder();
-            ClassDefinition classDefinition = defineFilterClass(filter, result.compactLayout(), callSiteBinder, charVarcharCoercion, classNameSuffix);
+            ClassDefinition classDefinition = defineFilterClass(filter, result.compactLayout(), callSiteBinder, typeResolutionPolicy, classNameSuffix);
             return defineHiddenClass(classDefinition, PageFilter.class, callSiteBinder.getClassData());
         }
         catch (TrinoException e) {
@@ -450,7 +450,7 @@ public class PageFunctionCompiler
         return makeClassName(PageFilter.class.getSimpleName(), classNameSuffix);
     }
 
-    private ClassDefinition defineFilterClass(Expression filter, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
+    private ClassDefinition defineFilterClass(Expression filter, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder, TypeResolutionPolicy typeResolutionPolicy, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -462,8 +462,8 @@ public class PageFunctionCompiler
 
         FieldDefinition inputChannelsField = classDefinition.declareField(a(PRIVATE, FINAL), "inputChannels", InputChannels.class);
 
-        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, functionManager, metadata, typeManager, charVarcharCoercion);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, compactLayout, charVarcharCoercion);
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, functionManager, metadata, typeManager, typeResolutionPolicy);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, compactLayout, typeResolutionPolicy);
 
         FieldDefinition selectedPositions = classDefinition.declareField(a(PRIVATE), "selectedPositions", boolean[].class);
         generatePageFilterMethod(classDefinition, selectedPositions);
@@ -561,7 +561,7 @@ public class PageFunctionCompiler
             Map<Lambda, CompiledLambda> compiledLambdaMap,
             Expression filter,
             Map<Symbol, Integer> compactLayout,
-            CharVarcharCoercion charVarcharCoercion)
+            TypeResolutionPolicy typeResolutionPolicy)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", SourcePage.class);
@@ -591,7 +591,7 @@ public class PageFunctionCompiler
                 functionManager,
                 metadata,
                 typeManager,
-                charVarcharCoercion,
+                typeResolutionPolicy,
                 compiledLambdaMap,
                 ImmutableList.of(page, position));
 

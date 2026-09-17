@@ -117,7 +117,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PartitioningHandle;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Collection;
 import java.util.List;
@@ -1383,42 +1383,42 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(TypeResolutionPolicy typeResolutionPolicy, String name, List<? extends Type> parameterTypes)
     {
         Span span = startSpan("resolveBuiltinFunction")
                 .setAttribute(TrinoAttributes.FUNCTION, name);
         try (var _ = scopedSpan(span)) {
-            return delegate.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
+            return delegate.resolveBuiltinFunction(typeResolutionPolicy, name, parameterTypes);
         }
     }
 
     @Override
-    public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(TypeResolutionPolicy typeResolutionPolicy, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         // no tracing since it doesn't call any connector
-        return delegate.resolveOperator(charVarcharCoercion, operatorType, argumentTypes);
+        return delegate.resolveOperator(typeResolutionPolicy, operatorType, argumentTypes);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(TypeResolutionPolicy typeResolutionPolicy, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(charVarcharCoercion, fromType, toType);
+        return delegate.getCoercion(typeResolutionPolicy, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(TypeResolutionPolicy typeResolutionPolicy, OperatorType operatorType, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(charVarcharCoercion, operatorType, fromType, toType);
+        return delegate.getCoercion(typeResolutionPolicy, operatorType, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(TypeResolutionPolicy typeResolutionPolicy, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(charVarcharCoercion, name, fromType, toType);
+        return delegate.getCoercion(typeResolutionPolicy, name, fromType, toType);
     }
 
     @Override

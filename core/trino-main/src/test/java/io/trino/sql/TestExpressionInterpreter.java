@@ -41,7 +41,7 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TestingTransactionManager;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -78,7 +78,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionInterpreter
 {
-    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+    private static final TypeResolutionPolicy CHAR_VARCHAR_COERCION = getTypeResolutionPolicy(TEST_SESSION);
     private static final Set<Symbol> SYMBOLS = ImmutableSet.of(
             new Symbol(INTEGER, "bound_value"),
             new Symbol(INTEGER, "unbound_value"));

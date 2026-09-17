@@ -33,16 +33,16 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -94,9 +94,9 @@ public class RewriteSpatialPartitioningAggregation
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
         Type geometryType = plannerContext.getTypeManager().getType(GEOMETRY_TYPE_SIGNATURE);
-        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(context.getSession());
-        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(charVarcharCoercion, NAME.functionName(), ImmutableList.of(geometryType, INTEGER));
-        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction(charVarcharCoercion, "ST_Envelope", ImmutableList.of(geometryType));
+        TypeResolutionPolicy typeResolutionPolicy = getTypeResolutionPolicy(context.getSession());
+        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(typeResolutionPolicy, NAME.functionName(), ImmutableList.of(geometryType, INTEGER));
+        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction(typeResolutionPolicy, "ST_Envelope", ImmutableList.of(geometryType));
 
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
@@ -111,7 +111,7 @@ public class RewriteSpatialPartitioningAggregation
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), charVarcharCoercion)
+                    envelopeAssignments.put(envelopeSymbol, BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), typeResolutionPolicy)
                             .setName("ST_Envelope")
                             .addArgument(geometryType, geometry)
                             .build());

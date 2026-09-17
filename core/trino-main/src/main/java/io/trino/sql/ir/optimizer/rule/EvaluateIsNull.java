@@ -25,12 +25,12 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -86,8 +86,8 @@ public class EvaluateIsNull
             return Optional.of(new IsNull(inner.arguments().getFirst()));
         }
 
-        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
-        if (!mayBeNull(plannerContext, charVarcharCoercion, value) && !mayFail(plannerContext, charVarcharCoercion, value)) {
+        TypeResolutionPolicy typeResolutionPolicy = getTypeResolutionPolicy(session);
+        if (!mayBeNull(plannerContext, typeResolutionPolicy, value) && !mayFail(plannerContext, typeResolutionPolicy, value)) {
             return Optional.of(FALSE);
         }
 

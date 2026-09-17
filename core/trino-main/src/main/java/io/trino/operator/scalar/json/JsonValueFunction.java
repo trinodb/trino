@@ -58,7 +58,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getTypedValue;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
@@ -333,7 +333,7 @@ public class JsonValueFunction
             // TODO once the legacy char/varchar semantics is removed and the CharVarcharCoercion enum is deleted, the
             //  coercion direction is no longer session-dependent, so this runtime coercion resolution should be reverted
             //  to the previous compile-time approach.
-            coercion = metadata.getCoercion(getCharVarcharCoercion(((FullConnectorSession) session).getSession()), typedValue.getType(), returnType);
+            coercion = metadata.getCoercion(getTypeResolutionPolicy(((FullConnectorSession) session).getSession()), typedValue.getType(), returnType);
         }
         catch (OperatorNotFoundException e) {
             return handleError(functionManager, metadata, returnType, errorDefaultType, session, errorBehavior, errorDefault, () -> new JsonValueResultException(format(
@@ -411,7 +411,7 @@ public class JsonValueFunction
             // identity: return the value as-is
             return defaultResult;
         }
-        ResolvedFunction coercion = metadata.getCoercion(getCharVarcharCoercion(((FullConnectorSession) session).getSession()), defaultType, returnType);
+        ResolvedFunction coercion = metadata.getCoercion(getTypeResolutionPolicy(((FullConnectorSession) session).getSession()), defaultType, returnType);
         MethodHandle coercionHandle = functionManager.getScalarFunctionImplementation(
                         coercion,
                         new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false))

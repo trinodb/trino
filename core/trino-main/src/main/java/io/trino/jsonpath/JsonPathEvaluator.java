@@ -25,7 +25,7 @@ import io.trino.sql.InterpretedFunctionInvoker;
 
 import java.util.List;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -53,7 +53,7 @@ public class JsonPathEvaluator
 
         this.path = path;
         this.invoker = new Invoker(session, functionManager);
-        this.resolver = new CachingResolver(metadata, getCharVarcharCoercion(((FullConnectorSession) session).getSession()));
+        this.resolver = new CachingResolver(metadata, getTypeResolutionPolicy(((FullConnectorSession) session).getSession()));
     }
 
     public List<Object> evaluate(JsonNode input, Object[] parameters)

@@ -51,7 +51,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.DateTimes.parseTime;
@@ -150,10 +150,10 @@ public final class LiteralInterpreter
                         boolean isJson = JSON.equals(type);
                         ResolvedFunction resolvedFunction;
                         if (isJson) {
-                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "json_parse", ImmutableList.of(VARCHAR));
+                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(session), "json_parse", ImmutableList.of(VARCHAR));
                         }
                         else {
-                            resolvedFunction = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), VARCHAR, type);
+                            resolvedFunction = plannerContext.getMetadata().getCoercion(getTypeResolutionPolicy(session), VARCHAR, type);
                         }
                         return evaluatedNode -> functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
                     });

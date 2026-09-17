@@ -30,7 +30,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.List;
 import java.util.Map;
@@ -63,7 +63,7 @@ public class DynamicTupleFilterFactory
             int[] outputFilterChannels,
             List<Type> outputTypes,
             PageFunctionCompiler pageFunctionCompiler,
-            CharVarcharCoercion charVarcharCoercion,
+            TypeResolutionPolicy typeResolutionPolicy,
             BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(planNodeId, "planNodeId is null");
@@ -95,7 +95,7 @@ public class DynamicTupleFilterFactory
         this.outputProjections = IntStream.range(0, outputTypes.size())
                 .mapToObj(field -> {
                     Reference ref = new Reference(outputTypes.get(field), "$field_" + field);
-                    return pageFunctionCompiler.compileProjection(ref, projectionLayout, charVarcharCoercion, Optional.empty());
+                    return pageFunctionCompiler.compileProjection(ref, projectionLayout, typeResolutionPolicy, Optional.empty());
                 })
                 .collect(toImmutableList());
     }

@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
@@ -236,6 +236,6 @@ public class SimplifyFilterPredicate
 
     private Expression isFalseOrNullPredicate(Session session, Expression expression)
     {
-        return not(metadata, getCharVarcharCoercion(session), comparison(metadata, getCharVarcharCoercion(session), IDENTICAL, expression, TRUE));
+        return not(metadata, getTypeResolutionPolicy(session), comparison(metadata, getTypeResolutionPolicy(session), IDENTICAL, expression, TRUE));
     }
 }

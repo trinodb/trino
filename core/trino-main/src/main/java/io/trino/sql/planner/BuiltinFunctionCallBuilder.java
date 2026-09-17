@@ -19,7 +19,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,20 +29,20 @@ import static java.util.Objects.requireNonNull;
 public class BuiltinFunctionCallBuilder
 {
     private final Metadata metadata;
-    private final CharVarcharCoercion charVarcharCoercion;
+    private final TypeResolutionPolicy typeResolutionPolicy;
     private String name;
     private List<Type> argumentTypes = new ArrayList<>();
     private List<Expression> argumentValues = new ArrayList<>();
 
-    public static BuiltinFunctionCallBuilder resolve(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
+    public static BuiltinFunctionCallBuilder resolve(Metadata metadata, TypeResolutionPolicy typeResolutionPolicy)
     {
-        return new BuiltinFunctionCallBuilder(metadata, charVarcharCoercion);
+        return new BuiltinFunctionCallBuilder(metadata, typeResolutionPolicy);
     }
 
-    private BuiltinFunctionCallBuilder(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
+    private BuiltinFunctionCallBuilder(Metadata metadata, TypeResolutionPolicy typeResolutionPolicy)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
+        this.typeResolutionPolicy = requireNonNull(typeResolutionPolicy, "typeResolutionPolicy is null");
     }
 
     public BuiltinFunctionCallBuilder setName(String name)
@@ -77,7 +77,7 @@ public class BuiltinFunctionCallBuilder
 
     public Call build()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(charVarcharCoercion, name, argumentTypes);
+        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(typeResolutionPolicy, name, argumentTypes);
         return new Call(resolvedFunction, argumentValues);
     }
 }

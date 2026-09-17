@@ -68,10 +68,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.powerSet;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
 import static io.trino.SystemSessionProperties.getMaxReorderedJoins;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.mayFail;
@@ -197,7 +197,7 @@ public class ReorderJoins
             ImmutableList.Builder<Expression> residuals = ImmutableList.builder();
             List<Expression> inferenceCandidates = new ArrayList<>();
             for (Expression conjunct : extractConjuncts(filter)) {
-                if (isInferenceCandidate(plannerContext, getCharVarcharCoercion(session), conjunct) && !mayFail(plannerContext, getCharVarcharCoercion(session), conjunct)) {
+                if (isInferenceCandidate(plannerContext, getTypeResolutionPolicy(session), conjunct) && !mayFail(plannerContext, getTypeResolutionPolicy(session), conjunct)) {
                     inferenceCandidates.add(conjunct);
                 }
                 else {
@@ -206,7 +206,7 @@ public class ReorderJoins
             }
 
             this.residuals = residuals.build();
-            this.allFilterInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), inferenceCandidates);
+            this.allFilterInference = new EqualityInference(plannerContext, getTypeResolutionPolicy(session), inferenceCandidates);
         }
 
         public JoinEnumerationResult choose(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols)
@@ -394,7 +394,7 @@ public class ReorderJoins
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
             List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).scopeEqualities();
-            EqualityInference joinInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), joinEqualities);
+            EqualityInference joinInference = new EqualityInference(plannerContext, getTypeResolutionPolicy(session), joinEqualities);
             joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).scopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
@@ -672,7 +672,7 @@ public class ReorderJoins
                 flattenNode(joinNode.getLeft(), limit - 1);
                 flattenNode(joinNode.getRight(), limit);
                 joinNode.getCriteria().stream()
-                        .map(clause -> clause.toExpression(metadata, getCharVarcharCoercion(session)))
+                        .map(clause -> clause.toExpression(metadata, getTypeResolutionPolicy(session)))
                         .forEach(filters::add);
                 joinNode.getFilter().ifPresent(filters::add);
             }

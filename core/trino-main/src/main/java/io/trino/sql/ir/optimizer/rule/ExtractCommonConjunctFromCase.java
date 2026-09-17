@@ -30,7 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.mayFail;
@@ -94,7 +94,7 @@ public class ExtractCommonConjunctFromCase
     {
         // Deterministic, non-failing, non-trivial conjuncts present in every branch, keyed by structural equality.
         Set<Expression> common = extractConjuncts(results.getFirst()).stream()
-                .filter(conjunct -> !conjunct.equals(TRUE) && isDeterministic(conjunct) && !mayFail(context, getCharVarcharCoercion(session), conjunct))
+                .filter(conjunct -> !conjunct.equals(TRUE) && isDeterministic(conjunct) && !mayFail(context, getTypeResolutionPolicy(session), conjunct))
                 .collect(toCollection(LinkedHashSet::new));
 
         for (int branch = 1; branch < results.size() && !common.isEmpty(); branch++) {

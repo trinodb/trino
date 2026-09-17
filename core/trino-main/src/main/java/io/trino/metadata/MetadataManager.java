@@ -125,8 +125,8 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.transaction.TransactionManager;
-import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -156,8 +156,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
 import static io.trino.metadata.CatalogStatus.OPERATIONAL;
@@ -1207,7 +1207,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, getCharVarcharCoercion(session));
+        TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, getTypeResolutionPolicy(session));
         return metadata.getSupportedType(session.toConnectorSession(catalogHandle), tableProperties, type)
                 .map(newType -> {
                     if (!typeCoercion.isCompatible(newType, type)) {
@@ -2706,33 +2706,33 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(TypeResolutionPolicy typeResolutionPolicy, String name, List<? extends Type> parameterTypes)
     {
-        return functionResolver.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
+        return functionResolver.resolveBuiltinFunction(typeResolutionPolicy, name, parameterTypes);
     }
 
     @Override
-    public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(TypeResolutionPolicy typeResolutionPolicy, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        return functionResolver.resolveOperator(charVarcharCoercion, operatorType, argumentTypes);
+        return functionResolver.resolveOperator(typeResolutionPolicy, operatorType, argumentTypes);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(TypeResolutionPolicy typeResolutionPolicy, OperatorType operatorType, Type fromType, Type toType)
     {
-        return functionResolver.resolveCoercion(charVarcharCoercion, operatorType, fromType, toType);
+        return functionResolver.resolveCoercion(typeResolutionPolicy, operatorType, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(TypeResolutionPolicy typeResolutionPolicy, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // coercion can only be resolved for builtin functions
         if (!isBuiltinFunctionName(name)) {
             throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", name));
         }
 
-        return functionResolver.resolveCoercion(charVarcharCoercion, name.functionName(), fromType, toType);
+        return functionResolver.resolveCoercion(typeResolutionPolicy, name.functionName(), fromType, toType);
     }
 
     @Override

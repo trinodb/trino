@@ -25,7 +25,7 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -63,7 +63,7 @@ public class RemoveRedundantInItems
             return Optional.empty();
         }
 
-        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
+        TypeResolutionPolicy typeResolutionPolicy = getTypeResolutionPolicy(session);
         List<Expression> cannotFail = new ArrayList<>();
         List<Expression> mayFail = new ArrayList<>();
 
@@ -75,7 +75,7 @@ public class RemoveRedundantInItems
                 removed = true;
             }
             else {
-                if (mayFail(context, charVarcharCoercion, item)) {
+                if (mayFail(context, typeResolutionPolicy, item)) {
                     mayFail.add(item);
                 }
                 else {
@@ -90,7 +90,7 @@ public class RemoveRedundantInItems
         }
 
         if (exactMatchFound && mayFail.isEmpty()) {
-            ResolvedFunction indeterminate = metadata.resolveOperator(charVarcharCoercion, INDETERMINATE, ImmutableList.of(value.type()));
+            ResolvedFunction indeterminate = metadata.resolveOperator(typeResolutionPolicy, INDETERMINATE, ImmutableList.of(value.type()));
             return Optional.of(ifExpression(new Call(indeterminate, singletonList(value)), NULL_BOOLEAN, TRUE));
         }
 
@@ -104,7 +104,7 @@ public class RemoveRedundantInItems
                 .build();
 
         if (newItems.size() == 1) {
-            return Optional.of(comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, value, newItems.getFirst()));
+            return Optional.of(comparison(metadata, typeResolutionPolicy, ComparisonOperator.EQUAL, value, newItems.getFirst()));
         }
 
         return Optional.of(new In(value, newItems));

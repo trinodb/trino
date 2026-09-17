@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
@@ -37,7 +37,7 @@ public class TestReplaceWindowWithRowNumber
     @Test
     public void test()
     {
-        ResolvedFunction rowNumberFunction = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(tester().getSession()), "row_number", ImmutableList.of());
+        ResolvedFunction rowNumberFunction = tester().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(tester().getSession()), "row_number", ImmutableList.of());
         tester().assertThat(new ReplaceWindowWithRowNumber())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -72,7 +72,7 @@ public class TestReplaceWindowWithRowNumber
     @Test
     public void testDoNotFire()
     {
-        ResolvedFunction rank = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(tester().getSession()), "rank", ImmutableList.of());
+        ResolvedFunction rank = tester().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(tester().getSession()), "rank", ImmutableList.of());
         tester().assertThat(new ReplaceWindowWithRowNumber())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -84,7 +84,7 @@ public class TestReplaceWindowWithRowNumber
                 })
                 .doesNotFire();
 
-        ResolvedFunction rowNumber = tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(tester().getSession()), "row_number", ImmutableList.of());
+        ResolvedFunction rowNumber = tester().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(tester().getSession()), "row_number", ImmutableList.of());
         tester().assertThat(new ReplaceWindowWithRowNumber())
                 .on(p -> {
                     Symbol a = p.symbol("a");

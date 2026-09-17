@@ -57,8 +57,8 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.TypeResolutionPolicy.SQL_STANDARD;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -235,6 +235,40 @@ public class TestSignatureBinder
                         .setNumericVariable("p", 10L)
                         .setNumericVariable("s", 5L)
                         .build());
+    }
+
+    @Test
+    public void testBindIntegralAndDecimalAtPrecisionCap()
+    {
+        TypeTemplate decimal = type("decimal", numericVariable("p"), numericVariable("s"));
+        for (Type integral : ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT)) {
+            for (int scale : new int[] {20, 35, 38}) {
+                for (boolean reversed : new boolean[] {false, true}) {
+                    Type first = reversed ? createDecimalType(38, scale) : integral;
+                    Type second = reversed ? integral : createDecimalType(38, scale);
+                    for (boolean nested : new boolean[] {false, true}) {
+                        TypeTemplate argument = nested ? TypeTemplates.arrayType(decimal) : decimal;
+                        Signature function = functionSignature()
+                                .returnType(argument)
+                                .argumentType(argument)
+                                .argumentType(argument)
+                                .build();
+                        Type firstArgument = nested ? new ArrayType(first) : first;
+                        Type secondArgument = nested ? new ArrayType(second) : second;
+                        assertThat(function)
+                                .boundTo(firstArgument, secondArgument)
+                                .withCoercion()
+                                .produces(new BindingsBuilder()
+                                        .setNumericVariable("p", 38L)
+                                        .setNumericVariable("s", (long) scale)
+                                        .build());
+                        assertThat(function)
+                                .boundTo(firstArgument, secondArgument)
+                                .fails();
+                    }
+                }
+            }
+        }
     }
 
     @Test
@@ -1328,10 +1362,27 @@ public class TestSignatureBinder
         {
             Assertions.assertThat(argumentTypes).isNotNull();
             SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion, SQL_STANDARD);
+            SolverSignatureBinder solverSignatureBinder = new SolverSignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion, SQL_STANDARD);
             if (returnType == null) {
+                Assertions.assertThat(solverSignatureBinder.bind(argumentTypes).map(BindSignatureAssertion::canonicalize))
+                        .as("solver binding for %s with %s (coercion: %s)", function, argumentTypes, allowCoercion)
+                        .isEqualTo(signatureBinder.bind(argumentTypes).map(BindSignatureAssertion::canonicalize));
                 return signatureBinder.bindVariables(argumentTypes);
             }
+            Assertions.assertThat(solverSignatureBinder.canBind(argumentTypes, returnType.getTypeDescriptor()))
+                    .as("solver binding for %s with %s returning %s (coercion: %s)", function, argumentTypes, returnType, allowCoercion)
+                    .isEqualTo(signatureBinder.bindVariables(argumentTypes, returnType.getTypeDescriptor()).isPresent());
             return signatureBinder.bindVariables(argumentTypes, returnType.getTypeDescriptor());
+        }
+
+        private static SignatureBinder.GroundSignature canonicalize(SignatureBinder.GroundSignature signature)
+        {
+            return new SignatureBinder.GroundSignature(
+                    PLANNER_CONTEXT.getTypeManager().getType(signature.returnType()).getTypeDescriptor(),
+                    signature.argumentTypes().stream()
+                            .map(PLANNER_CONTEXT.getTypeManager()::getType)
+                            .map(Type::getTypeDescriptor)
+                            .toList());
         }
     }
 }

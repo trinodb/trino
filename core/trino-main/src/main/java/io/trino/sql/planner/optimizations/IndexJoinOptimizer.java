@@ -59,7 +59,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
@@ -311,7 +311,7 @@ public class IndexJoinOptimizer
                     node.getAssignments());
 
             Expression resultingPredicate = combineConjuncts(
-                    domainTranslator.toPredicate(getCharVarcharCoercion(session), resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
+                    domainTranslator.toPredicate(getTypeResolutionPolicy(session), resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
                     decomposedPredicate.remainingExpression());
 
             if (!resultingPredicate.equals(TRUE)) {

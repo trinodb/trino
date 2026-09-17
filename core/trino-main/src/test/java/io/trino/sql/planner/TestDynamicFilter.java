@@ -38,7 +38,7 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -402,7 +402,7 @@ public class TestDynamicFilter
         // Dynamic filter is not supported for IS DISTINCT FROM
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS DISTINCT FROM o.orderkey",
                 anyTree(filter(
-                        not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
+                        not(getPlanTester().getPlannerContext().getMetadata(), getTypeResolutionPolicy(TEST_SESSION), comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
                         join(INNER, builder -> builder
                                 .left(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
                                 .right(
@@ -762,7 +762,7 @@ public class TestDynamicFilter
                 "SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
                 anyTree(
                         filter(
-                                not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new Reference(BOOLEAN, "S")),
+                                not(getPlanTester().getPlannerContext().getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new Reference(BOOLEAN, "S")),
                                 semiJoin("X",
                                         "Y",
                                         "S",

@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -284,7 +284,7 @@ public class TestSqlRoutineCompiler
         // verify routine hash does not fail
         SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), TESTING_BLOCK_ENCODING_SERDE);
 
-        Class<?> clazz = compiler.compileClass(getCharVarcharCoercion(TEST_SESSION), routine);
+        Class<?> clazz = compiler.compileClass(getTypeResolutionPolicy(TEST_SESSION), routine);
 
         MethodHandle handle = stream(clazz.getMethods())
                 .filter(method -> method.getName().equals("run"))
@@ -318,6 +318,6 @@ public class TestSqlRoutineCompiler
 
     private static ResolvedFunction operator(OperatorType operator, Type... argumentTypes)
     {
-        return PLANNER_CONTEXT.getMetadata().resolveOperator(getCharVarcharCoercion(TEST_SESSION), operator, ImmutableList.copyOf(argumentTypes));
+        return PLANNER_CONTEXT.getMetadata().resolveOperator(getTypeResolutionPolicy(TEST_SESSION), operator, ImmutableList.copyOf(argumentTypes));
     }
 }

@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME;
@@ -68,7 +68,7 @@ public class TestSpecializeTransformWithJsonParse
                                                 new Constant(JsonPathType.JSON_PATH, jsonPath))))))))
                 .isEqualTo(Optional.of(
                         new Call(
-                                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, ImmutableList.of(VARCHAR, JsonPathType.JSON_PATH)),
+                                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, ImmutableList.of(VARCHAR, JsonPathType.JSON_PATH)),
                                 ImmutableList.of(
                                         new Reference(VARCHAR, "json_string"),
                                         new Constant(JsonPathType.JSON_PATH, jsonPath)))));

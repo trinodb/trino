@@ -71,7 +71,7 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -144,7 +144,7 @@ public class EffectivePredicateExtractor
 
             // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
             // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-            return comparison(metadata, getCharVarcharCoercion(session), EQUAL, reference, expression);
+            return comparison(metadata, getTypeResolutionPolicy(session), EQUAL, reference, expression);
         }
 
         @Override
@@ -181,7 +181,7 @@ public class EffectivePredicateExtractor
 
             DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
             return combineConjuncts(
-                    domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.tupleDomain().intersect(current.tupleDomain())),
+                    domainTranslator.toPredicate(getTypeResolutionPolicy(session), underlying.tupleDomain().intersect(current.tupleDomain())),
                     underlying.remainingExpression(),
                     current.remainingExpression());
         }
@@ -273,7 +273,7 @@ public class EffectivePredicateExtractor
             }
 
             // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
-            return domainTranslator.toPredicate(getCharVarcharCoercion(session), predicate.simplify()
+            return domainTranslator.toPredicate(getTypeResolutionPolicy(session), predicate.simplify()
                     .filter((columnHandle, _) -> assignments.containsKey(columnHandle))
                     .transformKeys(assignments::get));
         }
@@ -319,7 +319,7 @@ public class EffectivePredicateExtractor
             Expression rightPredicate = node.getRight().accept(this, context);
 
             List<Expression> joinConjuncts = node.getCriteria().stream()
-                    .map(clause -> clause.toExpression(metadata, getCharVarcharCoercion(session)))
+                    .map(clause -> clause.toExpression(metadata, getTypeResolutionPolicy(session)))
                     .collect(toImmutableList());
 
             return switch (node.getType()) {
@@ -470,7 +470,7 @@ public class EffectivePredicateExtractor
             }
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
-            return domainTranslator.toPredicate(getCharVarcharCoercion(session), TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
+            return domainTranslator.toPredicate(getTypeResolutionPolicy(session), TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
         }
 
         private boolean hasNestedNulls(Type type, Object value)
@@ -598,11 +598,11 @@ public class EffectivePredicateExtractor
 
         private Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
-            EqualityInference equalityInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), expression);
+            EqualityInference equalityInference = new EqualityInference(plannerContext, getTypeResolutionPolicy(session), expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             Set<Symbol> scope = ImmutableSet.copyOf(symbols);
-            EqualityInference.nonInferrableConjuncts(plannerContext, getCharVarcharCoercion(session), expression).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(plannerContext, getTypeResolutionPolicy(session), expression).forEach(conjunct -> {
                 if (DeterminismEvaluator.isDeterministic(conjunct)) {
                     Expression rewritten = equalityInference.rewrite(conjunct, scope);
                     if (rewritten != null) {

@@ -69,7 +69,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -313,7 +313,7 @@ class SubqueryPlanner
                 }
             }
 
-            Expression expression = cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), new Row(fields.build()), type);
+            Expression expression = cast(plannerContext.getTypeManager(), getTypeResolutionPolicy(session), new Row(fields.build()), type);
 
             root = new ProjectNode(idAllocator.getNextId(), root, Assignments.of(column, expression));
         }
@@ -389,12 +389,12 @@ class SubqueryPlanner
 
         // Filter out any row that contains a NULL — such rows can't form duplicates per the spec.
         Expression noneNullFilter = combineAnd(subqueryFields.stream()
-                .map(symbol -> (Expression) not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(symbol.toSymbolReference())))
+                .map(symbol -> (Expression) not(plannerContext.getMetadata(), getTypeResolutionPolicy(session), new IsNull(symbol.toSymbolReference())))
                 .collect(toImmutableList()));
         PlanNode nonNullRows = new FilterNode(idAllocator.getNextId(), relationPlan.getRoot(), noneNullFilter);
 
         // Group by the full row and count occurrences.
-        ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of());
+        ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(session), "count", ImmutableList.of());
         Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
         AggregationNode countAggregation = singleAggregation(
                 idAllocator.getNextId(),
@@ -412,7 +412,7 @@ class SubqueryPlanner
         PlanNode duplicates = new FilterNode(
                 idAllocator.getNextId(),
                 countAggregation,
-                comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), ComparisonOperator.GREATER_THAN, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)));
+                comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), ComparisonOperator.GREATER_THAN, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)));
 
         // EXISTS over duplicates — TRUE iff there is at least one duplicate group.
         Symbol existsSymbol = symbolAllocator.newSymbol("exists", BOOLEAN);
@@ -431,7 +431,7 @@ class SubqueryPlanner
                 apply,
                 Assignments.builder()
                         .putIdentities(apply.getOutputSymbols())
-                        .put(uniqueSymbol, not(plannerContext.getMetadata(), getCharVarcharCoercion(session), existsSymbol.toSymbolReference()))
+                        .put(uniqueSymbol, not(plannerContext.getMetadata(), getTypeResolutionPolicy(session), existsSymbol.toSymbolReference()))
                         .build());
 
         return new PlanBuilder(
@@ -556,7 +556,7 @@ class SubqueryPlanner
                 }
                 else {
                     Symbol castSymbol = symbolAllocator.newSymbol("cast", targetType);
-                    assignments.put(castSymbol, cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), original.toSymbolReference(), targetType));
+                    assignments.put(castSymbol, cast(plannerContext.getTypeManager(), getTypeResolutionPolicy(session), original.toSymbolReference(), targetType));
                     coerced.add(castSymbol);
                 }
             }
@@ -570,7 +570,7 @@ class SubqueryPlanner
         Symbol indicatorSymbol;
         PlanNode withIndicator;
         if (predicate.isUnique()) {
-            ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of());
+            ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(session), "count", ImmutableList.of());
             Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
             AggregationNode countAggregation = singleAggregation(
                     idAllocator.getNextId(),
@@ -597,7 +597,7 @@ class SubqueryPlanner
                     joined,
                     Assignments.builder()
                             .putIdentities(joined.getOutputSymbols())
-                            .put(indicatorSymbol, comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), ComparisonOperator.EQUAL, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)))
+                            .put(indicatorSymbol, comparison(plannerContext.getMetadata(), getTypeResolutionPolicy(session), ComparisonOperator.EQUAL, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)))
                             .build());
         }
         else {
@@ -654,7 +654,7 @@ class SubqueryPlanner
         for (int i = 0; i < valueFields.size(); i++) {
             Expression r = valueFields.get(i).toSymbolReference();
             Expression s = subqueryFields.get(i).toSymbolReference();
-            Expression equality = comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.EQUAL, r, s);
+            Expression equality = comparison(metadata, getTypeResolutionPolicy(session), ComparisonOperator.EQUAL, r, s);
             if (type == MatchPredicate.Type.PARTIAL) {
                 conjuncts.add(combineOr(new IsNull(r), equality));
             }
@@ -676,7 +676,7 @@ class SubqueryPlanner
             case PARTIAL -> combineOr(combineAnd(isNullChecks), indicator);
             case FULL -> combineOr(
                     combineAnd(isNullChecks),
-                    combineAnd(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), combineOr(isNullChecks)), indicator));
+                    combineAnd(not(plannerContext.getMetadata(), getTypeResolutionPolicy(session), combineOr(isNullChecks)), indicator));
         };
     }
 
@@ -714,7 +714,7 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         Assignments.builder()
                                 .putIdentities(subPlan.getRoot().getOutputSymbols())
-                                .put(output, not(plannerContext.getMetadata(), getCharVarcharCoercion(session), input.toSymbolReference()))
+                                .put(output, not(plannerContext.getMetadata(), getTypeResolutionPolicy(session), input.toSymbolReference()))
                                 .build()));
     }
 
@@ -814,7 +814,7 @@ class SubqueryPlanner
                 new ProjectNode(
                         idAllocator.getNextId(),
                         relationPlan.getRoot(),
-                        Assignments.of(column, cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), new Row(fields.build()), type))));
+                        Assignments.of(column, cast(plannerContext.getTypeManager(), getTypeResolutionPolicy(session), new Row(fields.build()), type))));
 
         return coerceIfNecessary(subqueryPlan, column, subquery, coercion);
     }
@@ -828,7 +828,7 @@ class SubqueryPlanner
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
-                    .put(coerced, cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), symbol.toSymbolReference(), coercion.get()))
+                    .put(coerced, cast(plannerContext.getTypeManager(), getTypeResolutionPolicy(session), symbol.toSymbolReference(), coercion.get()))
                     .build();
 
             subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));

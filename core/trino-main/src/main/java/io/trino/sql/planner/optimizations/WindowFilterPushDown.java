@@ -42,7 +42,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -88,8 +88,8 @@ public class WindowFilterPushDown
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
-            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "row_number", ImmutableList.of()).functionId();
-            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "rank", ImmutableList.of()).functionId();
+            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(session), "row_number", ImmutableList.of()).functionId();
+            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(session), "rank", ImmutableList.of()).functionId();
             this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
         }
 
@@ -199,7 +199,7 @@ public class WindowFilterPushDown
             TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
             Expression newPredicate = combineConjuncts(
                     extractionResult.remainingExpression(),
-                    domainTranslator.toPredicate(getCharVarcharCoercion(session), newTupleDomain));
+                    domainTranslator.toPredicate(getTypeResolutionPolicy(session), newTupleDomain));
 
             if (newPredicate.equals(Booleans.TRUE)) {
                 return source;

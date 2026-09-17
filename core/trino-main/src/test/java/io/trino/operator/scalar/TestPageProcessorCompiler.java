@@ -34,7 +34,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.CharVarcharCoercion;
+import io.trino.type.TypeResolutionPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -45,7 +45,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
@@ -61,7 +61,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageProcessorCompiler
 {
-    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+    private static final TypeResolutionPolicy CHAR_VARCHAR_COERCION = getTypeResolutionPolicy(TEST_SESSION);
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
 

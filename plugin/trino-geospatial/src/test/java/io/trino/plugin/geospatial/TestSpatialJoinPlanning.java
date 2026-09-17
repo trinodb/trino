@@ -50,7 +50,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.getTypeResolutionPolicy;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.KdbTreeType.KDB_TREE;
@@ -349,7 +349,7 @@ public class TestSpatialJoinPlanning
                         "WHERE NOT ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
                         filter(
-                                not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new Call(ST_CONTAINS, ImmutableList.of(new Call(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt"), VARCHAR))), new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat")))))),
+                                not(FUNCTIONS.getMetadata(), getTypeResolutionPolicy(TEST_SESSION), new Call(ST_CONTAINS, ImmutableList.of(new Call(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt"), VARCHAR))), new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat")))))),
                                 join(INNER, builder -> builder
                                         .left(tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))
                                         .right(
@@ -367,7 +367,7 @@ public class TestSpatialJoinPlanning
                         "           WHERE NOT ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))", singleRow()),
                 anyTree(
                         filter(
-                                not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION),
+                                not(FUNCTIONS.getMetadata(), getTypeResolutionPolicy(TEST_SESSION),
                                         functionCall("ST_Intersects", ImmutableList.of(GEOMETRY, GEOMETRY), ImmutableList.of(
                                                 functionCall("ST_GeometryFromText", ImmutableList.of(VARCHAR), ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt_a"), VARCHAR))),
                                                 functionCall("ST_GeometryFromText", ImmutableList.of(VARCHAR), ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt_b"), VARCHAR)))))),
@@ -578,6 +578,6 @@ public class TestSpatialJoinPlanning
 
     private Call functionCall(String name, List<Type> types, List<Expression> arguments)
     {
-        return new Call(getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), name, types), arguments);
+        return new Call(getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(getTypeResolutionPolicy(TEST_SESSION), name, types), arguments);
     }
 }
