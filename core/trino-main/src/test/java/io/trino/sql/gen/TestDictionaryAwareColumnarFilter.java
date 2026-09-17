@@ -33,9 +33,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -169,6 +172,41 @@ public class TestDictionaryAwareColumnarFilter
 
     @ParameterizedTest
     @MethodSource("io.trino.testing.DataProviders#trueFalse")
+    public void testSparseDictionaryBlockWithNulls(boolean usePositionsList)
+    {
+        TestingDictionaryFilter testingFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(testingFilter);
+        // the first dictionary is processed and serves fewer positions than it has entries
+        testFilter(filter, createDictionaryBlockWithNulls(100, 10), true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(100);
+
+        // the entries copied for a skipped dictionary keep their nulls
+        testFilter(filter, createDictionaryBlockWithNulls(100, 10), true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(10);
+    }
+
+    @ParameterizedTest
+    @MethodSource("io.trino.testing.DataProviders#trueFalse")
+    public void testDictionaryWithFailingUnusedEntryIsNotRefiltered(boolean usePositionsList)
+    {
+        TestingDictionaryFilter testingFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(testingFilter);
+        Block block = createDictionaryBlockWithUnusedEntries(20, 100);
+        // filtering the dictionary fails on an unused entry, so the block is filtered on the entries it references
+        testFilter(filter, block, true, usePositionsList);
+        assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(100);
+
+        // later blocks of the same dictionary are filtered without retrying the dictionary
+        for (int iteration = 0; iteration < 5; iteration++) {
+            int invocationCount = testingFilter.getInvocationCount();
+            testFilter(filter, block, true, usePositionsList);
+            assertThat(testingFilter.getInvocationCount()).isEqualTo(invocationCount + 1);
+            assertThat(testingFilter.getLastInputPositionCount()).isEqualTo(100);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("io.trino.testing.DataProviders#trueFalse")
     public void testSkippedDictionaryIsProcessedAfterEnoughUsage(boolean usePositionsList)
     {
         TestingDictionaryFilter testingFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
@@ -243,6 +281,28 @@ public class TestDictionaryAwareColumnarFilter
         return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
+    /**
+     * Every null entry holds a value that the filter selects, so a lost null shows up as an extra selected position.
+     */
+    private static Block createDictionaryBlockWithNulls(int dictionarySize, int blockSize)
+    {
+        long[] values = new long[dictionarySize];
+        long[] valueIsValid = new long[wordsForBits(dictionarySize)];
+        for (int index = 0; index < dictionarySize; index++) {
+            if (index % 3 == 0) {
+                values[index] = 5;
+            }
+            else {
+                values[index] = index;
+                set(valueIsValid, 0, index);
+            }
+        }
+        Block dictionary = new LongArrayBlock(dictionarySize, Optional.of(valueIsValid), values);
+        int[] ids = new int[blockSize];
+        Arrays.setAll(ids, index -> index % dictionarySize);
+        return DictionaryBlock.create(ids.length, dictionary, ids);
+    }
+
     private static Block createDictionaryBlockWithFailure(int dictionarySize, int blockSize)
     {
         Block dictionary = createLongSequenceBlock(-10, dictionarySize - 10);
@@ -293,7 +353,7 @@ public class TestDictionaryAwareColumnarFilter
         IntSet actualSelectedPositions = new IntArraySet(Arrays.copyOfRange(outputPositions, 0, outputPositionsCount));
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
-            if (isSelected(selectRange, BIGINT.getLong(block, position))) {
+            if (!block.isNull(position) && isSelected(selectRange, BIGINT.getLong(block, position))) {
                 expectedSelectedPositions.add(position);
             }
         }
@@ -368,6 +428,9 @@ public class TestDictionaryAwareColumnarFilter
 
             int outputPositionsCount = 0;
             for (int position = offset; position < offset + size; position++) {
+                if (block.isNull(position)) {
+                    continue;
+                }
                 long value = BIGINT.getLong(block, position);
                 verifyPositive(value);
 
@@ -397,6 +460,9 @@ public class TestDictionaryAwareColumnarFilter
             int outputPositionsCount = 0;
             for (int index = offset; index < offset + size; index++) {
                 int position = activePositions[index];
+                if (block.isNull(position)) {
+                    continue;
+                }
                 long value = BIGINT.getLong(block, position);
                 verifyPositive(value);
 
