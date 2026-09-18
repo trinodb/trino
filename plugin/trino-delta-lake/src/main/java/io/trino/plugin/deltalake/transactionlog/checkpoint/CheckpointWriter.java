@@ -351,8 +351,8 @@ public class CheckpointWriter
                 Map<String, Type> columnTypeMapping = getColumnTypeMapping(metadataEntry, protocolEntry);
                 DeltaLakeJsonFileStatistics jsonFileStatistics = new DeltaLakeJsonFileStatistics(
                         parquetFileStatistics.getNumRecords(),
-                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
+                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values, false)),
+                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values, true)),
                         parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)),
                         parquetFileStatistics.getTightBounds());
                 statsJson = getStatsString(jsonFileStatistics).orElse(null);

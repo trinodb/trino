@@ -279,7 +279,7 @@ public class TestCheckpointWriter
                         Optional.of(5L),
                         Optional.of(ImmutableMap.<String, Object>builder()
                                 .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 01:00:00"))
-                                .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123"))
+                                .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123456"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 101L)
                                 .put("dec_long", Int128.valueOf(111111111111123L))
@@ -294,7 +294,7 @@ public class TestCheckpointWriter
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()
                                 .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 02:00:00"))
-                                .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123"))
+                                .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123456"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 201L)
                                 .put("dec_long", Int128.valueOf(222222222222123L))
@@ -438,6 +438,58 @@ public class TestCheckpointWriter
         LocalDateTime localDateTime = LocalDateTime.parse(value);
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+    }
+
+    @Test
+    public void testParquetStatsTimestampMaximumRoundsUpInJsonStats(@TempDir Path directory)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"ts_ntz\",\"type\":\"timestamp_ntz\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                // struct form is off to make the JSON observable
+                ImmutableMap.of(
+                        "delta.checkpoint.writeStatsAsStruct", "false",
+                        "delta.checkpoint.writeStatsAsJson", "true"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        long epochMicros = convertToTimestamp("2024-01-15T10:30:00.123456");
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePathParquet",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.empty(),
+                Optional.of(new DeltaLakeParquetFileStatistics(
+                        Optional.of(1L),
+                        Optional.of(ImmutableMap.of("ts_ntz", epochMicros)),
+                        Optional.of(ImmutableMap.of("ts_ntz", epochMicros)),
+                        Optional.of(ImmutableMap.of("ts_ntz", 0L)))),
+                ImmutableMap.of(),
+                Optional.empty());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(addFileEntry),
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+
+        String targetPath = directory.resolve("parquetStatsMaxRoundsUpInJson.checkpoint.parquet").toUri().toString();
+        writer.write(entries, createOutputFile(targetPath));
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
+        DeltaLakeJsonFileStatistics readStats = (DeltaLakeJsonFileStatistics) getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
+        assertThat(readStats.getMinValues().orElseThrow()).isEqualTo(ImmutableMap.of("ts_ntz", "2024-01-15T10:30:00.123Z"));
+        assertThat(readStats.getMaxValues().orElseThrow()).isEqualTo(ImmutableMap.of("ts_ntz", "2024-01-15T10:30:00.124Z"));
     }
 
     @Test
