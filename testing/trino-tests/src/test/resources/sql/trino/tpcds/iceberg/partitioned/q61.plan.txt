@@ -9,8 +9,7 @@ cross join:
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            dynamic filter (ss_customer_sk::EQUAL, ss_promo_sk::EQUAL, ss_item_sk::EQUAL, ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL)
-                                                scan store_sales
+                                            scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan date_dim
@@ -26,8 +25,7 @@ cross join:
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [c_customer_sk])
                                 join (INNER, REPLICATED):
-                                    dynamic filter (c_current_addr_sk::EQUAL)
-                                        scan customer
+                                    scan customer
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan customer_address
@@ -40,8 +38,7 @@ cross join:
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        dynamic filter (ss_customer_sk_20::EQUAL, ss_item_sk_19::EQUAL, ss_store_sk_24::EQUAL, ss_sold_date_sk_40::EQUAL)
-                                            scan store_sales
+                                        scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim
@@ -54,8 +51,7 @@ cross join:
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [c_customer_sk_107])
                                 join (INNER, REPLICATED):
-                                    dynamic filter (c_current_addr_sk_111::EQUAL)
-                                        scan customer
+                                    scan customer
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan customer_address

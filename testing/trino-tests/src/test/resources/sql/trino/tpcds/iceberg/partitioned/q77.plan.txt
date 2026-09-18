@@ -14,8 +14,7 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_store_sk)
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL)
-                                                                    scan store_sales
+                                                                scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan date_dim
@@ -28,8 +27,7 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (sr_store_sk)
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (sr_store_sk::EQUAL, sr_returned_date_sk::EQUAL)
-                                                                    scan store_returns
+                                                                scan store_returns
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan date_dim
@@ -42,8 +40,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [cs_call_center_sk])
                                                     partial aggregation over (cs_call_center_sk)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (cs_sold_date_sk::EQUAL)
-                                                                scan catalog_sales
+                                                            scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
@@ -54,8 +51,7 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [cr_call_center_sk])
                                                             partial aggregation over (cr_call_center_sk)
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (cr_returned_date_sk::EQUAL)
-                                                                        scan catalog_returns
+                                                                    scan catalog_returns
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
@@ -66,8 +62,7 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ws_web_page_sk)
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (ws_web_page_sk::EQUAL, ws_sold_date_sk::EQUAL)
-                                                                    scan web_sales
+                                                                scan web_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan date_dim
@@ -80,8 +75,7 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (wr_web_page_sk)
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (wr_web_page_sk::EQUAL, wr_returned_date_sk::EQUAL)
-                                                                    scan web_returns
+                                                                scan web_returns
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan date_dim

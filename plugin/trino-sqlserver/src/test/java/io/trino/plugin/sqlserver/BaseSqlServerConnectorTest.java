@@ -35,8 +35,11 @@ import static io.trino.plugin.sqlserver.DataCompression.NONE;
 import static io.trino.plugin.sqlserver.DataCompression.PAGE;
 import static io.trino.plugin.sqlserver.DataCompression.ROW;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -235,7 +238,10 @@ public abstract class BaseSqlServerConnectorTest
         Session joinPushdownEnabled = joinPushdownEnabled(getSession());
         assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE n.name = 'POLAND'"))
                 // the varchar equality predicate leaves a residual filter that prevents full pushdown
-                .isNotFullyPushedDown(FilterNode.class);
+                .isNotFullyPushedDown(join(INNER, builder -> builder
+                        .equiCriteria("custkey", "nationkey")
+                        .left(anyTree(tableScan("customer", ImmutableMap.of("custkey", "custkey"))))
+                        .right(anyTree(node(FilterNode.class, tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
 
         // join on varchar columns is unaffected: a column-to-column join is not pushed via the domain pushdown path
         assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM nation n JOIN nation n2 ON n.name = n2.name"))

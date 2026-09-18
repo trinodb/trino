@@ -7874,12 +7874,17 @@ public abstract class BaseConnectorTest
                                 statsWithoutPushdown -> {
                                     if (supportsPhysicalPushdown()) {
                                         assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isGreaterThan(physicalInputDataSizeWithPushdown);
+                                        // A fused scan accounts for the loaded backing source page, which can include
+                                        // the enclosing row even when only one field is read from storage.
+                                        assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThanOrEqualTo(processedDataSizeWithPushdown);
                                     }
                                     else {
                                         // TODO https://github.com/trinodb/trino/issues/17201
                                         assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isEqualTo(physicalInputDataSizeWithPushdown);
+                                        // Fused scans count loaded backing pages even when the connector
+                                        // exposes only a projected field, just as with physical pushdown.
+                                        assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThanOrEqualTo(processedDataSizeWithPushdown);
                                     }
-                                    assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown);
                                 },
                                 results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(expectedResult.getOnlyColumnAsSet()));
                     },

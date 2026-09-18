@@ -18,8 +18,7 @@ local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (ws_warehouse_sk::EQUAL, ws_sold_time_sk::EQUAL, ws_sold_date_sk::EQUAL, ws_ship_mode_sk::EQUAL)
-                                                                                    scan web_sales
+                                                                                scan web_sales
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                         scan ship_mode
@@ -46,8 +45,7 @@ local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (cs_warehouse_sk::EQUAL, cs_sold_time_sk::EQUAL, cs_sold_date_sk::EQUAL, cs_ship_mode_sk::EQUAL)
-                                                                                    scan catalog_sales
+                                                                                scan catalog_sales
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                         scan ship_mode

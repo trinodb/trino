@@ -45,7 +45,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.noDynamicFilter;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 
@@ -150,7 +149,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                         join(INNER, builder -> builder
                                 .equiCriteria("o_custkey", "c_custkey")
                                 .left(
-                                        join(LEFT, // TODO (https://github.com/trinodb/trino/issues/2392) this should be INNER also when dynamic filtering is off
+                                        join(LEFT,
                                                 leftJoinBuilder -> leftJoinBuilder
                                                         .equiCriteria("l_orderkey", "o_orderkey")
                                                         .left(tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))
@@ -173,7 +172,6 @@ public class TestPredicatePushdownWithoutDynamicFilter
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
                                 "SEMI_JOIN_RESULT",
-                                noDynamicFilter(),
                                 tableScan("lineitem", ImmutableMap.of(
                                         "LINE_ORDER_KEY", "orderkey")),
                                 node(ExchangeNode.class,

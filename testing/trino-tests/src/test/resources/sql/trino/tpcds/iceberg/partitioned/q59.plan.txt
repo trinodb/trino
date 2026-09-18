@@ -16,20 +16,16 @@ local exchange (GATHER, SINGLE, [])
                                                             intermediate aggregation over (d_day_name, d_week_seq, ss_store_sk)
                                                                 join (INNER, REPLICATED):
                                                                     partial aggregation over (ss_store_sk, ss_sold_date_sk)
-                                                                        dynamic filter (ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL)
-                                                                            scan store_sales
+                                                                        scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            dynamic filter (d_week_seq::EQUAL, d_week_seq::EQUAL)
-                                                                                scan date_dim
+                                                                            scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        dynamic filter (d_week_seq_22::EQUAL)
-                                            scan date_dim
+                                        scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    dynamic filter (s_store_id::EQUAL)
-                                        scan store
+                                    scan store
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [operator_subtract, s_store_id_121])
                             join (INNER, REPLICATED):
@@ -44,12 +40,10 @@ local exchange (GATHER, SINGLE, [])
                                                                 intermediate aggregation over (d_day_name_89, d_week_seq_79, ss_store_sk_55)
                                                                     join (INNER, REPLICATED):
                                                                         partial aggregation over (ss_store_sk_55, ss_sold_date_sk_71)
-                                                                            dynamic filter (ss_store_sk_55::EQUAL, ss_sold_date_sk_71::EQUAL)
-                                                                                scan store_sales
+                                                                            scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                                dynamic filter (d_week_seq_79::EQUAL)
-                                                                                    scan date_dim
+                                                                                scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan date_dim

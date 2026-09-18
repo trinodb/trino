@@ -18,12 +18,10 @@ local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, REPLICATED):
                                                                         join (LEFT, PARTITIONED):
                                                                             remote exchange (REPARTITION, HASH, [ss_item_sk, ss_ticket_number])
-                                                                                dynamic filter (ss_store_sk::EQUAL, ss_item_sk::EQUAL, ss_promo_sk::EQUAL, ss_sold_date_sk::EQUAL)
-                                                                                    scan store_sales
+                                                                                scan store_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPARTITION, HASH, [sr_item_sk, sr_ticket_number])
-                                                                                    dynamic filter (sr_item_sk::EQUAL)
-                                                                                        scan store_returns
+                                                                                    scan store_returns
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan date_dim
@@ -47,12 +45,10 @@ local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, REPLICATED):
                                                                         join (LEFT, PARTITIONED):
                                                                             remote exchange (REPARTITION, HASH, [cs_item_sk, cs_order_number])
-                                                                                dynamic filter (cs_catalog_page_sk::EQUAL, cs_item_sk::EQUAL, cs_promo_sk::EQUAL, cs_sold_date_sk::EQUAL)
-                                                                                    scan catalog_sales
+                                                                                scan catalog_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPARTITION, HASH, [cr_item_sk, cr_order_number])
-                                                                                    dynamic filter (cr_item_sk::EQUAL)
-                                                                                        scan catalog_returns
+                                                                                    scan catalog_returns
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan date_dim
@@ -76,12 +72,10 @@ local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, REPLICATED):
                                                                         join (LEFT, PARTITIONED):
                                                                             remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
-                                                                                dynamic filter (ws_web_site_sk::EQUAL, ws_item_sk::EQUAL, ws_promo_sk::EQUAL, ws_sold_date_sk::EQUAL)
-                                                                                    scan web_sales
+                                                                                scan web_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
-                                                                                    dynamic filter (wr_item_sk::EQUAL)
-                                                                                        scan web_returns
+                                                                                    scan web_returns
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan date_dim
