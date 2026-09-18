@@ -344,6 +344,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getProperty;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
@@ -2597,18 +2598,14 @@ public class IcebergMetadata
         UpdateProperties updateProperties = transaction.updateProperties();
 
         if (properties.containsKey(EXTRA_PROPERTIES_PROPERTY)) {
-            @SuppressWarnings("unchecked")
-            Map<String, String> extraProperties = (Map<String, String>) properties.get(EXTRA_PROPERTIES_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The extra_properties property cannot be empty"));
+            Map<String, String> extraProperties = getProperty(properties, EXTRA_PROPERTIES_PROPERTY);
             verifyExtraProperties(properties.keySet(), extraProperties, allowedExtraProperties);
             extraProperties.forEach(updateProperties::set);
         }
 
         if (properties.containsKey(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
-            @SuppressWarnings("unchecked")
-            List<String> parquetBloomFilterColumns = (List<String>) properties.get(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The parquet_bloom_filter_columns property cannot be empty"));
+            List<String> parquetBloomFilterColumns = getProperty(properties, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
             validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), parquetBloomFilterColumns);
 
             Set<String> existingParquetBloomFilterColumns = icebergTable.properties().keySet().stream()
@@ -2622,9 +2619,7 @@ public class IcebergMetadata
 
         if (properties.containsKey(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.ORC, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
-            @SuppressWarnings("unchecked")
-            List<String> orcBloomFilterColumns = (List<String>) properties.get(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The orc_bloom_filter_columns property cannot be empty"));
+            List<String> orcBloomFilterColumns = getProperty(properties, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
             if (orcBloomFilterColumns.isEmpty()) {
                 updateProperties.remove(ORC_BLOOM_FILTER_COLUMNS);
             }
@@ -2638,15 +2633,13 @@ public class IcebergMetadata
         IcebergFileFormat newFileFormat = oldFileFormat;
 
         if (properties.containsKey(FILE_FORMAT_PROPERTY)) {
-            newFileFormat = (IcebergFileFormat) properties.get(FILE_FORMAT_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The format property cannot be empty"));
+            newFileFormat = getProperty(properties, FILE_FORMAT_PROPERTY);
             updateProperties.defaultFormat(newFileFormat.toIceberg());
         }
 
         if (properties.containsKey(FORMAT_VERSION_PROPERTY)) {
             // UpdateProperties#commit will trigger any necessary metadata updates required for the new spec version
-            int formatVersion = (int) properties.get(FORMAT_VERSION_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The format_version property cannot be empty"));
+            int formatVersion = getProperty(properties, FORMAT_VERSION_PROPERTY);
             updateProperties.set(FORMAT_VERSION, Integer.toString(formatVersion));
         }
 
@@ -2659,44 +2652,37 @@ public class IcebergMetadata
         propertiesForCompression.forEach(updateProperties::set);
 
         if (properties.containsKey(MAX_COMMIT_RETRY)) {
-            int maxCommitRetry = (int) properties.get(MAX_COMMIT_RETRY)
-                    .orElseThrow(() -> new IllegalArgumentException("The max_commit_retry property cannot be empty"));
+            int maxCommitRetry = getProperty(properties, MAX_COMMIT_RETRY);
             updateProperties.set(COMMIT_NUM_RETRIES, Integer.toString(maxCommitRetry));
         }
 
         if (properties.containsKey(DELETE_AFTER_COMMIT_ENABLED)) {
-            boolean deleteAfterCommitEnabled = (boolean) properties.get(DELETE_AFTER_COMMIT_ENABLED)
-                    .orElseThrow(() -> new IllegalArgumentException("The %s property cannot be empty".formatted(DELETE_AFTER_COMMIT_ENABLED)));
+            boolean deleteAfterCommitEnabled = getProperty(properties, DELETE_AFTER_COMMIT_ENABLED);
             updateProperties.set(METADATA_DELETE_AFTER_COMMIT_ENABLED, Boolean.toString(deleteAfterCommitEnabled));
         }
 
         if (properties.containsKey(MAX_PREVIOUS_VERSIONS)) {
-            int maxPreviousVersions = (int) properties.get(MAX_PREVIOUS_VERSIONS)
-                    .orElseThrow(() -> new IllegalArgumentException("The %s property cannot be empty".formatted(MAX_PREVIOUS_VERSIONS)));
+            int maxPreviousVersions = getProperty(properties, MAX_PREVIOUS_VERSIONS);
             updateProperties.set(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(maxPreviousVersions));
         }
 
         if (properties.containsKey(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)) {
-            boolean objectStoreEnabled = (boolean) properties.get(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The object_store_enabled property cannot be empty"));
+            boolean objectStoreEnabled = getProperty(properties, OBJECT_STORE_LAYOUT_ENABLED_PROPERTY);
             updateProperties.set(OBJECT_STORE_ENABLED, Boolean.toString(objectStoreEnabled));
         }
 
         if (properties.containsKey(DATA_LOCATION_PROPERTY)) {
-            String dataLocation = (String) properties.get(DATA_LOCATION_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The data_location property cannot be empty"));
+            String dataLocation = getProperty(properties, DATA_LOCATION_PROPERTY);
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
         }
 
         if (properties.containsKey(TARGET_MAX_FILE_SIZE)) {
-            DataSize targetMaxFileSize = (DataSize) properties.get(TARGET_MAX_FILE_SIZE)
-                    .orElseThrow(() -> new IllegalArgumentException("The target_max_file_size property cannot be empty"));
+            DataSize targetMaxFileSize = getProperty(properties, TARGET_MAX_FILE_SIZE);
             updateProperties.set(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(targetMaxFileSize.toBytes()));
         }
 
         if (properties.containsKey(PARQUET_WRITER_ROW_GROUP_SIZE)) {
-            DataSize rowGroupSize = (DataSize) properties.get(PARQUET_WRITER_ROW_GROUP_SIZE)
-                    .orElseThrow(() -> new IllegalArgumentException("The parquet_writer_row_group_size property cannot be empty"));
+            DataSize rowGroupSize = getProperty(properties, PARQUET_WRITER_ROW_GROUP_SIZE);
             updateProperties.set(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(rowGroupSize.toBytes()));
         }
 
@@ -2708,16 +2694,12 @@ public class IcebergMetadata
         }
 
         if (properties.containsKey(PARTITIONING_PROPERTY)) {
-            @SuppressWarnings("unchecked")
-            List<String> partitionColumns = (List<String>) properties.get(PARTITIONING_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The partitioning property cannot be empty"));
+            List<String> partitionColumns = getProperty(properties, PARTITIONING_PROPERTY);
             updatePartitioning(icebergTable, transaction, partitionColumns);
         }
 
         if (properties.containsKey(SORTED_BY_PROPERTY)) {
-            @SuppressWarnings("unchecked")
-            List<String> sortColumns = (List<String>) properties.get(SORTED_BY_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The sorted_by property cannot be empty"));
+            List<String> sortColumns = getProperty(properties, SORTED_BY_PROPERTY);
             ReplaceSortOrder replaceSortOrder = transaction.replaceSortOrder();
             parseSortFields(replaceSortOrder, sortColumns);
             try {
