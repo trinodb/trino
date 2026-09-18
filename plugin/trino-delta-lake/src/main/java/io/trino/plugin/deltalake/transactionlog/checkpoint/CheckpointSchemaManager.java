@@ -41,6 +41,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -163,7 +164,13 @@ public class CheckpointSchemaManager
             List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(metadataEntry, protocolEntry, typeManager);
             if (!partitionColumns.isEmpty()) {
                 List<RowType.Field> partitionValuesParsed = partitionColumns.stream()
-                        .map(column -> RowType.field(column.basePhysicalColumnName(), typeManager.getType(getTypeDescriptor(DeltaHiveTypeTranslator.toHiveType(column.type())))))
+                        .map(column -> {
+                            // the Hive type round trip would drop the time zone and the microseconds
+                            if (column.type() instanceof TimestampWithTimeZoneType) {
+                                return RowType.field(column.basePhysicalColumnName(), TIMESTAMP_TZ_MICROS);
+                            }
+                            return RowType.field(column.basePhysicalColumnName(), typeManager.getType(getTypeDescriptor(DeltaHiveTypeTranslator.toHiveType(column.type()))));
+                        })
                         .collect(toImmutableList());
                 addFields.add(RowType.field("partitionValues_parsed", RowType.from(partitionValuesParsed)));
             }

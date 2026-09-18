@@ -43,6 +43,7 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -83,7 +84,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -341,7 +342,7 @@ public class TestCheckpointWriter
                 Optional.of(new DeltaLakeParquetFileStatistics(
                         Optional.of(5L),
                         Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 01:00:00"))
+                                .put("ts", convertToTimestampWithTimeZone("2060-10-31 01:00:00"))
                                 .put("ts_ntz", convertToTimestamp("2060-10-31T01:00:00.123"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 101L)
@@ -356,7 +357,7 @@ public class TestCheckpointWriter
                                 .put("row", new SqlRow(0, minMaxRowFieldBlocks))
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("ts", DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, "2060-10-31 02:00:00"))
+                                .put("ts", convertToTimestampWithTimeZone("2060-10-31 02:00:00"))
                                 .put("ts_ntz", convertToTimestamp("2060-10-31T02:00:00.123"))
                                 .put("str", utf8Slice("a"))
                                 .put("dec_short", 201L)
@@ -687,6 +688,11 @@ public class TestCheckpointWriter
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
     }
 
+    private static LongTimestampWithTimeZone convertToTimestampWithTimeZone(String value)
+    {
+        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(unpackMillisUtc(DateTimeUtils.convertToTimestampWithTimeZone(UTC_KEY, value)), 0, UTC_KEY);
+    }
+
     @Test
     public void testJsonStatsTimestampMaximumRoundsUpInCheckpointStruct(@TempDir Path directory)
             throws IOException
@@ -697,8 +703,8 @@ public class TestCheckpointWriter
                 "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
                 "\"nullCount\":{\"ts\":0}}");
 
-        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
-        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600124L, UTC_KEY)));
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600123L, 0, UTC_KEY)));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600124L, 0, UTC_KEY)));
     }
 
     @Test
@@ -711,8 +717,8 @@ public class TestCheckpointWriter
                 "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123Z\"}," +
                 "\"nullCount\":{\"ts\":0}}");
 
-        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
-        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600123L, 0, UTC_KEY)));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", LongTimestampWithTimeZone.fromEpochMillisAndFraction(1705314600123L, 0, UTC_KEY)));
     }
 
     private DeltaLakeParquetFileStatistics roundTripJsonStatistics(Path directory, String jsonStatistics)

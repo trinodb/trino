@@ -168,8 +168,8 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
             testInsert(
                     tableName,
                     ImmutableList.of(
-                            row(4, "four", "2020-01-01T01:00:00.000Z"),
-                            row(5, "five", "2025-01-01T01:00:00.000Z"),
+                            row(4, "four", "2020-01-01T01:00:00.000000Z"),
+                            row(5, "five", "2025-01-01T01:00:00.000000Z"),
                             row(null, null, null)),
                     env);
         }
@@ -217,8 +217,8 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
             testInsert(
                     tableName,
                     ImmutableList.of(
-                            row(4, "four", "2020-01-01T01:00:00.000Z"),
-                            row(5, "five", "2025-01-01T01:00:00.000Z"),
+                            row(4, "four", "2020-01-01T01:00:00.000000Z"),
+                            row(5, "five", "2025-01-01T01:00:00.000000Z"),
                             row(null, null, null)),
                     env);
         }
@@ -235,9 +235,9 @@ class TestDeltaLakeDatabricksCreateTableCompatibility
 
         ImmutableList.Builder<Row> expected = ImmutableList.builder();
         expected.addAll(existingRows);
-        expected.add(row(1, "one", "2960-10-31T01:00:00.000Z"));
-        expected.add(row(2, "two", "2020-10-31T01:00:00.000Z"));
-        expected.add(row(3, "three", "1900-10-31T01:00:00.000Z"));
+        expected.add(row(1, "one", "2960-10-31T01:00:00.000000Z"));
+        expected.add(row(2, "two", "2020-10-31T01:00:00.000000Z"));
+        expected.add(row(3, "three", "1900-10-31T01:00:00.000000Z"));
 
         assertThat(env.executeTrinoSql("SELECT integer, string, to_iso8601(timetz) FROM delta.default." + tableName))
                 .containsOnly(expected.build());
