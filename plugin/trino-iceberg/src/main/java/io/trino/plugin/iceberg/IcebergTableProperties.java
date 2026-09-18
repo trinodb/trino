@@ -406,4 +406,11 @@ public class IcebergTableProperties
     {
         return Optional.ofNullable((Map<String, String>) tableProperties.get(EXTRA_PROPERTIES_PROPERTY));
     }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T getProperty(Map<String, Optional<Object>> properties, String key)
+    {
+        return (T) properties.get(key)
+                .orElseThrow(() -> new IllegalArgumentException("The %s property cannot be empty".formatted(key)));
+    }
 }
