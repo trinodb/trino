@@ -39,7 +39,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
@@ -71,11 +70,9 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.se
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -532,7 +529,8 @@ public class CheckpointWriter
 
     private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
     {
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessNullCount(values));
+        RowType nullCountType = (RowType) validateAndGetField(type, fieldId, fieldName).getType();
+        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessNullCount(nullCountType, values));
     }
 
     private void writeObjectMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
@@ -575,11 +573,6 @@ public class CheckpointWriter
                                         if (isJson) {
                                             return jsonValueToTrinoValue(type, value);
                                         }
-                                        if (type == TIMESTAMP_MILLIS) {
-                                            // We need to remap TIMESTAMP WITH TIME ZONE -> TIMESTAMP here because of
-                                            // inconsistency in what type is used for DL "timestamp" type in data processing and in min/max statistics map.
-                                            value = multiplyExact(DateTimeEncoding.unpackMillisUtc((long) value), MICROSECONDS_PER_MILLISECOND);
-                                        }
                                         if (type == TIMESTAMP_MICROS) {
                                             // This is TIMESTAMP_NTZ type in Delta Lake
                                             return value;
@@ -590,20 +583,34 @@ public class CheckpointWriter
                 });
     }
 
-    private Optional<Map<String, Object>> preprocessNullCount(Optional<Map<String, Object>> valuesOptional)
+    private Optional<Map<String, Object>> preprocessNullCount(RowType nullCountType, Optional<Map<String, Object>> valuesOptional)
     {
+        Map<String, Type> fieldTypes = nullCountType.getFields().stream().collect(toImmutableMap(
+                field -> field.getName().orElseThrow(),
+                RowType.Field::getType));
         return valuesOptional.map(
                 values ->
                         values.entrySet().stream()
                                 .collect(toMap(
                                         Entry::getKey,
-                                        entry -> {
-                                            Object value = entry.getValue();
-                                            if (value instanceof Integer) {
-                                                return (long) (int) value;
-                                            }
-                                            return value;
-                                        })));
+                                        entry -> toNullCountValue(fieldTypes.get(entry.getKey()), entry.getValue()))));
+    }
+
+    private static Object toNullCountValue(Type type, Object value)
+    {
+        if (value instanceof Integer integer) {
+            return (long) (int) integer;
+        }
+        // JSON statistics carry a struct column's null counts as a nested object
+        if (type instanceof RowType rowType && value instanceof Map<?, ?> nestedCounts) {
+            return buildRowValue(rowType, fields -> {
+                for (int i = 0; i < rowType.getFields().size(); i++) {
+                    RowType.Field field = rowType.getFields().get(i);
+                    writeNativeValue(field.getType(), fields.get(i), toNullCountValue(field.getType(), nestedCounts.get(field.getName().orElseThrow())));
+                }
+            });
+        }
+        return value;
     }
 
     private void writeRemoveFileEntry(PageBuilder pageBuilder, RowType entryType, RemoveFileEntry removeFileEntry)
