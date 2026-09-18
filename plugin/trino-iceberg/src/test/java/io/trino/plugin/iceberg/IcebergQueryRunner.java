@@ -387,6 +387,7 @@ public final class IcebergQueryRunner
                     .addIcebergProperty("iceberg.rest-catalog.warehouse", "gs://" + requireEnv("GCP_STORAGE_BUCKET"))
                     .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                     .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)
+                    .addIcebergProperty("iceberg.rest-catalog.google-json-key-file-path", gcpCredentialsFile.toString())
                     .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
                     .addIcebergProperty("fs.gcs.enabled", "true")
                     .addIcebergProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())

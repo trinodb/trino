@@ -43,14 +43,14 @@ final class TestGoogleSecurityConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.rest-catalog.google-project-id", "gcp")
-                .put("gcs.json-key-file-path", config.toString())
+                .put("iceberg.rest-catalog.google-json-key-file-path", config.toString())
                 .buildOrThrow();
 
         GoogleSecurityConfig expected = new GoogleSecurityConfig()
                 .setProjectId("gcp")
                 .setJsonKeyFilePath(config.toString());
 
-        assertFullMapping(properties, expected, ImmutableSet.of("gcs.json-key"));
+        assertFullMapping(properties, expected, ImmutableSet.of("iceberg.rest-catalog.google-json-key"));
     }
 
     @Test
@@ -58,14 +58,14 @@ final class TestGoogleSecurityConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.rest-catalog.google-project-id", "gcp")
-                .put("gcs.json-key", "{}")
+                .put("iceberg.rest-catalog.google-json-key", "{}")
                 .buildOrThrow();
 
         GoogleSecurityConfig expected = new GoogleSecurityConfig()
                 .setProjectId("gcp")
                 .setJsonKey("{}");
 
-        assertFullMapping(properties, expected, ImmutableSet.of("gcs.json-key-file-path"));
+        assertFullMapping(properties, expected, ImmutableSet.of("iceberg.rest-catalog.google-json-key-file-path"));
     }
 
     @Test
@@ -76,7 +76,7 @@ final class TestGoogleSecurityConfig
                         .setJsonKey("{}")
                         .setJsonKeyFilePath("file.json"),
                 "authMethodValid",
-                "gcs.json-key and gcs.json-key-file-path cannot be set at the same time",
+                "iceberg.rest-catalog.google-json-key and iceberg.rest-catalog.google-json-key-file-path cannot be set at the same time",
                 AssertTrue.class);
     }
 }
