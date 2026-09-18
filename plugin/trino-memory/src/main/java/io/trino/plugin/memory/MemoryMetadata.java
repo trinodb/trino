@@ -700,7 +700,7 @@ public class MemoryMetadata
     @Override
     public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return true;
+        return ((MemoryTableHandle) tableHandle).sampleRatio().isEmpty();
     }
 
     @Override
