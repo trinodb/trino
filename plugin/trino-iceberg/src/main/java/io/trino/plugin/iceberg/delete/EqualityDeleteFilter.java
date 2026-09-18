@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import com.google.common.util.concurrent.Futures;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.BlocksHash;
@@ -34,11 +33,13 @@ import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
@@ -47,6 +48,11 @@ import static java.util.Objects.requireNonNull;
 
 public final class EqualityDeleteFilter
 {
+    // A significant share of loading a large equality delete file is CPU, which the pool hides from the query's CPU
+    // accounting. Load large files inline on the split thread instead of in the pool.
+    @VisibleForTesting
+    static final long INLINE_LOAD_SIZE = 100_000L;
+
     private final Schema deleteSchema;
     private final EqualityDeleteIndex index;
 
@@ -113,9 +119,9 @@ public final class EqualityDeleteFilter
         }
     }
 
-    public static EqualityDeleteFilterBuilder builder(Schema deleteSchema, List<Type> columnTypes, BlocksHashFactory blocksHashFactory)
+    public static EqualityDeleteFilterBuilder builder(Schema deleteSchema, List<Type> columnTypes, BlocksHashFactory blocksHashFactory, Executor executor)
     {
-        return new FlatHashEqualityDeleteFilterBuilder(deleteSchema, columnTypes, blocksHashFactory);
+        return new FlatHashEqualityDeleteFilterBuilder(deleteSchema, columnTypes, blocksHashFactory, executor);
     }
 
     /**
@@ -190,26 +196,28 @@ public final class EqualityDeleteFilter
 
         private final Schema deleteSchema;
         private final EqualityDeleteIndex index;
-        private final Map<String, ListenableFutureTask<?>> loadingFiles = new ConcurrentHashMap<>();
+        private final ReferenceCountedLoader poolLoader;
+        private final ReferenceCountedLoader inlineLoader;
 
-        private FlatHashEqualityDeleteFilterBuilder(Schema deleteSchema, List<Type> columnTypes, BlocksHashFactory blocksHashFactory)
+        private FlatHashEqualityDeleteFilterBuilder(Schema deleteSchema, List<Type> columnTypes, BlocksHashFactory blocksHashFactory, Executor executor)
         {
             this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
             BlocksHash blocksHash = requireNonNull(blocksHashFactory, "blocksHashFactory is null").create(requireNonNull(columnTypes, "columnTypes is null"), CACHE_HASH_VALUES, EXPECTED_SIZE);
             this.index = new EqualityDeleteIndex(blocksHash, new LongArrayList(EXPECTED_SIZE));
+            this.poolLoader = new ReferenceCountedLoader(executor);
+            this.inlineLoader = new ReferenceCountedLoader(directExecutor());
         }
 
         @Override
         public ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
         {
             verify(deleteColumns.size() == deleteSchema.columns().size(), "delete columns size doesn't match delete schema size");
-
-            // ensure only one thread loads the file
-            ListenableFutureTask<?> futureTask = loadingFiles.computeIfAbsent(
-                    deleteFile.path(),
-                    _ -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
-            futureTask.run();
-            return Futures.nonCancellationPropagating(futureTask);
+            // a load is only dropped before it starts, so the index never holds a partially read delete file
+            Runnable load = () -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider);
+            if (deleteFile.recordCount() >= INLINE_LOAD_SIZE) {
+                return inlineLoader.load(deleteFile.path(), load);
+            }
+            return poolLoader.load(deleteFile.path(), load);
         }
 
         private void readEqualityDeletesInternal(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
@@ -217,6 +225,7 @@ public final class EqualityDeleteFilter
             long deleteSequenceNumber = deleteFile.dataSequenceNumber();
             try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
                 while (!pageSource.isFinished()) {
+                    getFutureValue(pageSource.isBlocked());
                     SourcePage page = pageSource.getNextSourcePage();
                     if (page == null) {
                         continue;

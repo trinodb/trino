@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.cache.ParquetFooterCache;
@@ -26,6 +27,9 @@ import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.TypeManager;
+
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +46,8 @@ public class IcebergPageSourceProviderFactory
     private final BlocksHashFactory blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
     private final int domainCompactionThreshold;
+    private final ExecutorService deleteLoadingExecutor;
+    private final int deleteLoadingThreads;
 
     @Inject
     public IcebergPageSourceProviderFactory(
@@ -54,7 +60,8 @@ public class IcebergPageSourceProviderFactory
             ParquetFooterCache parquetFooterCache,
             BlocksHashFactory blocksHashFactory,
             IcebergConfig config,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            @ForIcebergDeleteLoading ExecutorService deleteLoadingExecutor)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -66,11 +73,17 @@ public class IcebergPageSourceProviderFactory
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
         this.domainCompactionThreshold = config.getDomainCompactionThreshold();
+        this.deleteLoadingExecutor = requireNonNull(deleteLoadingExecutor, "deleteLoadingExecutor is null");
+        this.deleteLoadingThreads = config.getDeleteLoadingThreads();
     }
 
     @Override
     public IcebergPageSourceProvider createPageSourceProvider(MemoryContext memoryContext)
     {
-        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory, memoryContext, domainCompactionThreshold);
+        // Bound executor so a single split cannot saturate the shared executor's queue and starve other splits.
+        Executor perPageSourceDeleteLoadingExecutor = deleteLoadingThreads > 0
+                ? new BoundedExecutor(this.deleteLoadingExecutor, deleteLoadingThreads)
+                : this.deleteLoadingExecutor;
+        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory, memoryContext, domainCompactionThreshold, perPageSourceDeleteLoadingExecutor);
     }
 }

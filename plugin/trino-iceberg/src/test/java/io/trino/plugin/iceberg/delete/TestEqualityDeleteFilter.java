@@ -45,17 +45,21 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
+import static io.trino.plugin.iceberg.delete.EqualityDeleteFilter.INLINE_LOAD_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.types.Types.NestedField.optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -545,9 +549,46 @@ class TestEqualityDeleteFilter
         assertThat(BIGINT.getLong(page.getBlock(0), 0)).isEqualTo(totalDeleted);
     }
 
+    /**
+     * Large delete files are loaded on the thread asking for them, and small ones on the executor, into the same index.
+     */
+    @Test
+    void testLargeDeleteFilesLoadInlineAndSmallDeleteFilesOnExecutor()
+            throws Exception
+    {
+        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            EqualityDeleteFilterBuilder builder = EqualityDeleteFilter.builder(BIGINT_KEY_SCHEMA, ImmutableList.of(BIGINT), BLOCKS_HASH_FACTORY, executor);
+            AtomicReference<Thread> smallFileLoadThread = new AtomicReference<>();
+            AtomicReference<Thread> largeFileLoadThread = new AtomicReference<>();
+
+            ListenableFuture<?> smallFileLoad = builder.readEqualityDeletes(
+                    bigintKeyDeleteFile(INLINE_LOAD_SIZE - 1),
+                    ImmutableList.of(BIGINT_KEY_HANDLE),
+                    (_, _, _) -> {
+                        smallFileLoadThread.set(Thread.currentThread());
+                        return new FixedPageSource(ImmutableList.of(bigintPage(1L)));
+                    });
+            ListenableFuture<?> largeFileLoad = builder.readEqualityDeletes(
+                    bigintKeyDeleteFile(INLINE_LOAD_SIZE),
+                    ImmutableList.of(BIGINT_KEY_HANDLE),
+                    (_, _, _) -> {
+                        largeFileLoadThread.set(Thread.currentThread());
+                        return new FixedPageSource(ImmutableList.of(bigintPage(2L)));
+                    });
+
+            // the inline load should be done since it is run with a directExecutor
+            assertThat(largeFileLoad.isDone()).isTrue();
+            assertThat(largeFileLoadThread.get()).isSameAs(Thread.currentThread());
+            smallFileLoad.get(10, SECONDS);
+            assertThat(smallFileLoadThread.get()).isNotNull().isNotSameAs(Thread.currentThread());
+
+            assertRetainedKeys(builder, new long[] {1L, 2L, 3L}, 3L);
+        }
+    }
+
     private static EqualityDeleteFilterBuilder newBuilder(Schema schema, List<Type> columnTypes)
     {
-        return EqualityDeleteFilter.builder(schema, columnTypes, BLOCKS_HASH_FACTORY);
+        return EqualityDeleteFilter.builder(schema, columnTypes, BLOCKS_HASH_FACTORY, MoreExecutors.directExecutor());
     }
 
     private static void loadDeleteFile(
@@ -567,13 +608,39 @@ class TestEqualityDeleteFilter
                 (_, _, _) -> new FixedPageSource(ImmutableList.copyOf(pages)));
     }
 
+    /**
+     * Asserts that the filter retains only the retained key of the keys.
+     */
+    private static void assertRetainedKeys(EqualityDeleteFilterBuilder builder, long[] keys, long retainedKey)
+    {
+        PageFilter predicate = builder.build().createPageFilter(ImmutableList.of(BIGINT_KEY_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
+        SourcePage page = SourcePage.create(new Page(bigintBlock(keys)));
+        predicate.applyFilter(page);
+
+        assertThat(page.getPositionCount()).isEqualTo(1);
+        assertThat(BIGINT.getLong(page.getBlock(0), 0)).isEqualTo(retainedKey);
+    }
+
+    /**
+     * A delete file on the key column whose manifest reports the record count, which decides where it is loaded.
+     */
+    private static DeleteFile bigintKeyDeleteFile(long recordCount)
+    {
+        return equalityDeleteFile("delete-file-" + DELETE_FILE_COUNTER.incrementAndGet(), DELETE_FILE_SEQUENCE_NUMBER, ImmutableList.of(KEY_FIELD_ID), recordCount);
+    }
+
     private static DeleteFile equalityDeleteFile(String path, long sequenceNumber, List<Integer> equalityFieldIds)
+    {
+        return equalityDeleteFile(path, sequenceNumber, equalityFieldIds, 0L);
+    }
+
+    private static DeleteFile equalityDeleteFile(String path, long sequenceNumber, List<Integer> equalityFieldIds, long recordCount)
     {
         return new DeleteFile(
                 FileContent.EQUALITY_DELETES,
                 path,
                 FileFormat.PARQUET,
-                0L,
+                recordCount,
                 0L,
                 equalityFieldIds,
                 OptionalLong.empty(),
