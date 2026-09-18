@@ -2415,7 +2415,7 @@ public class DeltaLakeMetadata
             Optional<Map<String, Object>> minStats = toOriginalColumnNames(info.statistics().getMinValues(), toOriginalColumnNames);
             Optional<Map<String, Object>> maxStats = toOriginalColumnNames(info.statistics().getMaxValues(), toOriginalColumnNames);
             Optional<Map<String, Object>> nullStats = toOriginalColumnNames(info.statistics().getNullCount(), toOriginalColumnNames);
-            DeltaLakeJsonFileStatistics statisticsWithExactNames = new DeltaLakeJsonFileStatistics(info.statistics().getNumRecords(), minStats, maxStats, nullStats);
+            DeltaLakeJsonFileStatistics statisticsWithExactNames = new DeltaLakeJsonFileStatistics(info.statistics().getNumRecords(), minStats, maxStats, nullStats, info.statistics().getTightBounds());
 
             String path = cloneSourceLocation.isPresent() && info.path().startsWith(cloneSourceLocation.get())
                     ? info.path()
@@ -4231,6 +4231,8 @@ public class DeltaLakeMetadata
                 TupleDomain.all(),
                 alwaysTrue())) {
             addFileEntriesWithNoStats = activeFiles
+                    // Skip files with deletion vectors. Statistics computed here cover visible rows only,
+                    // while numRecords must stay physical.
                     .filter(addFileEntry -> addFileEntry.getDeletionVector().isEmpty())
                     .filter(addFileEntry -> addFileEntry.getStats().isEmpty()
                             || addFileEntry.getStats().get().getNumRecords().isEmpty()
@@ -4629,10 +4631,11 @@ public class DeltaLakeMetadata
 
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, addFileEntry.getDeletionVector()));
 
-                // Omit row counts for deletion-vector entries with dataChange=false: their statistics may contain
-                // either physical counts from checkpoints or logical counts that already exclude deleted rows.
+                // Statistics from older ANALYZE versions may already exclude deleted rows and lack tightBounds.
+                // Require tightBounds=false for files with deletion vectors before subtracting their cardinality.
                 Optional<Long> fileRecords = addFileEntry.getStats()
-                        .filter(_ -> addFileEntry.isDataChange() || addFileEntry.getDeletionVector().isEmpty())
+                        .filter(statistics -> addFileEntry.getDeletionVector().isEmpty()
+                                || statistics.getTightBounds().filter(tightBounds -> !tightBounds).isPresent())
                         .flatMap(DeltaLakeFileStatistics::getNumRecords)
                         .map(records -> records - addFileEntry.getDeletionVector().map(DeletionVectorEntry::cardinality).orElse(0L));
                 allDeletedFilesStatsPresent &= fileRecords.isPresent();

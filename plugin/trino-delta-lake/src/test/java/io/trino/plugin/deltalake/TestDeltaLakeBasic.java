@@ -1761,6 +1761,63 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testMetadataDeleteWithDeletionVectorsAfterCheckpoint()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_metadata_delete_dv_checkpoint", "(x int) WITH (deletion_vectors_enabled = true, checkpoint_interval = 2)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertThat(getEntriesFromJson(2, tableLocation.resolve("_delta_log").toString()))
+                    .filteredOn(entry -> entry.getAdd() != null)
+                    .anySatisfy(entry -> assertThat(entry.getAdd().getDeletionVector()).isPresent());
+            assertThat(tableLocation.resolve("_delta_log/00000000000000000002.checkpoint.parquet")).exists();
+            assertThat(JSON_MAPPER.readTree(Files.readString(tableLocation.resolve("_delta_log/_last_checkpoint"))).get("version").asLong())
+                    .isEqualTo(2);
+
+            assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(table.getName()));
+            assertUpdate("DELETE FROM " + table.getName(), 2);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+        }
+    }
+
+    @Test
+    void testMetadataDeleteWithDeletionVectorsWithoutDataChange()
+            throws Exception
+    {
+        String tableName = "test_metadata_delete_dv_without_data_change_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        Path transactionLog = copyDeletionVectorsTable(tableLocation);
+        String transactionLogContents = Files.readString(transactionLog);
+        String existingAddFile = "\"dataChange\":true," + DELETION_VECTOR_TABLE_STATISTICS;
+        assertThat(transactionLogContents).contains(existingAddFile);
+        Files.writeString(transactionLog, transactionLogContents.replace(existingAddFile, "\"dataChange\":false," + DELETION_VECTOR_TABLE_STATISTICS));
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        assertUpdate("DELETE FROM " + tableName, 1);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testMetadataDeleteWithDeletionVectorsWithoutTightBounds()
+            throws Exception
+    {
+        String tableName = "test_metadata_delete_dv_without_tight_bounds_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        Path transactionLog = copyDeletionVectorsTable(tableLocation);
+        String transactionLogContents = Files.readString(transactionLog);
+        assertThat(transactionLogContents).contains(DELETION_VECTOR_TABLE_STATISTICS);
+        String statisticsWithoutTightBounds = DELETION_VECTOR_TABLE_STATISTICS.replace(",\\\"tightBounds\\\":false", "");
+        Files.writeString(transactionLog, transactionLogContents.replace(DELETION_VECTOR_TABLE_STATISTICS, statisticsWithoutTightBounds));
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        assertUpdate("DELETE FROM " + tableName);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     void testMetadataDeleteWithDeletionVectorsAfterAnalyze()
             throws Exception
     {
@@ -1769,8 +1826,8 @@ public class TestDeltaLakeBasic
         Path transactionLog = copyDeletionVectorsTable(tableLocation);
         String transactionLogContents = Files.readString(transactionLog);
         assertThat(transactionLogContents).contains(DELETION_VECTOR_TABLE_STATISTICS);
-        // Remove column statistics so ANALYZE exercises the missing-file-statistics path.
-        Files.writeString(transactionLog, transactionLogContents.replace(DELETION_VECTOR_TABLE_STATISTICS, "\"stats\":\"{\\\"numRecords\\\":2}\""));
+        // Remove column statistics so ANALYZE exercises the path for missing file statistics.
+        Files.writeString(transactionLog, transactionLogContents.replace(DELETION_VECTOR_TABLE_STATISTICS, "\"stats\":\"{\\\"numRecords\\\":2,\\\"tightBounds\\\":false}\""));
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
         assertUpdate("ANALYZE %s WITH(mode = 'full_refresh')".formatted(tableName), 1);
@@ -1789,8 +1846,10 @@ public class TestDeltaLakeBasic
         String transactionLogContents = Files.readString(transactionLog);
         String existingAddFile = "\"dataChange\":true," + DELETION_VECTOR_TABLE_STATISTICS;
         assertThat(transactionLogContents).contains(existingAddFile);
-        // Simulate an older ANALYZE that rewrote the add entry with a logical row count.
-        String logicalStats = DELETION_VECTOR_TABLE_STATISTICS.replace("\\\"numRecords\\\":2", "\\\"numRecords\\\":1");
+        // Simulate an older ANALYZE that wrote a logical row count without tightBounds.
+        String logicalStats = DELETION_VECTOR_TABLE_STATISTICS
+                .replace("\\\"numRecords\\\":2", "\\\"numRecords\\\":1")
+                .replace(",\\\"tightBounds\\\":false", "");
         Files.writeString(transactionLog, transactionLogContents.replace(existingAddFile, "\"dataChange\":false," + logicalStats));
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));

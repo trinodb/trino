@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectReader;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
@@ -39,6 +41,7 @@ public class AddFileEntry
 {
     private static final Logger LOG = Logger.get(AddFileEntry.class);
     private static final long INSTANCE_SIZE = instanceSize(AddFileEntry.class);
+    private static final ObjectReader STATISTICS_BOUNDS_READER = new JsonMapperProvider().get().readerFor(StatisticsBounds.class);
 
     private final String path;
     private final Map<String, String> partitionValues;
@@ -97,7 +100,19 @@ public class AddFileEntry
 
         Optional<? extends DeltaLakeFileStatistics> resultParsedStats = Optional.empty();
         if (parsedStats.isPresent()) {
-            resultParsedStats = parsedStats;
+            DeltaLakeParquetFileStatistics statistics = parsedStats.get();
+            if (deletionVector.isPresent() && statistics.getTightBounds().isEmpty() && stats.isPresent()) {
+                Optional<Boolean> tightBounds = readTightBounds(stats.get());
+                if (tightBounds.isPresent()) {
+                    statistics = new DeltaLakeParquetFileStatistics(
+                            statistics.getNumRecords(),
+                            statistics.getMinValues(),
+                            statistics.getMaxValues(),
+                            statistics.getNullCount(),
+                            tightBounds);
+                }
+            }
+            resultParsedStats = Optional.of(statistics);
         }
         else if (stats.isPresent()) {
             try {
@@ -111,6 +126,27 @@ public class AddFileEntry
             }
         }
         this.parsedStats = resultParsedStats;
+    }
+
+    private static Optional<Boolean> readTightBounds(String stats)
+    {
+        try {
+            StatisticsBounds bounds = STATISTICS_BOUNDS_READER.readValue(stats);
+            return bounds == null ? Optional.empty() : bounds.tightBounds();
+        }
+        catch (JsonProcessingException e) {
+            LOG.debug(e, "Statistics bounds could not be parsed and will be ignored. The JSON string was: %s", stats);
+            return Optional.empty();
+        }
+    }
+
+    public record StatisticsBounds(@JsonProperty("tightBounds") Optional<Boolean> tightBounds)
+    {
+        @JsonCreator
+        public StatisticsBounds
+        {
+            requireNonNull(tightBounds, "tightBounds is null");
+        }
     }
 
     /**
