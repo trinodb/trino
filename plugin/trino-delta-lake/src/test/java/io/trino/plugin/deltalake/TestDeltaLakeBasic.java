@@ -127,6 +127,9 @@ public class TestDeltaLakeBasic
 {
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
+    private static final String DELETION_VECTOR_TABLE_STATISTICS = "\"stats\":\"{\\\"numRecords\\\":2,\\\"minValues\\\":{\\\"a\\\":1,\\\"b\\\":11}," +
+            "\\\"maxValues\\\":{\\\"a\\\":2,\\\"b\\\":22},\\\"nullCount\\\":{\\\"a\\\":0,\\\"b\\\":0},\\\"tightBounds\\\":false}\"";
+
     private static final List<ResourceTable> PERSON_TABLES = ImmutableList.of(
             new ResourceTable("person", "databricks73/person"),
             new ResourceTable("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint"),
@@ -537,6 +540,38 @@ public class TestDeltaLakeBasic
             // deletion_vectors_enabled is not enabled, since we created the table without it
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .doesNotContain("deletion_vectors_enabled = true");
+        }
+    }
+
+    @Test
+    void testCreateOrReplaceWithDeletionVectors()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_create_or_replace_deletion_vectors", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertThat(getEntriesFromJson(2, getTableLocation(table.getName()) + "/_delta_log"))
+                    .filteredOn(entry -> entry.getAdd() != null)
+                    .anySatisfy(entry -> assertThat(entry.getAdd().getDeletionVector()).isPresent());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int)");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+        }
+    }
+
+    @Test
+    void testCreateOrReplaceAsSelectWithDeletionVectors()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_create_or_replace_as_select_deletion_vectors", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertThat(getEntriesFromJson(2, getTableLocation(table.getName()) + "/_delta_log"))
+                    .filteredOn(entry -> entry.getAdd() != null)
+                    .anySatisfy(entry -> assertThat(entry.getAdd().getDeletionVector()).isPresent());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 4 x", 1);
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 4");
         }
     }
 
@@ -1731,15 +1766,11 @@ public class TestDeltaLakeBasic
     {
         String tableName = "test_metadata_delete_dv_analyze_" + randomNameSuffix();
         Path tableLocation = catalogDir.resolve(tableName);
-        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
-
-        Path transactionLog = tableLocation.resolve("_delta_log/00000000000000000002.json");
+        Path transactionLog = copyDeletionVectorsTable(tableLocation);
         String transactionLogContents = Files.readString(transactionLog);
-        String existingStats = "\"stats\":\"{\\\"numRecords\\\":2,\\\"minValues\\\":{\\\"a\\\":1,\\\"b\\\":11}," +
-                "\\\"maxValues\\\":{\\\"a\\\":2,\\\"b\\\":22},\\\"nullCount\\\":{\\\"a\\\":0,\\\"b\\\":0},\\\"tightBounds\\\":false}\"";
-        assertThat(transactionLogContents).contains(existingStats);
+        assertThat(transactionLogContents).contains(DELETION_VECTOR_TABLE_STATISTICS);
         // Remove column statistics so ANALYZE exercises the missing-file-statistics path.
-        Files.writeString(transactionLog, transactionLogContents.replace(existingStats, "\"stats\":\"{\\\"numRecords\\\":2}\""));
+        Files.writeString(transactionLog, transactionLogContents.replace(DELETION_VECTOR_TABLE_STATISTICS, "\"stats\":\"{\\\"numRecords\\\":2}\""));
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
         assertUpdate("ANALYZE %s WITH(mode = 'full_refresh')".formatted(tableName), 1);
@@ -1754,22 +1785,25 @@ public class TestDeltaLakeBasic
     {
         String tableName = "test_metadata_delete_dv_legacy_analyze_" + randomNameSuffix();
         Path tableLocation = catalogDir.resolve(tableName);
-        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
-
-        Path transactionLog = tableLocation.resolve("_delta_log/00000000000000000002.json");
+        Path transactionLog = copyDeletionVectorsTable(tableLocation);
         String transactionLogContents = Files.readString(transactionLog);
-        String existingStats = "\"stats\":\"{\\\"numRecords\\\":2,\\\"minValues\\\":{\\\"a\\\":1,\\\"b\\\":11}," +
-                "\\\"maxValues\\\":{\\\"a\\\":2,\\\"b\\\":22},\\\"nullCount\\\":{\\\"a\\\":0,\\\"b\\\":0},\\\"tightBounds\\\":false}\"";
-        String existingAddFile = "\"dataChange\":true," + existingStats;
+        String existingAddFile = "\"dataChange\":true," + DELETION_VECTOR_TABLE_STATISTICS;
         assertThat(transactionLogContents).contains(existingAddFile);
         // Simulate an older ANALYZE that rewrote the add entry with a logical row count.
-        String logicalStats = existingStats.replace("\\\"numRecords\\\":2", "\\\"numRecords\\\":1");
+        String logicalStats = DELETION_VECTOR_TABLE_STATISTICS.replace("\\\"numRecords\\\":2", "\\\"numRecords\\\":1");
         Files.writeString(transactionLog, transactionLogContents.replace(existingAddFile, "\"dataChange\":false," + logicalStats));
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
         assertUpdate("DELETE FROM " + tableName);
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private static Path copyDeletionVectorsTable(Path tableLocation)
+            throws Exception
+    {
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
+        return tableLocation.resolve("_delta_log/00000000000000000002.json");
     }
 
     @Test

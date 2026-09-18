@@ -1545,7 +1545,7 @@ public class DeltaLakeMetadata
                         while (addFileEntryIterator.hasNext()) {
                             long writeTimestamp = Instant.now().toEpochMilli();
                             AddFileEntry addFileEntry = addFileEntryIterator.next();
-                            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
+                            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, addFileEntry.getDeletionVector()));
                         }
                     }
                     protocolEntry = protocolEntryForTable(ProtocolEntry.builder(tableHandle.getProtocolEntry()), containsTimestampType, tableMetadata.getProperties());
@@ -1949,7 +1949,7 @@ public class DeltaLakeMetadata
                     Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
                     while (addFileEntryIterator.hasNext()) {
                         AddFileEntry addFileEntry = addFileEntryIterator.next();
-                        transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
+                        transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, addFileEntry.getDeletionVector()));
                     }
                 }
             }
@@ -4629,7 +4629,8 @@ public class DeltaLakeMetadata
 
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, addFileEntry.getDeletionVector()));
 
-                // Older ANALYZE versions rewrote deletion-vector-backed entries with dataChange=false and logical row counts.
+                // Omit row counts for deletion-vector entries with dataChange=false: their statistics may contain
+                // either physical counts from checkpoints or logical counts that already exclude deleted rows.
                 Optional<Long> fileRecords = addFileEntry.getStats()
                         .filter(_ -> addFileEntry.isDataChange() || addFileEntry.getDeletionVector().isEmpty())
                         .flatMap(DeltaLakeFileStatistics::getNumRecords)
