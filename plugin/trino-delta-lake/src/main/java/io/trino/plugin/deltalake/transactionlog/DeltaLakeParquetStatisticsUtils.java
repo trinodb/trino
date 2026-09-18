@@ -169,7 +169,7 @@ public final class DeltaLakeParquetStatisticsUtils
         throw new UnsupportedOperationException("Unsupported type: " + type);
     }
 
-    public static Map<String, Object> toJsonValues(Map<String, Type> columnTypeMapping, Map<String, Object> values)
+    public static Map<String, Object> toJsonValues(Map<String, Type> columnTypeMapping, Map<String, Object> values, boolean roundUp)
     {
         Map<String, Object> jsonValues = new HashMap<>();
         for (Entry<String, Object> value : values.entrySet()) {
@@ -177,13 +177,13 @@ public final class DeltaLakeParquetStatisticsUtils
             if (type instanceof ArrayType || type instanceof MapType) {
                 continue;
             }
-            jsonValues.put(value.getKey(), toJsonValue(columnTypeMapping.get(value.getKey()), value.getValue()));
+            jsonValues.put(value.getKey(), toJsonValue(columnTypeMapping.get(value.getKey()), value.getValue(), roundUp));
         }
         return jsonValues;
     }
 
     @Nullable
-    public static Object toJsonValue(Type type, @Nullable Object value)
+    public static Object toJsonValue(Type type, @Nullable Object value, boolean roundUp)
     {
         if (value == null) {
             return null;
@@ -213,10 +213,12 @@ public final class DeltaLakeParquetStatisticsUtils
         }
         if (type == TIMESTAMP_MICROS) {
             long epochMicros = (long) value;
-            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-            int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
-            return ISO_INSTANT.format(ZonedDateTime.ofInstant(instant.truncatedTo(MILLIS), UTC));
+            long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+            // ceil the max so the millisecond bound still covers the sub-millisecond value
+            if (roundUp && floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) > 0) {
+                epochMillis++;
+            }
+            return ISO_INSTANT.format(ZonedDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC));
         }
         if (type == TIMESTAMP_TZ_MILLIS) {
             Instant ts = Instant.ofEpochMilli(unpackMillisUtc((long) value));
@@ -229,7 +231,7 @@ public final class DeltaLakeParquetStatisticsUtils
             for (int i = 0; i < row.getFieldCount(); i++) {
                 RowType.Field field = rowType.getFields().get(i);
                 Object fieldValue = readNativeValue(field.getType(), row.getRawFieldBlock(i), rawIndex);
-                Object jsonValue = toJsonValue(field.getType(), fieldValue);
+                Object jsonValue = toJsonValue(field.getType(), fieldValue, roundUp);
                 if (jsonValue != null) {
                     fieldValues.put(field.getName().orElseThrow(), jsonValue);
                 }
