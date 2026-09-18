@@ -72,6 +72,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -490,6 +491,110 @@ public class TestCheckpointWriter
         DeltaLakeJsonFileStatistics readStats = (DeltaLakeJsonFileStatistics) getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
         assertThat(readStats.getMinValues().orElseThrow()).isEqualTo(ImmutableMap.of("ts_ntz", "2024-01-15T10:30:00.123Z"));
         assertThat(readStats.getMaxValues().orElseThrow()).isEqualTo(ImmutableMap.of("ts_ntz", "2024-01-15T10:30:00.124Z"));
+    }
+
+    @Test
+    public void testJsonStatsTimestampMaximumRoundsUpInCheckpointStruct(@TempDir Path directory)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of(
+                        "delta.checkpoint.writeStatsAsStruct", "true",
+                        "delta.checkpoint.writeStatsAsJson", "false"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePathJson",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.of("{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
+                        "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
+                        "\"nullCount\":{\"ts\":0}}"),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(addFileEntry),
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+
+        String targetPath = directory.resolve("jsonStatsMaxRoundsUp.checkpoint.parquet").toUri().toString();
+        writer.write(entries, createOutputFile(targetPath));
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
+        DeltaLakeParquetFileStatistics readStats = (DeltaLakeParquetFileStatistics) getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
+        assertThat(readStats.getMinValues().orElseThrow())
+                .isEqualTo(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+        assertThat(readStats.getMaxValues().orElseThrow())
+                .isEqualTo(ImmutableMap.of("ts", packDateTimeWithZone(1705314600124L, UTC_KEY)));
+    }
+
+    @Test
+    public void testJsonStatsTimestampOnMillisecondBoundaryIsUnchangedInCheckpointStruct(@TempDir Path directory)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of(
+                        "delta.checkpoint.writeStatsAsStruct", "true",
+                        "delta.checkpoint.writeStatsAsJson", "false"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePathJson",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.of("{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"ts\":\"2024-01-15T10:30:00.123Z\"}," +
+                        "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123Z\"}," +
+                        "\"nullCount\":{\"ts\":0}}"),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(addFileEntry),
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+
+        String targetPath = directory.resolve("jsonStatsMaxOnBoundary.checkpoint.parquet").toUri().toString();
+        writer.write(entries, createOutputFile(targetPath));
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
+        DeltaLakeParquetFileStatistics readStats = (DeltaLakeParquetFileStatistics) getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
+        assertThat(readStats.getMinValues().orElseThrow())
+                .isEqualTo(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+        assertThat(readStats.getMaxValues().orElseThrow())
+                .isEqualTo(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
     }
 
     @Test
