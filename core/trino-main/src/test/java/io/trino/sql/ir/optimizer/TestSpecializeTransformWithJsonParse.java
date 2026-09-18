@@ -48,6 +48,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSpecializeTransformWithJsonParse
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction JSON_STRING_TO_ARRAY = FUNCTIONS.getCoercion(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), VARCHAR, new ArrayType(VARCHAR));
     private static final ResolvedFunction TRANSFORM = FUNCTIONS.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(new ArrayType(VARCHAR), new FunctionType(List.of(VARCHAR), VARCHAR)));
@@ -76,6 +78,6 @@ public class TestSpecializeTransformWithJsonParse
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SpecializeTransformWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new SpecializeTransformWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }

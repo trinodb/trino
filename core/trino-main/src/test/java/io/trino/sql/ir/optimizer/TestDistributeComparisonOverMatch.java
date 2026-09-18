@@ -39,6 +39,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDistributeComparisonOverMatch
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -137,7 +139,7 @@ public class TestDistributeComparisonOverMatch
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new DistributeComparisonOverMatch(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new DistributeComparisonOverMatch(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 
     private static MatchClause equalityClause(Expression value, Expression result)

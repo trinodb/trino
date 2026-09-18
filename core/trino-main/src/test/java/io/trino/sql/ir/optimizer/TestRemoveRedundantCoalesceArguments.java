@@ -41,6 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRemoveRedundantCoalesceArguments
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ArrayType BIGINT_ARRAY = new ArrayType(BIGINT);
     private static final ResolvedFunction LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(VARCHAR));
@@ -128,6 +130,6 @@ public class TestRemoveRedundantCoalesceArguments
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantCoalesceArguments(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new RemoveRedundantCoalesceArguments(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }

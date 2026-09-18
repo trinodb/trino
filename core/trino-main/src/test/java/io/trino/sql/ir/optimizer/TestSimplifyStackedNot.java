@@ -32,6 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyStackedNot
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -42,6 +44,6 @@ public class TestSimplifyStackedNot
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyStackedNot().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new SimplifyStackedNot().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
