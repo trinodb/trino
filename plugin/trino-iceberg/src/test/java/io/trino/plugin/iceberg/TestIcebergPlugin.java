@@ -25,9 +25,12 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
@@ -241,8 +244,12 @@ public class TestIcebergPlugin
     }
 
     @Test
-    void testRestCatalogWithBigLakeMetastore(@TempDir Path jsonKeyFilePath)
+    void testRestCatalogWithBigLakeMetastore(@TempDir Path tempDir)
+            throws Exception
     {
+        // GCS file system access eagerly parses the service account key, so it must point to an actual, well-formed key.
+        Path gcsKeyFilePath = createFakeServiceAccountKeyFile(tempDir);
+
         ConnectorFactory factory = getConnectorFactory();
         factory.create(
                         "test",
@@ -251,11 +258,38 @@ public class TestIcebergPlugin
                                 .put("iceberg.rest-catalog.uri", "https://foo:1234")
                                 .put("iceberg.rest-catalog.security", "GOOGLE")
                                 .put("iceberg.rest-catalog.google-project-id", "dev")
-                                .put("gcs.json-key-file-path", jsonKeyFilePath.toString())
+                                .put("iceberg.rest-catalog.google-json-key-file-path", gcsKeyFilePath.toString())
+                                .put("fs.gcs.enabled", "true")
+                                .put("gcs.json-key-file-path", gcsKeyFilePath.toString())
                                 .put("bootstrap.quiet", "true")
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();
+    }
+
+    private static Path createFakeServiceAccountKeyFile(Path directory)
+            throws Exception
+    {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        byte[] privateKey = keyPairGenerator.generateKeyPair().getPrivate().getEncoded();
+        String privateKeyPem = "-----BEGIN PRIVATE KEY-----\\n" +
+                Base64.getMimeEncoder(64, "\n".getBytes(UTF_8)).encodeToString(privateKey).replace("\n", "\\n") +
+                "\\n-----END PRIVATE KEY-----\\n";
+        String json =
+                """
+                {
+                  "type": "service_account",
+                  "client_id": "123456789",
+                  "client_email": "test@test-project.iam.gserviceaccount.com",
+                  "private_key_id": "test-key-id",
+                  "private_key": "%s"
+                }
+                """.formatted(privateKeyPem);
+
+        Path keyFile = directory.resolve("gcs-service-account.json");
+        Files.writeString(keyFile, json);
+        return keyFile;
     }
 
     @Test
@@ -269,6 +303,28 @@ public class TestIcebergPlugin
                                 .put("iceberg.rest-catalog.uri", "https://foo:1234")
                                 .put("iceberg.rest-catalog.security", "GOOGLE")
                                 .put("iceberg.rest-catalog.google-project-id", "dev")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    void testRestCatalogWithBigLakeMetastoreVendedCredentials()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.catalog.type", "rest")
+                                .put("iceberg.rest-catalog.uri", "https://foo:1234")
+                                .put("iceberg.rest-catalog.warehouse", "gs://bucket/warehouse")
+                                .put("iceberg.rest-catalog.security", "GOOGLE")
+                                .put("iceberg.rest-catalog.google-project-id", "dev")
+                                .put("iceberg.rest-catalog.google-json-key", "{}")
+                                .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                                .put("fs.gcs.enabled", "true")
+                                .put("gcs.auth-type", "APPLICATION_DEFAULT")
                                 .put("bootstrap.quiet", "true")
                                 .buildOrThrow(),
                         new TestingConnectorContext())

@@ -546,6 +546,17 @@ following properties:
 * - `iceberg.rest-catalog.google-project-id`
   - Google Cloud project name. This property must be set when `iceberg.rest-catalog.security` 
     config property is set to `GOOGLE`. Example: `development-123456`.
+* - `iceberg.rest-catalog.google-json-key`
+  - Google Cloud service account key in JSON format, used to authenticate with the REST
+    catalog when `iceberg.rest-catalog.security` is set to `GOOGLE`. Optional, and not to
+    be set together with `iceberg.rest-catalog.google-json-key-file-path`. Separate from
+    the `gcs.json-key` property, which authenticates access to GCS for table data.
+* - `iceberg.rest-catalog.google-json-key-file-path`
+  - Path to a file containing a Google Cloud service account key in JSON format, used to
+    authenticate with the REST catalog when `iceberg.rest-catalog.security` is set to
+    `GOOGLE`. Optional, and not to be set together with `iceberg.rest-catalog.google-json-key`.
+    Separate from the `gcs.json-key-file-path` property, which authenticates access to GCS
+    for table data.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`
   - Match namespace, table, and view names case insensitively. Defaults to `false`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
@@ -611,16 +622,59 @@ iceberg.rest-catalog.warehouse=gs://example-bucket
 iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
 iceberg.rest-catalog.security=GOOGLE
 iceberg.rest-catalog.google-project-id=example-project-id
+iceberg.rest-catalog.google-json-key-file-path=/path/to/rest_catalog_keyfile.json
 iceberg.rest-catalog.view-endpoints-enabled=false
 iceberg.rest-catalog.server-assigned-table-location-enabled=true
 fs.gcs.enabled=true
 gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
-`gcs.json-key` and `gcs.json-key-file-path` are optional. When omitted, [Application Default
-Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
-(ADC) are used, which supports GKE Workload Identity and other
-environment-based credential sources.
+`iceberg.rest-catalog.google-json-key` and `iceberg.rest-catalog.google-json-key-file-path`
+authenticate with the REST catalog itself, and are independent from `gcs.json-key`
+and `gcs.json-key-file-path`, which authenticate GCS access for table data.
+All four properties are optional. 
+
+When `iceberg.rest-catalog.vended-credentials-enabled` is set to `true`,
+the REST catalog backend issues short-lived, scoped GCS access tokens to Trino
+for table storage operations.
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.unique-table-location=false
+iceberg.rest-catalog.warehouse=gs://example-bucket
+iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
+iceberg.rest-catalog.security=GOOGLE
+iceberg.rest-catalog.google-project-id=example-project-id
+iceberg.rest-catalog.google-json-key-file-path=/path/to/rest_catalog_keyfile.json
+iceberg.rest-catalog.view-endpoints-enabled=false
+iceberg.rest-catalog.server-assigned-table-location-enabled=true
+
+# Enable credential vending supplied by the REST catalog
+iceberg.rest-catalog.vended-credentials-enabled=true
+fs.gcs.enabled=true
+gcs.auth-type=APPLICATION_DEFAULT
+```
+
+[Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
+(ADC) can be used to authenticate against the REST Catalog and GCS, which
+supports GKE Workload Identity and other environment-based credential
+sources.
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.unique-table-location=false
+iceberg.rest-catalog.warehouse=gs://example-bucket
+iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
+iceberg.rest-catalog.security=GOOGLE
+iceberg.rest-catalog.google-project-id=example-project-id
+iceberg.rest-catalog.view-endpoints-enabled=false
+iceberg.rest-catalog.server-assigned-table-location-enabled=true
+
+fs.gcs.enabled=true
+gcs.auth-type=APPLICATION_DEFAULT
+```
 
 (iceberg-jdbc-catalog)=
 ### JDBC catalog
