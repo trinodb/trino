@@ -48,7 +48,6 @@ import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
@@ -83,7 +82,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWri
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupMaxRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupSize;
-import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.deltalake.DeltaLakeWriter.readStatistics;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVectors;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
@@ -111,7 +109,6 @@ public class DeltaLakeMergeSink
     public static final String UPDATE_PREIMAGE_CDF_LABEL = "update_preimage";
     public static final String UPDATE_POSTIMAGE_CDF_LABEL = "update_postimage";
 
-    private final TypeOperators typeOperators;
     private final TrinoFileSystem fileSystem;
     private final ConnectorSession session;
     private final DateTimeZone parquetDateTimeZone;
@@ -147,7 +144,6 @@ public class DeltaLakeMergeSink
     private DeltaLakeCdfPageSink cdfPageSink;
 
     public DeltaLakeMergeSink(
-            TypeOperators typeOperators,
             DeltaLakeFileSystemFactory fileSystemFactory,
             ConnectorSession session,
             DateTimeZone parquetDateTimeZone,
@@ -174,7 +170,6 @@ public class DeltaLakeMergeSink
             boolean useDeltaLengthByteArrayEncoding,
             MemoryContext memoryContext)
     {
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
         this.fileSystem = fileSystemFactory.create(session, tableCredentials);
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
@@ -558,7 +553,7 @@ public class DeltaLakeMergeSink
             dataColumns.forEach(column -> verify(column.isBaseColumn(), "Unexpected dereference: %s", column));
 
             List<Type> parquetTypes = dataColumns.stream()
-                    .map(column -> toParquetType(typeOperators, column.basePhysicalType()))
+                    .map(DeltaLakeColumnHandle::basePhysicalType)
                     .collect(toImmutableList());
             List<String> dataColumnNames = dataColumns.stream()
                     .map(DeltaLakeColumnHandle::basePhysicalColumnName)
