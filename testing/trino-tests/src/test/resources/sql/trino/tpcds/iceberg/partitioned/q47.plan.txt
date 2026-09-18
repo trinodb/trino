@@ -14,19 +14,16 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (ss_item_sk, ss_store_sk, ss_sold_date_sk)
-                                                                dynamic filter (ss_item_sk::EQUAL, ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL)
-                                                                    scan store_sales
+                                                                scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (s_store_name::EQUAL, s_company_name::EQUAL, s_store_name::EQUAL, s_company_name::EQUAL)
-                                                                    scan store
+                                                                scan store
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (i_category::EQUAL, i_brand::EQUAL, i_category::EQUAL, i_brand::EQUAL)
-                                                                scan item
+                                                            scan item
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [i_category_18, i_brand_14, s_store_name_91, s_company_name_103])
                                 final aggregation over (i_category_18, i_brand_14, s_store_name_91, s_company_name_103, d_year_62, d_moy_64)
@@ -37,19 +34,16 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (ss_item_sk_31, ss_store_sk_36, ss_sold_date_sk_52)
-                                                                dynamic filter (ss_item_sk_31::EQUAL, ss_store_sk_36::EQUAL, ss_sold_date_sk_52::EQUAL)
-                                                                    scan store_sales
+                                                                scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (s_store_name_91::EQUAL, s_company_name_103::EQUAL)
-                                                                    scan store
+                                                                scan store
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (i_category_18::EQUAL, i_brand_14::EQUAL)
-                                                                scan item
+                                                            scan item
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [i_category_132, i_brand_128, s_store_name_205, s_company_name_217])
                             final aggregation over (i_category_132, i_brand_128, s_store_name_205, s_company_name_217, d_year_176, d_moy_178)
@@ -60,8 +54,7 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_item_sk_145, ss_store_sk_150, ss_sold_date_sk_166)
-                                                            dynamic filter (ss_item_sk_145::EQUAL, ss_store_sk_150::EQUAL, ss_sold_date_sk_166::EQUAL)
-                                                                scan store_sales
+                                                            scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim

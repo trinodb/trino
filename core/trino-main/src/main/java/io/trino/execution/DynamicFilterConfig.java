@@ -59,7 +59,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
-    private boolean legacyDynamicFiltering = true;
+    private boolean legacyDynamicFiltering;
     private boolean enableDynamicRowFiltering = true;
     private double dynamicRowFilterSelectivityThreshold = 0.7;
 

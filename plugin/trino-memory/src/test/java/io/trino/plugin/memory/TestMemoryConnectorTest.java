@@ -38,6 +38,8 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.FUNCTION_PREIMAGES_ENABLED;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -283,6 +285,29 @@ public class TestMemoryConnectorTest
     }
 
     @Test
+    public void testJoinDynamicFilteringCoercionThroughFunctionPreimages()
+    {
+        try (TestTable probe = newTrinoTable("preimage_probe", "(ts timestamp(3))", List.of("TIMESTAMP '2020-01-01 00:00:00'", "TIMESTAMP '2020-01-02 00:00:00'", "TIMESTAMP '2020-01-03 00:00:00'"));
+                TestTable build = newTrinoTable("preimage_build", "(tstz timestamp(3) with time zone)", List.of("TIMESTAMP '2020-01-02 00:00:00 UTC'"))) {
+            // The probe column is coerced to the build type, which only function preimages can translate back to the probe column
+            @Language("SQL") String query = "SELECT * FROM %s p JOIN %s b ON p.ts = b.tstz".formatted(probe.getName(), build.getName());
+            Session session = Session.builder(noJoinReordering(BROADCAST))
+                    .setTimeZoneKey(UTC_KEY)
+                    .build();
+            assertDynamicFiltering(query, withFunctionPreimages(session, true), 1, 1, 1);
+            // The build side still collects its constraint, but the probe scan cannot consume it without a saturated floor cast
+            assertDynamicFiltering(query, withFunctionPreimages(session, false), 1, 3, 1);
+        }
+    }
+
+    private static Session withFunctionPreimages(Session session, boolean enabled)
+    {
+        return Session.builder(session)
+                .setSystemProperty(FUNCTION_PREIMAGES_ENABLED, Boolean.toString(enabled))
+                .build();
+    }
+
+    @Test
     @Timeout(30)
     public void testJoinDynamicFilteringBlockProbeSide()
     {
@@ -435,7 +460,7 @@ public class TestMemoryConnectorTest
         assertUpdate("INSERT INTO build_nan VALUES 1, NULL, nan()", 3);
 
         Session session = noJoinReordering(BROADCAST);
-        assertDynamicFiltering("SELECT * FROM probe_nan p JOIN build_nan b ON p.v IS NOT DISTINCT FROM b.v", session, 3, 5, 3);
+        assertNoRuntimeConstraint("SELECT * FROM probe_nan p JOIN build_nan b ON p.v IS NOT DISTINCT FROM b.v", session, 3, 5, 3);
         assertDynamicFiltering("SELECT * FROM probe_nan p JOIN build_nan b ON p.v = b.v", session, 1, 1, 3);
     }
 
@@ -475,10 +500,30 @@ public class TestMemoryConnectorTest
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedScanOutputPositions)
     {
+        assertDynamicFiltering(selectQuery, session, expectedRowCount, true, expectedScanOutputPositions);
+    }
+
+    private void assertNoRuntimeConstraint(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedScanOutputPositions)
+    {
+        assertDynamicFiltering(selectQuery, session, expectedRowCount, false, expectedScanOutputPositions);
+    }
+
+    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, boolean graphExpected, int... expectedScanOutputPositions)
+    {
         MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(session, selectQuery);
 
         assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
         assertThat(getScanOutputPositions(getDistributedQueryRunner(), result.queryId())).isEqualTo(Ints.asList(expectedScanOutputPositions));
+        if (graphExpected) {
+            assertThat(getDynamicFilteringStats(result.queryId()).getTotalDynamicFilters())
+                    .as("runtime constraints for %s", selectQuery)
+                    .isGreaterThan(0);
+        }
+        else {
+            assertThat(getDynamicFilteringStats(result.queryId()).getTotalDynamicFilters())
+                    .as("runtime constraints for unsupported query %s", selectQuery)
+                    .isZero();
+        }
     }
 
     private static List<Integer> getScanOutputPositions(QueryRunner runner, QueryId queryId)

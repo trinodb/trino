@@ -1,9 +1,10 @@
 # Dynamic filtering
 
-The default implementation uses planner-driven dynamic filtering. To enable
-runtime constraint propagation through physical operators, set
-`legacy-dynamic-filtering=false` in the coordinator configuration, or set the
-`legacy_dynamic_filtering` session property to `false`. The choice applies to the
+The default implementation discovers runtime constraints through physical
+operators. The planner-driven implementation is deprecated and remains available
+as a compatibility opt-out. To use it, set
+`legacy-dynamic-filtering=true` in the coordinator configuration, or set the
+`legacy_dynamic_filtering` session property to `true`. The choice applies to the
 whole query, including planning, collection, transport, and split pruning.
 The `enable_dynamic_filtering` session property disables filtering in either
 implementation when set to `false`.

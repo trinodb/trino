@@ -397,9 +397,7 @@ public class TestSpatialJoinPlanning
                         join(INNER, builder -> builder
                                 .equiCriteria("name_b", "name_a")
                                 .filter(new Call(ST_CONTAINS, ImmutableList.of(new Call(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt"), VARCHAR))), new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat"))))))
-                                .left(
-                                        anyTree(
-                                                tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name"))))
+                                .left(tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))
                                 .right(
                                         anyTree(
                                                 tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name")))))));
@@ -416,9 +414,7 @@ public class TestSpatialJoinPlanning
                         join(INNER, builder -> builder
                                 .equiCriteria("name_a", "name_b")
                                 .filter(new Call(ST_INTERSECTS, ImmutableList.of(new Call(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt_a"), VARCHAR))), new Call(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt_b"), VARCHAR))))))
-                                .left(
-                                        anyTree(
-                                                tableScan("polygons", ImmutableMap.of("wkt_a", "wkt", "name_a", "name"))))
+                                .left(tableScan("polygons", ImmutableMap.of("wkt_a", "wkt", "name_a", "name")))
                                 .right(
                                         anyTree(
                                                 tableScan("polygons", ImmutableMap.of("wkt_b", "wkt", "name_b", "name")))))));

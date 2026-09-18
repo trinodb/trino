@@ -137,10 +137,12 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     @Test
     public void testTablesOfStageWhichWasNotCreated()
     {
-        // the stage which scans nation is not created, as the stage it reads the other side of the join from fails
+        // the stage which scans nation is not created, as the stage it reads the other side of the join from fails;
+        // legacy dynamic filters defer creating the probe stage until the build side reports its filters
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .setSystemProperty("legacy_dynamic_filtering", "true")
                 .build();
         assertThatThrownBy(() -> getQueryRunner().execute(
                 session,

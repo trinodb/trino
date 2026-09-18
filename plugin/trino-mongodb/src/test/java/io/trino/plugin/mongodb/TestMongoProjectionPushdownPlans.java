@@ -210,19 +210,18 @@ public class TestMongoProjectionPushdownPlans
                                 PlanMatchPattern.join(INNER, builder -> builder
                                         .equiCriteria("t_expr_1", "s_expr_1")
                                         .left(
-                                                anyTree(
-                                                        tableScan(
-                                                                table -> {
-                                                                    MongoTableHandle actualTableHandle = (MongoTableHandle) table;
-                                                                    TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
-                                                                    Set<MongoColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle);
-                                                                    TupleDomain<MongoColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
-                                                                            ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
-                                                                    return actualTableHandle.projectedColumns().equals(expectedProjections)
-                                                                            && constraint.equals(expectedConstraint);
-                                                                },
-                                                                TupleDomain.all(),
-                                                                ImmutableMap.of("expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle)))))
+                                                tableScan(
+                                                        table -> {
+                                                            MongoTableHandle actualTableHandle = (MongoTableHandle) table;
+                                                            TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
+                                                            Set<MongoColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle);
+                                                            TupleDomain<MongoColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
+                                                                    ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
+                                                            return actualTableHandle.projectedColumns().equals(expectedProjections)
+                                                                    && constraint.equals(expectedConstraint);
+                                                        },
+                                                        TupleDomain.all(),
+                                                        ImmutableMap.of("expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))))
                                         .right(
                                                 anyTree(
                                                         tableScan(

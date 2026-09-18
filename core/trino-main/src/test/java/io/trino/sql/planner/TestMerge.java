@@ -168,6 +168,7 @@ public class TestMerge
     {
         Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                .setSystemProperty("legacy_dynamic_filtering", "true")
                 .setSystemProperty(RETRY_POLICY, TASK.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
