@@ -27,6 +27,8 @@ import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.TypeManager;
 
+import java.util.concurrent.ExecutorService;
+
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSourceProviderFactory
@@ -42,6 +44,7 @@ public class IcebergPageSourceProviderFactory
     private final BlocksHashFactory blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
     private final int domainCompactionThreshold;
+    private final ExecutorService deleteLoadingExecutor;
 
     @Inject
     public IcebergPageSourceProviderFactory(
@@ -54,7 +57,8 @@ public class IcebergPageSourceProviderFactory
             ParquetFooterCache parquetFooterCache,
             BlocksHashFactory blocksHashFactory,
             IcebergConfig config,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            @ForIcebergDeleteLoading ExecutorService deleteLoadingExecutor)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -66,11 +70,12 @@ public class IcebergPageSourceProviderFactory
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
         this.domainCompactionThreshold = config.getDomainCompactionThreshold();
+        this.deleteLoadingExecutor = requireNonNull(deleteLoadingExecutor, "deleteLoadingExecutor is null");
     }
 
     @Override
     public IcebergPageSourceProvider createPageSourceProvider(MemoryContext memoryContext)
     {
-        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory, memoryContext, domainCompactionThreshold);
+        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory, memoryContext, domainCompactionThreshold, deleteLoadingExecutor);
     }
 }
