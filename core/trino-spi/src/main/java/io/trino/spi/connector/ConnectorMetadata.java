@@ -1842,7 +1842,8 @@ public interface ConnectorMetadata
 
     /**
      * @return true if reading a subset of columns from a given table separately from reading a complement of the subset has similar or better
-     *         performance as reading this table.
+     *         performance as reading this table. Must return false when two reads of the same handle can return different rows, for example
+     *         when a sample has been pushed down, because the engine reads the table once per subset.
      */
     default boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
